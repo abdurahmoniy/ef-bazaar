@@ -8,9 +8,9 @@ import CartImg from '../assests/cart.png'
 const Header = () => {
   return (
     <div className='header md:px-20 border w-full flex justify-between items-center'>
-      <div className="logo-light inline-block">
+      <Link to='/' className="logo-light inline-block">
         <img className='h-16 my-2' src={LogoLight} alt="" />
-      </div>
+      </Link>
       <div className="logo-dark hidden">
         <img className='h-16 my-2' src={LogoDark} alt="" />
       </div>
@@ -18,13 +18,13 @@ const Header = () => {
         <ul className="flex space-x-4 mr-8">
           {navLinks.map((link, index) => (
             <li key={index}>
-              <Link  className=" hover:text-blue-700">
+              <Link to={link.path} className=" hover:text-blue-700">
                 {link.name}
               </Link>
             </li>
           ))}
         </ul>
-        <Link><img src={CartImg} alt="" /></Link>
+        <Link to='/cart'><img src={CartImg} alt="" /></Link>
       </nav>
     </div>
   )
