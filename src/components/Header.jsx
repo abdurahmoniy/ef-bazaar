@@ -1,31 +1,57 @@
-import React from 'react'
+import React, { useState } from 'react'
 import LogoDark from '../assests/logo light.png'
 import LogoLight from '../assests/logo dark.png'
 import navLinks from '../reducers/navLinkReducers'
 import { Link } from 'react-router-dom'
 import CartImg from '../assests/cart.png'
+import Bars from '../assests/bars.png'
+import './header.css'
 
 const Header = () => {
+  const [toggle, setToggle] = useState(false);
+
+  const toggleMenu = () => setToggle((prev) => !prev);
   return (
-    <div className='header md:px-20 border w-full flex justify-between items-center'>
+    <div className=' header px-4 sm:px-8 md:px-20 border w-full flex justify-between items-center'>
+      <div className="block md:hidden ">
+        <i
+          className={`${toggle ? "fas fa-x" : "fas fa-bars"
+            } object-contain`}
+          onClick={toggleMenu}
+        ></i>
+        <div
+          className={`${!toggle ? "" : "active"} mobile-menu`}
+        >
+          <ul className="block sm:hidden p-8 ">
+            {navLinks.map((nav, idx) => (
+              <Link
+                to={nav.path}
+                key={nav.idx}
+                className={`block my-4 hover:text-blue-500`}>
+                {nav.name}
+              </Link>
+            ))}
+          </ul>
+        </div>
+      </div>
       <Link to='/' className="logo-light inline-block">
         <img className='h-16 my-2' src={LogoLight} alt="" />
       </Link>
       <div className="logo-dark hidden">
         <img className='h-16 my-2' src={LogoDark} alt="" />
       </div>
-      <nav className='nav flex'>
-        <ul className="flex space-x-4 mr-8">
+      <nav className='nav hidden md:flex'>
+        <ul className="flex space-x-7">
           {navLinks.map((link, index) => (
-            <li key={index}>
-              <Link to={link.path} className=" hover:text-blue-700">
+            <li className='nav-item' key={index}>
+              <Link to={link.path} className="">
                 {link.name}
               </Link>
             </li>
           ))}
         </ul>
-        <Link to='/cart'><img src={CartImg} alt="" /></Link>
       </nav>
+      <Link className='cart-item' to='/cart'><img src={CartImg} alt="" /></Link>
     </div>
   )
 }

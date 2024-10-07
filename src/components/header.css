@@ -1,0 +1,28 @@
+.nav-item{
+    -webkit-box-shadow: 0px 0px 188px 8px rgba(0,0,0,0.74);
+    -moz-box-shadow: 0px 0px 188px 8px rgba(0,0,0,0.74);
+    box-shadow: 0px 0px 188px 8px rgba(0,0,0,0.74);    border-radius: 20px;
+    padding: 5px 30px;
+    transition: transform 0.5s ease;
+    font-size: 18px;
+}
+.nav-item:hover, .cart-item:hover{
+    transform: translate(3px, 3px);
+}
+.cart-item{
+    transition: transform 0.5s ease;
+}
+.mobile-menu {
+    position: fixed;
+    background: #F2F0F1;
+    width: 70%;
+    right: 0;
+    top: 0;
+    height: 100%;
+    transform: translateX(100%); 
+    transition: transform .51s ease; 
+}
+
+.mobile-menu.active {
+    transform: translateX(0);
+}
