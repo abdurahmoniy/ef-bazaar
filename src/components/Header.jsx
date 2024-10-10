@@ -5,14 +5,14 @@ import navLinks from '../reducers/navLinkReducers'
 import { Link } from 'react-router-dom'
 import CartImg from '../assests/cart.png'
 import Bars from '../assests/bars.png'
-import './header.css'
+import './style.css'
 
 const Header = () => {
   const [toggle, setToggle] = useState(false);
 
   const toggleMenu = () => setToggle((prev) => !prev);
   return (
-    <div className=' header px-4 sm:px-8 md:px-20 border w-full flex justify-between items-center'>
+    <div className=' header px-4 sm:px-8 md:px-20 w-full flex justify-between items-center'>
       <div className="block md:hidden ">
         <i
           className={`${toggle ? "fas fa-x" : "fas fa-bars"
@@ -20,7 +20,7 @@ const Header = () => {
           onClick={toggleMenu}
         ></i>
         <div
-          className={`${!toggle ? "" : "active"} mobile-menu`}
+          className={`${!toggle ? "" : "active"} mobile-menu shadow-lg`}
         >
           <ul className="block sm:hidden p-8 ">
             {navLinks.map((nav, idx) => (
@@ -28,6 +28,7 @@ const Header = () => {
                 to={nav.path}
                 key={nav.idx}
                 className={`block my-4 hover:text-blue-500`}>
+                  <i className={`${nav.icon} pr-2 text-gray-600`}></i>
                 {nav.name}
               </Link>
             ))}
@@ -51,7 +52,7 @@ const Header = () => {
           ))}
         </ul>
       </nav>
-      <Link className='cart-item' to='/cart'><img src={CartImg} alt="" /></Link>
+      <Link className='cart-item mr-4' to='/cart'><img src={CartImg} alt="" /></Link>
     </div>
   )
 }
