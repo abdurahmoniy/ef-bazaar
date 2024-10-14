@@ -1,6 +1,8 @@
 import React from 'react'
+import MainBanner from '../assests/main-banner.jpg'
 import Banner from '../assests/messi-banner.png'
 import { Link } from 'react-router-dom'
+import './style.css'
 
 const Home = () => {
     return (
@@ -14,14 +16,19 @@ const Home = () => {
                         <div className="font-[900] text-[40px] sm:text-[60px] leading-[1.1]">
                             Buy, Sell, or Exchange eFootball Accounts — Dominate the pitch!
                         </div>
-                        <p>Unlock top-tier teams or trade your way to victory. Join the marketplace for premium accounts and exclusive deals!</p>
-                        <Link className='bg-black text-white rounded-full w-full sm:w-[210px] text-center py-3 my-3 block'>
-                            Start trading
+                        <p className='py-4'>Unlock top-tier teams or trade your way to victory. Join the marketplace for premium accounts and exclusive deals!</p>
+                        <Link className='btn bg-black text-white rounded-full w-full sm:w-[210px] text-center py-3 my-3 block'>
+                            Shop now!
+                        </Link>
+                        <Link className='btn bg-black text-white rounded-full w-full sm:w-[210px] text-center py-3 my-3 block'>
+                            Place an AD
                         </Link>
                     </div>
                 </div>
                 <img src={Banner} alt="" />
             </div>
+            <div className="bg-black py-4 text-white text-center text-[32px] sm:text-[46px] font-bold">PITCH IS OURS!</div>
+                        {/* <img className='py-4 px-4 sm:px-8 md:px-20' src={MainBanner} alt="" /> */}
         </div>
     )
 }
