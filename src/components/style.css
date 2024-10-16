@@ -11,7 +11,7 @@
     transform: translate(3px, 3px);
 }
 .cart-item{
-    transition: transform 0.5s ease;
+    transition: transform 0.3s ease;
 }
 .mobile-menu {
     position: fixed;
@@ -46,4 +46,35 @@
 
 .soc-icon:hover i {
     transform: scale(0.8);
+}
+
+.copy-box {
+    background-color: #f0f8ff; /* Light blue background to stand out */
+    border: 2px solid #ffd700; /* Yellow border for emphasis */
+    padding: 20px;
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    color: #333;
+    border-radius: 10px;
+    position: relative; /* For copy button positioning */
+    margin: 20px 0;
+}
+
+.copy-button {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    background-color: #ffd700; /* Yellow button to stand out */
+    border: none;
+    padding: 5px 10px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    color: #fff;
+}
+
+.copy-button:hover {
+    background-color: #ffcc00;
 }

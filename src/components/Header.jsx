@@ -12,7 +12,7 @@ const Header = () => {
 
   const toggleMenu = () => setToggle((prev) => !prev);
   return (
-    <div className=' header px-4 sm:px-8 md:px-20 w-full flex justify-between items-center'>
+    <div className=' header px-4 sm:px-8 md:px-20 w-full flex justify-between items-center py-4'>
       <div className="block md:hidden ">
         <i
           className={`${toggle ? "fas fa-x" : "fas fa-bars"
