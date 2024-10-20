@@ -8,8 +8,8 @@ import CopyBox from '../components/CopyBox'
 const Home = () => {
     return (
         <div className=' min-h-[100vh]'>
-            <div className="min-h-[90vh] py-4 px-4 sm:px-8 md:px-20 bg-[#F2F0F1] banner block sm:flex justify-between items-center">
-                <div className="sm:w-[50%]">
+            <div className="min-h-[90vh] py-4 px-4 sm:px-8 md:px-20 bg-[#F2F0F1] banner block md:flex justify-between items-center">
+                <div className="md:w-[50%]">
                     <div className="">
                         {/* <div className=" font-bold text-[40px] sm:text-[60px]">
                             Biggest eFootball account marketplace <br />
@@ -28,9 +28,7 @@ const Home = () => {
                 </div>
                 <img src={Banner} alt="" />
             </div>
-            <div className="bg-black py-4 text-white text-center text-[32px] sm:text-[46px] font-bold">THE PITCH IS OURS!</div>
-                        {/* <img className='py-4 px-4 sm:px-8 md:px-20' src={MainBanner} alt="" /> */}
-            <CopyBox/>
+            <div className="pitchbg py-4 text-white text-center text-[32px] sm:text-[46px] font-bold">THE PITCH IS OURS!</div>
         </div>
     )
 }

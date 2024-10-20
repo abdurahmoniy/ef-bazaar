@@ -13,7 +13,7 @@ const Header = () => {
   const toggleMenu = () => setToggle((prev) => !prev);
   return (
     <div className=' header px-4 sm:px-8 md:px-20 w-full flex justify-between items-center py-4'>
-      <div className="block md:hidden ">
+      <div className="block lg:hidden ">
         <i
           className={`${toggle ? "fas fa-x" : "fas fa-bars"
             } object-contain`}
@@ -41,7 +41,7 @@ const Header = () => {
       <div className="logo-dark hidden">
         <img className='h-16 my-2' src={LogoDark} alt="" />
       </div>
-      <nav className='nav hidden md:flex'>
+      <nav className='nav hidden lg:flex'>
         <ul className="flex space-x-7">
           {navLinks.map((link, index) => (
             <li className='nav-item' key={index}>

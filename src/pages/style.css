@@ -8,3 +8,9 @@
 .btn:hover{
     transform: translate(3px, 3px);
 }
+.pitchbg{
+    background-image: url(../assests/bg.jpg );
+    background-position: top;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
