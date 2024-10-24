@@ -41,11 +41,12 @@
 }
 
 .soc-icon i{
-    transition: .1s ease;
+    transition: .15s;
+    animation-timing-function: linear;
 }
 
 .soc-icon:hover i {
-    transform: scale(0.8);
+    transform: scale(0.89);
 }
 
 .copy-box {

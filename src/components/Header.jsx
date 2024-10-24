@@ -28,7 +28,7 @@ const Header = () => {
                 to={nav.path}
                 key={nav.idx}
                 className={`block my-4 hover:text-blue-500`}>
-                  <i className={`${nav.icon} pr-2 text-gray-600`}></i>
+                <i className={`${nav.icon} pr-2 text-gray-600`}></i>
                 {nav.name}
               </Link>
             ))}
@@ -44,11 +44,9 @@ const Header = () => {
       <nav className='nav hidden lg:flex'>
         <ul className="flex space-x-7">
           {navLinks.map((link, index) => (
-            <li className='nav-item' key={index}>
-              <Link to={link.path} className="">
-                {link.name}
-              </Link>
-            </li>
+            <Link className='nav-item' key={index} to={link.path}>
+              {link.name}
+            </Link>
           ))}
         </ul>
       </nav>
