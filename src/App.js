@@ -7,6 +7,9 @@ import Footer from './components/Footer';
 import Shop from './pages/Shop';
 import Placead from './pages/Placead';
 import Support from './pages/Support';
+import Product from './pages/Product';
+import efCard from './reducers/cartReducers'
+
 
 function App() {
   return (
@@ -19,6 +22,7 @@ function App() {
           <Route element={<Placead/>} path='/placead'/>
           <Route element={<Support/>} path='/support'/>
           <Route element={<Cart/>} path='/cart'/>
+          <Route element={<Product efCard={efCard}/>} path='/product/:id'/>
         </Routes>
       </div>
       <Footer/>

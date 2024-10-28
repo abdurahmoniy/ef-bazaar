@@ -1,6 +1,7 @@
 import React from 'react'
 import Banner from '../assests/main-banner.jpg'
 import efCard from '../reducers/cartReducers'
+import { Link } from 'react-router-dom'
 
 const Shop = () => {
   return (
@@ -16,8 +17,8 @@ const Shop = () => {
         <div className="flex justify-between py-4">
           {
             efCard.map((card) => (
-              <div className="g-[#F2F0F1] w-[40%] sm:w-[30%] md:w-[300px] rounded-b-xl" key={card.id}>
-                <img src={card.img} alt="" />
+              <Link to={`/product/${card.id}`} className="g-[#F2F0F1] w-[40%] sm:w-[30%] md:w-[300px] rounded-b-xl" key={card.id}>
+                <img src={card.productImages[1].image} alt="" />
                 <div className="px-1 py-1 block">
                   <div className="flex items-center">
                     <div className="text-[30px] font-bold pr-2">{card.price}</div> For: 
@@ -29,7 +30,7 @@ const Shop = () => {
                   </div>
                   <div className="text-[#00000081] text-[10px]">{card.uploadDate}</div>
                 </div>
-              </div>
+              </Link>
             ))
           }
         </div>
