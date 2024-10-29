@@ -13,7 +13,12 @@ const Product = ({ efCard }) => {
         <div>
             <div className=" px-4 sm:px-8 md:px-20 py-4 flex">
                 <div className="img-box w-[50%] px-4">
-                    <img src={product.productImages[0].image} alt="" />
+                    <img className='bigImg' src={product.productImages[0].image} alt="" />
+                    <div className="smallImg flex">
+                        {product.productImages.map((img) => (
+                            <img className='w-auto' key={img.id} src={img.image} alt={`Product ${img.id}`} />
+                        ))}
+                    </div>
                 </div>
                 <div className="details w-[50%] px-4 block">
                     <div className="text-[28px] font-bold">{product.shortDesc}</div>
