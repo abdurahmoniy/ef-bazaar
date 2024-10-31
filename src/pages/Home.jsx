@@ -18,10 +18,10 @@ const Home = () => {
                             Buy, Sell or Exchange eFootball Accounts — Dominate the pitch!
                         </div>
                         <p className='py-4'>Unlock top-tier teams or trade your way to victory. Join the marketplace for premium accounts and exclusive deals!</p>
-                        <Link className='btn bg-black text-white rounded-full w-full sm:w-[210px] text-center py-3 my-3 block'>
+                        <Link to='/shop' className='btn bg-black text-white rounded-full w-full sm:w-[210px] text-center py-3 my-3 block'>
                             Shop now !
                         </Link>
-                        <Link className='btn bg-black text-white rounded-full w-full sm:w-[210px] text-center py-3 my-3 block'>
+                        <Link to='/placead' className='btn bg-black text-white rounded-full w-full sm:w-[210px] text-center py-3 my-3 block'>
                             Place an AD
                         </Link>
                     </div>

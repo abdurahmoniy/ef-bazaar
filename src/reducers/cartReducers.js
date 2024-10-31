@@ -9,7 +9,7 @@ const efCard = [
     {
         id: 1,
         shortDesc: "Beast account with with best epics",
-        longDesc: "",
+        longDesc: "This account comes with top-tier players, fully equipped for competitive play.",
         price: "$50",
         tradeType: "Sell, Exchange",
         isAvailable: false,
