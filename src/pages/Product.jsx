@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
+import './style.css'
 
 const Product = ({ efCard }) => {
     const { id } = useParams();
@@ -64,9 +65,9 @@ const Product = ({ efCard }) => {
                         <div className="text-[14px] flex">Features: <span className="text-gray-600 pl-2">{product.longDesc}</span></div>
                         <div className="text-[14px] flex">Post Date: <span className="text-gray-600 pl-2">{product.uploadDate}</span></div>
                     </div>
-                    <div className="cursor-pointer text-blue-500 hover:text-blue-700">
-                        Get in touch with owner <i className="fa-solid fa-pointer"></i>
-                    </div>
+                    <a href='https://t.me/abdurahmoniy' className="button__g lg:w-[300px] hover:scale-105">
+                        <i class="fa-solid fa-hand-point-right pr-2"></i> Get in touch with owner
+                    </a>
                 </div>
             </div>
 

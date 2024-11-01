@@ -28,7 +28,7 @@ const Home = () => {
                 </div>
                 <img src={Banner} alt="" />
             </div>
-            <div className="pitchbg py-4 text-white text-center text-[32px] sm:text-[46px] font-bold">THE PITCH IS OURS!</div>
+            <div className="pitchbg py-4 text-[#fefe03] text-center text-[32px] sm:text-[46px] font-bold">THE PITCH IS OURS!</div>
         </div>
     )
 }

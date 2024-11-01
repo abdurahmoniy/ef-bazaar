@@ -18,7 +18,7 @@ const Shop = () => {
           {
             efCard.map((card) => (
               <Link to={`/product/${card.id}`} className="bg-[#F2F0F1] rounded-b-xl" key={card.id}>
-                <img src={card.productImages[1].image} alt="" className="w-full h-auto rounded-t-xl" />
+                <img src={card.productImages[0].image} alt="" className="w-full h-auto rounded-t-xl" />
                 <div className="px-2 py-2">
                   <div className="flex items-center">
                     <div className="text-[30px] font-bold pr-2">{card.price}</div> For:
