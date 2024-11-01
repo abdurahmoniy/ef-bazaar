@@ -65,7 +65,7 @@ const Product = ({ efCard }) => {
                         <div className="text-[14px] flex">Features: <span className="text-gray-600 pl-2">{product.longDesc}</span></div>
                         <div className="text-[14px] flex">Post Date: <span className="text-gray-600 pl-2">{product.uploadDate}</span></div>
                     </div>
-                    <a href='https://t.me/abdurahmoniy' className="button__g lg:w-[300px] hover:scale-105">
+                    <a href={product.owner} className="button__g lg:w-[300px] hover:scale-105">
                         <i class="fa-solid fa-hand-point-right pr-2"></i> Get in touch with owner
                     </a>
                 </div>

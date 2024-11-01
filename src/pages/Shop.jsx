@@ -23,9 +23,8 @@ const Shop = () => {
                   <div className="flex items-center">
                     <div className="text-[30px] font-bold pr-2">{card.price}</div> For:
                     <div className="text-[#00000081] px-2">{card.tradeType}</div>
-                    <div className="text-[10px] bg-red-200 font-bold rounded-full text-red-500 px-2 py-[1px]">
-                      {card.isAvailable ? '' : 'SOLD'}
-                    </div>
+                    {card.isAvailable ? '' : <div className="text-[10px] bg-red-200 font-bold rounded-full text-red-500 px-2 py-[1px]">SOLD
+                    </div>}
                   </div>
                   <div className="text-[18px] font-medium">
                     {card.shortDesc}
