@@ -9,14 +9,12 @@ const Shop = () => {
   const [availabilityFilter, setAvailabilityFilter] = useState('');
   const [activeModal, setActiveModal] = useState(null);
 
-  // Sorting products
   const sortedProducts = [...efCard].sort((a, b) => {
     if (sortOption === 'price-asc') return parseFloat(a.price) - parseFloat(b.price);
     if (sortOption === 'price-desc') return parseFloat(b.price) - parseFloat(a.price);
     return 0;
   });
 
-  // Filtering products
   const filteredProducts = sortedProducts.filter((product) => {
     const matchesTrade = tradeFilter ? product.tradeType.includes(tradeFilter) : true;
     const matchesAvailability = availabilityFilter
@@ -33,7 +31,6 @@ const Shop = () => {
 
       <div className="px-4 sm:px-8 md:px-20 py-4">
         <div className="flex py-4 gap-2 relative">
-          {/* Sort Button */}
           <button
             onClick={() => setActiveModal(activeModal === 'sort' ? null : 'sort')}
             className="bg-[#F2F0F1] text-center py-2 block rounded-lg w-full sm:w-[150px] hover:bg-gray-300 transition"
@@ -41,7 +38,6 @@ const Shop = () => {
             <i className="px-1 fa-solid fa-sort text-[#00000081]"></i>Sort
           </button>
 
-          {/* Filter Button */}
           <button
             onClick={() => setActiveModal(activeModal === 'filter' ? null : 'filter')}
             className="bg-[#F2F0F1] text-center py-2 block rounded-lg w-full sm:w-[150px] hover:bg-gray-300 transition"
@@ -49,34 +45,84 @@ const Shop = () => {
             <i className="px-1 fa-solid fa-filter text-[#00000081]"></i>Filter
           </button>
 
-          {/* Sort Modal */}
           {activeModal === 'sort' && (
-            <div className="absolute top-[100%] mt-2 bg-white w-full sm:w-[150px] p-4 rounded-lg shadow-2xl border">
-              <h3 className="font-semibold mb-2">Sort By:</h3>
-              <div onClick={() => setSortOption('price-asc')} className="block mb-1">Price: Low to High</div>
-              <div onClick={() => setSortOption('price-desc')} className="block">Price: High to Low</div>
+            <div className="absolute top-[100%] mt-2 bg-[#F2F0F1] w-full sm:w-[300px] p-4 rounded-lg shadow-2xl">
+              <div className="flex justify-between items-center">
+                <div className="font-semibold mb-2 text-[20px] py-1">Sort</div>
+                <div className="bg-red-300 transition hover:scale-105 text-gray-700 font-semibold rounded-md px-2 py-1 cursor-pointer" onClick={() => {
+                  setSortOption('');
+                }}>Clear</div>
+              </div>
+              <div onClick={() => setSortOption('price-asc')} className="block mb-1 cursor-pointer">Price: Low to High</div>
+              <div onClick={() => setSortOption('price-desc')} className="block cursor-pointer">Price: High to Low</div>
             </div>
           )}
 
-          {/* Filter Modal */}
           {activeModal === 'filter' && (
-            <div className="absolute top-[100%] mt-2 bg-white w-full sm:w-[150px] p-4 rounded-lg shadow-2xl border">
-              <h3 className="font-semibold mb-2">Filter By:</h3>
-              <div>
-                <h4 className="font-medium">Trade Type</h4>
-                <div onClick={() => setTradeFilter('Sell')} className="block mb-1">Sell</div>
-                <div onClick={() => setTradeFilter('Exchange')} className="block">Exchange</div>
+            <div className="absolute top-[100%] mt-2 bg-[#F2F0F1] w-full sm:w-[300px] p-4 rounded-lg shadow-lg">
+              <div className="flex justify-between items-center">
+                <div className="font-semibold mb-2 text-[20px] py-1">Filter</div>
+                <div className="bg-red-300 transition hover:scale-105 text-gray-700 font-semibold rounded-md px-2 py-1 cursor-pointer" onClick={() => {
+                  setTradeFilter('');
+                  setAvailabilityFilter('');
+                }}>Clear</div>
               </div>
-              <div className="mt-2">
-                <h4 className="font-medium">Availability</h4>
-                <div onClick={() => setAvailabilityFilter('available')} className="block mb-1">Available</div>
-                <div onClick={() => setAvailabilityFilter('sold')} className="block">Sold</div>
+              <div className="mb-3">
+                <h4 className="font-medium mb-1">Trade Type</h4>
+                <label className="block">
+                  <input
+                    type="radio"
+                    name="tradeType"
+                    value="Sell"
+                    onChange={() => setTradeFilter('Sell')}
+                    checked={tradeFilter === 'Sell'}
+                    className="mr-2"
+                  />
+                  Sell
+                </label>
+                <label className="block">
+                  <input
+                    type="radio"
+                    name="tradeType"
+                    value="Exchange"
+                    onChange={() => setTradeFilter('Exchange')}
+                    checked={tradeFilter === 'Exchange'}
+                    className="mr-2"
+                  />
+                  Exchange
+                </label>
+              </div>
+
+              <div>
+                <h4 className="font-medium mb-1">Availability</h4>
+                <label className="block">
+                  <input
+                    type="radio"
+                    name="availability"
+                    value="available"
+                    onChange={() => setAvailabilityFilter('available')}
+                    checked={availabilityFilter === 'available'}
+                    className="mr-2"
+                  />
+                  Available
+                </label>
+                <label className="block">
+                  <input
+                    type="radio"
+                    name="availability"
+                    value="sold"
+                    onChange={() => setAvailabilityFilter('sold')}
+                    checked={availabilityFilter === 'sold'}
+                    className="mr-2"
+                  />
+                  Sold
+                </label>
               </div>
             </div>
           )}
+
         </div>
 
-        {/* Product Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 py-4">
           {filteredProducts.map((card) => (
             <Link to={`/product/${card.id}`} className="bg-[#F2F0F1] rounded-xl overflow-hidden" key={card.id}>
