@@ -61,7 +61,9 @@ const Product = ({ efCard }) => {
                     )}
                     <div className="text-[32px] my-4">{product.price}</div>
                     <div className="my-2 space-y-1">
-                        <div className="text-[14px] flex">For: <span className="text-gray-600 pl-2">{product.tradeType}</span></div>
+                        <div className="text-[14px] flex">For: <span className="text-gray-600 pl-2">{product.tradeType.sell && "Sell"}
+                            {product.tradeType.sell && product.tradeType.exchange && " / "}
+                            {product.tradeType.exchange && "Exchange"}</span></div>
                         <div className="text-[14px] flex">Features: <span className="text-gray-600 pl-2">{product.longDesc}</span></div>
                         <div className="text-[14px] flex">Post Date: <span className="text-gray-600 pl-2">{product.uploadDate}</span></div>
                     </div>

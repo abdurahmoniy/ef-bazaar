@@ -130,7 +130,9 @@ const Shop = () => {
               <div className="px-2 py-2">
                 <div className="flex items-center">
                   <div className="text-[30px] font-bold pr-2">{card.price} {card.currency}</div> For:
-                  <div className="text-[#00000081] px-2">{card.tradeType}</div>
+                  <div className="text-[#00000081] px-2">{card.tradeType.sell && "Sell"}
+                    {card.tradeType.sell && card.tradeType.exchange && " / "}
+                    {card.tradeType.exchange && "Exchange"}</div>
                   {!card.isAvailable && (
                     <div className="text-[10px] bg-red-200 font-bold rounded-full text-red-500 px-2 py-[1px] ml-2">
                       SOLD
