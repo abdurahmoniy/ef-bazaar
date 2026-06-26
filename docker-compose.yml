@@ -74,10 +74,7 @@ services:
   # ---------- Backend services ----------
 
   auth-service:
-    build:
-      context: ./backend/auth-service
-      dockerfile: Dockerfile
-    image: efbazaar/auth-service:latest
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-auth-service:${IMAGE_TAG:-latest}
     container_name: efbazaar-auth
     restart: unless-stopped
     environment:
@@ -107,10 +104,7 @@ services:
       - efbazaar-net
 
   marketplace-service:
-    build:
-      context: ./backend/marketplace-service
-      dockerfile: Dockerfile
-    image: efbazaar/marketplace-service:latest
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-marketplace-service:${IMAGE_TAG:-latest}
     container_name: efbazaar-marketplace
     restart: unless-stopped
     environment:
@@ -144,10 +138,7 @@ services:
       - efbazaar-net
 
   recommendation-service:
-    build:
-      context: ./backend/recommendation-service
-      dockerfile: Dockerfile
-    image: efbazaar/recommendation-service:latest
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-recommendation-service:${IMAGE_TAG:-latest}
     container_name: efbazaar-rec
     restart: unless-stopped
     environment:
@@ -172,10 +163,7 @@ services:
       - efbazaar-net
 
   bot:
-    build:
-      context: ./bot
-      dockerfile: Dockerfile
-    image: efbazaar/bot:latest
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-bot:${IMAGE_TAG:-latest}
     container_name: efbazaar-bot
     restart: unless-stopped
     environment:
@@ -197,10 +185,7 @@ services:
   # ---------- Frontend ----------
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    image: efbazaar/frontend:latest
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-frontend:${IMAGE_TAG:-latest}
     container_name: efbazaar-frontend
     restart: unless-stopped
     networks:
@@ -209,10 +194,7 @@ services:
   # ---------- Reverse proxy ----------
 
   nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    image: efbazaar/nginx:latest
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-nginx:${IMAGE_TAG:-latest}
     container_name: efbazaar-nginx
     restart: unless-stopped
     ports:

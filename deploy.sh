@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 # Selective redeploy — runs on server, invoked by CD workflow.
+#
+# Bu pull-based deploy: image lar GHCR'da CI tomonidan build qilingan.
+# Server faqat docker pull qiladi va kontaynerlarni qayta yaratadi.
+#
 # Usage:
 #   AUTH=1 MARKETPLACE=1 BOT=1 ... bash deploy.sh
-#   FORCE_ALL=1 bash deploy.sh   (rebuild everything)
+#   FORCE_ALL=1 bash deploy.sh
 set -euo pipefail
 
-# Non-interactive SSH (GitHub Actions) doesn't source ~/.bashrc, so docker/git
-# may be missing from PATH. Set a sane PATH explicitly.
+# Non-interactive SSH (GitHub Actions) doesn't source ~/.bashrc — set PATH.
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
-
-# Force BuildKit so Dockerfiles can use cache mounts (--mount=type=cache,...).
-export DOCKER_BUILDKIT=1
-export COMPOSE_DOCKER_CLI_BUILD=1
 
 cd "${DEPLOY_PATH:-/opt/efbazaar}"
 
@@ -23,7 +22,7 @@ FRONTEND="${FRONTEND:-0}"
 NGINX="${NGINX:-0}"
 COMPOSE="${COMPOSE:-0}"
 
-# If compose/env changed, every build-owning service needs a refresh.
+# Compose/env changed → barcha servis qayta yaratiladi.
 if [[ "$COMPOSE" == "1" ]]; then
   echo "==> compose/env changed — marking all app services for redeploy"
   AUTH=1
@@ -36,9 +35,6 @@ fi
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
-# Update-or-append a key=value pair in an env-style file. Uses awk so the
-# value is written as a literal — avoids sed pitfalls with &, |, /, \ in
-# secrets, and avoids interpreting backslash escapes.
 upsert_env() {
   local file="$1" key="$2" val="$3"
   [[ -f "$file" ]] || : > "$file"
@@ -50,25 +46,6 @@ upsert_env() {
   ' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
 }
 
-# Build all dirty services in a SINGLE compose invocation. BuildKit then
-# schedules them in parallel — much faster than sequential `compose build`.
-build_all() {
-  local svcs=("$@")
-  if [ ${#svcs[@]} -eq 0 ]; then return 0; fi
-  echo "==> Building services in parallel: ${svcs[*]}"
-  docker compose build --progress=plain "${svcs[@]}"
-}
-
-rebuild() {
-  local svc="$1"
-  local recreate=""
-  [[ "$COMPOSE" == "1" ]] && recreate="--force-recreate"
-  echo "==> Restarting $svc (--no-deps, keeps postgres/redis/kafka untouched)"
-  docker compose up -d --no-deps $recreate "$svc"
-}
-
-# Reject characters that docker-compose would interpolate in .env values.
-# A literal '$' triggers ${VAR} expansion at compose-parse time.
 assert_safe_for_env() {
   local key="$1" val="$2"
   if [[ "$val" == *'$'* ]]; then
@@ -78,12 +55,14 @@ assert_safe_for_env() {
 }
 
 # ─── Sync .env from CI secrets ──────────────────────────────────────────────
-#
-# Every deploy rewrites .env so password rotations / topic ID changes etc.
-# take effect on the next compose restart of dependent services.
 write_env() {
   echo "==> Writing .env from CI secrets"
   : > .env
+
+  # Image source — defaults bo'lsa /opt/efbazaar/docker-compose.yml ichida
+  upsert_env .env IMAGE_REGISTRY   "${IMAGE_REGISTRY:-ghcr.io}"
+  upsert_env .env IMAGE_NAMESPACE  "${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}"
+  upsert_env .env IMAGE_TAG        "${IMAGE_TAG:-latest}"
 
   # Postgres
   upsert_env .env POSTGRES_USER     efbazaar
@@ -108,7 +87,7 @@ write_env() {
   # Kafka
   upsert_env .env KAFKA_BOOTSTRAP_SERVERS    kafka:9092
 
-  # JWT (auth-service)
+  # JWT
   if [[ -n "${JWT_SECRET:-}" ]]; then
     assert_safe_for_env JWT_SECRET "$JWT_SECRET"
     upsert_env .env JWT_SECRET "$JWT_SECRET"
@@ -125,13 +104,12 @@ write_env() {
   upsert_env .env TELEGRAM_TOPIC_MEDIA        "${TELEGRAM_TOPIC_MEDIA:-2}"
   upsert_env .env TELEGRAM_WEBHOOK_URL        "${TELEGRAM_WEBHOOK_URL:-}"
 
-  # Media uploads
+  # Media
   upsert_env .env MEDIA_MIN_FILES         1
   upsert_env .env MEDIA_MAX_FILES         6
   upsert_env .env MEDIA_MAX_FILE_SIZE_MB  5
   upsert_env .env MEDIA_ALLOWED_TYPES     "image/jpeg,image/png,image/webp"
 
-  # App
   upsert_env .env SPRING_PROFILES_ACTIVE  docker
   upsert_env .env APP_BASE_URL            "${APP_BASE_URL:-}"
 
@@ -139,12 +117,33 @@ write_env() {
   echo "==> .env written ($(wc -l < .env) lines)"
 }
 
-# ─── Sync the live postgres role password ──────────────────────────────────
-#
-# The password baked into the postgres data volume is set ONCE on first init
-# and ignores later .env changes. After rotating POSTGRES_PASSWORD in CI
-# secrets, the running role still has the old value. We ALTER USER inside the
-# live container so the volume password matches the new secret.
+# ─── GHCR login ─────────────────────────────────────────────────────────────
+ghcr_login() {
+  if [[ -z "${GH_TOKEN:-}" || -z "${GH_ACTOR:-}" ]]; then
+    echo "==> GH_TOKEN/GH_ACTOR not set — skipping GHCR login (public images only)"
+    return 0
+  fi
+  echo "==> Logging into GHCR as $GH_ACTOR"
+  echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+}
+
+# ─── Pull + restart helpers ─────────────────────────────────────────────────
+pull_services() {
+  local svcs=("$@")
+  if [ ${#svcs[@]} -eq 0 ]; then return 0; fi
+  echo "==> Pulling images in parallel: ${svcs[*]}"
+  docker compose pull "${svcs[@]}"
+}
+
+restart_service() {
+  local svc="$1"
+  local recreate=""
+  [[ "$COMPOSE" == "1" ]] && recreate="--force-recreate"
+  echo "==> Restarting $svc (--no-deps)"
+  docker compose up -d --no-deps $recreate "$svc"
+}
+
+# ─── DB password sync ───────────────────────────────────────────────────────
 sync_db_password() {
   if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then
     echo "==> POSTGRES_PASSWORD not provided — skipping role password sync"
@@ -181,14 +180,18 @@ sync_db_password() {
 # ─── Main flow ──────────────────────────────────────────────────────────────
 
 write_env
+ghcr_login
 
-# If postgres is already running, sync its role password to the new .env
-# value before app services try to connect with stale credentials.
+# Always pull infra images (idempotent, fast). Boshlash uchun postgres/redis/kafka shart.
+echo "==> Ensuring infra services are up"
+docker compose up -d postgres redis kafka
+
+# Postgres running bo'lsa — parolni sync qilamiz.
 if docker compose ps --services --filter status=running 2>/dev/null | grep -q '^postgres$'; then
   sync_db_password
 fi
 
-# Collect dirty services into a single build invocation (parallel via BuildKit).
+# Collect dirty services (faqat o'zgargan/force qilingan).
 dirty=()
 [[ "$AUTH"           == "1" ]] && dirty+=(auth-service)
 [[ "$MARKETPLACE"    == "1" ]] && dirty+=(marketplace-service)
@@ -197,18 +200,16 @@ dirty=()
 [[ "$FRONTEND"       == "1" ]] && dirty+=(frontend)
 [[ "$NGINX"          == "1" ]] && dirty+=(nginx)
 
-build_all "${dirty[@]}"
+pull_services "${dirty[@]}"
 
-# Restart in dependency order (auth before others — they use /verify).
-[[ "$AUTH"           == "1" ]] && rebuild auth-service
-[[ "$MARKETPLACE"    == "1" ]] && rebuild marketplace-service
-[[ "$RECOMMENDATION" == "1" ]] && rebuild recommendation-service
-[[ "$BOT"            == "1" ]] && rebuild bot
-[[ "$FRONTEND"       == "1" ]] && rebuild frontend
+# Restart in dependency order.
+[[ "$AUTH"           == "1" ]] && restart_service auth-service
+[[ "$MARKETPLACE"    == "1" ]] && restart_service marketplace-service
+[[ "$RECOMMENDATION" == "1" ]] && restart_service recommendation-service
+[[ "$BOT"            == "1" ]] && restart_service bot
+[[ "$FRONTEND"       == "1" ]] && restart_service frontend
 
-# nginx reads config from bind-mounted file. After git reset/pull, nginx.conf
-# may be replaced atomically (new inode), so plain `up -d` can keep serving
-# the old mounted inode. Always force-recreate nginx to rebind updated config.
+# nginx bind-mounted conf — force recreate
 if [[ "$NGINX" == "1" ]]; then
   echo "==> Recreating nginx to pick up latest bind-mounted config"
   docker compose up -d --no-deps --force-recreate nginx

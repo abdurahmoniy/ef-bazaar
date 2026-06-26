@@ -1,0 +1,136 @@
+# ==============================================================
+# CI — Build & Push Docker images to GHCR
+#
+# Faqat o'zgargan servislarni build qiladi. Image lar:
+#   ghcr.io/<owner>/efbazaar-<service>:latest
+#   ghcr.io/<owner>/efbazaar-<service>:<sha>
+#
+# GHCR cache backend bilan layer cache hit avtomatik.
+# Server keyin docker pull qiladi — build emas.
+# ==============================================================
+
+name: CI — Build & Push images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_all:
+        description: "Rebuild all services regardless of changes"
+        required: false
+        default: "false"
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write   # GHCR ga push uchun
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}/efbazaar
+
+jobs:
+  detect:
+    name: Detect changed services
+    runs-on: ubuntu-latest
+    outputs:
+      auth:           ${{ steps.filter.outputs.auth }}
+      marketplace:    ${{ steps.filter.outputs.marketplace }}
+      recommendation: ${{ steps.filter.outputs.recommendation }}
+      bot:            ${{ steps.filter.outputs.bot }}
+      frontend:       ${{ steps.filter.outputs.frontend }}
+      nginx:          ${{ steps.filter.outputs.nginx }}
+      matrix:         ${{ steps.build-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            auth:
+              - 'backend/auth-service/**'
+              - '.github/workflows/build.yml'
+            marketplace:
+              - 'backend/marketplace-service/**'
+              - '.github/workflows/build.yml'
+            recommendation:
+              - 'backend/recommendation-service/**'
+              - '.github/workflows/build.yml'
+            bot:
+              - 'bot/**'
+              - '.github/workflows/build.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/build.yml'
+            nginx:
+              - 'nginx/**'
+              - '.github/workflows/build.yml'
+
+      - id: build-matrix
+        env:
+          FORCE_ALL: ${{ github.event.inputs.force_all }}
+        run: |
+          ITEMS=()
+          add() {
+            local name="$1" context="$2" image="$3"
+            ITEMS+=("{\"name\":\"$name\",\"context\":\"$context\",\"image\":\"$image\"}")
+          }
+          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.auth }}"           == "true" ]]; then add auth-service           backend/auth-service           auth-service;           fi
+          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.marketplace }}"    == "true" ]]; then add marketplace-service    backend/marketplace-service    marketplace-service;    fi
+          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.recommendation }}" == "true" ]]; then add recommendation-service backend/recommendation-service recommendation-service; fi
+          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.bot }}"            == "true" ]]; then add bot                    bot                            bot;                    fi
+          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.frontend }}"       == "true" ]]; then add frontend               frontend                       frontend;               fi
+          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.nginx }}"          == "true" ]]; then add nginx                  nginx                          nginx;                  fi
+
+          if [ ${#ITEMS[@]} -eq 0 ]; then
+            MATRIX='{"include":[]}'
+          else
+            JOINED=$(IFS=,; echo "${ITEMS[*]}")
+            MATRIX="{\"include\":[$JOINED]}"
+          fi
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "Build matrix: $MATRIX"
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: detect
+    if: needs.detect.outputs.matrix != '{"include":[]}'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase image namespace
+        id: ns
+        run: echo "ns=$(echo '${{ env.IMAGE_NAMESPACE }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.ns.outputs.ns }}-${{ matrix.image }}:latest
+            ${{ env.REGISTRY }}/${{ steps.ns.outputs.ns }}-${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to:   type=gha,mode=max,scope=${{ matrix.name }}
+          provenance: false
