@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: auth-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:auth_db}
+    username: ${POSTGRES_USER:efbazaar}
+    password: ${POSTGRES_PASSWORD:efbazaar}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: auth-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "uz.efbazaar.*"
+
+server:
+  port: 8081
+  error:
+    include-message: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-secret-change-me-please-min-32-bytes-long}
+    access-token-ttl-minutes: ${JWT_ACCESS_TOKEN_TTL_MINUTES:15}
+    refresh-token-ttl-days: ${JWT_REFRESH_TOKEN_TTL_DAYS:30}
+  telegram:
+    bot-token: ${TELEGRAM_BOT_TOKEN:}
+    login-max-age-seconds: 86400
+
+logging:
+  level:
+    root: INFO
+    uz.efbazaar: DEBUG
+    org.springframework.security: INFO

@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: bot
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  main:
+    web-application-type: servlet
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 80MB
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: bot
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+
+server:
+  port: 8084
+  error:
+    include-message: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+
+app:
+  telegram:
+    bot-token: ${TELEGRAM_BOT_TOKEN:}
+    bot-username: ${TELEGRAM_BOT_USERNAME:}
+    api-base-url: https://api.telegram.org
+    group-chat-id: ${TELEGRAM_GROUP_CHAT_ID:}
+    topics:
+      logs:         ${TELEGRAM_TOPIC_LOGS:6}
+      registration: ${TELEGRAM_TOPIC_REGISTRATION:4}
+      media:        ${TELEGRAM_TOPIC_MEDIA:2}
+    webhook-url: ${TELEGRAM_WEBHOOK_URL:}
+
+logging:
+  level:
+    root: INFO
+    uz.efbazaar: DEBUG

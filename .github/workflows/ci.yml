@@ -1,0 +1,93 @@
+# ==============================================================
+# CI — Pull request va main ga push da ishlaydi.
+# O'zgargan servisni aniqlaydi va faqat shu servis testlarini ishga tushiradi.
+# ==============================================================
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      auth: ${{ steps.filter.outputs.auth }}
+      marketplace: ${{ steps.filter.outputs.marketplace }}
+      recommendation: ${{ steps.filter.outputs.recommendation }}
+      bot: ${{ steps.filter.outputs.bot }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            auth:
+              - 'backend/auth-service/**'
+            marketplace:
+              - 'backend/marketplace-service/**'
+            recommendation:
+              - 'backend/recommendation-service/**'
+            bot:
+              - 'bot/**'
+            frontend:
+              - 'frontend/**'
+
+  test-java:
+    needs: detect
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: auth-service
+            path: backend/auth-service
+            changed: ${{ needs.detect.outputs.auth }}
+          - name: marketplace-service
+            path: backend/marketplace-service
+            changed: ${{ needs.detect.outputs.marketplace }}
+          - name: recommendation-service
+            path: backend/recommendation-service
+            changed: ${{ needs.detect.outputs.recommendation }}
+          - name: bot
+            path: bot
+            changed: ${{ needs.detect.outputs.bot }}
+    steps:
+      - if: matrix.changed == 'true'
+        uses: actions/checkout@v4
+      - if: matrix.changed == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - if: matrix.changed == 'true'
+        name: Build & test ${{ matrix.name }}
+        working-directory: ${{ matrix.path }}
+        run: mvn -B -ntp verify
+
+  test-frontend:
+    needs: detect
+    if: needs.detect.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
+      - name: Build
+        working-directory: frontend
+        run: npm run build

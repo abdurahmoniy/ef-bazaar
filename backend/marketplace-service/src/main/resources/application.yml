@@ -1,0 +1,88 @@
+spring:
+  application:
+    name: marketplace-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:marketplace_db}
+    username: ${POSTGRES_USER:efbazaar}
+    password: ${POSTGRES_PASSWORD:efbazaar}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: marketplace-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "uz.efbazaar.*"
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 80MB
+
+server:
+  port: 8082
+  error:
+    include-message: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+
+app:
+  cards:
+    # efbazaar DB — efhub.com'dan scrape qilingan player cards (read-only).
+    # marketplace-service uchun 2-DataSource. Card picker API ishlatadi.
+    datasource:
+      url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${EFBAZAAR_DB_NAME:efbazaar}
+      username: ${POSTGRES_USER:efbazaar}
+      password: ${POSTGRES_PASSWORD:efbazaar}
+      driver-class-name: org.postgresql.Driver
+  media:
+    min-files: ${MEDIA_MIN_FILES:1}
+    max-files: ${MEDIA_MAX_FILES:6}
+    max-file-size-mb: ${MEDIA_MAX_FILE_SIZE_MB:5}
+    allowed-types: ${MEDIA_ALLOWED_TYPES:image/jpeg,image/png,image/webp}
+  bot:
+    internal-base-url: ${BOT_INTERNAL_BASE_URL:http://bot:8084}
+  chat:
+    expire-after-hours: 24
+    expire-check-interval-ms: 300000
+
+logging:
+  level:
+    root: INFO
+    uz.efbazaar: DEBUG
