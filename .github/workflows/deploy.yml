@@ -1,29 +1,39 @@
 # ==============================================================
-# CD — Selective Deploy
+# CD — Selective Deploy (pull-based)
 #
-# Server'da /opt/efbazaar/deploy.sh ni ishga tushiradi. Faqat o'zgargan
-# servislarni qayta build qiladi va restart qiladi (--no-deps).
-# .env har deploy paytida CI secrets'dan qayta yoziladi.
+# Server faqat docker pull qiladi va kontaynerlarni qayta yaratadi.
+# Image lar avval CI (build.yml) tomonidan GHCR'ga push qilingan.
+#
+# Flow:
+#   push to main
+#     → build.yml (build & push images to GHCR)  [parallel]
+#     → deploy.yml (this) waits via workflow_run trigger
+#     → server: docker compose pull + up -d --no-deps
 #
 # Required GitHub secrets:
 #   DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_PATH
 #   POSTGRES_PASSWORD, REDIS_PASSWORD, JWT_SECRET, APP_BASE_URL
-#   TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME, TELEGRAM_GROUP_CHAT_ID
-#   TELEGRAM_TOPIC_LOGS, TELEGRAM_TOPIC_REGISTRATION, TELEGRAM_TOPIC_MEDIA
-#   TELEGRAM_WEBHOOK_URL (optional — bo'sh bo'lsa long-polling)
+#   TELEGRAM_*  (BOT_TOKEN, USERNAME, GROUP_CHAT_ID, TOPIC_LOGS/REGISTRATION/MEDIA, WEBHOOK_URL)
 # ==============================================================
 
 name: CD — Selective Deploy
 
 on:
-  push:
+  # Build muvaffaqiyatli tugagandan keyin trigger
+  workflow_run:
+    workflows: ["CI — Build & Push images"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
       force_all:
-        description: "Rebuild all services regardless of changes"
+        description: "Pull & recreate all services regardless of changes"
         required: false
         default: "false"
+      image_tag:
+        description: "Image tag to pull (default: latest)"
+        required: false
+        default: "latest"
 
 concurrency:
   group: deploy-main
@@ -31,11 +41,16 @@ concurrency:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   detect:
     name: Detect changed services
     runs-on: ubuntu-latest
+    # workflow_run triggered bo'lsa, faqat build success bo'lganda davom etadi.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     outputs:
       auth:           ${{ steps.filter.outputs.auth }}
       marketplace:    ${{ steps.filter.outputs.marketplace }}
@@ -48,10 +63,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.event.workflow_run.head_sha || github.ref }}
           filters: |
             auth:
               - 'backend/auth-service/**'
@@ -68,9 +85,8 @@ jobs:
             compose:
               - 'docker-compose.yml'
               - 'deploy.sh'
-              - 'infra/**'
-              - '.env.example'
               - '.github/workflows/deploy.yml'
+              - 'infra/**'
 
   deploy:
     name: Deploy to server
@@ -94,13 +110,13 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           debug: true
-          command_timeout: 45m
-          envs: AUTH,MARKETPLACE,RECOMMENDATION,BOT,FRONTEND,NGINX,COMPOSE,FORCE_ALL,DEPLOY_PATH,GH_TOKEN,POSTGRES_PASSWORD,REDIS_PASSWORD,JWT_SECRET,APP_BASE_URL,TELEGRAM_BOT_TOKEN,TELEGRAM_BOT_USERNAME,TELEGRAM_GROUP_CHAT_ID,TELEGRAM_TOPIC_LOGS,TELEGRAM_TOPIC_REGISTRATION,TELEGRAM_TOPIC_MEDIA,TELEGRAM_WEBHOOK_URL
+          command_timeout: 15m
+          envs: AUTH,MARKETPLACE,RECOMMENDATION,BOT,FRONTEND,NGINX,COMPOSE,FORCE_ALL,DEPLOY_PATH,GH_TOKEN,GH_ACTOR,IMAGE_TAG,POSTGRES_PASSWORD,REDIS_PASSWORD,JWT_SECRET,APP_BASE_URL,TELEGRAM_BOT_TOKEN,TELEGRAM_BOT_USERNAME,TELEGRAM_GROUP_CHAT_ID,TELEGRAM_TOPIC_LOGS,TELEGRAM_TOPIC_REGISTRATION,TELEGRAM_TOPIC_MEDIA,TELEGRAM_WEBHOOK_URL
           script: |
             LOG=/tmp/efbazaar-deploy-latest.log
             cd "${DEPLOY_PATH:-/opt/efbazaar}"
             echo "=== env values ==="
-            echo "AUTH=$AUTH MARKETPLACE=$MARKETPLACE RECOMMENDATION=$RECOMMENDATION BOT=$BOT FRONTEND=$FRONTEND NGINX=$NGINX COMPOSE=$COMPOSE FORCE_ALL=$FORCE_ALL"
+            echo "AUTH=$AUTH MARKETPLACE=$MARKETPLACE RECOMMENDATION=$RECOMMENDATION BOT=$BOT FRONTEND=$FRONTEND NGINX=$NGINX COMPOSE=$COMPOSE FORCE_ALL=$FORCE_ALL IMAGE_TAG=$IMAGE_TAG"
             echo "=== pulling latest code ==="
             git -c "url.https://x-access-token:${GH_TOKEN}@github.com/.insteadOf=https://github.com/" \
                 -c "url.https://x-access-token:${GH_TOKEN}@github.com/.insteadOf=git@github.com:" \
@@ -128,7 +144,8 @@ jobs:
           FORCE_ALL:      ${{ github.event.inputs.force_all }}
           DEPLOY_PATH:    ${{ secrets.DEPLOY_PATH }}
           GH_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
-          # Secrets passed through to deploy.sh which writes them into .env
+          GH_ACTOR:       ${{ github.actor }}
+          IMAGE_TAG:      ${{ github.event.inputs.image_tag || 'latest' }}
           POSTGRES_PASSWORD:           ${{ secrets.POSTGRES_PASSWORD }}
           REDIS_PASSWORD:              ${{ secrets.REDIS_PASSWORD }}
           JWT_SECRET:                  ${{ secrets.JWT_SECRET }}
