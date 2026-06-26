@@ -101,7 +101,9 @@ jobs:
             echo "=== env values ==="
             echo "AUTH=$AUTH MARKETPLACE=$MARKETPLACE RECOMMENDATION=$RECOMMENDATION BOT=$BOT FRONTEND=$FRONTEND NGINX=$NGINX COMPOSE=$COMPOSE FORCE_ALL=$FORCE_ALL"
             echo "=== pulling latest code ==="
-            git -c "url.https://x-access-token:${GH_TOKEN}@github.com/.insteadOf=git@github.com:" fetch --all
+            git -c "url.https://x-access-token:${GH_TOKEN}@github.com/.insteadOf=https://github.com/" \
+                -c "url.https://x-access-token:${GH_TOKEN}@github.com/.insteadOf=git@github.com:" \
+                fetch --all
             git reset --hard origin/main
             echo "=== running deploy.sh ==="
             if [ "$FORCE_ALL" = "true" ]; then
