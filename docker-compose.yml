@@ -21,7 +21,7 @@ services:
       POSTGRES_MULTIPLE_DATABASES: ${AUTH_DB_NAME},${MARKETPLACE_DB_NAME},${RECOMMENDATION_DB_NAME},${EFBAZAAR_DB_NAME:-efbazaar}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./infra/postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro
+      - ./infra/postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro,z
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
@@ -118,6 +118,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${MARKETPLACE_DB_NAME}
+      # Card picker uchun 2-DataSource (read-only)
+      EFBAZAAR_DB_NAME: ${EFBAZAAR_DB_NAME:-efbazaar}
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}

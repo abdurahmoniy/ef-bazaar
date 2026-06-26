@@ -63,6 +63,14 @@ management:
       show-details: when_authorized
 
 app:
+  cards:
+    # efbazaar DB — efhub.com'dan scrape qilingan player cards (read-only).
+    # marketplace-service uchun 2-DataSource. Card picker API ishlatadi.
+    datasource:
+      url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${EFBAZAAR_DB_NAME:efbazaar}
+      username: ${POSTGRES_USER:efbazaar}
+      password: ${POSTGRES_PASSWORD:efbazaar}
+      driver-class-name: org.postgresql.Driver
   media:
     min-files: ${MEDIA_MIN_FILES:1}
     max-files: ${MEDIA_MAX_FILES:6}

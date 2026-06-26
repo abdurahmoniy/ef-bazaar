@@ -32,6 +32,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/listings",
                                 "/api/v1/listings/*").permitAll()
+                        // Public — card picker (read-only player card lookup)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/cards/**").permitAll()
                         // Public — health
                         .requestMatchers("/actuator/**", "/api/v1/ping").permitAll()
                         // Hamma boshqa endpoint auth talab qiladi
