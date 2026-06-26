@@ -169,15 +169,11 @@ sync_db_password() {
 
   echo "==> Syncing postgres role 'efbazaar' password from secret"
   local escaped_pw="${POSTGRES_PASSWORD//\'/\'\'}"
+  # Postgres image POSTGRES_USER=efbazaar bilan boshlanadi — 'postgres' roli yo'q.
+  # Local socket (pg_hba: trust) orqali efbazaar superuser sifatida ulanamiz.
   docker compose exec -T postgres \
-    psql -U postgres -v ON_ERROR_STOP=1 \
-      -c "DO \$\$ BEGIN
-            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'efbazaar') THEN
-              CREATE ROLE \"efbazaar\" WITH LOGIN PASSWORD '$escaped_pw';
-            ELSE
-              ALTER USER \"efbazaar\" WITH PASSWORD '$escaped_pw';
-            END IF;
-          END \$\$;"
+    psql -U efbazaar -d postgres -v ON_ERROR_STOP=1 \
+      -c "ALTER USER \"efbazaar\" WITH PASSWORD '$escaped_pw';"
   echo "==> DB password sync OK"
 }
 
