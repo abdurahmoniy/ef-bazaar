@@ -19,6 +19,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_MULTIPLE_DATABASES: ${AUTH_DB_NAME},${MARKETPLACE_DB_NAME},${RECOMMENDATION_DB_NAME},${EFBAZAAR_DB_NAME:-efbazaar}
+    ports:
+      - "${POSTGRES_PORT_HOST:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro,z
