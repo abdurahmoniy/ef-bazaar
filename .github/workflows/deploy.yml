@@ -1,35 +1,29 @@
 # ==============================================================
-# CD — Selective Deploy (pull-based)
+# CD — Selective Deploy (pull-based, simplified)
 #
 # Server faqat docker pull qiladi va kontaynerlarni qayta yaratadi.
 # Image lar avval CI (build.yml) tomonidan GHCR'ga push qilingan.
 #
-# Flow:
-#   push to main
-#     → build.yml (build & push images to GHCR)  [parallel]
-#     → deploy.yml (this) waits via workflow_run trigger
-#     → server: docker compose pull + up -d --no-deps
+# Trigger:
+#   - build.yml SUCCESS bo'lganda avtomatik (workflow_run)
+#   - manual workflow_dispatch
 #
-# Required GitHub secrets:
-#   DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_PATH
-#   POSTGRES_PASSWORD, REDIS_PASSWORD, JWT_SECRET, APP_BASE_URL
-#   TELEGRAM_*  (BOT_TOKEN, USERNAME, GROUP_CHAT_ID, TOPIC_LOGS/REGISTRATION/MEDIA, WEBHOOK_URL)
+# Strategiya:
+#   - Hamma servisni docker compose pull qiladi (image yangimi yo'qmi —
+#     docker o'zi aniqlaydi, faqat sha o'zgargan image'larni qayta yuklaydi).
+#   - Hamma servisni docker compose up -d --no-deps qiladi. Image'i o'zgarmagan
+#     kontaynerlar tinch qoladi (no-op), o'zgarganlari recreate bo'ladi.
 # ==============================================================
 
 name: CD — Selective Deploy
 
 on:
-  # Build muvaffaqiyatli tugagandan keyin trigger
   workflow_run:
     workflows: ["CI — Build & Push images"]
     types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
-      force_all:
-        description: "Pull & recreate all services regardless of changes"
-        required: false
-        default: "false"
       image_tag:
         description: "Image tag to pull (default: latest)"
         required: false
@@ -44,65 +38,16 @@ permissions:
   packages: read
 
 jobs:
-  detect:
-    name: Detect changed services
+  deploy:
+    name: Deploy to server
     runs-on: ubuntu-latest
-    # workflow_run triggered bo'lsa, faqat build success bo'lganda davom etadi.
+    # workflow_run paytida — faqat build muvaffaqiyatli o'tgan bo'lsa.
+    # workflow_dispatch paytida — har doim ishlaydi.
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
-    outputs:
-      auth:           ${{ steps.filter.outputs.auth }}
-      marketplace:    ${{ steps.filter.outputs.marketplace }}
-      recommendation: ${{ steps.filter.outputs.recommendation }}
-      bot:            ${{ steps.filter.outputs.bot }}
-      frontend:       ${{ steps.filter.outputs.frontend }}
-      nginx:          ${{ steps.filter.outputs.nginx }}
-      compose:        ${{ steps.filter.outputs.compose }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
-
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          base: ${{ github.event.workflow_run.head_sha || github.ref }}
-          filters: |
-            auth:
-              - 'backend/auth-service/**'
-            marketplace:
-              - 'backend/marketplace-service/**'
-            recommendation:
-              - 'backend/recommendation-service/**'
-            bot:
-              - 'bot/**'
-            frontend:
-              - 'frontend/**'
-            nginx:
-              - 'nginx/**'
-            compose:
-              - 'docker-compose.yml'
-              - 'deploy.sh'
-              - '.github/workflows/deploy.yml'
-              - 'infra/**'
-
-  deploy:
-    name: Deploy to server
-    needs: detect
-    runs-on: ubuntu-latest
-    if: >
-      needs.detect.outputs.auth           == 'true' ||
-      needs.detect.outputs.marketplace    == 'true' ||
-      needs.detect.outputs.recommendation == 'true' ||
-      needs.detect.outputs.bot            == 'true' ||
-      needs.detect.outputs.frontend       == 'true' ||
-      needs.detect.outputs.nginx          == 'true' ||
-      needs.detect.outputs.compose        == 'true' ||
-      github.event.inputs.force_all       == 'true'
-    steps:
-      - name: SSH & run selective deploy
+      - name: SSH & deploy
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -111,37 +56,23 @@ jobs:
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           debug: true
           command_timeout: 15m
-          envs: AUTH,MARKETPLACE,RECOMMENDATION,BOT,FRONTEND,NGINX,COMPOSE,FORCE_ALL,DEPLOY_PATH,GH_TOKEN,GH_ACTOR,IMAGE_TAG,POSTGRES_PASSWORD,REDIS_PASSWORD,JWT_SECRET,APP_BASE_URL,TELEGRAM_BOT_TOKEN,TELEGRAM_BOT_USERNAME,TELEGRAM_GROUP_CHAT_ID,TELEGRAM_TOPIC_LOGS,TELEGRAM_TOPIC_REGISTRATION,TELEGRAM_TOPIC_MEDIA,TELEGRAM_WEBHOOK_URL,NGINX_HTTP_PORT,NGINX_HTTPS_PORT
+          envs: DEPLOY_PATH,GH_TOKEN,GH_ACTOR,IMAGE_TAG,POSTGRES_PASSWORD,REDIS_PASSWORD,JWT_SECRET,APP_BASE_URL,TELEGRAM_BOT_TOKEN,TELEGRAM_BOT_USERNAME,TELEGRAM_GROUP_CHAT_ID,TELEGRAM_TOPIC_LOGS,TELEGRAM_TOPIC_REGISTRATION,TELEGRAM_TOPIC_MEDIA,TELEGRAM_WEBHOOK_URL,NGINX_HTTP_PORT,NGINX_HTTPS_PORT
           script: |
             LOG=/tmp/efbazaar-deploy-latest.log
             cd "${DEPLOY_PATH:-/opt/efbazaar}"
-            echo "=== env values ==="
-            echo "AUTH=$AUTH MARKETPLACE=$MARKETPLACE RECOMMENDATION=$RECOMMENDATION BOT=$BOT FRONTEND=$FRONTEND NGINX=$NGINX COMPOSE=$COMPOSE FORCE_ALL=$FORCE_ALL IMAGE_TAG=$IMAGE_TAG"
             echo "=== pulling latest code ==="
             git -c "url.https://x-access-token:${GH_TOKEN}@github.com/.insteadOf=https://github.com/" \
                 -c "url.https://x-access-token:${GH_TOKEN}@github.com/.insteadOf=git@github.com:" \
                 fetch --all
             git reset --hard origin/main
-            echo "=== running deploy.sh ==="
-            if [ "$FORCE_ALL" = "true" ]; then
-              AUTH=1 MARKETPLACE=1 RECOMMENDATION=1 BOT=1 FRONTEND=1 NGINX=1 COMPOSE=1 bash deploy.sh > "$LOG" 2>&1
-            else
-              AUTH=$AUTH MARKETPLACE=$MARKETPLACE RECOMMENDATION=$RECOMMENDATION BOT=$BOT FRONTEND=$FRONTEND NGINX=$NGINX COMPOSE=$COMPOSE bash deploy.sh > "$LOG" 2>&1
-            fi
+            echo "=== running deploy.sh (deploy all — docker decides what to recreate) ==="
+            FORCE_ALL=1 bash deploy.sh > "$LOG" 2>&1
             STATUS=$?
             echo "=== deploy.sh exit status: $STATUS ==="
-            echo "=== last 120 lines of log ==="
-            tail -120 "$LOG" || echo "(log file missing)"
+            echo "=== last 150 lines of log ==="
+            tail -150 "$LOG" || echo "(log file missing)"
             exit $STATUS
         env:
-          AUTH:           ${{ needs.detect.outputs.auth           == 'true' && '1' || '0' }}
-          MARKETPLACE:    ${{ needs.detect.outputs.marketplace    == 'true' && '1' || '0' }}
-          RECOMMENDATION: ${{ needs.detect.outputs.recommendation == 'true' && '1' || '0' }}
-          BOT:            ${{ needs.detect.outputs.bot            == 'true' && '1' || '0' }}
-          FRONTEND:       ${{ needs.detect.outputs.frontend       == 'true' && '1' || '0' }}
-          NGINX:          ${{ needs.detect.outputs.nginx          == 'true' && '1' || '0' }}
-          COMPOSE:        ${{ needs.detect.outputs.compose        == 'true' && '1' || '0' }}
-          FORCE_ALL:      ${{ github.event.inputs.force_all }}
           DEPLOY_PATH:    ${{ secrets.DEPLOY_PATH }}
           GH_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
           GH_ACTOR:       ${{ github.actor }}
