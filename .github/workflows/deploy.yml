@@ -61,16 +61,22 @@ jobs:
           filters: |
             auth:
               - 'backend/auth-service/**'
+              - 'docker-compose.yml'
             marketplace:
               - 'backend/marketplace-service/**'
+              - 'docker-compose.yml'
             recommendation:
               - 'backend/recommendation-service/**'
+              - 'docker-compose.yml'
             bot:
               - 'bot/**'
+              - 'docker-compose.yml'
             frontend:
               - 'frontend/**'
+              - 'docker-compose.yml'
             nginx:
               - 'nginx/**'
+              - 'docker-compose.yml'
       - id: list
         env:
           MANUAL_SERVICES: ${{ github.event.inputs.services }}
