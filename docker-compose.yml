@@ -1,0 +1,235 @@
+# ==============================================================
+# efBazaar — Full stack orchestration
+# Foydalanish:
+#   cp .env.example .env  # va qiymatlarni to'ldiring
+#   docker compose up -d
+#   docker compose up -d --no-deps <service>  # selective restart
+# ==============================================================
+
+name: efbazaar
+
+services:
+  # ---------- Infrastructure ----------
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: efbazaar-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_MULTIPLE_DATABASES: ${AUTH_DB_NAME},${MARKETPLACE_DB_NAME},${RECOMMENDATION_DB_NAME},${EFBAZAAR_DB_NAME:-efbazaar}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - efbazaar-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: efbazaar-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - efbazaar-net
+
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: efbazaar-kafka
+    restart: unless-stopped
+    hostname: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - efbazaar-net
+
+  # ---------- Backend services ----------
+
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    image: efbazaar/auth-service:latest
+    container_name: efbazaar-auth
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${AUTH_DB_NAME}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_TOKEN_TTL_MINUTES: ${JWT_ACCESS_TOKEN_TTL_MINUTES}
+      JWT_REFRESH_TOKEN_TTL_DAYS: ${JWT_REFRESH_TOKEN_TTL_DAYS}
+      # Telegram bot token — same bot used for Login Widget validation
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - efbazaar-net
+
+  marketplace-service:
+    build:
+      context: ./backend/marketplace-service
+      dockerfile: Dockerfile
+    image: efbazaar/marketplace-service:latest
+    container_name: efbazaar-marketplace
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${MARKETPLACE_DB_NAME}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      # Media yuklash
+      MEDIA_MIN_FILES: ${MEDIA_MIN_FILES}
+      MEDIA_MAX_FILES: ${MEDIA_MAX_FILES}
+      MEDIA_MAX_FILE_SIZE_MB: ${MEDIA_MAX_FILE_SIZE_MB}
+      MEDIA_ALLOWED_TYPES: ${MEDIA_ALLOWED_TYPES}
+      # Bot internal URL (rasm forwarding uchun)
+      BOT_INTERNAL_BASE_URL: http://bot:8084
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - efbazaar-net
+
+  recommendation-service:
+    build:
+      context: ./backend/recommendation-service
+      dockerfile: Dockerfile
+    image: efbazaar/recommendation-service:latest
+    container_name: efbazaar-rec
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${RECOMMENDATION_DB_NAME}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - efbazaar-net
+
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    image: efbazaar/bot:latest
+    container_name: efbazaar-bot
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
+      TELEGRAM_GROUP_CHAT_ID: ${TELEGRAM_GROUP_CHAT_ID}
+      TELEGRAM_TOPIC_LOGS: ${TELEGRAM_TOPIC_LOGS}
+      TELEGRAM_TOPIC_REGISTRATION: ${TELEGRAM_TOPIC_REGISTRATION}
+      TELEGRAM_TOPIC_MEDIA: ${TELEGRAM_TOPIC_MEDIA}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL}
+    depends_on:
+      kafka:
+        condition: service_started
+    networks:
+      - efbazaar-net
+
+  # ---------- Frontend ----------
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: efbazaar/frontend:latest
+    container_name: efbazaar-frontend
+    restart: unless-stopped
+    networks:
+      - efbazaar-net
+
+  # ---------- Reverse proxy ----------
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    image: efbazaar/nginx:latest
+    container_name: efbazaar-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      # - "443:443"  # TLS keyinroq (certbot + letsencrypt)
+    depends_on:
+      - auth-service
+      - marketplace-service
+      - recommendation-service
+      - bot
+      - frontend
+    networks:
+      - efbazaar-net
+
+# ==============================================================
+
+volumes:
+  postgres_data:
+  redis_data:
+  kafka_data:
+
+networks:
+  efbazaar-net:
+    driver: bridge

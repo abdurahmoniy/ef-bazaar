@@ -1,0 +1,63 @@
+package uz.efbazaar.marketplace.event;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Component;
+import uz.efbazaar.marketplace.domain.Listing;
+import uz.efbazaar.marketplace.domain.ListingStatus;
+
+import java.time.Instant;
+import java.util.UUID;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class MarketplaceEventPublisher {
+
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+
+    public void listingCreated(Listing l) {
+        send(MarketplaceEvents.TOPIC_LISTING_CREATED, l.getId().toString(),
+                new MarketplaceEvents.ListingCreated(
+                        l.getId(), l.getSellerId(), l.getPrice(),
+                        l.getHighestDivisionLevel(), l.getValuablePlayers(),
+                        Instant.now()));
+    }
+
+    public void listingUpdated(Listing l) {
+        send(MarketplaceEvents.TOPIC_LISTING_UPDATED, l.getId().toString(),
+                new MarketplaceEvents.ListingUpdated(l.getId(), l.getSellerId(), Instant.now()));
+    }
+
+    public void listingDeleted(UUID listingId, UUID sellerId, ListingStatus newStatus) {
+        send(MarketplaceEvents.TOPIC_LISTING_DELETED, listingId.toString(),
+                new MarketplaceEvents.ListingDeleted(listingId, sellerId, newStatus, Instant.now()));
+    }
+
+    public void likeToggled(UUID listingId, UUID userId, boolean liked) {
+        send(MarketplaceEvents.TOPIC_LIKE_TOGGLED, listingId.toString(),
+                new MarketplaceEvents.LikeToggled(listingId, userId, liked, Instant.now()));
+    }
+
+    public void chatCreated(UUID chatId, UUID listingId, UUID buyerId, UUID sellerId) {
+        send(MarketplaceEvents.TOPIC_CHAT_CREATED, chatId.toString(),
+                new MarketplaceEvents.ChatCreated(chatId, listingId, buyerId, sellerId, Instant.now()));
+    }
+
+    public void chatExpired(UUID chatId, UUID listingId, UUID buyerId, UUID sellerId, String reason) {
+        send(MarketplaceEvents.TOPIC_CHAT_EXPIRED, chatId.toString(),
+                new MarketplaceEvents.ChatExpired(chatId, listingId, buyerId, sellerId, reason, Instant.now()));
+    }
+
+    private void send(String topic, String key, Object event) {
+        kafkaTemplate.send(topic, key, event)
+                .whenComplete((r, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish to {} key={}: {}", topic, key, ex.getMessage());
+                    } else {
+                        log.debug("Published to {} key={}", topic, key);
+                    }
+                });
+    }
+}
