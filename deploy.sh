@@ -113,6 +113,10 @@ write_env() {
   upsert_env .env SPRING_PROFILES_ACTIVE  docker
   upsert_env .env APP_BASE_URL            "${APP_BASE_URL:-}"
 
+  # Host ports — server'da port band bo'lsa, NGINX_HTTP_PORT='8090' bering.
+  upsert_env .env NGINX_HTTP_PORT         "${NGINX_HTTP_PORT:-80}"
+  upsert_env .env NGINX_HTTPS_PORT        "${NGINX_HTTPS_PORT:-443}"
+
   chmod 600 .env
   echo "==> .env written ($(wc -l < .env) lines)"
 }

@@ -198,8 +198,10 @@ services:
     container_name: efbazaar-nginx
     restart: unless-stopped
     ports:
-      - "80:80"
-      # - "443:443"  # TLS keyinroq (certbot + letsencrypt)
+      # Host port'ni .env'dagi NGINX_HTTP_PORT belgilaydi (default 80).
+      # Serverda 80 band bo'lsa, masalan 8090 ga o'zgartiring.
+      - "${NGINX_HTTP_PORT:-80}:80"
+      # - "${NGINX_HTTPS_PORT:-443}:443"  # TLS keyinroq
     depends_on:
       - auth-service
       - marketplace-service
