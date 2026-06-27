@@ -11,7 +11,8 @@ import uz.efbazaar.auth.dto.*;
 import uz.efbazaar.auth.mapper.UserMapper;
 import uz.efbazaar.auth.security.AuthenticatedUser;
 import uz.efbazaar.auth.service.AuthService;
-import uz.efbazaar.auth.service.UserService;
+import uz.efbazaar.auth.service.GoogleOAuthService;
+import uz.efbazaar.auth.service.TelegramAuthService;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -19,18 +20,27 @@ import uz.efbazaar.auth.service.UserService;
 public class AuthController {
 
     private final AuthService authService;
-    private final UserService userService;
+    private final TelegramAuthService telegramAuthService;
+    private final GoogleOAuthService googleOAuthService;
     private final UserMapper userMapper;
 
-    @PostMapping("/register")
-    @ResponseStatus(HttpStatus.CREATED)
-    public TokenResponse register(@Valid @RequestBody RegisterRequest request) {
-        return authService.register(request);
+    /** Telegram register-or-login. Idempotent by telegram_id. */
+    @PostMapping("/telegram")
+    public TokenResponse telegram(@Valid @RequestBody TelegramAuthRequest request) {
+        return telegramAuthService.authenticate(request);
     }
 
-    @PostMapping("/login")
-    public TokenResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+    /** Google-only login. Returns 404 GOOGLE_NOT_LINKED if no user has this google_id. */
+    @PostMapping("/google/login")
+    public TokenResponse googleLogin(@Valid @RequestBody GoogleAuthRequest request) {
+        return googleOAuthService.login(request.idToken());
+    }
+
+    /** Link Google identity to the currently authenticated user. Sets verified=true. */
+    @PostMapping("/google/link")
+    public UserResponse googleLink(@AuthenticationPrincipal AuthenticatedUser principal,
+                                   @Valid @RequestBody GoogleAuthRequest request) {
+        return userMapper.toResponse(googleOAuthService.link(principal.userId(), request.idToken()));
     }
 
     @PostMapping("/refresh")
@@ -44,22 +54,9 @@ public class AuthController {
         authService.logout(request.refreshToken());
     }
 
-    @GetMapping("/me")
-    public UserResponse me(@AuthenticationPrincipal AuthenticatedUser principal) {
-        return userMapper.toResponse(userService.getById(principal.userId()));
-    }
-
-    @PostMapping("/telegram/link")
-    public UserResponse linkTelegram(@AuthenticationPrincipal AuthenticatedUser principal,
-                                     @Valid @RequestBody TelegramLinkRequest request) {
-        return userMapper.toResponse(userService.linkTelegram(principal.userId(), request));
-    }
-
     /**
-     * Nginx auth_request endpoint.
-     * Validates the access token (already done by {@code JwtAuthenticationFilter})
-     * and surfaces the user identity as response headers for nginx to forward
-     * to upstream services.
+     * Nginx auth_request endpoint — validates the access token and surfaces
+     * the user identity as response headers for upstream services.
      */
     @GetMapping("/verify")
     public ResponseEntity<Void> verify(@AuthenticationPrincipal AuthenticatedUser principal) {

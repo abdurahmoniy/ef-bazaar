@@ -131,6 +131,8 @@ services:
       JWT_REFRESH_TOKEN_TTL_DAYS: ${JWT_REFRESH_TOKEN_TTL_DAYS}
       # Telegram bot token — same bot used for Login Widget validation
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      # Google OAuth — ID token audience (set on console.cloud.google.com)
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -242,8 +244,16 @@ services:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-frontend:${IMAGE_TAG:-latest}
     container_name: efbazaar-frontend
     restart: unless-stopped
-    mem_limit: 48m
-    memswap_limit: 64m
+    environment:
+      # Server (Node) ichidan backend'ga ichki tarmoq orqali ulanish
+      INTERNAL_API_BASE_URL: http://nginx/api
+      NEXT_PUBLIC_TELEGRAM_BOT: ${TELEGRAM_BOT_USERNAME}
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      NEXT_PUBLIC_BASE_URL: ${APP_BASE_URL}
+      NODE_OPTIONS: "--max-old-space-size=192"
+    # Next.js standalone Node server — 150-200MB ishlatadi
+    mem_limit: 256m
+    memswap_limit: 384m
     networks:
       - efbazaar-net
 

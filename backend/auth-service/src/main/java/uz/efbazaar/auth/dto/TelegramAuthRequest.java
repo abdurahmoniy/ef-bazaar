@@ -8,10 +8,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Telegram Login Widget callback payload.
- * Field names match Telegram's snake_case (mapped via @JsonProperty).
+ * Telegram Login Widget callback payload — single endpoint for both
+ * first-time register and subsequent login (idempotent by telegram_id).
  */
-public record TelegramLinkRequest(
+public record TelegramAuthRequest(
         @NotNull Long id,
         @JsonProperty("first_name") String firstName,
         @JsonProperty("last_name") String lastName,
@@ -21,7 +21,6 @@ public record TelegramLinkRequest(
         @NotBlank String hash
 ) {
 
-    /** Convert to the flat map shape expected by {@code TelegramLoginValidator}. */
     public Map<String, String> toPayload() {
         Map<String, String> map = new HashMap<>();
         map.put("id", String.valueOf(id));

@@ -31,10 +31,8 @@ class JwtServiceTest {
         UUID userId = UUID.randomUUID();
         User user = User.builder()
                 .id(userId)
-                .username("alice")
-                .email("alice@example.com")
-                .passwordHash("hash")
                 .telegramId(123456789L)
+                .telegramFirstName("Alice")
                 .role(Role.USER)
                 .build();
 
@@ -46,20 +44,6 @@ class JwtServiceTest {
         assertThat(claims.get(JwtService.CLAIM_TELEGRAM_ID, Long.class)).isEqualTo(123456789L);
         assertThat(claims.get(JwtService.CLAIM_ROLES, java.util.List.class))
                 .containsExactly("ROLE_USER");
-    }
-
-    @Test
-    void accessToken_withoutTelegramId_omitsClaim() {
-        User user = User.builder()
-                .id(UUID.randomUUID())
-                .username("bob")
-                .email("bob@example.com")
-                .passwordHash("hash")
-                .role(Role.USER)
-                .build();
-
-        Claims claims = jwtService.parseAccess(jwtService.issueAccessToken(user));
-        assertThat(claims.get(JwtService.CLAIM_TELEGRAM_ID)).isNull();
     }
 
     @Test
@@ -86,7 +70,8 @@ class JwtServiceTest {
     void parseRefresh_rejectsAccessToken() {
         User user = User.builder()
                 .id(UUID.randomUUID())
-                .username("u").email("u@x.com").passwordHash("h").role(Role.USER)
+                .telegramId(42L)
+                .role(Role.USER)
                 .build();
         String access = jwtService.issueAccessToken(user);
 

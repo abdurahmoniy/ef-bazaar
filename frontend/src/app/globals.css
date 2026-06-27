@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light mode — biz default'da dark mode'damiz, lekin Tailwind shadcn'lari uchun saqlaymiz */
+    --background: 240 25% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 240 20% 12%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 240 20% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 189 94% 55%;            /* cyber cyan */
+    --primary-foreground: 240 25% 8%;
+
+    --secondary: 258 90% 66%;          /* cyber purple */
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 240 15% 18%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 258 90% 66%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 240 20% 20%;
+    --input: 240 20% 18%;
+    --ring: 189 94% 55%;
+
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply text-foreground antialiased;
+    background: linear-gradient(135deg, #0f0c29 0%, #1a1147 50%, #302b63 100%);
+    background-size: 200% 200%;
+    background-attachment: fixed;
+    min-height: 100vh;
+    animation: gradient-shift 12s ease infinite;
+  }
+
+  ::selection {
+    @apply bg-cyber-cyan/30 text-foreground;
+  }
+}
+
+@layer components {
+  /* Glassmorphism utility — frosted glass card */
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-glass;
+  }
+
+  .glass-strong {
+    @apply bg-white/[0.07] backdrop-blur-2xl border border-white/15 shadow-glass;
+  }
+
+  /* Glowing gradient text */
+  .text-gradient {
+    @apply bg-gradient-to-r from-cyber-cyan via-cyber-purple to-cyber-pink bg-clip-text text-transparent;
+  }
+
+  /* Neon border (animated gradient) */
+  .neon-border {
+    position: relative;
+    background: hsl(var(--card));
+  }
+  .neon-border::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, #06b6d4, #a855f7, #ec4899);
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Subtle radial glow background */
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+}
+
+@layer utilities {
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20;
+  }
+}

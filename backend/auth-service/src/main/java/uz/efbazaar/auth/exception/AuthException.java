@@ -15,24 +15,9 @@ public class AuthException extends RuntimeException {
         this.code = code;
     }
 
-    public static AuthException usernameTaken() {
-        return new AuthException(HttpStatus.CONFLICT, "username_taken",
-                "Bunday username allaqachon mavjud");
-    }
-
-    public static AuthException emailTaken() {
-        return new AuthException(HttpStatus.CONFLICT, "email_taken",
-                "Bu email allaqachon ro'yxatdan o'tgan");
-    }
-
     public static AuthException telegramAlreadyLinked() {
         return new AuthException(HttpStatus.CONFLICT, "telegram_already_linked",
                 "Ushbu Telegram akkaunt boshqa foydalanuvchiga bog'langan");
-    }
-
-    public static AuthException invalidCredentials() {
-        return new AuthException(HttpStatus.UNAUTHORIZED, "invalid_credentials",
-                "Login yoki parol noto'g'ri");
     }
 
     public static AuthException invalidToken() {
@@ -48,5 +33,30 @@ public class AuthException extends RuntimeException {
     public static AuthException userNotFound() {
         return new AuthException(HttpStatus.NOT_FOUND, "user_not_found",
                 "Foydalanuvchi topilmadi");
+    }
+
+    public static AuthException googleNotLinked() {
+        return new AuthException(HttpStatus.NOT_FOUND, "GOOGLE_NOT_LINKED",
+                "Bu Google akkaunt biror profilga ulanmagan. Telegram orqali kiring va profilda Google'ni bog'lang.");
+    }
+
+    public static AuthException googleAlreadyLinked() {
+        return new AuthException(HttpStatus.CONFLICT, "google_already_linked",
+                "Bu Google akkaunt boshqa foydalanuvchiga ulangan");
+    }
+
+    public static AuthException invalidGoogleToken() {
+        return new AuthException(HttpStatus.UNAUTHORIZED, "invalid_google_token",
+                "Google token noto'g'ri yoki muddati o'tgan");
+    }
+
+    public static AuthException googleEmailUnverified() {
+        return new AuthException(HttpStatus.BAD_REQUEST, "google_email_unverified",
+                "Google email tasdiqlanmagan");
+    }
+
+    public static AuthException googleNotConfigured() {
+        return new AuthException(HttpStatus.SERVICE_UNAVAILABLE, "google_not_configured",
+                "Google OAuth hozircha sozlanmagan");
     }
 }

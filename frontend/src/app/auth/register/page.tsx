@@ -1,0 +1,55 @@
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { ShieldCheck, Zap, Trophy } from 'lucide-react';
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { isAuthenticated } from '@/lib/auth';
+import { RegisterForm } from './register-form';
+
+export const dynamic = 'force-dynamic';
+
+const PERKS = [
+  { icon: ShieldCheck, label: 'Xavfsiz savdo' },
+  { icon: Zap,         label: 'Tezkor sotuv' },
+  { icon: Trophy,      label: 'Pro accountlar' },
+];
+
+export default async function RegisterPage() {
+  if (await isAuthenticated()) redirect('/profile');
+
+  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
+
+  return (
+    <Card>
+      <CardHeader className="text-center">
+        <CardTitle>Ro'yxatdan o'tish</CardTitle>
+        <CardDescription>
+          Telegram orqali bir bosishda. Email va parol kerak emas.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-3 gap-2 text-center">
+          {PERKS.map(({ icon: Icon, label }) => (
+            <div key={label} className="rounded-xl bg-white/5 border border-white/10 p-3">
+              <Icon className="h-5 w-5 mx-auto mb-1.5 text-cyber-cyan" />
+              <p className="text-xs text-muted-foreground">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        <RegisterForm botUsername={botUsername} />
+
+        <p className="text-center text-xs text-muted-foreground leading-relaxed">
+          Davom etish orqali Foydalanish shartlari va Maxfiylik siyosatiga rozilik bildirasiz.
+        </p>
+
+        <p className="text-center text-sm text-muted-foreground">
+          Allaqachon akkountingiz bormi?{' '}
+          <Link href="/auth/login" className="font-semibold text-cyber-cyan hover:underline">
+            Kirish
+          </Link>
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
