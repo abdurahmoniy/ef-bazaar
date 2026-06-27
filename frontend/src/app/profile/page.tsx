@@ -17,7 +17,7 @@ export default async function ProfilePage() {
   if (!user) redirect('/auth/login');
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
-  const initials = (user.displayName || user.username || 'U')
+  const initials = (user.displayName || 'U')
     .split(' ')
     .map((s) => s[0])
     .filter(Boolean)
@@ -38,7 +38,7 @@ export default async function ProfilePage() {
           <CardContent className="p-6 sm:p-8">
             <div className="flex flex-col sm:flex-row sm:items-center gap-6">
               <Avatar className="h-24 w-24 ring-4 ring-cyber-cyan/20">
-                {user.photoUrl && <AvatarImage src={user.photoUrl} alt={user.displayName} />}
+                {user.telegramPhotoUrl && <AvatarImage src={user.telegramPhotoUrl} alt={user.displayName} />}
                 <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
               </Avatar>
 
@@ -58,8 +58,8 @@ export default async function ProfilePage() {
                   )}
                 </div>
 
-                {user.username && (
-                  <p className="text-muted-foreground text-sm mt-1">@{user.username}</p>
+                {user.telegramUsername && (
+                  <p className="text-muted-foreground text-sm mt-1">@{user.telegramUsername}</p>
                 )}
 
                 <div className="flex flex-wrap gap-2 mt-3">
@@ -105,11 +105,11 @@ export default async function ProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <Row label="Telegram ID" value={user.telegramId} mono />
+            <Row label="Telegram ID" value={String(user.telegramId)} mono />
             <Separator />
             <Row label="User ID" value={user.id} mono />
             <Separator />
-            <Row label="Ro'llar" value={user.roles.join(', ') || '—'} />
+            <Row label="Ro'llar" value={user.roles?.join(', ') || '—'} />
             <Separator />
             <Row label="Ro'yxatdan o'tgan" value={new Date(user.createdAt).toLocaleString('uz-UZ')} />
           </CardContent>

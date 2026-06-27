@@ -10,5 +10,6 @@ public interface UserMapper {
 
     @Mapping(target = "displayName", expression = "java(user.displayName())")
     @Mapping(target = "googleLinked", expression = "java(user.getGoogleId() != null)")
+    @Mapping(target = "roles", expression = "java(java.util.List.of(\"ROLE_\" + user.getRole().name()))")
     UserResponse toResponse(User user);
 }

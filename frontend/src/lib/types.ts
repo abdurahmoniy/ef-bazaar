@@ -14,10 +14,12 @@ export interface TelegramAuthData {
 
 export interface User {
   id: string;
-  telegramId: string;
+  telegramId: number;
+  telegramUsername?: string | null;
+  telegramFirstName?: string | null;
+  telegramLastName?: string | null;
+  telegramPhotoUrl?: string | null;
   displayName: string;
-  username?: string | null;
-  photoUrl?: string | null;
   email?: string | null;
   googleLinked: boolean;
   verified: boolean;
