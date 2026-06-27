@@ -5,11 +5,16 @@
 
 name: CI
 
+# Faqat PR paytida — main'ga merge bo'lganda build.yml o'zi run qiladi (test pass'siz merge bo'lmaydi).
+# Bu workflow ikki marta ishlamasligi uchun `push: main` triggeri olib tashlandi.
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
+
+# Bir PR'ga ko'p commit kelsa, oldingi run cancel qilinadi (resurs tejash)
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
