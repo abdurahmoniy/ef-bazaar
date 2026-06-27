@@ -44,7 +44,7 @@ public class GoogleOAuthService {
         user.setEmail(identity.email());
         user.setVerified(true);
 
-        events.googleLinked(user.getId(), identity.email());
+        events.googleLinked(user);
         log.info("Google linked: userId={} email={}", user.getId(), identity.email());
         return user;
     }
