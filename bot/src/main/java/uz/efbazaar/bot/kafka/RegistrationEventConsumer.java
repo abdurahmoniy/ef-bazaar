@@ -11,7 +11,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Yangi ro'yxatdan o'tish ma'lumotlarini Telegram registration topikiga yuboradi.
+ * Forwards new user registrations to the Telegram registration topic.
+ * Source event: {@code efbazaar.auth.user-registered} (Telegram-first model).
  */
 @Slf4j
 @Component
@@ -33,13 +34,16 @@ public class RegistrationEventConsumer {
     public void onUserRegistered(UserRegisteredDto event) {
         try {
             String html = "👤 <b>Yangi foydalanuvchi ro'yxatdan o'tdi</b>\n" +
-                    "<b>Username:</b> <code>" + escape(event.username()) + "</code>\n" +
-                    "<b>Email:</b> <code>" + escape(event.email()) + "</code>\n" +
+                    "<b>Ism:</b> " + escape(event.displayName()) + "\n" +
+                    "<b>Telegram:</b> <a href=\"tg://user?id=" + event.telegramId() + "\">" +
+                        event.telegramId() + "</a>\n" +
                     "<b>User ID:</b> <code>" + event.userId() + "</code>\n" +
                     "<b>Vaqt:</b> <i>" + TS_FMT.format(event.occurredAt()) + "</i>";
             telegram.sendMessage(props.groupChatId(), props.topics().registration(), html);
+            log.info("Registration forwarded to Telegram: userId={} tgId={}",
+                    event.userId(), event.telegramId());
         } catch (Exception e) {
-            log.error("Failed to forward registration to Telegram: {}", e.getMessage());
+            log.error("Failed to forward registration to Telegram: {}", e.getMessage(), e);
         }
     }
 
