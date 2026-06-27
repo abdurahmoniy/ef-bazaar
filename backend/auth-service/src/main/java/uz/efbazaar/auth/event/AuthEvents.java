@@ -15,9 +15,20 @@ public final class AuthEvents {
 
     private AuthEvents() {}
 
-    public record UserRegistered(UUID userId, Long telegramId, String displayName, Instant occurredAt) {}
+    public record UserRegistered(
+            UUID userId,
+            Long telegramId,
+            String telegramUsername,
+            String displayName,
+            Instant occurredAt) {}
 
     public record UserLoggedIn(UUID userId, String method, Instant occurredAt) {}
 
-    public record GoogleLinked(UUID userId, String email, Instant occurredAt) {}
+    public record GoogleLinked(
+            UUID userId,
+            Long telegramId,
+            String telegramUsername,
+            String displayName,
+            String email,
+            Instant occurredAt) {}
 }

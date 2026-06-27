@@ -11,8 +11,12 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Forwards new user registrations to the Telegram registration topic.
- * Source event: {@code efbazaar.auth.user-registered} (Telegram-first model).
+ * Forwards user registration and verification events to the Telegram
+ * registration topic.
+ * <ul>
+ *   <li>{@code efbazaar.auth.user-registered} — new Telegram register</li>
+ *   <li>{@code efbazaar.auth.google-linked}   — Google link → verified</li>
+ * </ul>
  */
 @Slf4j
 @Component
@@ -31,20 +35,51 @@ public class RegistrationEventConsumer {
             groupId = "bot-registration-forwarder",
             properties = {"spring.json.value.default.type=uz.efbazaar.bot.kafka.UserRegisteredDto"}
     )
-    public void onUserRegistered(UserRegisteredDto event) {
+    public void onUserRegistered(UserRegisteredDto e) {
         try {
             String html = "👤 <b>Yangi foydalanuvchi ro'yxatdan o'tdi</b>\n" +
-                    "<b>Ism:</b> " + escape(event.displayName()) + "\n" +
-                    "<b>Telegram:</b> <a href=\"tg://user?id=" + event.telegramId() + "\">" +
-                        event.telegramId() + "</a>\n" +
-                    "<b>User ID:</b> <code>" + event.userId() + "</code>\n" +
-                    "<b>Vaqt:</b> <i>" + TS_FMT.format(event.occurredAt()) + "</i>";
-            telegram.sendMessage(props.groupChatId(), props.topics().registration(), html);
-            log.info("Registration forwarded to Telegram: userId={} tgId={}",
-                    event.userId(), event.telegramId());
-        } catch (Exception e) {
-            log.error("Failed to forward registration to Telegram: {}", e.getMessage(), e);
+                    "<b>Ism:</b> " + escape(e.displayName()) + "\n" +
+                    usernameLine(e.telegramUsername()) +
+                    "<b>Telegram ID:</b> <a href=\"tg://user?id=" + e.telegramId() + "\"><code>" +
+                        e.telegramId() + "</code></a>\n" +
+                    "<b>User ID:</b> <code>" + e.userId() + "</code>\n" +
+                    "<b>Vaqt:</b> <i>" + TS_FMT.format(e.occurredAt()) + "</i>";
+            send(html, "registered userId=" + e.userId());
+        } catch (Exception ex) {
+            log.error("Failed to forward UserRegistered: {}", ex.getMessage(), ex);
         }
+    }
+
+    @KafkaListener(
+            topics = "efbazaar.auth.google-linked",
+            groupId = "bot-registration-forwarder",
+            properties = {"spring.json.value.default.type=uz.efbazaar.bot.kafka.GoogleLinkedDto"}
+    )
+    public void onGoogleLinked(GoogleLinkedDto e) {
+        try {
+            String html = "🛡 <b>Foydalanuvchi tasdiqlandi (Google)</b>\n" +
+                    "<b>Ism:</b> " + escape(e.displayName()) + "\n" +
+                    usernameLine(e.telegramUsername()) +
+                    "<b>Telegram ID:</b> <a href=\"tg://user?id=" + e.telegramId() + "\"><code>" +
+                        e.telegramId() + "</code></a>\n" +
+                    "<b>Email:</b> <code>" + escape(e.email()) + "</code>\n" +
+                    "<b>User ID:</b> <code>" + e.userId() + "</code>\n" +
+                    "<b>Vaqt:</b> <i>" + TS_FMT.format(e.occurredAt()) + "</i>";
+            send(html, "google-linked userId=" + e.userId());
+        } catch (Exception ex) {
+            log.error("Failed to forward GoogleLinked: {}", ex.getMessage(), ex);
+        }
+    }
+
+    private void send(String html, String diag) {
+        telegram.sendMessage(props.groupChatId(), props.topics().registration(), html);
+        log.info("Registration topic ← {}", diag);
+    }
+
+    private static String usernameLine(String username) {
+        return username == null || username.isBlank()
+                ? ""
+                : "<b>Username:</b> @" + escape(username) + "\n";
     }
 
     private static String escape(String s) {

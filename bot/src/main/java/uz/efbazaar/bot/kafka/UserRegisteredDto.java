@@ -7,6 +7,7 @@ import java.util.UUID;
 public record UserRegisteredDto(
         UUID userId,
         Long telegramId,
+        String telegramUsername,
         String displayName,
         Instant occurredAt
 ) {}

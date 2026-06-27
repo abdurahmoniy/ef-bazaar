@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import uz.efbazaar.auth.domain.User;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -15,9 +16,14 @@ public class AuthEventPublisher {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    public void userRegistered(UUID userId, Long telegramId, String displayName) {
-        var event = new AuthEvents.UserRegistered(userId, telegramId, displayName, Instant.now());
-        send(AuthEvents.TOPIC_USER_REGISTERED, userId.toString(), event);
+    public void userRegistered(User user) {
+        var event = new AuthEvents.UserRegistered(
+                user.getId(),
+                user.getTelegramId(),
+                user.getTelegramUsername(),
+                user.displayName(),
+                Instant.now());
+        send(AuthEvents.TOPIC_USER_REGISTERED, user.getId().toString(), event);
     }
 
     public void userLoggedIn(UUID userId, String method) {
@@ -25,9 +31,15 @@ public class AuthEventPublisher {
         send(AuthEvents.TOPIC_USER_LOGGED_IN, userId.toString(), event);
     }
 
-    public void googleLinked(UUID userId, String email) {
-        var event = new AuthEvents.GoogleLinked(userId, email, Instant.now());
-        send(AuthEvents.TOPIC_GOOGLE_LINKED, userId.toString(), event);
+    public void googleLinked(User user) {
+        var event = new AuthEvents.GoogleLinked(
+                user.getId(),
+                user.getTelegramId(),
+                user.getTelegramUsername(),
+                user.displayName(),
+                user.getEmail(),
+                Instant.now());
+        send(AuthEvents.TOPIC_GOOGLE_LINKED, user.getId().toString(), event);
     }
 
     private void send(String topic, String key, Object event) {

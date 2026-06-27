@@ -60,7 +60,7 @@ public class TelegramAuthService {
                 .build();
         user = userRepository.save(user);
         log.info("User registered via Telegram: id={} telegramId={}", user.getId(), user.getTelegramId());
-        events.userRegistered(user.getId(), user.getTelegramId(), user.displayName());
+        events.userRegistered(user);
         return tokenIssuer.issue(user);
     }
 }
