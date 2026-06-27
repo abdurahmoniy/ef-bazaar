@@ -3,10 +3,10 @@ package uz.efbazaar.bot.kafka;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Mirrors {@code AuthEvents.UserRegistered} from auth-service. */
+/** Mirrors {@code AuthEvents.UserRegistered} from auth-service (Telegram-first model). */
 public record UserRegisteredDto(
         UUID userId,
-        String username,
-        String email,
+        Long telegramId,
+        String displayName,
         Instant occurredAt
 ) {}
