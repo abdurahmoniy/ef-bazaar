@@ -99,6 +99,10 @@ write_env() {
   upsert_env .env NGINX_HTTP_PORT         "${NGINX_HTTP_PORT:-80}"
   upsert_env .env NGINX_HTTPS_PORT        "${NGINX_HTTPS_PORT:-443}"
 
+  # Google OAuth — ID token flow uses only client_id (audience check on backend,
+  # browser GIS init on frontend). Client secret is NOT needed for this flow.
+  upsert_env .env GOOGLE_CLIENT_ID        "${GOOGLE_CLIENT_ID:-}"
+
   chmod 600 .env
   echo "==> .env written ($(wc -l < .env) lines)"
 }

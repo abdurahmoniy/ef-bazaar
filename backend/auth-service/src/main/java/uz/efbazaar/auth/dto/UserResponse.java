@@ -9,13 +9,14 @@ import java.util.UUID;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record UserResponse(
         UUID id,
-        String username,
-        String email,
         Long telegramId,
         String telegramUsername,
         String telegramFirstName,
         String telegramLastName,
         String telegramPhotoUrl,
+        String displayName,
+        String email,
+        boolean googleLinked,
         boolean verified,
         Role role,
         Instant createdAt

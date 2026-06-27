@@ -8,6 +8,7 @@ import uz.efbazaar.auth.dto.UserResponse;
 @Mapper(componentModel = "spring")
 public interface UserMapper {
 
-    @Mapping(target = "verified", expression = "java(user.isVerified())")
+    @Mapping(target = "displayName", expression = "java(user.displayName())")
+    @Mapping(target = "googleLinked", expression = "java(user.getGoogleId() != null)")
     UserResponse toResponse(User user);
 }

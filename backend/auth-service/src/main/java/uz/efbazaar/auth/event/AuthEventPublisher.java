@@ -15,19 +15,19 @@ public class AuthEventPublisher {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    public void userRegistered(UUID userId, String username, String email) {
-        var event = new AuthEvents.UserRegistered(userId, username, email, Instant.now());
+    public void userRegistered(UUID userId, Long telegramId, String displayName) {
+        var event = new AuthEvents.UserRegistered(userId, telegramId, displayName, Instant.now());
         send(AuthEvents.TOPIC_USER_REGISTERED, userId.toString(), event);
     }
 
-    public void userLoggedIn(UUID userId) {
-        var event = new AuthEvents.UserLoggedIn(userId, Instant.now());
+    public void userLoggedIn(UUID userId, String method) {
+        var event = new AuthEvents.UserLoggedIn(userId, method, Instant.now());
         send(AuthEvents.TOPIC_USER_LOGGED_IN, userId.toString(), event);
     }
 
-    public void telegramLinked(UUID userId, Long telegramId) {
-        var event = new AuthEvents.TelegramLinked(userId, telegramId, Instant.now());
-        send(AuthEvents.TOPIC_TELEGRAM_LINKED, userId.toString(), event);
+    public void googleLinked(UUID userId, String email) {
+        var event = new AuthEvents.GoogleLinked(userId, email, Instant.now());
+        send(AuthEvents.TOPIC_GOOGLE_LINKED, userId.toString(), event);
     }
 
     private void send(String topic, String key, Object event) {

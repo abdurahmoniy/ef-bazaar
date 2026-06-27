@@ -70,6 +70,8 @@ app:
   telegram:
     bot-token: ${TELEGRAM_BOT_TOKEN:}
     login-max-age-seconds: 86400
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
 
 springdoc:
   api-docs:

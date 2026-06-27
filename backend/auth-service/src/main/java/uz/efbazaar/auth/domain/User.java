@@ -20,18 +20,9 @@ public class User {
     @Column(columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id;
 
-    @Column(nullable = false, length = 64)
-    private String username;
+    // ----- Telegram (mandatory — primary identity) -----
 
-    @Column(nullable = false, length = 255)
-    private String email;
-
-    @Column(name = "password_hash", nullable = false, length = 100)
-    private String passwordHash;
-
-    // ----- Telegram link (account verification + cross-project identity) -----
-
-    @Column(name = "telegram_id")
+    @Column(name = "telegram_id", nullable = false, unique = true)
     private Long telegramId;
 
     @Column(name = "telegram_username", length = 64)
@@ -45,6 +36,20 @@ public class User {
 
     @Column(name = "telegram_photo_url", length = 512)
     private String telegramPhotoUrl;
+
+    // ----- Google link (optional — sets verified flag + email) -----
+
+    @Column(name = "google_id", length = 255)
+    private String googleId;
+
+    @Column(length = 255)
+    private String email;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean verified = false;
+
+    // ----- Role + timestamps -----
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
@@ -70,7 +75,15 @@ public class User {
         updatedAt = Instant.now();
     }
 
-    public boolean isVerified() {
-        return telegramId != null;
+    public String displayName() {
+        StringBuilder sb = new StringBuilder();
+        if (telegramFirstName != null) sb.append(telegramFirstName);
+        if (telegramLastName != null) {
+            if (!sb.isEmpty()) sb.append(' ');
+            sb.append(telegramLastName);
+        }
+        if (sb.isEmpty() && telegramUsername != null) sb.append('@').append(telegramUsername);
+        if (sb.isEmpty()) sb.append("user-").append(telegramId);
+        return sb.toString();
     }
 }
