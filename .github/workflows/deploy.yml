@@ -65,8 +65,8 @@ jobs:
                 -c "url.https://x-access-token:${GH_TOKEN}@github.com/.insteadOf=git@github.com:" \
                 fetch --all
             git reset --hard origin/main
-            echo "=== running deploy.sh (deploy all — docker decides what to recreate) ==="
-            FORCE_ALL=1 bash deploy.sh > "$LOG" 2>&1
+            echo "=== running deploy.sh (smart — only changed services recreate) ==="
+            bash deploy.sh > "$LOG" 2>&1
             STATUS=$?
             echo "=== deploy.sh exit status: $STATUS ==="
             echo "=== last 150 lines of log ==="

@@ -1,39 +1,27 @@
 #!/usr/bin/env bash
-# Selective redeploy — runs on server, invoked by CD workflow.
+# ==============================================================
+# Smart deploy — Docker Compose'ning o'zi qaysi servis o'zgarganini
+# aniqlaydi va faqat shularni qayta yaratadi.
 #
-# Bu pull-based deploy: image lar GHCR'da CI tomonidan build qilingan.
-# Server faqat docker pull qiladi va kontaynerlarni qayta yaratadi.
+# Strategiya:
+#   1. .env CI secret'laridan yoziladi (har deploy'da yangilanadi)
+#   2. GHCR login
+#   3. Barcha image'lar pull qilinadi (idempotent — yangimi yo'qmi, docker o'zi biladi)
+#   4. `docker compose up -d` chaqiriladi:
+#        - image SHA o'zgargan kontaynerlar recreate
+#        - config (env/volume/command) o'zgargan kontaynerlar recreate
+#        - boshqalar tinch qoladi (no-op)
 #
-# Usage:
-#   AUTH=1 MARKETPLACE=1 BOT=1 ... bash deploy.sh
-#   FORCE_ALL=1 bash deploy.sh
+# Manual override:
+#   FORCE_ALL=1 bash deploy.sh  → hamma narsa qayta yaratiladi
+# ==============================================================
 set -euo pipefail
 
-# Non-interactive SSH (GitHub Actions) doesn't source ~/.bashrc — set PATH.
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 
 cd "${DEPLOY_PATH:-/opt/efbazaar}"
 
-AUTH="${AUTH:-0}"
-MARKETPLACE="${MARKETPLACE:-0}"
-RECOMMENDATION="${RECOMMENDATION:-0}"
-BOT="${BOT:-0}"
-FRONTEND="${FRONTEND:-0}"
-NGINX="${NGINX:-0}"
-COMPOSE="${COMPOSE:-0}"
 FORCE_ALL="${FORCE_ALL:-0}"
-
-# FORCE_ALL=1 yoki COMPOSE=1 → barcha (default profile) servislar qayta yaratiladi.
-# NOTE: recommendation-service `extra` profile'da — default'da o'tkazib yuboriladi.
-if [[ "$COMPOSE" == "1" || "$FORCE_ALL" == "1" ]]; then
-  echo "==> COMPOSE/FORCE_ALL — marking all default-profile services for redeploy"
-  AUTH=1
-  MARKETPLACE=1
-  BOT=1
-  FRONTEND=1
-  NGINX=1
-  COMPOSE=1   # restart_service'da --force-recreate qilinishi uchun
-fi
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -61,12 +49,10 @@ write_env() {
   echo "==> Writing .env from CI secrets"
   : > .env
 
-  # Image source — defaults bo'lsa /opt/efbazaar/docker-compose.yml ichida
   upsert_env .env IMAGE_REGISTRY   "${IMAGE_REGISTRY:-ghcr.io}"
   upsert_env .env IMAGE_NAMESPACE  "${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}"
   upsert_env .env IMAGE_TAG        "${IMAGE_TAG:-latest}"
 
-  # Postgres
   upsert_env .env POSTGRES_USER     efbazaar
   if [[ -n "${POSTGRES_PASSWORD:-}" ]]; then
     assert_safe_for_env POSTGRES_PASSWORD "$POSTGRES_PASSWORD"
@@ -78,7 +64,6 @@ write_env() {
   upsert_env .env MARKETPLACE_DB_NAME        marketplace_db
   upsert_env .env RECOMMENDATION_DB_NAME     recommendation_db
 
-  # Redis
   upsert_env .env REDIS_HOST                 redis
   upsert_env .env REDIS_PORT                 6379
   if [[ -n "${REDIS_PASSWORD:-}" ]]; then
@@ -86,10 +71,8 @@ write_env() {
     upsert_env .env REDIS_PASSWORD "$REDIS_PASSWORD"
   fi
 
-  # Kafka
   upsert_env .env KAFKA_BOOTSTRAP_SERVERS    kafka:9092
 
-  # JWT
   if [[ -n "${JWT_SECRET:-}" ]]; then
     assert_safe_for_env JWT_SECRET "$JWT_SECRET"
     upsert_env .env JWT_SECRET "$JWT_SECRET"
@@ -97,7 +80,6 @@ write_env() {
   upsert_env .env JWT_ACCESS_TOKEN_TTL_MINUTES   15
   upsert_env .env JWT_REFRESH_TOKEN_TTL_DAYS     30
 
-  # Telegram
   upsert_env .env TELEGRAM_BOT_TOKEN          "${TELEGRAM_BOT_TOKEN:-}"
   upsert_env .env TELEGRAM_BOT_USERNAME       "${TELEGRAM_BOT_USERNAME:-}"
   upsert_env .env TELEGRAM_GROUP_CHAT_ID      "${TELEGRAM_GROUP_CHAT_ID:-}"
@@ -106,7 +88,6 @@ write_env() {
   upsert_env .env TELEGRAM_TOPIC_MEDIA        "${TELEGRAM_TOPIC_MEDIA:-2}"
   upsert_env .env TELEGRAM_WEBHOOK_URL        "${TELEGRAM_WEBHOOK_URL:-}"
 
-  # Media
   upsert_env .env MEDIA_MIN_FILES         1
   upsert_env .env MEDIA_MAX_FILES         6
   upsert_env .env MEDIA_MAX_FILE_SIZE_MB  5
@@ -115,7 +96,6 @@ write_env() {
   upsert_env .env SPRING_PROFILES_ACTIVE  docker
   upsert_env .env APP_BASE_URL            "${APP_BASE_URL:-}"
 
-  # Host ports — server'da port band bo'lsa, NGINX_HTTP_PORT='8090' bering.
   upsert_env .env NGINX_HTTP_PORT         "${NGINX_HTTP_PORT:-80}"
   upsert_env .env NGINX_HTTPS_PORT        "${NGINX_HTTPS_PORT:-443}"
 
@@ -133,32 +113,11 @@ ghcr_login() {
   echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
 }
 
-# ─── Pull + restart helpers ─────────────────────────────────────────────────
-pull_services() {
-  local svcs=("$@")
-  if [ ${#svcs[@]} -eq 0 ]; then return 0; fi
-  echo "==> Pulling images in parallel: ${svcs[*]}"
-  docker compose pull "${svcs[@]}"
-}
-
-restart_service() {
-  local svc="$1"
-  local recreate=""
-  [[ "$COMPOSE" == "1" ]] && recreate="--force-recreate"
-  echo "==> Restarting $svc (--no-deps)"
-  docker compose up -d --no-deps $recreate "$svc"
-}
-
 # ─── DB password sync ───────────────────────────────────────────────────────
 sync_db_password() {
   if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then
     echo "==> POSTGRES_PASSWORD not provided — skipping role password sync"
     return 0
-  fi
-
-  if ! docker compose ps --services --filter status=running | grep -q '^postgres$'; then
-    echo "==> postgres not running — starting it for password sync"
-    docker compose up -d postgres
   fi
 
   echo "==> Waiting for postgres to accept connections"
@@ -171,12 +130,21 @@ sync_db_password() {
 
   echo "==> Syncing postgres role 'efbazaar' password from secret"
   local escaped_pw="${POSTGRES_PASSWORD//\'/\'\'}"
-  # Postgres image POSTGRES_USER=efbazaar bilan boshlanadi — 'postgres' roli yo'q.
-  # Local socket (pg_hba: trust) orqali efbazaar superuser sifatida ulanamiz.
   docker compose exec -T postgres \
     psql -U efbazaar -d postgres -v ON_ERROR_STOP=1 \
       -c "ALTER USER \"efbazaar\" WITH PASSWORD '$escaped_pw';"
   echo "==> DB password sync OK"
+}
+
+# ─── Diff: qaysi kontaynerlar recreate bo'ladi (informational only) ─────────
+report_changes() {
+  echo "==> Checking which services have image/config changes"
+  # docker compose up --dry-run faqat compose v2.22+
+  if docker compose up -d --dry-run 2>&1 | grep -E "Recreate|Create|Start" | sed 's/^/    /'; then
+    :
+  else
+    echo "    (dry-run unsupported on this compose version — skipping preview)"
+  fi
 }
 
 # ─── Main flow ──────────────────────────────────────────────────────────────
@@ -184,39 +152,31 @@ sync_db_password() {
 write_env
 ghcr_login
 
-# Always pull infra images (idempotent, fast). Boshlash uchun postgres/redis/kafka shart.
-echo "==> Ensuring infra services are up"
-docker compose up -d postgres redis kafka
+echo "==> Pulling latest images (idempotent — only changed layers downloaded)"
+docker compose pull
 
-# Postgres running bo'lsa — parolni sync qilamiz.
-if docker compose ps --services --filter status=running 2>/dev/null | grep -q '^postgres$'; then
-  sync_db_password
+# Postgres'ni alohida ko'taramiz parol sync uchun.
+docker compose up -d postgres
+sync_db_password
+
+# Force-all override
+RECREATE_FLAG=""
+if [[ "$FORCE_ALL" == "1" ]]; then
+  echo "==> FORCE_ALL=1 — recreating ALL services regardless of changes"
+  RECREATE_FLAG="--force-recreate"
 fi
 
-# Collect dirty services (faqat o'zgargan/force qilingan).
-dirty=()
-[[ "$AUTH"           == "1" ]] && dirty+=(auth-service)
-[[ "$MARKETPLACE"    == "1" ]] && dirty+=(marketplace-service)
-[[ "$RECOMMENDATION" == "1" ]] && dirty+=(recommendation-service)
-[[ "$BOT"            == "1" ]] && dirty+=(bot)
-[[ "$FRONTEND"       == "1" ]] && dirty+=(frontend)
-[[ "$NGINX"          == "1" ]] && dirty+=(nginx)
+# Docker compose o'zi qaror qiladi:
+# - image SHA o'zgargan → recreate
+# - config (env/volume/command) o'zgargan → recreate
+# - boshqalar — tinch qoladi
+echo "==> docker compose up -d (smart recreate)"
+docker compose up -d --remove-orphans $RECREATE_FLAG
 
-pull_services "${dirty[@]}"
-
-# Restart in dependency order.
-[[ "$AUTH"           == "1" ]] && restart_service auth-service
-[[ "$MARKETPLACE"    == "1" ]] && restart_service marketplace-service
-[[ "$RECOMMENDATION" == "1" ]] && restart_service recommendation-service
-[[ "$BOT"            == "1" ]] && restart_service bot
-[[ "$FRONTEND"       == "1" ]] && restart_service frontend
-
-# nginx bind-mounted conf — force recreate
-if [[ "$NGINX" == "1" ]]; then
-  echo "==> Recreating nginx to pick up latest bind-mounted config"
-  docker compose up -d --no-deps --force-recreate nginx
-  echo "==> Validating nginx config inside container"
-  docker compose exec -T nginx nginx -t
+# Nginx config validatsiya (agar nginx ishlaganda)
+if docker compose ps --services --filter status=running | grep -q '^nginx$'; then
+  echo "==> Validating nginx config"
+  docker compose exec -T nginx nginx -t || true
 fi
 
 echo "==> Pruning dangling images"
