@@ -77,8 +77,8 @@ services:
     restart: unless-stopped
     hostname: kafka
     environment:
-      # Default Kafka heap = 1G. Bizning use-case (kichik trafik) uchun 256MB yetadi.
-      KAFKA_HEAP_OPTS: "-Xms256m -Xmx256m"
+      # Default Kafka heap = 1G. Bizning use-case (kichik trafik) uchun 192MB yetadi (single-node KRaft).
+      KAFKA_HEAP_OPTS: "-Xms192m -Xmx192m"
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
@@ -101,8 +101,8 @@ services:
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - kafka_data:/var/lib/kafka/data
-    mem_limit: 420m
-    memswap_limit: 560m
+    mem_limit: 340m
+    memswap_limit: 480m
     networks:
       - efbazaar-net
 
@@ -113,9 +113,9 @@ services:
     container_name: efbazaar-auth
     restart: unless-stopped
     environment:
-      # SerialGC + TieredStopAtLevel=1 — 1vCPU/kichik heap uchun optimal.
-      # Heap 180m, metaspace cap 128m, OOM bo'lsa konteynerni o'ldirish (restart sodir bo'ladi).
-      JAVA_OPTS: "-Xms64m -Xmx180m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+      # Heap 280m (springdoc + spring security + kafka + jpa + redis + flyway = ko'p framework).
+      # Avval 180m edi — GC death spiral. Springdoc qo'shilgandan keyin baqomadi.
+      JAVA_OPTS: "-Xms96m -Xmx280m -XX:MaxMetaspaceSize=160m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
@@ -138,8 +138,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
-    mem_limit: 320m
-    memswap_limit: 512m
+    mem_limit: 460m
+    memswap_limit: 640m
     networks:
       - efbazaar-net
 
@@ -148,7 +148,8 @@ services:
     container_name: efbazaar-marketplace
     restart: unless-stopped
     environment:
-      JAVA_OPTS: "-Xms64m -Xmx220m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+      # Heap 320m — marketplace eng katta (springdoc + spring security + jpa + 2 datasource + flyway + redis + kafka + multipart).
+      JAVA_OPTS: "-Xms96m -Xmx320m -XX:MaxMetaspaceSize=160m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
       POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_PORT: ${POSTGRES_PORT}
@@ -175,8 +176,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
-    mem_limit: 360m
-    memswap_limit: 560m
+    mem_limit: 520m
+    memswap_limit: 720m
     networks:
       - efbazaar-net
 
