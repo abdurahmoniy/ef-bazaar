@@ -56,6 +56,11 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+  health:
+    # Kafka DOWN'ligi /actuator/health'ni DOWN qilmasin — Docker healthcheck pass bo'lishi uchun.
+    # Kafka holatini kuzatish uchun /actuator/metrics yoki alohida endpoint ishlatish kerak.
+    kafka:
+      enabled: false
 
 app:
   jwt:
