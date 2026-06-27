@@ -36,6 +36,13 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/cards/**").permitAll()
                         // Public — health
                         .requestMatchers("/actuator/**", "/api/v1/ping").permitAll()
+                        // Public — OpenAPI (api.* subdomain nginx basic auth ostida)
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/swagger-resources/**",
+                                "/webjars/**").permitAll()
                         // Hamma boshqa endpoint auth talab qiladi
                         .anyRequest().authenticated())
                 .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class)

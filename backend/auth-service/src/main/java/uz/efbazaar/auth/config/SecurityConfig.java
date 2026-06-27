@@ -40,6 +40,13 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh").permitAll()
                         // Public — health/metrics (nginx blokirovka qiladi tashqaridan)
                         .requestMatchers("/actuator/**", "/api/v1/ping").permitAll()
+                        // Public — Swagger UI + OpenAPI (api.* subdomain nginx basic auth ostida)
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/swagger-resources/**",
+                                "/webjars/**").permitAll()
                         // Protected — hamma boshqa
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
