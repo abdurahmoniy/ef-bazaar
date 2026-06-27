@@ -21,16 +21,18 @@ BOT="${BOT:-0}"
 FRONTEND="${FRONTEND:-0}"
 NGINX="${NGINX:-0}"
 COMPOSE="${COMPOSE:-0}"
+FORCE_ALL="${FORCE_ALL:-0}"
 
-# Compose/env changed → barcha servis qayta yaratiladi.
-if [[ "$COMPOSE" == "1" ]]; then
-  echo "==> compose/env changed — marking all app services for redeploy"
+# FORCE_ALL=1 yoki COMPOSE=1 → barcha (default profile) servislar qayta yaratiladi.
+# NOTE: recommendation-service `extra` profile'da — default'da o'tkazib yuboriladi.
+if [[ "$COMPOSE" == "1" || "$FORCE_ALL" == "1" ]]; then
+  echo "==> COMPOSE/FORCE_ALL — marking all default-profile services for redeploy"
   AUTH=1
   MARKETPLACE=1
-  RECOMMENDATION=1
   BOT=1
   FRONTEND=1
   NGINX=1
+  COMPOSE=1   # restart_service'da --force-recreate qilinishi uchun
 fi
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
