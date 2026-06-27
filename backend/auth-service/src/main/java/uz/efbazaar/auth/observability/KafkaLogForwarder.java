@@ -5,7 +5,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.ThrowableProxyUtil;
-import ch.qos.logback.core.AppenderBase;
+import ch.qos.logback.core.UnsynchronizedAppenderBase;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.LoggerFactory;
@@ -41,7 +41,10 @@ public class KafkaLogForwarder {
 
         Logger rootLogger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
 
-        var appender = new AppenderBase<ILoggingEvent>() {
+        // UnsynchronizedAppenderBase — ThreadLocal guard, sync lock yo'q.
+        // AppenderBase.doAppend (synchronized) ishlatsak, KafkaProducer.send metadata
+        // kutayotganda kafka producer network thread'i o'sha lock'ni kutib deadlock bo'ladi.
+        var appender = new UnsynchronizedAppenderBase<ILoggingEvent>() {
             private final AtomicBoolean publishing = new AtomicBoolean(false);
             private final ConcurrentLinkedQueue<ILoggingEvent> reentry = new ConcurrentLinkedQueue<>();
 
