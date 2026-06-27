@@ -61,6 +61,9 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+  health:
+    kafka:
+      enabled: false
 
 app:
   cards:

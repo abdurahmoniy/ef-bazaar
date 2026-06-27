@@ -37,6 +37,9 @@ management:
       exposure:
         include: health,info,metrics
       base-path: /actuator
+  health:
+    kafka:
+      enabled: false
 
 app:
   telegram:

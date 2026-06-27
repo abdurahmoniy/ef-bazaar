@@ -35,13 +35,17 @@ if [[ -z "$SWAGGER_PASS" ]]; then
   echo
 fi
 
-# ─── DNS sanity check ──────────────────────────────────────────────────
-SERVER_IP=$(curl -fsSL --max-time 5 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
-echo "==> Server IP: $SERVER_IP"
+# ─── DNS sanity check (IPv4 only — Let's Encrypt HTTP-01 IPv4'da ishlaydi) ──
+SERVER_IP=$(curl -4 -fsSL --max-time 5 https://ifconfig.me 2>/dev/null \
+        || curl -4 -fsSL --max-time 5 https://api.ipify.org 2>/dev/null \
+        || ip -4 addr show scope global 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
+echo "==> Server IPv4: $SERVER_IP"
 for d in "${DOMAINS[@]}"; do
-  resolved=$(getent hosts "$d" | awk '{print $1}' | head -1)
+  # A record uchun aniq IPv4 olamiz (getent IPv6 ham qaytarishi mumkin)
+  resolved=$(dig +short A "$d" 2>/dev/null | head -1)
+  [[ -z "$resolved" ]] && resolved=$(getent ahostsv4 "$d" 2>/dev/null | awk '{print $1}' | head -1)
   if [[ "$resolved" != "$SERVER_IP" ]]; then
-    echo "!! WARNING: $d -> $resolved (expected $SERVER_IP)"
+    echo "!! WARNING: $d -> ${resolved:-<no A record>} (expected $SERVER_IP)"
     echo "!! DNS A record to'g'rilanmagan bo'lishi mumkin. Davom etish xavfli."
     read -r -p "   Baribir davom etamizmi? [y/N] " yn
     [[ "$yn" =~ ^[Yy]$ ]] || exit 1

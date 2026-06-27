@@ -77,8 +77,8 @@ services:
     restart: unless-stopped
     hostname: kafka
     environment:
-      # Default Kafka heap = 1G. Bizning use-case (kichik trafik) uchun 192MB yetadi (single-node KRaft).
-      KAFKA_HEAP_OPTS: "-Xms192m -Xmx192m"
+      # 192m heap + JVM overhead → OOMKilled restart loop. Single-node KRaft uchun 256m minimum.
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx256m"
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
@@ -101,8 +101,8 @@ services:
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - kafka_data:/var/lib/kafka/data
-    mem_limit: 340m
-    memswap_limit: 480m
+    mem_limit: 420m
+    memswap_limit: 560m
     networks:
       - efbazaar-net
 
@@ -176,8 +176,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
-    mem_limit: 520m
-    memswap_limit: 720m
+    mem_limit: 420m
+    memswap_limit: 580m
     networks:
       - efbazaar-net
 
