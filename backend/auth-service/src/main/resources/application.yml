@@ -76,6 +76,8 @@ app:
   telegram:
     bot-token: ${TELEGRAM_BOT_TOKEN:}
     login-max-age-seconds: 86400
+    # Telegram Bot API base — overridable for local tests.
+    api-base-url: https://api.telegram.org
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
 
