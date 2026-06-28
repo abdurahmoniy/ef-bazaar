@@ -106,6 +106,45 @@ public class TelegramApiClient {
         }
     }
 
+    /**
+     * getUserProfilePhotos — user'ning profile rasmlari ro'yxati.
+     * Bizga eng birinchi rasm'ning eng katta o'lchami kerak.
+     *
+     * @return uploaded photo's file_id, or empty if user has no public photo.
+     */
+    public Optional<String> getUserProfilePhotoFileId(long userId) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("user_id", userId)
+                .put("limit", 1);
+        return postJson("getUserProfilePhotos", body)
+                .flatMap(result -> {
+                    JsonNode photos = result.path("photos");
+                    if (!photos.isArray() || photos.isEmpty()) return Optional.empty();
+                    JsonNode sizes = photos.get(0);
+                    if (!sizes.isArray() || sizes.isEmpty()) return Optional.empty();
+                    JsonNode largest = sizes.get(sizes.size() - 1);
+                    String fileId = largest.path("file_id").asText(null);
+                    return Optional.ofNullable(fileId);
+                });
+    }
+
+    /**
+     * sendPhoto with an already-uploaded file_id (no re-upload, instant).
+     * Used to forward profile photos into the media topic for audit/storage.
+     */
+    public Optional<UploadedPhoto> sendPhotoByFileId(String chatId, Integer threadId,
+                                                     String fileId, String caption) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("photo", fileId);
+        if (threadId != null) body.put("message_thread_id", threadId);
+        if (caption != null && !caption.isBlank()) {
+            body.put("caption", caption);
+            body.put("parse_mode", "HTML");
+        }
+        return postJson("sendPhoto", body).flatMap(this::extractOnePhoto);
+    }
+
     /** Returns a downloadable file path for a given file_id (call getFile then prepend api URL). */
     public Optional<String> getFilePath(String fileId) {
         ObjectNode body = objectMapper.createObjectNode().put("file_id", fileId);
