@@ -113,10 +113,20 @@ export async function getMe(): Promise<User | null> {
 }
 
 export async function logout() {
-  try {
-    await apiFetch('/auth/v1/auth/logout', { method: 'POST' });
-  } catch {
-    // backend'da xato bo'lsa ham cookie tozalaymiz
+  // Refresh tokenni httpOnly cookie'dan o'qib backend'ga uzatamiz — backend uni
+  // Redis blacklist'ga tushiradi (TTL = token expiry). Body bo'lmasa Spring
+  // `HttpMessageNotReadableException` tashlaydi va token blacklist'ga tushmaydi.
+  const jar = await cookies();
+  const refreshToken = jar.get(REFRESH_COOKIE_NAME)?.value;
+  if (refreshToken) {
+    try {
+      await apiFetch('/auth/v1/auth/logout', {
+        method: 'POST',
+        body: { refreshToken },
+      });
+    } catch {
+      // Token allaqachon yaroqsiz bo'lsa ham cookie'ni baribir tozalaymiz
+    }
   }
   await clearAuthCookies();
 }
