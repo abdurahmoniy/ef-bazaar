@@ -31,6 +31,16 @@ public class AuthEventPublisher {
         send(AuthEvents.TOPIC_USER_LOGGED_IN, userId.toString(), event);
     }
 
+    public void userPhotoNeeded(User user) {
+        var event = new AuthEvents.UserPhotoNeeded(
+                user.getId(),
+                user.getTelegramId(),
+                user.getTelegramUsername(),
+                user.displayName(),
+                Instant.now());
+        send(AuthEvents.TOPIC_USER_PHOTO_NEEDED, user.getId().toString(), event);
+    }
+
     public void googleLinked(User user) {
         var event = new AuthEvents.GoogleLinked(
                 user.getId(),

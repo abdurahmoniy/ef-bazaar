@@ -62,8 +62,22 @@ public class TelegramAuthService {
         user.setTelegramUsername(profile.username());
         user.setTelegramFirstName(profile.firstName());
         user.setTelegramLastName(profile.lastName());
-        user.setTelegramPhotoUrl(profile.photoUrl());
+        // Only overwrite stored photo URL if Telegram is currently providing one;
+        // Mini App initData often omits it, and we'd otherwise nuke an existing avatar.
+        if (profile.photoUrl() != null && !profile.photoUrl().isBlank()) {
+            user.setTelegramPhotoUrl(profile.photoUrl());
+        }
         events.userLoggedIn(user.getId(), "telegram");
+
+        // Backfill: registered before the photo pipeline existed or Mini App didn't
+        // include photo_url — ask the bot to upload it now. Bot consumer is async,
+        // login response isn't delayed.
+        boolean hasPhoto = (user.getTelegramPhotoUrl() != null && !user.getTelegramPhotoUrl().isBlank())
+                || (user.getTelegramPhotoFileId() != null && !user.getTelegramPhotoFileId().isBlank());
+        if (!hasPhoto) {
+            events.userPhotoNeeded(user);
+        }
+
         return tokenIssuer.issue(user);
     }
 
