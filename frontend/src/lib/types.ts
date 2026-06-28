@@ -50,10 +50,23 @@ export interface TelegramWebApp {
   expand?: () => void;
 }
 
+/**
+ * Telegram Login Widget JS API — exposed by telegram-widget.js once loaded.
+ * `auth()` opens a popup window with the OAuth flow (phone-entry or account-switch);
+ * the callback fires when the user completes auth or cancels (returns `false`).
+ */
+export interface TelegramLoginApi {
+  auth(
+    options: { bot_id: number; request_access?: 'write'; lang?: string },
+    callback: (data: TelegramAuthData | false) => void,
+  ): void;
+}
+
 declare global {
   interface Window {
     Telegram?: {
       WebApp?: TelegramWebApp;
+      Login?: TelegramLoginApi;
     };
   }
 }
