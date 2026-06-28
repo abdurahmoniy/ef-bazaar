@@ -21,6 +21,8 @@ public final class AuthEvents {
             Long telegramId,
             String telegramUsername,
             String displayName,
+            /** Always {@code null} on a fresh register — kept for shape parity with {@link UserPhotoNeeded}. */
+            String currentPhotoFileUniqueId,
             Instant occurredAt) {}
 
     public record UserLoggedIn(UUID userId, String method, Instant occurredAt) {}
@@ -36,6 +38,12 @@ public final class AuthEvents {
             Long telegramId,
             String telegramUsername,
             String displayName,
+            /**
+             * Stored {@code file_unique_id} of the photo we already have in the
+             * media topic, or {@code null} if none. Bot compares the user's current
+             * Telegram photo against this and skips re-uploading on a match.
+             */
+            String currentPhotoFileUniqueId,
             Instant occurredAt) {}
 
     public record GoogleLinked(

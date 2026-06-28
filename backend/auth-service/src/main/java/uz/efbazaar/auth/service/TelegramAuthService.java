@@ -69,15 +69,12 @@ public class TelegramAuthService {
         }
         events.userLoggedIn(user.getId(), "telegram");
 
-        // Backfill: file_id yo'q bo'lsa bot'dan rasm so'raymiz. URL'ga tayanmaymiz
-        // chunki Login Widget t.me/i/userpic URL'lari Telegram tomonidan vaqt o'tib
-        // stale qilinadi — file_id (bot media topic'ga upload qilgan) yagona barqaror
-        // manba. Bot consumer async, login response kechikmaydi.
-        boolean hasFileId = user.getTelegramPhotoFileId() != null
-                && !user.getTelegramPhotoFileId().isBlank();
-        if (!hasFileId) {
-            events.userPhotoNeeded(user);
-        }
+        // Photo sync — har login'da publish qilamiz, event ichida hozir saqlangan
+        // file_unique_id'ni o'tkazamiz. Bot Telegram'dagi joriy rasmni o'sha bilan
+        // solishtiradi: o'zgarmagan bo'lsa skip (media topic'ga qayta upload
+        // qilinmaydi), o'zgargan yoki yo'q bo'lsa — yangi upload + DB update.
+        // Bot consumer async, login response kechikmaydi.
+        events.userPhotoNeeded(user);
 
         return tokenIssuer.issue(user);
     }

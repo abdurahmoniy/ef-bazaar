@@ -4,17 +4,19 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Published after the bot uploads a freshly-registered user's profile photo into
- * the media topic. Auth-service consumes this and stores the {@code fileId} so
- * its photo proxy endpoint can stream the image on demand.
- *
- * <p>{@code messageId} is the audit-trail message_id in the media topic — kept
- * around so a developer can locate the source photo from the database row.
+ * Published after the bot uploads (or confirms) a user's profile photo in the
+ * media topic. Auth-service consumes this and persists the identifiers so its
+ * /me/photo proxy can stream the image and future logins can dedupe via
+ * {@code photoFileUniqueId}.
  */
 public record UserPhotoSetEvent(
         UUID userId,
         Long telegramId,
+        /** {@code file_id} returned by {@code sendPhoto} — used by getFile to download. */
         String photoFileId,
+        /** Telegram's stable identifier for the source photo. Survives reuploads. */
+        String photoFileUniqueId,
+        /** Media-topic message_id for manual audit. */
         Integer photoMessageId,
         Instant occurredAt
 ) {}

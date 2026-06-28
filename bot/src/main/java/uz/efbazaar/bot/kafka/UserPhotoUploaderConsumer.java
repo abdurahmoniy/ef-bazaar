@@ -7,18 +7,29 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import uz.efbazaar.bot.config.TelegramProperties;
 import uz.efbazaar.bot.telegram.TelegramApiClient;
+import uz.efbazaar.bot.telegram.TelegramApiClient.ProfilePhoto;
 
 import java.time.Instant;
 import java.util.Optional;
 
 /**
- * On user-registered, fetch the user's Telegram profile photo and forward it
- * into the media topic. Posts a separate, plaintext "audit row" message right
- * after the photo so a developer scrolling the topic can match a photo to its
- * owning user without having to query the database.
+ * Keeps the user's profile photo in the media topic in sync with whatever
+ * Telegram currently has, while avoiding redundant uploads.
  *
- * <p>Publishes {@code efbazaar.bot.user-photo-set} with the resulting file_id +
- * message_id so auth-service can persist them.
+ * <p>Flow per event:
+ * <ol>
+ *   <li>Ask Telegram for the user's current profile photo (file_id + file_unique_id).</li>
+ *   <li>If the user has no public photo — skip.</li>
+ *   <li>If {@code currentPhotoFileUniqueId} from auth matches the live one — skip
+ *       (we already uploaded this exact image; DB and media topic are up to date).</li>
+ *   <li>Otherwise, forward via {@code sendPhoto} (file_id, no re-upload) into the
+ *       media topic with an audit caption, then publish {@code user-photo-set}
+ *       so auth-service persists the new identifiers.</li>
+ * </ol>
+ *
+ * <p>Two listeners share the same handler: {@code user-registered} (fresh signup)
+ * and {@code user-photo-needed} (login-time sync). The {@code reason} string
+ * makes the source visible in the media-topic caption.
  */
 @Slf4j
 @Component
@@ -37,67 +48,73 @@ public class UserPhotoUploaderConsumer {
             properties = {"spring.json.value.default.type=uz.efbazaar.bot.kafka.UserRegisteredDto"}
     )
     public void onUserRegistered(UserRegisteredDto e) {
-        upload(e, "register");
+        sync(e, "register");
     }
 
-    /**
-     * Backfill — auth-service publishes this on login when a user has no stored
-     * photo (either they registered before this pipeline existed, or their Mini
-     * App initData didn't include {@code photo_url}). Same handler as registration.
-     */
     @KafkaListener(
             topics = "efbazaar.auth.user-photo-needed",
             groupId = "bot-user-photo-backfill",
             properties = {"spring.json.value.default.type=uz.efbazaar.bot.kafka.UserRegisteredDto"}
     )
     public void onUserPhotoNeeded(UserRegisteredDto e) {
-        upload(e, "backfill");
+        sync(e, "sync");
     }
 
-    private void upload(UserRegisteredDto e, String reason) {
+    private void sync(UserRegisteredDto e, String reason) {
         try {
-            Optional<String> fileIdOpt = telegram.getUserProfilePhotoFileId(e.telegramId());
-            if (fileIdOpt.isEmpty()) {
+            Optional<ProfilePhoto> liveOpt = telegram.getUserProfilePhoto(e.telegramId());
+            if (liveOpt.isEmpty()) {
                 log.info("[{}] No public profile photo for telegramId={} userId={} — skipping",
                         reason, e.telegramId(), e.userId());
                 return;
             }
-            String sourceFileId = fileIdOpt.get();
+            ProfilePhoto live = liveOpt.get();
 
-            String caption = buildAuditCaption(e, sourceFileId, reason);
-            var uploaded = telegram.sendPhotoByFileId(
-                    props.groupChatId(),
-                    props.topics().media(),
-                    sourceFileId,
-                    caption);
-
-            if (uploaded.isEmpty()) {
-                log.warn("[{}] Failed to upload profile photo to media topic for userId={}", reason, e.userId());
+            if (live.fileUniqueId() != null
+                    && live.fileUniqueId().equals(e.currentPhotoFileUniqueId())) {
+                log.info("[{}] Profile photo unchanged for userId={} (file_unique_id={}) — skipping",
+                        reason, e.userId(), live.fileUniqueId());
                 return;
             }
 
-            // file_id Telegram tomonidan har sendPhoto da yangidan beriladi — DB ga shu yangisini saqlash
-            // kerak (bot o'z yuborgan rasmiga doim getFile qila oladi).
-            String storedFileId = uploaded.get().fileId();
-            int messageId = uploaded.get().messageId();
+            String caption = buildAuditCaption(e, live, reason);
+            var uploaded = telegram.sendPhotoByFileId(
+                    props.groupChatId(),
+                    props.topics().media(),
+                    live.fileId(),
+                    caption);
+
+            if (uploaded.isEmpty()) {
+                log.warn("[{}] Failed to upload profile photo to media topic for userId={}",
+                        reason, e.userId());
+                return;
+            }
+
+            // file_unique_id sendPhoto javobida ham bo'lishi kerak, lekin bo'lmasa
+            // manba'dagi qiymatni ishlatamiz (bir xil tarkib — bir xil identifier).
+            String storedFileUniqueId = uploaded.get().fileUniqueId() != null
+                    ? uploaded.get().fileUniqueId()
+                    : live.fileUniqueId();
 
             kafka.send(OUTPUT_TOPIC, e.userId().toString(),
                     new UserPhotoSetEvent(
                             e.userId(),
                             e.telegramId(),
-                            storedFileId,
-                            messageId,
+                            uploaded.get().fileId(),
+                            storedFileUniqueId,
+                            uploaded.get().messageId(),
                             Instant.now()));
 
-            log.info("[{}] Profile photo uploaded for userId={} messageId={} fileId={}",
-                    reason, e.userId(), messageId, storedFileId);
+            log.info("[{}] Profile photo uploaded for userId={} messageId={} fileId={} fileUniqueId={}",
+                    reason, e.userId(), uploaded.get().messageId(),
+                    uploaded.get().fileId(), storedFileUniqueId);
         } catch (Exception ex) {
             log.error("[{}] UserPhotoUploader failed for userId={}: {}",
                     reason, e.userId(), ex.getMessage(), ex);
         }
     }
 
-    private static String buildAuditCaption(UserRegisteredDto e, String sourceFileId, String reason) {
+    private static String buildAuditCaption(UserRegisteredDto e, ProfilePhoto live, String reason) {
         return "👤 <b>Profile rasm</b> <i>(" + reason + ")</i>\n" +
                 "<b>Ism:</b> " + escape(e.displayName()) + "\n" +
                 (e.telegramUsername() != null && !e.telegramUsername().isBlank()
@@ -105,7 +122,7 @@ public class UserPhotoUploaderConsumer {
                         : "") +
                 "<b>Telegram ID:</b> <code>" + e.telegramId() + "</code>\n" +
                 "<b>User ID:</b> <code>" + e.userId() + "</code>\n" +
-                "<b>Source file_id:</b> <code>" + escape(sourceFileId) + "</code>";
+                "<b>file_unique_id:</b> <code>" + escape(live.fileUniqueId()) + "</code>";
     }
 
     private static String escape(String s) {
