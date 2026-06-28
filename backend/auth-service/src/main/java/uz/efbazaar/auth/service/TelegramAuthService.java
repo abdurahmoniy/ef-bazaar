@@ -69,12 +69,13 @@ public class TelegramAuthService {
         }
         events.userLoggedIn(user.getId(), "telegram");
 
-        // Backfill: registered before the photo pipeline existed or Mini App didn't
-        // include photo_url — ask the bot to upload it now. Bot consumer is async,
-        // login response isn't delayed.
-        boolean hasPhoto = (user.getTelegramPhotoUrl() != null && !user.getTelegramPhotoUrl().isBlank())
-                || (user.getTelegramPhotoFileId() != null && !user.getTelegramPhotoFileId().isBlank());
-        if (!hasPhoto) {
+        // Backfill: file_id yo'q bo'lsa bot'dan rasm so'raymiz. URL'ga tayanmaymiz
+        // chunki Login Widget t.me/i/userpic URL'lari Telegram tomonidan vaqt o'tib
+        // stale qilinadi — file_id (bot media topic'ga upload qilgan) yagona barqaror
+        // manba. Bot consumer async, login response kechikmaydi.
+        boolean hasFileId = user.getTelegramPhotoFileId() != null
+                && !user.getTelegramPhotoFileId().isBlank();
+        if (!hasFileId) {
             events.userPhotoNeeded(user);
         }
 

@@ -47,6 +47,9 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "uz.efbazaar.*"
+        # Boshqa servis (bot) yuborgan __TypeId__ header'ini ignore qilamiz —
+        # auth-service'da o'sha class yo'q, faqat o'z DTO'larimizga deserialize bo'lsin.
+        spring.json.use.type.headers: false
 
 server:
   port: 8081
