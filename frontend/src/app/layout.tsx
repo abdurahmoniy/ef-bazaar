@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 
+import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
+
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
@@ -42,6 +44,9 @@ export default function RootLayout({
           />
         </div>
         <div className="bg-grid absolute inset-0 -z-10 opacity-40" />
+
+        {/* Telegram Mini App context aniqlansa har qanday entry point'da auto-login */}
+        <TelegramWebAppAutoLogin />
 
         {children}
       </body>

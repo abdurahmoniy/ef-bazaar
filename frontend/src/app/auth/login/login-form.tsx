@@ -5,7 +5,6 @@ import { AlertCircle } from 'lucide-react';
 
 import { TelegramLogin } from '@/components/auth/telegram-login';
 import { TelegramSwitchHint } from '@/components/auth/telegram-switch-hint';
-import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
 import { GoogleButton } from '@/components/auth/google-button';
 import { Separator } from '@/components/ui/separator';
 import { googleLoginAction, telegramAuthAction } from '@/app/auth/actions';
@@ -38,8 +37,6 @@ export function LoginForm({ botUsername, googleClientId }: LoginFormProps) {
 
   return (
     <div className="space-y-5">
-      <TelegramWebAppAutoLogin />
-
       {error && (
         <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
