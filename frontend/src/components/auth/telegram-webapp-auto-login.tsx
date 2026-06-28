@@ -59,15 +59,20 @@ export function TelegramWebAppAutoLogin() {
         if (res && !res.ok) {
           setError(res.error ?? 'Telegram Mini App auth ishlamadi');
           setState('error');
+          return;
         }
-        // ok bo'lsa server action /profile'ga redirect qiladi
+        // ok bo'lsa redirect bo'ladi — overlay'ni yopib qo'yamiz
+        setState('idle');
       })
       .catch((e: unknown) => {
         // Server action ichidagi `redirect()` Next.js ichki NEXT_REDIRECT signali'ni
-        // tashlaydi — bu real xato emas. Qayta tashlaymiz, Next.js outer runtime
-        // navigation'ni o'zi amalga oshirsin.
+        // tashlaydi — bu real xato emas. Komponent root layoutda bo'lgani uchun
+        // navigation'dan keyin ham mount holatida qoladi, shuning uchun state'ni
+        // 'idle' ga qaytarib overlay'ni yopamiz; signalni Next.js outer runtime
+        // o'qib navigation'ni o'zi amalga oshiradi.
         const digest = (e as { digest?: unknown })?.digest;
         if (typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT')) {
+          setState('idle');
           throw e;
         }
         setError(e instanceof Error ? e.message : 'Kutilmagan xato');
