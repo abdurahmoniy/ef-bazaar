@@ -49,13 +49,10 @@ public class UserController {
     public ResponseEntity<byte[]> mePhoto(@AuthenticationPrincipal AuthenticatedUser principal) {
         User user = userService.getById(principal.userId());
 
-        if (user.getTelegramPhotoUrl() != null && !user.getTelegramPhotoUrl().isBlank()) {
-            return ResponseEntity.status(302)
-                    .location(URI.create(user.getTelegramPhotoUrl()))
-                    .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePrivate())
-                    .build();
-        }
-
+        // file_id — primary source: bot uploaded media topic'ga, Telegram Bot API
+        // orqali doim qaytib olish mumkin. Login Widget't.me/i/userpic URL'lari
+        // vaqt o'tib stale bo'ladi (Telegram cache-busting), shuning uchun file_id
+        // birinchi navbatda tekshiriladi.
         if (user.getTelegramPhotoFileId() != null && !user.getTelegramPhotoFileId().isBlank()) {
             Optional<byte[]> bytes = telegramFileClient.fetchBytes(user.getTelegramPhotoFileId());
             if (bytes.isPresent()) {
@@ -65,6 +62,14 @@ public class UserController {
                         .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(bytes.get().length))
                         .body(bytes.get());
             }
+        }
+
+        // Fallback — eski Login Widget userlari uchun (file_id hali backfill bo'lmagan).
+        if (user.getTelegramPhotoUrl() != null && !user.getTelegramPhotoUrl().isBlank()) {
+            return ResponseEntity.status(302)
+                    .location(URI.create(user.getTelegramPhotoUrl()))
+                    .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePrivate())
+                    .build();
         }
 
         return ResponseEntity.notFound().build();
