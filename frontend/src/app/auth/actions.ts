@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 
-import { telegramAuth, googleLogin, logout, linkGoogle } from '@/lib/auth';
+import { telegramAuth, telegramWebAppAuth, googleLogin, logout, linkGoogle } from '@/lib/auth';
 import { ApiException } from '@/lib/api';
 import type { TelegramAuthData } from '@/lib/types';
 
@@ -19,6 +19,22 @@ export interface ActionResult {
 export async function telegramAuthAction(data: TelegramAuthData): Promise<ActionResult> {
   try {
     await telegramAuth(data);
+  } catch (e) {
+    if (e instanceof ApiException) {
+      return { ok: false, error: e.message, code: e.code };
+    }
+    return { ok: false, error: 'Auth-service ulanib bo\'lmadi' };
+  }
+  redirect('/profile');
+}
+
+/**
+ * Telegram Mini App auto-login. `initData` — `window.Telegram.WebApp.initData`'dan keladi.
+ * Muvaffaqiyatli bo'lsa → /profile ga redirect.
+ */
+export async function telegramWebAppAuthAction(initData: string): Promise<ActionResult> {
+  try {
+    await telegramWebAppAuth(initData);
   } catch (e) {
     if (e instanceof ApiException) {
       return { ok: false, error: e.message, code: e.code };
@@ -68,5 +84,7 @@ export async function linkGoogleAction(idToken: string): Promise<ActionResult> {
 
 export async function logoutAction() {
   await logout();
-  redirect('/');
+  // Logout sahifasiga yo'naltiramiz — u yerdan foydalanuvchi "Boshqa nomer bilan kirish"
+  // popup'ini ochib, Telegram OAuth oynasida yangi nomer kirita oladi.
+  redirect('/auth/logout-complete');
 }

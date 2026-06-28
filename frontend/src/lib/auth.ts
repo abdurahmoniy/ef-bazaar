@@ -56,6 +56,21 @@ export async function telegramAuth(data: TelegramAuthData): Promise<User> {
   return auth.user;
 }
 
+/**
+ * Telegram Mini App auto-login. `initData` — `window.Telegram.WebApp.initData`'dan
+ * olingan signed query-string. Backend HMAC-SHA256 bilan tekshiradi (Login Widget'dan
+ * algoritmi farqli) va xuddi shu register-or-login pipeline'iga uzatadi.
+ */
+export async function telegramWebAppAuth(initData: string): Promise<User> {
+  const auth = await apiFetch<AuthResponse>('/auth/v1/auth/telegram-webapp', {
+    method: 'POST',
+    auth: false,
+    body: { initData },
+  });
+  await setAuthCookies(auth);
+  return auth.user;
+}
+
 // ─── Google OAuth ───────────────────────────────────────────────────────────
 
 /**

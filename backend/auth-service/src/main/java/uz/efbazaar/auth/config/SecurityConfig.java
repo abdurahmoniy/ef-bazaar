@@ -29,6 +29,7 @@ public class SecurityConfig {
                         // Public — Telegram register/login, Google login, token refresh
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/telegram",
+                                "/api/v1/auth/telegram-webapp",
                                 "/api/v1/auth/google/login",
                                 "/api/v1/auth/refresh").permitAll()
                         // Public — health/metrics (nginx blocks externally)
