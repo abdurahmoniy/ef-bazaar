@@ -22,6 +22,7 @@ public class AuthEventPublisher {
                 user.getTelegramId(),
                 user.getTelegramUsername(),
                 user.displayName(),
+                user.getTelegramPhotoFileUniqueId(),
                 Instant.now());
         send(AuthEvents.TOPIC_USER_REGISTERED, user.getId().toString(), event);
     }
@@ -37,6 +38,7 @@ public class AuthEventPublisher {
                 user.getTelegramId(),
                 user.getTelegramUsername(),
                 user.displayName(),
+                user.getTelegramPhotoFileUniqueId(),
                 Instant.now());
         send(AuthEvents.TOPIC_USER_PHOTO_NEEDED, user.getId().toString(), event);
     }

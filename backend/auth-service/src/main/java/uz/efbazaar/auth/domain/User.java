@@ -46,6 +46,14 @@ public class User {
     @Column(name = "telegram_photo_file_id", length = 256)
     private String telegramPhotoFileId;
 
+    /**
+     * Telegram's {@code file_unique_id} — stable across reuploads for the same
+     * source photo. Used at login time to decide whether the user's current
+     * profile photo has changed; if unchanged we skip the re-upload entirely.
+     */
+    @Column(name = "telegram_photo_file_unique_id", length = 64)
+    private String telegramPhotoFileUniqueId;
+
     /** Audit pointer — the message_id of the photo in the media topic. */
     @Column(name = "telegram_photo_message_id")
     private Long telegramPhotoMessageId;

@@ -110,9 +110,9 @@ public class TelegramApiClient {
      * getUserProfilePhotos — user'ning profile rasmlari ro'yxati.
      * Bizga eng birinchi rasm'ning eng katta o'lchami kerak.
      *
-     * @return uploaded photo's file_id, or empty if user has no public photo.
+     * @return uploaded photo's {file_id, file_unique_id}, or empty if user has no public photo.
      */
-    public Optional<String> getUserProfilePhotoFileId(long userId) {
+    public Optional<ProfilePhoto> getUserProfilePhoto(long userId) {
         ObjectNode body = objectMapper.createObjectNode()
                 .put("user_id", userId)
                 .put("limit", 1);
@@ -124,7 +124,9 @@ public class TelegramApiClient {
                     if (!sizes.isArray() || sizes.isEmpty()) return Optional.empty();
                     JsonNode largest = sizes.get(sizes.size() - 1);
                     String fileId = largest.path("file_id").asText(null);
-                    return Optional.ofNullable(fileId);
+                    String fileUniqueId = largest.path("file_unique_id").asText(null);
+                    if (fileId == null) return Optional.empty();
+                    return Optional.of(new ProfilePhoto(fileId, fileUniqueId));
                 });
     }
 
@@ -266,7 +268,8 @@ public class TelegramApiClient {
         // Eng katta o'lcham (oxirgi element)
         JsonNode largest = photos.get(photos.size() - 1);
         String fileId = largest.path("file_id").asText();
-        return Optional.of(new UploadedPhoto(messageId, fileId));
+        String fileUniqueId = largest.path("file_unique_id").asText(null);
+        return Optional.of(new UploadedPhoto(messageId, fileId, fileUniqueId));
     }
 
     private Integer extractMessageId(JsonNode result) {
@@ -281,5 +284,8 @@ public class TelegramApiClient {
     }
 
     public record MediaFile(byte[] bytes, String filename, String contentType) {}
-    public record UploadedPhoto(int messageId, String fileId) {}
+    public record UploadedPhoto(int messageId, String fileId, String fileUniqueId) {}
+
+    /** Source photo metadata used to dedupe before re-uploading. */
+    public record ProfilePhoto(String fileId, String fileUniqueId) {}
 }

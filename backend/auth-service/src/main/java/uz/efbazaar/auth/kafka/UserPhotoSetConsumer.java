@@ -29,11 +29,12 @@ public class UserPhotoSetConsumer {
         userRepository.findById(e.userId()).ifPresentOrElse(
                 user -> {
                     user.setTelegramPhotoFileId(e.photoFileId());
+                    user.setTelegramPhotoFileUniqueId(e.photoFileUniqueId());
                     user.setTelegramPhotoMessageId(
                             e.photoMessageId() == null ? null : e.photoMessageId().longValue());
                     userRepository.save(user);
-                    log.info("Stored profile photo for userId={} fileId={} messageId={}",
-                            e.userId(), e.photoFileId(), e.photoMessageId());
+                    log.info("Stored profile photo for userId={} fileId={} fileUniqueId={} messageId={}",
+                            e.userId(), e.photoFileId(), e.photoFileUniqueId(), e.photoMessageId());
                 },
                 () -> log.warn("user-photo-set received for unknown userId={}", e.userId()));
     }
