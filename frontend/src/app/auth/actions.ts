@@ -84,7 +84,5 @@ export async function linkGoogleAction(idToken: string): Promise<ActionResult> {
 
 export async function logoutAction() {
   await logout();
-  // Logout sahifasiga yo'naltiramiz — u yerdan foydalanuvchi "Boshqa nomer bilan kirish"
-  // popup'ini ochib, Telegram OAuth oynasida yangi nomer kirita oladi.
-  redirect('/auth/logout-complete');
+  redirect('/');
 }
