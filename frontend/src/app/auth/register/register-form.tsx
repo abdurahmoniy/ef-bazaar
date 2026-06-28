@@ -4,6 +4,8 @@ import * as React from 'react';
 import { AlertCircle } from 'lucide-react';
 
 import { TelegramLogin } from '@/components/auth/telegram-login';
+import { TelegramSwitchHint } from '@/components/auth/telegram-switch-hint';
+import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
 import { telegramAuthAction } from '@/app/auth/actions';
 import type { TelegramAuthData } from '@/lib/types';
 
@@ -18,6 +20,8 @@ export function RegisterForm({ botUsername }: { botUsername: string }) {
 
   return (
     <div className="space-y-5">
+      <TelegramWebAppAutoLogin />
+
       {error && (
         <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -31,6 +35,8 @@ export function RegisterForm({ botUsername }: { botUsername: string }) {
         cornerRadius={12}
         onAuth={onTelegram}
       />
+
+      <TelegramSwitchHint />
     </div>
   );
 }

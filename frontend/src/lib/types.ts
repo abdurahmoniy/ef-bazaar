@@ -39,3 +39,21 @@ export interface ApiError {
   message: string;
   code?: string;
 }
+
+/**
+ * Minimal Telegram Mini App SDK surface — only the bits we read.
+ * Full surface: https://core.telegram.org/bots/webapps#initializing-mini-apps
+ */
+export interface TelegramWebApp {
+  initData: string;
+  ready: () => void;
+  expand?: () => void;
+}
+
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: TelegramWebApp;
+    };
+  }
+}

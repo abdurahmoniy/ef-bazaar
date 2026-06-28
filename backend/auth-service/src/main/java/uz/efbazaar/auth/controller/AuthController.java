@@ -30,6 +30,16 @@ public class AuthController {
         return telegramAuthService.authenticate(request);
     }
 
+    /**
+     * Telegram Mini App auto-login. Accepts the raw {@code window.Telegram.WebApp.initData}
+     * query string and validates the HMAC signature server-side. Same register-or-login
+     * pipeline as {@link #telegram} — idempotent by {@code telegram_id}.
+     */
+    @PostMapping("/telegram-webapp")
+    public TokenResponse telegramWebApp(@Valid @RequestBody TelegramWebAppRequest request) {
+        return telegramAuthService.authenticateWebApp(request);
+    }
+
     /** Google-only login. Returns 404 GOOGLE_NOT_LINKED if no user has this google_id. */
     @PostMapping("/google/login")
     public TokenResponse googleLogin(@Valid @RequestBody GoogleAuthRequest request) {
