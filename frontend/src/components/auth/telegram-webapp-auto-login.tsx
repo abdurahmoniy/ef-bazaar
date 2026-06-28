@@ -63,6 +63,13 @@ export function TelegramWebAppAutoLogin() {
         // ok bo'lsa server action /profile'ga redirect qiladi
       })
       .catch((e: unknown) => {
+        // Server action ichidagi `redirect()` Next.js ichki NEXT_REDIRECT signali'ni
+        // tashlaydi — bu real xato emas. Qayta tashlaymiz, Next.js outer runtime
+        // navigation'ni o'zi amalga oshirsin.
+        const digest = (e as { digest?: unknown })?.digest;
+        if (typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT')) {
+          throw e;
+        }
         setError(e instanceof Error ? e.message : 'Kutilmagan xato');
         setState('error');
       });
