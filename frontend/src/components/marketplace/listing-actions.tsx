@@ -4,23 +4,25 @@ import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { Heart, MessageCircle, ShoppingBag } from 'lucide-react';
 
-import {
-  addListingToCartAction,
-  startListingChatAction,
-  toggleListingLikeAction,
-  type MarketplaceActionResult,
-} from '@/app/marketplace/actions';
 import { Button } from '@/components/ui/button';
-import { buildDebugMarketplaceApiPath } from '@/lib/debug-visible-api';
+import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { formatCompactNumber } from '@/lib/marketplace-format';
 import type { ChatResponse, LikeToggleResponse } from '@/lib/marketplace-types';
+
+interface MarketplaceActionResult {
+  ok: boolean;
+  error?: string;
+  code?: string;
+  liked?: boolean;
+  totalLikes?: number;
+  chatId?: string;
+}
 
 interface ListingActionsProps {
   listingId: string;
   authenticated: boolean;
   initialLiked?: boolean | null;
   initialLikeCount: number;
-  visibleApiDebug?: boolean;
 }
 
 export function ListingActions({
@@ -28,7 +30,6 @@ export function ListingActions({
   authenticated,
   initialLiked,
   initialLikeCount,
-  visibleApiDebug = false,
 }: ListingActionsProps) {
   const [liked, setLiked] = useState(Boolean(initialLiked));
   const [likeCount, setLikeCount] = useState(initialLikeCount);
@@ -62,9 +63,7 @@ export function ListingActions({
           onClick={() => {
             startTransition(async () => {
               setMessage(null);
-              const result = visibleApiDebug
-                ? await toggleLikeWithDebugApi(listingId)
-                : await toggleListingLikeAction(listingId);
+              const result = await toggleLike(listingId);
               if (!result.ok) {
                 setMessage(result.error ?? 'Like saqlanmadi');
                 return;
@@ -87,9 +86,7 @@ export function ListingActions({
           onClick={() => {
             startTransition(async () => {
               setMessage(null);
-              const result = visibleApiDebug
-                ? await addToCartWithDebugApi(listingId)
-                : await addListingToCartAction(listingId);
+              const result = await addToCart(listingId);
               setMessage(result.ok ? "Savatga qo'shildi" : result.error ?? "Savatga qo'shilmadi");
             });
           }}
@@ -107,9 +104,7 @@ export function ListingActions({
           onClick={() => {
             startTransition(async () => {
               setMessage(null);
-              const result = visibleApiDebug
-                ? await startChatWithDebugApi(listingId)
-                : await startListingChatAction(listingId);
+              const result = await startChat(listingId);
               setMessage(result.ok ? 'Chat ochildi' : result.error ?? 'Chat ochilmadi');
             });
           }}
@@ -123,8 +118,8 @@ export function ListingActions({
   );
 }
 
-async function toggleLikeWithDebugApi(listingId: string): Promise<MarketplaceActionResult> {
-  const result = await debugMarketplaceFetch<LikeToggleResponse>(
+async function toggleLike(listingId: string): Promise<MarketplaceActionResult> {
+  const result = await marketplaceFetch<LikeToggleResponse>(
     ['v1', 'listings', listingId, 'like'],
     { method: 'POST' },
   );
@@ -137,12 +132,12 @@ async function toggleLikeWithDebugApi(listingId: string): Promise<MarketplaceAct
   };
 }
 
-async function addToCartWithDebugApi(listingId: string): Promise<MarketplaceActionResult> {
-  return debugMarketplaceFetch(['v1', 'cart', listingId], { method: 'POST' });
+async function addToCart(listingId: string): Promise<MarketplaceActionResult> {
+  return marketplaceFetch(['v1', 'cart', listingId], { method: 'POST' });
 }
 
-async function startChatWithDebugApi(listingId: string): Promise<MarketplaceActionResult> {
-  const result = await debugMarketplaceFetch<ChatResponse>(['v1', 'chats'], {
+async function startChat(listingId: string): Promise<MarketplaceActionResult> {
+  const result = await marketplaceFetch<ChatResponse>(['v1', 'chats'], {
     method: 'POST',
     body: JSON.stringify({ listingId }),
   });
@@ -154,8 +149,8 @@ async function startChatWithDebugApi(listingId: string): Promise<MarketplaceActi
   };
 }
 
-async function debugMarketplaceFetch<T = unknown>(path: string[], init: RequestInit = {}) {
-  const response = await fetch(buildDebugMarketplaceApiPath(path), {
+async function marketplaceFetch<T = unknown>(path: string[], init: RequestInit = {}) {
+  const response = await fetch(buildMarketplaceApiPath(path), {
     ...init,
     headers: {
       Accept: 'application/json',

@@ -1,50 +1,45 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { AlertCircle } from 'lucide-react';
 
-import { createListingAction, type ListingFormState } from '@/app/marketplace/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { buildDebugMarketplaceApiPath } from '@/lib/debug-visible-api';
 import { createListingRequestFromForm } from '@/lib/listing-form-data';
+import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import type { ListingResponse } from '@/lib/marketplace-types';
+
+interface ListingFormState {
+  ok: boolean;
+  error?: string;
+  code?: string;
+}
 
 const INITIAL_STATE: ListingFormState = { ok: false };
 const LOGIN_REQUIRED_MESSAGE = 'Telegram orqali kirish kerak';
 
-interface ListingFormProps {
-  visibleApiDebug?: boolean;
-}
-
-export function ListingForm({ visibleApiDebug = false }: ListingFormProps) {
+export function ListingForm() {
   const router = useRouter();
-  const [actionState, formAction, actionPending] = useActionState(createListingAction, INITIAL_STATE);
-  const [debugState, setDebugState] = useState<ListingFormState>(INITIAL_STATE);
-  const [debugPending, setDebugPending] = useState(false);
+  const [state, setState] = useState<ListingFormState>(INITIAL_STATE);
+  const [pending, setPending] = useState(false);
 
-  const state = visibleApiDebug ? debugState : actionState;
-  const pending = visibleApiDebug ? debugPending : actionPending;
-
-  async function handleDebugSubmit(event: FormEvent<HTMLFormElement>) {
-    if (!visibleApiDebug) return;
-
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setDebugPending(true);
-    setDebugState(INITIAL_STATE);
+    setPending(true);
+    setState(INITIAL_STATE);
 
     const request = createListingRequestFromForm(new FormData(event.currentTarget));
     if (typeof request === 'string') {
-      setDebugState({ ok: false, error: request });
-      setDebugPending(false);
+      setState({ ok: false, error: request });
+      setPending(false);
       return;
     }
 
     try {
-      const response = await fetch(buildDebugMarketplaceApiPath('v1/listings'), {
+      const response = await fetch(buildMarketplaceApiPath('v1/listings'), {
         method: 'POST',
         headers: {
           Accept: 'application/json',
@@ -56,7 +51,7 @@ export function ListingForm({ visibleApiDebug = false }: ListingFormProps) {
       const payload = await readJson(response);
 
       if (!response.ok) {
-        setDebugState({
+        setState({
           ok: false,
           error: response.status === 401 || response.status === 403
             ? LOGIN_REQUIRED_MESSAGE
@@ -68,25 +63,21 @@ export function ListingForm({ visibleApiDebug = false }: ListingFormProps) {
 
       const listingId = listingIdFromPayload(payload);
       if (!listingId) {
-        setDebugState({ ok: false, error: "E'lon yaratildi, lekin ID qaytmadi" });
+        setState({ ok: false, error: "E'lon yaratildi, lekin ID qaytmadi" });
         return;
       }
 
       router.push(`/marketplace/${listingId}`);
       router.refresh();
     } catch {
-      setDebugState({ ok: false, error: "E'lon yaratilmadi" });
+      setState({ ok: false, error: "E'lon yaratilmadi" });
     } finally {
-      setDebugPending(false);
+      setPending(false);
     }
   }
 
   return (
-    <form
-      action={visibleApiDebug ? undefined : formAction}
-      className="space-y-4"
-      onSubmit={visibleApiDebug ? handleDebugSubmit : undefined}
-    >
+    <form className="space-y-4" onSubmit={handleSubmit}>
       {state.error && (
         <div className="flex items-start gap-2 rounded-[8px] border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
