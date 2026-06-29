@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ApiException } from '@/lib/api';
 import { getMe } from '@/lib/auth';
+import { isDebugVisibleApiEnabled } from '@/lib/debug-visible-api';
 import { getListing } from '@/lib/marketplace';
 import {
   divisionLabel,
@@ -64,6 +65,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
               authenticated={Boolean(user)}
               initialLiked={listing.likedByMe}
               initialLikeCount={listing.likeCount}
+              visibleApiDebug={isDebugVisibleApiEnabled()}
             />
           </div>
 
