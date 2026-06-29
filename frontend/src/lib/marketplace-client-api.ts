@@ -25,5 +25,5 @@ export function buildMarketplaceApiPath(
 ) {
   const query = searchParams?.toString();
   const suffix = query ? `?${query}` : '';
-  return `${normalizeApiBaseUrl(apiBaseUrl)}/marketplace/${normalizeSegments(path).map(encodeURIComponent).join('/')}${suffix}`;
+  return `${normalizeApiBaseUrl(apiBaseUrl)}/api/${normalizeSegments(path).map(encodeURIComponent).join('/')}${suffix}`;
 }

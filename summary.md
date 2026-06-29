@@ -297,7 +297,7 @@
   - Internal 8080 → frontend SSR uchun (INTERNAL_API_BASE_URL=http://nginx:8080/api)
   - /api/auth/ → auth-service/api/
   - /api/marketplace/ → auth_request /_auth_verify (optional auth: 401 da @marketplace_anon)
-  - api.efbazaar.chempox.uz/marketplace/ → browser CORS + auth_request → marketplace-service/api/
+  - api.efbazaar.chempox.uz/api/ → browser CORS + auth_request → marketplace-service/api/
   - /_auth_verify → auth-service/api/v1/auth/verify (internal subrequest)
   - Cookie va Authorization header upstream'ga forward bo'ladi
 

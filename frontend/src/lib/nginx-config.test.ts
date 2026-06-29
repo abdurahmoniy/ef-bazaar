@@ -74,15 +74,16 @@ describe('nginx marketplace routing', () => {
 describe('nginx api subdomain routing', () => {
   it('routes marketplace api requests with auth and browser CORS support', () => {
     const config = readFileSync(apiConfigPath, 'utf8');
-    const marketplaceLocation = extractBlocks(config, /\blocation\s+\/marketplace\/\s*\{/g)[0];
+    const apiLocation = extractBlocks(config, /\blocation\s+\/api\/\s*\{/g)[0];
 
     expect(config).toContain('map $http_origin $cors_allow_origin');
-    expect(marketplaceLocation).toContain('auth_basic off;');
-    expect(marketplaceLocation).toContain('auth_request /_auth_verify;');
-    expect(marketplaceLocation).toContain('error_page 401 = @marketplace_anon;');
-    expect(marketplaceLocation).toContain('add_header Access-Control-Allow-Origin $cors_allow_origin always;');
-    expect(marketplaceLocation).toContain('add_header Access-Control-Allow-Credentials "true" always;');
-    expect(marketplaceLocation).toContain('if ($request_method = OPTIONS)');
-    expect(marketplaceLocation).toContain('proxy_pass http://marketplace_upstream/api/;');
+    expect(apiLocation).toContain('auth_basic off;');
+    expect(apiLocation).toContain('auth_request /_auth_verify;');
+    expect(apiLocation).toContain('error_page 401 = @marketplace_anon;');
+    expect(apiLocation).toContain('add_header Access-Control-Allow-Origin $cors_allow_origin always;');
+    expect(apiLocation).toContain('add_header Access-Control-Allow-Credentials "true" always;');
+    expect(apiLocation).toContain('if ($request_method = OPTIONS)');
+    expect(apiLocation).toContain('proxy_pass http://marketplace_upstream/api/;');
+    expect(config).toContain('rewrite ^/api/(.*)$ /api/$1 break;');
   });
 });
