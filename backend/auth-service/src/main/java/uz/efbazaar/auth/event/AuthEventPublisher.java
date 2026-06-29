@@ -22,6 +22,7 @@ public class AuthEventPublisher {
                 user.getTelegramId(),
                 user.getTelegramUsername(),
                 user.displayName(),
+                user.getTelegramPhotoFileUniqueId(),
                 Instant.now());
         send(AuthEvents.TOPIC_USER_REGISTERED, user.getId().toString(), event);
     }
@@ -29,6 +30,17 @@ public class AuthEventPublisher {
     public void userLoggedIn(UUID userId, String method) {
         var event = new AuthEvents.UserLoggedIn(userId, method, Instant.now());
         send(AuthEvents.TOPIC_USER_LOGGED_IN, userId.toString(), event);
+    }
+
+    public void userPhotoNeeded(User user) {
+        var event = new AuthEvents.UserPhotoNeeded(
+                user.getId(),
+                user.getTelegramId(),
+                user.getTelegramUsername(),
+                user.displayName(),
+                user.getTelegramPhotoFileUniqueId(),
+                Instant.now());
+        send(AuthEvents.TOPIC_USER_PHOTO_NEEDED, user.getId().toString(), event);
     }
 
     public void googleLinked(User user) {

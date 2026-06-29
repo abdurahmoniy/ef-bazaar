@@ -62,8 +62,20 @@ public class TelegramAuthService {
         user.setTelegramUsername(profile.username());
         user.setTelegramFirstName(profile.firstName());
         user.setTelegramLastName(profile.lastName());
-        user.setTelegramPhotoUrl(profile.photoUrl());
+        // Only overwrite stored photo URL if Telegram is currently providing one;
+        // Mini App initData often omits it, and we'd otherwise nuke an existing avatar.
+        if (profile.photoUrl() != null && !profile.photoUrl().isBlank()) {
+            user.setTelegramPhotoUrl(profile.photoUrl());
+        }
         events.userLoggedIn(user.getId(), "telegram");
+
+        // Photo sync — har login'da publish qilamiz, event ichida hozir saqlangan
+        // file_unique_id'ni o'tkazamiz. Bot Telegram'dagi joriy rasmni o'sha bilan
+        // solishtiradi: o'zgarmagan bo'lsa skip (media topic'ga qayta upload
+        // qilinmaydi), o'zgargan yoki yo'q bo'lsa — yangi upload + DB update.
+        // Bot consumer async, login response kechikmaydi.
+        events.userPhotoNeeded(user);
+
         return tokenIssuer.issue(user);
     }
 

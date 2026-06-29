@@ -37,6 +37,27 @@ public class User {
     @Column(name = "telegram_photo_url", length = 512)
     private String telegramPhotoUrl;
 
+    /**
+     * Telegram Bot API file_id for the user's profile photo. Populated by the bot
+     * after register when the Mini App initData did not include {@code photo_url}.
+     * The /me/photo proxy endpoint resolves this to a file_path via getFile and
+     * streams the bytes (since the download URL contains the bot token).
+     */
+    @Column(name = "telegram_photo_file_id", length = 256)
+    private String telegramPhotoFileId;
+
+    /**
+     * Telegram's {@code file_unique_id} — stable across reuploads for the same
+     * source photo. Used at login time to decide whether the user's current
+     * profile photo has changed; if unchanged we skip the re-upload entirely.
+     */
+    @Column(name = "telegram_photo_file_unique_id", length = 64)
+    private String telegramPhotoFileUniqueId;
+
+    /** Audit pointer — the message_id of the photo in the media topic. */
+    @Column(name = "telegram_photo_message_id")
+    private Long telegramPhotoMessageId;
+
     // ----- Google link (optional — sets verified flag + email) -----
 
     @Column(name = "google_id", length = 255)

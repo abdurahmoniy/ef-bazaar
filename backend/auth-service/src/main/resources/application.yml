@@ -47,6 +47,9 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "uz.efbazaar.*"
+        # Boshqa servis (bot) yuborgan __TypeId__ header'ini ignore qilamiz —
+        # auth-service'da o'sha class yo'q, faqat o'z DTO'larimizga deserialize bo'lsin.
+        spring.json.use.type.headers: false
 
 server:
   port: 8081
@@ -76,6 +79,8 @@ app:
   telegram:
     bot-token: ${TELEGRAM_BOT_TOKEN:}
     login-max-age-seconds: 86400
+    # Telegram Bot API base — overridable for local tests.
+    api-base-url: https://api.telegram.org
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
 
