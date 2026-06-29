@@ -1,4 +1,4 @@
-const MARKETPLACE_API_ROOT = '/api/marketplace';
+const DEFAULT_API_BASE_URL = 'https://api.efbazaar.chempox.uz';
 
 function normalizeSegments(path: string | string[]) {
   const segments = Array.isArray(path) ? path : path.split('/');
@@ -14,8 +14,16 @@ function normalizeSegments(path: string | string[]) {
   return normalized;
 }
 
-export function buildMarketplaceApiPath(path: string | string[], searchParams?: URLSearchParams) {
+function normalizeApiBaseUrl(apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL) {
+  return apiBaseUrl.trim().replace(/\/+$/, '');
+}
+
+export function buildMarketplaceApiPath(
+  path: string | string[],
+  searchParams?: URLSearchParams,
+  apiBaseUrl?: string,
+) {
   const query = searchParams?.toString();
   const suffix = query ? `?${query}` : '';
-  return `${MARKETPLACE_API_ROOT}/${normalizeSegments(path).map(encodeURIComponent).join('/')}${suffix}`;
+  return `${normalizeApiBaseUrl(apiBaseUrl)}/marketplace/${normalizeSegments(path).map(encodeURIComponent).join('/')}${suffix}`;
 }

@@ -45,7 +45,7 @@ export function ListingForm() {
           Accept: 'application/json',
           'Content-Type': 'application/json',
         },
-        credentials: 'same-origin',
+        credentials: 'include',
         body: JSON.stringify(request),
       });
       const payload = await readJson(response);
