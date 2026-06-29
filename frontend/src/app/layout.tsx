@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 
 import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
+import { absoluteUrl, siteConfig } from '@/lib/site';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -11,20 +12,61 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'efBazaar — eFootball Account Marketplace',
-  description: 'eFootball akkountlarini xavfsiz sotib oling va soting. Pro accountlar, divisionlar, real narxlar.',
-  keywords: ['eFootball', 'PES', 'account', 'marketplace', 'efbazaar', 'akkount', 'savdo'],
+  metadataBase: new URL(siteConfig.url),
+  applicationName: siteConfig.name,
+  title: {
+    default: siteConfig.title,
+    template: `%s | ${siteConfig.name}`,
+  },
+  description: siteConfig.description,
+  keywords: [...siteConfig.keywords],
+  authors: [{ name: siteConfig.name, url: siteConfig.url }],
+  creator: siteConfig.name,
+  publisher: siteConfig.name,
+  category: 'marketplace',
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
-    title: 'efBazaar',
-    description: 'eFootball account marketplace',
+    title: siteConfig.title,
+    description: siteConfig.description,
+    url: '/',
+    siteName: siteConfig.name,
+    locale: siteConfig.locale,
     type: 'website',
+    images: [
+      {
+        url: absoluteUrl('/opengraph-image'),
+        width: 1200,
+        height: 630,
+        alt: 'efBazaar eFootball account marketplace preview',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: siteConfig.title,
+    description: siteConfig.description,
+    images: [absoluteUrl('/twitter-image')],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#0f0c29',
+  themeColor: '#080a0f',
+  colorScheme: 'dark',
 };
 
 export default function RootLayout({
@@ -35,15 +77,8 @@ export default function RootLayout({
   return (
     <html lang="uz" className={`${inter.variable} dark`} suppressHydrationWarning>
       <body className="font-sans">
-        {/* Decorative ambient glows */}
-        <div className="pointer-events-none fixed inset-0 overflow-hidden -z-10">
-          <div className="absolute -top-1/2 -left-1/4 w-[600px] h-[600px] rounded-full bg-cyber-cyan/10 blur-[100px] animate-glow-pulse" />
-          <div
-            className="absolute -bottom-1/4 -right-1/4 w-[700px] h-[700px] rounded-full bg-cyber-purple/10 blur-[120px] animate-glow-pulse"
-            style={{ animationDelay: '1.5s' }}
-          />
-        </div>
-        <div className="bg-grid absolute inset-0 -z-10 opacity-40" />
+        <div className="bg-grid pointer-events-none fixed inset-0 -z-10 opacity-35" />
+        <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-72 bg-[linear-gradient(180deg,rgba(34,211,238,0.13),rgba(8,10,15,0))]" />
 
         {/* Telegram Mini App context aniqlansa har qanday entry point'da auto-login */}
         <TelegramWebAppAutoLogin />
