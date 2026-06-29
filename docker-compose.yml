@@ -247,6 +247,7 @@ services:
     environment:
       # Server (Node) ichidan backend'ga ichki tarmoq orqali ulanish
       INTERNAL_API_BASE_URL: http://nginx:8080/api
+      DEBUG_VISIBLE_API: ${DEBUG_VISIBLE_API:-}
       NEXT_PUBLIC_TELEGRAM_BOT: ${TELEGRAM_BOT_USERNAME}
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       NEXT_PUBLIC_BASE_URL: ${APP_BASE_URL}

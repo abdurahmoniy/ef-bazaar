@@ -8,15 +8,19 @@ import {
   addListingToCartAction,
   startListingChatAction,
   toggleListingLikeAction,
+  type MarketplaceActionResult,
 } from '@/app/marketplace/actions';
 import { Button } from '@/components/ui/button';
+import { buildDebugMarketplaceApiPath } from '@/lib/debug-visible-api';
 import { formatCompactNumber } from '@/lib/marketplace-format';
+import type { ChatResponse, LikeToggleResponse } from '@/lib/marketplace-types';
 
 interface ListingActionsProps {
   listingId: string;
   authenticated: boolean;
   initialLiked?: boolean | null;
   initialLikeCount: number;
+  visibleApiDebug?: boolean;
 }
 
 export function ListingActions({
@@ -24,6 +28,7 @@ export function ListingActions({
   authenticated,
   initialLiked,
   initialLikeCount,
+  visibleApiDebug = false,
 }: ListingActionsProps) {
   const [liked, setLiked] = useState(Boolean(initialLiked));
   const [likeCount, setLikeCount] = useState(initialLikeCount);
@@ -57,7 +62,9 @@ export function ListingActions({
           onClick={() => {
             startTransition(async () => {
               setMessage(null);
-              const result = await toggleListingLikeAction(listingId);
+              const result = visibleApiDebug
+                ? await toggleLikeWithDebugApi(listingId)
+                : await toggleListingLikeAction(listingId);
               if (!result.ok) {
                 setMessage(result.error ?? 'Like saqlanmadi');
                 return;
@@ -80,7 +87,9 @@ export function ListingActions({
           onClick={() => {
             startTransition(async () => {
               setMessage(null);
-              const result = await addListingToCartAction(listingId);
+              const result = visibleApiDebug
+                ? await addToCartWithDebugApi(listingId)
+                : await addListingToCartAction(listingId);
               setMessage(result.ok ? "Savatga qo'shildi" : result.error ?? "Savatga qo'shilmadi");
             });
           }}
@@ -98,7 +107,9 @@ export function ListingActions({
           onClick={() => {
             startTransition(async () => {
               setMessage(null);
-              const result = await startListingChatAction(listingId);
+              const result = visibleApiDebug
+                ? await startChatWithDebugApi(listingId)
+                : await startListingChatAction(listingId);
               setMessage(result.ok ? 'Chat ochildi' : result.error ?? 'Chat ochilmadi');
             });
           }}
@@ -110,4 +121,90 @@ export function ListingActions({
       {message && <p className="text-xs text-muted-foreground">{message}</p>}
     </div>
   );
+}
+
+async function toggleLikeWithDebugApi(listingId: string): Promise<MarketplaceActionResult> {
+  const result = await debugMarketplaceFetch<LikeToggleResponse>(
+    ['v1', 'listings', listingId, 'like'],
+    { method: 'POST' },
+  );
+
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    liked: result.data.liked,
+    totalLikes: result.data.totalLikes,
+  };
+}
+
+async function addToCartWithDebugApi(listingId: string): Promise<MarketplaceActionResult> {
+  return debugMarketplaceFetch(['v1', 'cart', listingId], { method: 'POST' });
+}
+
+async function startChatWithDebugApi(listingId: string): Promise<MarketplaceActionResult> {
+  const result = await debugMarketplaceFetch<ChatResponse>(['v1', 'chats'], {
+    method: 'POST',
+    body: JSON.stringify({ listingId }),
+  });
+
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    chatId: result.data.id,
+  };
+}
+
+async function debugMarketplaceFetch<T = unknown>(path: string[], init: RequestInit = {}) {
+  const response = await fetch(buildDebugMarketplaceApiPath(path), {
+    ...init,
+    headers: {
+      Accept: 'application/json',
+      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init.headers as Record<string, string> | undefined),
+    },
+    credentials: 'same-origin',
+  });
+  const payload = await readJson(response);
+
+  if (!response.ok) {
+    return {
+      ok: false as const,
+      error: response.status === 401 || response.status === 403
+        ? 'Telegram orqali kirish kerak'
+        : errorMessageFromPayload(payload, "So'rov bajarilmadi"),
+      code: codeFromPayload(payload),
+    };
+  }
+
+  return {
+    ok: true as const,
+    data: payload as T,
+  };
+}
+
+async function readJson(response: Response) {
+  const text = await response.text();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function isRecord(payload: unknown): payload is Record<string, unknown> {
+  return typeof payload === 'object' && payload !== null;
+}
+
+function errorMessageFromPayload(payload: unknown, fallback: string) {
+  if (!isRecord(payload)) return fallback;
+  if (typeof payload.message === 'string') return payload.message;
+  if (typeof payload.error === 'string') return payload.error;
+  return fallback;
+}
+
+function codeFromPayload(payload: unknown) {
+  if (!isRecord(payload)) return undefined;
+  return typeof payload.code === 'string' ? payload.code : undefined;
 }

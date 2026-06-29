@@ -343,6 +343,7 @@
   Frontend (docker-compose.yml)
 
   INTERNAL_API_BASE_URL=http://nginx:8080/api
+  DEBUG_VISIBLE_API=1                         # Optional: browser-visible /api/debug/marketplace/* proxy for DevTools debugging
   NEXT_PUBLIC_TELEGRAM_BOT=<bot username>
   NEXT_PUBLIC_GOOGLE_CLIENT_ID
   NEXT_PUBLIC_BASE_URL=https://efbazaar.chempox.uz

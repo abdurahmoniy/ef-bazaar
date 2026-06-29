@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { ListingForm } from '@/components/marketplace/listing-form';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
+import { isDebugVisibleApiEnabled } from '@/lib/debug-visible-api';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 
 export const dynamic = 'force-dynamic';
@@ -25,7 +26,7 @@ export default async function NewListingPage() {
           <h1 className="mt-1 text-2xl font-black text-white">Akkount joylash</h1>
         </div>
         <div className="rounded-[8px] border border-white/10 bg-card/85 p-4">
-          <ListingForm />
+          <ListingForm visibleApiDebug={isDebugVisibleApiEnabled()} />
         </div>
       </section>
     </MarketplaceShell>
