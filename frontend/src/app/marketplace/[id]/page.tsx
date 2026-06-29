@@ -15,6 +15,7 @@ import {
   formatListingDate,
   formatPriceUZS,
 } from '@/lib/marketplace-format';
+import { resolveOptionalUser } from '@/lib/optional-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,7 @@ export async function generateMetadata({ params }: ListingPageProps): Promise<Me
 
 export default async function ListingPage({ params }: ListingPageProps) {
   const { id } = await params;
-  const user = await getMe();
+  const user = await resolveOptionalUser(getMe);
 
   let listing;
   try {

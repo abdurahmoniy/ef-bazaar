@@ -11,6 +11,7 @@ import {
   parseListingSearchParams,
   type SearchParamInput,
 } from '@/lib/marketplace-format';
+import { resolveOptionalUser } from '@/lib/optional-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,7 @@ export default async function MarketplacePage({ searchParams }: MarketplacePageP
   const filters = parseListingSearchParams(resolvedSearchParams);
   const activeFilter = getSelectedMarketplaceFilter(resolvedSearchParams);
   const query = typeof resolvedSearchParams.q === 'string' ? resolvedSearchParams.q : undefined;
-  const user = await getMe();
+  const user = await resolveOptionalUser(getMe);
 
   try {
     const listings = await browseListings(filters);

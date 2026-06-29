@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { ListingForm } from '@/components/marketplace/listing-form';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
+import { resolveOptionalUser } from '@/lib/optional-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default async function NewListingPage() {
-  const user = await getMe();
+  const user = await resolveOptionalUser(getMe);
   if (!user) redirect('/auth/login');
 
   return (
