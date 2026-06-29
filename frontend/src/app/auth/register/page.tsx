@@ -1,12 +1,17 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ShieldCheck, Zap, Trophy } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { isAuthenticated } from '@/lib/auth';
+import { getMe } from '@/lib/auth';
+import { resolveAuthPageUser } from '@/lib/auth-page';
 import { RegisterForm } from './register-form';
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = {
+  title: "Ro'yxatdan o'tish",
+};
 
 const PERKS = [
   { icon: ShieldCheck, label: 'Xavfsiz savdo' },
@@ -15,7 +20,7 @@ const PERKS = [
 ];
 
 export default async function RegisterPage() {
-  if (await isAuthenticated()) redirect('/profile');
+  if (await resolveAuthPageUser(getMe)) redirect('/profile');
 
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
 

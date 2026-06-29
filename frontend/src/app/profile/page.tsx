@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { BadgeCheck, ShieldAlert, Send, Mail, User as UserIcon } from 'lucide-react';
 
@@ -11,6 +12,13 @@ import { LogoutButton } from '@/components/profile/logout-button';
 import { getMe } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = {
+  title: 'Profil',
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function ProfilePage() {
   const user = await getMe();

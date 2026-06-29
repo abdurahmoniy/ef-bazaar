@@ -18,9 +18,9 @@ const sizes = {
 export function Logo({ size = 'md', href = '/', className }: LogoProps) {
   const s = sizes[size];
   const content = (
-    <div className={cn('inline-flex items-center gap-2 font-bold tracking-tight', s.text, className)}>
+    <div className={cn('inline-flex items-center gap-2 font-bold tracking-normal', s.text, className)}>
       <span className="relative inline-flex items-center justify-center">
-        <span className="absolute inset-0 rounded-md bg-gradient-to-br from-cyber-cyan to-cyber-purple opacity-50 blur-md" />
+        <span className="absolute inset-0 rounded-md bg-gradient-to-br from-cyber-cyan to-emerald-400 opacity-50 blur-md" />
         <Gamepad2 className={cn('relative text-foreground', s.icon)} />
       </span>
       <span>
