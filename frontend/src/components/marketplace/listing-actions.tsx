@@ -157,7 +157,7 @@ async function marketplaceFetch<T = unknown>(path: string[], init: RequestInit =
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
       ...(init.headers as Record<string, string> | undefined),
     },
-    credentials: 'same-origin',
+    credentials: 'include',
   });
   const payload = await readJson(response);
 

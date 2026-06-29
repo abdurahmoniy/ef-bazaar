@@ -8,20 +8,15 @@ import {
   apiFetch,
   ApiException,
 } from './api';
+import { getAuthCookieClearOptions, getAuthCookieOptions } from './auth-cookies';
 import type { AuthResponse, TelegramAuthData, User } from './types';
 
 const ACCESS_TTL_SECONDS = 60 * 15;            // 15 min
 const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 kun
 
-const cookieOpts = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
-  path: '/',
-};
-
 async function setAuthCookies(auth: AuthResponse) {
   const jar = await cookies();
+  const cookieOpts = getAuthCookieOptions();
   jar.set(ACCESS_COOKIE_NAME, auth.accessToken, {
     ...cookieOpts,
     maxAge: ACCESS_TTL_SECONDS,
@@ -34,8 +29,10 @@ async function setAuthCookies(auth: AuthResponse) {
 
 export async function clearAuthCookies() {
   const jar = await cookies();
-  jar.delete(ACCESS_COOKIE_NAME);
-  jar.delete(REFRESH_COOKIE_NAME);
+  for (const cookieOpts of getAuthCookieClearOptions()) {
+    jar.set(ACCESS_COOKIE_NAME, '', cookieOpts);
+    jar.set(REFRESH_COOKIE_NAME, '', cookieOpts);
+  }
 }
 
 // ─── Telegram register / login ──────────────────────────────────────────────

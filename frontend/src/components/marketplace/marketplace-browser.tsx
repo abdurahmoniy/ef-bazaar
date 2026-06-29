@@ -38,7 +38,7 @@ export function MarketplaceBrowser({ filters, activeFilter, query }: Marketplace
         const params = new URLSearchParams(queryString);
         const response = await fetch(buildMarketplaceApiPath('v1/listings', params), {
           headers: { Accept: 'application/json' },
-          credentials: 'same-origin',
+          credentials: 'include',
           signal: controller.signal,
         });
         const payload = await readJson(response);

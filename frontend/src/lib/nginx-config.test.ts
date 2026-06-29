@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const configPath = join(process.cwd(), '..', 'nginx', 'conf.d', 'efbazaar.conf');
+const apiConfigPath = join(process.cwd(), '..', 'nginx', 'conf.d', 'api.conf');
 
 function extractBlocks(config: string, directive: RegExp) {
   const blocks: string[] = [];
@@ -67,5 +68,21 @@ describe('nginx marketplace routing', () => {
     for (const location of authVerifyLocations) {
       expect(location).toContain('proxy_set_header Cookie $http_cookie;');
     }
+  });
+});
+
+describe('nginx api subdomain routing', () => {
+  it('routes marketplace api requests with auth and browser CORS support', () => {
+    const config = readFileSync(apiConfigPath, 'utf8');
+    const marketplaceLocation = extractBlocks(config, /\blocation\s+\/marketplace\/\s*\{/g)[0];
+
+    expect(config).toContain('map $http_origin $cors_allow_origin');
+    expect(marketplaceLocation).toContain('auth_basic off;');
+    expect(marketplaceLocation).toContain('auth_request /_auth_verify;');
+    expect(marketplaceLocation).toContain('error_page 401 = @marketplace_anon;');
+    expect(marketplaceLocation).toContain('add_header Access-Control-Allow-Origin $cors_allow_origin always;');
+    expect(marketplaceLocation).toContain('add_header Access-Control-Allow-Credentials "true" always;');
+    expect(marketplaceLocation).toContain('if ($request_method = OPTIONS)');
+    expect(marketplaceLocation).toContain('proxy_pass http://marketplace_upstream/api/;');
   });
 });

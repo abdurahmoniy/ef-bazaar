@@ -38,7 +38,7 @@ export function MarketplaceListingDetail({
       try {
         const response = await fetch(buildMarketplaceApiPath(['v1', 'listings', listingId]), {
           headers: { Accept: 'application/json' },
-          credentials: 'same-origin',
+          credentials: 'include',
           signal: controller.signal,
         });
         const payload = await readJson(response);
