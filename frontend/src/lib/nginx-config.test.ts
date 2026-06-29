@@ -58,4 +58,14 @@ describe('nginx marketplace routing', () => {
     expect(marketplaceLocation).toContain('proxy_set_header X-User-Roles');
     expect(marketplaceLocation).toContain('proxy_set_header X-Telegram-Id');
   });
+
+  it('forwards browser cookies to auth verification subrequests', () => {
+    const config = readFileSync(configPath, 'utf8');
+    const authVerifyLocations = extractBlocks(config, /\blocation\s+=\s+\/_auth_verify\s*\{/g);
+
+    expect(authVerifyLocations.length).toBeGreaterThanOrEqual(2);
+    for (const location of authVerifyLocations) {
+      expect(location).toContain('proxy_set_header Cookie $http_cookie;');
+    }
+  });
 });
