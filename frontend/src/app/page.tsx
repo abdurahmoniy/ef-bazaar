@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import {
   ArrowRight,
   BadgeCheck,
   Bot,
   Clock3,
+  Filter,
   Gamepad2,
   Heart,
   MessageCircle,
@@ -16,12 +18,9 @@ import {
   UploadCloud,
   Users,
   WalletCards,
-  Zap,
   type LucideIcon,
 } from 'lucide-react';
 
-import { Logo } from '@/components/brand/logo';
-import { Button } from '@/components/ui/button';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 
 const structuredData = {
@@ -66,55 +65,86 @@ const structuredData = {
 
 const jsonLd = JSON.stringify(structuredData).replace(/</g, '\\u003c');
 
-const DESK_METRICS = [
-  { icon: Trophy, label: 'Division window', value: '1-9', tone: 'cyan' },
-  { icon: Clock3, label: 'Chat expiry', value: '24 soat', tone: 'emerald' },
-  { icon: BadgeCheck, label: 'Profile signal', value: 'Google', tone: 'amber' },
-  { icon: Bot, label: 'Login rail', value: 'Telegram', tone: 'rose' },
-];
+const ACCOUNT_FILTERS = ['Division 1', '3100+', 'Epic', 'Google', 'Savdo bor'];
 
-const LIVE_DEALS = [
-  { title: 'Division 1 pro squad', price: '450k', strength: '3100+', badge: 'Google' },
-  { title: 'Epic player stack', price: '690k', strength: '3280', badge: 'Savdo' },
-  { title: 'Coin-rich starter', price: '280k', strength: '2760', badge: 'Telegram' },
-];
-
-const PLAYER_TAGS = ['Messi', 'Neymar', 'Mbappe', 'Epic', 'Big Time'];
-
-const WORKFLOW = [
+const LISTINGS = [
   {
-    icon: SlidersHorizontal,
-    title: 'Browse like analytics',
-    body: "Division, price, strength, coins and player tags sit in fixed scan zones, so account comparison feels fast.",
+    title: 'D1 Epic core',
+    price: '450k',
+    meta: '3100+ strength',
+    signal: 'Google',
+    tone: 'mint',
   },
   {
-    icon: ShieldCheck,
-    title: 'Check visible trust',
-    body: 'Telegram-first access, Google profile signal and server-side session rules stay visible without extra promises.',
+    title: 'Coin heavy',
+    price: '280k',
+    meta: '8 400 coin',
+    signal: 'Telegram',
+    tone: 'sky',
+  },
+  {
+    title: 'Starter clean',
+    price: '190k',
+    meta: 'Division 4',
+    signal: '24 soat',
+    tone: 'clay',
+  },
+];
+
+const ACCOUNT_STATS = [
+  { label: 'Division', value: '1', tone: 'ink' },
+  { label: 'Strength', value: '3100+', tone: 'mint' },
+  { label: 'Coins', value: '8 400', tone: 'amber' },
+  { label: 'Price', value: '450k', tone: 'sky' },
+];
+
+const SIGNALS = [
+  { icon: Bot, label: 'Telegram login', value: 'familiar entry' },
+  { icon: BadgeCheck, label: 'Google signal', value: 'profile linked' },
+  { icon: Clock3, label: '24 soat chat', value: 'clear reply window' },
+  { icon: ShieldCheck, label: 'Server session', value: 'checked actions' },
+];
+
+const BUYER_STEPS = [
+  {
+    icon: Search,
+    title: 'Scan without noise',
+    body: 'Price, division, strength and player tags sit in one quiet row, so buyers compare accounts faster.',
+  },
+  {
+    icon: SlidersHorizontal,
+    title: 'Filter by intent',
+    body: 'Chips stay small and tactile: Division, coin balance, Epic players, Google signal and negotiation state.',
   },
   {
     icon: MessageCircle,
-    title: 'Move into chat',
-    body: "Buyers continue from a listing into the seller chat flow, while create-listing stays one click away.",
+    title: 'Move to seller chat',
+    body: 'The path from listing to chat stays obvious, with the 24 soat rule visible before the buyer clicks.',
   },
 ];
 
-const PLATFORM_CARDS = [
-  {
-    icon: Heart,
-    title: 'Shortlist surface',
-    body: "Like and cart actions become part of the marketplace dashboard instead of hidden afterthoughts.",
-  },
+const SELLER_STEPS = [
   {
     icon: UploadCloud,
-    title: 'Seller desk',
-    body: 'Create-listing entry points stay direct, with account stats and media flow designed for repeated use.',
+    title: 'Post from one place',
+    body: 'Listing creation is treated as a primary action, not a secondary footer link.',
   },
   {
     icon: WalletCards,
-    title: 'Value signals',
-    body: 'Player names, coin balances and team strength read as market signals, not just text fields.',
+    title: 'Show market value',
+    body: 'Coins, team strength, division and player names become structured signals instead of loose text.',
   },
+  {
+    icon: Users,
+    title: 'Read buyer interest',
+    body: 'Likes, cart saves and chat intent remain visible as lightweight marketplace feedback.',
+  },
+];
+
+const PLATFORM_NOTES = [
+  'Porcelain background, warm ink text and restrained emerald, orange and blue accents.',
+  'Soft UI controls use inset depth and quiet borders instead of neon gradients.',
+  'Marketplace-first content: every section points back to browse, list, filter or chat.',
 ];
 
 export default function HomePage() {
@@ -124,10 +154,12 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd }}
       />
-      <main className="dashboard-surface min-h-screen overflow-hidden text-slate-950">
-        <HeroSection />
-        <WorkflowSection />
-        <PlatformSection />
+      <main className="dashboard-surface min-h-screen overflow-hidden text-stone-950">
+        <LandingHeader />
+        <MarketSheet />
+        <SignalStrip />
+        <FlowSection />
+        <DirectionSection />
         <FinalCta />
         <SiteFooter />
       </main>
@@ -135,320 +167,236 @@ export default function HomePage() {
   );
 }
 
-function HeroSection() {
+function LandingHeader() {
   return (
-    <section className="container py-4 sm:py-6 lg:min-h-screen">
-      <div className="grid gap-4 lg:grid-cols-[5rem_minmax(0,1fr)]">
-        <DeskRail />
-        <div className="space-y-4">
-          <SiteHeader />
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-            <HeroPanel />
-            <LiveMarketCockpit />
-          </div>
-          <DeskMetrics />
-        </div>
-      </div>
-    </section>
-  );
-}
+    <header className="container pt-5">
+      <div className="soft-panel flex items-center justify-between gap-3 px-3 py-3 sm:px-4">
+        <Link href="/" className="flex items-center gap-3" aria-label="efBazaar home">
+          <span className="grid h-10 w-10 place-items-center rounded-[8px] bg-stone-950 text-stone-50 shadow-[8px_8px_18px_rgba(41,37,36,0.14)]">
+            <Gamepad2 className="h-5 w-5" />
+          </span>
+          <span className="text-lg font-black tracking-normal text-stone-950">efBazaar</span>
+        </Link>
 
-function DeskRail() {
-  return (
-    <aside className="hidden min-h-[calc(100vh-2rem)] flex-col items-center justify-between rounded-[8px] border border-white/70 bg-white/45 px-3 py-4 shadow-[0_18px_70px_rgba(15,23,42,0.12)] backdrop-blur-2xl lg:flex">
-      <div className="flex flex-col items-center gap-3">
-        <div className="grid h-12 w-12 place-items-center rounded-[8px] bg-slate-950 text-cyan-200 shadow-[0_18px_40px_rgba(15,23,42,0.25)]">
-          <Gamepad2 className="h-6 w-6" />
-        </div>
-        {[Search, Trophy, Heart, MessageCircle].map((Icon, index) => (
-          <div
-            key={index}
-            className="grid h-10 w-10 place-items-center rounded-[8px] border border-slate-200/80 bg-white/70 text-slate-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]"
-          >
-            <Icon className="h-4 w-4" />
-          </div>
-        ))}
-      </div>
-      <div className="grid h-10 w-10 place-items-center rounded-[8px] bg-emerald-400/90 text-slate-950">
-        <Zap className="h-4 w-4" />
-      </div>
-    </aside>
-  );
-}
-
-function SiteHeader() {
-  return (
-    <header className="rounded-[8px] border border-white/70 bg-white/55 px-3 py-3 shadow-[0_18px_70px_rgba(15,23,42,0.10)] backdrop-blur-2xl">
-      <div className="flex items-center justify-between gap-3">
-        <Logo size="md" />
-        <nav className="hidden items-center gap-2 rounded-[8px] border border-slate-200/80 bg-white/55 p-1 text-sm font-bold text-slate-600 md:flex">
-          <Link href="/marketplace" className="rounded-[8px] px-3 py-2 transition hover:bg-slate-950 hover:text-white">
-            Bozor
+        <nav className="hidden items-center gap-1 rounded-[8px] bg-stone-100/70 p-1 text-sm font-bold text-stone-600 shadow-[inset_4px_4px_9px_rgba(120,113,108,0.12),inset_-4px_-4px_9px_rgba(255,255,255,0.9)] md:flex">
+          <Link href="/marketplace" className="rounded-[8px] px-3 py-2 transition hover:bg-white hover:text-stone-950">
+            Market
           </Link>
-          <Link href="#workflow" className="rounded-[8px] px-3 py-2 transition hover:bg-slate-950 hover:text-white">
-            Workflow
+          <Link href="#buyer" className="rounded-[8px] px-3 py-2 transition hover:bg-white hover:text-stone-950">
+            Buyer
           </Link>
-          <Link href="#platform" className="rounded-[8px] px-3 py-2 transition hover:bg-slate-950 hover:text-white">
-            Platform
+          <Link href="#seller" className="rounded-[8px] px-3 py-2 transition hover:bg-white hover:text-stone-950">
+            Seller
           </Link>
         </nav>
+
         <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm" className="hidden rounded-[8px] text-slate-700 sm:inline-flex">
-            <Link href="/auth/login">Kirish</Link>
-          </Button>
-          <Button asChild size="sm" className="rounded-[8px] bg-slate-950 px-3 text-white hover:bg-slate-800">
-            <Link href="/marketplace">
-              <Search className="h-4 w-4" />
-              Bozor
-            </Link>
-          </Button>
+          <Link
+            href="/auth/login"
+            className="hidden min-h-10 items-center rounded-[8px] px-3 text-sm font-black text-stone-600 transition hover:text-stone-950 sm:flex"
+          >
+            Kirish
+          </Link>
+          <ActionLink href="/marketplace" label="Bozor" icon={Search} compact />
         </div>
       </div>
     </header>
   );
 }
 
-function HeroPanel() {
+function MarketSheet() {
   return (
-    <div className="relative min-h-[34rem] overflow-hidden rounded-[8px] border border-white/70 bg-white/50 p-5 shadow-[0_24px_90px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:p-7 lg:min-h-[calc(100vh-9.5rem)]">
-      <div className="absolute inset-x-0 top-0 h-24 bg-[linear-gradient(90deg,rgba(34,211,238,0.22),rgba(16,185,129,0.16),rgba(245,158,11,0.22))]" />
-      <div className="relative flex h-full flex-col justify-between gap-10">
-        <div>
-          <div className="mb-6 flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-2 rounded-[8px] border border-cyan-200/80 bg-cyan-50/80 px-3 py-2 text-sm font-black text-cyan-800">
-              <Sparkles className="h-4 w-4" />
-              Glass trade desk
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-[8px] border border-amber-200/80 bg-amber-50/85 px-3 py-2 text-sm font-black text-amber-800">
-              Soft analytics layer
-            </span>
-          </div>
+    <section className="container py-5 sm:py-8">
+      <div className="soft-panel min-h-[calc(100vh-7.5rem)] p-3 sm:p-5 lg:p-6">
+        <div className="grid min-h-[calc(100vh-10.5rem)] gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(20rem,0.56fr)]">
+          <div className="flex min-w-0 flex-col justify-between gap-8 rounded-[8px] bg-white/42 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] sm:p-7">
+            <div>
+              <div className="mb-5 flex flex-wrap items-center gap-2">
+                <Pill icon={Sparkles}>Quiet account market</Pill>
+                <Pill>Minimal Soft UI marketplace</Pill>
+              </div>
 
-          <h1 className="text-6xl font-black leading-[0.86] text-slate-950 sm:text-7xl lg:text-8xl">
-            efBazaar
-          </h1>
-          <p className="mt-6 max-w-xl text-2xl font-black leading-tight text-slate-800 sm:text-3xl">
-            eFootball account savdosi uchun marketplace cockpit.
-          </p>
-          <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
-            Accountlarni division, strength, coin, player va trust signallari bilan ko'ring.
-            Landing endi oddiy promo emas, product dashboardga kirish eshigi.
-          </p>
-        </div>
+              <p className="text-sm font-black uppercase tracking-normal text-orange-700">eFootball account marketplace</p>
+              <h1 className="mt-4 max-w-4xl text-5xl font-black leading-[0.92] tracking-normal text-stone-950 sm:text-6xl lg:text-7xl">
+                Browse with signal, not noise.
+              </h1>
+              <p className="mt-5 max-w-2xl text-base leading-8 text-stone-600 sm:text-lg">
+                efBazaar endi sokin, aniq va tactile marketplace sifatida ochiladi: listinglar,
+                filterlar, trust signallari va chat oqimi birinchi ekranning o'zida ko'rinadi.
+              </p>
 
-        <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Button asChild size="lg" className="h-14 rounded-[8px] bg-slate-950 px-6 text-white shadow-[0_18px_45px_rgba(15,23,42,0.24)] hover:bg-slate-800">
-              <Link href="/marketplace">
-                Bozorni ko'rish
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              size="lg"
-              className="h-14 rounded-[8px] border-slate-300 bg-white/70 px-6 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] hover:bg-white"
-            >
-              <Link href="/marketplace/new">Akkount joylash</Link>
-            </Button>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <HeroSignal icon={Search} label="Browse" />
-            <HeroSignal icon={BadgeCheck} label="Google signal" />
-            <HeroSignal icon={Clock3} label="24 soat chat" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LiveMarketCockpit() {
-  return (
-    <div className="grid gap-4 lg:grid-rows-[auto_1fr]">
-      <div className="rounded-[8px] border border-slate-900/10 bg-slate-950 p-4 text-white shadow-[0_24px_90px_rgba(15,23,42,0.22)]">
-        <div className="flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase text-cyan-300">Live market cockpit</p>
-            <h2 className="mt-1 text-2xl font-black">Listing intelligence</h2>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-[8px] bg-emerald-300 px-3 py-2 text-xs font-black text-slate-950">
-            <span className="h-2 w-2 rounded-full bg-slate-950" />
-            Online market
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-[0.95fr_1.05fr]">
-          <div className="rounded-[8px] border border-white/10 bg-white/[0.07] p-4">
-            <div className="mb-4 flex items-center gap-2 rounded-[8px] bg-white px-3 py-3 text-sm font-bold text-slate-700">
-              <Search className="h-4 w-4 shrink-0 text-cyan-600" />
-              <span className="truncate">Messi Big Time, Division 1</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <CockpitMetric label="Div" value="1" />
-              <CockpitMetric label="Power" value="3100+" />
-              <CockpitMetric label="UZS" value="450k" />
-            </div>
-            <div className="mt-4 grid min-h-44 place-items-center rounded-[8px] border border-cyan-200/20 bg-[linear-gradient(135deg,rgba(34,211,238,0.25),rgba(16,185,129,0.18),rgba(245,158,11,0.18))]">
-              <div className="text-center">
-                <Gamepad2 className="mx-auto h-12 w-12 text-cyan-200" />
-                <div className="mt-3 text-5xl font-black">8 400</div>
-                <div className="text-sm font-bold text-slate-300">Android coin</div>
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                <ActionLink href="/marketplace" label="Bozorni ko'rish" icon={ArrowRight} />
+                <SecondaryLink href="/marketplace/new" label="Akkount joylash" icon={UploadCloud} />
               </div>
             </div>
-          </div>
 
-          <div className="space-y-3">
-            <div className="rounded-[8px] border border-white/10 bg-white/[0.07] p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase text-slate-400">Market board</p>
-                  <h3 className="text-lg font-black">Top active deals</h3>
-                </div>
-                <WalletCards className="h-5 w-5 text-amber-300" />
+            <div className="space-y-3">
+              <div className="soft-inset flex min-h-14 items-center gap-3 px-3">
+                <Search className="h-5 w-5 shrink-0 text-stone-500" />
+                <span className="min-w-0 truncate text-sm font-bold text-stone-500">
+                  Messi Epic, Division 1, 3100+ strength
+                </span>
+                <Filter className="ml-auto h-5 w-5 shrink-0 text-orange-700" />
               </div>
-              <div className="space-y-2">
-                {LIVE_DEALS.map((deal) => (
-                  <div
-                    key={deal.title}
-                    className="grid grid-cols-[1fr_auto] gap-3 rounded-[8px] border border-white/10 bg-white/[0.07] p-3"
+              <div className="flex flex-wrap gap-2">
+                {ACCOUNT_FILTERS.map((filter) => (
+                  <span
+                    key={filter}
+                    className="rounded-[8px] border border-white/80 bg-stone-50/80 px-3 py-2 text-xs font-black text-stone-600 shadow-[5px_5px_12px_rgba(120,113,108,0.10),-5px_-5px_12px_rgba(255,255,255,0.9)]"
                   >
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-black">{deal.title}</div>
-                      <div className="mt-1 text-xs font-semibold text-slate-400">{deal.strength} strength</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-black">{deal.price}</div>
-                      <div className="mt-1 text-[11px] font-black text-emerald-300">{deal.badge}</div>
-                    </div>
-                  </div>
+                    {filter}
+                  </span>
                 ))}
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <CockpitTile icon={Heart} label="Likes" value="128" />
-              <CockpitTile icon={ShoppingBag} label="Cart" value="42" />
-            </div>
           </div>
+
+          <AccountConsole />
         </div>
       </div>
-
-      <div className="grid gap-4 md:grid-cols-[1fr_0.82fr]">
-        <div className="rounded-[8px] border border-white/70 bg-white/55 p-4 shadow-[0_18px_65px_rgba(15,23,42,0.10)] backdrop-blur-2xl">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-black text-slate-950">Player signal stack</h3>
-            <Trophy className="h-5 w-5 text-amber-600" />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {PLAYER_TAGS.map((player) => (
-              <span
-                key={player}
-                className="rounded-[8px] border border-slate-200 bg-white/75 px-3 py-2 text-xs font-black text-slate-700"
-              >
-                {player}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-[8px] border border-white/70 bg-white/55 p-4 shadow-[0_18px_65px_rgba(15,23,42,0.10)] backdrop-blur-2xl">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-black text-slate-950">
-              <MessageCircle className="h-4 w-4 text-emerald-600" />
-              Seller chat
-            </div>
-            <div className="text-xs font-black text-slate-500">24 soat</div>
-          </div>
-          <div className="space-y-2 text-sm font-bold">
-            <div className="w-[88%] rounded-[8px] bg-cyan-100 px-3 py-2 text-cyan-950">Akkount aktivmi?</div>
-            <div className="ml-auto w-[78%] rounded-[8px] bg-emerald-100 px-3 py-2 text-emerald-950">Ha, Google linked.</div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </section>
   );
 }
 
-function DeskMetrics() {
+function AccountConsole() {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {DESK_METRICS.map(({ icon: Icon, label, value, tone }) => (
-        <div
-          key={label}
-          className="rounded-[8px] border border-white/70 bg-white/55 p-4 shadow-[0_16px_60px_rgba(15,23,42,0.10)] backdrop-blur-2xl"
-        >
+    <aside className="soft-panel grid min-h-[32rem] gap-3 p-3">
+      <div className="rounded-[8px] bg-stone-950 p-4 text-stone-50 shadow-[12px_12px_24px_rgba(41,37,36,0.18)]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase text-emerald-200">Market sheet</p>
+            <h2 className="mt-1 text-2xl font-black">Selected account</h2>
+          </div>
+          <span className="rounded-[8px] bg-emerald-200 px-3 py-2 text-xs font-black text-stone-950">Online</span>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {ACCOUNT_STATS.map((stat) => (
+            <StatTile key={stat.label} {...stat} />
+          ))}
+        </div>
+
+        <div className="mt-5 rounded-[8px] border border-white/10 bg-white/[0.06] p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-xs font-black uppercase text-slate-500">{label}</div>
-              <div className="mt-2 text-2xl font-black text-slate-950">{value}</div>
+              <p className="text-xs font-black uppercase text-stone-400">Player stack</p>
+              <p className="mt-1 text-lg font-black">Messi, Neymar, Mbappe</p>
             </div>
-            <div className={metricTone(tone)}>
-              <Icon className="h-5 w-5" />
-            </div>
+            <Trophy className="h-6 w-6 text-amber-200" />
+          </div>
+          <div className="mt-4 h-2 rounded-full bg-white/10">
+            <div className="h-2 w-[78%] rounded-full bg-emerald-200" />
           </div>
         </div>
-      ))}
-    </div>
+      </div>
+
+      <div className="grid gap-3">
+        {LISTINGS.map((listing) => (
+          <ListingRow key={listing.title} {...listing} />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <TinyAction icon={Heart} label="Likes" value="128" />
+        <TinyAction icon={ShoppingBag} label="Cart" value="42" />
+      </div>
+    </aside>
   );
 }
 
-function WorkflowSection() {
+function SignalStrip() {
   return (
-    <section id="workflow" className="container py-14 sm:py-20">
-      <SectionHeader
-        eyebrow="Workflow"
-        title="Not a landing page. A buyer decision surface."
-        body="The page now behaves visually like the platform it sells: scan first, compare second, act third."
-      />
-      <div className="mt-8 grid gap-4 lg:grid-cols-3">
-        {WORKFLOW.map(({ icon: Icon, title, body }, index) => (
-          <article
-            key={title}
-            className="rounded-[8px] border border-white/70 bg-white/55 p-5 shadow-[0_18px_65px_rgba(15,23,42,0.10)] backdrop-blur-2xl"
-          >
-            <div className="mb-8 flex items-center justify-between">
-              <div className="grid h-11 w-11 place-items-center rounded-[8px] bg-slate-950 text-cyan-200">
+    <section className="container pb-5 sm:pb-8">
+      <div className="grid gap-3 md:grid-cols-4">
+        {SIGNALS.map(({ icon: Icon, label, value }) => (
+          <div key={label} className="soft-panel p-4">
+            <div className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-[8px] bg-white/70 text-stone-700 shadow-[inset_3px_3px_7px_rgba(120,113,108,0.10),inset_-3px_-3px_7px_rgba(255,255,255,0.9)]">
                 <Icon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-stone-950">{label}</p>
+                <p className="truncate text-xs font-bold text-stone-500">{value}</p>
               </div>
-              <span className="text-sm font-black text-slate-400">0{index + 1}</span>
             </div>
-            <h3 className="text-xl font-black text-slate-950">{title}</h3>
-            <p className="mt-3 leading-7 text-slate-600">{body}</p>
-          </article>
+          </div>
         ))}
       </div>
     </section>
   );
 }
 
-function PlatformSection() {
+function FlowSection() {
   return (
-    <section id="platform" className="container pb-14 sm:pb-20">
-      <div className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
-        <div className="rounded-[8px] bg-slate-950 p-6 text-white shadow-[0_24px_90px_rgba(15,23,42,0.22)] sm:p-8">
-          <p className="text-sm font-black uppercase text-cyan-300">Modern SaaS Analytics Dashboard</p>
-          <h2 className="mt-4 text-4xl font-black leading-tight sm:text-5xl">Whole platform direction</h2>
-          <p className="mt-5 leading-8 text-slate-300">
-            Marketplace, detail, profile and create-listing pages should inherit this lighter desk system:
-            glass shell, dense metrics, clear action zones and Soft UI controls.
-          </p>
-        </div>
+    <section className="container py-10 sm:py-14">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <FlowColumn
+          id="buyer"
+          eyebrow="Buyer flow"
+          title="Minimal comparison, then direct chat."
+          steps={BUYER_STEPS}
+        />
+        <FlowColumn
+          id="seller"
+          eyebrow="Seller flow"
+          title="Post account value without extra clutter."
+          steps={SELLER_STEPS}
+        />
+      </div>
+    </section>
+  );
+}
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          {PLATFORM_CARDS.map(({ icon: Icon, title, body }) => (
-            <article
-              key={title}
-              className="rounded-[8px] border border-white/70 bg-white/55 p-5 shadow-[0_18px_65px_rgba(15,23,42,0.10)] backdrop-blur-2xl"
-            >
-              <div className="mb-8 grid h-11 w-11 place-items-center rounded-[8px] bg-cyan-100 text-cyan-800">
-                <Icon className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-black text-slate-950">{title}</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{body}</p>
-            </article>
+function FlowColumn({
+  id,
+  eyebrow,
+  title,
+  steps,
+}: {
+  id: string;
+  eyebrow: string;
+  title: string;
+  steps: Array<{ icon: LucideIcon; title: string; body: string }>;
+}) {
+  return (
+    <div id={id} className="min-w-0">
+      <p className="text-sm font-black uppercase text-orange-700">{eyebrow}</p>
+      <h2 className="mt-3 max-w-xl text-3xl font-black leading-tight text-stone-950 sm:text-4xl">{title}</h2>
+
+      <div className="mt-6 space-y-3">
+        {steps.map(({ icon: Icon, title: stepTitle, body }) => (
+          <article key={stepTitle} className="soft-panel grid gap-4 p-4 sm:grid-cols-[auto_1fr]">
+            <span className="grid h-11 w-11 place-items-center rounded-[8px] bg-stone-950 text-emerald-100">
+              <Icon className="h-5 w-5" />
+            </span>
+            <div>
+              <h3 className="text-lg font-black text-stone-950">{stepTitle}</h3>
+              <p className="mt-2 leading-7 text-stone-600">{body}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DirectionSection() {
+  return (
+    <section className="container pb-10 sm:pb-14">
+      <div className="grid gap-4 lg:grid-cols-[0.78fr_1fr]">
+        <div>
+          <p className="text-sm font-black uppercase text-orange-700">Whole platform direction</p>
+          <h2 className="mt-3 max-w-xl text-3xl font-black leading-tight text-stone-950 sm:text-4xl">
+            Softer, quieter, more marketplace-native.
+          </h2>
+        </div>
+        <div className="soft-panel divide-y divide-stone-200/70 p-2">
+          {PLATFORM_NOTES.map((note) => (
+            <div key={note} className="flex gap-3 px-3 py-4 text-sm font-bold leading-7 text-stone-600 sm:text-base">
+              <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-orange-500" />
+              <span>{note}</span>
+            </div>
           ))}
         </div>
       </div>
@@ -458,108 +406,149 @@ function PlatformSection() {
 
 function FinalCta() {
   return (
-    <section className="container pb-14 sm:pb-20">
-      <div className="grid gap-6 rounded-[8px] border border-slate-950/10 bg-white/65 p-5 shadow-[0_24px_90px_rgba(15,23,42,0.14)] backdrop-blur-2xl sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
+    <section className="container pb-12 sm:pb-16">
+      <div className="soft-panel grid gap-5 p-5 sm:p-7 lg:grid-cols-[1fr_auto] lg:items-center">
         <div>
-          <p className="text-sm font-black uppercase text-cyan-700">Start trading desk</p>
-          <h2 className="mt-3 text-3xl font-black text-slate-950 sm:text-4xl">Bozorni oching yoki account joylang.</h2>
-          <p className="mt-3 max-w-2xl leading-7 text-slate-600">
-            Same routes, stronger product surface: browse anonymously, then login for listing, cart and chat actions.
+          <p className="text-sm font-black uppercase text-orange-700">Start</p>
+          <h2 className="mt-2 text-3xl font-black text-stone-950 sm:text-4xl">Bozor ochiq. Listing tayyor.</h2>
+          <p className="mt-3 max-w-2xl leading-7 text-stone-600">
+            Birinchi yo'l xaridorga, ikkinchi yo'l sellerga: ikkalasi ham marketplace flowga to'g'ri ulanadi.
           </p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
-          <Button asChild size="lg" className="h-12 rounded-[8px] bg-slate-950 px-6 text-white hover:bg-slate-800">
-            <Link href="/marketplace">
-              Bozorni ko'rish
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="h-12 rounded-[8px] border-slate-300 bg-white px-6 text-slate-950 hover:bg-slate-50">
-            <Link href="/marketplace/new">Akkount joylash</Link>
-          </Button>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <ActionLink href="/marketplace" label="Bozorni ko'rish" icon={ArrowRight} />
+          <SecondaryLink href="/marketplace/new" label="Akkount joylash" icon={UploadCloud} />
         </div>
       </div>
     </section>
   );
 }
 
-function SectionHeader({
-  eyebrow,
+function ListingRow({
   title,
-  body,
+  price,
+  meta,
+  signal,
+  tone,
 }: {
-  eyebrow: string;
   title: string;
-  body: string;
+  price: string;
+  meta: string;
+  signal: string;
+  tone: string;
 }) {
   return (
-    <div className="max-w-3xl">
-      <p className="text-sm font-black uppercase text-cyan-700">{eyebrow}</p>
-      <h2 className="mt-3 text-3xl font-black leading-tight text-slate-950 sm:text-5xl">{title}</h2>
-      <p className="mt-4 leading-8 text-slate-600">{body}</p>
+    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-[8px] bg-stone-50/75 p-3 shadow-[7px_7px_16px_rgba(120,113,108,0.12),-7px_-7px_16px_rgba(255,255,255,0.92)]">
+      <span className={listingTone(tone)} />
+      <div className="min-w-0">
+        <p className="truncate text-sm font-black text-stone-950">{title}</p>
+        <p className="truncate text-xs font-bold text-stone-500">{meta}</p>
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-black text-stone-950">{price}</p>
+        <p className="text-xs font-black text-orange-700">{signal}</p>
+      </div>
     </div>
   );
 }
 
-function HeroSignal({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <div className="flex min-h-14 items-center gap-2 rounded-[8px] border border-slate-200/90 bg-white/65 px-3 text-xs font-black text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] sm:text-sm lg:text-xs xl:text-sm">
-      <Icon className="h-4 w-4 shrink-0 text-cyan-700" />
-      <span className="truncate">{label}</span>
-    </div>
-  );
-}
-
-function CockpitMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[8px] border border-white/10 bg-white/[0.08] p-3">
-      <div className="text-xs font-black uppercase text-slate-400">{label}</div>
-      <div className="mt-1 text-sm font-black text-white">{value}</div>
-    </div>
-  );
-}
-
-function CockpitTile({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-}) {
+function StatTile({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
     <div className="rounded-[8px] border border-white/10 bg-white/[0.07] p-3">
-      <Icon className="h-4 w-4 text-cyan-300" />
-      <div className="mt-2 text-xs font-bold text-slate-400">{label}</div>
-      <div className="text-lg font-black text-white">{value}</div>
+      <p className="text-xs font-black uppercase text-stone-400">{label}</p>
+      <p className={statTone(tone)}>{value}</p>
     </div>
   );
 }
 
-function metricTone(tone: string) {
-  if (tone === 'cyan') return 'grid h-11 w-11 place-items-center rounded-[8px] bg-cyan-100 text-cyan-800';
-  if (tone === 'emerald') return 'grid h-11 w-11 place-items-center rounded-[8px] bg-emerald-100 text-emerald-800';
-  if (tone === 'amber') return 'grid h-11 w-11 place-items-center rounded-[8px] bg-amber-100 text-amber-800';
-  return 'grid h-11 w-11 place-items-center rounded-[8px] bg-rose-100 text-rose-800';
+function TinyAction({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
+  return (
+    <div className="soft-panel p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-black uppercase text-stone-500">{label}</p>
+          <p className="mt-1 text-2xl font-black text-stone-950">{value}</p>
+        </div>
+        <Icon className="h-5 w-5 text-orange-700" />
+      </div>
+    </div>
+  );
+}
+
+function Pill({ icon: Icon, children }: { icon?: LucideIcon; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-[8px] border border-white/80 bg-white/60 px-3 py-2 text-xs font-black text-stone-700 shadow-[5px_5px_12px_rgba(120,113,108,0.10),-5px_-5px_12px_rgba(255,255,255,0.9)]">
+      {Icon ? <Icon className="h-4 w-4 text-orange-700" /> : null}
+      {children}
+    </span>
+  );
+}
+
+function ActionLink({
+  href,
+  label,
+  icon: Icon,
+  compact = false,
+}: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  compact?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] bg-stone-950 font-black text-stone-50 shadow-[8px_8px_18px_rgba(41,37,36,0.16)] transition hover:-translate-y-0.5 hover:bg-stone-800 ${
+        compact ? 'px-3 text-sm' : 'px-5 text-sm sm:text-base'
+      }`}
+    >
+      <span>{label}</span>
+      <Icon className="h-4 w-4" />
+    </Link>
+  );
+}
+
+function SecondaryLink({ href, label, icon: Icon }: { href: string; label: string; icon: LucideIcon }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[8px] bg-stone-100/70 px-5 text-sm font-black text-stone-800 shadow-[inset_5px_5px_10px_rgba(120,113,108,0.13),inset_-5px_-5px_10px_rgba(255,255,255,0.95)] transition hover:bg-white sm:text-base"
+    >
+      <span>{label}</span>
+      <Icon className="h-4 w-4" />
+    </Link>
+  );
+}
+
+function listingTone(tone: string) {
+  if (tone === 'mint') return 'h-10 w-2 rounded-full bg-emerald-400';
+  if (tone === 'sky') return 'h-10 w-2 rounded-full bg-sky-400';
+  return 'h-10 w-2 rounded-full bg-orange-500';
+}
+
+function statTone(tone: string) {
+  if (tone === 'mint') return 'mt-1 text-2xl font-black text-emerald-200';
+  if (tone === 'amber') return 'mt-1 text-2xl font-black text-amber-200';
+  if (tone === 'sky') return 'mt-1 text-2xl font-black text-sky-200';
+  return 'mt-1 text-2xl font-black text-stone-50';
 }
 
 function SiteFooter() {
   return (
-    <footer className="border-t border-slate-950/10 py-8">
-      <div className="container flex flex-col gap-4 text-sm font-semibold text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-        <Logo size="sm" />
+    <footer className="border-t border-stone-300/70 py-8">
+      <div className="container flex flex-col gap-4 text-sm font-bold text-stone-500 sm:flex-row sm:items-center sm:justify-between">
+        <Link href="/" className="font-black text-stone-950">efBazaar</Link>
         <div className="flex flex-wrap gap-x-5 gap-y-2">
-          <Link href="/marketplace" className="transition hover:text-slate-950">
+          <Link href="/marketplace" className="transition hover:text-stone-950">
             Marketplace
           </Link>
-          <Link href="/marketplace/new" className="transition hover:text-slate-950">
+          <Link href="/marketplace/new" className="transition hover:text-stone-950">
             Akkount joylash
           </Link>
-          <Link href="/auth/login" className="transition hover:text-slate-950">
+          <Link href="/auth/login" className="transition hover:text-stone-950">
             Kirish
           </Link>
-          <Link href={siteConfig.links.telegram} className="transition hover:text-slate-950">
+          <Link href={siteConfig.links.telegram} className="transition hover:text-stone-950">
             Telegram
           </Link>
         </div>

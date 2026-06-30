@@ -11,11 +11,13 @@ describe('HomePage redesign contract', () => {
   it('renders the marketplace-first hero and primary routes', () => {
     const markup = renderLanding();
 
-    expect(markup).toContain('Glass trade desk');
-    expect(markup).toContain('Live market cockpit');
-    expect(markup).toContain('Soft analytics layer');
+    expect(markup).toContain('Quiet account market');
+    expect(markup).toContain('Minimal Soft UI marketplace');
+    expect(markup).toContain('Browse with signal, not noise');
     expect(markup).toContain('href="/marketplace"');
     expect(markup).toContain('href="/marketplace/new"');
+    expect(markup).not.toContain('Glass trade desk');
+    expect(markup).not.toContain('Live market cockpit');
   });
 
   it('keeps the landing page grounded in implemented trust signals', () => {

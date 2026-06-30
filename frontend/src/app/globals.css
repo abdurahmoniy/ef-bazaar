@@ -67,11 +67,30 @@
 
   .dashboard-surface {
     background:
-      linear-gradient(120deg, rgba(224, 247, 255, 0.92) 0 26%, rgba(232, 255, 246, 0.9) 26% 52%, rgba(255, 246, 220, 0.9) 52% 76%, rgba(241, 245, 255, 0.94) 76% 100%),
-      linear-gradient(90deg, rgba(15, 23, 42, 0.055) 1px, transparent 1px),
-      linear-gradient(rgba(15, 23, 42, 0.055) 1px, transparent 1px);
-    background-color: #eef8ff;
-    background-size: auto, 64px 64px, 64px 64px;
+      linear-gradient(135deg, rgba(255, 252, 246, 0.94), rgba(242, 238, 228, 0.96)),
+      linear-gradient(90deg, rgba(68, 64, 60, 0.045) 1px, transparent 1px),
+      linear-gradient(rgba(68, 64, 60, 0.04) 1px, transparent 1px);
+    background-color: #f2eee4;
+    background-size: auto, 74px 74px, 74px 74px;
+  }
+
+  .soft-panel {
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    background: rgba(247, 243, 234, 0.72);
+    backdrop-filter: blur(24px);
+    box-shadow:
+      16px 16px 34px rgba(120, 113, 108, 0.13),
+      -16px -16px 34px rgba(255, 255, 255, 0.78),
+      inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  }
+
+  .soft-inset {
+    border-radius: 8px;
+    background: rgba(245, 245, 244, 0.75);
+    box-shadow:
+      inset 7px 7px 14px rgba(120, 113, 108, 0.13),
+      inset -7px -7px 14px rgba(255, 255, 255, 0.9);
   }
 
   /* Glowing gradient text */
