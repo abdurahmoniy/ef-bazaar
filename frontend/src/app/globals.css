@@ -67,10 +67,11 @@
 
   .dashboard-surface {
     background:
-      linear-gradient(180deg, rgba(2, 6, 23, 0.98) 0%, rgba(15, 23, 42, 0.96) 48%, rgba(2, 6, 23, 1) 100%),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-      linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-    background-size: auto, 72px 72px, 72px 72px;
+      linear-gradient(120deg, rgba(224, 247, 255, 0.92) 0 26%, rgba(232, 255, 246, 0.9) 26% 52%, rgba(255, 246, 220, 0.9) 52% 76%, rgba(241, 245, 255, 0.94) 76% 100%),
+      linear-gradient(90deg, rgba(15, 23, 42, 0.055) 1px, transparent 1px),
+      linear-gradient(rgba(15, 23, 42, 0.055) 1px, transparent 1px);
+    background-color: #eef8ff;
+    background-size: auto, 64px 64px, 64px 64px;
   }
 
   /* Glowing gradient text */

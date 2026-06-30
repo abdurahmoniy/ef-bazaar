@@ -11,8 +11,9 @@ describe('HomePage redesign contract', () => {
   it('renders the marketplace-first hero and primary routes', () => {
     const markup = renderLanding();
 
-    expect(markup).toContain('eFootball akkountlari uchun premium marketplace');
-    expect(markup).toContain('Marketplace command center');
+    expect(markup).toContain('Glass trade desk');
+    expect(markup).toContain('Live market cockpit');
+    expect(markup).toContain('Soft analytics layer');
     expect(markup).toContain('href="/marketplace"');
     expect(markup).toContain('href="/marketplace/new"');
   });
