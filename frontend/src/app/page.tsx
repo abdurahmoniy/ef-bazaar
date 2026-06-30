@@ -157,7 +157,7 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd }}
       />
-      <main className="min-h-screen overflow-hidden bg-[linear-gradient(180deg,rgba(2,6,23,0.98)_0%,rgba(15,23,42,0.96)_48%,rgba(2,6,23,1)_100%)]">
+      <main className="dashboard-surface min-h-screen overflow-hidden">
         <SiteHeader />
         <HeroSection />
         <MarketSignals />
