@@ -30,6 +30,7 @@ describe('marketplace formatting helpers', () => {
     expect(divisionLabel(1)).toBe('Division 1');
     expect(divisionLabel(9)).toBe('Division 9');
     expect(divisionLabel(15)).toBe('Division -');
+    expect(divisionLabel(undefined)).toBe('Division -');
   });
 
   it('normalizes valuable player text into a bounded list', () => {
@@ -43,19 +44,21 @@ describe('marketplace formatting helpers', () => {
 
   it('parses search params into listing browse filters', () => {
     const parsed = parseListingSearchParams({
-      filter: 'division-1-3',
       page: '2',
       q: 'Messi',
-      valuablePlayer: 'Neymar',
+      'attr.valuable_players': 'Neymar',
     });
 
     expect(parsed).toEqual({
-      minDivision: 1,
-      maxDivision: 3,
       page: 2,
       search: 'Messi',
-      valuablePlayer: 'Neymar',
+      attributes: { valuable_players: 'Neymar' },
     });
+  });
+
+  it('applies the google-linked filter as an attribute equality param', () => {
+    const parsed = parseListingSearchParams({ filter: 'google' });
+    expect(parsed.attributes).toEqual({ has_google_play_link: 'true' });
   });
 
   it('falls back to the all filter for unknown filter ids', () => {
@@ -67,19 +70,18 @@ describe('marketplace formatting helpers', () => {
       page: 1,
       size: 12,
       sort: 'createdAt,desc',
-      hasGooglePlayLink: true,
       priceNegotiable: false,
-      minTeamStrength: 3000,
       search: '  Messi  ',
+      attributes: { has_google_play_link: 'true', highest_division_level: '7' },
     });
 
     expect(params.get('page')).toBe('1');
     expect(params.get('size')).toBe('12');
     expect(params.get('sort')).toBe('createdAt,desc');
-    expect(params.get('hasGooglePlayLink')).toBe('true');
     expect(params.get('priceNegotiable')).toBe('false');
-    expect(params.get('minTeamStrength')).toBe('3000');
     expect(params.get('search')).toBe('Messi');
+    expect(params.get('attr.has_google_play_link')).toBe('true');
+    expect(params.get('attr.highest_division_level')).toBe('7');
     expect(params.has('maxPrice')).toBe(false);
   });
 });

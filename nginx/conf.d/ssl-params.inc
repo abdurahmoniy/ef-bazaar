@@ -12,5 +12,9 @@ ssl_session_tickets off;
 # HSTS — 1 yil. Subdomenlar ham (efbazaar va api ikkalasi).
 add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 add_header X-Content-Type-Options nosniff always;
-add_header X-Frame-Options DENY always;
+# Clickjacking himoyasi CSP orqali. Telegram Web Mini App uni iframe'da ochadi,
+# shuning uchun web.telegram.org uchun ruxsat qoldiramiz. X-Frame-Options ishlatsak
+# u DENY/SAMEORIGIN/ALLOW-FROM'dan tashqarisiga chek qo'yolmaydi va CSP ustidan
+# birinchi bo'lib ishlaydi — shu sabab uni olib tashladik.
+add_header Content-Security-Policy "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" always;
 add_header Referrer-Policy strict-origin-when-cross-origin always;

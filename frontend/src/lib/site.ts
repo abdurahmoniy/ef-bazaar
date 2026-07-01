@@ -1,4 +1,4 @@
-const DEFAULT_SITE_URL = 'https://efbazaar.chempox.uz';
+const DEFAULT_SITE_URL = 'https://efbazaar.uz';
 const DEFAULT_BOT_USERNAME = 'EfBazaarBot';
 
 function normalizeSiteUrl(value?: string) {

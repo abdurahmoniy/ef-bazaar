@@ -91,7 +91,7 @@ write_env() {
   upsert_env .env MEDIA_MIN_FILES         1
   upsert_env .env MEDIA_MAX_FILES         6
   upsert_env .env MEDIA_MAX_FILE_SIZE_MB  5
-  upsert_env .env MEDIA_ALLOWED_TYPES     "image/jpeg,image/png,image/webp"
+  upsert_env .env MEDIA_ALLOWED_TYPES     "image/jpeg,image/png,image/webp,image/heic,image/heif"
 
   upsert_env .env SPRING_PROFILES_ACTIVE  docker
   upsert_env .env APP_BASE_URL            "${APP_BASE_URL:-}"

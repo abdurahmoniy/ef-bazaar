@@ -9,10 +9,16 @@ import uz.efbazaar.marketplace.dto.ListingFilter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
- * JPA Specification builder for listing browse filters.
- * Note: Postgres TEXT[] member-check uses native function {@code array_position}.
+ * JPA Specification builder for listing browse.
+ *
+ * <p>Typed columns (status, price, priceNegotiable, description) use direct
+ * property access. Dynamic filters on {@code attributes} JSONB use Postgres
+ * {@code jsonb_extract_path_text} for equality-match — good enough for the
+ * common filter cases in phase 1b. Numeric range filters on dynamic attributes
+ * will be added in a follow-up once the frontend needs them.
  */
 public final class ListingSpecifications {
 
@@ -30,33 +36,22 @@ public final class ListingSpecifications {
             if (f.maxPrice() != null) {
                 ps.add(cb.lessThanOrEqualTo(root.get("price"), f.maxPrice()));
             }
-            if (f.minDivision() != null) {
-                ps.add(cb.greaterThanOrEqualTo(root.get("highestDivisionLevel"), f.minDivision()));
-            }
-            if (f.maxDivision() != null) {
-                ps.add(cb.lessThanOrEqualTo(root.get("highestDivisionLevel"), f.maxDivision()));
-            }
-            if (f.minTeamStrength() != null) {
-                ps.add(cb.greaterThanOrEqualTo(root.get("teamStrength"), f.minTeamStrength()));
-            }
-            if (f.hasGooglePlayLink() != null) {
-                ps.add(cb.equal(root.get("hasGooglePlayLink"), f.hasGooglePlayLink()));
-            }
             if (f.priceNegotiable() != null) {
-                ps.add(cb.equal(root.get("isPriceNegotiable"), f.priceNegotiable()));
-            }
-            if (f.valuablePlayer() != null && !f.valuablePlayer().isBlank()) {
-                // Postgres: 1 = ANY (array_positions(valuable_players, :player))
-                // Simpler: use native function via cb
-                Expression<Integer> pos = cb.function("array_position",
-                        Integer.class,
-                        root.get("valuablePlayers"),
-                        cb.literal(f.valuablePlayer()));
-                ps.add(cb.isNotNull(pos));
+                ps.add(cb.equal(root.get("priceNegotiable"), f.priceNegotiable()));
             }
             if (f.search() != null && !f.search().isBlank()) {
                 ps.add(cb.like(cb.lower(root.get("description")),
                         "%" + f.search().toLowerCase() + "%"));
+            }
+            if (f.attributes() != null && !f.attributes().isEmpty()) {
+                for (Map.Entry<String, Object> entry : f.attributes().entrySet()) {
+                    Expression<String> extracted = cb.function(
+                            "jsonb_extract_path_text",
+                            String.class,
+                            root.get("attributes"),
+                            cb.literal(entry.getKey()));
+                    ps.add(cb.equal(extracted, String.valueOf(entry.getValue())));
+                }
             }
             return cb.and(ps.toArray(Predicate[]::new));
         };

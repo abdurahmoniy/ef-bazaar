@@ -6,8 +6,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.dto.*;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
@@ -15,6 +17,9 @@ import uz.efbazaar.marketplace.service.ListingService;
 import uz.efbazaar.marketplace.service.ListingViewAssembler;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -22,28 +27,30 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ListingController {
 
+    private static final String ATTR_PREFIX = "attr.";
+
     private final ListingService listingService;
     private final ListingViewAssembler assembler;
 
     // ---------- Public: browse ----------
 
+    /**
+     * Browse with typed filters + dynamic attribute equality via {@code ?attr.<key>=<value>}.
+     * E.g. {@code ?attr.highest_division_level=7&attr.has_google_play_link=true}.
+     */
     @GetMapping
     public PageResponse<ListingResponse> browse(
             @AuthenticationPrincipal AuthenticatedUser viewer,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
-            @RequestParam(required = false) Integer minDivision,
-            @RequestParam(required = false) Integer maxDivision,
-            @RequestParam(required = false) Integer minTeamStrength,
-            @RequestParam(required = false) Boolean hasGooglePlayLink,
             @RequestParam(required = false) Boolean priceNegotiable,
-            @RequestParam(required = false) String valuablePlayer,
             @RequestParam(required = false) String search,
+            @RequestParam Map<String, String> allParams,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
 
+        Map<String, Object> attributeFilters = extractAttributeFilters(allParams);
         ListingFilter filter = new ListingFilter(
-                minPrice, maxPrice, minDivision, maxDivision, minTeamStrength,
-                hasGooglePlayLink, priceNegotiable, valuablePlayer, search);
+                minPrice, maxPrice, priceNegotiable, search, attributeFilters);
         Page<Listing> page = listingService.browse(filter, pageable);
         UUID viewerId = viewer == null ? null : viewer.userId();
 
@@ -59,21 +66,33 @@ public class ListingController {
         return assembler.assemble(listing, viewer == null ? null : viewer.userId());
     }
 
-    // ---------- Protected ----------
+    // ---------- Protected: atomic create/edit ----------
 
-    @PostMapping
+    /**
+     * Atomic create — client sends {@code data} (JSON body) + {@code files}
+     * (media) in one multipart request. Returns 200 only after both the bot
+     * upload and the DB commit succeed.
+     */
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public ListingResponse create(@AuthenticationPrincipal AuthenticatedUser user,
-                                  @Valid @RequestBody ListingCreateRequest request) {
-        Listing created = listingService.create(user.userId(), request);
+                                  @RequestPart("data") @Valid ListingCreateRequest data,
+                                  @RequestPart("files") List<MultipartFile> files) {
+        Listing created = listingService.create(user.userId(), data, files);
         return assembler.assemble(created, user.userId());
     }
 
-    @PutMapping("/{id}")
+    /**
+     * Atomic full-edit — same shape as create. Media is replaced with the new
+     * upload; old Telegram messages stay as audit trail. See
+     * {@link ListingService#update} for the ordering guarantees.
+     */
+    @PutMapping(path = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ListingResponse update(@AuthenticationPrincipal AuthenticatedUser user,
                                   @PathVariable UUID id,
-                                  @Valid @RequestBody ListingUpdateRequest request) {
-        Listing updated = listingService.update(id, user.userId(), request);
+                                  @RequestPart("data") @Valid ListingUpdateRequest data,
+                                  @RequestPart("files") List<MultipartFile> files) {
+        Listing updated = listingService.update(id, user.userId(), data, files);
         return assembler.assemble(updated, user.userId());
     }
 
@@ -98,5 +117,24 @@ public class ListingController {
         return new PageResponse<>(
                 assembler.assembleAll(page.getContent(), user.userId()),
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+    }
+
+    // ---------- helpers ----------
+
+    /**
+     * Pull out {@code attr.<key>=<value>} query params from the flat request map.
+     * The value stays a raw {@code String} — Specifications compare it stringly
+     * via {@code jsonb_extract_path_text} which returns text for any JSON scalar.
+     */
+    private static Map<String, Object> extractAttributeFilters(Map<String, String> params) {
+        Map<String, Object> out = new HashMap<>();
+        for (Map.Entry<String, String> e : params.entrySet()) {
+            String key = e.getKey();
+            if (key.startsWith(ATTR_PREFIX) && key.length() > ATTR_PREFIX.length()) {
+                String attrKey = key.substring(ATTR_PREFIX.length());
+                out.put(attrKey, e.getValue());
+            }
+        }
+        return out;
     }
 }

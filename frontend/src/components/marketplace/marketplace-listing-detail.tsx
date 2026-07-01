@@ -13,7 +13,12 @@ import {
   formatListingDate,
   formatPriceUZS,
 } from '@/lib/marketplace-format';
-import type { ListingResponse } from '@/lib/marketplace-types';
+import {
+  attributeBoolean,
+  attributeNumber,
+  attributeStringList,
+  type ListingResponse,
+} from '@/lib/marketplace-types';
 
 interface MarketplaceListingDetailProps {
   listingId: string;
@@ -76,13 +81,20 @@ export function MarketplaceListingDetail({
     return <EmptyState title={error ?? "E'lon yuklanmadi"} body="Boshqa e'lonni ochib ko'ring." />;
   }
 
+  const division = attributeNumber(listing, 'highest_division_level');
+  const teamStrength = attributeNumber(listing, 'team_strength');
+  const androidCoins = attributeNumber(listing, 'android_coins') ?? 0;
+  const iosCoins = attributeNumber(listing, 'ios_coins') ?? 0;
+  const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
+  const valuablePlayers = attributeStringList(listing, 'valuable_players');
+
   return (
     <article className="space-y-4">
       <div className="rounded-[8px] border border-white/10 bg-card/85 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-cyber-cyan">
-              {divisionLabel(listing.highestDivisionLevel)}
+              {divisionLabel(division)}
             </p>
             <h1 className="mt-2 text-2xl font-black leading-tight text-white">
               {formatPriceUZS(listing.price)}
@@ -108,13 +120,13 @@ export function MarketplaceListingDetail({
         <div className="mt-4 flex flex-wrap gap-2">
           {listing.status === 'SOLD' && <Badge variant="warn">sotilgan</Badge>}
           {listing.priceNegotiable && <Badge variant="default">savdolashish</Badge>}
-          {listing.hasGooglePlayLink && (
+          {hasGooglePlayLink && (
             <Badge variant="muted">
               <BadgeCheck className="h-3 w-3" />
               Google linked
             </Badge>
           )}
-          {listing.valuablePlayers.map((player) => (
+          {valuablePlayers.map((player) => (
             <Badge key={player} variant="muted">
               {player}
             </Badge>
@@ -123,9 +135,21 @@ export function MarketplaceListingDetail({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <DetailMetric icon={<ShieldCheck className="h-5 w-5" />} label="Division" value={String(listing.highestDivisionLevel)} />
-        <DetailMetric icon={<Gamepad2 className="h-5 w-5" />} label="Team strength" value={formatCompactNumber(listing.teamStrength)} />
-        <DetailMetric icon={<Coins className="h-5 w-5" />} label="Coins" value={formatCompactNumber(listing.androidCoins + listing.iosCoins)} />
+        <DetailMetric
+          icon={<ShieldCheck className="h-5 w-5" />}
+          label="Division"
+          value={division === undefined ? '-' : String(division)}
+        />
+        <DetailMetric
+          icon={<Gamepad2 className="h-5 w-5" />}
+          label="Team strength"
+          value={teamStrength === undefined ? '-' : formatCompactNumber(teamStrength)}
+        />
+        <DetailMetric
+          icon={<Coins className="h-5 w-5" />}
+          label="Coins"
+          value={formatCompactNumber(androidCoins + iosCoins)}
+        />
       </div>
     </article>
   );

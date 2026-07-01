@@ -46,9 +46,8 @@ public class ListingViewAssembler {
 
     private ListingResponse augment(ListingResponse r, long likeCount, Boolean likedByMe) {
         return new ListingResponse(
-                r.id(), r.sellerId(), r.description(), r.valuablePlayers(),
-                r.hasGooglePlayLink(), r.highestDivisionLevel(), r.androidCoins(), r.iosCoins(),
-                r.teamStrength(), r.price(), r.priceNegotiable(), r.mediaMessageIds(),
+                r.id(), r.sellerId(), r.description(),
+                r.price(), r.priceNegotiable(), r.attributes(), r.mediaMessageIds(),
                 r.status(), r.forwardCount(), likeCount, likedByMe,
                 r.createdAt(), r.updatedAt()
         );

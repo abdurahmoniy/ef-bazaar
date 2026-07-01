@@ -92,7 +92,7 @@ springdoc:
     path: /swagger-ui/index.html
     enabled: true
     # Aggregated swagger UI: dropdown'da 3 ta servis.
-    # URL'lar `api.efbazaar.chempox.uz` orqali chiqadi (nginx routing).
+    # URL'lar `api.efbazaar.uz` orqali chiqadi (nginx routing).
     urls:
       - name: auth
         url: /v3/api-docs/auth

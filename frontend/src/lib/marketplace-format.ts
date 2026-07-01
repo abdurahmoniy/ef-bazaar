@@ -20,9 +20,11 @@ const UZ_MONTHS = [
 export const MARKETPLACE_FILTERS = [
   { id: 'all', label: 'Barchasi', params: {} },
   { id: 'negotiable', label: 'Savdolashish', params: { priceNegotiable: true } },
-  { id: 'google', label: 'Google linked', params: { hasGooglePlayLink: true } },
-  { id: 'division-1-3', label: 'Div 1-3', params: { minDivision: 1, maxDivision: 3 } },
-  { id: 'strong', label: '3000+ strength', params: { minTeamStrength: 3000 } },
+  {
+    id: 'google',
+    label: 'Google linked',
+    params: { attributes: { has_google_play_link: 'true' } },
+  },
 ] as const satisfies readonly {
   id: string;
   label: string;
@@ -38,6 +40,8 @@ const FILTER_PARAMS = MARKETPLACE_FILTERS.reduce(
   },
   {} as Record<MarketplaceFilterId, ListingBrowseParams>,
 );
+
+const ATTR_PARAM_PREFIX = 'attr.';
 
 function isMarketplaceFilterId(value: string): value is MarketplaceFilterId {
   return value in FILTER_PARAMS;
@@ -108,8 +112,10 @@ export function formatListingDate(value: string | Date) {
   return `${day} ${month} ${hour}:${minute}`;
 }
 
-export function divisionLabel(value: number) {
-  if (!Number.isInteger(value) || value < 1 || value > 9) return 'Division -';
+export function divisionLabel(value: number | undefined) {
+  if (value === undefined || !Number.isInteger(value) || value < 1 || value > 9) {
+    return 'Division -';
+  }
   return `Division ${value}`;
 }
 
@@ -128,32 +134,38 @@ export function getSelectedMarketplaceFilter(input: SearchParamInput = {}): Mark
 
 export function parseListingSearchParams(input: SearchParamInput = {}): ListingBrowseParams {
   const selectedFilter = getSelectedMarketplaceFilter(input);
-  const params: ListingBrowseParams = { ...FILTER_PARAMS[selectedFilter] };
+  const base = FILTER_PARAMS[selectedFilter];
+  const params: ListingBrowseParams = {
+    ...base,
+    attributes: base.attributes ? { ...base.attributes } : undefined,
+  };
 
   const page = numberParam(input.page, 0);
   const size = numberParam(input.size, 1);
   const minPrice = numberParam(input.minPrice, 0);
   const maxPrice = numberParam(input.maxPrice, 0);
-  const minDivision = numberParam(input.minDivision, 1);
-  const maxDivision = numberParam(input.maxDivision, 1);
-  const minTeamStrength = numberParam(input.minTeamStrength, 0);
-  const hasGooglePlayLink = booleanParam(input.hasGooglePlayLink);
   const priceNegotiable = booleanParam(input.priceNegotiable);
   const search = textParam(input.q) ?? textParam(input.search);
-  const valuablePlayer = textParam(input.valuablePlayer);
 
   if (page !== undefined) params.page = page;
   if (size !== undefined) params.size = size;
   if (minPrice !== undefined) params.minPrice = minPrice;
   if (maxPrice !== undefined) params.maxPrice = maxPrice;
-  if (minDivision !== undefined) params.minDivision = minDivision;
-  if (maxDivision !== undefined) params.maxDivision = maxDivision;
-  if (minTeamStrength !== undefined) params.minTeamStrength = minTeamStrength;
-  if (hasGooglePlayLink !== undefined) params.hasGooglePlayLink = hasGooglePlayLink;
   if (priceNegotiable !== undefined) params.priceNegotiable = priceNegotiable;
-  if (valuablePlayer) params.valuablePlayer = valuablePlayer;
   if (search) params.search = search;
 
+  // Any `attr.<key>` query param is treated as a JSONB equality filter.
+  for (const [rawKey, rawValue] of Object.entries(input)) {
+    if (!rawKey.startsWith(ATTR_PARAM_PREFIX)) continue;
+    const attrKey = rawKey.slice(ATTR_PARAM_PREFIX.length);
+    const value = textParam(rawValue);
+    if (!attrKey || !value) continue;
+    params.attributes = { ...(params.attributes ?? {}), [attrKey]: value };
+  }
+
+  if (params.attributes && Object.keys(params.attributes).length === 0) {
+    delete params.attributes;
+  }
   return params;
 }
 
@@ -165,13 +177,14 @@ export function buildListingSearchParams(input: ListingBrowseParams = {}) {
   appendDefined(params, 'sort', input.sort ?? 'createdAt,desc');
   appendDefined(params, 'minPrice', input.minPrice);
   appendDefined(params, 'maxPrice', input.maxPrice);
-  appendDefined(params, 'minDivision', input.minDivision);
-  appendDefined(params, 'maxDivision', input.maxDivision);
-  appendDefined(params, 'minTeamStrength', input.minTeamStrength);
-  appendDefined(params, 'hasGooglePlayLink', input.hasGooglePlayLink);
   appendDefined(params, 'priceNegotiable', input.priceNegotiable);
-  appendDefined(params, 'valuablePlayer', input.valuablePlayer);
   appendDefined(params, 'search', input.search);
+
+  if (input.attributes) {
+    for (const [key, value] of Object.entries(input.attributes)) {
+      appendDefined(params, `${ATTR_PARAM_PREFIX}${key}`, value);
+    }
+  }
 
   return params;
 }

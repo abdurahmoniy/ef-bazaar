@@ -7,27 +7,29 @@ import {
 } from './auth-cookies';
 
 describe('auth cookie options', () => {
-  it('keeps cookies host-only when no shared cookie domain is configured', () => {
+  it('uses SameSite=Lax without Secure in development so localhost works', () => {
     expect(getAuthCookieOptions({ NODE_ENV: 'development' })).toEqual({
       httpOnly: true,
       secure: false,
       sameSite: 'lax',
+      partitioned: false,
       path: '/',
     });
   });
 
-  it('adds a normalized shared domain for api subdomain requests', () => {
+  it('uses SameSite=None + Secure + Partitioned in production so Telegram Web Mini App iframe works', () => {
     expect(
       getAuthCookieOptions({
         NODE_ENV: 'production',
-        AUTH_COOKIE_DOMAIN: '.efbazaar.chempox.uz',
+        AUTH_COOKIE_DOMAIN: '.efbazaar.uz',
       }),
     ).toEqual({
       httpOnly: true,
       secure: true,
-      sameSite: 'lax',
+      sameSite: 'none',
+      partitioned: true,
       path: '/',
-      domain: 'efbazaar.chempox.uz',
+      domain: 'efbazaar.uz',
     });
   });
 
@@ -39,21 +41,23 @@ describe('auth cookie options', () => {
     expect(
       getAuthCookieClearOptions({
         NODE_ENV: 'production',
-        AUTH_COOKIE_DOMAIN: 'efbazaar.chempox.uz',
+        AUTH_COOKIE_DOMAIN: 'efbazaar.uz',
       }),
     ).toEqual([
       {
         httpOnly: true,
         secure: true,
-        sameSite: 'lax',
+        sameSite: 'none',
+        partitioned: true,
         path: '/',
-        domain: 'efbazaar.chempox.uz',
+        domain: 'efbazaar.uz',
         maxAge: 0,
       },
       {
         httpOnly: true,
         secure: true,
-        sameSite: 'lax',
+        sameSite: 'none',
+        partitioned: true,
         path: '/',
         maxAge: 0,
       },

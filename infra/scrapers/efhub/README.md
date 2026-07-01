@@ -103,6 +103,25 @@ Environment variables:
 
 ## Yangilash
 
+### Production: avtomatik (tavsiya)
+
+`marketplace-service` ichida `EfhubSyncJob` har kuni **06:00 UTC**da ishlaydi:
+- `app.cards.sync.enabled=true` bo'lganda
+- Faqat **yangi** ID'larni topadi (DB diff)
+- Har scrape orasi `app.cards.sync.delay-ms` (default 5s)
+- Bir runda max `batch-limit` ta card (default 50)
+- Tugagach `efbazaar.marketplace.cards-added` Kafka eventini chiqaradi
+
+Env'lar:
+```
+EFHUB_SYNC_ENABLED=true
+EFHUB_SYNC_CRON="0 0 6 * * *"
+EFHUB_SYNC_DELAY_MS=5000
+EFHUB_SYNC_BATCH_LIMIT=50
+```
+
+### Manual (Python skriptlar — local dev)
+
 Yangi cardlar chiqsa, faqat 1 va 3-4 bosqichlarni takrorlang:
 
 ```bash
@@ -110,3 +129,14 @@ curl ... > /tmp/player_index.json   # yangi index
 python3 .../scrape.py               # faqat yangi ID'larni oladi (resume)
 python3 .../load.py                 # upsert
 ```
+
+## Serverga ko'chirish (bir martalik)
+
+Lokal seed'ni serverga chiqarish uchun:
+
+```bash
+SERVER=user@example.com ./migrate-to-server.sh
+```
+
+Bu skript: `pg_dump` (data-only) → `scp` → server'da schema'ni qo'llaydi → `pg_restore` qiladi.
+Soniyada tugaydi (~1,400 row).

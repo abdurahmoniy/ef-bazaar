@@ -34,6 +34,8 @@ public class SecurityConfig {
                                 "/api/v1/listings/*").permitAll()
                         // Public — card picker (read-only player card lookup)
                         .requestMatchers(HttpMethod.GET, "/api/v1/cards/**").permitAll()
+                        // Public — attribute definitions (form rendering + filter discovery)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/attributes", "/api/v1/attributes/*").permitAll()
                         // Public — health
                         .requestMatchers("/actuator/**", "/api/v1/ping").permitAll()
                         // Public — OpenAPI (api.* subdomain nginx basic auth ostida)
@@ -43,6 +45,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-resources/**",
                                 "/webjars/**").permitAll()
+                        // Admin — attribute + future admin operations
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // Hamma boshqa endpoint auth talab qiladi
                         .anyRequest().authenticated())
                 .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class)

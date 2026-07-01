@@ -9,18 +9,21 @@ export interface PageResponse<T> {
   totalPages: number;
 }
 
+/**
+ * Dynamic attribute payload keyed by AttributeDefinition.key. Values match the
+ * definition type (INT/DECIMAL → number, BOOLEAN → boolean, STRING/TEXT → string,
+ * LIST_STRING → string[], ENUM → string). Consumers read known keys defensively
+ * because inactive definitions may still appear on old listings.
+ */
+export type ListingAttributes = Record<string, unknown>;
+
 export interface ListingResponse {
   id: string;
   sellerId: string;
   description: string;
-  valuablePlayers: string[];
-  hasGooglePlayLink: boolean;
-  highestDivisionLevel: number;
-  androidCoins: number;
-  iosCoins: number;
-  teamStrength: number;
   price: number | string;
   priceNegotiable: boolean;
+  attributes: ListingAttributes;
   mediaMessageIds: string[];
   status: ListingStatus;
   forwardCount: number;
@@ -36,28 +39,44 @@ export interface ListingBrowseParams {
   sort?: string;
   minPrice?: number;
   maxPrice?: number;
-  minDivision?: number;
-  maxDivision?: number;
-  minTeamStrength?: number;
-  hasGooglePlayLink?: boolean;
   priceNegotiable?: boolean;
-  valuablePlayer?: string;
   search?: string;
+  /** Equality filters on JSONB attributes — sent as {@code ?attr.<key>=<value>}. */
+  attributes?: Record<string, string>;
 }
 
 export interface ListingCreateRequest {
   description: string;
-  valuablePlayers: string[];
-  hasGooglePlayLink: boolean;
-  highestDivisionLevel: number;
-  androidCoins: number;
-  iosCoins: number;
-  teamStrength: number;
   price: number;
   priceNegotiable: boolean;
+  attributes: ListingAttributes;
 }
 
 export type ListingUpdateRequest = Partial<ListingCreateRequest>;
+
+// ---------- helpers ----------
+
+/** Read a numeric attribute, returning {@code undefined} if missing / not a number. */
+export function attributeNumber(listing: ListingResponse, key: string): number | undefined {
+  const raw = listing.attributes?.[key];
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string') {
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
+}
+
+export function attributeBoolean(listing: ListingResponse, key: string): boolean {
+  const raw = listing.attributes?.[key];
+  return raw === true || raw === 'true';
+}
+
+export function attributeStringList(listing: ListingResponse, key: string): string[] {
+  const raw = listing.attributes?.[key];
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is string => typeof item === 'string');
+}
 
 export interface LikeToggleResponse {
   listingId: string;

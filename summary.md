@@ -137,7 +137,7 @@
   Bot Konfiguratsiyasi
 
   - BotFather'da Mini App tugmasi qo'shilgan (menu button yoki inline)
-  - URL: https://efbazaar.chempox.uz
+  - URL: https://efbazaar.uz
   - Telegram URL'ga #tgWebAppData=... hash qo'shadi, app shu hash'dan auto-login qiladi
 
   ---
@@ -269,9 +269,8 @@
 
   - apiFetch — server-side fetch + access_token cookie → Authorization header
   - getMe, telegramAuth, telegramWebAppAuth, googleLogin, linkGoogle, logout
-  - Cookies: httpOnly + sameSite=lax, secure (prod); AUTH_COOKIE_DOMAIN=efbazaar.chempox.uz bo'lsa api subdomain'ga ham yuboriladi
+  - Cookies: httpOnly + sameSite=lax, secure (prod)
   - INTERNAL_API_BASE_URL=http://nginx:8080/api (internal block, HTTPS redirect'siz)
-  - Browser marketplace fetchlari: NEXT_PUBLIC_API_BASE_URL=https://api.efbazaar.chempox.uz
 
   Server Actions (auth/actions.ts)
 
@@ -297,7 +296,6 @@
   - Internal 8080 → frontend SSR uchun (INTERNAL_API_BASE_URL=http://nginx:8080/api)
   - /api/auth/ → auth-service/api/
   - /api/marketplace/ → auth_request /_auth_verify (optional auth: 401 da @marketplace_anon)
-  - api.efbazaar.chempox.uz/api/ → browser CORS + auth_request → marketplace-service/api/
   - /_auth_verify → auth-service/api/v1/auth/verify (internal subrequest)
   - Cookie va Authorization header upstream'ga forward bo'ladi
 
@@ -345,11 +343,9 @@
   Frontend (docker-compose.yml)
 
   INTERNAL_API_BASE_URL=http://nginx:8080/api
-  AUTH_COOKIE_DOMAIN=efbazaar.chempox.uz
-  NEXT_PUBLIC_API_BASE_URL=https://api.efbazaar.chempox.uz
   NEXT_PUBLIC_TELEGRAM_BOT=<bot username>
   NEXT_PUBLIC_GOOGLE_CLIENT_ID
-  NEXT_PUBLIC_BASE_URL=https://efbazaar.chempox.uz
+  NEXT_PUBLIC_BASE_URL=https://efbazaar.uz
 
   ---
   13. Listing Domain Model
@@ -451,7 +447,7 @@
   docker compose exec -T postgres psql -U efbazaar -d auth_db -c "SELECT id, telegram_id, telegram_photo_file_id, telegram_photo_file_unique_id FROM users;"
 
   # Photo proxy test (kerak: access_token cookie)
-  curl -sI -H "Cookie: access_token=$TOKEN" https://efbazaar.chempox.uz/api/auth/v1/users/me/photo
+  curl -sI -H "Cookie: access_token=$TOKEN" https://efbazaar.uz/api/auth/v1/users/me/photo
   # 200 + image/jpeg → file_id stream OK
   # 302 + location: t.me → URL fallback (file_id yo'q)
   # 404 → no source

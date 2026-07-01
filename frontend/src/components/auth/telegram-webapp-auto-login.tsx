@@ -56,25 +56,20 @@ export function TelegramWebAppAutoLogin() {
     setState('authing');
     telegramWebAppAuthAction(initData)
       .then((res) => {
-        if (res && !res.ok) {
+        if (!res.ok) {
           setError(res.error ?? 'Telegram Mini App auth ishlamadi');
           setState('error');
           return;
         }
-        // ok bo'lsa redirect bo'ladi — overlay'ni yopib qo'yamiz
-        setState('idle');
+        // Server Action redirect() ni ushlab olib navigate qilish faqat
+        // form/handler wrapper'siz useEffect chaqiruvida ishonchsiz — Telegram
+        // Desktop WebView unhandled-rejection'ni jimgina yutib yuboradi. Next.js
+        // router.replace() ham ba'zi WebView versiyalarida navigation'ni
+        // qo'llab-quvvatlamaydi. window.location.assign — full-page reload,
+        // yangi cookie bilan har qanday WebView'da ishonchli /profile ochadi.
+        window.location.assign('/profile');
       })
       .catch((e: unknown) => {
-        // Server action ichidagi `redirect()` Next.js ichki NEXT_REDIRECT signali'ni
-        // tashlaydi — bu real xato emas. Komponent root layoutda bo'lgani uchun
-        // navigation'dan keyin ham mount holatida qoladi, shuning uchun state'ni
-        // 'idle' ga qaytarib overlay'ni yopamiz; signalni Next.js outer runtime
-        // o'qib navigation'ni o'zi amalga oshiradi.
-        const digest = (e as { digest?: unknown })?.digest;
-        if (typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT')) {
-          setState('idle');
-          throw e;
-        }
         setError(e instanceof Error ? e.message : 'Kutilmagan xato');
         setState('error');
       });
