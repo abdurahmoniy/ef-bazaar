@@ -16,7 +16,9 @@ import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.marketplace.config.MediaProperties;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Uploads a media group to the bot's Telegram media topic. Callers are
@@ -35,6 +37,10 @@ public class MediaService {
     /**
      * Payload-shape validation only: size/type/count. No DB access. Called
      * BEFORE {@link #uploadToBot} so bad requests don't reach Telegram.
+     *
+     * <p>Content-Type check is a fast rejection — a spoofed header still gets
+     * further vetted by {@link FileTypeGuard} against the actual leading bytes,
+     * so a bash script labelled {@code image/jpeg} is caught here.
      */
     public void validate(List<MultipartFile> files) {
         if (files == null || files.size() < props.minFiles() || files.size() > props.maxFiles()) {
@@ -52,12 +58,74 @@ public class MediaService {
                         String.format("Fayl hajmi %dMB dan oshib ketdi: %s",
                                 props.maxFileSizeMb(), mf.getOriginalFilename()));
             }
-            if (mf.getContentType() == null
-                    || !props.allowedTypes().contains(mf.getContentType().toLowerCase())) {
+            String declared = mf.getContentType() == null
+                    ? null : mf.getContentType().toLowerCase(Locale.ROOT);
+            if (declared == null || !props.allowedTypes().contains(declared)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Faqat " + props.allowedTypes() + " formatlar ruxsat etilgan. Yuborildi: "
                                 + mf.getContentType());
             }
+            requireExtensionMatch(mf.getOriginalFilename(), declared);
+            verifyMagicBytes(mf, declared);
+        }
+    }
+
+    /**
+     * Reads {@link FileTypeGuard#SNIFF_BYTES} from the head of the file and
+     * hands them to {@link FileTypeGuard} for signature matching. Rejects with
+     * 400 if the payload does not match any accepted image format or the sniff
+     * disagrees with the declared Content-Type.
+     */
+    private void verifyMagicBytes(MultipartFile mf, String declaredContentType) {
+        byte[] head = new byte[FileTypeGuard.SNIFF_BYTES];
+        int read;
+        try (InputStream in = mf.getInputStream()) {
+            read = in.readNBytes(head, 0, head.length);
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Faylni o'qib bo'lmadi: " + mf.getOriginalFilename());
+        }
+        if (read < 3) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Fayl juda kichik: " + mf.getOriginalFilename());
+        }
+        byte[] sniff = (read == head.length) ? head : java.util.Arrays.copyOf(head, read);
+        try {
+            FileTypeGuard.requireAllowed(sniff, declaredContentType, props.allowedTypes());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    e.getMessage() + " (" + mf.getOriginalFilename() + ")");
+        }
+    }
+
+    /**
+     * Filename is attacker-controlled but still worth cross-checking — e.g.
+     * a {@code .svg} extension is a strong signal even if Content-Type claims
+     * something else. Blocks known-dangerous extensions outright and keeps the
+     * remaining check narrow.
+     */
+    private static void requireExtensionMatch(String filename, String declaredContentType) {
+        if (filename == null) return;
+        String lower = filename.toLowerCase(Locale.ROOT);
+        int dot = lower.lastIndexOf('.');
+        if (dot < 0) return;
+        String ext = lower.substring(dot + 1);
+        // Executable / script / markup extensions never allowed on the media path.
+        if (List.of("svg", "svgz", "html", "htm", "xhtml", "xml", "sh", "bat", "cmd",
+                    "exe", "js", "php", "jsp", "py", "rb", "pl").contains(ext)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Ushbu fayl kengaytmasi ruxsat etilmagan: ." + ext);
+        }
+        boolean match = switch (declaredContentType) {
+            case "image/jpeg" -> ext.equals("jpg") || ext.equals("jpeg");
+            case "image/png"  -> ext.equals("png");
+            case "image/webp" -> ext.equals("webp");
+            case "image/heic", "image/heif" -> ext.equals("heic") || ext.equals("heif");
+            default -> true;   // unknown declared type — magic byte check will decide
+        };
+        if (!match) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Fayl kengaytmasi Content-Type'ga mos kelmadi: " + filename);
         }
     }
 

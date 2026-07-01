@@ -89,7 +89,7 @@ app:
     min-files: ${MEDIA_MIN_FILES:1}
     max-files: ${MEDIA_MAX_FILES:6}
     max-file-size-mb: ${MEDIA_MAX_FILE_SIZE_MB:5}
-    allowed-types: ${MEDIA_ALLOWED_TYPES:image/jpeg,image/png,image/webp}
+    allowed-types: ${MEDIA_ALLOWED_TYPES:image/jpeg,image/png,image/webp,image/heic,image/heif}
   bot:
     internal-base-url: ${BOT_INTERNAL_BASE_URL:http://bot:8084}
   chat:

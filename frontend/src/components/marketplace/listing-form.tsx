@@ -147,11 +147,11 @@ export function ListingForm() {
         </label>
       </div>
 
-      <Field label={`Rasmlar (${MIN_FILES}–${MAX_FILES} ta, JPG/PNG)`}>
+      <Field label={`Rasmlar (${MIN_FILES}–${MAX_FILES} ta, JPG/PNG/WebP/HEIC)`}>
         <input
           name="files"
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
           multiple
           required
           className="block w-full cursor-pointer rounded-[8px] border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-cyber-cyan/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-cyber-cyan hover:file:bg-cyber-cyan/30"
