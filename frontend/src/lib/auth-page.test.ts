@@ -12,7 +12,7 @@ const user: User = {
   telegramPhotoUrl: null,
   displayName: 'Player',
   email: null,
-  googleLinked: false,
+  telegramLinked: true, googleLinked: false,
   verified: false,
   roles: ['ROLE_USER'],
   createdAt: '2026-06-29T00:00:00Z',

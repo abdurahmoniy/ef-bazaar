@@ -14,14 +14,17 @@ export interface TelegramAuthData {
 
 export interface User {
   id: string;
-  telegramId: number;
+  /** Optional — Google-first users don't have a Telegram identity until they link. */
+  telegramId?: number | null;
   telegramUsername?: string | null;
   telegramFirstName?: string | null;
   telegramLastName?: string | null;
   telegramPhotoUrl?: string | null;
   displayName: string;
   email?: string | null;
+  telegramLinked: boolean;
   googleLinked: boolean;
+  /** True iff both {@link telegramLinked} and {@link googleLinked}. */
   verified: boolean;
   roles: string[];
   createdAt: string;

@@ -20,6 +20,18 @@ public class AuthException extends RuntimeException {
                 "Ushbu Telegram akkaunt boshqa foydalanuvchiga bog'langan");
     }
 
+    /** Current user is already Telegram-linked — re-linking a different Telegram is rejected. */
+    public static AuthException telegramAlreadyOwned() {
+        return new AuthException(HttpStatus.CONFLICT, "telegram_already_owned",
+                "Sizning akkauntingiz allaqachon Telegram bilan bog'langan");
+    }
+
+    /** Current user is already Google-linked — re-linking a different Google is rejected. */
+    public static AuthException googleAlreadyOwned() {
+        return new AuthException(HttpStatus.CONFLICT, "google_already_owned",
+                "Sizning akkauntingiz allaqachon Google bilan bog'langan");
+    }
+
     public static AuthException invalidToken() {
         return new AuthException(HttpStatus.UNAUTHORIZED, "invalid_token",
                 "Token noto'g'ri yoki muddati o'tgan");

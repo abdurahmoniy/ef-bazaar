@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getMe } from '@/lib/auth';
@@ -23,18 +22,11 @@ export default async function LoginPage() {
       <CardHeader className="text-center">
         <CardTitle>Akkountga kirish</CardTitle>
         <CardDescription>
-          Telegram orqali kiring. Google ulagan bo'lsangiz, Google bilan ham mumkin.
+          Telegram yoki Google bilan kiring — birinchi marta kirsangiz avtomatik ro'yxatdan o'tasiz.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <LoginForm botUsername={botUsername} googleClientId={googleClientId} />
-
-        <p className="text-center text-sm text-muted-foreground">
-          Yangi foydalanuvchimisiz?{' '}
-          <Link href="/auth/register" className="font-semibold text-cyber-cyan hover:underline">
-            Ro'yxatdan o'tish
-          </Link>
-        </p>
       </CardContent>
     </Card>
   );

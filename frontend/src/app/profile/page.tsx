@@ -8,7 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/brand/logo';
 import { GoogleLinkButton } from '@/components/profile/google-link-button';
+import { LinkTelegramButton } from '@/components/profile/link-telegram-button';
 import { LogoutButton } from '@/components/profile/logout-button';
+import { DeleteAccountButton } from '@/components/profile/delete-account-button';
 import { getMe } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +27,7 @@ export default async function ProfilePage() {
   if (!user) redirect('/auth/login');
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
   const initials = (user.displayName || 'U')
     .split(' ')
     .map((s) => s[0])
@@ -71,10 +74,12 @@ export default async function ProfilePage() {
                 )}
 
                 <div className="flex flex-wrap gap-2 mt-3">
-                  <Badge variant="muted">
-                    <Send className="h-3 w-3" />
-                    Telegram
-                  </Badge>
+                  {user.telegramLinked && (
+                    <Badge variant="muted">
+                      <Send className="h-3 w-3" />
+                      Telegram
+                    </Badge>
+                  )}
                   {user.email && (
                     <Badge variant="muted">
                       <Mail className="h-3 w-3" />
@@ -95,11 +100,22 @@ export default async function ProfilePage() {
               Akkount tasdiqlash
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {!user.verified && (
+              <p className="text-sm text-muted-foreground">
+                Verified badge olish uchun ikkalasi ham ulanishi shart —{' '}
+                <span className="text-foreground font-medium">Telegram va Google</span>.
+              </p>
+            )}
             <GoogleLinkButton
               googleClientId={googleClientId}
               alreadyLinked={user.googleLinked}
               email={user.email}
+            />
+            <LinkTelegramButton
+              botUsername={botUsername}
+              alreadyLinked={user.telegramLinked}
+              telegramUsername={user.telegramUsername}
             />
           </CardContent>
         </Card>
@@ -113,13 +129,30 @@ export default async function ProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <Row label="Telegram ID" value={String(user.telegramId)} mono />
-            <Separator />
+            {user.telegramId != null && (
+              <>
+                <Row label="Telegram ID" value={String(user.telegramId)} mono />
+                <Separator />
+              </>
+            )}
             <Row label="User ID" value={user.id} mono />
             <Separator />
             <Row label="Ro'llar" value={user.roles?.join(', ') || '—'} />
             <Separator />
             <Row label="Ro'yxatdan o'tgan" value={new Date(user.createdAt).toLocaleString('uz-UZ')} />
+          </CardContent>
+        </Card>
+
+        {/* Danger zone */}
+        <Card className="border-destructive/20">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2 text-destructive">
+              <ShieldAlert className="h-5 w-5" />
+              Xavfli zona
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DeleteAccountButton />
           </CardContent>
         </Card>
       </main>

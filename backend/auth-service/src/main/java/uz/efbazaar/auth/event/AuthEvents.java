@@ -11,6 +11,7 @@ public final class AuthEvents {
 
     public static final String TOPIC_USER_REGISTERED   = "efbazaar.auth.user-registered";
     public static final String TOPIC_USER_LOGGED_IN    = "efbazaar.auth.user-logged-in";
+    public static final String TOPIC_USER_DELETED      = "efbazaar.auth.user-deleted";
     public static final String TOPIC_GOOGLE_LINKED     = "efbazaar.auth.google-linked";
     public static final String TOPIC_USER_PHOTO_NEEDED = "efbazaar.auth.user-photo-needed";
 
@@ -51,6 +52,18 @@ public final class AuthEvents {
             Long telegramId,
             String telegramUsername,
             String displayName,
+            String email,
+            Instant occurredAt) {}
+
+    /**
+     * User asked auth-service to delete their account. Downstream consumers
+     * (marketplace-service, bot) MUST purge or anonymise the caller's data
+     * — the row for this {@code userId} is already gone from auth's DB by
+     * the time this event is published.
+     */
+    public record UserDeleted(
+            UUID userId,
+            Long telegramId,
             String email,
             Instant occurredAt) {}
 }
