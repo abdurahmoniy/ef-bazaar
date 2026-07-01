@@ -1,5 +1,37 @@
 export type ListingStatus = 'ACTIVE' | 'SOLD' | 'DELETED';
 export type ChatStatus = 'ACTIVE' | 'CLOSED' | 'EXPIRED';
+export type AttributeType =
+  | 'INT'
+  | 'DECIMAL'
+  | 'BOOLEAN'
+  | 'STRING'
+  | 'TEXT'
+  | 'LIST_STRING'
+  | 'ENUM';
+
+export type AttributeConstraints = Record<string, unknown>;
+
+export interface ListingAttributeDefinition {
+  key: string;
+  labelUz: string;
+  type: AttributeType;
+  required: boolean;
+  constraints?: AttributeConstraints | null;
+  position?: number;
+  groupKey?: string | null;
+  searchable?: boolean;
+  active?: boolean;
+}
+
+export interface AttributeDefinitionResponse extends ListingAttributeDefinition {
+  id: string;
+  position: number;
+  groupKey?: string | null;
+  searchable: boolean;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface PageResponse<T> {
   content: T[];
@@ -24,6 +56,7 @@ export interface ListingResponse {
   price: number | string;
   priceNegotiable: boolean;
   attributes: ListingAttributes;
+  /** Legacy backend name; values are Telegram file_id strings for /bot/photo/{fileId}. */
   mediaMessageIds: string[];
   status: ListingStatus;
   forwardCount: number;

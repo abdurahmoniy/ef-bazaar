@@ -1,16 +1,25 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { AlertCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { collectListingFiles, createListingRequestFromForm } from '@/lib/listing-form-data';
+import {
+  buildAttributeFieldName,
+  collectListingFiles,
+  createListingRequestFromForm,
+  SEEDED_LISTING_ATTRIBUTE_DEFINITIONS,
+} from '@/lib/listing-form-data';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
-import type { ListingResponse } from '@/lib/marketplace-types';
+import type {
+  AttributeType,
+  ListingAttributeDefinition,
+  ListingResponse,
+} from '@/lib/marketplace-types';
 
 interface ListingFormState {
   ok: boolean;
@@ -27,6 +36,36 @@ export function ListingForm() {
   const router = useRouter();
   const [state, setState] = useState<ListingFormState>(INITIAL_STATE);
   const [pending, setPending] = useState(false);
+  const [attributeDefinitions, setAttributeDefinitions] = useState<readonly ListingAttributeDefinition[]>(
+    SEEDED_LISTING_ATTRIBUTE_DEFINITIONS,
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadAttributeDefinitions() {
+      try {
+        const response = await fetch(buildMarketplaceApiPath('v1/attributes'), {
+          headers: { Accept: 'application/json' },
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        const payload = await readJson(response);
+        const definitions = normalizeAttributeDefinitions(payload);
+
+        if (response.ok && definitions.length > 0) {
+          setAttributeDefinitions(definitions);
+        }
+      } catch (loadError) {
+        if ((loadError as Error).name !== 'AbortError') {
+          setAttributeDefinitions(SEEDED_LISTING_ATTRIBUTE_DEFINITIONS);
+        }
+      }
+    }
+
+    void loadAttributeDefinitions();
+    return () => controller.abort();
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,7 +74,7 @@ export function ListingForm() {
 
     const formElement = event.currentTarget;
     const formData = new FormData(formElement);
-    const request = createListingRequestFromForm(formData);
+    const request = createListingRequestFromForm(formData, attributeDefinitions);
     if (typeof request === 'string') {
       setState({ ok: false, error: request });
       setPending(false);
@@ -114,33 +153,17 @@ export function ListingForm() {
         />
       </Field>
 
-      <Field label="Muhim playerlar">
-        <Input name="valuablePlayers" className="rounded-[8px]" placeholder="Messi, Neymar, Mbappe" />
-      </Field>
+      <DynamicAttributeFields definitions={attributeDefinitions} />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Division">
-          <Input name="highestDivisionLevel" type="number" min={1} max={9} required className="rounded-[8px]" />
-        </Field>
-        <Field label="Team strength">
-          <Input name="teamStrength" type="number" min={0} required className="rounded-[8px]" />
-        </Field>
-        <Field label="Android coins">
-          <Input name="androidCoins" type="number" min={0} defaultValue={0} required className="rounded-[8px]" />
-        </Field>
-        <Field label="iOS coins">
-          <Input name="iosCoins" type="number" min={0} defaultValue={0} required className="rounded-[8px]" />
-        </Field>
         <Field label="Narx">
           <Input name="price" type="number" min={0} required className="rounded-[8px]" />
         </Field>
       </div>
 
+      <BooleanAttributeFields definitions={attributeDefinitions} />
+
       <div className="grid gap-2 rounded-[8px] border border-white/10 bg-white/[0.04] p-3 text-sm">
-        <label className="flex items-center gap-2">
-          <input name="hasGooglePlayLink" type="checkbox" className="h-4 w-4 accent-cyber-cyan" />
-          Google Play link bor
-        </label>
         <label className="flex items-center gap-2">
           <input name="priceNegotiable" type="checkbox" className="h-4 w-4 accent-cyber-cyan" />
           Savdolashish mumkin
@@ -165,6 +188,138 @@ export function ListingForm() {
   );
 }
 
+function DynamicAttributeFields({
+  definitions,
+}: {
+  definitions: readonly ListingAttributeDefinition[];
+}) {
+  const fields = sortedActiveDefinitions(definitions).filter(
+    (definition) => definition.type !== 'BOOLEAN',
+  );
+
+  if (fields.length === 0) return null;
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {fields.map((definition) => (
+        <AttributeField key={definition.key} definition={definition} />
+      ))}
+    </div>
+  );
+}
+
+function BooleanAttributeFields({
+  definitions,
+}: {
+  definitions: readonly ListingAttributeDefinition[];
+}) {
+  const fields = sortedActiveDefinitions(definitions).filter(
+    (definition) => definition.type === 'BOOLEAN',
+  );
+
+  if (fields.length === 0) return null;
+
+  return (
+    <div className="grid gap-2 rounded-[8px] border border-white/10 bg-white/[0.04] p-3 text-sm">
+      {fields.map((definition) => (
+        <label key={definition.key} className="flex items-center gap-2">
+          <input
+            name={buildAttributeFieldName(definition.key)}
+            type="checkbox"
+            className="h-4 w-4 accent-cyber-cyan"
+          />
+          {definition.labelUz}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function AttributeField({ definition }: { definition: ListingAttributeDefinition }) {
+  const name = buildAttributeFieldName(definition.key);
+  const commonInputClass = 'rounded-[8px]';
+
+  if (definition.type === 'TEXT') {
+    return (
+      <div className="space-y-2 sm:col-span-2">
+        <Label>{definition.labelUz}</Label>
+        <textarea
+          name={name}
+          required={definition.required}
+          maxLength={numberConstraint(definition, 'max_length')}
+          rows={4}
+          className="min-h-28 w-full rounded-[8px] border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none transition placeholder:text-muted-foreground/60 focus:border-cyber-cyan/50 focus:ring-2 focus:ring-cyber-cyan/40"
+        />
+      </div>
+    );
+  }
+
+  if (definition.type === 'ENUM') {
+    const options = stringListConstraint(definition, 'options');
+    return (
+      <Field label={definition.labelUz}>
+        <select
+          name={name}
+          required={definition.required}
+          defaultValue=""
+          className="h-10 w-full rounded-[8px] border border-white/10 bg-white/5 px-3 text-sm outline-none transition focus:border-cyber-cyan/50 focus:ring-2 focus:ring-cyber-cyan/40"
+        >
+          <option value="" disabled>
+            Tanlang
+          </option>
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </Field>
+    );
+  }
+
+  if (definition.type === 'LIST_STRING') {
+    return (
+      <Field label={definition.labelUz}>
+        <Input
+          name={name}
+          required={definition.required}
+          maxLength={numberConstraint(definition, 'max_length')}
+          className={commonInputClass}
+          placeholder={definition.key === 'valuable_players' ? 'Messi, Neymar, Mbappe' : undefined}
+        />
+      </Field>
+    );
+  }
+
+  if (definition.type === 'INT' || definition.type === 'DECIMAL') {
+    return (
+      <Field label={definition.labelUz}>
+        <Input
+          name={name}
+          type="number"
+          min={numberConstraint(definition, 'min')}
+          max={numberConstraint(definition, 'max')}
+          step={definition.type === 'DECIMAL' ? '0.01' : '1'}
+          required={definition.required}
+          className={commonInputClass}
+          defaultValue={defaultNumberValue(definition)}
+        />
+      </Field>
+    );
+  }
+
+  return (
+    <Field label={definition.labelUz}>
+      <Input
+        name={name}
+        required={definition.required}
+        maxLength={numberConstraint(definition, 'max_length')}
+        className={commonInputClass}
+      />
+    </Field>
+  );
+}
+
 async function readJson(response: Response) {
   const text = await response.text();
   if (!text) return null;
@@ -178,6 +333,33 @@ async function readJson(response: Response) {
 
 function isRecord(payload: unknown): payload is Record<string, unknown> {
   return typeof payload === 'object' && payload !== null;
+}
+
+function normalizeAttributeDefinitions(payload: unknown): ListingAttributeDefinition[] {
+  if (!Array.isArray(payload)) return [];
+  return payload.filter(isAttributeDefinition).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+}
+
+function isAttributeDefinition(payload: unknown): payload is ListingAttributeDefinition {
+  if (!isRecord(payload)) return false;
+  return (
+    typeof payload.key === 'string' &&
+    typeof payload.labelUz === 'string' &&
+    isAttributeType(payload.type) &&
+    typeof payload.required === 'boolean'
+  );
+}
+
+function isAttributeType(value: unknown): value is AttributeType {
+  return (
+    value === 'INT' ||
+    value === 'DECIMAL' ||
+    value === 'BOOLEAN' ||
+    value === 'STRING' ||
+    value === 'TEXT' ||
+    value === 'LIST_STRING' ||
+    value === 'ENUM'
+  );
 }
 
 function errorMessageFromPayload(payload: unknown, fallback: string) {
@@ -197,6 +379,29 @@ function listingIdFromPayload(payload: unknown) {
   return typeof (payload as Partial<ListingResponse>).id === 'string'
     ? (payload as Partial<ListingResponse>).id
     : null;
+}
+
+function sortedActiveDefinitions(definitions: readonly ListingAttributeDefinition[]) {
+  return definitions
+    .filter((definition) => definition.active !== false)
+    .slice()
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+}
+
+function numberConstraint(definition: ListingAttributeDefinition, key: string) {
+  const raw = definition.constraints?.[key];
+  const value = typeof raw === 'number' || typeof raw === 'string' ? Number(raw) : Number.NaN;
+  return Number.isFinite(value) ? value : undefined;
+}
+
+function stringListConstraint(definition: ListingAttributeDefinition, key: string) {
+  const raw = definition.constraints?.[key];
+  return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function defaultNumberValue(definition: ListingAttributeDefinition) {
+  const min = numberConstraint(definition, 'min');
+  return min === 0 && definition.key.endsWith('_coins') ? 0 : undefined;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

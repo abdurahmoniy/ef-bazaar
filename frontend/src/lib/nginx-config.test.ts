@@ -77,6 +77,7 @@ describe('nginx api subdomain routing', () => {
     const apiLocation = extractBlocks(config, /\blocation\s+\/api\/\s*\{/g)[0];
 
     expect(config).toContain('map $http_origin $cors_allow_origin');
+    expect(config).toContain('"~^https://efbazaar\\.uz$" $http_origin;');
     expect(apiLocation).toContain('auth_basic off;');
     expect(apiLocation).toContain('auth_request /_auth_verify;');
     expect(apiLocation).toContain('error_page 401 = @marketplace_anon;');
