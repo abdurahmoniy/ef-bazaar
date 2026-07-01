@@ -20,14 +20,14 @@ describe('auth cookie options', () => {
     expect(
       getAuthCookieOptions({
         NODE_ENV: 'production',
-        AUTH_COOKIE_DOMAIN: '.efbazaar.chempox.uz',
+        AUTH_COOKIE_DOMAIN: '.efbazaar.uz',
       }),
     ).toEqual({
       httpOnly: true,
       secure: true,
       sameSite: 'lax',
       path: '/',
-      domain: 'efbazaar.chempox.uz',
+      domain: 'efbazaar.uz',
     });
   });
 
@@ -39,7 +39,7 @@ describe('auth cookie options', () => {
     expect(
       getAuthCookieClearOptions({
         NODE_ENV: 'production',
-        AUTH_COOKIE_DOMAIN: 'efbazaar.chempox.uz',
+        AUTH_COOKIE_DOMAIN: 'efbazaar.uz',
       }),
     ).toEqual([
       {
@@ -47,7 +47,7 @@ describe('auth cookie options', () => {
         secure: true,
         sameSite: 'lax',
         path: '/',
-        domain: 'efbazaar.chempox.uz',
+        domain: 'efbazaar.uz',
         maxAge: 0,
       },
       {

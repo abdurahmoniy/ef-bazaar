@@ -21,7 +21,7 @@ set -euo pipefail
 
 cd "${DEPLOY_PATH:-/opt/efbazaar}"
 
-DOMAINS=(efbazaar.chempox.uz api.efbazaar.chempox.uz)
+DOMAINS=(efbazaar.uz api.efbazaar.uz)
 LE_EMAIL="${LE_EMAIL:-}"
 SWAGGER_USER="${SWAGGER_USER:-admin}"
 SWAGGER_PASS="${SWAGGER_PASS:-}"
@@ -103,7 +103,7 @@ for d in "${DOMAINS[@]}"; do
   echo "  https://$d"
 done
 echo
-echo "  Swagger UI:  https://api.efbazaar.chempox.uz/swagger-ui/index.html"
+echo "  Swagger UI:  https://api.efbazaar.uz/swagger-ui/index.html"
 echo "  Username:    $SWAGGER_USER"
 echo
 echo "  Renewal: certbot kontayneri har 12 soatda renew qiladi (avtomatik)."

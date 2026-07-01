@@ -11,7 +11,7 @@ set -e
 
 # Faqat asosiy domain — SAN cert ikkala domen uchun shu papkada saqlanadi
 # (init-cert.sh ham shu domain'ga -d efbazaar -d api.efbazaar bilan murojaat qiladi).
-DOMAINS="${TLS_DOMAINS:-efbazaar.chempox.uz}"
+DOMAINS="${TLS_DOMAINS:-efbazaar.uz}"
 LE_BASE=/etc/letsencrypt/live
 
 for d in $DOMAINS; do

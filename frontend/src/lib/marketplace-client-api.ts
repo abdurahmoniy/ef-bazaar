@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = 'https://api.efbazaar.chempox.uz';
+const DEFAULT_API_BASE_URL = 'https://api.efbazaar.uz';
 
 function normalizeSegments(path: string | string[]) {
   const segments = Array.isArray(path) ? path : path.split('/');
