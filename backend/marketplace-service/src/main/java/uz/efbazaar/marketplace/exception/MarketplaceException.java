@@ -63,4 +63,19 @@ public class MarketplaceException extends RuntimeException {
         return new MarketplaceException(HttpStatus.CONFLICT, "attribute_key_exists",
                 "Ushbu key allaqachon mavjud: " + key);
     }
+
+    public static MarketplaceException unknownAttribute(String key) {
+        return new MarketplaceException(HttpStatus.BAD_REQUEST, "unknown_attribute",
+                "Noma'lum attribute: " + key);
+    }
+
+    public static MarketplaceException missingRequiredAttribute(String key) {
+        return new MarketplaceException(HttpStatus.BAD_REQUEST, "missing_required_attribute",
+                "Kerakli attribute yo'q: " + key);
+    }
+
+    public static MarketplaceException invalidAttributeValue(String key, String reason) {
+        return new MarketplaceException(HttpStatus.BAD_REQUEST, "invalid_attribute_value",
+                "Attribute qiymati noto'g'ri (" + key + "): " + reason);
+    }
 }

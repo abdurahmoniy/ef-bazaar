@@ -1,5 +1,5 @@
 import { normalizePlayerList } from './marketplace-format';
-import type { ListingCreateRequest } from './marketplace-types';
+import type { ListingAttributes, ListingCreateRequest } from './marketplace-types';
 
 function textField(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -14,6 +14,11 @@ function numberField(formData: FormData, key: string) {
   return Number.isFinite(value) ? value : Number.NaN;
 }
 
+/**
+ * Builds a {@link ListingCreateRequest} from the create-form fields. Attribute
+ * keys are snake_case to match the backend AttributeDefinition seed (see
+ * V5 migration).
+ */
 export function createListingRequestFromForm(formData: FormData): ListingCreateRequest | string {
   const description = textField(formData, 'description');
   const highestDivisionLevel = numberField(formData, 'highestDivisionLevel');
@@ -33,15 +38,34 @@ export function createListingRequestFromForm(formData: FormData): ListingCreateR
     return "Raqamli maydonlarni to'ldiring";
   }
 
+  const attributes: ListingAttributes = {
+    highest_division_level: highestDivisionLevel,
+    team_strength: teamStrength,
+    android_coins: androidCoins,
+    ios_coins: iosCoins,
+    has_google_play_link: formData.get('hasGooglePlayLink') === 'on',
+  };
+
+  const players = normalizePlayerList(textField(formData, 'valuablePlayers'));
+  if (players.length > 0) {
+    attributes.valuable_players = players;
+  }
+
   return {
     description,
-    valuablePlayers: normalizePlayerList(textField(formData, 'valuablePlayers')),
-    hasGooglePlayLink: formData.get('hasGooglePlayLink') === 'on',
-    highestDivisionLevel,
-    androidCoins,
-    iosCoins,
-    teamStrength,
     price,
     priceNegotiable: formData.get('priceNegotiable') === 'on',
+    attributes,
   };
+}
+
+/**
+ * Collects the {@code files} entries from the form. Empty files (0 bytes) are
+ * filtered out to sidestep browsers that submit a placeholder even when the
+ * input is untouched.
+ */
+export function collectListingFiles(formData: FormData): File[] {
+  return formData
+    .getAll('files')
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
 }
