@@ -247,8 +247,8 @@ services:
     environment:
       # Server (Node) ichidan backend'ga ichki tarmoq orqali ulanish
       INTERNAL_API_BASE_URL: http://nginx:8080/api
-      AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-efbazaar.chempox.uz}
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://api.efbazaar.chempox.uz}
+      AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-efbazaar.uz}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://api.efbazaar.uz}
       NEXT_PUBLIC_TELEGRAM_BOT: ${TELEGRAM_BOT_USERNAME}
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       NEXT_PUBLIC_BASE_URL: ${APP_BASE_URL}
@@ -267,7 +267,7 @@ services:
     restart: unless-stopped
     environment:
       # Snake-oil bootstrap uchun asosiy domen (SAN cert shu papkada saqlanadi)
-      TLS_DOMAINS: "efbazaar.chempox.uz"
+      TLS_DOMAINS: "efbazaar.uz"
     ports:
       - "${NGINX_HTTP_PORT:-80}:80"
       - "${NGINX_HTTPS_PORT:-443}:443"

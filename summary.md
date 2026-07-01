@@ -137,7 +137,7 @@
   Bot Konfiguratsiyasi
 
   - BotFather'da Mini App tugmasi qo'shilgan (menu button yoki inline)
-  - URL: https://efbazaar.chempox.uz
+  - URL: https://efbazaar.uz
   - Telegram URL'ga #tgWebAppData=... hash qo'shadi, app shu hash'dan auto-login qiladi
 
   ---
@@ -345,7 +345,7 @@
   INTERNAL_API_BASE_URL=http://nginx:8080/api
   NEXT_PUBLIC_TELEGRAM_BOT=<bot username>
   NEXT_PUBLIC_GOOGLE_CLIENT_ID
-  NEXT_PUBLIC_BASE_URL=https://efbazaar.chempox.uz
+  NEXT_PUBLIC_BASE_URL=https://efbazaar.uz
 
   ---
   13. Listing Domain Model
@@ -447,7 +447,7 @@
   docker compose exec -T postgres psql -U efbazaar -d auth_db -c "SELECT id, telegram_id, telegram_photo_file_id, telegram_photo_file_unique_id FROM users;"
 
   # Photo proxy test (kerak: access_token cookie)
-  curl -sI -H "Cookie: access_token=$TOKEN" https://efbazaar.chempox.uz/api/auth/v1/users/me/photo
+  curl -sI -H "Cookie: access_token=$TOKEN" https://efbazaar.uz/api/auth/v1/users/me/photo
   # 200 + image/jpeg → file_id stream OK
   # 302 + location: t.me → URL fallback (file_id yo'q)
   # 404 → no source
