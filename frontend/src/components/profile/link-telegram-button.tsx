@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Check, AlertCircle, Send } from 'lucide-react';
 
 import { TelegramLogin } from '@/components/auth/telegram-login';
-import { Badge } from '@/components/ui/badge';
 import { linkTelegramAction } from '@/app/auth/actions';
 import type { TelegramAuthData } from '@/lib/types';
 
@@ -51,7 +50,9 @@ export function LinkTelegramButton({
             )}
           </div>
         </div>
-        <Badge variant="verified">verified</Badge>
+        <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-300/80">
+          linked
+        </span>
       </div>
     );
   }

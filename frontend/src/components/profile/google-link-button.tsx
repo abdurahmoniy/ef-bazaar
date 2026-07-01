@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Check, AlertCircle } from 'lucide-react';
 
 import { GoogleButton } from '@/components/auth/google-button';
-import { Badge } from '@/components/ui/badge';
 import { linkGoogleAction } from '@/app/auth/actions';
 
 interface GoogleLinkButtonProps {
@@ -45,7 +44,9 @@ export function GoogleLinkButton({
             {email && <p className="text-xs text-emerald-200/70 truncate">{email}</p>}
           </div>
         </div>
-        <Badge variant="verified">verified</Badge>
+        <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-300/80">
+          linked
+        </span>
       </div>
     );
   }
