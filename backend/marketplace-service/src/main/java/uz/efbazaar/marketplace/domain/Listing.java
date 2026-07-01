@@ -1,9 +1,6 @@
 package uz.efbazaar.marketplace.domain;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.PositiveOrZero;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -11,9 +8,17 @@ import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Listing entity. Gameplay-specific fields (division, coins, team strength,
+ * valuable players, google play link, etc.) live in {@link #attributes} JSONB
+ * and are validated against {@link AttributeDefinition} at write time. Only
+ * transactional/system fields stay as typed columns.
+ */
 @Entity
 @Table(name = "listings")
 @Getter
@@ -34,35 +39,21 @@ public class Listing {
     @Column(nullable = false, columnDefinition = "text")
     private String description;
 
-    @JdbcTypeCode(SqlTypes.ARRAY)
-    @Column(name = "valuable_players", columnDefinition = "text[]")
-    @Builder.Default
-    private List<String> valuablePlayers = new ArrayList<>();
-
-    @Column(name = "has_google_play_link", nullable = false)
-    private boolean hasGooglePlayLink;
-
-    @Min(1) @Max(9)
-    @Column(name = "highest_division_level", nullable = false)
-    private int highestDivisionLevel;
-
-    @PositiveOrZero
-    @Column(name = "android_coins", nullable = false)
-    private int androidCoins;
-
-    @PositiveOrZero
-    @Column(name = "ios_coins", nullable = false)
-    private int iosCoins;
-
-    @PositiveOrZero
-    @Column(name = "team_strength", nullable = false)
-    private int teamStrength;
-
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal price;
 
     @Column(name = "is_price_negotiable", nullable = false)
     private boolean priceNegotiable;
+
+    /**
+     * Dynamic attribute payload — keys must match active
+     * {@link AttributeDefinition#getKey()}. Values are validated against the
+     * corresponding definition (type + constraints) by the service layer.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
+    @Builder.Default
+    private Map<String, Object> attributes = new HashMap<>();
 
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "media_message_ids", columnDefinition = "text[]")
@@ -90,6 +81,7 @@ public class Listing {
         createdAt = now;
         updatedAt = now;
         if (status == null) status = ListingStatus.ACTIVE;
+        if (attributes == null) attributes = new HashMap<>();
     }
 
     @PreUpdate

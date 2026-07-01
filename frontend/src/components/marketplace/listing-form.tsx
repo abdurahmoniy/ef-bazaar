@@ -8,7 +8,7 @@ import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { createListingRequestFromForm } from '@/lib/listing-form-data';
+import { collectListingFiles, createListingRequestFromForm } from '@/lib/listing-form-data';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import type { ListingResponse } from '@/lib/marketplace-types';
 
@@ -20,6 +20,8 @@ interface ListingFormState {
 
 const INITIAL_STATE: ListingFormState = { ok: false };
 const LOGIN_REQUIRED_MESSAGE = 'Telegram orqali kirish kerak';
+const MIN_FILES = 1;
+const MAX_FILES = 10;
 
 export function ListingForm() {
   const router = useRouter();
@@ -31,31 +33,47 @@ export function ListingForm() {
     setPending(true);
     setState(INITIAL_STATE);
 
-    const request = createListingRequestFromForm(new FormData(event.currentTarget));
+    const formElement = event.currentTarget;
+    const formData = new FormData(formElement);
+    const request = createListingRequestFromForm(formData);
     if (typeof request === 'string') {
       setState({ ok: false, error: request });
       setPending(false);
       return;
     }
+    const files = collectListingFiles(formData);
+    if (files.length < MIN_FILES || files.length > MAX_FILES) {
+      setState({
+        ok: false,
+        error: `Rasm soni ${MIN_FILES} tadan ${MAX_FILES} tagacha bo'lishi kerak`,
+      });
+      setPending(false);
+      return;
+    }
+
+    const multipart = new FormData();
+    multipart.append(
+      'data',
+      new Blob([JSON.stringify(request)], { type: 'application/json' }),
+    );
+    for (const file of files) multipart.append('files', file);
 
     try {
       const response = await fetch(buildMarketplaceApiPath('v1/listings'), {
         method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
+        headers: { Accept: 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(request),
+        body: multipart,
       });
       const payload = await readJson(response);
 
       if (!response.ok) {
         setState({
           ok: false,
-          error: response.status === 401 || response.status === 403
-            ? LOGIN_REQUIRED_MESSAGE
-            : errorMessageFromPayload(payload, "E'lon yaratilmadi"),
+          error:
+            response.status === 401 || response.status === 403
+              ? LOGIN_REQUIRED_MESSAGE
+              : errorMessageFromPayload(payload, "E'lon yaratilmadi"),
           code: codeFromPayload(payload),
         });
         return;
@@ -128,6 +146,17 @@ export function ListingForm() {
           Savdolashish mumkin
         </label>
       </div>
+
+      <Field label={`Rasmlar (${MIN_FILES}–${MAX_FILES} ta, JPG/PNG)`}>
+        <input
+          name="files"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          required
+          className="block w-full cursor-pointer rounded-[8px] border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-cyber-cyan/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-cyber-cyan hover:file:bg-cyber-cyan/30"
+        />
+      </Field>
 
       <Button type="submit" disabled={pending} className="h-11 w-full rounded-[8px]">
         {pending ? 'Yaratilmoqda...' : "E'lon yaratish"}

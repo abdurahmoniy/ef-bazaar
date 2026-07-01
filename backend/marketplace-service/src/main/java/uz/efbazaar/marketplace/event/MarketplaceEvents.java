@@ -4,7 +4,7 @@ import uz.efbazaar.marketplace.domain.ListingStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -24,7 +24,7 @@ public final class MarketplaceEvents {
 
     public record ListingCreated(
             UUID listingId, UUID sellerId, BigDecimal price,
-            int highestDivisionLevel, List<String> valuablePlayers,
+            Map<String, Object> attributes,
             Instant occurredAt) {}
 
     public record ListingUpdated(UUID listingId, UUID sellerId, Instant occurredAt) {}

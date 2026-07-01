@@ -8,7 +8,12 @@ import {
   formatListingDate,
   formatPriceUZS,
 } from '@/lib/marketplace-format';
-import type { ListingResponse } from '@/lib/marketplace-types';
+import {
+  attributeBoolean,
+  attributeNumber,
+  attributeStringList,
+  type ListingResponse,
+} from '@/lib/marketplace-types';
 
 interface ListingCardProps {
   listing: ListingResponse;
@@ -18,6 +23,13 @@ export function ListingCard({ listing }: ListingCardProps) {
   const title = listing.description.split('\n')[0]?.trim() || 'eFootball account';
   const preview = listing.description.replace(/\s+/g, ' ').slice(0, 120);
   const isSold = listing.status === 'SOLD';
+
+  const division = attributeNumber(listing, 'highest_division_level');
+  const teamStrength = attributeNumber(listing, 'team_strength');
+  const androidCoins = attributeNumber(listing, 'android_coins') ?? 0;
+  const iosCoins = attributeNumber(listing, 'ios_coins') ?? 0;
+  const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
+  const valuablePlayers = attributeStringList(listing, 'valuable_players');
 
   return (
     <article className="rounded-[8px] border border-white/10 bg-card/80 p-4 transition hover:border-cyber-cyan/45 hover:bg-white/[0.06]">
@@ -43,14 +55,26 @@ export function ListingCard({ listing }: ListingCardProps) {
       <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">{preview}</p>
 
       <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-        <Metric icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Division" value={divisionLabel(listing.highestDivisionLevel).replace('Division ', '')} />
-        <Metric icon={<Gamepad2 className="h-3.5 w-3.5" />} label="Strength" value={formatCompactNumber(listing.teamStrength)} />
-        <Metric icon={<Coins className="h-3.5 w-3.5" />} label="Coins" value={formatCompactNumber(listing.androidCoins + listing.iosCoins)} />
+        <Metric
+          icon={<ShieldCheck className="h-3.5 w-3.5" />}
+          label="Division"
+          value={divisionLabel(division).replace('Division ', '')}
+        />
+        <Metric
+          icon={<Gamepad2 className="h-3.5 w-3.5" />}
+          label="Strength"
+          value={teamStrength === undefined ? '-' : formatCompactNumber(teamStrength)}
+        />
+        <Metric
+          icon={<Coins className="h-3.5 w-3.5" />}
+          label="Coins"
+          value={formatCompactNumber(androidCoins + iosCoins)}
+        />
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {isSold && <Badge variant="warn">sotilgan</Badge>}
-        {listing.hasGooglePlayLink && (
+        {hasGooglePlayLink && (
           <Badge variant="muted">
             <BadgeCheck className="h-3 w-3" />
             Google
@@ -60,7 +84,7 @@ export function ListingCard({ listing }: ListingCardProps) {
           <Heart className="h-3 w-3" />
           {formatCompactNumber(listing.likeCount)}
         </Badge>
-        {listing.valuablePlayers.slice(0, 4).map((player) => (
+        {valuablePlayers.slice(0, 4).map((player) => (
           <Badge key={player} variant="muted">
             {player}
           </Badge>

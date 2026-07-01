@@ -21,7 +21,7 @@ public class MarketplaceEventPublisher {
         send(MarketplaceEvents.TOPIC_LISTING_CREATED, l.getId().toString(),
                 new MarketplaceEvents.ListingCreated(
                         l.getId(), l.getSellerId(), l.getPrice(),
-                        l.getHighestDivisionLevel(), l.getValuablePlayers(),
+                        l.getAttributes(),
                         Instant.now()));
     }
 
