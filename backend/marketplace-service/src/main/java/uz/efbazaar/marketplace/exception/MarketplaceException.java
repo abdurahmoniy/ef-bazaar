@@ -53,4 +53,14 @@ public class MarketplaceException extends RuntimeException {
         return new MarketplaceException(HttpStatus.BAD_REQUEST, "cannot_chat_with_self",
                 "O'zingizning e'loningiz uchun chat ocha olmaysiz");
     }
+
+    public static MarketplaceException attributeNotFound() {
+        return new MarketplaceException(HttpStatus.NOT_FOUND, "attribute_not_found",
+                "Attribute topilmadi");
+    }
+
+    public static MarketplaceException attributeKeyExists(String key) {
+        return new MarketplaceException(HttpStatus.CONFLICT, "attribute_key_exists",
+                "Ushbu key allaqachon mavjud: " + key);
+    }
 }

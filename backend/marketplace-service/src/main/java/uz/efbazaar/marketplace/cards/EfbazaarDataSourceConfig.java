@@ -14,7 +14,7 @@ import javax.sql.DataSource;
 /**
  * Multi-DataSource config:
  *  - PRIMARY  : marketplace_db (JPA, Flyway, transactions)
- *  - SECONDARY: efbazaar  (read-only, card picker queries via JdbcTemplate)
+ *  - SECONDARY: efbazaar  (card picker reads + nightly sync writes via JdbcTemplate)
  *
  * Note: Spring Boot's DataSourceAutoConfiguration backs off when any DataSource
  * bean is declared, so we define the primary one here explicitly too.
@@ -54,8 +54,7 @@ public class EfbazaarDataSourceConfig {
         HikariDataSource ds = props.initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();
-        ds.setReadOnly(true);
-        ds.setMaximumPoolSize(5);
+        ds.setMaximumPoolSize(8);
         ds.setPoolName("efbazaar-cards-pool");
         return ds;
     }

@@ -122,6 +122,7 @@ efbazaar.marketplace.listing-deleted
 efbazaar.marketplace.like-toggled
 efbazaar.marketplace.chat-created
 efbazaar.marketplace.chat-expired
+efbazaar.marketplace.cards-added     # { occurredAt, totalAdded, cards: [{efhubId, type, name, overallRating}] }
 efbazaar.bot.media-uploaded          # { listingId, telegramMessageId, mediaType }
 ```
 
