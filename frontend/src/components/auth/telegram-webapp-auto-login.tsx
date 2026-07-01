@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 import { telegramWebAppAuthAction } from '@/app/auth/actions';
@@ -37,6 +38,7 @@ function readMiniAppInitData(): string | null {
  * komponent ko'rinmaydi va oddiy UX'ga ta'sir qilmaydi.
  */
 export function TelegramWebAppAutoLogin() {
+  const router = useRouter();
   const [state, setState] = React.useState<'idle' | 'authing' | 'error'>('idle');
   const [error, setError] = React.useState<string | null>(null);
   const startedRef = React.useRef(false);
@@ -56,29 +58,23 @@ export function TelegramWebAppAutoLogin() {
     setState('authing');
     telegramWebAppAuthAction(initData)
       .then((res) => {
-        if (res && !res.ok) {
+        if (!res.ok) {
           setError(res.error ?? 'Telegram Mini App auth ishlamadi');
           setState('error');
           return;
         }
-        // ok bo'lsa redirect bo'ladi — overlay'ni yopib qo'yamiz
-        setState('idle');
+        // Server Action endi redirect() qilmaydi (Telegram Desktop WebView'da
+        // NEXT_REDIRECT tashlansa navigation ishlamaydi). Client tomonda o'zimiz
+        // navigate qilamiz — bu har qanday WebView'da ishonchli. router.refresh()
+        // /profile Server Component'ni yangi cookie bilan qayta render qiladi.
+        router.replace('/profile');
+        router.refresh();
       })
       .catch((e: unknown) => {
-        // Server action ichidagi `redirect()` Next.js ichki NEXT_REDIRECT signali'ni
-        // tashlaydi — bu real xato emas. Komponent root layoutda bo'lgani uchun
-        // navigation'dan keyin ham mount holatida qoladi, shuning uchun state'ni
-        // 'idle' ga qaytarib overlay'ni yopamiz; signalni Next.js outer runtime
-        // o'qib navigation'ni o'zi amalga oshiradi.
-        const digest = (e as { digest?: unknown })?.digest;
-        if (typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT')) {
-          setState('idle');
-          throw e;
-        }
         setError(e instanceof Error ? e.message : 'Kutilmagan xato');
         setState('error');
       });
-  }, []);
+  }, [router]);
 
   if (state === 'idle') return null;
 
