@@ -11,13 +11,14 @@ export function normalizeCookieDomain(domain?: string) {
 /**
  * Cookie options for auth tokens.
  *
- * <p>Production uses {@code SameSite=None; Secure; Partitioned} so the cookie
- * survives inside a Telegram Web Mini App iframe — the top-level origin there
- * is {@code web.telegram.org}, so any {@code SameSite=Lax} cookie set by our
- * server-action response would be silently dropped by the browser and the
- * auto-login would look like it worked but leave no session behind. Chrome
- * (CHIPS) additionally requires {@code Partitioned} for third-party cookies to
- * keep them keyed per top-level site.
+ * <p>Production uses {@code SameSite=None; Secure} so the cookie is accepted
+ * inside a Telegram Mini App WebView (Telegram Desktop / mobile) and by
+ * Telegram Web (iframe on web.telegram.org). {@code Partitioned} was tried
+ * previously but Telegram Desktop's Qt WebEngine build appears to reject or
+ * ignore the resulting cookie — mobile Chromium WebView accepted it, Desktop
+ * dropped it and left users bouncing back to the login page. Plain
+ * {@code SameSite=None; Secure} is honoured by every current WebView we care
+ * about.
  *
  * <p>Development keeps {@code SameSite=Lax} without {@code Secure} because
  * browsers reject {@code SameSite=None} on non-HTTPS origins.
@@ -35,7 +36,6 @@ export function getAuthCookieOptions(
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? ('none' as const) : ('lax' as const),
-    partitioned: isProduction,
     path: '/',
     ...(domain ? { domain } : {}),
   };
