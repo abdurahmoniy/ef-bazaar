@@ -31,6 +31,17 @@ public class AuthController {
     }
 
     /**
+     * Link Telegram identity to the currently authenticated (Google-first) user.
+     * Rejects if the caller already has Telegram attached or if this Telegram id
+     * is already used by another account.
+     */
+    @PostMapping("/telegram/link")
+    public UserResponse telegramLink(@AuthenticationPrincipal AuthenticatedUser principal,
+                                     @Valid @RequestBody TelegramAuthRequest request) {
+        return userMapper.toResponse(telegramAuthService.link(principal.userId(), request));
+    }
+
+    /**
      * Telegram Mini App auto-login. Accepts the raw {@code window.Telegram.WebApp.initData}
      * query string and validates the HMAC signature server-side. Same register-or-login
      * pipeline as {@link #telegram} — idempotent by {@code telegram_id}.

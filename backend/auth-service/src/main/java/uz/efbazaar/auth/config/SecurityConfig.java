@@ -26,7 +26,9 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        // Public — Telegram register/login, Google login, token refresh
+                        // Public — Telegram register/login, Google login, token refresh.
+                        // /telegram/link is protected (needs the caller's user id) so it
+                        // stays under the default authenticated matcher below.
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/telegram",
                                 "/api/v1/auth/telegram-webapp",

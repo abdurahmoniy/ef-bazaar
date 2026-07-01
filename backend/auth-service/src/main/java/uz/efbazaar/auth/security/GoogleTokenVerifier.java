@@ -54,12 +54,19 @@ public class GoogleTokenVerifier {
             if (!Boolean.TRUE.equals(p.getEmailVerified())) {
                 throw AuthException.googleEmailUnverified();
             }
-            return new VerifiedGoogleIdentity(p.getSubject(), p.getEmail());
+            // {@code given_name} is a standard OpenID Connect claim — Google
+            // populates it from the user's profile. Falls back to full name /
+            // email prefix when missing so displayName is never empty.
+            Object givenName = p.get("given_name");
+            return new VerifiedGoogleIdentity(
+                    p.getSubject(),
+                    p.getEmail(),
+                    givenName == null ? null : givenName.toString());
         } catch (GeneralSecurityException | java.io.IOException e) {
             log.warn("Google ID token verification failed: {}", e.getMessage());
             throw AuthException.invalidGoogleToken();
         }
     }
 
-    public record VerifiedGoogleIdentity(String googleId, String email) {}
+    public record VerifiedGoogleIdentity(String googleId, String email, String givenName) {}
 }

@@ -51,6 +51,52 @@ public class TelegramAuthService {
         return registerOrLogin(profile);
     }
 
+    /**
+     * Link a Telegram identity to the currently authenticated (Google-first)
+     * user. Rejects when:
+     * <ul>
+     *   <li>the caller already has Telegram attached — swap-in isn't allowed;</li>
+     *   <li>the Telegram id is already attached to another account —
+     *       merging is intentionally disallowed, that's a distinct account.</li>
+     * </ul>
+     * Same signature as {@link #authenticate} for the widget payload.
+     */
+    @Transactional
+    public User link(java.util.UUID userId, TelegramAuthRequest req) {
+        if (!loginWidgetValidator.isValid(req.toPayload())) {
+            throw AuthException.invalidTelegramHash();
+        }
+        TelegramProfile profile = new TelegramProfile(
+                req.id(), req.firstName(), req.lastName(), req.username(), req.photoUrl());
+        return doLink(userId, profile);
+    }
+
+    private User doLink(java.util.UUID userId, TelegramProfile profile) {
+        User user = userRepository.findById(userId).orElseThrow(AuthException::userNotFound);
+        if (user.getTelegramId() != null && !user.getTelegramId().equals(profile.id())) {
+            throw AuthException.telegramAlreadyOwned();
+        }
+        userRepository.findByTelegramId(profile.id()).ifPresent(other -> {
+            if (!other.getId().equals(userId)) {
+                throw AuthException.telegramAlreadyLinked();
+            }
+        });
+
+        user.setTelegramId(profile.id());
+        user.setTelegramUsername(profile.username());
+        user.setTelegramFirstName(profile.firstName());
+        user.setTelegramLastName(profile.lastName());
+        if (profile.photoUrl() != null && !profile.photoUrl().isBlank()) {
+            user.setTelegramPhotoUrl(profile.photoUrl());
+        }
+        // Kick off the same photo sync path as a login — bot mirrors the profile
+        // picture to the media topic and stores file_id, so verified accounts get
+        // the same avatar UX regardless of which side signed up first.
+        events.userPhotoNeeded(user);
+        log.info("Telegram linked: userId={} telegramId={}", user.getId(), profile.id());
+        return user;
+    }
+
     private TokenResponse registerOrLogin(TelegramProfile profile) {
         return userRepository.findByTelegramId(profile.id())
                 .map(existing -> loginExisting(existing, profile))

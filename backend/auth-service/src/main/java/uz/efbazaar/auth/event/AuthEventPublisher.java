@@ -54,6 +54,11 @@ public class AuthEventPublisher {
         send(AuthEvents.TOPIC_GOOGLE_LINKED, user.getId().toString(), event);
     }
 
+    public void userDeleted(UUID userId, Long telegramId, String email) {
+        var event = new AuthEvents.UserDeleted(userId, telegramId, email, Instant.now());
+        send(AuthEvents.TOPIC_USER_DELETED, userId.toString(), event);
+    }
+
     private void send(String topic, String key, Object event) {
         kafkaTemplate.send(topic, key, event)
                 .whenComplete((result, ex) -> {
