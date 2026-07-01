@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 import { telegramWebAppAuthAction } from '@/app/auth/actions';
@@ -38,7 +37,6 @@ function readMiniAppInitData(): string | null {
  * komponent ko'rinmaydi va oddiy UX'ga ta'sir qilmaydi.
  */
 export function TelegramWebAppAutoLogin() {
-  const router = useRouter();
   const [state, setState] = React.useState<'idle' | 'authing' | 'error'>('idle');
   const [error, setError] = React.useState<string | null>(null);
   const startedRef = React.useRef(false);
@@ -63,18 +61,19 @@ export function TelegramWebAppAutoLogin() {
           setState('error');
           return;
         }
-        // Server Action endi redirect() qilmaydi (Telegram Desktop WebView'da
-        // NEXT_REDIRECT tashlansa navigation ishlamaydi). Client tomonda o'zimiz
-        // navigate qilamiz — bu har qanday WebView'da ishonchli. router.refresh()
-        // /profile Server Component'ni yangi cookie bilan qayta render qiladi.
-        router.replace('/profile');
-        router.refresh();
+        // Server Action redirect() ni ushlab olib navigate qilish faqat
+        // form/handler wrapper'siz useEffect chaqiruvida ishonchsiz — Telegram
+        // Desktop WebView unhandled-rejection'ni jimgina yutib yuboradi. Next.js
+        // router.replace() ham ba'zi WebView versiyalarida navigation'ni
+        // qo'llab-quvvatlamaydi. window.location.assign — full-page reload,
+        // yangi cookie bilan har qanday WebView'da ishonchli /profile ochadi.
+        window.location.assign('/profile');
       })
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : 'Kutilmagan xato');
         setState('error');
       });
-  }, [router]);
+  }, []);
 
   if (state === 'idle') return null;
 
