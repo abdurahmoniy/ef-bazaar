@@ -12,12 +12,11 @@ describe('auth cookie options', () => {
       httpOnly: true,
       secure: false,
       sameSite: 'lax',
-      partitioned: false,
       path: '/',
     });
   });
 
-  it('uses SameSite=None + Secure + Partitioned in production so Telegram Web Mini App iframe works', () => {
+  it('uses SameSite=None + Secure in production so all Telegram Mini App WebViews accept it', () => {
     expect(
       getAuthCookieOptions({
         NODE_ENV: 'production',
@@ -27,7 +26,6 @@ describe('auth cookie options', () => {
       httpOnly: true,
       secure: true,
       sameSite: 'none',
-      partitioned: true,
       path: '/',
       domain: 'efbazaar.uz',
     });
@@ -48,7 +46,6 @@ describe('auth cookie options', () => {
         httpOnly: true,
         secure: true,
         sameSite: 'none',
-        partitioned: true,
         path: '/',
         domain: 'efbazaar.uz',
         maxAge: 0,
@@ -57,7 +54,6 @@ describe('auth cookie options', () => {
         httpOnly: true,
         secure: true,
         sameSite: 'none',
-        partitioned: true,
         path: '/',
         maxAge: 0,
       },
