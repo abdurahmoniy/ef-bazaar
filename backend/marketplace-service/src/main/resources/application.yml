@@ -67,13 +67,24 @@ management:
 
 app:
   cards:
-    # efbazaar DB — efhub.com'dan scrape qilingan player cards (read-only).
-    # marketplace-service uchun 2-DataSource. Card picker API ishlatadi.
+    # efbazaar DB — efhub.com'dan scrape qilingan player cards.
+    # marketplace-service uchun 2-DataSource. Card picker API + sync job ishlatadi.
     datasource:
       url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${EFBAZAAR_DB_NAME:efbazaar}
       username: ${POSTGRES_USER:efbazaar}
       password: ${POSTGRES_PASSWORD:efbazaar}
       driver-class-name: org.postgresql.Driver
+    sync:
+      # efhub.com'dan kunlik delta-sync. Faqat yangi card'larni tortib oladi.
+      # Production: enabled=true, local dev: false (default) — efhub'ga ortiqcha so'rov ketmasin.
+      enabled: ${EFHUB_SYNC_ENABLED:false}
+      cron: ${EFHUB_SYNC_CRON:0 0 6 * * *}   # har kuni 06:00 UTC
+      delay-ms: ${EFHUB_SYNC_DELAY_MS:5000}  # so'rovlar orasi (robots.txt Crawl-delay: 5)
+      batch-limit: ${EFHUB_SYNC_BATCH_LIMIT:50}
+      base-url: ${EFHUB_BASE_URL:https://efhub.com}
+      index-url: ${EFHUB_INDEX_URL:https://efhub.com/search/player-index.json}
+      request-timeout-seconds: 30
+      retries: 3
   media:
     min-files: ${MEDIA_MIN_FILES:1}
     max-files: ${MEDIA_MAX_FILES:6}

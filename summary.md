@@ -269,9 +269,8 @@
 
   - apiFetch — server-side fetch + access_token cookie → Authorization header
   - getMe, telegramAuth, telegramWebAppAuth, googleLogin, linkGoogle, logout
-  - Cookies: httpOnly + sameSite=lax, secure (prod); AUTH_COOKIE_DOMAIN=efbazaar.chempox.uz bo'lsa api subdomain'ga ham yuboriladi
+  - Cookies: httpOnly + sameSite=lax, secure (prod)
   - INTERNAL_API_BASE_URL=http://nginx:8080/api (internal block, HTTPS redirect'siz)
-  - Browser marketplace fetchlari: NEXT_PUBLIC_API_BASE_URL=https://api.efbazaar.chempox.uz
 
   Server Actions (auth/actions.ts)
 
@@ -297,7 +296,6 @@
   - Internal 8080 → frontend SSR uchun (INTERNAL_API_BASE_URL=http://nginx:8080/api)
   - /api/auth/ → auth-service/api/
   - /api/marketplace/ → auth_request /_auth_verify (optional auth: 401 da @marketplace_anon)
-  - api.efbazaar.chempox.uz/api/ → browser CORS + auth_request → marketplace-service/api/
   - /_auth_verify → auth-service/api/v1/auth/verify (internal subrequest)
   - Cookie va Authorization header upstream'ga forward bo'ladi
 
@@ -345,8 +343,6 @@
   Frontend (docker-compose.yml)
 
   INTERNAL_API_BASE_URL=http://nginx:8080/api
-  AUTH_COOKIE_DOMAIN=efbazaar.chempox.uz
-  NEXT_PUBLIC_API_BASE_URL=https://api.efbazaar.chempox.uz
   NEXT_PUBLIC_TELEGRAM_BOT=<bot username>
   NEXT_PUBLIC_GOOGLE_CLIENT_ID
   NEXT_PUBLIC_BASE_URL=https://efbazaar.chempox.uz

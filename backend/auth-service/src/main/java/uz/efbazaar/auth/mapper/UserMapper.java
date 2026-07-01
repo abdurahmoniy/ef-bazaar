@@ -9,20 +9,23 @@ import uz.efbazaar.auth.dto.UserResponse;
 public interface UserMapper {
 
     /**
-     * {@code telegramPhotoUrl} response field doim browser'dan ko'rinadigan nginx
-     * route'iga ({@code /api/auth/v1/users/me/photo}) yo'naltiradi — backend o'zi
-     * qaror qiladi: direct Telegram CDN URL'ga 302 yoki Bot API'dan stream.
-     * Frontend faqat shu URL'ni biladi. Hech qaysi manba yo'q bo'lsa — {@code null},
-     * frontend initial fallback ko'rsatadi.
+     * {@code telegramPhotoUrl} response field faqat bot media topic'ga rasm upload
+     * qilib olgan bo'lsagina proxy URL ({@code /api/auth/v1/users/me/photo}) qaytaradi.
+     *
+     * <p>Login Widget'dan kelgan xom {@code t.me/i/userpic} URL'lariga tayanmaymiz —
+     * Telegram ularni vaqt o'tishi bilan cache-bust qilib 404 qaytaradigan qilib
+     * qo'yadi. Bot esa {@code getUserProfilePhotos}'ni faqat Telegram user privacy'si
+     * yo'l qo'ysa yoki user bot bilan chat boshlagan bo'lsagina rasm qaytaradi;
+     * ikkalasi ham bo'lmasa {@code file_id} yo'q va bu yerda {@code null} qaytariladi
+     * — frontend Radix Avatar initials fallback'ini ko'rsatadi (buzuq rasm ikonisiz).
      */
     @Mapping(target = "displayName", expression = "java(user.displayName())")
     @Mapping(target = "googleLinked", expression = "java(user.getGoogleId() != null)")
     @Mapping(target = "roles", expression = "java(java.util.List.of(\"ROLE_\" + user.getRole().name()))")
-    @Mapping(target = "telegramPhotoUrl", expression = "java(hasPhotoSource(user) ? \"/api/auth/v1/users/me/photo\" : null)")
+    @Mapping(target = "telegramPhotoUrl", expression = "java(hasReliablePhoto(user) ? \"/api/auth/v1/users/me/photo\" : null)")
     UserResponse toResponse(User user);
 
-    default boolean hasPhotoSource(User user) {
-        return (user.getTelegramPhotoUrl() != null && !user.getTelegramPhotoUrl().isBlank())
-                || (user.getTelegramPhotoFileId() != null && !user.getTelegramPhotoFileId().isBlank());
+    default boolean hasReliablePhoto(User user) {
+        return user.getTelegramPhotoFileId() != null && !user.getTelegramPhotoFileId().isBlank();
     }
 }
