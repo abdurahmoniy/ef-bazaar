@@ -8,6 +8,7 @@ import {
   formatListingDate,
   formatPriceUZS,
 } from '@/lib/marketplace-format';
+import { listingMediaUrls } from '@/lib/marketplace-media';
 import {
   attributeBoolean,
   attributeNumber,
@@ -30,9 +31,25 @@ export function ListingCard({ listing }: ListingCardProps) {
   const iosCoins = attributeNumber(listing, 'ios_coins') ?? 0;
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
   const valuablePlayers = attributeStringList(listing, 'valuable_players');
+  const coverUrl = listingMediaUrls(listing, 1)[0];
 
   return (
     <article className="rounded-[8px] border border-white/10 bg-card/80 p-4 transition hover:border-cyber-cyan/45 hover:bg-white/[0.06]">
+      {coverUrl && (
+        <Link
+          href={`/marketplace/${listing.id}`}
+          className="mb-4 block overflow-hidden rounded-[8px] border border-white/10 bg-white/[0.04]"
+        >
+          <img
+            src={coverUrl}
+            alt={`${title} rasmi`}
+            loading="lazy"
+            decoding="async"
+            className="aspect-[16/10] w-full object-cover transition duration-300 hover:scale-[1.02]"
+          />
+        </Link>
+      )}
+
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Link href={`/marketplace/${listing.id}`} className="block">

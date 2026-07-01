@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { BadgeCheck, Coins, Gamepad2, ShieldCheck } from 'lucide-react';
 
 import { ListingActions } from '@/components/marketplace/listing-actions';
+import { ListingMediaGallery } from '@/components/marketplace/listing-media-gallery';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
@@ -13,6 +14,7 @@ import {
   formatListingDate,
   formatPriceUZS,
 } from '@/lib/marketplace-format';
+import { listingMediaUrls } from '@/lib/marketplace-media';
 import {
   attributeBoolean,
   attributeNumber,
@@ -81,6 +83,8 @@ export function MarketplaceListingDetail({
     return <EmptyState title={error ?? "E'lon yuklanmadi"} body="Boshqa e'lonni ochib ko'ring." />;
   }
 
+  const title = listing.description.split('\n')[0]?.trim() || 'eFootball account';
+  const mediaUrls = listingMediaUrls(listing);
   const division = attributeNumber(listing, 'highest_division_level');
   const teamStrength = attributeNumber(listing, 'team_strength');
   const androidCoins = attributeNumber(listing, 'android_coins') ?? 0;
@@ -90,6 +94,8 @@ export function MarketplaceListingDetail({
 
   return (
     <article className="space-y-4">
+      <ListingMediaGallery title={title} urls={mediaUrls} />
+
       <div className="rounded-[8px] border border-white/10 bg-card/85 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
