@@ -6,6 +6,7 @@ import * as React from 'react'
 
 import { linkGoogleAction } from '@/app/auth/actions'
 import { GoogleButton } from '@/components/auth/google-button'
+import { Badge } from '../ui/badge'
 
 interface GoogleLinkButtonProps {
 	googleClientId: string

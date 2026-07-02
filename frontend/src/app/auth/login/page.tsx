@@ -34,16 +34,6 @@ export default async function LoginPage() {
 			</CardHeader>
 			<CardContent className='space-y-6'>
 				<LoginForm botUsername={botUsername} googleClientId={googleClientId} />
-
-				<p className='text-center text-sm text-muted-foreground'>
-					Yangi foydalanuvchimisiz?{' '}
-					<Link
-						href='/auth/register'
-						className='font-semibold text-primary hover:underline'
-					>
-						Ro'yxatdan o'tish
-					</Link>
-				</p>
 			</CardContent>
 		</Card>
 	)
