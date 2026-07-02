@@ -146,6 +146,7 @@ export function parseListingSearchParams(input: SearchParamInput = {}): ListingB
   const maxPrice = numberParam(input.maxPrice, 0);
   const priceNegotiable = booleanParam(input.priceNegotiable);
   const search = textParam(input.q) ?? textParam(input.search);
+  const sort = textParam(input.sort);
 
   if (page !== undefined) params.page = page;
   if (size !== undefined) params.size = size;
@@ -153,6 +154,7 @@ export function parseListingSearchParams(input: SearchParamInput = {}): ListingB
   if (maxPrice !== undefined) params.maxPrice = maxPrice;
   if (priceNegotiable !== undefined) params.priceNegotiable = priceNegotiable;
   if (search) params.search = search;
+  if (sort) params.sort = sort;
 
   // Any `attr.<key>` query param is treated as a JSONB equality filter.
   for (const [rawKey, rawValue] of Object.entries(input)) {

@@ -12,6 +12,10 @@ const badgeVariants = cva(
         verified: 'bg-primary text-primary-foreground',
         muted: 'bg-muted text-muted-foreground border border-border',
         warn: 'bg-amber-100 text-amber-800 border border-amber-300',
+        price: 'bg-[hsl(var(--price)/0.14)] text-[hsl(var(--price))] border border-[hsl(var(--price)/0.24)]',
+        info: 'bg-sky-50 text-sky-700 border border-sky-200',
+        danger: 'bg-destructive/10 text-destructive border border-destructive/20',
+        outline: 'bg-white text-foreground border border-border',
       },
     },
     defaultVariants: {

@@ -44,6 +44,13 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        price: {
+          DEFAULT: 'hsl(var(--price))',
+          foreground: 'hsl(var(--price-foreground))',
+        },
+        surface: {
+          alt: 'hsl(var(--surface-alt))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',

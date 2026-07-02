@@ -4,35 +4,43 @@
 
 @layer base {
   :root {
-    --background: 40 20% 98%;
-    --foreground: 222 20% 12%;
+    /* Backdrop — warm white, denser than pure paper for marketplace feel */
+    --background: 36 30% 97%;
+    --foreground: 220 25% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 20% 12%;
+    --card-foreground: 220 25% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 20% 12%;
+    --popover-foreground: 220 25% 12%;
 
-    --primary: 152 60% 32%;
+    /* Bright green — punchier than muted teal, reads well next to amber */
+    --primary: 148 68% 36%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 38 92% 50%;
-    --secondary-foreground: 24 30% 12%;
+    /* Amber — used for price and secondary CTAs (OLX-style price prominence) */
+    --secondary: 32 96% 52%;
+    --secondary-foreground: 24 40% 12%;
 
-    --muted: 40 12% 94%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 42%;
 
-    --accent: 152 45% 94%;
-    --accent-foreground: 152 60% 24%;
+    --accent: 148 55% 95%;
+    --accent-foreground: 148 68% 26%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 78% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 14% 89%;
-    --input: 220 14% 89%;
-    --ring: 152 60% 32%;
+    --border: 220 14% 88%;
+    --input: 220 14% 88%;
+    --ring: 148 68% 36%;
 
-    --radius: 0.75rem;
+    /* Marketplace-specific tokens */
+    --price: 22 92% 46%;
+    --price-foreground: 0 0% 100%;
+    --surface-alt: 220 30% 98%;
+
+    --radius: 0.625rem;
   }
 
   * {
@@ -41,21 +49,52 @@
 
   html {
     color-scheme: light;
+    overscroll-behavior-y: none;
+    touch-action: manipulation;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
     min-height: 100vh;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 
   ::selection {
     @apply bg-primary/20 text-foreground;
+  }
+
+  /* Consistent form control focus rings */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  button:focus-visible {
+    outline: none;
   }
 }
 
 @layer components {
   .container-page {
     @apply mx-auto w-full max-w-6xl px-4;
+  }
+
+  .container-wide {
+    @apply mx-auto w-full max-w-7xl px-4;
+  }
+
+  /* Sizes against Telegram's live (resizable) WebView height when available,
+     falling back to the dynamic viewport height everywhere else. */
+  .min-h-app {
+    min-height: var(--tg-viewport-height, 100dvh);
+  }
+
+  /* Solid glassy top-bar used across marketplace shell */
+  .surface-nav {
+    @apply bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80;
+  }
+
+  /* Price pill — hero attribute on cards + detail page */
+  .price-pill {
+    @apply inline-flex items-baseline gap-1 rounded-md bg-[hsl(var(--price)/0.12)] px-2 py-1 text-[hsl(var(--price))];
   }
 }
 
@@ -69,5 +108,36 @@
   }
   ::-webkit-scrollbar-thumb {
     @apply rounded-full bg-black/10 hover:bg-black/20;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Skeleton pulse — component uses `.skeleton` for reuse */
+  .skeleton {
+    @apply relative isolate overflow-hidden rounded-md bg-muted;
+  }
+  .skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.65),
+      transparent
+    );
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  }
+
+  @keyframes skeleton-shimmer {
+    100% {
+      transform: translateX(100%);
+    }
   }
 }
