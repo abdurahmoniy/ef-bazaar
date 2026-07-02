@@ -17,9 +17,15 @@ async function safeFetch<T>(path: string, options?: Parameters<typeof apiFetch>[
   try {
     return await apiFetch<T>(path, options);
   } catch (error) {
-    if (error instanceof ApiException && [401, 403, 404].includes(error.status)) {
+    if (error instanceof ApiException) {
+      // 401/403/404 are expected (anon browsing an owner-only endpoint, missing entity).
+      if ([401, 403, 404].includes(error.status)) return null;
+      console.error(
+        `[marketplace-server] ${path} → ${error.status} ${error.code ?? ''}: ${error.message}`,
+      );
       return null;
     }
+    console.error(`[marketplace-server] ${path} → network error:`, error);
     return null;
   }
 }

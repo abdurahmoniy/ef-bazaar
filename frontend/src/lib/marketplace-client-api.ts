@@ -1,4 +1,21 @@
-const DEFAULT_API_BASE_URL = 'https://api.efbazaar.uz';
+/**
+ * Client-side (browser) helper for building marketplace API URLs.
+ *
+ * URLs returned are **same-origin, relative paths** targeting the Next.js
+ * Route Handler at `/app/api/marketplace/[...path]/route.ts`, which forwards
+ * to the internal nginx (`nginx:8080/api/marketplace/...`).
+ *
+ * Effects of the same-origin routing:
+ *  - Browser DevTools shows every backend call as a normal `/api/marketplace/*`
+ *    request — status, headers, body, timing.
+ *  - The httpOnly `access_token` cookie is sent automatically (no
+ *    `credentials: 'include'` cross-origin gymnastics required, though calls
+ *    can keep it — it's a no-op for same-origin).
+ *  - The `api.efbazaar.uz` subdomain becomes unused from the browser; nginx
+ *    still exposes it for external consumers (bots, integrations).
+ */
+
+const DEFAULT_BASE_PATH = '/api/marketplace';
 
 function normalizeSegments(path: string | string[]) {
   const segments = Array.isArray(path) ? path : path.split('/');
@@ -14,16 +31,24 @@ function normalizeSegments(path: string | string[]) {
   return normalized;
 }
 
-function normalizeApiBaseUrl(apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL) {
-  return apiBaseUrl.trim().replace(/\/+$/, '');
+function normalizeBasePath(basePath = DEFAULT_BASE_PATH) {
+  return basePath.trim().replace(/\/+$/, '');
 }
 
+/**
+ * Build a browser-facing marketplace API URL.
+ *
+ * @param path — path segments after `/api/marketplace/` (e.g. `'v1/listings'`
+ *   or `['v1', 'listings', id, 'like']`).
+ * @param searchParams — optional URLSearchParams appended as a query string.
+ * @param basePath — override for tests; defaults to `/api/marketplace`.
+ */
 export function buildMarketplaceApiPath(
   path: string | string[],
   searchParams?: URLSearchParams,
-  apiBaseUrl?: string,
+  basePath?: string,
 ) {
   const query = searchParams?.toString();
   const suffix = query ? `?${query}` : '';
-  return `${normalizeApiBaseUrl(apiBaseUrl)}/api/${normalizeSegments(path).map(encodeURIComponent).join('/')}${suffix}`;
+  return `${normalizeBasePath(basePath)}/${normalizeSegments(path).map(encodeURIComponent).join('/')}${suffix}`;
 }
