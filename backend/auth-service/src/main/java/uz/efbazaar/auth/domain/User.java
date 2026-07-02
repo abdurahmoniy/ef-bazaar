@@ -20,9 +20,9 @@ public class User {
     @Column(columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id;
 
-    // ----- Telegram (mandatory — primary identity) -----
+    // ----- Telegram (optional — one of {telegram_id, google_id} must be set) -----
 
-    @Column(name = "telegram_id", nullable = false, unique = true)
+    @Column(name = "telegram_id", unique = true)
     private Long telegramId;
 
     @Column(name = "telegram_username", length = 64)
@@ -58,17 +58,17 @@ public class User {
     @Column(name = "telegram_photo_message_id")
     private Long telegramPhotoMessageId;
 
-    // ----- Google link (optional — sets verified flag + email) -----
+    // ----- Google (optional — one of {telegram_id, google_id} must be set) -----
 
     @Column(name = "google_id", length = 255)
     private String googleId;
 
+    /** For Google-first users this is populated on first login. */
+    @Column(name = "google_given_name", length = 128)
+    private String googleGivenName;
+
     @Column(length = 255)
     private String email;
-
-    @Column(nullable = false)
-    @Builder.Default
-    private boolean verified = false;
 
     // ----- Role + timestamps -----
 
@@ -104,7 +104,18 @@ public class User {
             sb.append(telegramLastName);
         }
         if (sb.isEmpty() && telegramUsername != null) sb.append('@').append(telegramUsername);
-        if (sb.isEmpty()) sb.append("user-").append(telegramId);
+        if (sb.isEmpty() && googleGivenName != null) sb.append(googleGivenName);
+        if (sb.isEmpty() && email != null) sb.append(email);
+        if (sb.isEmpty()) sb.append("user-").append(id != null ? id.toString().substring(0, 8) : "?");
         return sb.toString();
+    }
+
+    /**
+     * Verified iff both identities are attached. Computed, not stored — keeps a
+     * single source of truth so a subsequent identity unlink can never leave
+     * the flag out of sync with the linked accounts.
+     */
+    public boolean verified() {
+        return telegramId != null && googleId != null;
     }
 }

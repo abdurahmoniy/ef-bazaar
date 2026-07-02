@@ -82,6 +82,18 @@ export async function linkGoogle(idToken: string): Promise<User> {
 }
 
 /**
+ * Profile'da Telegram ulash. Google-first user shu endpoint orqali Telegram
+ * widget payload'ini yuboradi. Konflikt bo'lsa (Telegram allaqachon boshqa
+ * akkauntda) backend {@code 409} qaytaradi.
+ */
+export async function linkTelegram(data: TelegramAuthData): Promise<User> {
+  return apiFetch<User>('/auth/v1/auth/telegram/link', {
+    method: 'POST',
+    body: data,
+  });
+}
+
+/**
  * Google orqali login (foydalanuvchi avval link qilgan bo'lishi shart).
  * Agar googleId hech qaysi user'da yo'q bo'lsa → 404 + message:
  *   "Google ulanmagan. Telegram orqali kiring."
@@ -106,6 +118,20 @@ export async function getMe(): Promise<User | null> {
       return null;
     }
     throw e;
+  }
+}
+
+/**
+ * Akkountni butunlay o'chirish. Backend DB'dan user'ni butunlay yo'q qiladi va
+ * {@code user-deleted} Kafka event chiqaradi (downstream marketplace/bot
+ * chats/listings/cache tozalaydi). Access token muddati o'z-o'zidan tugaydi;
+ * refresh urinishlari 404 qaytaradi. Cookie'larni frontend tozalaydi.
+ */
+export async function deleteAccount(): Promise<void> {
+  try {
+    await apiFetch('/auth/v1/users/me', { method: 'DELETE' });
+  } finally {
+    await clearAuthCookies();
   }
 }
 

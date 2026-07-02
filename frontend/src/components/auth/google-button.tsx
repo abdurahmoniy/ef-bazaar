@@ -57,6 +57,25 @@ export function GoogleButton({
     setReady(true);
   }, [clientId]);
 
+  // The Script `onLoad` callback is skipped when the browser serves the GIS
+  // script from cache — the button then sits disabled indefinitely. Poll for
+  // `window.google` on mount so a cached load still flips ready. Cheap because
+  // the interval cancels the moment we succeed.
+  React.useEffect(() => {
+    if (ready || !clientId) return;
+    if (window.google) {
+      initialize();
+      return;
+    }
+    const interval = setInterval(() => {
+      if (window.google) {
+        initialize();
+        clearInterval(interval);
+      }
+    }, 250);
+    return () => clearInterval(interval);
+  }, [ready, clientId, initialize]);
+
   const handleClick = React.useCallback(() => {
     if (!window.google) return;
     window.google.accounts.id.prompt();
@@ -78,7 +97,7 @@ export function GoogleButton({
         disabled={disabled || !ready}
       >
         <GoogleIcon />
-        {label}
+        {ready ? label : 'Google tayyorlanmoqda…'}
       </Button>
     </>
   );

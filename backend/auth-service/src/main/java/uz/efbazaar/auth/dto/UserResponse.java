@@ -16,6 +16,7 @@ public record UserResponse(
         String telegramPhotoUrl,
         String displayName,
         String email,
+        boolean telegramLinked,
         boolean googleLinked,
         boolean verified,
         List<String> roles,

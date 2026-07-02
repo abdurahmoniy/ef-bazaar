@@ -2,7 +2,15 @@
 
 import { redirect } from 'next/navigation';
 
-import { telegramAuth, telegramWebAppAuth, googleLogin, logout, linkGoogle } from '@/lib/auth';
+import {
+  telegramAuth,
+  telegramWebAppAuth,
+  googleLogin,
+  logout,
+  linkGoogle,
+  linkTelegram,
+  deleteAccount,
+} from '@/lib/auth';
 import { ApiException } from '@/lib/api';
 import type { TelegramAuthData } from '@/lib/types';
 
@@ -54,21 +62,15 @@ export async function telegramWebAppAuthAction(initData: string): Promise<Action
 }
 
 /**
- * Google login. Foydalanuvchi avval Google'ni profile'da link qilgan bo'lishi shart.
+ * Google login. Backend endi register-or-login qiladi — Google akkaunt
+ * mavjud emas bo'lsa yangi user avtomatik yaratiladi. Alohida "not linked"
+ * xato yo'q, oddiy hollar bilan cheklanadi.
  */
 export async function googleLoginAction(idToken: string): Promise<ActionResult> {
   try {
     await googleLogin(idToken);
   } catch (e) {
     if (e instanceof ApiException) {
-      // Backend 404 + GOOGLE_NOT_LINKED → user'ga aniq xato
-      if (e.code === 'GOOGLE_NOT_LINKED') {
-        return {
-          ok: false,
-          error: 'Google ulanmagan. Telegram orqali kiring va profilda Google bog\'lang.',
-          code: e.code,
-        };
-      }
       return { ok: false, error: e.message, code: e.code };
     }
     return { ok: false, error: 'Auth-service ulanib bo\'lmadi' };
@@ -89,6 +91,41 @@ export async function linkGoogleAction(idToken: string): Promise<ActionResult> {
     }
     return { ok: false, error: 'Google ulanmadi' };
   }
+}
+
+/**
+ * Profile'da Telegram ulash (Google-first user Telegram widget orqali).
+ * Backend {@code telegram_already_linked} / {@code telegram_already_owned}
+ * xato'lari bilan konflikt holatlarini aniq belgilaydi.
+ */
+export async function linkTelegramAction(data: TelegramAuthData): Promise<ActionResult> {
+  try {
+    await linkTelegram(data);
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof ApiException) {
+      return { ok: false, error: e.message, code: e.code };
+    }
+    return { ok: false, error: 'Telegram ulanmadi' };
+  }
+}
+
+/**
+ * Akkountni butunlay o'chirish. Muvaffaqiyatli bo'lsa cookie'lar tozalanadi va
+ * bosh sahifaga o'tkaziladi — user o'sha zahoti Telegram yoki Google bilan
+ * qaytadan ro'yxatdan o'ta oladi (uniquelik cheklovlari yangi user ochilishiga
+ * to'sqinlik qilmaydi).
+ */
+export async function deleteAccountAction(): Promise<ActionResult> {
+  try {
+    await deleteAccount();
+  } catch (e) {
+    if (e instanceof ApiException) {
+      return { ok: false, error: e.message, code: e.code };
+    }
+    return { ok: false, error: 'Akkountni o\'chirib bo\'lmadi' };
+  }
+  redirect('/');
 }
 
 export async function logoutAction() {

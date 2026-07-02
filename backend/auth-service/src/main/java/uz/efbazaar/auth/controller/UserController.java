@@ -6,8 +6,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import uz.efbazaar.auth.domain.User;
 import uz.efbazaar.auth.dto.UserResponse;
@@ -58,5 +61,17 @@ public class UserController {
                 .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePrivate())
                 .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(bytes.get().length))
                 .body(bytes.get());
+    }
+
+    /**
+     * Hard-delete the current account. See {@link UserService#deleteById} for
+     * the invariants — telegram/google identities are released so the same
+     * user can sign up fresh afterwards, and downstream services are notified
+     * via {@code efbazaar.auth.user-deleted} to purge their own state.
+     */
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteMe(@AuthenticationPrincipal AuthenticatedUser principal) {
+        userService.deleteById(principal.userId());
     }
 }

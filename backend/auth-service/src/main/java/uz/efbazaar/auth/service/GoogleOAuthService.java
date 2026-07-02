@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uz.efbazaar.auth.domain.Role;
 import uz.efbazaar.auth.domain.User;
 import uz.efbazaar.auth.dto.TokenResponse;
 import uz.efbazaar.auth.event.AuthEventPublisher;
@@ -27,13 +28,24 @@ public class GoogleOAuthService {
 
     /**
      * Link Google identity to the currently authenticated user.
-     * Sets {@code googleId} + {@code email} and marks the account verified.
+     *
+     * <p>Rejects with {@code googleAlreadyLinked} when the {@code googleId}
+     * is already attached to a different account — merging is intentionally
+     * disallowed. The caller keeps their existing account; the second Google
+     * identity is left untouched. {@code verified} is a computed property on
+     * {@link User#verified()} so we no longer flip a boolean here.
      */
     @Transactional
     public User link(UUID userId, String idToken) {
         VerifiedGoogleIdentity identity = verifier.verify(idToken);
         User user = userService.getById(userId);
 
+        // If the user already has Google, they can't swap it out — re-linking a
+        // different Google identity from the profile page silently would surprise
+        // the user. Idempotent no-op when the same identity is presented.
+        if (user.getGoogleId() != null && !user.getGoogleId().equals(identity.googleId())) {
+            throw AuthException.googleAlreadyOwned();
+        }
         userRepository.findByGoogleId(identity.googleId()).ifPresent(other -> {
             if (!other.getId().equals(userId)) {
                 throw AuthException.googleAlreadyLinked();
@@ -42,7 +54,9 @@ public class GoogleOAuthService {
 
         user.setGoogleId(identity.googleId());
         user.setEmail(identity.email());
-        user.setVerified(true);
+        if (identity.givenName() != null && !identity.givenName().isBlank()) {
+            user.setGoogleGivenName(identity.givenName());
+        }
 
         events.googleLinked(user);
         log.info("Google linked: userId={} email={}", user.getId(), identity.email());
@@ -50,16 +64,42 @@ public class GoogleOAuthService {
     }
 
     /**
-     * Google-only login. Fails with {@code GOOGLE_NOT_LINKED} if no user
-     * has linked this Google account — the client should then suggest
-     * Telegram login + profile linking.
+     * Google login — register-or-login by {@code googleId}. If no user has
+     * this Google identity yet, a fresh Google-first account is created
+     * ({@code telegramId=null}). No email-based merge with existing
+     * Telegram-only users — those stay separate accounts by design. The user
+     * gets {@code verified} only after they explicitly link Telegram to this
+     * new account via {@link TelegramAuthService#link}.
      */
     @Transactional
     public TokenResponse login(String idToken) {
         VerifiedGoogleIdentity identity = verifier.verify(idToken);
-        User user = userRepository.findByGoogleId(identity.googleId())
-                .orElseThrow(AuthException::googleNotLinked);
+        return userRepository.findByGoogleId(identity.googleId())
+                .map(existing -> loginExisting(existing, identity))
+                .orElseGet(() -> registerNew(identity));
+    }
+
+    private TokenResponse loginExisting(User user, VerifiedGoogleIdentity identity) {
+        // Keep denormalized Google profile fresh — email/given_name can change
+        // if the user renamed themselves on Google.
+        if (identity.email() != null) user.setEmail(identity.email());
+        if (identity.givenName() != null && !identity.givenName().isBlank()) {
+            user.setGoogleGivenName(identity.givenName());
+        }
         events.userLoggedIn(user.getId(), "google");
+        return tokenIssuer.issue(user);
+    }
+
+    private TokenResponse registerNew(VerifiedGoogleIdentity identity) {
+        User user = User.builder()
+                .googleId(identity.googleId())
+                .email(identity.email())
+                .googleGivenName(identity.givenName())
+                .role(Role.USER)
+                .build();
+        user = userRepository.save(user);
+        log.info("User registered via Google: id={} email={}", user.getId(), identity.email());
+        events.userRegistered(user);
         return tokenIssuer.issue(user);
     }
 }
