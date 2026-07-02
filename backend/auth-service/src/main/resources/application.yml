@@ -103,6 +103,12 @@ springdoc:
     disable-swagger-default-url: true
     display-request-duration: true
     operations-sorter: method
+    # Send browser cookies (accessToken httpOnly) on every "Try it out" fetch.
+    # This is how the frontend dev tests protected endpoints without ever
+    # touching the raw JWT — sign in on efbazaar.uz, open the Swagger tab on
+    # api.efbazaar.uz, cookie rides along because AUTH_COOKIE_DOMAIN is set
+    # to the registrable domain.
+    with-credentials: true
   show-actuator: false
 
 logging:
