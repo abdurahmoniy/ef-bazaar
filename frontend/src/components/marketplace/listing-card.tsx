@@ -34,11 +34,11 @@ export function ListingCard({ listing }: ListingCardProps) {
   const coverUrl = listingMediaUrls(listing, 1)[0];
 
   return (
-    <article className="rounded-[8px] border border-white/10 bg-card/80 p-4 transition hover:border-cyber-cyan/45 hover:bg-white/[0.06]">
+    <article className="rounded-xl border border-border bg-white p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover">
       {coverUrl && (
         <Link
           href={`/marketplace/${listing.id}`}
-          className="mb-4 block overflow-hidden rounded-[8px] border border-white/10 bg-white/[0.04]"
+          className="mb-4 block overflow-hidden rounded-lg border border-border bg-muted"
         >
           <img
             src={coverUrl}
@@ -53,7 +53,7 @@ export function ListingCard({ listing }: ListingCardProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Link href={`/marketplace/${listing.id}`} className="block">
-            <h2 className="line-clamp-2 text-base font-bold leading-snug text-white">
+            <h2 className="line-clamp-2 text-base font-bold leading-snug text-foreground">
               {title}
             </h2>
           </Link>
@@ -62,14 +62,14 @@ export function ListingCard({ listing }: ListingCardProps) {
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <div className="text-lg font-black text-white">{formatPriceUZS(listing.price)}</div>
+          <div className="text-lg font-black text-foreground">{formatPriceUZS(listing.price)}</div>
           {listing.priceNegotiable && (
-            <div className="mt-1 text-xs font-semibold text-amber-300">savdolashish</div>
+            <div className="mt-1 text-xs font-semibold text-secondary">savdolashish</div>
           )}
         </div>
       </div>
 
-      <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">{preview}</p>
+      <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">{preview}</p>
 
       <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
         <Metric
@@ -121,12 +121,12 @@ function Metric({
   value: string;
 }) {
   return (
-    <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-2">
+    <div className="rounded-lg border border-border bg-muted/60 p-2">
       <div className="flex items-center gap-1 text-muted-foreground">
         {icon}
         {label}
       </div>
-      <div className="mt-1 truncate font-black text-white">{value}</div>
+      <div className="mt-1 truncate font-black text-foreground">{value}</div>
     </div>
   );
 }

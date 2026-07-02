@@ -96,13 +96,13 @@ export function MarketplaceListingDetail({
     <article className="space-y-4">
       <ListingMediaGallery title={title} urls={mediaUrls} />
 
-      <div className="rounded-[8px] border border-white/10 bg-card/85 p-4">
+      <div className="rounded-xl border border-border bg-white p-4 shadow-card">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-cyber-cyan">
+            <p className="text-xs font-bold uppercase tracking-wide text-primary">
               {divisionLabel(division)}
             </p>
-            <h1 className="mt-2 text-2xl font-black leading-tight text-white">
+            <h1 className="mt-2 text-2xl font-black leading-tight text-foreground">
               {formatPriceUZS(listing.price)}
             </h1>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -119,7 +119,7 @@ export function MarketplaceListingDetail({
 
         <Separator className="my-4" />
 
-        <p className="whitespace-pre-wrap text-sm leading-7 text-slate-300">
+        <p className="whitespace-pre-wrap text-sm leading-7 text-foreground/80">
           {listing.description}
         </p>
 
@@ -129,7 +129,7 @@ export function MarketplaceListingDetail({
           {hasGooglePlayLink && (
             <Badge variant="muted">
               <BadgeCheck className="h-3 w-3" />
-              Google linked
+              Google ulangan
             </Badge>
           )}
           {valuablePlayers.map((player) => (
@@ -185,8 +185,8 @@ function errorMessageFromPayload(payload: unknown, fallback: string) {
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-[8px] border border-white/10 bg-card/80 px-4 py-12 text-center">
-      <h2 className="text-base font-bold text-white">{title}</h2>
+    <div className="rounded-xl border border-border bg-white px-4 py-12 text-center shadow-card">
+      <h2 className="text-base font-bold text-foreground">{title}</h2>
       <p className="mt-2 text-sm text-muted-foreground">{body}</p>
     </div>
   );
@@ -202,12 +202,12 @@ function DetailMetric({
   value: string;
 }) {
   return (
-    <div className="rounded-[8px] border border-white/10 bg-card/80 p-4">
+    <div className="rounded-xl border border-border bg-white p-4 shadow-card">
       <div className="flex items-center gap-2 text-muted-foreground">
         {icon}
         <span className="text-xs font-bold uppercase tracking-wide">{label}</span>
       </div>
-      <div className="mt-3 text-2xl font-black text-white">{value}</div>
+      <div className="mt-3 text-2xl font-black text-foreground">{value}</div>
     </div>
   );
 }

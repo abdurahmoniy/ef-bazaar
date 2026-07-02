@@ -38,12 +38,12 @@ export function ListingActions({
 
   if (!authenticated) {
     return (
-      <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+      <div className="rounded-lg border border-border bg-muted/60 p-3">
         <div className="grid grid-cols-2 gap-2">
-          <Button asChild size="sm" className="rounded-[8px]">
+          <Button asChild size="sm" className="rounded-lg">
             <Link href="/auth/login">Kirish</Link>
           </Button>
-          <Button asChild variant="outline" size="sm" className="rounded-[8px]">
+          <Button asChild variant="outline" size="sm" className="rounded-lg">
             <Link href="/auth/register">Telegram</Link>
           </Button>
         </div>
@@ -58,7 +58,7 @@ export function ListingActions({
           type="button"
           variant={liked ? 'default' : 'outline'}
           size="sm"
-          className="rounded-[8px]"
+          className="rounded-lg"
           disabled={isPending}
           onClick={() => {
             startTransition(async () => {
@@ -81,7 +81,7 @@ export function ListingActions({
           type="button"
           variant="outline"
           size="sm"
-          className="rounded-[8px]"
+          className="rounded-lg"
           disabled={isPending}
           onClick={() => {
             startTransition(async () => {
@@ -99,7 +99,7 @@ export function ListingActions({
           type="button"
           variant="outline"
           size="sm"
-          className="rounded-[8px]"
+          className="rounded-lg"
           disabled={isPending}
           onClick={() => {
             startTransition(async () => {

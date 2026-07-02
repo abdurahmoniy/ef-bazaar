@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { Gamepad2 } from 'lucide-react';
 
+import { BrandMark } from '@/components/brand/brand-mark';
 import { cn } from '@/lib/utils';
 
 interface LogoProps {
@@ -10,29 +10,28 @@ interface LogoProps {
 }
 
 const sizes = {
-  sm: { icon: 'h-5 w-5', text: 'text-base' },
-  md: { icon: 'h-6 w-6', text: 'text-xl' },
-  lg: { icon: 'h-8 w-8', text: 'text-3xl' },
+  sm: { chip: 'h-8 w-8', icon: 'h-4 w-4', text: 'text-base' },
+  md: { chip: 'h-10 w-10', icon: 'h-5 w-5', text: 'text-xl' },
+  lg: { chip: 'h-14 w-14', icon: 'h-7 w-7', text: 'text-3xl' },
 };
 
 export function Logo({ size = 'md', href = '/', className }: LogoProps) {
   const s = sizes[size];
   const content = (
-    <div className={cn('inline-flex items-center gap-2 font-bold tracking-normal', s.text, className)}>
-      <span className="relative inline-flex items-center justify-center">
-        <span className="absolute inset-0 rounded-md bg-gradient-to-br from-cyber-cyan to-emerald-400 opacity-50 blur-md" />
-        <Gamepad2 className={cn('relative text-foreground', s.icon)} />
+    <div className={cn('inline-flex items-center gap-2.5 font-black tracking-normal', s.text, className)}>
+      <span className={cn('grid shrink-0 place-items-center rounded-[28%] bg-primary text-primary-foreground', s.chip)}>
+        <BrandMark className={s.icon} />
       </span>
       <span>
         <span className="text-foreground">ef</span>
-        <span className="text-gradient">Bazaar</span>
+        <span className="text-primary">Bazaar</span>
       </span>
     </div>
   );
 
   if (href) {
     return (
-      <Link href={href} className="inline-block transition-opacity hover:opacity-80">
+      <Link href={href} className="inline-block transition-opacity hover:opacity-80" aria-label="efBazaar bosh sahifa">
         {content}
       </Link>
     );

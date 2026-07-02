@@ -136,7 +136,7 @@ export function ListingForm() {
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       {state.error && (
-        <div className="flex items-start gap-2 rounded-[8px] border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{state.error}</span>
         </div>
@@ -148,7 +148,7 @@ export function ListingForm() {
           required
           minLength={10}
           rows={5}
-          className="min-h-32 w-full rounded-[8px] border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none transition placeholder:text-muted-foreground/60 focus:border-cyber-cyan/50 focus:ring-2 focus:ring-cyber-cyan/40"
+          className="min-h-32 w-full rounded-lg border border-input bg-white px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-ring/40"
           placeholder="Akkount holati, muhim playerlar, platforma..."
         />
       </Field>
@@ -157,15 +157,15 @@ export function ListingForm() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Narx">
-          <Input name="price" type="number" min={0} required className="rounded-[8px]" />
+          <Input name="price" type="number" min={0} required className="rounded-lg" />
         </Field>
       </div>
 
       <BooleanAttributeFields definitions={attributeDefinitions} />
 
-      <div className="grid gap-2 rounded-[8px] border border-white/10 bg-white/[0.04] p-3 text-sm">
+      <div className="grid gap-2 rounded-lg border border-border bg-muted/60 p-3 text-sm">
         <label className="flex items-center gap-2">
-          <input name="priceNegotiable" type="checkbox" className="h-4 w-4 accent-cyber-cyan" />
+          <input name="priceNegotiable" type="checkbox" className="h-4 w-4 accent-primary" />
           Savdolashish mumkin
         </label>
       </div>
@@ -177,11 +177,11 @@ export function ListingForm() {
           accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
           multiple
           required
-          className="block w-full cursor-pointer rounded-[8px] border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-cyber-cyan/20 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-cyber-cyan hover:file:bg-cyber-cyan/30"
+          className="block w-full cursor-pointer rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-accent-foreground hover:file:bg-accent/80"
         />
       </Field>
 
-      <Button type="submit" disabled={pending} className="h-11 w-full rounded-[8px]">
+      <Button type="submit" disabled={pending} className="h-11 w-full rounded-lg">
         {pending ? 'Yaratilmoqda...' : "E'lon yaratish"}
       </Button>
     </form>
@@ -220,13 +220,13 @@ function BooleanAttributeFields({
   if (fields.length === 0) return null;
 
   return (
-    <div className="grid gap-2 rounded-[8px] border border-white/10 bg-white/[0.04] p-3 text-sm">
+    <div className="grid gap-2 rounded-lg border border-border bg-muted/60 p-3 text-sm">
       {fields.map((definition) => (
         <label key={definition.key} className="flex items-center gap-2">
           <input
             name={buildAttributeFieldName(definition.key)}
             type="checkbox"
-            className="h-4 w-4 accent-cyber-cyan"
+            className="h-4 w-4 accent-primary"
           />
           {definition.labelUz}
         </label>
@@ -237,7 +237,7 @@ function BooleanAttributeFields({
 
 function AttributeField({ definition }: { definition: ListingAttributeDefinition }) {
   const name = buildAttributeFieldName(definition.key);
-  const commonInputClass = 'rounded-[8px]';
+  const commonInputClass = 'rounded-lg';
 
   if (definition.type === 'TEXT') {
     return (
@@ -248,7 +248,7 @@ function AttributeField({ definition }: { definition: ListingAttributeDefinition
           required={definition.required}
           maxLength={numberConstraint(definition, 'max_length')}
           rows={4}
-          className="min-h-28 w-full rounded-[8px] border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none transition placeholder:text-muted-foreground/60 focus:border-cyber-cyan/50 focus:ring-2 focus:ring-cyber-cyan/40"
+          className="min-h-28 w-full rounded-lg border border-input bg-white px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-ring/40"
         />
       </div>
     );
@@ -262,7 +262,7 @@ function AttributeField({ definition }: { definition: ListingAttributeDefinition
           name={name}
           required={definition.required}
           defaultValue=""
-          className="h-10 w-full rounded-[8px] border border-white/10 bg-white/5 px-3 text-sm outline-none transition focus:border-cyber-cyan/50 focus:ring-2 focus:ring-cyber-cyan/40"
+          className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/40"
         >
           <option value="" disabled>
             Tanlang

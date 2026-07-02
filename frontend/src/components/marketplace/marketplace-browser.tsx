@@ -68,10 +68,10 @@ export function MarketplaceBrowser({ filters, activeFilter, query }: Marketplace
     <section className="space-y-3">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-cyber-cyan">Marketplace</p>
-          <h1 className="mt-1 text-2xl font-black text-white">Akkountlar</h1>
+          <p className="text-xs font-bold uppercase tracking-wide text-primary">Marketplace</p>
+          <h1 className="mt-1 text-2xl font-black text-foreground">Akkountlar</h1>
         </div>
-        <div className="text-right text-xs text-muted-foreground">
+        <div className="text-right text-xs font-semibold text-muted-foreground">
           {loading ? '...' : `${listings?.totalElements ?? 0} ta`}
         </div>
       </div>
@@ -119,8 +119,8 @@ function errorMessageFromPayload(payload: unknown, fallback: string) {
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-[8px] border border-white/10 bg-card/80 px-4 py-12 text-center">
-      <h2 className="text-base font-bold text-white">{title}</h2>
+    <div className="rounded-xl border border-border bg-white px-4 py-12 text-center shadow-card">
+      <h2 className="text-base font-bold text-foreground">{title}</h2>
       <p className="mt-2 text-sm text-muted-foreground">{body}</p>
     </div>
   );
