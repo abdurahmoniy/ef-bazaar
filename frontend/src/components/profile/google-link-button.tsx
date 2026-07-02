@@ -50,9 +50,9 @@ export function GoogleLinkButton({
 						)}
 					</div>
 				</div>
-				<span className='text-[10px] uppercase tracking-wider font-bold text-emerald-300/80'>
+				{/* <span className='text-[10px] uppercase tracking-wider font-bold text-emerald-300/80'>
 					linked
-				</span>
+				</span> */}
 				<Badge variant='verified'>tasdiqlangan</Badge>
 			</div>
 		)
