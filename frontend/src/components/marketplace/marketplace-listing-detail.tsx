@@ -1,13 +1,13 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { BadgeCheck, Coins, Gamepad2, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, Coins, Gamepad2, MapPin, ShieldCheck, Sparkles } from 'lucide-react';
 
 import { ListingActions } from '@/components/marketplace/listing-actions';
+import { ListingCard } from '@/components/marketplace/listing-card';
 import { ListingMediaGallery } from '@/components/marketplace/listing-media-gallery';
+import { SellerCard } from '@/components/marketplace/seller-card';
+import { ShareListingButton } from '@/components/marketplace/share-listing-button';
+import { BackLink } from '@/components/navigation/back-link';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import {
   divisionLabel,
   formatCompactNumber,
@@ -21,69 +21,27 @@ import {
   attributeStringList,
   type ListingResponse,
 } from '@/lib/marketplace-types';
+import type { User } from '@/lib/types';
 
 interface MarketplaceListingDetailProps {
-  listingId: string;
-  authenticated: boolean;
+  listing: ListingResponse;
+  viewer: User | null;
+  seller: User | null;
+  similarListings: ListingResponse[];
 }
 
 export function MarketplaceListingDetail({
-  listingId,
-  authenticated,
+  listing,
+  viewer,
+  seller,
+  similarListings,
 }: MarketplaceListingDetailProps) {
-  const [listing, setListing] = useState<ListingResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function loadListing() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch(buildMarketplaceApiPath(['v1', 'listings', listingId]), {
-          headers: { Accept: 'application/json' },
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        const payload = await readJson(response);
-
-        if (!response.ok) {
-          setError(
-            response.status === 404
-              ? "E'lon topilmadi"
-              : errorMessageFromPayload(payload, "E'lon yuklanmadi"),
-          );
-          setListing(null);
-          return;
-        }
-
-        setListing(payload as ListingResponse);
-      } catch (loadError) {
-        if ((loadError as Error).name !== 'AbortError') {
-          setError("E'lon yuklanmadi");
-          setListing(null);
-        }
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }
-
-    void loadListing();
-    return () => controller.abort();
-  }, [listingId]);
-
-  if (loading) {
-    return <EmptyState title="Yuklanmoqda..." body="E'lon ma'lumotlari olinmoqda." />;
-  }
-
-  if (error || !listing) {
-    return <EmptyState title={error ?? "E'lon yuklanmadi"} body="Boshqa e'lonni ochib ko'ring." />;
-  }
-
   const title = listing.description.split('\n')[0]?.trim() || 'eFootball account';
+  const restDescription = listing.description
+    .split('\n')
+    .slice(1)
+    .join('\n')
+    .trim();
   const mediaUrls = listingMediaUrls(listing);
   const division = attributeNumber(listing, 'highest_division_level');
   const teamStrength = attributeNumber(listing, 'team_strength');
@@ -91,108 +49,150 @@ export function MarketplaceListingDetail({
   const iosCoins = attributeNumber(listing, 'ios_coins') ?? 0;
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
   const valuablePlayers = attributeStringList(listing, 'valuable_players');
+  const authenticated = viewer !== null;
+  const isOwner = viewer?.id === listing.sellerId;
 
   return (
     <article className="space-y-4">
-      <ListingMediaGallery title={title} urls={mediaUrls} />
+      <div className="flex items-center justify-between gap-2">
+        <BackLink href="/marketplace" label="Bozor" />
+        <ShareListingButton listingId={listing.id} title={title} />
+      </div>
 
-      <div className="rounded-xl border border-border bg-white p-4 shadow-card">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-primary">
-              {divisionLabel(division)}
-            </p>
-            <h1 className="mt-2 text-2xl font-black leading-tight text-foreground">
-              {formatPriceUZS(listing.price)}
-            </h1>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {formatListingDate(listing.createdAt)}
-            </p>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-6">
+        <div className="min-w-0 space-y-4">
+          <ListingMediaGallery title={title} urls={mediaUrls} />
+
+          <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wide text-primary">
+                  {divisionLabel(division)}
+                </p>
+                <h1 className="mt-1 text-xl font-black leading-tight text-foreground sm:text-2xl">
+                  {title}
+                </h1>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {formatListingDate(listing.createdAt)} • ID: {listing.id.slice(0, 8)}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {listing.status === 'SOLD' && <Badge variant="danger">Sotilgan</Badge>}
+                {listing.priceNegotiable && <Badge variant="price">Savdolashish</Badge>}
+                {hasGooglePlayLink && (
+                  <Badge variant="verified">
+                    <BadgeCheck className="h-3 w-3" /> Google ulangan
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {restDescription && (
+              <>
+                <Separator className="my-4" />
+                <p className="whitespace-pre-wrap text-sm leading-7 text-foreground/85">
+                  {restDescription}
+                </p>
+              </>
+            )}
           </div>
-          <ListingActions
-            listingId={listing.id}
-            authenticated={authenticated}
-            initialLiked={listing.likedByMe}
-            initialLikeCount={listing.likeCount}
+
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <StatCard
+              icon={<ShieldCheck className="h-4 w-4" />}
+              label="Division"
+              value={division === undefined ? '—' : String(division)}
+            />
+            <StatCard
+              icon={<Gamepad2 className="h-4 w-4" />}
+              label="Team strength"
+              value={teamStrength === undefined ? '—' : formatCompactNumber(teamStrength)}
+            />
+            <StatCard
+              icon={<Coins className="h-4 w-4" />}
+              label="Coins"
+              value={formatCompactNumber(androidCoins + iosCoins)}
+            />
+            <StatCard
+              icon={<Sparkles className="h-4 w-4" />}
+              label="Kartalar"
+              value={valuablePlayers.length ? formatCompactNumber(valuablePlayers.length) : '—'}
+            />
+          </div>
+
+          {valuablePlayers.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
+              <h2 className="text-sm font-bold text-foreground">Yulduz o'yinchilar</h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {valuablePlayers.map((player) => (
+                  <Badge key={player} variant="muted" className="text-xs">
+                    {player}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <AttributeTable
+            division={division}
+            teamStrength={teamStrength}
+            androidCoins={androidCoins}
+            iosCoins={iosCoins}
+            hasGooglePlayLink={hasGooglePlayLink}
+            priceNegotiable={listing.priceNegotiable}
           />
         </div>
 
-        <Separator className="my-4" />
+        <aside className="min-w-0 lg:sticky lg:top-32 lg:self-start">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-5">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-2xl font-black text-[hsl(var(--price))] sm:text-3xl">
+                {formatPriceUZS(listing.price)}
+              </span>
+              {listing.priceNegotiable && (
+                <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                  savdolashish
+                </span>
+              )}
+            </div>
+            <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+              <MapPin className="h-3 w-3" /> Uzbekistan
+            </div>
 
-        <p className="whitespace-pre-wrap text-sm leading-7 text-foreground/80">
-          {listing.description}
-        </p>
+            <Separator className="my-4" />
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {listing.status === 'SOLD' && <Badge variant="warn">sotilgan</Badge>}
-          {listing.priceNegotiable && <Badge variant="default">savdolashish</Badge>}
-          {hasGooglePlayLink && (
-            <Badge variant="muted">
-              <BadgeCheck className="h-3 w-3" />
-              Google ulangan
-            </Badge>
-          )}
-          {valuablePlayers.map((player) => (
-            <Badge key={player} variant="muted">
-              {player}
-            </Badge>
-          ))}
-        </div>
+            <ListingActions
+              listingId={listing.id}
+              authenticated={authenticated}
+              isOwner={isOwner}
+              initialLiked={listing.likedByMe}
+              initialLikeCount={listing.likeCount}
+            />
+          </div>
+
+          <div className="mt-4">
+            <SellerCard seller={seller} isViewerOwner={isOwner} />
+          </div>
+        </aside>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <DetailMetric
-          icon={<ShieldCheck className="h-5 w-5" />}
-          label="Division"
-          value={division === undefined ? '-' : String(division)}
-        />
-        <DetailMetric
-          icon={<Gamepad2 className="h-5 w-5" />}
-          label="Team strength"
-          value={teamStrength === undefined ? '-' : formatCompactNumber(teamStrength)}
-        />
-        <DetailMetric
-          icon={<Coins className="h-5 w-5" />}
-          label="Coins"
-          value={formatCompactNumber(androidCoins + iosCoins)}
-        />
-      </div>
+      {similarListings.length > 0 && (
+        <section className="pt-4">
+          <div className="mb-3 flex items-end justify-between">
+            <h2 className="text-lg font-bold text-foreground">O'xshash e'lonlar</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {similarListings.slice(0, 4).map((entry) => (
+              <ListingCard key={entry.id} listing={entry} />
+            ))}
+          </div>
+        </section>
+      )}
     </article>
   );
 }
 
-async function readJson(response: Response) {
-  const text = await response.text();
-  if (!text) return null;
-
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return null;
-  }
-}
-
-function isRecord(payload: unknown): payload is Record<string, unknown> {
-  return typeof payload === 'object' && payload !== null;
-}
-
-function errorMessageFromPayload(payload: unknown, fallback: string) {
-  if (!isRecord(payload)) return fallback;
-  if (typeof payload.message === 'string') return payload.message;
-  if (typeof payload.error === 'string') return payload.error;
-  return fallback;
-}
-
-function EmptyState({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-white px-4 py-12 text-center shadow-card">
-      <h2 className="text-base font-bold text-foreground">{title}</h2>
-      <p className="mt-2 text-sm text-muted-foreground">{body}</p>
-    </div>
-  );
-}
-
-function DetailMetric({
+function StatCard({
   icon,
   label,
   value,
@@ -202,12 +202,54 @@ function DetailMetric({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-white p-4 shadow-card">
-      <div className="flex items-center gap-2 text-muted-foreground">
+    <div className="rounded-xl border border-border bg-card p-3 shadow-card sm:p-4">
+      <div className="flex items-center gap-1 text-muted-foreground">
         {icon}
-        <span className="text-xs font-bold uppercase tracking-wide">{label}</span>
+        <span className="text-[11px] font-bold uppercase tracking-wide">{label}</span>
       </div>
-      <div className="mt-3 text-2xl font-black text-foreground">{value}</div>
+      <div className="mt-1 text-xl font-black leading-none text-foreground sm:text-2xl">{value}</div>
+    </div>
+  );
+}
+
+function AttributeTable({
+  division,
+  teamStrength,
+  androidCoins,
+  iosCoins,
+  hasGooglePlayLink,
+  priceNegotiable,
+}: {
+  division?: number;
+  teamStrength?: number;
+  androidCoins: number;
+  iosCoins: number;
+  hasGooglePlayLink: boolean;
+  priceNegotiable: boolean;
+}) {
+  const rows: Array<{ label: string; value: string }> = [
+    { label: 'Eng yuqori Division', value: division === undefined ? '—' : String(division) },
+    { label: 'Team Strength', value: teamStrength === undefined ? '—' : formatCompactNumber(teamStrength) },
+    { label: 'Android coin', value: formatCompactNumber(androidCoins) },
+    { label: 'iOS coin', value: formatCompactNumber(iosCoins) },
+    { label: 'Google Play link', value: hasGooglePlayLink ? 'Mavjud' : "Yo'q" },
+    { label: 'Savdolashish', value: priceNegotiable ? 'Mumkin' : "Yo'q" },
+  ];
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
+      <h2 className="text-sm font-bold text-foreground">Xususiyatlar</h2>
+      <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className="flex items-center justify-between gap-4 border-b border-dashed border-border py-2 text-sm"
+          >
+            <dt className="text-muted-foreground">{row.label}</dt>
+            <dd className="font-semibold text-foreground">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

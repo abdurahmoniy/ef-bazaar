@@ -1,269 +1,655 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent, DragEvent } from 'react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Coins,
+  DollarSign,
+  Gamepad2,
+  ImagePlus,
+  ImageIcon,
+  Loader2,
+  Star,
+  Trash2,
+  X,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  buildAttributeFieldName,
-  collectListingFiles,
-  createListingRequestFromForm,
-  SEEDED_LISTING_ATTRIBUTE_DEFINITIONS,
-} from '@/lib/listing-form-data';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useTelegramMainButton } from '@/hooks/use-telegram-main-button';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+import { formatPriceUZS, normalizePlayerList } from '@/lib/marketplace-format';
+import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
 import type {
-  AttributeType,
   ListingAttributeDefinition,
+  ListingCreateRequest,
   ListingResponse,
 } from '@/lib/marketplace-types';
+import { cn } from '@/lib/utils';
 
-interface ListingFormState {
-  ok: boolean;
-  error?: string;
-  code?: string;
+interface ListingFormProps {
+  attributeDefinitions?: readonly ListingAttributeDefinition[];
 }
 
-const INITIAL_STATE: ListingFormState = { ok: false };
-const LOGIN_REQUIRED_MESSAGE = 'Telegram orqali kirish kerak';
+interface PhotoEntry {
+  id: string;
+  file: File;
+  previewUrl: string;
+}
+
+interface WizardState {
+  description: string;
+  price: string;
+  priceNegotiable: boolean;
+  attributes: Record<string, string | boolean>;
+}
+
 const MIN_FILES = 1;
 const MAX_FILES = 10;
+const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8 MB
+const MAX_DESCRIPTION = 2000;
+const ACCEPTED_IMAGE_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
 
-export function ListingForm() {
+const STEPS = ['photos', 'basics', 'gameplay', 'pricing', 'review'] as const;
+type StepId = (typeof STEPS)[number];
+
+const STEP_LABELS: Record<StepId, { title: string; subtitle: string }> = {
+  photos: { title: 'Rasmlar', subtitle: `Kamida ${MIN_FILES} ta, eng ko'p ${MAX_FILES} ta` },
+  basics: { title: 'Tavsif', subtitle: "Akkountingiz haqida qisqacha ma'lumot" },
+  gameplay: { title: "O'yin", subtitle: 'Division, Team Strength va coinlar' },
+  pricing: { title: 'Narx', subtitle: "Kelishilgan narx va shartlar" },
+  review: { title: 'Tekshirish', subtitle: 'Yuborishdan oldin natijani ko\'ring' },
+};
+
+export function ListingForm({ attributeDefinitions }: ListingFormProps) {
   const router = useRouter();
-  const [state, setState] = useState<ListingFormState>(INITIAL_STATE);
-  const [pending, setPending] = useState(false);
-  const [attributeDefinitions, setAttributeDefinitions] = useState<readonly ListingAttributeDefinition[]>(
-    SEEDED_LISTING_ATTRIBUTE_DEFINITIONS,
+  const [definitions, setDefinitions] = useState<readonly ListingAttributeDefinition[]>(
+    attributeDefinitions ?? SEEDED_LISTING_ATTRIBUTE_DEFINITIONS,
   );
+  const [photos, setPhotos] = useState<PhotoEntry[]>([]);
+  const [step, setStep] = useState<StepId>('photos');
+  const [state, setState] = useState<WizardState>(() => ({
+    description: '',
+    price: '',
+    priceNegotiable: false,
+    attributes: initialAttributes(attributeDefinitions ?? SEEDED_LISTING_ATTRIBUTE_DEFINITIONS),
+  }));
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const submittedAt = useRef(0);
 
   useEffect(() => {
+    if (attributeDefinitions) return;
     const controller = new AbortController();
-
-    async function loadAttributeDefinitions() {
+    (async () => {
       try {
         const response = await fetch(buildMarketplaceApiPath('v1/attributes'), {
           headers: { Accept: 'application/json' },
           credentials: 'include',
           signal: controller.signal,
         });
-        const payload = await readJson(response);
-        const definitions = normalizeAttributeDefinitions(payload);
-
-        if (response.ok && definitions.length > 0) {
-          setAttributeDefinitions(definitions);
+        if (!response.ok) return;
+        const payload = await response.json();
+        const normalized = normalizeAttributeDefinitions(payload);
+        if (normalized.length > 0) {
+          setDefinitions(normalized);
+          setState((prev) => ({ ...prev, attributes: mergeAttributes(prev.attributes, normalized) }));
         }
-      } catch (loadError) {
-        if ((loadError as Error).name !== 'AbortError') {
-          setAttributeDefinitions(SEEDED_LISTING_ATTRIBUTE_DEFINITIONS);
-        }
+      } catch {
+        // fallback keeps the seeded definitions
       }
-    }
-
-    void loadAttributeDefinitions();
+    })();
     return () => controller.abort();
+  }, [attributeDefinitions]);
+
+  useEffect(() => {
+    return () => {
+      for (const photo of photos) URL.revokeObjectURL(photo.previewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const stepIndex = STEPS.indexOf(step);
+  const stepErrors = useMemo(() => validateStep(step, state, photos, definitions), [step, state, photos, definitions]);
+  const canProceed = stepErrors.length === 0;
+
+  const goNext = useCallback(() => {
+    if (!canProceed) return;
+    const next = STEPS[stepIndex + 1];
+    if (next) setStep(next);
+  }, [canProceed, stepIndex]);
+
+  const goPrev = useCallback(() => {
+    const prev = STEPS[stepIndex - 1];
+    if (prev) setStep(prev);
+  }, [stepIndex]);
+
+  const handleSubmit = useCallback(async () => {
+    // Guard: prevent double-submit on Telegram MainButton
+    if (pending || Date.now() - submittedAt.current < 800) return;
+    submittedAt.current = Date.now();
+
+    const allErrors = STEPS.flatMap((id) => validateStep(id, state, photos, definitions));
+    if (allErrors.length > 0) {
+      setSubmitError(allErrors[0]);
+      return;
+    }
+
+    setSubmitError(null);
     setPending(true);
-    setState(INITIAL_STATE);
-
-    const formElement = event.currentTarget;
-    const formData = new FormData(formElement);
-    const request = createListingRequestFromForm(formData, attributeDefinitions);
-    if (typeof request === 'string') {
-      setState({ ok: false, error: request });
-      setPending(false);
-      return;
-    }
-    const files = collectListingFiles(formData);
-    if (files.length < MIN_FILES || files.length > MAX_FILES) {
-      setState({
-        ok: false,
-        error: `Rasm soni ${MIN_FILES} tadan ${MAX_FILES} tagacha bo'lishi kerak`,
-      });
-      setPending(false);
-      return;
-    }
-
-    const multipart = new FormData();
-    multipart.append(
-      'data',
-      new Blob([JSON.stringify(request)], { type: 'application/json' }),
-    );
-    for (const file of files) multipart.append('files', file);
-
     try {
+      const request = buildRequest(state, definitions);
+      const formData = new FormData();
+      formData.append('data', new Blob([JSON.stringify(request)], { type: 'application/json' }));
+      for (const photo of photos) formData.append('files', photo.file);
+
       const response = await fetch(buildMarketplaceApiPath('v1/listings'), {
         method: 'POST',
         headers: { Accept: 'application/json' },
         credentials: 'include',
-        body: multipart,
+        body: formData,
       });
-      const payload = await readJson(response);
 
       if (!response.ok) {
-        setState({
-          ok: false,
-          error:
-            response.status === 401 || response.status === 403
-              ? LOGIN_REQUIRED_MESSAGE
-              : errorMessageFromPayload(payload, "E'lon yaratilmadi"),
-          code: codeFromPayload(payload),
-        });
+        const payload = await safeJson(response);
+        setSubmitError(
+          response.status === 401 || response.status === 403
+            ? 'Kirish talab qilinadi'
+            : errorFromPayload(payload, "E'lon yaratilmadi"),
+        );
         return;
       }
 
-      const listingId = listingIdFromPayload(payload);
-      if (!listingId) {
-        setState({ ok: false, error: "E'lon yaratildi, lekin ID qaytmadi" });
-        return;
+      const payload = (await safeJson(response)) as Partial<ListingResponse> | null;
+      if (payload?.id) {
+        router.push(`/marketplace/${payload.id}`);
+        router.refresh();
+      } else {
+        router.push('/marketplace');
+        router.refresh();
       }
-
-      router.push(`/marketplace/${listingId}`);
-      router.refresh();
     } catch {
-      setState({ ok: false, error: "E'lon yaratilmadi" });
+      setSubmitError("Tarmoq xatoligi. Qayta urinib ko'ring.");
     } finally {
       setPending(false);
     }
+  }, [pending, state, photos, definitions, router]);
+
+  useTelegramMainButton({
+    text: pending ? 'Yuborilmoqda...' : step === 'review' ? "E'lon yaratish" : 'Davom etish',
+    onClick: () => (step === 'review' ? handleSubmit() : goNext()),
+    disabled: pending || (!canProceed && step !== 'review'),
+    loading: pending,
+  });
+
+  return (
+    <div className="space-y-4">
+      <StepIndicator current={step} />
+
+      <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
+        <StepHeader step={step} />
+
+        <div className="mt-4">
+          {step === 'photos' && (
+            <PhotoStep photos={photos} setPhotos={setPhotos} errors={stepErrors} />
+          )}
+          {step === 'basics' && (
+            <BasicsStep state={state} setState={setState} errors={stepErrors} />
+          )}
+          {step === 'gameplay' && (
+            <GameplayStep
+              state={state}
+              setState={setState}
+              definitions={definitions}
+              errors={stepErrors}
+            />
+          )}
+          {step === 'pricing' && (
+            <PricingStep state={state} setState={setState} errors={stepErrors} />
+          )}
+          {step === 'review' && (
+            <ReviewStep state={state} photos={photos} definitions={definitions} />
+          )}
+        </div>
+
+        {submitError && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{submitError}</span>
+          </div>
+        )}
+      </div>
+
+      <StepNav
+        step={step}
+        stepIndex={stepIndex}
+        canProceed={canProceed}
+        pending={pending}
+        onPrev={goPrev}
+        onNext={goNext}
+        onSubmit={handleSubmit}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Step indicator + header + nav
+
+function StepIndicator({ current }: { current: StepId }) {
+  const currentIndex = STEPS.indexOf(current);
+  return (
+    <ol className="grid grid-cols-5 gap-1">
+      {STEPS.map((id, index) => {
+        const done = index < currentIndex;
+        const active = index === currentIndex;
+        return (
+          <li key={id} className="flex flex-col items-center gap-1">
+            <span
+              className={cn(
+                'grid h-7 w-7 place-items-center rounded-full border-2 text-[11px] font-black transition',
+                done && 'border-primary bg-primary text-primary-foreground',
+                active && !done && 'border-primary bg-white text-primary',
+                !done && !active && 'border-border bg-white text-muted-foreground',
+              )}
+            >
+              {done ? <Check className="h-3.5 w-3.5" /> : index + 1}
+            </span>
+            <span
+              className={cn(
+                'hidden text-[10px] font-bold uppercase tracking-wide sm:block',
+                (active || done) ? 'text-foreground' : 'text-muted-foreground',
+              )}
+            >
+              {STEP_LABELS[id].title}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function StepHeader({ step }: { step: StepId }) {
+  const { title, subtitle } = STEP_LABELS[step];
+  return (
+    <div>
+      <h2 className="text-lg font-black text-foreground">{title}</h2>
+      <p className="text-xs text-muted-foreground">{subtitle}</p>
+    </div>
+  );
+}
+
+function StepNav({
+  step,
+  stepIndex,
+  canProceed,
+  pending,
+  onPrev,
+  onNext,
+  onSubmit,
+}: {
+  step: StepId;
+  stepIndex: number;
+  canProceed: boolean;
+  pending: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+  onSubmit: () => void;
+}) {
+  const isFirst = stepIndex === 0;
+  const isLast = step === 'review';
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onPrev}
+        disabled={isFirst || pending}
+        className="h-11 flex-1 sm:flex-none sm:px-6"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Orqaga
+      </Button>
+      {isLast ? (
+        <Button type="button" onClick={onSubmit} disabled={pending} className="h-11 flex-1 text-base">
+          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          {pending ? 'Yuborilmoqda...' : "E'lon yaratish"}
+        </Button>
+      ) : (
+        <Button type="button" onClick={onNext} disabled={!canProceed} className="h-11 flex-1 text-base">
+          Davom etish
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Photos step
+
+function PhotoStep({
+  photos,
+  setPhotos,
+  errors,
+}: {
+  photos: PhotoEntry[];
+  setPhotos: React.Dispatch<React.SetStateAction<PhotoEntry[]>>;
+  errors: string[];
+}) {
+  const [dragging, setDragging] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const acceptedRegex = useMemo(() => /^image\/(jpeg|png|webp|heic|heif)$/i, []);
+
+  function addFiles(files: FileList | File[]) {
+    const incoming = Array.from(files).filter((file) => {
+      if (!acceptedRegex.test(file.type)) return false;
+      if (file.size > MAX_FILE_BYTES) return false;
+      return true;
+    });
+    if (incoming.length === 0) return;
+    setPhotos((prev) => {
+      const remaining = Math.max(0, MAX_FILES - prev.length);
+      const additions = incoming.slice(0, remaining).map((file) => ({
+        id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      }));
+      return [...prev, ...additions];
+    });
+  }
+
+  function removePhoto(id: string) {
+    setPhotos((prev) => {
+      const target = prev.find((entry) => entry.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((entry) => entry.id !== id);
+    });
+  }
+
+  function movePhoto(id: string, direction: -1 | 1) {
+    setPhotos((prev) => {
+      const index = prev.findIndex((entry) => entry.id === id);
+      if (index < 0) return prev;
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = prev.slice();
+      const [entry] = next.splice(index, 1);
+      next.splice(target, 0, entry);
+      return next;
+    });
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragging(false);
+    if (event.dataTransfer.files.length > 0) addFiles(event.dataTransfer.files);
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
-      {state.error && (
-        <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{state.error}</span>
+    <div className="space-y-3">
+      <div
+        onDragOver={(event) => {
+          event.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        className={cn(
+          'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center transition',
+          dragging ? 'border-primary bg-accent/40' : 'border-border bg-muted/40',
+        )}
+      >
+        <ImagePlus className="h-6 w-6 text-primary" />
+        <div className="text-sm font-semibold text-foreground">Rasmlarni bu yerga tashlang</div>
+        <div className="text-xs text-muted-foreground">
+          JPG, PNG, WebP, HEIC · fayl {formatMB(MAX_FILE_BYTES)}dan katta bo'lmasin
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2 rounded-lg"
+          onClick={() => inputRef.current?.click()}
+        >
+          Fayl tanlash
+        </Button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={ACCEPTED_IMAGE_TYPES}
+          multiple
+          className="sr-only"
+          onChange={(event: ChangeEvent<HTMLInputElement>) => {
+            if (event.target.files) addFiles(event.target.files);
+            event.target.value = '';
+          }}
+        />
+      </div>
+
+      {photos.length > 0 && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+          {photos.map((photo, index) => (
+            <div
+              key={photo.id}
+              className={cn(
+                'relative overflow-hidden rounded-xl border-2 bg-muted',
+                index === 0 ? 'border-primary' : 'border-border',
+              )}
+            >
+              <img
+                src={photo.previewUrl}
+                alt={`Yuklangan rasm ${index + 1}`}
+                className="aspect-square w-full object-cover"
+              />
+              <div className="absolute inset-x-1 top-1 flex items-center justify-between">
+                {index === 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-black text-primary-foreground">
+                    <Star className="h-2.5 w-2.5" /> Muqova
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removePhoto(photo.id)}
+                  aria-label="O'chirish"
+                  className="ml-auto grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="absolute inset-x-1 bottom-1 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => movePhoto(photo.id, -1)}
+                  disabled={index === 0}
+                  aria-label="Chapga surish"
+                  className="grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/80 disabled:opacity-30"
+                >
+                  <ArrowLeft className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => movePhoto(photo.id, 1)}
+                  disabled={index === photos.length - 1}
+                  aria-label="O'ngga surish"
+                  className="grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/80 disabled:opacity-30"
+                >
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      <Field label="Tavsif">
-        <textarea
-          name="description"
-          required
-          minLength={10}
-          rows={5}
-          className="min-h-32 w-full rounded-lg border border-input bg-white px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-ring/40"
-          placeholder="Akkount holati, muhim playerlar, platforma..."
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-semibold text-muted-foreground">
+          {photos.length} / {MAX_FILES} ta yuklangan
+        </span>
+        {photos.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setPhotos((prev) => {
+              for (const p of prev) URL.revokeObjectURL(p.previewUrl);
+              return [];
+            })}
+            className="inline-flex items-center gap-1 text-destructive hover:underline"
+          >
+            <Trash2 className="h-3 w-3" /> Barchasini o'chirish
+          </button>
+        )}
+      </div>
+
+      <ErrorList errors={errors} />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Basics step
+
+function BasicsStep({
+  state,
+  setState,
+  errors,
+}: {
+  state: WizardState;
+  setState: React.Dispatch<React.SetStateAction<WizardState>>;
+  errors: string[];
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="description">Tavsif</Label>
+        <Textarea
+          id="description"
+          rows={6}
+          maxLength={MAX_DESCRIPTION}
+          placeholder="Akkount holati, muhim playerlar, platforma, hikoya..."
+          value={state.description}
+          onChange={(event) =>
+            setState((prev) => ({ ...prev, description: event.target.value.slice(0, MAX_DESCRIPTION) }))
+          }
         />
-      </Field>
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <span>Kamida 10 belgi.</span>
+          <span>
+            {state.description.length} / {MAX_DESCRIPTION}
+          </span>
+        </div>
+      </div>
 
-      <DynamicAttributeFields definitions={attributeDefinitions} />
+      <div className="space-y-2">
+        <Label htmlFor="valuable-players">Yulduz o'yinchilar (ixtiyoriy)</Label>
+        <Input
+          id="valuable-players"
+          placeholder="Messi, Neymar, Mbappe"
+          value={typeof state.attributes.valuable_players === 'string' ? state.attributes.valuable_players : ''}
+          onChange={(event) =>
+            setState((prev) => ({
+              ...prev,
+              attributes: { ...prev.attributes, valuable_players: event.target.value },
+            }))
+          }
+        />
+        <p className="text-[11px] text-muted-foreground">Vergul yoki yangi qator bilan ajrating (max 12 ta).</p>
+      </div>
 
+      <ErrorList errors={errors} />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Gameplay step
+
+function GameplayStep({
+  state,
+  setState,
+  definitions,
+  errors,
+}: {
+  state: WizardState;
+  setState: React.Dispatch<React.SetStateAction<WizardState>>;
+  definitions: readonly ListingAttributeDefinition[];
+  errors: string[];
+}) {
+  const relevant = definitions.filter(
+    (def) => def.active !== false && def.key !== 'valuable_players',
+  );
+
+  return (
+    <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Narx">
-          <Input name="price" type="number" min={0} required className="rounded-lg" />
-        </Field>
+        {relevant
+          .filter((def) => def.type !== 'BOOLEAN')
+          .map((def) => (
+            <AttributeInput key={def.key} definition={def} state={state} setState={setState} />
+          ))}
       </div>
 
-      <BooleanAttributeFields definitions={attributeDefinitions} />
-
-      <div className="grid gap-2 rounded-lg border border-border bg-muted/60 p-3 text-sm">
-        <label className="flex items-center gap-2">
-          <input name="priceNegotiable" type="checkbox" className="h-4 w-4 accent-primary" />
-          Savdolashish mumkin
-        </label>
+      <div className="grid gap-2">
+        {relevant
+          .filter((def) => def.type === 'BOOLEAN')
+          .map((def) => (
+            <Checkbox
+              key={def.key}
+              id={`attr-${def.key}`}
+              label={def.labelUz}
+              checked={Boolean(state.attributes[def.key])}
+              onChange={(event) =>
+                setState((prev) => ({
+                  ...prev,
+                  attributes: { ...prev.attributes, [def.key]: event.target.checked },
+                }))
+              }
+            />
+          ))}
       </div>
 
-      <Field label={`Rasmlar (${MIN_FILES}–${MAX_FILES} ta, JPG/PNG/WebP/HEIC)`}>
-        <input
-          name="files"
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-          multiple
-          required
-          className="block w-full cursor-pointer rounded-lg border border-input bg-white px-3 py-2 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-accent-foreground hover:file:bg-accent/80"
-        />
-      </Field>
-
-      <Button type="submit" disabled={pending} className="h-11 w-full rounded-lg">
-        {pending ? 'Yaratilmoqda...' : "E'lon yaratish"}
-      </Button>
-    </form>
-  );
-}
-
-function DynamicAttributeFields({
-  definitions,
-}: {
-  definitions: readonly ListingAttributeDefinition[];
-}) {
-  const fields = sortedActiveDefinitions(definitions).filter(
-    (definition) => definition.type !== 'BOOLEAN',
-  );
-
-  if (fields.length === 0) return null;
-
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {fields.map((definition) => (
-        <AttributeField key={definition.key} definition={definition} />
-      ))}
+      <ErrorList errors={errors} />
     </div>
   );
 }
 
-function BooleanAttributeFields({
-  definitions,
+function AttributeInput({
+  definition,
+  state,
+  setState,
 }: {
-  definitions: readonly ListingAttributeDefinition[];
+  definition: ListingAttributeDefinition;
+  state: WizardState;
+  setState: React.Dispatch<React.SetStateAction<WizardState>>;
 }) {
-  const fields = sortedActiveDefinitions(definitions).filter(
-    (definition) => definition.type === 'BOOLEAN',
-  );
+  const value = state.attributes[definition.key];
+  const raw = typeof value === 'string' ? value : value === undefined ? '' : String(value);
 
-  if (fields.length === 0) return null;
-
-  return (
-    <div className="grid gap-2 rounded-lg border border-border bg-muted/60 p-3 text-sm">
-      {fields.map((definition) => (
-        <label key={definition.key} className="flex items-center gap-2">
-          <input
-            name={buildAttributeFieldName(definition.key)}
-            type="checkbox"
-            className="h-4 w-4 accent-primary"
-          />
-          {definition.labelUz}
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function AttributeField({ definition }: { definition: ListingAttributeDefinition }) {
-  const name = buildAttributeFieldName(definition.key);
-  const commonInputClass = 'rounded-lg';
-
-  if (definition.type === 'TEXT') {
-    return (
-      <div className="space-y-2 sm:col-span-2">
-        <Label>{definition.labelUz}</Label>
-        <textarea
-          name={name}
-          required={definition.required}
-          maxLength={numberConstraint(definition, 'max_length')}
-          rows={4}
-          className="min-h-28 w-full rounded-lg border border-input bg-white px-4 py-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-ring/40"
-        />
-      </div>
-    );
+  function update(next: string) {
+    setState((prev) => ({
+      ...prev,
+      attributes: { ...prev.attributes, [definition.key]: next },
+    }));
   }
 
   if (definition.type === 'ENUM') {
     const options = stringListConstraint(definition, 'options');
     return (
-      <Field label={definition.labelUz}>
-        <select
-          name={name}
-          required={definition.required}
-          defaultValue=""
-          className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/40"
-        >
+      <div className="space-y-2">
+        <Label>{definition.labelUz}</Label>
+        <Select value={raw} onChange={(event) => update(event.target.value)} className="h-11">
           <option value="" disabled>
             Tanlang
           </option>
@@ -272,120 +658,317 @@ function AttributeField({ definition }: { definition: ListingAttributeDefinition
               {option}
             </option>
           ))}
-        </select>
-      </Field>
-    );
-  }
-
-  if (definition.type === 'LIST_STRING') {
-    return (
-      <Field label={definition.labelUz}>
-        <Input
-          name={name}
-          required={definition.required}
-          maxLength={numberConstraint(definition, 'max_length')}
-          className={commonInputClass}
-          placeholder={definition.key === 'valuable_players' ? 'Messi, Neymar, Mbappe' : undefined}
-        />
-      </Field>
+        </Select>
+      </div>
     );
   }
 
   if (definition.type === 'INT' || definition.type === 'DECIMAL') {
+    const min = numberConstraint(definition, 'min');
+    const max = numberConstraint(definition, 'max');
+    const isDivision = definition.key === 'highest_division_level';
+    const icon = definition.key.includes('coin') ? (
+      <Coins className="h-4 w-4 text-muted-foreground" />
+    ) : isDivision ? (
+      <Gamepad2 className="h-4 w-4 text-muted-foreground" />
+    ) : null;
+
     return (
-      <Field label={definition.labelUz}>
-        <Input
-          name={name}
-          type="number"
-          min={numberConstraint(definition, 'min')}
-          max={numberConstraint(definition, 'max')}
-          step={definition.type === 'DECIMAL' ? '0.01' : '1'}
-          required={definition.required}
-          className={commonInputClass}
-          defaultValue={defaultNumberValue(definition)}
-        />
-      </Field>
+      <div className="space-y-2">
+        <Label>{definition.labelUz}</Label>
+        <div className="relative">
+          {icon && <span className="absolute left-3 top-1/2 -translate-y-1/2">{icon}</span>}
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={min}
+            max={max}
+            step={definition.type === 'DECIMAL' ? '0.01' : '1'}
+            value={raw}
+            onChange={(event) => update(event.target.value)}
+            className={cn('h-11', icon && 'pl-9')}
+          />
+        </div>
+      </div>
     );
   }
 
   return (
-    <Field label={definition.labelUz}>
-      <Input
-        name={name}
-        required={definition.required}
-        maxLength={numberConstraint(definition, 'max_length')}
-        className={commonInputClass}
+    <div className="space-y-2">
+      <Label>{definition.labelUz}</Label>
+      <Input value={raw} onChange={(event) => update(event.target.value)} className="h-11" />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Pricing step
+
+function PricingStep({
+  state,
+  setState,
+  errors,
+}: {
+  state: WizardState;
+  setState: React.Dispatch<React.SetStateAction<WizardState>>;
+  errors: string[];
+}) {
+  const parsed = Number(state.price);
+  const hasValue = Number.isFinite(parsed) && parsed > 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="price">Narx, so'm</Label>
+        <div className="relative">
+          <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="price"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step={10000}
+            value={state.price}
+            onChange={(event) => setState((prev) => ({ ...prev, price: event.target.value }))}
+            className="h-14 pl-9 text-2xl font-black text-[hsl(var(--price))]"
+          />
+        </div>
+        {hasValue && (
+          <p className="text-sm font-semibold text-muted-foreground">
+            = <span className="text-foreground">{formatPriceUZS(parsed)}</span>
+          </p>
+        )}
+      </div>
+
+      <Checkbox
+        id="price-negotiable"
+        label="Savdolashish mumkin"
+        description="Xaridor narxni muhokama qilishni taklif qilishi mumkin."
+        checked={state.priceNegotiable}
+        onChange={(event) =>
+          setState((prev) => ({ ...prev, priceNegotiable: event.target.checked }))
+        }
       />
-    </Field>
+
+      <ErrorList errors={errors} />
+    </div>
   );
 }
 
-async function readJson(response: Response) {
-  const text = await response.text();
-  if (!text) return null;
+// ─────────────────────────────────────────────────────────────
+// Review step
 
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return null;
+function ReviewStep({
+  state,
+  photos,
+  definitions,
+}: {
+  state: WizardState;
+  photos: PhotoEntry[];
+  definitions: readonly ListingAttributeDefinition[];
+}) {
+  const priceNum = Number(state.price);
+  const priceLabel = Number.isFinite(priceNum) ? formatPriceUZS(priceNum) : '—';
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-2 sm:grid-cols-4">
+        {photos.slice(0, 4).map((photo, index) => (
+          <img
+            key={photo.id}
+            src={photo.previewUrl}
+            alt={`Preview ${index + 1}`}
+            className="aspect-square w-full rounded-lg object-cover"
+          />
+        ))}
+        {photos.length === 0 && (
+          <div className="grid h-24 place-items-center rounded-lg bg-muted text-muted-foreground">
+            <ImageIcon className="h-6 w-6" />
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-3 rounded-lg bg-muted/50 p-4">
+        <div className="flex items-baseline justify-between">
+          <span className="text-xs font-bold uppercase text-muted-foreground">Narx</span>
+          <span className="text-2xl font-black text-[hsl(var(--price))]">{priceLabel}</span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Savdolashish</span>
+          <span className="font-semibold">{state.priceNegotiable ? 'Mumkin' : "Yo'q"}</span>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="text-xs font-bold uppercase text-muted-foreground">Tavsif</div>
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">
+          {state.description || <span className="text-muted-foreground">—</span>}
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="text-xs font-bold uppercase text-muted-foreground">Xususiyatlar</div>
+        <dl className="mt-2 grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+          {definitions
+            .filter((def) => def.active !== false)
+            .map((def) => (
+              <div
+                key={def.key}
+                className="flex items-center justify-between gap-2 border-b border-dashed border-border py-1.5 text-sm"
+              >
+                <dt className="text-muted-foreground">{def.labelUz}</dt>
+                <dd className="font-semibold text-foreground">
+                  {renderAttributeValue(state.attributes[def.key])}
+                </dd>
+              </div>
+            ))}
+        </dl>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+
+function ErrorList({ errors }: { errors: string[] }) {
+  if (errors.length === 0) return null;
+  return (
+    <ul className="space-y-1 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+      {errors.map((error) => (
+        <li key={error} className="flex items-start gap-2">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          {error}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function renderAttributeValue(value: unknown) {
+  if (value === undefined || value === '') return <span className="text-muted-foreground">—</span>;
+  if (typeof value === 'boolean') return value ? 'Ha' : "Yo'q";
+  return String(value);
+}
+
+function initialAttributes(definitions: readonly ListingAttributeDefinition[]) {
+  const attributes: Record<string, string | boolean> = {};
+  for (const def of definitions) {
+    if (def.type === 'BOOLEAN') attributes[def.key] = false;
+    else attributes[def.key] = '';
   }
+  return attributes;
 }
 
-function isRecord(payload: unknown): payload is Record<string, unknown> {
-  return typeof payload === 'object' && payload !== null;
+function mergeAttributes(
+  current: Record<string, string | boolean>,
+  definitions: readonly ListingAttributeDefinition[],
+) {
+  const next: Record<string, string | boolean> = {};
+  for (const def of definitions) {
+    if (def.key in current) next[def.key] = current[def.key];
+    else next[def.key] = def.type === 'BOOLEAN' ? false : '';
+  }
+  return next;
 }
 
-function normalizeAttributeDefinitions(payload: unknown): ListingAttributeDefinition[] {
-  if (!Array.isArray(payload)) return [];
-  return payload.filter(isAttributeDefinition).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+function validateStep(
+  step: StepId,
+  state: WizardState,
+  photos: PhotoEntry[],
+  definitions: readonly ListingAttributeDefinition[],
+): string[] {
+  const errors: string[] = [];
+
+  if (step === 'photos') {
+    if (photos.length < MIN_FILES) errors.push(`Kamida ${MIN_FILES} ta rasm yuklang.`);
+    if (photos.length > MAX_FILES) errors.push(`Ko'pi bilan ${MAX_FILES} ta rasm.`);
+  }
+
+  if (step === 'basics') {
+    if (state.description.trim().length < 10) {
+      errors.push('Tavsif kamida 10 belgidan iborat bo\'lsin.');
+    }
+  }
+
+  if (step === 'gameplay') {
+    for (const def of definitions) {
+      if (def.active === false) continue;
+      if (def.key === 'valuable_players') continue;
+      const value = state.attributes[def.key];
+      if (def.type === 'BOOLEAN') continue;
+      const raw = typeof value === 'string' ? value.trim() : '';
+      if (def.required && !raw) {
+        errors.push(`${def.labelUz} maydonini to'ldiring.`);
+        continue;
+      }
+      if (!raw) continue;
+      if (def.type === 'INT') {
+        const num = Number(raw);
+        if (!Number.isInteger(num)) errors.push(`${def.labelUz} butun son bo'lishi kerak.`);
+        else {
+          const min = numberConstraint(def, 'min');
+          const max = numberConstraint(def, 'max');
+          if (min !== undefined && num < min) errors.push(`${def.labelUz} ${min} dan kichik bo'lmasin.`);
+          if (max !== undefined && num > max) errors.push(`${def.labelUz} ${max} dan katta bo'lmasin.`);
+        }
+      }
+      if (def.type === 'DECIMAL') {
+        const num = Number(raw);
+        if (!Number.isFinite(num)) errors.push(`${def.labelUz} son bo'lishi kerak.`);
+      }
+    }
+  }
+
+  if (step === 'pricing') {
+    const price = Number(state.price);
+    if (!Number.isFinite(price) || price <= 0) errors.push("Narx 0 dan katta bo'lishi kerak.");
+    if (price > 1_000_000_000) errors.push('Narx juda katta.');
+  }
+
+  return errors;
 }
 
-function isAttributeDefinition(payload: unknown): payload is ListingAttributeDefinition {
-  if (!isRecord(payload)) return false;
-  return (
-    typeof payload.key === 'string' &&
-    typeof payload.labelUz === 'string' &&
-    isAttributeType(payload.type) &&
-    typeof payload.required === 'boolean'
-  );
-}
+function buildRequest(
+  state: WizardState,
+  definitions: readonly ListingAttributeDefinition[],
+): ListingCreateRequest {
+  const attributes: Record<string, unknown> = {};
+  for (const def of definitions) {
+    if (def.active === false) continue;
+    const raw = state.attributes[def.key];
+    if (def.type === 'BOOLEAN') {
+      attributes[def.key] = Boolean(raw);
+      continue;
+    }
+    if (typeof raw !== 'string' || !raw.trim()) continue;
+    switch (def.type) {
+      case 'INT': {
+        const num = Number(raw);
+        if (Number.isInteger(num)) attributes[def.key] = num;
+        break;
+      }
+      case 'DECIMAL': {
+        const num = Number(raw);
+        if (Number.isFinite(num)) attributes[def.key] = num;
+        break;
+      }
+      case 'LIST_STRING': {
+        const list = normalizePlayerList(raw);
+        if (list.length > 0) attributes[def.key] = list;
+        break;
+      }
+      default:
+        attributes[def.key] = raw.trim();
+    }
+  }
 
-function isAttributeType(value: unknown): value is AttributeType {
-  return (
-    value === 'INT' ||
-    value === 'DECIMAL' ||
-    value === 'BOOLEAN' ||
-    value === 'STRING' ||
-    value === 'TEXT' ||
-    value === 'LIST_STRING' ||
-    value === 'ENUM'
-  );
-}
-
-function errorMessageFromPayload(payload: unknown, fallback: string) {
-  if (!isRecord(payload)) return fallback;
-  if (typeof payload.message === 'string') return payload.message;
-  if (typeof payload.error === 'string') return payload.error;
-  return fallback;
-}
-
-function codeFromPayload(payload: unknown) {
-  if (!isRecord(payload)) return undefined;
-  return typeof payload.code === 'string' ? payload.code : undefined;
-}
-
-function listingIdFromPayload(payload: unknown) {
-  if (!isRecord(payload)) return null;
-  return typeof (payload as Partial<ListingResponse>).id === 'string'
-    ? (payload as Partial<ListingResponse>).id
-    : null;
-}
-
-function sortedActiveDefinitions(definitions: readonly ListingAttributeDefinition[]) {
-  return definitions
-    .filter((definition) => definition.active !== false)
-    .slice()
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  return {
+    description: state.description.trim(),
+    price: Number(state.price),
+    priceNegotiable: state.priceNegotiable,
+    attributes,
+  };
 }
 
 function numberConstraint(definition: ListingAttributeDefinition, key: string) {
@@ -399,16 +982,52 @@ function stringListConstraint(definition: ListingAttributeDefinition, key: strin
   return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [];
 }
 
-function defaultNumberValue(definition: ListingAttributeDefinition) {
-  const min = numberConstraint(definition, 'min');
-  return min === 0 && definition.key.endsWith('_coins') ? 0 : undefined;
+function isRecord(payload: unknown): payload is Record<string, unknown> {
+  return typeof payload === 'object' && payload !== null;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function normalizeAttributeDefinitions(payload: unknown): ListingAttributeDefinition[] {
+  if (!Array.isArray(payload)) return [];
+  return payload
+    .filter((entry): entry is ListingAttributeDefinition =>
+      isRecord(entry) &&
+      typeof entry.key === 'string' &&
+      typeof entry.labelUz === 'string' &&
+      typeof entry.required === 'boolean' &&
+      isAttributeType(entry.type),
+    )
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+}
+
+function isAttributeType(value: unknown) {
   return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      {children}
-    </div>
+    value === 'INT' ||
+    value === 'DECIMAL' ||
+    value === 'BOOLEAN' ||
+    value === 'STRING' ||
+    value === 'TEXT' ||
+    value === 'LIST_STRING' ||
+    value === 'ENUM'
   );
+}
+
+async function safeJson(response: Response) {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function errorFromPayload(payload: unknown, fallback: string) {
+  if (!isRecord(payload)) return fallback;
+  if (typeof payload.message === 'string') return payload.message;
+  if (typeof payload.error === 'string') return payload.error;
+  return fallback;
+}
+
+function formatMB(bytes: number) {
+  return `${Math.round(bytes / 1024 / 1024)} MB`;
 }

@@ -3,7 +3,10 @@ import { redirect } from 'next/navigation';
 
 import { ListingForm } from '@/components/marketplace/listing-form';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
+import { BackLink } from '@/components/navigation/back-link';
 import { getMe } from '@/lib/auth';
+import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
+import { getAttributeDefinitions } from '@/lib/marketplace-server';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 
 export const dynamic = 'force-dynamic';
@@ -15,18 +18,24 @@ export const metadata: Metadata = {
 
 export default async function NewListingPage() {
   const user = await resolveOptionalUser(getMe);
-  if (!user) redirect('/auth/login');
+  if (!user) redirect('/auth/login?from=/marketplace/new');
+
+  const remoteDefinitions = await getAttributeDefinitions();
+  const definitions =
+    remoteDefinitions.length > 0 ? remoteDefinitions : SEEDED_LISTING_ATTRIBUTE_DEFINITIONS;
 
   return (
-    <MarketplaceShell user={user}>
-      <section className="mx-auto w-full max-w-2xl space-y-4">
-        <div>
+    <MarketplaceShell user={user} activeTab="sell" hideSearch>
+      <section className="mx-auto w-full max-w-3xl space-y-4">
+        <BackLink href="/marketplace" label="Bozor" />
+        <header>
           <p className="text-xs font-bold uppercase tracking-wide text-primary">Marketplace</p>
-          <h1 className="mt-1 text-2xl font-black text-foreground">Akkount joylash</h1>
-        </div>
-        <div className="rounded-xl border border-border bg-white p-4 shadow-card">
-          <ListingForm />
-        </div>
+          <h1 className="mt-1 text-3xl font-black text-foreground">Akkount joylash</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Bir necha daqiqada e'longizni yarating — rasm, tavsif, narx.
+          </p>
+        </header>
+        <ListingForm attributeDefinitions={definitions} />
       </section>
     </MarketplaceShell>
   );

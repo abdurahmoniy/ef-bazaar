@@ -43,6 +43,34 @@ export interface ApiError {
   code?: string;
 }
 
+export interface TelegramWebAppBackButton {
+  isVisible: boolean;
+  show: () => void;
+  hide: () => void;
+  onClick: (callback: () => void) => void;
+  offClick: (callback: () => void) => void;
+}
+
+export interface TelegramWebAppMainButton {
+  text: string;
+  isVisible: boolean;
+  isActive: boolean;
+  setText: (text: string) => void;
+  show: () => void;
+  hide: () => void;
+  enable: () => void;
+  disable: () => void;
+  showProgress: (leaveActive?: boolean) => void;
+  hideProgress: () => void;
+  onClick: (callback: () => void) => void;
+  offClick: (callback: () => void) => void;
+}
+
+export interface TelegramWebAppHapticFeedback {
+  impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
+  notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
+}
+
 /**
  * Minimal Telegram Mini App SDK surface — only the bits we read.
  * Full surface: https://core.telegram.org/bots/webapps#initializing-mini-apps
@@ -51,6 +79,18 @@ export interface TelegramWebApp {
   initData: string;
   ready: () => void;
   expand?: () => void;
+  close?: () => void;
+  setHeaderColor?: (color: string) => void;
+  setBackgroundColor?: (color: string) => void;
+  disableVerticalSwipes?: () => void;
+  enableClosingConfirmation?: () => void;
+  viewportHeight?: number;
+  viewportStableHeight?: number;
+  onEvent?: (eventType: string, callback: () => void) => void;
+  offEvent?: (eventType: string, callback: () => void) => void;
+  BackButton?: TelegramWebAppBackButton;
+  MainButton?: TelegramWebAppMainButton;
+  HapticFeedback?: TelegramWebAppHapticFeedback;
 }
 
 declare global {

@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 
 import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
+import { TelegramViewportBootstrap } from '@/components/telegram/telegram-viewport-bootstrap';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 
 const inter = Inter({
@@ -77,6 +78,8 @@ export default function RootLayout({
   return (
     <html lang="uz" className={inter.variable} suppressHydrationWarning>
       <body className="font-sans">
+        {/* Mini App SDK bootstrap — ready/expand/theme/viewport, no auth */}
+        <TelegramViewportBootstrap />
         {/* Telegram Mini App context aniqlansa har qanday entry point'da auto-login */}
         <TelegramWebAppAutoLogin />
 

@@ -8,9 +8,12 @@ import {
   parseListingSearchParams,
   type SearchParamInput,
 } from '@/lib/marketplace-format';
+import { browseListings } from '@/lib/marketplace-server';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 
 export const dynamic = 'force-dynamic';
+
+const PAGE_SIZE = 12;
 
 export const metadata: Metadata = {
   title: 'Marketplace',
@@ -24,13 +27,26 @@ interface MarketplacePageProps {
 export default async function MarketplacePage({ searchParams }: MarketplacePageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const filters = parseListingSearchParams(resolvedSearchParams);
+  if (filters.size === undefined) filters.size = PAGE_SIZE;
+
   const activeFilter = getSelectedMarketplaceFilter(resolvedSearchParams);
   const query = typeof resolvedSearchParams.q === 'string' ? resolvedSearchParams.q : undefined;
-  const user = await resolveOptionalUser(getMe);
+  const view = resolvedSearchParams.view === 'list' ? 'list' : 'grid';
+
+  const [user, page] = await Promise.all([
+    resolveOptionalUser(getMe),
+    browseListings(filters),
+  ]);
 
   return (
-    <MarketplaceShell user={user}>
-      <MarketplaceBrowser filters={filters} activeFilter={activeFilter} query={query} />
+    <MarketplaceShell user={user} activeTab="home" initialQuery={query}>
+      <MarketplaceBrowser
+        filters={filters}
+        activeFilter={activeFilter}
+        query={query}
+        page={page}
+        view={view}
+      />
     </MarketplaceShell>
   );
 }

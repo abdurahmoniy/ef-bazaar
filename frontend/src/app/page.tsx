@@ -166,7 +166,7 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd }}
       />
-      <main className="min-h-screen bg-background text-foreground">
+      <main className="min-h-app bg-background pt-[env(safe-area-inset-top)] text-foreground">
         <LandingHeader />
         <Hero />
         <DivisionLadder />

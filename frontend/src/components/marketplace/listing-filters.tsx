@@ -1,49 +1,146 @@
 import Link from 'next/link';
-import { Search } from 'lucide-react';
+import { SlidersHorizontal, TrendingUp } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { LISTING_SORT_OPTIONS, paramToSortId } from '@/lib/marketplace-sort';
 import { MARKETPLACE_FILTERS, type MarketplaceFilterId } from '@/lib/marketplace-format';
+import { cn } from '@/lib/utils';
 
 interface ListingFiltersProps {
   activeFilter: MarketplaceFilterId;
   query?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  division?: number;
+  sortParam?: string;
 }
 
-export function ListingFilters({ activeFilter, query }: ListingFiltersProps) {
-  return (
-    <div className="space-y-3">
-      <form action="/marketplace" className="flex gap-2">
-        {activeFilter !== 'all' && <input type="hidden" name="filter" value={activeFilter} />}
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            name="q"
-            defaultValue={query}
-            placeholder="Messi, Epic, Division..."
-            className="h-10 rounded-lg pl-9"
-          />
-        </div>
-        <Button type="submit" className="h-10 rounded-lg px-4">
-          Qidirish
-        </Button>
-      </form>
+const DIVISION_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-      <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {MARKETPLACE_FILTERS.map((filter) => (
-          <Link
-            key={filter.id}
-            href={filterHref(filter.id, query)}
-            className={
-              filter.id === activeFilter
-                ? 'shrink-0 rounded-full border border-primary bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground'
-                : 'shrink-0 rounded-full border border-border bg-white px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-foreground'
-            }
-          >
-            {filter.label}
-          </Link>
-        ))}
+export function ListingFilters({
+  activeFilter,
+  query,
+  minPrice,
+  maxPrice,
+  division,
+  sortParam,
+}: ListingFiltersProps) {
+  const currentSortId = paramToSortId(sortParam);
+
+  return (
+    <aside className="space-y-3 md:sticky md:top-32">
+      <div className="hidden md:block">
+        <QuickChips activeFilter={activeFilter} query={query} />
       </div>
+
+      <form
+        action="/marketplace"
+        method="get"
+        className="rounded-xl border border-border bg-card p-4 shadow-card"
+      >
+        {activeFilter !== 'all' && <input type="hidden" name="filter" value={activeFilter} />}
+        {query && <input type="hidden" name="q" value={query} />}
+
+        <div className="flex items-center gap-2 pb-3 text-sm font-bold text-foreground">
+          <SlidersHorizontal className="h-4 w-4 text-primary" />
+          Filtrlar
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <div className="mb-1.5 text-xs font-semibold text-muted-foreground">Narx, so'm</div>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                name="minPrice"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={10000}
+                placeholder="dan"
+                defaultValue={minPrice ?? ''}
+                className="h-10 rounded-lg"
+              />
+              <Input
+                name="maxPrice"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={10000}
+                placeholder="gacha"
+                defaultValue={maxPrice ?? ''}
+                className="h-10 rounded-lg"
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-1.5 text-xs font-semibold text-muted-foreground">Eng yuqori Division</div>
+            <Select
+              name="attr.highest_division_level"
+              defaultValue={division === undefined ? '' : String(division)}
+              className="h-10"
+            >
+              <option value="">Barchasi</option>
+              {DIVISION_CHOICES.map((div) => (
+                <option key={div} value={div}>
+                  Division {div}+
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div>
+            <div className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+              <TrendingUp className="h-3.5 w-3.5" /> Saralash
+            </div>
+            <Select name="sort" defaultValue={LISTING_SORT_OPTIONS.find((o) => o.id === currentSortId)?.param} className="h-10">
+              {LISTING_SORT_OPTIONS.map((option) => (
+                <option key={option.id} value={option.param}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <Button type="submit" className="h-10 rounded-lg">
+              Qo'llash
+            </Button>
+            <Button asChild variant="outline" className="h-10 rounded-lg">
+              <Link href="/marketplace">Tozalash</Link>
+            </Button>
+          </div>
+        </div>
+      </form>
+    </aside>
+  );
+}
+
+export function QuickChips({
+  activeFilter,
+  query,
+}: {
+  activeFilter: MarketplaceFilterId;
+  query?: string;
+}) {
+  return (
+    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+      {MARKETPLACE_FILTERS.map((filter) => (
+        <Link
+          key={filter.id}
+          href={filterHref(filter.id, query)}
+          className={cn(
+            'shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+            filter.id === activeFilter
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border bg-white text-muted-foreground hover:border-primary/40 hover:text-foreground',
+          )}
+        >
+          {filter.label}
+        </Link>
+      ))}
     </div>
   );
 }
