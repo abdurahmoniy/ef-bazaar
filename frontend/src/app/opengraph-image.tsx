@@ -1,14 +1,20 @@
 import { ImageResponse } from 'next/og';
 
+import { BrandMarkOG } from '@/components/brand/brand-mark-og';
 import { siteConfig } from '@/lib/site';
 
 export const runtime = 'edge';
-export const alt = 'efBazaar eFootball account marketplace';
+export const alt = 'efBazaar — eFootball akkount bozori';
 export const size = {
   width: 1200,
   height: 630,
 };
 export const contentType = 'image/png';
+
+const PRIMARY = '#1f7a4d';
+const INK = '#1c1917';
+const MUTED = '#6b7280';
+const BORDER = '#e5e7eb';
 
 export default function OpenGraphImage() {
   return new ImageResponse(
@@ -18,23 +24,13 @@ export default function OpenGraphImage() {
           width: '100%',
           height: '100%',
           display: 'flex',
-          background: '#080a0f',
-          color: '#f8fafc',
+          background: '#fafaf7',
+          color: INK,
           fontFamily: 'Inter, Arial, sans-serif',
           padding: 56,
           position: 'relative',
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage:
-              'linear-gradient(120deg, rgba(34,211,238,0.22), rgba(16,185,129,0.12) 45%, rgba(245,158,11,0.16)), linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)',
-            backgroundSize: '100% 100%, 54px 54px, 54px 54px',
-          }}
-        />
-
         <div
           style={{
             position: 'relative',
@@ -51,27 +47,14 @@ export default function OpenGraphImage() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 14,
-                fontSize: 26,
-                color: '#67e8f9',
+                fontSize: 24,
+                color: PRIMARY,
                 marginBottom: 34,
+                fontWeight: 800,
               }}
             >
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  background: 'linear-gradient(135deg, #22d3ee, #10b981)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#061014',
-                  fontWeight: 900,
-                }}
-              >
-                eF
-              </div>
-              Telegram-first marketplace
+              <BrandMarkOG size={44} radius={12} />
+              Telegram orqali ishlaydigan bozor
             </div>
 
             <div style={{ fontSize: 96, lineHeight: 0.95, fontWeight: 900, letterSpacing: 0 }}>
@@ -80,24 +63,26 @@ export default function OpenGraphImage() {
             <div
               style={{
                 marginTop: 24,
-                fontSize: 38,
-                lineHeight: 1.18,
-                color: '#d7f8ff',
+                fontSize: 36,
+                lineHeight: 1.2,
+                color: '#44403c',
                 maxWidth: 620,
               }}
             >
               eFootball akkountlarini xavfsiz sotish va sotib olish.
             </div>
 
-            <div style={{ display: 'flex', gap: 14, marginTop: 40, fontSize: 23 }}>
-              {['Division', 'Team strength', 'Coins', 'Pro players'].map((item) => (
+            <div style={{ display: 'flex', gap: 14, marginTop: 40, fontSize: 22 }}>
+              {['Diviziyon', 'Jamoa kuchi', 'Tanga', "O'yinchilar"].map((item) => (
                 <div
                   key={item}
                   style={{
-                    border: '1px solid rgba(255,255,255,0.16)',
-                    background: 'rgba(255,255,255,0.08)',
+                    border: `1px solid ${BORDER}`,
+                    background: '#ffffff',
+                    color: '#44403c',
                     padding: '10px 16px',
                     borderRadius: 999,
+                    fontWeight: 700,
                   }}
                 >
                   {item}
@@ -109,52 +94,50 @@ export default function OpenGraphImage() {
           <div
             style={{
               width: 360,
-              border: '1px solid rgba(255,255,255,0.18)',
-              background: 'rgba(9,14,23,0.88)',
-              borderRadius: 28,
+              border: `1px solid ${BORDER}`,
+              background: '#ffffff',
+              borderRadius: 20,
               padding: 24,
               display: 'flex',
               flexDirection: 'column',
               gap: 18,
-              boxShadow: '0 28px 90px rgba(0,0,0,0.35)',
+              boxShadow: '0 28px 60px rgba(28,25,23,0.12)',
             }}
           >
-            <div style={{ fontSize: 20, color: '#9ca3af' }}>Live listing preview</div>
-            <div style={{ fontSize: 34, fontWeight: 800 }}>Division 1 account</div>
+            <div style={{ fontSize: 20, color: MUTED, fontWeight: 700 }}>Namuna e&apos;lon</div>
+            <div style={{ fontSize: 30, fontWeight: 800 }}>Diviziyon 1 akkount</div>
             <div
               style={{
                 height: 150,
-                borderRadius: 20,
-                background:
-                  'linear-gradient(135deg, rgba(34,211,238,0.28), rgba(16,185,129,0.18)), #111827',
-                border: '1px solid rgba(103,232,249,0.28)',
+                borderRadius: 16,
+                background: PRIMARY,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: 54,
                 fontWeight: 900,
-                color: '#ecfeff',
+                color: '#ffffff',
               }}
             >
-              3100+
+              3150
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 24 }}>
-              <span style={{ color: '#a7f3d0' }}>Google linked</span>
-              <span>450k UZS</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 22, fontWeight: 700 }}>
+              <span style={{ color: PRIMARY }}>Google ulangan</span>
+              <span>450 000 so&apos;m</span>
             </div>
             <div
               style={{
                 display: 'flex',
                 justifyContent: 'center',
-                background: '#22d3ee',
-                color: '#061014',
-                borderRadius: 14,
+                background: PRIMARY,
+                color: '#ffffff',
+                borderRadius: 12,
                 padding: '14px 18px',
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: 800,
               }}
             >
-              Start with Telegram
+              Telegram orqali kirish
             </div>
           </div>
         </div>

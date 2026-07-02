@@ -37,15 +37,15 @@ export function GoogleLinkButton({
 
   if (alreadyLinked) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-accent px-4 py-3">
         <div className="flex items-center gap-2 min-w-0">
-          <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+          <Check className="h-4 w-4 text-primary shrink-0" />
           <div className="min-w-0">
-            <p className="text-sm font-medium text-emerald-300">Google ulangan</p>
-            {email && <p className="text-xs text-emerald-200/70 truncate">{email}</p>}
+            <p className="text-sm font-medium text-primary">Google ulangan</p>
+            {email && <p className="text-xs text-primary/70 truncate">{email}</p>}
           </div>
         </div>
-        <Badge variant="verified">verified</Badge>
+        <Badge variant="verified">tasdiqlangan</Badge>
       </div>
     );
   }
@@ -61,7 +61,7 @@ export function GoogleLinkButton({
   return (
     <div className="space-y-3">
       {error && (
-        <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
           <span>{error}</span>
         </div>

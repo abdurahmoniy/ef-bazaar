@@ -21,10 +21,10 @@ export default async function NewListingPage() {
     <MarketplaceShell user={user}>
       <section className="mx-auto w-full max-w-2xl space-y-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-cyber-cyan">Marketplace</p>
-          <h1 className="mt-1 text-2xl font-black text-white">Akkount joylash</h1>
+          <p className="text-xs font-bold uppercase tracking-wide text-primary">Marketplace</p>
+          <h1 className="mt-1 text-2xl font-black text-foreground">Akkount joylash</h1>
         </div>
-        <div className="rounded-[8px] border border-white/10 bg-card/85 p-4">
+        <div className="rounded-xl border border-border bg-white p-4 shadow-card">
           <ListingForm />
         </div>
       </section>

@@ -44,12 +44,6 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        // Cyber Glassmorphism custom palette
-        cyber: {
-          cyan:   'hsl(189 94% 55%)',     // #06b6d4
-          purple: 'hsl(258 90% 66%)',     // #a855f7
-          pink:   'hsl(330 81% 60%)',     // #ec4899
-        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -59,18 +53,9 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
       },
-      backgroundImage: {
-        'cyber-gradient': 'linear-gradient(135deg, #0f0c29 0%, #1a1147 50%, #302b63 100%)',
-        'glow-cyan':     'radial-gradient(circle at 50% 50%, rgba(6,182,212,0.15), transparent 70%)',
-        'glow-purple':   'radial-gradient(circle at 50% 50%, rgba(168,85,247,0.15), transparent 70%)',
-      },
       boxShadow: {
-        'glass':       '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-        'glow-cyan':   '0 0 20px rgba(6, 182, 212, 0.5)',
-        'glow-purple': '0 0 20px rgba(168, 85, 247, 0.5)',
-      },
-      backdropBlur: {
-        xs: '2px',
+        card: '0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 1px 3px 0 rgba(15, 23, 42, 0.06)',
+        'card-hover': '0 4px 10px -2px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.06)',
       },
       keyframes: {
         'accordion-down': {
@@ -81,20 +66,15 @@ const config: Config = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
-        'glow-pulse': {
-          '0%, 100%': { opacity: '0.5' },
-          '50%':      { opacity: '1' },
-        },
-        'gradient-shift': {
-          '0%, 100%': { backgroundPosition: '0% 50%' },
-          '50%':      { backgroundPosition: '100% 50%' },
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
         },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        'glow-pulse':    'glow-pulse 3s ease-in-out infinite',
-        'gradient-shift':'gradient-shift 8s ease infinite',
+        marquee: 'marquee 32s linear infinite',
       },
     },
   },

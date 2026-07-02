@@ -35,8 +35,8 @@ export default async function RegisterPage() {
       <CardContent className="space-y-6">
         <div className="grid grid-cols-3 gap-2 text-center">
           {PERKS.map(({ icon: Icon, label }) => (
-            <div key={label} className="rounded-xl bg-white/5 border border-white/10 p-3">
-              <Icon className="h-5 w-5 mx-auto mb-1.5 text-cyber-cyan" />
+            <div key={label} className="rounded-xl border border-border bg-muted/60 p-3">
+              <Icon className="h-5 w-5 mx-auto mb-1.5 text-primary" />
               <p className="text-xs text-muted-foreground">{label}</p>
             </div>
           ))}
@@ -50,7 +50,7 @@ export default async function RegisterPage() {
 
         <p className="text-center text-sm text-muted-foreground">
           Allaqachon akkountingiz bormi?{' '}
-          <Link href="/auth/login" className="font-semibold text-cyber-cyan hover:underline">
+          <Link href="/auth/login" className="font-semibold text-primary hover:underline">
             Kirish
           </Link>
         </p>

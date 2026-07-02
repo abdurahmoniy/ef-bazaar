@@ -19,7 +19,7 @@ export function TelegramSwitchHint() {
             href="https://web.telegram.org/k"
             target="_blank"
             rel="noreferrer"
-            className="text-cyber-cyan hover:underline"
+            className="text-primary hover:underline"
           >
             web.telegram.org
           </a>

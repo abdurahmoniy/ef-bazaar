@@ -65,8 +65,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#080a0f',
-  colorScheme: 'dark',
+  themeColor: '#ffffff',
+  colorScheme: 'light',
 };
 
 export default function RootLayout({
@@ -75,11 +75,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="uz" className={`${inter.variable} dark`} suppressHydrationWarning>
+    <html lang="uz" className={inter.variable} suppressHydrationWarning>
       <body className="font-sans">
-        <div className="bg-grid pointer-events-none fixed inset-0 -z-10 opacity-35" />
-        <div className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-72 bg-[linear-gradient(180deg,rgba(34,211,238,0.13),rgba(8,10,15,0))]" />
-
         {/* Telegram Mini App context aniqlansa har qanday entry point'da auto-login */}
         <TelegramWebAppAutoLogin />
 

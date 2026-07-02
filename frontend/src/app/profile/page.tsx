@@ -45,7 +45,7 @@ export default async function ProfilePage() {
         <Card>
           <CardContent className="p-6 sm:p-8">
             <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-              <Avatar className="h-24 w-24 ring-4 ring-cyber-cyan/20">
+              <Avatar className="h-24 w-24 ring-4 ring-primary/15">
                 {user.telegramPhotoUrl && <AvatarImage src={user.telegramPhotoUrl} alt={user.displayName} />}
                 <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
               </Avatar>
@@ -56,7 +56,7 @@ export default async function ProfilePage() {
                   {user.verified ? (
                     <Badge variant="verified">
                       <BadgeCheck className="h-3 w-3" />
-                      verified
+                      tasdiqlangan
                     </Badge>
                   ) : (
                     <Badge variant="warn">
@@ -91,7 +91,7 @@ export default async function ProfilePage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <BadgeCheck className="h-5 w-5 text-cyber-cyan" />
+              <BadgeCheck className="h-5 w-5 text-primary" />
               Akkount tasdiqlash
             </CardTitle>
           </CardHeader>
@@ -108,7 +108,7 @@ export default async function ProfilePage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <UserIcon className="h-5 w-5 text-cyber-purple" />
+              <UserIcon className="h-5 w-5 text-secondary" />
               Identifikatorlar
             </CardTitle>
           </CardHeader>

@@ -21,10 +21,10 @@ export function ListingFilters({ activeFilter, query }: ListingFiltersProps) {
             name="q"
             defaultValue={query}
             placeholder="Messi, Epic, Division..."
-            className="h-10 rounded-[8px] pl-9"
+            className="h-10 rounded-lg pl-9"
           />
         </div>
-        <Button type="submit" className="h-10 rounded-[8px] px-4">
+        <Button type="submit" className="h-10 rounded-lg px-4">
           Qidirish
         </Button>
       </form>
@@ -36,8 +36,8 @@ export function ListingFilters({ activeFilter, query }: ListingFiltersProps) {
             href={filterHref(filter.id, query)}
             className={
               filter.id === activeFilter
-                ? 'shrink-0 rounded-full border border-cyber-cyan bg-cyber-cyan px-3 py-1.5 text-xs font-bold text-slate-950'
-                : 'shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-white/25 hover:text-white'
+                ? 'shrink-0 rounded-full border border-primary bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground'
+                : 'shrink-0 rounded-full border border-border bg-white px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-foreground'
             }
           >
             {filter.label}
