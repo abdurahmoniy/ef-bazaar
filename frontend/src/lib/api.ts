@@ -24,11 +24,13 @@ const REFRESH_COOKIE = 'refresh_token';
 export class ApiException extends Error {
   status: number;
   code?: string;
+  details?: unknown;
 
   constructor(payload: ApiError) {
     super(payload.message);
     this.status = payload.status;
     this.code = payload.code;
+    this.details = payload.details;
   }
 }
 
@@ -72,14 +74,19 @@ export async function apiFetch<T = unknown>(
   });
 
   if (!res.ok) {
+    // Read raw text first so we can capture non-JSON bodies (HTML error pages,
+    // stack traces, empty responses) instead of losing them to a JSON.parse fail.
+    const rawBody = await res.text().catch(() => '');
     let payload: ApiError;
     try {
-      payload = await res.json();
+      payload = JSON.parse(rawBody) as ApiError;
     } catch {
       payload = {
         status: res.status,
         error: res.statusText,
-        message: `Request failed with ${res.status}`,
+        message: rawBody
+          ? `Request failed with ${res.status}: ${rawBody.slice(0, 500)}`
+          : `Request failed with ${res.status} (empty body)`,
       };
     }
     throw new ApiException(payload);

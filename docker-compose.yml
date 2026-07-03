@@ -171,6 +171,9 @@ services:
       MEDIA_ALLOWED_TYPES: ${MEDIA_ALLOWED_TYPES}
       # Bot internal URL (rasm forwarding uchun)
       BOT_INTERNAL_BASE_URL: http://bot:8084
+      # Debug: 500-larni response body'siga exception class/message qo'shadi.
+      # Diagnoz uchun vaqtincha "true" qiling; prod'da "false".
+      APP_DEBUG_ERRORS: ${APP_DEBUG_ERRORS:-false}
     depends_on:
       postgres:
         condition: service_healthy
