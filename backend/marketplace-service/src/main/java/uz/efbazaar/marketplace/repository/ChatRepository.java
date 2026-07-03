@@ -39,4 +39,19 @@ public interface ChatRepository extends JpaRepository<Chat, UUID> {
     @Modifying
     @Query("UPDATE Chat c SET c.lastMessageAt = :ts WHERE c.id = :id")
     void touchLastMessageAt(@Param("id") UUID id, @Param("ts") Instant ts);
+
+    /**
+     * Close every ACTIVE chat the user participates in as buyer or seller.
+     * Used when auth reports the user is gone — the counterpart shouldn't wait
+     * on a reply that will never come. Returns the number of rows affected.
+     */
+    @Modifying
+    @Query("""
+            UPDATE Chat c
+               SET c.status = uz.efbazaar.marketplace.domain.ChatStatus.CLOSED,
+                   c.closedAt = :ts
+             WHERE c.status = uz.efbazaar.marketplace.domain.ChatStatus.ACTIVE
+               AND (c.buyerId = :userId OR c.sellerId = :userId)
+            """)
+    int closeAllForParticipant(@Param("userId") UUID userId, @Param("ts") Instant ts);
 }

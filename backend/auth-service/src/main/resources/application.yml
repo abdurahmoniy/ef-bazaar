@@ -72,6 +72,15 @@ management:
       enabled: false
 
 app:
+  # Requests-per-minute per client IP. Set enabled=false to disable in dev if
+  # Redis is not available. Keys are the exact request URI (not a prefix match).
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    endpoints:
+      /api/v1/auth/telegram: ${RATE_LIMIT_TELEGRAM:20}
+      /api/v1/auth/telegram-webapp: ${RATE_LIMIT_TELEGRAM_WEBAPP:20}
+      /api/v1/auth/google/login: ${RATE_LIMIT_GOOGLE_LOGIN:20}
+      /api/v1/auth/refresh: ${RATE_LIMIT_REFRESH:60}
   jwt:
     secret: ${JWT_SECRET:dev-secret-change-me-please-min-32-bytes-long}
     access-token-ttl-minutes: ${JWT_ACCESS_TOKEN_TTL_MINUTES:15}

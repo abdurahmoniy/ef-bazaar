@@ -7,9 +7,9 @@ import {
   Clock3,
   Filter,
   Heart,
+  MessageCircle,
   Search,
   ShieldCheck,
-  ShoppingBag,
   Star,
   UploadCloud,
   type LucideIcon,
@@ -355,7 +355,7 @@ function AccountShowcase() {
 
       <div className="mt-3 grid grid-cols-2 gap-3">
         <TinyAction icon={Heart} label="Layklar" value="128" />
-        <TinyAction icon={ShoppingBag} label="Savatda" value="42" />
+        <TinyAction icon={MessageCircle} label="Chatlar" value="42" />
       </div>
     </aside>
   );

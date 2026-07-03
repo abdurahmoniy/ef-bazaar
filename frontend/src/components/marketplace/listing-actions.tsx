@@ -3,14 +3,15 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { Flag, Heart, MessageCircle, ShoppingBag } from 'lucide-react';
+import { Flag, Heart, MessageCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { useTelegramMainButton } from '@/hooks/use-telegram-main-button';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { formatCompactNumber } from '@/lib/marketplace-format';
+import { toggleListingLike } from '@/lib/marketplace-actions';
 import { cn } from '@/lib/utils';
-import type { ChatResponse, LikeToggleResponse } from '@/lib/marketplace-types';
+import type { ChatResponse } from '@/lib/marketplace-types';
 
 interface ActionResult {
   ok: boolean;
@@ -107,7 +108,7 @@ export function ListingActions({
         {authenticated ? "Sotuvchi bilan bog'lanish" : 'Kirish va bog\'lanish'}
       </Button>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Button
           type="button"
           variant={liked ? 'secondary' : 'outline'}
@@ -117,33 +118,18 @@ export function ListingActions({
           onClick={() => {
             if (!authenticated) return router.push(`/auth/login?from=/marketplace/${listingId}`);
             startTransition(async () => {
-              const result = await toggleLike(listingId);
+              const result = await toggleListingLike(listingId);
               if (!result.ok) {
-                setMessage({ tone: 'error', text: result.error ?? 'Like saqlanmadi' });
+                setMessage({ tone: 'error', text: result.message });
                 return;
               }
-              setLiked(Boolean(result.liked));
-              setLikeCount(result.totalLikes ?? likeCount);
+              setLiked(result.data.liked);
+              setLikeCount(result.data.totalLikes);
             });
           }}
         >
           <Heart className={cn('h-4 w-4', liked && 'fill-current')} />
           {formatCompactNumber(likeCount)}
-        </Button>
-
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="rounded-lg"
-          disabled={isPending}
-          onClick={() => {
-            if (!authenticated) return router.push(`/auth/login?from=/marketplace/${listingId}`);
-            withStatus(() => addToCart(listingId), "Savatga qo'shildi");
-          }}
-        >
-          <ShoppingBag className="h-4 w-4" />
-          Savat
         </Button>
 
         <Button
@@ -174,19 +160,6 @@ export function ListingActions({
       )}
     </div>
   );
-}
-
-async function toggleLike(listingId: string): Promise<ActionResult> {
-  const result = await marketplaceFetch<LikeToggleResponse>(['v1', 'listings', listingId, 'like'], {
-    method: 'POST',
-  });
-
-  if (!result.ok) return result;
-  return { ok: true, liked: result.data.liked, totalLikes: result.data.totalLikes };
-}
-
-async function addToCart(listingId: string): Promise<ActionResult> {
-  return marketplaceFetch(['v1', 'cart', listingId], { method: 'POST' });
 }
 
 async function startChat(listingId: string): Promise<ActionResult> {

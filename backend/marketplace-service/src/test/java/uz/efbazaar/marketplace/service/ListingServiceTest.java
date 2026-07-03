@@ -74,7 +74,7 @@ class ListingServiceTest {
     void create_ordersValidationsBeforeBotUploadAndPersists() {
         when(attributeValidator.validate(anyMap())).thenAnswer(inv -> inv.getArgument(0));
         when(captionBuilder.build(any(Listing.class))).thenReturn("Rich caption");
-        when(mediaService.uploadToBot(anyList(), anyString())).thenReturn(List.of("file_1"));
+        when(mediaService.uploadToBot(anyList(), anyString(), any(UUID.class))).thenReturn(List.of("file_1"));
         when(repository.save(any(Listing.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Listing saved = service.create(sellerId, createReq, files);

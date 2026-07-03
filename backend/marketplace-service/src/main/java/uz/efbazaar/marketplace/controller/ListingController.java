@@ -84,15 +84,18 @@ public class ListingController {
 
     /**
      * Atomic full-edit — same shape as create. Media is replaced with the new
-     * upload; old Telegram messages stay as audit trail. See
-     * {@link ListingService#update} for the ordering guarantees.
+     * upload; old Telegram messages stay as audit trail. When the {@code files}
+     * part is omitted or empty, the existing {@code mediaMessageIds} are kept
+     * (used by the edit form to update text/attribute fields without re-uploading
+     * photos). See {@link ListingService#update} for the ordering guarantees.
      */
     @PutMapping(path = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ListingResponse update(@AuthenticationPrincipal AuthenticatedUser user,
                                   @PathVariable UUID id,
                                   @RequestPart("data") @Valid ListingUpdateRequest data,
-                                  @RequestPart("files") List<MultipartFile> files) {
-        Listing updated = listingService.update(id, user.userId(), data, files);
+                                  @RequestPart(name = "files", required = false) List<MultipartFile> files) {
+        Listing updated = listingService.update(id, user.userId(), data,
+                files == null ? List.of() : files);
         return assembler.assemble(updated, user.userId());
     }
 

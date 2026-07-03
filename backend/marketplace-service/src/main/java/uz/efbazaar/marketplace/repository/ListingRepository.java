@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import uz.efbazaar.marketplace.domain.Listing;
@@ -28,4 +29,18 @@ public interface ListingRepository extends JpaRepository<Listing, UUID>,
                AND l.id IN (SELECT lk.listingId FROM Like lk WHERE lk.userId = :userId)
             """)
     Page<Listing> findLikedByUser(@Param("userId") UUID userId, Pageable pageable);
+
+    /**
+     * Mark every ACTIVE listing owned by the seller as DELETED. Invoked from the
+     * {@code auth.user-deleted} consumer to purge orphan seller state. Returns
+     * the number of rows updated.
+     */
+    @Modifying
+    @Query("""
+            UPDATE Listing l
+               SET l.status = uz.efbazaar.marketplace.domain.ListingStatus.DELETED
+             WHERE l.sellerId = :sellerId
+               AND l.status = uz.efbazaar.marketplace.domain.ListingStatus.ACTIVE
+            """)
+    int softDeleteAllBySeller(@Param("sellerId") UUID sellerId);
 }

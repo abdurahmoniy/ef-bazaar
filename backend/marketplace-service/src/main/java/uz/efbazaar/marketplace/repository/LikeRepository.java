@@ -1,6 +1,7 @@
 package uz.efbazaar.marketplace.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import uz.efbazaar.marketplace.domain.Like;
@@ -22,4 +23,8 @@ public interface LikeRepository extends JpaRepository<Like, UUID> {
     List<Object[]> countByListingIds(@Param("ids") Collection<UUID> ids);
 
     List<Like> findByUserIdAndListingIdIn(UUID userId, Collection<UUID> listingIds);
+
+    @Modifying
+    @Query("DELETE FROM Like l WHERE l.userId = :userId")
+    int deleteAllByUserId(@Param("userId") UUID userId);
 }

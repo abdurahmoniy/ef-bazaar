@@ -51,7 +51,7 @@ public class ListingService {
         listing.setAttributes(validated);
 
         String caption = captionBuilder.build(listing);
-        List<String> fileIds = mediaService.uploadToBot(files, caption);
+        List<String> fileIds = mediaService.uploadToBot(files, caption, listing.getId());
         listing.setMediaMessageIds(fileIds);
 
         // save() opens its own short tx via Spring Data — no long-running DB lock
@@ -68,11 +68,17 @@ public class ListingService {
      * guarantees as {@link #create}. Old Telegram messages are NOT deleted
      * (audit trail); the listing's mediaMessageIds are overwritten with the
      * new set only after the fresh upload succeeds.
+     *
+     * <p>When {@code files} is empty the existing mediaMessageIds are kept so
+     * text-only edits don't require re-uploading photos.
      */
     public Listing update(UUID id, UUID sellerId,
                           ListingUpdateRequest request,
                           List<MultipartFile> files) {
-        mediaService.validate(files);
+        boolean replacingMedia = files != null && !files.isEmpty();
+        if (replacingMedia) {
+            mediaService.validate(files);
+        }
         Listing listing = getActiveOwned(id, sellerId);
 
         mapper.update(listing, request);
@@ -80,13 +86,16 @@ public class ListingService {
             listing.setAttributes(attributeValidator.validate(request.attributes()));
         }
 
-        String caption = captionBuilder.build(listing);
-        List<String> fileIds = mediaService.uploadToBot(files, caption);
-        listing.setMediaMessageIds(fileIds);
+        if (replacingMedia) {
+            String caption = captionBuilder.build(listing);
+            List<String> fileIds = mediaService.uploadToBot(files, caption, listing.getId());
+            listing.setMediaMessageIds(fileIds);
+        }
 
         Listing saved = listings.save(listing);
         events.listingUpdated(saved);
-        log.info("Listing updated: id={} sellerId={} media={}", id, sellerId, fileIds.size());
+        log.info("Listing updated: id={} sellerId={} mediaReplaced={} media={}",
+                id, sellerId, replacingMedia, listing.getMediaMessageIds().size());
         return saved;
     }
 

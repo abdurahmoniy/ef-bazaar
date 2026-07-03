@@ -8,9 +8,6 @@ describe('marketplace client api helpers', () => {
     expect(buildMarketplaceApiPath(['v1', 'listings', 'abc 123', 'like'])).toBe(
       '/api/marketplace/v1/listings/abc%20123/like',
     );
-    expect(buildMarketplaceApiPath(['v1', 'cart', 'listing-1'])).toBe(
-      '/api/marketplace/v1/cart/listing-1',
-    );
     expect(buildMarketplaceApiPath(['v1', 'chats'])).toBe('/api/marketplace/v1/chats');
     expect(
       buildMarketplaceApiPath('v1/listings', new URLSearchParams('page=1&sort=createdAt%2Cdesc')),

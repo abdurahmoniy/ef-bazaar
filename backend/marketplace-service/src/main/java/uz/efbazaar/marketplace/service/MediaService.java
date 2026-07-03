@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 /**
  * Uploads a media group to the bot's Telegram media topic. Callers are
@@ -134,9 +135,13 @@ public class MediaService {
      * photo. Returns the Telegram file_ids in the same order they were
      * uploaded.
      *
+     * <p>The {@code listingId} is threaded through so the bot can emit
+     * {@code efbazaar.bot.media-uploaded} events correlated to the listing.
+     * Pass {@code null} for external callers that don't own a listing yet.
+     *
      * @throws ResponseStatusException 502 if the bot call fails or returns empty
      */
-    public List<String> uploadToBot(List<MultipartFile> files, String caption) {
+    public List<String> uploadToBot(List<MultipartFile> files, String caption, UUID listingId) {
         MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
         for (MultipartFile mf : files) {
             try {
@@ -153,6 +158,9 @@ public class MediaService {
         }
         if (caption != null && !caption.isBlank()) {
             form.add("caption", caption);
+        }
+        if (listingId != null) {
+            form.add("listingId", listingId.toString());
         }
 
         UploadResponse response;

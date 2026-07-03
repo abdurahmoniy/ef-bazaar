@@ -1,13 +1,11 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
 
+import { ListingForm } from '@/components/marketplace/listing-form';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { getMe } from '@/lib/auth';
-import { getListing } from '@/lib/marketplace-server';
+import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
+import { getAttributeDefinitions, getListing } from '@/lib/marketplace-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,30 +30,21 @@ export default async function EditListingPage({ params }: EditPageProps) {
   }
   if (result.data.sellerId !== user.id) redirect(`/marketplace/${id}`);
 
+  const remoteDefinitions = await getAttributeDefinitions();
+  const definitions =
+    remoteDefinitions.length > 0 ? remoteDefinitions : SEEDED_LISTING_ATTRIBUTE_DEFINITIONS;
+
   return (
     <MarketplaceShell user={user} activeTab="profile" hideSearch backHref={`/marketplace/${id}`} backLabel="E'lon">
-      <section className="mx-auto w-full max-w-2xl space-y-4">
+      <section className="mx-auto w-full max-w-3xl space-y-4">
         <header>
           <p className="text-xs font-bold uppercase tracking-wide text-primary">Marketplace</p>
-          <h1 className="mt-1 text-2xl font-black text-foreground">E'lonni tahrirlash</h1>
+          <h1 className="mt-1 text-3xl font-black text-foreground">E'lonni tahrirlash</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Yangi rasm yuklamasangiz, joriy rasmlar saqlanadi.
+          </p>
         </header>
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">
-              Tahrirlash funksiyasi tez orada qo'shiladi. Hozircha e'lonni o'chirib, yangisini yaratish mumkin.
-            </p>
-            <div className="mt-4 flex gap-2">
-              <Button asChild variant="outline">
-                <Link href={`/marketplace/${id}`}>
-                  <ArrowLeft className="h-4 w-4" /> Ortga
-                </Link>
-              </Button>
-              <Button asChild>
-                <Link href="/marketplace/new">Yangi e'lon</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <ListingForm attributeDefinitions={definitions} initialListing={result.data} />
       </section>
     </MarketplaceShell>
   );

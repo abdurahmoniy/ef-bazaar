@@ -42,6 +42,8 @@ management:
       enabled: false
 
 app:
+  web:
+    base-url: ${APP_BASE_URL:https://efbazaar.uz}
   telegram:
     bot-token: ${TELEGRAM_BOT_TOKEN:}
     bot-username: ${TELEGRAM_BOT_USERNAME:}

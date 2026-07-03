@@ -29,6 +29,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { CardPicker } from '@/components/marketplace/card-picker';
 import { useTelegramMainButton } from '@/hooks/use-telegram-main-button';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+import { listingMediaUrls } from '@/lib/marketplace-media';
 import { formatPriceUZS, normalizePlayerList } from '@/lib/marketplace-format';
 import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
 import type {
@@ -40,6 +41,8 @@ import { cn } from '@/lib/utils';
 
 interface ListingFormProps {
   attributeDefinitions?: readonly ListingAttributeDefinition[];
+  /** When provided, the form runs in edit mode: preloads values and PUTs to the listing id. */
+  initialListing?: ListingResponse;
 }
 
 interface PhotoEntry {
@@ -64,6 +67,9 @@ const ACCEPTED_IMAGE_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/h
 const STEPS = ['photos', 'basics', 'gameplay', 'pricing', 'review'] as const;
 type StepId = (typeof STEPS)[number];
 
+/** Bump the version suffix when WizardState shape changes so old drafts are ignored. */
+const DRAFT_KEY = 'efbazaar:listing-draft-v1';
+
 const STEP_LABELS: Record<StepId, { title: string; subtitle: string }> = {
   photos: { title: 'Rasmlar', subtitle: `Kamida ${MIN_FILES} ta, eng ko'p ${MAX_FILES} ta` },
   basics: { title: 'Tavsif', subtitle: "Akkountingiz haqida qisqacha ma'lumot" },
@@ -72,19 +78,35 @@ const STEP_LABELS: Record<StepId, { title: string; subtitle: string }> = {
   review: { title: 'Tekshirish', subtitle: 'Yuborishdan oldin natijani ko\'ring' },
 };
 
-export function ListingForm({ attributeDefinitions }: ListingFormProps) {
+export function ListingForm({ attributeDefinitions, initialListing }: ListingFormProps) {
   const router = useRouter();
+  const editMode = initialListing !== undefined;
   const [definitions, setDefinitions] = useState<readonly ListingAttributeDefinition[]>(
     attributeDefinitions ?? SEEDED_LISTING_ATTRIBUTE_DEFINITIONS,
   );
   const [photos, setPhotos] = useState<PhotoEntry[]>([]);
+  const existingMediaUrls = useMemo(
+    () => (initialListing ? listingMediaUrls(initialListing) : []),
+    [initialListing],
+  );
   const [step, setStep] = useState<StepId>('photos');
-  const [state, setState] = useState<WizardState>(() => ({
-    description: '',
-    price: '',
-    priceNegotiable: false,
-    attributes: initialAttributes(attributeDefinitions ?? SEEDED_LISTING_ATTRIBUTE_DEFINITIONS),
-  }));
+  const [state, setState] = useState<WizardState>(() => {
+    const defs = attributeDefinitions ?? SEEDED_LISTING_ATTRIBUTE_DEFINITIONS;
+    if (initialListing) {
+      return {
+        description: initialListing.description,
+        price: String(initialListing.price ?? ''),
+        priceNegotiable: initialListing.priceNegotiable,
+        attributes: attributesFromListing(initialListing.attributes, defs),
+      };
+    }
+    return {
+      description: '',
+      price: '',
+      priceNegotiable: false,
+      attributes: initialAttributes(defs),
+    };
+  });
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const submittedAt = useRef(0);
@@ -120,8 +142,38 @@ export function ListingForm({ attributeDefinitions }: ListingFormProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Restore draft on mount (create mode only). Runs after SSR to avoid hydration
+  // mismatch; a brief empty-form flash is acceptable in exchange for not
+  // shipping localStorage lookups into the SSR pass.
+  useEffect(() => {
+    if (editMode) return;
+    const draft = readDraft();
+    if (!draft) return;
+    setState((prev) => ({
+      description: typeof draft.description === 'string' ? draft.description : prev.description,
+      price: typeof draft.price === 'string' ? draft.price : prev.price,
+      priceNegotiable:
+        typeof draft.priceNegotiable === 'boolean' ? draft.priceNegotiable : prev.priceNegotiable,
+      attributes: mergeAttributes(
+        (draft.attributes as Record<string, string | boolean>) ?? {},
+        definitions,
+      ),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode]);
+
+  // Persist draft on every state change (create mode only). Photos are excluded
+  // because File objects can't be serialised — user re-picks images on reload.
+  useEffect(() => {
+    if (editMode) return;
+    writeDraft(state);
+  }, [state, editMode]);
+
   const stepIndex = STEPS.indexOf(step);
-  const stepErrors = useMemo(() => validateStep(step, state, photos, definitions), [step, state, photos, definitions]);
+  const stepErrors = useMemo(
+    () => validateStep(step, state, photos, definitions, editMode && existingMediaUrls.length > 0),
+    [step, state, photos, definitions, editMode, existingMediaUrls.length],
+  );
   const canProceed = stepErrors.length === 0;
 
   const goNext = useCallback(() => {
@@ -140,7 +192,10 @@ export function ListingForm({ attributeDefinitions }: ListingFormProps) {
     if (pending || Date.now() - submittedAt.current < 800) return;
     submittedAt.current = Date.now();
 
-    const allErrors = STEPS.flatMap((id) => validateStep(id, state, photos, definitions));
+    const keepExistingMedia = editMode && existingMediaUrls.length > 0;
+    const allErrors = STEPS.flatMap((id) =>
+      validateStep(id, state, photos, definitions, keepExistingMedia),
+    );
     if (allErrors.length > 0) {
       setSubmitError(allErrors[0]);
       return;
@@ -154,8 +209,12 @@ export function ListingForm({ attributeDefinitions }: ListingFormProps) {
       formData.append('data', new Blob([JSON.stringify(request)], { type: 'application/json' }));
       for (const photo of photos) formData.append('files', photo.file);
 
-      const response = await fetch(buildMarketplaceApiPath('v1/listings'), {
-        method: 'POST',
+      const isEdit = initialListing !== undefined;
+      const url = isEdit
+        ? buildMarketplaceApiPath(['v1', 'listings', initialListing.id])
+        : buildMarketplaceApiPath('v1/listings');
+      const response = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
         headers: { Accept: 'application/json' },
         credentials: 'include',
         body: formData,
@@ -166,14 +225,18 @@ export function ListingForm({ attributeDefinitions }: ListingFormProps) {
         setSubmitError(
           response.status === 401 || response.status === 403
             ? 'Kirish talab qilinadi'
-            : errorFromPayload(payload, "E'lon yaratilmadi"),
+            : errorFromPayload(payload, isEdit ? "E'lon saqlanmadi" : "E'lon yaratilmadi"),
         );
         return;
       }
 
+      // Successful submit — drop any create-mode draft so the next open starts fresh.
+      if (!isEdit) clearDraft();
+
       const payload = (await safeJson(response)) as Partial<ListingResponse> | null;
-      if (payload?.id) {
-        router.push(`/marketplace/${payload.id}`);
+      const targetId = payload?.id ?? (isEdit ? initialListing.id : undefined);
+      if (targetId) {
+        router.push(`/marketplace/${targetId}`);
         router.refresh();
       } else {
         router.push('/marketplace');
@@ -184,10 +247,11 @@ export function ListingForm({ attributeDefinitions }: ListingFormProps) {
     } finally {
       setPending(false);
     }
-  }, [pending, state, photos, definitions, router]);
+  }, [pending, state, photos, definitions, router, editMode, existingMediaUrls.length, initialListing]);
 
+  const submitLabel = editMode ? 'Saqlash' : "E'lon yaratish";
   useTelegramMainButton({
-    text: pending ? 'Yuborilmoqda...' : step === 'review' ? "E'lon yaratish" : 'Davom etish',
+    text: pending ? 'Yuborilmoqda...' : step === 'review' ? submitLabel : 'Davom etish',
     onClick: () => (step === 'review' ? handleSubmit() : goNext()),
     disabled: pending || (!canProceed && step !== 'review'),
     loading: pending,
@@ -202,7 +266,12 @@ export function ListingForm({ attributeDefinitions }: ListingFormProps) {
 
         <div className="mt-4">
           {step === 'photos' && (
-            <PhotoStep photos={photos} setPhotos={setPhotos} errors={stepErrors} />
+            <PhotoStep
+              photos={photos}
+              setPhotos={setPhotos}
+              errors={stepErrors}
+              existingMediaUrls={existingMediaUrls}
+            />
           )}
           {step === 'basics' && (
             <BasicsStep state={state} setState={setState} errors={stepErrors} />
@@ -219,7 +288,12 @@ export function ListingForm({ attributeDefinitions }: ListingFormProps) {
             <PricingStep state={state} setState={setState} errors={stepErrors} />
           )}
           {step === 'review' && (
-            <ReviewStep state={state} photos={photos} definitions={definitions} />
+            <ReviewStep
+              state={state}
+              photos={photos}
+              definitions={definitions}
+              existingMediaUrls={existingMediaUrls}
+            />
           )}
         </div>
 
@@ -239,6 +313,7 @@ export function ListingForm({ attributeDefinitions }: ListingFormProps) {
         onPrev={goPrev}
         onNext={goNext}
         onSubmit={handleSubmit}
+        submitLabel={submitLabel}
       />
     </div>
   );
@@ -299,6 +374,7 @@ function StepNav({
   onPrev,
   onNext,
   onSubmit,
+  submitLabel,
 }: {
   step: StepId;
   stepIndex: number;
@@ -307,6 +383,7 @@ function StepNav({
   onPrev: () => void;
   onNext: () => void;
   onSubmit: () => void;
+  submitLabel: string;
 }) {
   const isFirst = stepIndex === 0;
   const isLast = step === 'review';
@@ -326,7 +403,7 @@ function StepNav({
       {isLast ? (
         <Button type="button" onClick={onSubmit} disabled={pending} className="h-11 flex-1 text-base">
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-          {pending ? 'Yuborilmoqda...' : "E'lon yaratish"}
+          {pending ? 'Yuborilmoqda...' : submitLabel}
         </Button>
       ) : (
         <Button type="button" onClick={onNext} disabled={!canProceed} className="h-11 flex-1 text-base">
@@ -345,11 +422,15 @@ function PhotoStep({
   photos,
   setPhotos,
   errors,
+  existingMediaUrls,
 }: {
   photos: PhotoEntry[];
   setPhotos: React.Dispatch<React.SetStateAction<PhotoEntry[]>>;
   errors: string[];
+  existingMediaUrls: string[];
 }) {
+  const hasExisting = existingMediaUrls.length > 0;
+  const replacing = hasExisting && photos.length > 0;
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -402,6 +483,44 @@ function PhotoStep({
 
   return (
     <div className="space-y-3">
+      {hasExisting && (
+        <div className="rounded-xl border border-border bg-muted/40 p-3">
+          <div className="mb-2 flex items-center justify-between text-xs">
+            <span className="font-bold uppercase tracking-wide text-muted-foreground">
+              Joriy rasmlar
+            </span>
+            <span
+              className={cn(
+                'font-semibold',
+                replacing ? 'text-destructive' : 'text-muted-foreground',
+              )}
+            >
+              {replacing
+                ? 'Yangi rasmlar bilan almashtiriladi'
+                : `${existingMediaUrls.length} ta rasm saqlanadi`}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-6">
+            {existingMediaUrls.map((url, index) => (
+              <img
+                key={url}
+                src={url}
+                alt={`Joriy rasm ${index + 1}`}
+                loading="lazy"
+                decoding="async"
+                className={cn(
+                  'aspect-square w-full rounded-lg border-2 object-cover',
+                  replacing ? 'border-destructive/40 opacity-40' : 'border-border',
+                )}
+              />
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Yangi rasm yuklamasangiz, joriy rasmlar saqlanadi. Yuklaganingizda hammasi almashtiriladi.
+          </p>
+        </div>
+      )}
+
       <div
         onDragOver={(event) => {
           event.preventDefault();
@@ -415,7 +534,9 @@ function PhotoStep({
         )}
       >
         <ImagePlus className="h-6 w-6 text-primary" />
-        <div className="text-sm font-semibold text-foreground">Rasmlarni bu yerga tashlang</div>
+        <div className="text-sm font-semibold text-foreground">
+          {hasExisting ? 'Yangi rasmlar bilan almashtirish' : 'Rasmlarni bu yerga tashlang'}
+        </div>
         <div className="text-xs text-muted-foreground">
           JPG, PNG, WebP, HEIC · fayl {formatMB(MAX_FILE_BYTES)}dan katta bo'lmasin
         </div>
@@ -766,13 +887,16 @@ function ReviewStep({
   state,
   photos,
   definitions,
+  existingMediaUrls,
 }: {
   state: WizardState;
   photos: PhotoEntry[];
   definitions: readonly ListingAttributeDefinition[];
+  existingMediaUrls: string[];
 }) {
   const priceNum = Number(state.price);
   const priceLabel = Number.isFinite(priceNum) ? formatPriceUZS(priceNum) : '—';
+  const usingExisting = photos.length === 0 && existingMediaUrls.length > 0;
 
   return (
     <div className="space-y-4">
@@ -785,7 +909,18 @@ function ReviewStep({
             className="aspect-square w-full rounded-lg object-cover"
           />
         ))}
-        {photos.length === 0 && (
+        {usingExisting &&
+          existingMediaUrls.slice(0, 4).map((url, index) => (
+            <img
+              key={url}
+              src={url}
+              alt={`Preview ${index + 1}`}
+              loading="lazy"
+              decoding="async"
+              className="aspect-square w-full rounded-lg object-cover"
+            />
+          ))}
+        {photos.length === 0 && !usingExisting && (
           <div className="grid h-24 place-items-center rounded-lg bg-muted text-muted-foreground">
             <ImageIcon className="h-6 w-6" />
           </div>
@@ -884,16 +1019,59 @@ function mergeAttributes(
   return next;
 }
 
+/**
+ * Turn a persisted listing.attributes payload into the wizard's edit-state shape
+ * (strings for numbers, booleans for BOOLEAN, comma-joined for LIST_STRING).
+ */
+function attributesFromListing(
+  raw: Record<string, unknown>,
+  definitions: readonly ListingAttributeDefinition[],
+): Record<string, string | boolean> {
+  const out: Record<string, string | boolean> = {};
+  for (const def of definitions) {
+    const value = raw?.[def.key];
+    if (def.type === 'BOOLEAN') {
+      out[def.key] = value === true || value === 'true';
+      continue;
+    }
+    if (value === undefined || value === null) {
+      out[def.key] = '';
+      continue;
+    }
+    if (def.type === 'LIST_STRING') {
+      if (Array.isArray(value)) {
+        out[def.key] = value.filter((entry) => typeof entry === 'string').join(', ');
+      } else if (typeof value === 'string') {
+        out[def.key] = value;
+      } else {
+        out[def.key] = '';
+      }
+      continue;
+    }
+    out[def.key] = typeof value === 'string' ? value : String(value);
+  }
+  return out;
+}
+
 function validateStep(
   step: StepId,
   state: WizardState,
   photos: PhotoEntry[],
   definitions: readonly ListingAttributeDefinition[],
+  keepExistingMedia = false,
 ): string[] {
   const errors: string[] = [];
 
   if (step === 'photos') {
-    if (photos.length < MIN_FILES) errors.push(`Kamida ${MIN_FILES} ta rasm yuklang.`);
+    // In edit mode, existing media satisfies the MIN_FILES requirement as long as
+    // the user hasn't started uploading replacements. If they add any new photo,
+    // the replacement fully takes over and standard MIN_FILES/MAX_FILES apply.
+    if (photos.length === 0 && !keepExistingMedia) {
+      errors.push(`Kamida ${MIN_FILES} ta rasm yuklang.`);
+    }
+    if (photos.length > 0 && photos.length < MIN_FILES) {
+      errors.push(`Kamida ${MIN_FILES} ta rasm yuklang.`);
+    }
     if (photos.length > MAX_FILES) errors.push(`Ko'pi bilan ${MAX_FILES} ta rasm.`);
   }
 
@@ -1042,4 +1220,38 @@ function errorFromPayload(payload: unknown, fallback: string) {
 
 function formatMB(bytes: number) {
   return `${Math.round(bytes / 1024 / 1024)} MB`;
+}
+
+/**
+ * Read a persisted draft. Returns null on server, unavailable storage, missing
+ * key, or malformed JSON — callers should treat null as "no draft to restore".
+ */
+function readDraft(): Partial<WizardState> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    return isRecord(parsed) ? (parsed as Partial<WizardState>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(state: WizardState) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(DRAFT_KEY, JSON.stringify(state));
+  } catch {
+    // storage full / private mode / SecurityError — dropping the draft is fine
+  }
+}
+
+function clearDraft() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // ignore
+  }
 }

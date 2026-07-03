@@ -117,13 +117,6 @@ export interface LikeToggleResponse {
   totalLikes: number;
 }
 
-export interface CartItemResponse {
-  id: string;
-  listingId: string;
-  listing: ListingResponse;
-  createdAt: string;
-}
-
 export interface ChatResponse {
   id: string;
   listingId: string;

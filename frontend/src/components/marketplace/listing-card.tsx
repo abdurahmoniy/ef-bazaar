@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { BadgeCheck, Coins, Gamepad2, Heart, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, Coins, Gamepad2, ShieldCheck } from 'lucide-react';
 
+import { ListingLikeButton } from '@/components/marketplace/listing-like-button';
 import { Badge } from '@/components/ui/badge';
 import {
   divisionLabel,
@@ -23,6 +24,10 @@ interface ListingCardProps {
 }
 
 export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
+  // `likedByMe` is omitted (undefined) by the backend when the viewer is anonymous;
+  // presence of the field is a reliable authentication signal.
+  const authenticated = listing.likedByMe !== undefined && listing.likedByMe !== null;
+  const likedByMe = listing.likedByMe === true;
   const title = listing.description.split('\n')[0]?.trim() || 'eFootball account';
   const preview = listing.description.replace(/\s+/g, ' ').slice(0, 140);
   const isSold = listing.status === 'SOLD';
@@ -38,7 +43,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
 
   if (variant === 'list') {
     return (
-      <article className="group flex overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
+      <article className="group relative flex overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
         <Link href={href} className="relative block h-32 w-32 shrink-0 overflow-hidden bg-muted sm:h-40 sm:w-52">
           {coverUrl ? (
             <img
@@ -53,6 +58,15 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
           )}
           {isSold && <SoldOverlay />}
         </Link>
+        {!isSold && (
+          <ListingLikeButton
+            listingId={listing.id}
+            initialLiked={likedByMe}
+            initialCount={listing.likeCount}
+            authenticated={authenticated}
+            className="absolute right-2 top-2"
+          />
+        )}
         <div className="flex min-w-0 flex-1 flex-col gap-2 p-3 sm:p-4">
           <div className="flex items-start justify-between gap-3">
             <Link href={href} className="min-w-0 flex-1">
@@ -95,7 +109,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   }
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
+    <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
       <Link href={href} className="relative block overflow-hidden bg-muted">
         {coverUrl ? (
           <img
@@ -111,18 +125,21 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
           </div>
         )}
         {isSold && <SoldOverlay />}
-        {!isSold && listing.likeCount > 0 && (
-          <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur">
-            <Heart className={listing.likedByMe ? 'h-3 w-3 fill-white' : 'h-3 w-3'} />
-            {formatCompactNumber(listing.likeCount)}
-          </div>
-        )}
         {division !== undefined && (
           <div className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur">
             {divisionLabel(division)}
           </div>
         )}
       </Link>
+      {!isSold && (
+        <ListingLikeButton
+          listingId={listing.id}
+          initialLiked={likedByMe}
+          initialCount={listing.likeCount}
+          authenticated={authenticated}
+          className="absolute right-2 top-2"
+        />
+      )}
 
       <div className="flex flex-1 flex-col gap-2 p-3">
         <div className="flex items-baseline justify-between gap-2">
