@@ -65,3 +65,11 @@ coverage/
 .nyc_output/
 tmp/
 temp/
+
+# ===== DB dumps (never commit data) =====
+*.dump
+*.sql.gz
+
+# ===== Python (scrapers) =====
+__pycache__/
+*.pyc
