@@ -107,6 +107,69 @@ write_env() {
   echo "==> .env written ($(wc -l < .env) lines)"
 }
 
+# ─── Sync ops-bot (host-level systemd service) ──────────────────────────────
+#
+# ops-bot host'da systemd ostida ishlaydi — docker'sizdan tashqarida.
+# `sudo bash infra/ops-bot/install.sh` bilan bir marta qo'lda o'rnatilgan bo'lishi shart.
+# Har deploy'da bu funksiya:
+#   1. .env fayl'ni CI secretlaridan yozadi
+#   2. systemd unit yangilangan bo'lsa /etc/systemd/system'ga ko'chiradi
+#   3. servisni restart qiladi
+sync_ops_bot() {
+  local dir="infra/ops-bot"
+  local env_file="$dir/.env"
+  local svc="efbazaar-ops-bot.service"
+  local unit_src="$dir/ops-bot.service"
+  local unit_dst="/etc/systemd/system/$svc"
+
+  if [[ ! -f "$unit_src" ]]; then
+    echo "==> $unit_src topilmadi — ops-bot deploy o'tkazib yuborildi"
+    return 0
+  fi
+
+  # 1. .env yozish (CI env'dan)
+  echo "==> Writing $env_file from CI secrets"
+  : > "$env_file"
+  upsert_env "$env_file" OPS_BOT_TOKEN          "${OPS_BOT_TOKEN:-}"
+  upsert_env "$env_file" TELEGRAM_GROUP_CHAT_ID "${TELEGRAM_GROUP_CHAT_ID:-}"
+  upsert_env "$env_file" TELEGRAM_TOPIC_LOGS    "${TELEGRAM_TOPIC_LOGS:-6}"
+  upsert_env "$env_file" CONTAINER_PREFIX       "efbazaar-"
+  chmod 600 "$env_file"
+
+  # OPS_BOT_TOKEN yo'q bo'lsa — deploy'ni davom ettiramiz, lekin ops-botni jimlashamiz
+  if [[ -z "${OPS_BOT_TOKEN:-}" ]]; then
+    echo "==> OPS_BOT_TOKEN bo'sh — ops-bot restart'i o'tkazib yuborildi"
+    return 0
+  fi
+
+  # 2. Systemd unit yangimi — /etc/systemd/system'dagi bilan solishtiramiz
+  if ! command -v systemctl >/dev/null 2>&1; then
+    echo "==> systemd yo'q — ops-bot restart o'tkazib yuborildi (dev muhitmi?)"
+    return 0
+  fi
+
+  local reload_needed=0
+  if [[ ! -f "$unit_dst" ]] || ! cmp -s "$unit_src" "$unit_dst"; then
+    echo "==> ops-bot.service o'zgargan — /etc/systemd'ga ko'chirilyapti"
+    sudo cp "$unit_src" "$unit_dst"
+    reload_needed=1
+  fi
+  if [[ "$reload_needed" == "1" ]]; then
+    sudo systemctl daemon-reload
+  fi
+
+  # 3. Restart — .env, script, yoki unit o'zgargan bo'lishi mumkin. Har deploy'da restart
+  #    qilaverish xavfsizroq (idempotent). ops-bot stateless.
+  echo "==> Restarting $svc"
+  sudo systemctl restart "$svc"
+  sleep 2
+  sudo systemctl is-active "$svc" || {
+    echo "!! ops-bot ishga tushmadi — journalctl ko'ring: journalctl -u $svc -n 50"
+    return 1
+  }
+  echo "==> ops-bot ✓"
+}
+
 # ─── GHCR login ─────────────────────────────────────────────────────────────
 ghcr_login() {
   if [[ -z "${GH_TOKEN:-}" || -z "${GH_ACTOR:-}" ]]; then
@@ -185,6 +248,9 @@ fi
 
 echo "==> Pruning dangling images"
 docker image prune -f >/dev/null || true
+
+# Host-level ops-bot (systemd) — infra/ops-bot/ o'zgarsa restart, .env qayta yozadi
+sync_ops_bot || echo "!! ops-bot sync failed (non-fatal)"
 
 echo "==> Done."
 docker compose ps

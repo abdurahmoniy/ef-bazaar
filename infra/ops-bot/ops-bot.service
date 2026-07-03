@@ -1,0 +1,32 @@
+[Unit]
+Description=efBazaar ops-bot (host-level /logs Telegram helper)
+Documentation=https://github.com/abdurahmoniy/ef-bazaar/tree/main/infra/ops-bot
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/efbazaar/infra/ops-bot
+# Env fayl deploy user'ning egaligida — CI har deploy'da yangilaydi.
+# Chmod 600, root'gagina o'qish ochiq (systemd har holda root sifatida ishlaydi).
+EnvironmentFile=/opt/efbazaar/infra/ops-bot/.env
+ExecStart=/usr/bin/python3 /opt/efbazaar/infra/ops-bot/ops-bot.py
+
+# Auto-recover from any crash / OOM / transient Telegram error.
+Restart=always
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=efbazaar-ops-bot
+
+# Sandboxing (root is needed for /var/run/docker.sock, keep everything else tight).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/run/docker.sock /opt/efbazaar
+
+[Install]
+WantedBy=multi-user.target
