@@ -3,7 +3,9 @@ package uz.efbazaar.marketplace.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,6 +18,7 @@ import uz.efbazaar.marketplace.mapper.ChatMapper;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
 import uz.efbazaar.marketplace.service.ChatService;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -39,6 +42,17 @@ public class ChatController {
                                            @PageableDefault(size = 20) Pageable pageable) {
         Page<Chat> page = chatService.listMine(user.userId(), pageable);
         return PageResponse.from(page, this::enrich);
+    }
+
+    /**
+     * Compact "my chats" endpoint returning a plain list (no pagination envelope).
+     * Frontend profile page loads a small, fixed slice — 100 items is enough for
+     * the current UX (there's no infinite scroll on that view).
+     */
+    @GetMapping("/me")
+    public List<ChatResponse> me(@AuthenticationPrincipal AuthenticatedUser user) {
+        Pageable top = PageRequest.of(0, 100, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return chatService.listMine(user.userId(), top).stream().map(this::enrich).toList();
     }
 
     @GetMapping("/{id}")
