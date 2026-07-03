@@ -38,6 +38,8 @@ function buildContentSecurityPolicy() {
     'https://t.me',
     'https://*.googleusercontent.com',
     'https://*.telegram.org',
+    'https://efimg.com',
+    'https://*.efimg.com',
     apiOrigin,
   ];
 
@@ -87,6 +89,8 @@ const nextConfig = {
       { protocol: 'https', hostname: 't.me' },
       { protocol: 'https', hostname: '*.googleusercontent.com' },
       { protocol: 'https', hostname: 'api.efbazaar.uz' },
+      { protocol: 'https', hostname: 'efimg.com', pathname: '/efootballhub22/images/**' },
+      { protocol: 'https', hostname: '*.efimg.com', pathname: '/efootballhub22/images/**' },
     ],
   },
   async headers() {
