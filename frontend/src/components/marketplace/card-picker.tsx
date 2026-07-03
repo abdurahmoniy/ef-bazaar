@@ -34,6 +34,20 @@ const DEBOUNCE_MS = 250;
 const MIN_QUERY = 2;
 const MAX_RESULTS = 20;
 
+/**
+ * Serialize a card into the string that gets stored / submitted.
+ * - single mode: just the name (broad match — used by the filter).
+ * - multi mode: name + OVR + card type, so multiple variants of one player
+ *   remain distinguishable in the stored list.
+ */
+function serializeCard(card: PlayerCard, mode: 'single' | 'multi') {
+  if (mode === 'single') return card.name;
+  const ovr = typeof card.overallRating === 'number' ? ` ${card.overallRating}` : '';
+  const type = card.cardType ? ` ${card.cardType}` : '';
+  const suffix = ovr || type ? ` ·${ovr}${type}` : '';
+  return `${card.name}${suffix}`.trim();
+}
+
 export function CardPicker({
   mode,
   value,
@@ -49,6 +63,10 @@ export function CardPicker({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  // Rich metadata for cards the user picked in this session, keyed by the
+  // serialized identifier. Missing entries (e.g. hydrated from URL) fall back
+  // to a plain-text pill.
+  const [cardCache, setCardCache] = useState<Record<string, PlayerCard>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -108,16 +126,18 @@ export function CardPicker({
 
   const selectCard = useCallback(
     (card: PlayerCard) => {
+      const serialized = serializeCard(card, mode);
+      setCardCache((prev) => ({ ...prev, [serialized]: card }));
       if (mode === 'single') {
-        onChange?.([card.name]);
+        onChange?.([serialized]);
         setQuery('');
         setOpen(false);
         inputRef.current?.blur();
         return;
       }
-      if (value.includes(card.name)) return;
+      if (value.includes(serialized)) return;
       if (value.length >= max) return;
-      onChange?.([...value, card.name]);
+      onChange?.([...value, serialized]);
       setQuery('');
       setActiveIndex(-1);
       inputRef.current?.focus();
@@ -125,9 +145,9 @@ export function CardPicker({
     [mode, onChange, value, max],
   );
 
-  const removeName = useCallback(
-    (name: string) => {
-      onChange?.(value.filter((entry) => entry !== name));
+  const removeAt = useCallback(
+    (identifier: string) => {
+      onChange?.(value.filter((entry) => entry !== identifier));
     },
     [onChange, value],
   );
@@ -161,24 +181,28 @@ export function CardPicker({
     [showDropdown, results, activeIndex, selectCard, trimmedQuery.length],
   );
 
-  const singleValue = mode === 'single' ? value[0] : undefined;
+  const selectedEfhubIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const entry of value) {
+      const card = cardCache[entry];
+      if (card) ids.add(card.efhubId);
+    }
+    return ids;
+  }, [value, cardCache]);
 
   return (
     <div ref={containerRef} className={cn('relative', className)}>
-      {mode === 'multi' && value.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {value.map((name) => (
-            <SelectedPill key={name} label={name} onRemove={() => removeName(name)} />
+      {value.length > 0 && (
+        <div className={cn('mb-2 flex flex-wrap gap-1.5', mode === 'single' && 'gap-2')}>
+          {value.map((entry) => (
+            <SelectedPill
+              key={entry}
+              identifier={entry}
+              card={cardCache[entry]}
+              variant={mode === 'single' ? 'primary' : 'muted'}
+              onRemove={() => removeAt(entry)}
+            />
           ))}
-        </div>
-      )}
-      {mode === 'single' && singleValue && (
-        <div className="mb-2">
-          <SelectedPill
-            label={singleValue}
-            variant="primary"
-            onRemove={() => onChange?.([])}
-          />
         </div>
       )}
 
@@ -215,7 +239,10 @@ export function CardPicker({
             <div className="p-3 text-center text-sm text-muted-foreground">Karta topilmadi</div>
           )}
           {results.map((card, index) => {
-            const alreadySelected = mode === 'multi' && value.includes(card.name);
+            const serialized = serializeCard(card, mode);
+            const alreadySelected =
+              mode === 'multi' &&
+              (value.includes(serialized) || selectedEfhubIds.has(card.efhubId));
             return (
               <CardOption
                 key={card.efhubId}
@@ -238,38 +265,103 @@ export function CardPicker({
 }
 
 function SelectedPill({
-  label,
+  identifier,
+  card,
   onRemove,
   variant = 'muted',
 }: {
-  label: string;
+  identifier: string;
+  card: PlayerCard | undefined;
   onRemove: () => void;
   variant?: 'muted' | 'primary';
 }) {
+  if (!card) {
+    // Fallback: only the serialized string is known (e.g. hydrated from URL).
+    return (
+      <span
+        className={cn(
+          'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold',
+          variant === 'primary'
+            ? 'border-primary bg-primary/5 text-primary'
+            : 'border-border bg-muted text-foreground',
+        )}
+      >
+        {identifier}
+        <RemoveButton onRemove={onRemove} label={identifier} variant={variant} />
+      </span>
+    );
+  }
+
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold',
+        'inline-flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2 text-xs shadow-sm',
         variant === 'primary'
-          ? 'border-primary bg-primary/5 text-primary'
-          : 'border-border bg-muted text-foreground',
+          ? 'border-primary bg-primary/5'
+          : 'border-border bg-white',
       )}
     >
-      {label}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`${label} - o'chirish`}
-        className={cn(
-          'grid h-4 w-4 place-items-center rounded-full transition',
-          variant === 'primary'
-            ? 'text-primary/70 hover:bg-primary/10 hover:text-primary'
-            : 'text-muted-foreground hover:bg-destructive/20 hover:text-destructive',
+      <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-muted">
+        {card.imageUrl ? (
+          <img
+            src={card.imageUrl}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover"
+            onError={(event) => {
+              (event.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        ) : null}
+      </span>
+      <span className="flex min-w-0 items-center gap-1">
+        <span
+          className={cn(
+            'max-w-[9rem] truncate font-bold',
+            variant === 'primary' ? 'text-primary' : 'text-foreground',
+          )}
+        >
+          {card.name}
+        </span>
+        {typeof card.overallRating === 'number' && (
+          <span className="rounded bg-primary px-1 py-0.5 text-[10px] font-black leading-none text-primary-foreground">
+            {card.overallRating}
+          </span>
         )}
-      >
-        <X className="h-3 w-3" />
-      </button>
+        {card.cardType && (
+          <span className="hidden text-[9px] font-black uppercase tracking-wide text-muted-foreground sm:inline">
+            {card.cardType}
+          </span>
+        )}
+      </span>
+      <RemoveButton onRemove={onRemove} label={card.name} variant={variant} />
     </span>
+  );
+}
+
+function RemoveButton({
+  onRemove,
+  label,
+  variant,
+}: {
+  onRemove: () => void;
+  label: string;
+  variant: 'muted' | 'primary';
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      aria-label={`${label} - o'chirish`}
+      className={cn(
+        'grid h-4 w-4 place-items-center rounded-full transition',
+        variant === 'primary'
+          ? 'text-primary/70 hover:bg-primary/10 hover:text-primary'
+          : 'text-muted-foreground hover:bg-destructive/20 hover:text-destructive',
+      )}
+    >
+      <X className="h-3 w-3" />
+    </button>
   );
 }
 
