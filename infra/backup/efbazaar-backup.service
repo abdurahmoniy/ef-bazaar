@@ -25,4 +25,7 @@ SyslogIdentifier=efbazaar-backup
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
+# Private /tmp — service uchun alohida tmpfs (mktemp/split ishlashi uchun).
+# Host'dagi /tmp'ga tegishi yo'q.
+PrivateTmp=true
 ReadWritePaths=/var/backups/efbazaar /var/run/docker.sock /opt/efbazaar

@@ -84,7 +84,10 @@ send_telegram_message() {
 
 alert_fail() {
     local msg="$1"
-    send_telegram_message "🔴 <b>DB backup xato</b>\n<code>$(echo "$msg" | head -c 500)</code>" "$TOPIC_HEALTH"
+    # printf'da haqiqiy \n bo'ladi (bash string double-quote'da esa literal backslash-n).
+    local trimmed
+    trimmed="$(echo "$msg" | head -c 500)"
+    send_telegram_message "$(printf '🔴 <b>DB backup xato</b>\n<code>%s</code>' "$trimmed")" "$TOPIC_HEALTH"
 }
 
 trap 'alert_fail "backup-db.sh line $LINENO exit $?"' ERR
@@ -107,8 +110,11 @@ mkdir -p "$DAILY_DIR" "$WEEKLY_DIR" "$MONTHLY_DIR" "$YEARLY_DIR"
 echo "==> Starting DB backup $TS"
 
 # ─── 1-3. Dump → gzip → encrypt ───────────────────────────────────────
+# Tmp fayllar $BACKUP_ROOT ichida — /tmp systemd sandbox (ProtectSystem=strict)
+# ostida yozib bo'lmaydi. $BACKUP_ROOT ReadWritePaths ichida.
 echo "==> pg_dumpall → gzip → aes-256-cbc"
-TMP_ENC="$(mktemp --suffix=.enc)"
+mkdir -p "$BACKUP_ROOT/tmp"
+TMP_ENC="$(mktemp -p "$BACKUP_ROOT/tmp" backup.XXXXXX.enc)"
 trap 'rm -f "$TMP_ENC"; alert_fail "backup-db.sh line $LINENO exit $?"' ERR
 
 docker exec -i "$POSTGRES_CONTAINER" pg_dumpall -U "$POSTGRES_USER" \
@@ -135,7 +141,7 @@ if [[ "$SIZE" -lt $((45 * 1024 * 1024)) ]]; then
     send_telegram_document "$DAILY_FILE" "$CAPTION" "$TOPIC_BACKUPS"
 else
     echo "==> File > 45MB — splitting for Telegram (50MB limit)"
-    SPLIT_DIR="$(mktemp -d)"
+    SPLIT_DIR="$(mktemp -d -p "$BACKUP_ROOT/tmp" split.XXXXXX)"
     split -b 40M "$DAILY_FILE" "$SPLIT_DIR/part-"
     idx=1
     for part in "$SPLIT_DIR"/part-*; do
