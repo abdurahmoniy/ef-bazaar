@@ -1,0 +1,16 @@
+[Unit]
+Description=efBazaar DB backup — every day at 02:00 Asia/Tashkent
+Requires=efbazaar-backup.service
+
+[Timer]
+# 02:00 Tashkent kunlik. `Persistent=true` — server o'chib qolgan bo'lsa,
+# next boot'da qoldirilgan runni bajaradi.
+OnCalendar=*-*-* 02:00:00 Asia/Tashkent
+Persistent=true
+Unit=efbazaar-backup.service
+# Har run oldida random 60s jitter — Telegram API'ga bir vaqtning o'zida
+# millionlab timer kelmasligi uchun (portsda muammo bo'lmasligi).
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

@@ -133,6 +133,7 @@ sync_ops_bot() {
   upsert_env "$env_file" OPS_BOT_TOKEN          "${OPS_BOT_TOKEN:-}"
   upsert_env "$env_file" TELEGRAM_GROUP_CHAT_ID "${TELEGRAM_GROUP_CHAT_ID:-}"
   upsert_env "$env_file" TELEGRAM_TOPIC_LOGS    "${TELEGRAM_TOPIC_LOGS:-6}"
+  upsert_env "$env_file" TELEGRAM_TOPIC_HEALTH  "${TELEGRAM_TOPIC_HEALTH:-}"
   upsert_env "$env_file" CONTAINER_PREFIX       "efbazaar-"
   chmod 600 "$env_file"
 
@@ -168,6 +169,65 @@ sync_ops_bot() {
     return 1
   }
   echo "==> ops-bot ✓"
+}
+
+# ─── Sync backup timer (systemd oneshot + timer) ─────────────────────────
+#
+# Har deploy'da:
+#   1. .env yoziladi (secretlardan)
+#   2. Unit fayllar yangilangan bo'lsa ko'chiriladi + daemon-reload
+#   3. Timer restart qilinadi (o'zgargan OnCalendar effektiv bo'lishi uchun)
+sync_backup() {
+  local dir="infra/backup"
+  local env_file="$dir/.env"
+  local svc="efbazaar-backup.service"
+  local tmr="efbazaar-backup.timer"
+
+  if [[ ! -f "$dir/$tmr" ]]; then
+    return 0
+  fi
+
+  # 1. .env
+  echo "==> Writing $env_file from CI secrets"
+  : > "$env_file"
+  upsert_env "$env_file" OPS_BOT_TOKEN          "${OPS_BOT_TOKEN:-}"
+  upsert_env "$env_file" TELEGRAM_GROUP_CHAT_ID "${TELEGRAM_GROUP_CHAT_ID:-}"
+  upsert_env "$env_file" TELEGRAM_TOPIC_BACKUPS "${TELEGRAM_TOPIC_BACKUPS:-}"
+  upsert_env "$env_file" TELEGRAM_TOPIC_HEALTH  "${TELEGRAM_TOPIC_HEALTH:-}"
+  upsert_env "$env_file" BACKUP_PASSPHRASE      "${BACKUP_PASSPHRASE:-}"
+  upsert_env "$env_file" POSTGRES_CONTAINER     "efbazaar-postgres"
+  upsert_env "$env_file" POSTGRES_USER          "${POSTGRES_USER:-efbazaar}"
+  upsert_env "$env_file" BACKUP_ROOT            "/var/backups/efbazaar"
+  chmod 600 "$env_file"
+
+  if [[ -z "${BACKUP_PASSPHRASE:-}" ]]; then
+    echo "==> BACKUP_PASSPHRASE bo'sh — backup timer restart o'tkazib yuborildi"
+    return 0
+  fi
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    return 0
+  fi
+
+  # 2. Unit fayllarni sync qilamiz
+  local reload_needed=0
+  for u in "$svc" "$tmr"; do
+    if [[ ! -f "/etc/systemd/system/$u" ]] || ! cmp -s "$dir/$u" "/etc/systemd/system/$u"; then
+      echo "==> $u o'zgargan — /etc/systemd'ga ko'chirilyapti"
+      sudo cp "$dir/$u" "/etc/systemd/system/$u"
+      reload_needed=1
+    fi
+  done
+  if [[ "$reload_needed" == "1" ]]; then
+    sudo systemctl daemon-reload
+    sudo systemctl restart "$tmr"
+  fi
+
+  sudo systemctl is-active "$tmr" >/dev/null 2>&1 || {
+    echo "!! backup timer active emas — journalctl -u $tmr ko'ring"
+    return 1
+  }
+  echo "==> backup timer ✓"
 }
 
 # ─── GHCR login ─────────────────────────────────────────────────────────────
@@ -251,6 +311,7 @@ docker image prune -f >/dev/null || true
 
 # Host-level ops-bot (systemd) — infra/ops-bot/ o'zgarsa restart, .env qayta yozadi
 sync_ops_bot || echo "!! ops-bot sync failed (non-fatal)"
+sync_backup  || echo "!! backup sync failed (non-fatal)"
 
 echo "==> Done."
 docker compose ps
