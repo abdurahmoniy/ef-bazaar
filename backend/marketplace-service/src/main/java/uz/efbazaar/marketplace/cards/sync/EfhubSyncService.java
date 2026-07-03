@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import uz.efbazaar.marketplace.cards.CardType;
+import uz.efbazaar.marketplace.observability.NotifyMarker;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -86,6 +87,7 @@ public class EfhubSyncService {
         log.info("efhub diff: ours={} known={} new={}", ourPrefixed.size(), known.size(), newIds.size());
 
         if (newIds.isEmpty()) {
+            notifyRun(List.of(), 0, 0);
             return new SyncResult(0, 0, 0, false);
         }
 
@@ -120,7 +122,40 @@ public class EfhubSyncService {
         if (!added.isEmpty()) {
             publish(added);
         }
+        notifyRun(added, failures, newIds.size());
         return new SyncResult(added.size(), failures, newIds.size(), false);
+    }
+
+    /**
+     * Daily heartbeat + summary to the Telegram log channel (via the NOTIFY marker,
+     * so it is forwarded even though it is INFO level). Lists who was added.
+     */
+    private void notifyRun(List<CardsAddedEvent.Added> added, int failures, int totalNew) {
+        StringBuilder sb = new StringBuilder("Card sync bajarildi\n");
+        sb.append("Yangi qo'shildi: ").append(added.size());
+        if (failures > 0) {
+            sb.append(" | Xato: ").append(failures);
+        }
+        int remaining = totalNew - added.size() - failures;
+        if (remaining > 0) {
+            sb.append(" | Qoldi (keyingi run): ").append(remaining);
+        }
+        if (added.isEmpty()) {
+            sb.append("\nYangi card topilmadi.");
+        } else {
+            int show = Math.min(added.size(), 30);
+            for (int i = 0; i < show; i++) {
+                CardsAddedEvent.Added a = added.get(i);
+                sb.append("\n• ").append(a.type()).append(' ').append(a.name());
+                if (a.overallRating() != null) {
+                    sb.append(" (").append(a.overallRating()).append(')');
+                }
+            }
+            if (added.size() > show) {
+                sb.append("\n… va yana ").append(added.size() - show).append(" ta");
+            }
+        }
+        log.info(NotifyMarker.NOTIFY, sb.toString());
     }
 
     private boolean scrapeOne(long id, List<CardsAddedEvent.Added> added) {

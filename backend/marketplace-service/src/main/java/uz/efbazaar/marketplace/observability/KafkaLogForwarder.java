@@ -43,11 +43,12 @@ public class KafkaLogForwarder {
 
             @Override
             protected void append(ILoggingEvent event) {
-                if (event.getLevel().toInt() < Level.WARN_INT) return;
                 if (event.getLoggerName().startsWith("org.apache.kafka")
                         || event.getLoggerName().startsWith("org.springframework.kafka")) {
                     return;
                 }
+                // Forward WARN+ as before, plus important INFO logs flagged with NOTIFY.
+                if (event.getLevel().toInt() < Level.WARN_INT && !hasNotifyMarker(event)) return;
                 if (!publishing.compareAndSet(false, true)) {
                     reentry.offer(event);
                     return;
@@ -83,6 +84,15 @@ public class KafkaLogForwarder {
             kafkaTemplate.send(LOG_TOPIC, SERVICE_NAME, payload);
         } catch (Exception ignored) {
         }
+    }
+
+    private static boolean hasNotifyMarker(ILoggingEvent event) {
+        var markers = event.getMarkerList();
+        if (markers == null) return false;
+        for (var m : markers) {
+            if (m.contains(NotifyMarker.NAME)) return true;
+        }
+        return false;
     }
 
     private static String stackTrace(IThrowableProxy proxy) {

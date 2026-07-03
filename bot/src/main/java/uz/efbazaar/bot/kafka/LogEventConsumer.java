@@ -42,7 +42,12 @@ public class LogEventConsumer {
     }
 
     private String formatHtml(LogEventDto e) {
-        String icon = "ERROR".equalsIgnoreCase(e.level()) ? "🔴" : "🟠";
+        String level = e.level() == null ? "" : e.level().toUpperCase();
+        String icon = switch (level) {
+            case "ERROR" -> "🔴";
+            case "WARN" -> "🟠";
+            default -> "🟢";
+        };
         StringBuilder sb = new StringBuilder();
         sb.append(icon).append(" <b>").append(escape(e.level())).append("</b> ")
           .append("<code>").append(escape(e.service())).append("</code>\n");
