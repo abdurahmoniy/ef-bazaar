@@ -124,6 +124,11 @@ public class ListingService {
         return listings.findBySellerId(sellerId, pageable);
     }
 
+    @Transactional(readOnly = true)
+    public Page<Listing> findLiked(UUID userId, Pageable pageable) {
+        return listings.findLikedByUser(userId, pageable);
+    }
+
     // ----- internal -----
 
     private Listing getOwned(UUID id, UUID sellerId) {
