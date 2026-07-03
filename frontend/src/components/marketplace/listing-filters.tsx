@@ -4,6 +4,7 @@ import { SlidersHorizontal, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { CardPickerField } from '@/components/marketplace/card-picker-field';
 import { LISTING_SORT_OPTIONS, paramToSortId } from '@/lib/marketplace-sort';
 import { MARKETPLACE_FILTERS, type MarketplaceFilterId } from '@/lib/marketplace-format';
 import { cn } from '@/lib/utils';
@@ -14,6 +15,7 @@ interface ListingFiltersProps {
   minPrice?: number;
   maxPrice?: number;
   division?: number;
+  valuablePlayer?: string;
   sortParam?: string;
 }
 
@@ -25,6 +27,7 @@ export function ListingFilters({
   minPrice,
   maxPrice,
   division,
+  valuablePlayer,
   sortParam,
 }: ListingFiltersProps) {
   const currentSortId = paramToSortId(sortParam);
@@ -89,6 +92,14 @@ export function ListingFilters({
                 </option>
               ))}
             </Select>
+          </div>
+
+          <div>
+            <div className="mb-1.5 text-xs font-semibold text-muted-foreground">Yulduz o'yinchi</div>
+            <CardPickerField
+              name="attr.valuable_players"
+              defaultValue={valuablePlayer}
+            />
           </div>
 
           <div>

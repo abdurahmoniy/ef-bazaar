@@ -37,6 +37,7 @@ export function MarketplaceBrowser({
 }: MarketplaceBrowserProps) {
   const divisionAttr = filters.attributes?.highest_division_level;
   const divisionValue = typeof divisionAttr === 'string' ? Number(divisionAttr) : undefined;
+  const valuablePlayerAttr = filters.attributes?.valuable_players;
   const page = result.ok ? result.data : null;
 
   return (
@@ -47,6 +48,7 @@ export function MarketplaceBrowser({
         minPrice={filters.minPrice}
         maxPrice={filters.maxPrice}
         division={Number.isFinite(divisionValue) ? divisionValue : undefined}
+        valuablePlayer={typeof valuablePlayerAttr === 'string' ? valuablePlayerAttr : undefined}
         sortParam={filters.sort}
       />
 
