@@ -97,7 +97,7 @@ Environment variables:
 |---|---|---|
 | `EFHUB_DELAY` | `4.5` | So'rovlar orasidagi delay (sek) |
 | `EFHUB_OUTPUT` | `/tmp/efhub_data` | JSONL fayllar uchun papka |
-| `DATABASE_URL` | — | Postgres DSN (loader uchun majburiy) |
+| `DATABASE_URL` | — | Postgres DSN. `scrape.py` uchun: DB-delta (mavjud cardlarni skip qilib faqat yangi'sini oladi). `load.py` uchun: majburiy |
 | `EFBAZAAR_DB_NAME` | `efbazaar` | DB nomi |
 | `POSTGRES_CONTAINER` | `efbazaar-postgres` | Docker container nomi |
 
@@ -122,13 +122,26 @@ EFHUB_SYNC_BATCH_LIMIT=50
 
 ### Manual (Python skriptlar — local dev)
 
-Yangi cardlar chiqsa, faqat 1 va 3-4 bosqichlarni takrorlang:
+Yangi cardlar chiqsa (masalan yangi Big Time release), faqat yangi'larini localda oling:
 
 ```bash
-curl ... > /tmp/player_index.json   # yangi index
-python3 .../scrape.py               # faqat yangi ID'larni oladi (resume)
-python3 .../load.py                 # upsert
+UA="Mozilla/5.0"
+export DATABASE_URL="postgresql://efbazaar:PASS@localhost:5433/efbazaar"
+
+# 1. Yangi index'ni yuklab oling (token kerak emas)
+curl -s -A "$UA" "https://efhub.com/search/player-index.json" -o /tmp/player_index.json
+
+# 2. Delta scrape — DATABASE_URL berilgani uchun DB'da MAVJUD cardlarni skip qilib,
+#    faqat yetishmayotganlarini oladi (JSONL /tmp'da bo'lmasa ham to'g'ri ishlaydi)
+python3 infra/scrapers/efhub/scrape.py
+
+# 3. Upsert
+python3 infra/scrapers/efhub/load.py
 ```
+
+**Muhim:** `DATABASE_URL` bo'lmasa `scrape.py` faqat JSONL fayl bo'yicha resume qiladi — `/tmp/efhub_data/*.jsonl` o'chgan bo'lsa hammani (~1400, ~1.8 soat) qayta scrape qiladi. DB-delta uchun `DATABASE_URL` bering.
+
+Prefiks bo'yicha filtr ba'zan qisqa soxta ID'larni (masalan `8959`) ushlaydi — ular `MIN_ID_LEN` (10 raqam) filtri va `playerType` tekshiruvi bilan chiqarib tashlanadi.
 
 ## Serverga ko'chirish (bir martalik)
 
