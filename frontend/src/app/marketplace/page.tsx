@@ -33,7 +33,7 @@ export default async function MarketplacePage({ searchParams }: MarketplacePageP
   const query = typeof resolvedSearchParams.q === 'string' ? resolvedSearchParams.q : undefined;
   const view = resolvedSearchParams.view === 'list' ? 'list' : 'grid';
 
-  const [user, page] = await Promise.all([
+  const [user, result] = await Promise.all([
     resolveOptionalUser(getMe),
     browseListings(filters),
   ]);
@@ -44,7 +44,7 @@ export default async function MarketplacePage({ searchParams }: MarketplacePageP
         filters={filters}
         activeFilter={activeFilter}
         query={query}
-        page={page}
+        result={result}
         view={view}
       />
     </MarketplaceShell>

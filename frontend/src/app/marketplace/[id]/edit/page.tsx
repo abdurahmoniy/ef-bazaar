@@ -26,9 +26,12 @@ export default async function EditListingPage({ params }: EditPageProps) {
   const user = await getMe();
   if (!user) redirect(`/auth/login?from=/marketplace/${id}/edit`);
 
-  const listing = await getListing(id);
-  if (!listing) notFound();
-  if (listing.sellerId !== user.id) redirect(`/marketplace/${id}`);
+  const result = await getListing(id);
+  if (!result.ok) {
+    if (result.error.status === 404) notFound();
+    redirect(`/marketplace/${id}`);
+  }
+  if (result.data.sellerId !== user.id) redirect(`/marketplace/${id}`);
 
   return (
     <MarketplaceShell user={user} activeTab="profile" hideSearch>

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { LayoutGrid, List, Package2, Plus } from 'lucide-react';
 
+import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { ListingCard } from '@/components/marketplace/listing-card';
 import { ListingFilters, QuickChips } from '@/components/marketplace/listing-filters';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
@@ -11,6 +12,7 @@ import {
   formatCompactNumber,
   type MarketplaceFilterId,
 } from '@/lib/marketplace-format';
+import type { FetchResult } from '@/lib/marketplace-server';
 import type {
   ListingBrowseParams,
   ListingResponse,
@@ -22,7 +24,7 @@ interface MarketplaceBrowserProps {
   filters: ListingBrowseParams;
   activeFilter: MarketplaceFilterId;
   query?: string;
-  page: PageResponse<ListingResponse> | null;
+  result: FetchResult<PageResponse<ListingResponse>>;
   view?: 'grid' | 'list';
 }
 
@@ -30,11 +32,12 @@ export function MarketplaceBrowser({
   filters,
   activeFilter,
   query,
-  page,
+  result,
   view = 'grid',
 }: MarketplaceBrowserProps) {
   const divisionAttr = filters.attributes?.highest_division_level;
   const divisionValue = typeof divisionAttr === 'string' ? Number(divisionAttr) : undefined;
+  const page = result.ok ? result.data : null;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:gap-6">
@@ -59,9 +62,9 @@ export function MarketplaceBrowser({
           <QuickChips activeFilter={activeFilter} query={query} />
         </div>
 
-        {page === null ? (
-          <BrowseError />
-        ) : page.content.length === 0 ? (
+        {!result.ok ? (
+          <ApiErrorPanel title="E'lonlar yuklanmadi" error={result.error} />
+        ) : page === null || page.content.length === 0 ? (
           <BrowseEmpty query={query} />
         ) : (
           <>
@@ -169,17 +172,6 @@ function BrowseEmpty({ query }: { query?: string }) {
           <Plus className="h-4 w-4" /> Akkount joylash
         </Link>
       </Button>
-    </div>
-  );
-}
-
-function BrowseError() {
-  return (
-    <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-10 text-center">
-      <h2 className="text-base font-bold text-destructive">Yuklashda xatolik</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Sahifani yangilang yoki bir ozdan keyin qayta urinib ko'ring.
-      </p>
     </div>
   );
 }
