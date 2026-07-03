@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { CardPicker } from '@/components/marketplace/card-picker';
 import { useTelegramMainButton } from '@/hooks/use-telegram-main-button';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { formatPriceUZS, normalizePlayerList } from '@/lib/marketplace-format';
@@ -554,18 +555,21 @@ function BasicsStep({
 
       <div className="space-y-2">
         <Label htmlFor="valuable-players">Yulduz o'yinchilar (ixtiyoriy)</Label>
-        <Input
+        <CardPicker
           id="valuable-players"
-          placeholder="Messi, Neymar, Mbappe"
-          value={typeof state.attributes.valuable_players === 'string' ? state.attributes.valuable_players : ''}
-          onChange={(event) =>
+          mode="multi"
+          max={12}
+          value={parsePlayerList(state.attributes.valuable_players)}
+          onChange={(next) =>
             setState((prev) => ({
               ...prev,
-              attributes: { ...prev.attributes, valuable_players: event.target.value },
+              attributes: { ...prev.attributes, valuable_players: next.join(', ') },
             }))
           }
         />
-        <p className="text-[11px] text-muted-foreground">Vergul yoki yangi qator bilan ajrating (max 12 ta).</p>
+        <p className="text-[11px] text-muted-foreground">
+          Qidiruvdan tanlang. Rasmi, OVR va o'ynash uslubi ko'rinadi (max 12 ta).
+        </p>
       </div>
 
       <ErrorList errors={errors} />
@@ -843,6 +847,14 @@ function ErrorList({ errors }: { errors: string[] }) {
       ))}
     </ul>
   );
+}
+
+function parsePlayerList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string');
+  }
+  if (typeof value !== 'string') return [];
+  return normalizePlayerList(value);
 }
 
 function renderAttributeValue(value: unknown) {
