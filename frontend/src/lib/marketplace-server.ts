@@ -107,9 +107,15 @@ export async function getMyFavorites(): Promise<ListingResponse[]> {
   return result.ok ? result.data.content : [];
 }
 
+/**
+ * auth-service faqat /api/v1/users/me endpointini beradi (boshqa userni id
+ * bo'yicha olish yo'q) — shuning uchun profil faqat so'ralgan userId joriy
+ * foydalanuvchiga teng bo'lsa qaytadi, aks holda null.
+ */
 export async function getUserProfile(userId: string): Promise<User | null> {
-  const result = await safeFetch<User>(`/auth/v1/users/${encodeURIComponent(userId)}`);
-  return nullifyExpected(result);
+  const result = await safeFetch<User>('/auth/v1/users/me');
+  const me = nullifyExpected(result);
+  return me && me.id === userId ? me : null;
 }
 
 export async function getSimilarListings(
