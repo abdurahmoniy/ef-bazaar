@@ -41,6 +41,8 @@ export interface ApiError {
   error: string;
   message: string;
   code?: string;
+  /** Populated when the backend is running with APP_DEBUG_ERRORS=true. */
+  details?: unknown;
 }
 
 export interface TelegramWebAppBackButton {

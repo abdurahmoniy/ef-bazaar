@@ -20,8 +20,9 @@ async function safeFetch<T>(path: string, options?: Parameters<typeof apiFetch>[
     if (error instanceof ApiException) {
       // 401/403/404 are expected (anon browsing an owner-only endpoint, missing entity).
       if ([401, 403, 404].includes(error.status)) return null;
+      const detailStr = error.details ? ` details=${JSON.stringify(error.details)}` : '';
       console.error(
-        `[marketplace-server] ${path} → ${error.status} ${error.code ?? ''}: ${error.message}`,
+        `[marketplace-server] ${path} → ${error.status} ${error.code ?? ''}: ${error.message}${detailStr}`,
       );
       return null;
     }

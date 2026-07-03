@@ -1,6 +1,7 @@
 package uz.efbazaar.marketplace.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -17,6 +18,15 @@ import java.util.Map;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    /**
+     * When true, unhandled 500s include a {@code debug} field with the exception
+     * class + message. Enable temporarily via {@code APP_DEBUG_ERRORS=true} to
+     * diagnose issues when server logs are unavailable. Keep OFF in real prod —
+     * leaks stack info to clients.
+     */
+    @Value("${app.debug-errors:false}")
+    private boolean debugErrors;
 
     @ExceptionHandler(MarketplaceException.class)
     public ResponseEntity<Map<String, Object>> onMarketplace(MarketplaceException ex) {
@@ -47,7 +57,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> onUnknown(Exception ex) {
         log.error("Unhandled exception", ex);
-        return build(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "Ichki xatolik", null);
+        Object details = null;
+        if (debugErrors) {
+            Throwable root = ex;
+            while (root.getCause() != null && root.getCause() != root) root = root.getCause();
+            details = Map.of(
+                    "exception", ex.getClass().getName(),
+                    "message", String.valueOf(ex.getMessage()),
+                    "rootCause", root.getClass().getName(),
+                    "rootMessage", String.valueOf(root.getMessage()));
+        }
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "Ichki xatolik", details);
     }
 
     private ResponseEntity<Map<String, Object>> build(HttpStatus status, String code,
