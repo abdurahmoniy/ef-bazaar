@@ -136,3 +136,11 @@ export interface ChatResponse {
   closedAt?: string | null;
   messageCount: number;
 }
+
+export interface MessageResponse {
+  id: string;
+  chatId: string;
+  senderId: string;
+  content: string;
+  createdAt: string;
+}

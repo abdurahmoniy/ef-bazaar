@@ -7,6 +7,7 @@ import type {
   ChatResponse,
   ListingBrowseParams,
   ListingResponse,
+  MessageResponse,
   PageResponse,
 } from './marketplace-types';
 import type { User } from './types';
@@ -98,6 +99,21 @@ export async function getMyListings(): Promise<ListingResponse[]> {
 export async function getMyChats(): Promise<ChatResponse[]> {
   const result = await safeFetch<ChatResponse[]>(`${MARKETPLACE_PREFIX}/chats/me`);
   return result.ok ? result.data : [];
+}
+
+export async function getChat(id: string): Promise<FetchResult<ChatResponse>> {
+  return safeFetch<ChatResponse>(`${MARKETPLACE_PREFIX}/chats/${encodeURIComponent(id)}`);
+}
+
+export async function getChatMessages(
+  id: string,
+  page = 0,
+  size = 100,
+): Promise<PageResponse<MessageResponse> | null> {
+  const result = await safeFetch<PageResponse<MessageResponse>>(
+    `${MARKETPLACE_PREFIX}/chats/${encodeURIComponent(id)}/messages?page=${page}&size=${size}&sort=createdAt,asc`,
+  );
+  return result.ok ? result.data : null;
 }
 
 export async function getMyFavorites(): Promise<ListingResponse[]> {

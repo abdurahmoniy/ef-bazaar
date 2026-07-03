@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import Script from 'next/script';
 
 import type { TelegramAuthData } from '@/lib/types';
 
@@ -16,6 +15,12 @@ interface TelegramLoginProps {
   requestAccess?: 'write' | undefined;
   /** Auth muvaffaqiyatli bo'lganda chaqiriladi */
   onAuth: (data: TelegramAuthData) => void;
+  /**
+   * Widget renderi muvaffaqiyatsiz bo'lganda chaqiriladi ('missing_bot' —
+   * bot username bo'sh; 'iframe_missing' — Telegram skripti yuklandi lekin
+   * iframe hosil bo'lmadi, ehtimol bot domain'i sozlanmagan).
+   */
+  onRenderIssue?: (reason: 'missing_bot' | 'iframe_missing') => void;
 }
 
 /**
@@ -35,11 +40,20 @@ export function TelegramLogin({
   cornerRadius = 12,
   requestAccess = 'write',
   onAuth,
+  onRenderIssue,
 }: TelegramLoginProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const callbackName = React.useId().replace(/[^a-zA-Z0-9_]/g, '_');
 
   React.useEffect(() => {
+    if (!botUsername) {
+      console.warn(
+        '[TelegramLogin] Bot username bo\'sh — NEXT_PUBLIC_TELEGRAM_BOT env variable\'ni tekshiring.',
+      );
+      onRenderIssue?.('missing_bot');
+      return;
+    }
+
     // Global callback registratsiya — Telegram widget'i shuni chaqiradi.
     (window as unknown as Record<string, (d: TelegramAuthData) => void>)[
       `tgAuth_${callbackName}`
@@ -61,10 +75,24 @@ export function TelegramLogin({
       containerRef.current.appendChild(script);
     }
 
+    // Domain sozlanmagan yoki bot username xato bo'lsa, Telegram jimgina hech
+    // narsa qaytarmaydi. 4 soniya ichida iframe paydo bo'lmasa — user'ga aniq
+    // xabar ko'rsatishimiz uchun onRenderIssue chaqiramiz.
+    const timer = window.setTimeout(() => {
+      const iframe = containerRef.current?.querySelector('iframe');
+      if (!iframe) {
+        console.warn(
+          `[TelegramLogin] "@${botUsername}" widget iframe'i yuklanmadi — bot username yoki BotFather'da /setdomain sozlanganini tekshiring.`,
+        );
+        onRenderIssue?.('iframe_missing');
+      }
+    }, 4000);
+
     return () => {
+      window.clearTimeout(timer);
       delete (window as unknown as Record<string, unknown>)[`tgAuth_${callbackName}`];
     };
-  }, [botUsername, size, cornerRadius, requestAccess, callbackName, onAuth]);
+  }, [botUsername, size, cornerRadius, requestAccess, callbackName, onAuth, onRenderIssue]);
 
   return (
     <div className="flex justify-center">

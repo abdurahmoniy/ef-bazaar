@@ -78,4 +78,9 @@ public class MarketplaceException extends RuntimeException {
         return new MarketplaceException(HttpStatus.BAD_REQUEST, "invalid_attribute_value",
                 "Attribute qiymati noto'g'ri (" + key + "): " + reason);
     }
+
+    public static MarketplaceException cannotReportOwnListing() {
+        return new MarketplaceException(HttpStatus.BAD_REQUEST, "cannot_report_own_listing",
+                "O'zingizning e'loningizni shikoyat qila olmaysiz");
+    }
 }
