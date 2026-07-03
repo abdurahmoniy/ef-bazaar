@@ -1,0 +1,28 @@
+[Unit]
+Description=efBazaar DB backup — pg_dumpall + AES-256 + Telegram upload
+Documentation=https://github.com/abdurahmoniy/ef-bazaar/tree/main/infra/backup
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/efbazaar/infra/backup
+ExecStart=/usr/bin/env bash /opt/efbazaar/infra/backup/backup-db.sh
+
+# Retries on failure — 3 marta 5 daqiqa oralig'ida.
+Restart=on-failure
+RestartSec=5min
+StartLimitBurst=3
+StartLimitIntervalSec=1200
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=efbazaar-backup
+
+# Sandboxing
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/efbazaar /var/run/docker.sock /opt/efbazaar
