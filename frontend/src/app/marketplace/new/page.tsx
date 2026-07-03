@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 
 import { ListingForm } from '@/components/marketplace/listing-form';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
-import { BackLink } from '@/components/navigation/back-link';
 import { getMe } from '@/lib/auth';
 import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
 import { getAttributeDefinitions } from '@/lib/marketplace-server';
@@ -25,9 +24,8 @@ export default async function NewListingPage() {
     remoteDefinitions.length > 0 ? remoteDefinitions : SEEDED_LISTING_ATTRIBUTE_DEFINITIONS;
 
   return (
-    <MarketplaceShell user={user} activeTab="sell" hideSearch>
+    <MarketplaceShell user={user} activeTab="sell" hideSearch backHref="/marketplace" backLabel="Bozor">
       <section className="mx-auto w-full max-w-3xl space-y-4">
-        <BackLink href="/marketplace" label="Bozor" />
         <header>
           <p className="text-xs font-bold uppercase tracking-wide text-primary">Marketplace</p>
           <h1 className="mt-1 text-3xl font-black text-foreground">Akkount joylash</h1>

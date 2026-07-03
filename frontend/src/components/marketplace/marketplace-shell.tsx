@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Heart, Home, MessageCircle, Plus, Search, ShieldCheck, UserRound } from 'lucide-react';
 
 import { Logo } from '@/components/brand/logo';
+import { TopBackButton } from '@/components/navigation/top-back-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -15,6 +16,14 @@ interface MarketplaceShellProps {
   hideSearch?: boolean;
   /** Current search text — populates the top-bar input on marketplace listing routes. */
   initialQuery?: string;
+  /**
+   * When set, renders a chevron back button in the top-left of the header (and,
+   * inside a Telegram Mini App, activates the native BackButton). Prefer this
+   * over ad-hoc {@code BackLink} usage on drill-down pages.
+   */
+  backHref?: string;
+  /** Accessible label for the back button — defaults to "Orqaga". */
+  backLabel?: string;
 }
 
 export type MarketplaceTab = 'home' | 'favorites' | 'sell' | 'chats' | 'profile';
@@ -61,13 +70,16 @@ export function MarketplaceShell({
   activeTab = 'home',
   hideSearch = false,
   initialQuery,
+  backHref,
+  backLabel,
 }: MarketplaceShellProps) {
   const items = buildNavItems(user);
 
   return (
     <div className="min-h-app bg-background pb-24 md:pb-0">
       <header className="sticky top-0 z-40 border-b border-border surface-nav pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4">
+        <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-2 px-4 sm:gap-3">
+          {backHref && <TopBackButton href={backHref} label={backLabel} className="-ml-2" />}
           <Logo size="sm" href="/marketplace" />
 
           {!hideSearch && (

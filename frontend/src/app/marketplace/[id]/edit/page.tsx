@@ -4,7 +4,6 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
-import { BackLink } from '@/components/navigation/back-link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { getMe } from '@/lib/auth';
@@ -34,9 +33,8 @@ export default async function EditListingPage({ params }: EditPageProps) {
   if (result.data.sellerId !== user.id) redirect(`/marketplace/${id}`);
 
   return (
-    <MarketplaceShell user={user} activeTab="profile" hideSearch>
+    <MarketplaceShell user={user} activeTab="profile" hideSearch backHref={`/marketplace/${id}`} backLabel="E'lon">
       <section className="mx-auto w-full max-w-2xl space-y-4">
-        <BackLink href={`/marketplace/${id}`} label="E'lon" />
         <header>
           <p className="text-xs font-bold uppercase tracking-wide text-primary">Marketplace</p>
           <h1 className="mt-1 text-2xl font-black text-foreground">E'lonni tahrirlash</h1>

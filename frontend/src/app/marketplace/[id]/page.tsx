@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation';
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { MarketplaceListingDetail } from '@/components/marketplace/marketplace-listing-detail';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
-import { BackLink } from '@/components/navigation/back-link';
 import { getMe } from '@/lib/auth';
 import {
   getListing,
@@ -46,9 +45,8 @@ export default async function ListingPage({ params }: ListingPageProps) {
   if (!result.ok) {
     if (result.error.status === 404) notFound();
     return (
-      <MarketplaceShell user={viewer} activeTab="home">
+      <MarketplaceShell user={viewer} activeTab="home" backHref="/marketplace" backLabel="Bozor">
         <section className="mx-auto w-full max-w-3xl space-y-4">
-          <BackLink href="/marketplace" label="Bozor" />
           <ApiErrorPanel title="E'lon yuklanmadi" error={result.error} />
         </section>
       </MarketplaceShell>
@@ -62,7 +60,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
   ]);
 
   return (
-    <MarketplaceShell user={viewer} activeTab="home">
+    <MarketplaceShell user={viewer} activeTab="home" backHref="/marketplace" backLabel="Bozor">
       <MarketplaceListingDetail
         listing={listing}
         viewer={viewer}
