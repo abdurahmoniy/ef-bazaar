@@ -79,11 +79,29 @@ public class AuthController {
      * Nginx auth_request endpoint — validates the access token and surfaces
      * the user identity as response headers for upstream services.
      */
+    /**
+     * Called by nginx {@code auth_request /_auth_verify} on every protected
+     * upstream call.
+     *
+     * <p>Contract with nginx:
+     * <ul>
+     *   <li>{@code 204} — session valid, X-User-* headers injected for upstream</li>
+     *   <li>{@code 401} — no/invalid session; nginx {@code error_page 401} routes
+     *       marketplace calls to {@code @marketplace_anon} for anonymous browsing</li>
+     * </ul>
+     *
+     * <p>Any other status makes nginx return its own default 500 page (nginx
+     * treats non-2xx / non-401 / non-403 as an internal error), so this handler
+     * MUST return one of those two — never let an exception leak.
+     */
     @GetMapping("/verify")
     public ResponseEntity<Void> verify(@AuthenticationPrincipal AuthenticatedUser principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         HttpHeaders headers = new HttpHeaders();
         headers.add("X-User-Id", principal.userId().toString());
-        headers.add("X-User-Roles", String.join(",", principal.roles()));
+        headers.add("X-User-Roles", String.join(",", principal.roles() == null ? java.util.List.of() : principal.roles()));
         if (principal.telegramId() != null) {
             headers.add("X-Telegram-Id", principal.telegramId().toString());
         }
