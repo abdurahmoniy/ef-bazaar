@@ -24,4 +24,16 @@ public class CardController {
             @RequestParam(value = "limit", required = false) Integer limit) {
         return searchService.search(query, types == null ? EnumSet.allOf(CardType.class) : types, limit);
     }
+
+    /**
+     * Paginated catalog browse by type (no name query).
+     * e.g. GET /api/v1/cards?types=BIGTIME&page=0&size=30
+     */
+    @GetMapping
+    public CardPage browse(
+            @RequestParam(value = "types", required = false) Set<CardType> types,
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        return searchService.browse(types == null ? EnumSet.allOf(CardType.class) : types, page, size);
+    }
 }
