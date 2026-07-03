@@ -13,64 +13,103 @@ import type { User } from './types';
 
 const MARKETPLACE_PREFIX = '/marketplace/v1';
 
-async function safeFetch<T>(path: string, options?: Parameters<typeof apiFetch>[1]): Promise<T | null> {
+/** Structured error surfaced up to the UI so it can render actual details. */
+export interface FetchError {
+  path: string;
+  status: number;
+  code?: string;
+  message: string;
+  details?: unknown;
+  networkError?: boolean;
+}
+
+export type FetchResult<T> = { ok: true; data: T } | { ok: false; error: FetchError };
+
+async function safeFetch<T>(
+  path: string,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<FetchResult<T>> {
   try {
-    return await apiFetch<T>(path, options);
+    const data = await apiFetch<T>(path, options);
+    return { ok: true, data };
   } catch (error) {
     if (error instanceof ApiException) {
-      // 401/403/404 are expected (anon browsing an owner-only endpoint, missing entity).
-      if ([401, 403, 404].includes(error.status)) return null;
       const detailStr = error.details ? ` details=${JSON.stringify(error.details)}` : '';
       console.error(
         `[marketplace-server] ${path} → ${error.status} ${error.code ?? ''}: ${error.message}${detailStr}`,
       );
-      return null;
+      return {
+        ok: false,
+        error: {
+          path,
+          status: error.status,
+          code: error.code,
+          message: error.message,
+          details: error.details,
+        },
+      };
     }
-    console.error(`[marketplace-server] ${path} → network error:`, error);
-    return null;
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[marketplace-server] ${path} → network error:`, message);
+    return {
+      ok: false,
+      error: {
+        path,
+        status: 0,
+        code: 'network_error',
+        message,
+        networkError: true,
+      },
+    };
   }
+}
+
+/** Fall back to null when the endpoint returning 401/403/404 is expected. */
+function nullifyExpected<T>(result: FetchResult<T>): T | null {
+  if (result.ok) return result.data;
+  if ([401, 403, 404].includes(result.error.status)) return null;
+  return null;
 }
 
 export async function browseListings(
   filters: ListingBrowseParams,
-): Promise<PageResponse<ListingResponse> | null> {
+): Promise<FetchResult<PageResponse<ListingResponse>>> {
   const query = buildListingSearchParams(filters).toString();
   const suffix = query ? `?${query}` : '';
   return safeFetch<PageResponse<ListingResponse>>(`${MARKETPLACE_PREFIX}/listings${suffix}`);
 }
 
-export async function getListing(id: string): Promise<ListingResponse | null> {
+export async function getListing(id: string): Promise<FetchResult<ListingResponse>> {
   return safeFetch<ListingResponse>(`${MARKETPLACE_PREFIX}/listings/${encodeURIComponent(id)}`);
 }
 
 export async function getAttributeDefinitions(): Promise<AttributeDefinitionResponse[]> {
-  const definitions = await safeFetch<AttributeDefinitionResponse[]>(
-    `${MARKETPLACE_PREFIX}/attributes`,
-  );
-  return definitions ?? [];
+  const result = await safeFetch<AttributeDefinitionResponse[]>(`${MARKETPLACE_PREFIX}/attributes`);
+  return result.ok ? result.data : [];
 }
 
 export async function getMyListings(): Promise<ListingResponse[]> {
-  const page = await safeFetch<PageResponse<ListingResponse>>(
+  const result = await safeFetch<PageResponse<ListingResponse>>(
     `${MARKETPLACE_PREFIX}/listings/me?size=100&sort=createdAt,desc`,
   );
-  return page?.content ?? [];
+  return result.ok ? result.data.content : [];
 }
 
 export async function getMyChats(): Promise<ChatResponse[]> {
-  const chats = await safeFetch<ChatResponse[]>(`${MARKETPLACE_PREFIX}/chats/me`);
-  return chats ?? [];
+  const result = await safeFetch<ChatResponse[]>(`${MARKETPLACE_PREFIX}/chats/me`);
+  return result.ok ? result.data : [];
 }
 
 export async function getMyFavorites(): Promise<ListingResponse[]> {
-  const page = await safeFetch<PageResponse<ListingResponse>>(
+  const result = await safeFetch<PageResponse<ListingResponse>>(
     `${MARKETPLACE_PREFIX}/listings/liked?size=100`,
   );
-  return page?.content ?? [];
+  return result.ok ? result.data.content : [];
 }
 
 export async function getUserProfile(userId: string): Promise<User | null> {
-  return safeFetch<User>(`/auth/v1/users/${encodeURIComponent(userId)}`);
+  const result = await safeFetch<User>(`/auth/v1/users/${encodeURIComponent(userId)}`);
+  return nullifyExpected(result);
 }
 
 export async function getSimilarListings(
@@ -82,6 +121,7 @@ export async function getSimilarListings(
   if (typeof division === 'number' || typeof division === 'string') {
     filters.attributes = { highest_division_level: String(division) };
   }
-  const page = await browseListings(filters);
-  return (page?.content ?? []).filter((entry) => entry.id !== listing.id).slice(0, limit);
+  const result = await browseListings(filters);
+  if (!result.ok) return [];
+  return result.data.content.filter((entry) => entry.id !== listing.id).slice(0, limit);
 }
