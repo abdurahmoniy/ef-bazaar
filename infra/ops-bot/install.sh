@@ -59,6 +59,16 @@ if ! python3 -c "import requests" 2>/dev/null; then
         pip3 install requests --break-system-packages 2>/dev/null || pip3 install requests
     fi
 fi
+if ! python3 -c "import psutil" 2>/dev/null; then
+    echo "==> Installing python3-psutil (host stats for /health)"
+    if command -v apt-get >/dev/null 2>&1; then
+        apt-get install -y python3-psutil
+    elif command -v dnf >/dev/null 2>&1; then
+        dnf install -y python3-psutil
+    else
+        pip3 install psutil --break-system-packages 2>/dev/null || pip3 install psutil
+    fi
+fi
 
 # ─── 2. Systemd unit ────────────────────────────────────────────────────
 echo "==> Installing systemd unit"
