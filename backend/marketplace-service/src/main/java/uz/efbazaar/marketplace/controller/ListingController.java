@@ -110,10 +110,19 @@ public class ListingController {
         return assembler.assemble(sold, user.userId());
     }
 
-    @GetMapping("/mine")
+    @GetMapping("/me")
     public PageResponse<ListingResponse> mine(@AuthenticationPrincipal AuthenticatedUser user,
                                               @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
         Page<Listing> page = listingService.findMine(user.userId(), pageable);
+        return new PageResponse<>(
+                assembler.assembleAll(page.getContent(), user.userId()),
+                page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+    }
+
+    @GetMapping("/liked")
+    public PageResponse<ListingResponse> liked(@AuthenticationPrincipal AuthenticatedUser user,
+                                               @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+        Page<Listing> page = listingService.findLiked(user.userId(), pageable);
         return new PageResponse<>(
                 assembler.assembleAll(page.getContent(), user.userId()),
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
