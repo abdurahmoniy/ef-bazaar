@@ -34,6 +34,12 @@ public class SecurityConfig {
                                 "/api/v1/auth/telegram-webapp",
                                 "/api/v1/auth/google/login",
                                 "/api/v1/auth/refresh").permitAll()
+                        // Public — verify subrequest hit by nginx auth_request. The handler
+                        // returns 401 explicitly when no principal is bound (JWT missing /
+                        // invalid), so nginx's `error_page 401 = @marketplace_anon` routes
+                        // anonymous marketplace browsing correctly. Kept OUT of the default
+                        // authenticated bucket so Spring's own 401 response can't interfere.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/verify").permitAll()
                         // Public — health/metrics (nginx blocks externally)
                         .requestMatchers("/actuator/**", "/api/v1/ping").permitAll()
                         // Public — Swagger UI + OpenAPI (api.* subdomain nginx basic auth ostida)
