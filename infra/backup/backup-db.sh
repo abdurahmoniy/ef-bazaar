@@ -135,7 +135,10 @@ chmod 600 "$DAILY_FILE"
 echo "==> Wrote $DAILY_FILE ($(numfmt --to=iec-i --suffix=B "$SIZE"))"
 
 # ─── 4. Telegram upload ────────────────────────────────────────────────
-CAPTION="🗄 <b>DB backup</b> — $STAMP\nSize: $(numfmt --to=iec-i --suffix=B "$SIZE")\nEncrypt: AES-256-CBC PBKDF2\nRestore: <code>openssl enc -d -aes-256-cbc -pbkdf2 -pass pass:\$BACKUP_PASSPHRASE -in FILE | gunzip | psql</code>"
+# Caption'da printf ishlatamiz — bash string'da "\n" literal backslash-n bo'ladi,
+# Telegram'da ham shunday chiqadi (haqiqiy newline emas).
+CAPTION="$(printf '🗄 <b>DB backup</b> — %s\nSize: %s\nEncrypt: AES-256-CBC PBKDF2\nRestore: <code>openssl enc -d -aes-256-cbc -pbkdf2 -pass pass:$BACKUP_PASSPHRASE -in FILE | gunzip | psql</code>' \
+    "$STAMP" "$(numfmt --to=iec-i --suffix=B "$SIZE")")"
 if [[ "$SIZE" -lt $((45 * 1024 * 1024)) ]]; then
     echo "==> Uploading to Telegram topic $TOPIC_BACKUPS"
     send_telegram_document "$DAILY_FILE" "$CAPTION" "$TOPIC_BACKUPS"
