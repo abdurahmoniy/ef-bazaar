@@ -12,12 +12,13 @@ import {
   Trash2,
 } from 'lucide-react';
 
+import { ChatPinnedHeader } from '@/components/chat/chat-pinned-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { avatarTone, partnerInitial, partnerName } from '@/lib/chat-format';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
-import { formatListingDate, formatPriceUZS } from '@/lib/marketplace-format';
+import { formatListingDate } from '@/lib/marketplace-format';
 import type {
   ChatResponse,
   ListingResponse,
@@ -176,31 +177,13 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
         </div>
       </header>
 
-      {listing && (
-        <Link
-          href={`/marketplace/${listing.id}`}
-          className="flex items-center gap-3 border-b border-border bg-muted/30 px-4 py-2 transition hover:bg-muted"
-        >
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              E'lon
-            </p>
-            <p className="mt-0.5 line-clamp-1 text-[13px] font-semibold text-foreground">
-              {listing.description.split('\n')[0]?.trim() || "E'lon"}
-            </p>
-          </div>
-          <p className="shrink-0 text-sm font-black text-primary">
-            {formatPriceUZS(listing.price)}
-          </p>
-        </Link>
-      )}
-
       <div
         ref={listRef}
         className="flex-1 space-y-2 overflow-y-auto px-3 py-4"
       >
+        <ChatPinnedHeader listing={listing} />
         {messages.length === 0 && (
-          <p className="pt-8 text-center text-xs text-muted-foreground">
+          <p className="pt-4 text-center text-xs text-muted-foreground">
             Hali xabarlar yo'q. Birinchi bo'lib salom bering.
           </p>
         )}
