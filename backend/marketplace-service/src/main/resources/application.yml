@@ -92,6 +92,13 @@ app:
     allowed-types: ${MEDIA_ALLOWED_TYPES:image/jpeg,image/png,image/webp,image/heic,image/heif}
   bot:
     internal-base-url: ${BOT_INTERNAL_BASE_URL:http://bot:8084}
+  # Server-to-server access to auth-service's /internal/** endpoints
+  # (currently: user display-name resolution at chat creation). If
+  # internal-secret is unset the resolver short-circuits and the frontend
+  # falls back to a role label ("Xaridor" / "Sotuvchi").
+  auth:
+    internal-base-url: ${AUTH_INTERNAL_BASE_URL:http://auth-service:8081}
+    internal-secret: ${INTERNAL_API_SECRET:}
   chat:
     expire-after-hours: 24
     expire-check-interval-ms: 300000

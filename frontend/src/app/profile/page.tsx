@@ -67,7 +67,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
         <section>
           {activeTab === 'listings' && <ProfileListings listings={listings} />}
-          {activeTab === 'chats' && <ProfileChats chats={chats} viewerId={user.id} />}
+          {activeTab === 'chats' && <ProfileChats chatCount={chats.length} />}
           {activeTab === 'favorites' && <ProfileListings listings={favorites} favorites />}
           {activeTab === 'account' && (
             <ProfileAccount user={user} googleClientId={googleClientId} botUsername={botUsername} />

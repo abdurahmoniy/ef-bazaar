@@ -10,17 +10,20 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import uz.efbazaar.auth.security.InternalApiProperties;
+import uz.efbazaar.auth.security.InternalSecretFilter;
 import uz.efbazaar.auth.security.JwtAuthenticationFilter;
 import uz.efbazaar.auth.security.RateLimitFilter;
 import uz.efbazaar.auth.security.RateLimitProperties;
 
 @Configuration
-@EnableConfigurationProperties(RateLimitProperties.class)
+@EnableConfigurationProperties({RateLimitProperties.class, InternalApiProperties.class})
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
     private final RateLimitFilter rateLimitFilter;
+    private final InternalSecretFilter internalSecretFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -54,8 +57,14 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-resources/**",
                                 "/webjars/**").permitAll()
+                        // Internal server-to-server — authentication handled by
+                        // InternalSecretFilter (X-Internal-Secret header), which
+                        // runs before Spring Security below. Nginx blocks the
+                        // /internal/** prefix from the public network.
+                        .requestMatchers("/internal/**").permitAll()
                         // Protected
                         .anyRequest().authenticated())
+                .addFilterBefore(internalSecretFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

@@ -12,8 +12,10 @@ import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
 import uz.efbazaar.marketplace.repository.ChatRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
+import uz.efbazaar.marketplace.security.AuthNameClient;
 
 import java.math.BigDecimal;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,6 +31,7 @@ class ChatServiceTest {
     @Mock ChatMessageRepository messages;
     @Mock ListingRepository listings;
     @Mock MarketplaceEventPublisher events;
+    @Mock AuthNameClient authNameClient;
 
     @InjectMocks ChatService service;
 
@@ -66,6 +69,41 @@ class ChatServiceTest {
         assertThat(chat.getSellerId()).isEqualTo(sellerId);
         assertThat(chat.getStatus()).isEqualTo(ChatStatus.ACTIVE);
         assertThat(chat.isImportant()).isFalse();
+    }
+
+    @Test
+    void start_snapshotsBuyerAndSellerDisplayNames() {
+        when(listings.findById(listingId)).thenReturn(Optional.of(activeListing));
+        when(chats.findByBuyerIdAndListingIdAndStatus(buyerId, listingId, ChatStatus.ACTIVE))
+                .thenReturn(Optional.empty());
+        when(authNameClient.resolveNames(any()))
+                .thenReturn(Map.of(buyerId, "Aziz Rahmatov", sellerId, "Sardor Karimov"));
+        when(chats.save(any(Chat.class))).thenAnswer(inv -> {
+            Chat c = inv.getArgument(0);
+            c.setId(UUID.randomUUID());
+            return c;
+        });
+
+        Chat chat = service.start(buyerId, listingId);
+        assertThat(chat.getBuyerDisplayName()).isEqualTo("Aziz Rahmatov");
+        assertThat(chat.getSellerDisplayName()).isEqualTo("Sardor Karimov");
+    }
+
+    @Test
+    void start_leavesNamesNullWhenAuthClientReturnsEmpty() {
+        when(listings.findById(listingId)).thenReturn(Optional.of(activeListing));
+        when(chats.findByBuyerIdAndListingIdAndStatus(buyerId, listingId, ChatStatus.ACTIVE))
+                .thenReturn(Optional.empty());
+        when(authNameClient.resolveNames(any())).thenReturn(Map.of());
+        when(chats.save(any(Chat.class))).thenAnswer(inv -> {
+            Chat c = inv.getArgument(0);
+            c.setId(UUID.randomUUID());
+            return c;
+        });
+
+        Chat chat = service.start(buyerId, listingId);
+        assertThat(chat.getBuyerDisplayName()).isNull();
+        assertThat(chat.getSellerDisplayName()).isNull();
     }
 
     @Test

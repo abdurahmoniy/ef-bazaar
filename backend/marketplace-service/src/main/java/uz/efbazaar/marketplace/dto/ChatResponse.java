@@ -12,6 +12,8 @@ public record ChatResponse(
         UUID listingId,
         UUID buyerId,
         UUID sellerId,
+        String buyerDisplayName,
+        String sellerDisplayName,
         ChatStatus status,
         boolean important,
         Instant lastMessageAt,

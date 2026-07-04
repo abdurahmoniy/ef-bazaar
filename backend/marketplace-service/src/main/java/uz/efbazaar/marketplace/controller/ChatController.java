@@ -79,6 +79,7 @@ public class ChatController {
         ChatResponse r = mapper.toResponse(chat);
         long count = chatService.countMessages(chat.getId());
         return new ChatResponse(r.id(), r.listingId(), r.buyerId(), r.sellerId(),
+                r.buyerDisplayName(), r.sellerDisplayName(),
                 r.status(), r.important(), r.lastMessageAt(),
                 r.createdAt(), r.closedAt(), count);
     }

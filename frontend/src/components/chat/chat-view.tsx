@@ -3,11 +3,19 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
-import { AlertTriangle, Send, Star, StarOff, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  ChevronLeft,
+  Send,
+  Star,
+  StarOff,
+  Trash2,
+} from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { avatarTone, partnerInitial, partnerName } from '@/lib/chat-format';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { formatListingDate, formatPriceUZS } from '@/lib/marketplace-format';
 import type {
@@ -37,9 +45,10 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
   const [isUpdating, startUpdate] = useTransition();
   const listRef = useRef<HTMLDivElement>(null);
 
-  const isSeller = chat.sellerId === viewerId;
-  const counterpartLabel = isSeller ? 'Xaridor' : 'Sotuvchi';
   const isClosed = chat.status !== 'ACTIVE';
+  const name = partnerName(chat, viewerId);
+  const partnerId = chat.sellerId === viewerId ? chat.buyerId : chat.sellerId;
+  const roleLabel = chat.sellerId === viewerId ? 'Xaridor' : 'Sotuvchi';
 
   const scrollToBottom = useCallback(() => {
     const el = listRef.current;
@@ -108,164 +117,161 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
   }
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[1fr,320px]">
-      <div className="flex h-[calc(100vh-260px)] min-h-[420px] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-card">
-        <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="truncate text-sm font-black text-foreground">
-                {counterpartLabel} bilan chat
-              </p>
-              {chat.important && <Badge variant="warn">Muhim</Badge>}
-              {isClosed && (
-                <Badge variant="muted" className="uppercase">
-                  {chat.status.toLowerCase()}
-                </Badge>
-              )}
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Boshlangan: {formatListingDate(chat.createdAt)} · {messages.length} xabar
-            </p>
-          </div>
+    <div className="flex h-full min-h-0 w-full flex-col bg-background animate-in slide-in-from-right duration-300 md:animate-none">
+      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-2 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] md:pt-2">
+        <Button asChild variant="ghost" size="sm" className="-ml-1 h-10 w-10 shrink-0 p-0 md:hidden">
+          <Link href="/chats" aria-label="Chatlar ro'yxatiga qaytish">
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+        </Button>
+        <div
+          className={cn(
+            'grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold uppercase',
+            avatarTone(partnerId),
+          )}
+        >
+          {partnerInitial(name)}
+        </div>
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
+            <p className="truncate text-sm font-black text-foreground">{name}</p>
+            {chat.important && <Badge variant="warn">Muhim</Badge>}
+            {isClosed && (
+              <Badge variant="muted" className="uppercase">
+                {chat.status.toLowerCase()}
+              </Badge>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {roleLabel} · {messages.length} xabar
+          </p>
+        </div>
+        <div className="flex items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-10 w-10 p-0"
+            disabled={isUpdating}
+            onClick={handleToggleImportant}
+            title={chat.important ? "Muhimni olib tashlash" : 'Muhim deb belgilash'}
+            aria-label={chat.important ? "Muhimni olib tashlash" : 'Muhim deb belgilash'}
+          >
+            {chat.important ? <StarOff className="h-5 w-5" /> : <Star className="h-5 w-5" />}
+          </Button>
+          {!isClosed && (
             <Button
               type="button"
               variant="ghost"
               size="sm"
+              className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
               disabled={isUpdating}
-              onClick={handleToggleImportant}
-              title={chat.important ? "Muhimni olib tashlash" : 'Muhim deb belgilash'}
+              onClick={handleClose}
+              title="Chatni yakunlash"
+              aria-label="Chatni yakunlash"
             >
-              {chat.important ? <StarOff className="h-4 w-4" /> : <Star className="h-4 w-4" />}
+              <Trash2 className="h-5 w-5" />
             </Button>
-            {!isClosed && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={isUpdating}
-                onClick={handleClose}
-                title="Chatni yopish"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </header>
-
-        <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto px-4 py-4">
-          {messages.length === 0 && (
-            <p className="pt-8 text-center text-xs text-muted-foreground">
-              Hali xabarlar yo'q. Birinchi bo'lib salom bering.
-            </p>
           )}
-          {messages.map((message) => {
-            const mine = message.senderId === viewerId;
-            return (
-              <div
-                key={message.id}
-                className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}
-              >
-                <div
-                  className={cn(
-                    'max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words',
-                    mine
-                      ? 'rounded-br-md bg-primary text-primary-foreground'
-                      : 'rounded-bl-md bg-muted text-foreground',
-                  )}
-                >
-                  {message.content}
-                </div>
-                <span className="mt-0.5 text-[10px] text-muted-foreground">
-                  {formatListingDate(message.createdAt)}
-                </span>
-              </div>
-            );
-          })}
         </div>
+      </header>
 
-        {error && (
-          <div className="flex items-center gap-2 border-t border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {isClosed ? (
-          <div className="border-t border-border bg-muted/40 px-4 py-3 text-center text-xs text-muted-foreground">
-            Chat yopilgan — yangi xabar yuborib bo'lmaydi.
-          </div>
-        ) : (
-          <div className="border-t border-border bg-card px-3 py-3">
-            <div className="flex items-end gap-2">
-              <Textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder="Xabar yozing…"
-                rows={2}
-                className="min-h-11 resize-none"
-                disabled={isSending}
-              />
-              <Button
-                type="button"
-                size="lg"
-                className="h-11 shrink-0"
-                onClick={handleSend}
-                disabled={isSending || draft.trim().length === 0}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              Enter — yuborish · Shift+Enter — yangi qator
-            </p>
-          </div>
-        )}
-      </div>
-
-      <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
-        {listing ? (
-          <Link
-            href={`/marketplace/${listing.id}`}
-            className="block rounded-xl border border-border bg-card p-3 shadow-card transition hover:border-primary/40"
-          >
+      {listing && (
+        <Link
+          href={`/marketplace/${listing.id}`}
+          className="flex items-center gap-3 border-b border-border bg-muted/30 px-4 py-2 transition hover:bg-muted"
+        >
+          <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               E'lon
             </p>
-            <p className="mt-1 line-clamp-3 text-sm font-semibold text-foreground">
+            <p className="mt-0.5 line-clamp-1 text-[13px] font-semibold text-foreground">
               {listing.description.split('\n')[0]?.trim() || "E'lon"}
             </p>
-            <p className="mt-2 text-sm font-black text-primary">
-              {formatPriceUZS(listing.price)}
-              {listing.priceNegotiable && (
-                <span className="ml-1 text-[10px] font-bold uppercase text-muted-foreground">
-                  · savdolashsa bo'ladi
-                </span>
-              )}
-            </p>
-          </Link>
-        ) : (
-          <div className="rounded-xl border border-dashed border-border bg-card px-4 py-6 text-center text-xs text-muted-foreground">
-            E'lon topilmadi yoki o'chirilgan.
           </div>
-        )}
-        <div className="rounded-xl border border-border bg-card p-3 text-[11px] leading-5 text-muted-foreground shadow-card">
-          <p className="mb-1 font-bold uppercase tracking-wider text-foreground/70">
-            Chat qoidalari
+          <p className="shrink-0 text-sm font-black text-primary">
+            {formatPriceUZS(listing.price)}
           </p>
-          <ul className="list-disc space-y-1 pl-4">
-            <li>Chat 24 soatdan keyin avtomatik yopiladi.</li>
-            <li>"Muhim" deb belgilangan chat yopilmaydi.</li>
-            <li>To'lov haqidagi ma'lumotni tekshirib berishni so'rang.</li>
-          </ul>
+        </Link>
+      )}
+
+      <div
+        ref={listRef}
+        className="flex-1 space-y-2 overflow-y-auto px-3 py-4"
+      >
+        {messages.length === 0 && (
+          <p className="pt-8 text-center text-xs text-muted-foreground">
+            Hali xabarlar yo'q. Birinchi bo'lib salom bering.
+          </p>
+        )}
+        {messages.map((message) => {
+          const mine = message.senderId === viewerId;
+          return (
+            <div
+              key={message.id}
+              className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}
+            >
+              <div
+                className={cn(
+                  'max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words',
+                  mine
+                    ? 'rounded-br-md bg-primary text-primary-foreground'
+                    : 'rounded-bl-md bg-muted text-foreground',
+                )}
+              >
+                {message.content}
+              </div>
+              <span className="mt-0.5 text-[10px] text-muted-foreground">
+                {formatListingDate(message.createdAt)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 border-t border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          <span>{error}</span>
         </div>
-      </aside>
+      )}
+
+      {isClosed ? (
+        <div className="border-t border-border bg-muted/40 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] text-center text-xs text-muted-foreground">
+          Chat yopilgan — yangi xabar yuborib bo'lmaydi.
+        </div>
+      ) : (
+        <div className="border-t border-border bg-card px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+          <div className="flex items-end gap-2">
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder="Xabar yozing…"
+              rows={2}
+              className="min-h-11 resize-none"
+              disabled={isSending}
+            />
+            <Button
+              type="button"
+              size="lg"
+              className="h-11 shrink-0"
+              onClick={handleSend}
+              disabled={isSending || draft.trim().length === 0}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="mt-1 hidden text-[10px] text-muted-foreground md:block">
+            Enter — yuborish · Shift+Enter — yangi qator
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -47,6 +47,17 @@ public class Chat {
     @Column(name = "closed_at")
     private Instant closedAt;
 
+    /**
+     * Display-name snapshot resolved from auth-service at chat creation.
+     * Nullable so chats created before this column was added still deserialise;
+     * the frontend falls back to a role label ("Xaridor" / "Sotuvchi") when null.
+     */
+    @Column(name = "buyer_display_name", length = 64)
+    private String buyerDisplayName;
+
+    @Column(name = "seller_display_name", length = 64)
+    private String sellerDisplayName;
+
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();

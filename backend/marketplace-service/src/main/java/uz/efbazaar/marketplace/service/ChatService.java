@@ -13,8 +13,11 @@ import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
 import uz.efbazaar.marketplace.repository.ChatRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
+import uz.efbazaar.marketplace.security.AuthNameClient;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -26,6 +29,7 @@ public class ChatService {
     private final ChatMessageRepository messages;
     private final ListingRepository listings;
     private final MarketplaceEventPublisher events;
+    private final AuthNameClient authNameClient;
 
     @Transactional
     public Chat start(UUID buyerId, UUID listingId) {
@@ -44,18 +48,23 @@ public class ChatService {
             return existing.get();
         }
 
+        UUID sellerId = listing.getSellerId();
+        Map<UUID, String> names = authNameClient.resolveNames(List.of(buyerId, sellerId));
+
         try {
             Chat chat = chats.save(Chat.builder()
                     .listingId(listingId)
                     .buyerId(buyerId)
-                    .sellerId(listing.getSellerId())
+                    .sellerId(sellerId)
+                    .buyerDisplayName(names.get(buyerId))
+                    .sellerDisplayName(names.get(sellerId))
                     .status(ChatStatus.ACTIVE)
                     .important(false)
                     .lastMessageAt(Instant.now())
                     .build());
-            events.chatCreated(chat.getId(), listingId, buyerId, listing.getSellerId());
+            events.chatCreated(chat.getId(), listingId, buyerId, sellerId);
             log.info("Chat created: id={} listingId={} buyer={} seller={}",
-                    chat.getId(), listingId, buyerId, listing.getSellerId());
+                    chat.getId(), listingId, buyerId, sellerId);
             return chat;
         } catch (DataIntegrityViolationException e) {
             // Concurrent start — fallback to existing

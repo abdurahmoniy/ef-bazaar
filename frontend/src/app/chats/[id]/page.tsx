@@ -3,7 +3,6 @@ import { notFound, redirect } from 'next/navigation';
 
 import { ChatView } from '@/components/chat/chat-view';
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
-import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
 import { getChat, getChatMessages, getListing } from '@/lib/marketplace-server';
 
@@ -27,15 +26,9 @@ export default async function ChatPage({ params }: ChatPageProps) {
   if (!chatResult.ok) {
     if (chatResult.error.status === 404) notFound();
     return (
-      <MarketplaceShell
-        user={user}
-        activeTab="chats"
-        hideSearch
-        backHref="/profile?tab=chats"
-        backLabel="Chatlar"
-      >
+      <div className="p-4">
         <ApiErrorPanel error={chatResult.error} />
-      </MarketplaceShell>
+      </div>
     );
   }
 
@@ -48,19 +41,11 @@ export default async function ChatPage({ params }: ChatPageProps) {
   const listing = listingResult.ok ? listingResult.data : null;
 
   return (
-    <MarketplaceShell
-      user={user}
-      activeTab="chats"
-      hideSearch
-      backHref="/profile?tab=chats"
-      backLabel="Chatlar"
-    >
-      <ChatView
-        chat={chat}
-        viewerId={user.id}
-        initialMessages={messagesPage?.content ?? []}
-        listing={listing}
-      />
-    </MarketplaceShell>
+    <ChatView
+      chat={chat}
+      viewerId={user.id}
+      initialMessages={messagesPage?.content ?? []}
+      listing={listing}
+    />
   );
 }

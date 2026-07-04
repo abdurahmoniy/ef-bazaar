@@ -122,6 +122,8 @@ export interface ChatResponse {
   listingId: string;
   buyerId: string;
   sellerId: string;
+  buyerDisplayName?: string | null;
+  sellerDisplayName?: string | null;
   status: ChatStatus;
   important: boolean;
   lastMessageAt?: string | null;

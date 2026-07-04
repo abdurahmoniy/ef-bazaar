@@ -92,6 +92,11 @@ app:
     api-base-url: https://api.telegram.org
   google:
     client-id: ${GOOGLE_CLIENT_ID:}
+  # Shared secret for server-to-server calls to /internal/**. Set to a strong
+  # value in every non-local environment. If unset or blank the internal
+  # endpoints refuse every request (fail-closed).
+  internal:
+    secret: ${INTERNAL_API_SECRET:}
 
 springdoc:
   api-docs:
