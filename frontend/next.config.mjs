@@ -13,12 +13,16 @@ function buildContentSecurityPolicy() {
   const scriptSrc = [
     "'self'",
     "'unsafe-inline'",
+    // Telegram Login Widget internally calls `eval()` to boot its iframe.
+    // Without this the widget silently fails to attach (login iframe never
+    // renders) and the error surfaces as "iframe yuklanmadi". No known
+    // workaround short of dropping the official widget, so allow eval globally.
+    "'unsafe-eval'",
     'https://telegram.org',
     'https://*.telegram.org',
     'https://accounts.google.com',
     'https://apis.google.com',
     'https://www.gstatic.com',
-    ...(isProduction ? [] : ["'unsafe-eval'"]),
   ];
 
   const connectSrc = [
@@ -53,7 +57,9 @@ function buildContentSecurityPolicy() {
   return [
     "default-src 'self'",
     `script-src ${scriptSrc.join(' ')}`,
-    "style-src 'self' 'unsafe-inline'",
+    // Google Identity Services fetches `accounts.google.com/gsi/style` for the
+    // sign-in button; block that stylesheet and the button renders unstyled/broken.
+    "style-src 'self' 'unsafe-inline' https://accounts.google.com",
     "font-src 'self' data:",
     `img-src ${imgSrc.join(' ')}`,
     `connect-src ${connectSrc.join(' ')}`,
