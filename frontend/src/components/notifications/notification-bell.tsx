@@ -1,0 +1,171 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bell, CheckCheck, MessageCircle } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import {
+  fetchNotifications,
+  fetchUnreadCount,
+  markAllNotificationsRead,
+  markNotificationRead,
+  notificationLabel,
+} from '@/lib/notifications-client';
+import { formatListingDate } from '@/lib/marketplace-format';
+import type { NotificationResponse } from '@/lib/marketplace-types';
+import { cn } from '@/lib/utils';
+
+const POLL_INTERVAL_MS = 30_000;
+
+/**
+ * Bell + unread badge + dropdown. Polls the unread count; loads the list
+ * lazily when opened. Clicking an item marks it read and jumps to the chat.
+ */
+export function NotificationBell({ className }: { className?: string }) {
+  const router = useRouter();
+  const [unread, setUnread] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<NotificationResponse[] | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const refreshCount = useCallback(async () => {
+    const count = await fetchUnreadCount();
+    if (count !== null) setUnread(count);
+  }, []);
+
+  useEffect(() => {
+    refreshCount();
+    const timer = window.setInterval(refreshCount, POLL_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [refreshCount]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [open]);
+
+  async function toggleOpen() {
+    const next = !open;
+    setOpen(next);
+    if (next) {
+      setItems(await fetchNotifications());
+    }
+  }
+
+  async function handleItemClick(n: NotificationResponse) {
+    setOpen(false);
+    if (!n.readAt) {
+      setUnread((v) => Math.max(0, v - 1));
+      await markNotificationRead(n.id);
+    }
+    if (n.chatId) {
+      router.push(`/chats/${n.chatId}`);
+    } else if (n.listingId) {
+      router.push(`/marketplace/${n.listingId}`);
+    }
+  }
+
+  async function handleReadAll() {
+    setUnread(0);
+    setItems((prev) =>
+      prev?.map((n) => (n.readAt ? n : { ...n, readAt: new Date().toISOString() })) ?? prev,
+    );
+    await markAllNotificationsRead();
+  }
+
+  return (
+    <div ref={rootRef} className={cn('relative', className)}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="relative h-9 w-9 p-0"
+        onClick={toggleOpen}
+        aria-label={unread > 0 ? `Bildirishnomalar (${unread} o'qilmagan)` : 'Bildirishnomalar'}
+      >
+        <Bell className="h-5 w-5" />
+        {unread > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full bg-destructive px-1 text-[9.5px] font-bold leading-4 text-destructive-foreground">
+            {unread > 99 ? '99+' : unread}
+          </span>
+        )}
+      </Button>
+
+      {open && (
+        <div className="absolute right-0 top-11 z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card shadow-card-hover">
+          <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <p className="text-xs font-black uppercase tracking-wider text-foreground">
+              Bildirishnomalar
+            </p>
+            {unread > 0 && (
+              <button
+                type="button"
+                onClick={handleReadAll}
+                className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                Barchasini o'qish
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-96 overflow-y-auto">
+            {items === null ? (
+              <p className="px-4 py-6 text-center text-xs text-muted-foreground">Yuklanmoqda…</p>
+            ) : items.length === 0 ? (
+              <p className="px-4 py-6 text-center text-xs text-muted-foreground">
+                Hozircha bildirishnomalar yo'q.
+              </p>
+            ) : (
+              items.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => handleItemClick(n)}
+                  className={cn(
+                    'flex w-full items-start gap-2.5 border-b border-border/60 px-3 py-2.5 text-left transition last:border-b-0 hover:bg-accent/60',
+                    !n.readAt && 'bg-accent/30',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full',
+                      n.readAt
+                        ? 'bg-muted text-muted-foreground'
+                        : 'bg-primary/15 text-primary',
+                    )}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={cn(
+                        'block truncate text-xs text-foreground',
+                        !n.readAt && 'font-bold',
+                      )}
+                    >
+                      {notificationLabel(n)}
+                    </span>
+                    <span className="mt-0.5 block text-[10.5px] text-muted-foreground">
+                      {formatListingDate(n.createdAt)}
+                    </span>
+                  </span>
+                  {!n.readAt && (
+                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

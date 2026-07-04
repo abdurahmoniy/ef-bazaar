@@ -11,6 +11,7 @@ import uz.efbazaar.marketplace.domain.*;
 import uz.efbazaar.marketplace.event.MarketplaceEventPublisher;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
+import uz.efbazaar.marketplace.repository.ChatParticipantRepository;
 import uz.efbazaar.marketplace.repository.ChatRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
 import uz.efbazaar.marketplace.security.AuthNameClient;
@@ -18,6 +19,7 @@ import uz.efbazaar.marketplace.security.AuthNameClient;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -27,9 +29,11 @@ public class ChatService {
 
     private final ChatRepository chats;
     private final ChatMessageRepository messages;
+    private final ChatParticipantRepository participants;
     private final ListingRepository listings;
     private final MarketplaceEventPublisher events;
     private final AuthNameClient authNameClient;
+    private final NotificationService notifications;
 
     @Transactional
     public Chat start(UUID buyerId, UUID listingId) {
@@ -42,9 +46,13 @@ public class ChatService {
             throw MarketplaceException.cannotChatWithSelf();
         }
 
-        // Idempotency: agar allaqachon aktiv chat bor bo'lsa, qaytaramiz
+        // Idempotency: agar allaqachon aktiv chat bor bo'lsa, qaytaramiz.
+        // Xaridor uni "o'chirgan" bo'lsa ham qayta ochilgani — unhide.
         var existing = chats.findByBuyerIdAndListingIdAndStatus(buyerId, listingId, ChatStatus.ACTIVE);
         if (existing.isPresent()) {
+            participants.findByChatIdAndUserId(existing.get().getId(), buyerId)
+                    .filter(p -> p.getHiddenAt() != null)
+                    .ifPresent(p -> p.setHiddenAt(null));
             return existing.get();
         }
 
@@ -62,7 +70,12 @@ public class ChatService {
                     .important(false)
                     .lastMessageAt(Instant.now())
                     .build());
+            participants.save(ChatParticipant.builder()
+                    .chatId(chat.getId()).userId(buyerId).build());
+            participants.save(ChatParticipant.builder()
+                    .chatId(chat.getId()).userId(sellerId).build());
             events.chatCreated(chat.getId(), listingId, buyerId, sellerId);
+            notifications.chatCreated(chat);
             log.info("Chat created: id={} listingId={} buyer={} seller={}",
                     chat.getId(), listingId, buyerId, sellerId);
             return chat;
@@ -102,6 +115,43 @@ public class ChatService {
                 .content(content)
                 .build());
         chat.setLastMessageAt(saved.getCreatedAt());
+        // "Delete for me" is soft: a new message resurfaces the chat for
+        // whoever hid it, so the recipient never misses an active negotiation.
+        participants.unhideAll(chatId);
+        notifications.newMessage(chat, senderId);
+        return saved;
+    }
+
+    /**
+     * Persists a message carrying an already-uploaded attachment. The upload
+     * itself happens in {@link ChatAttachmentService} BEFORE this call (the
+     * controller checks participation first via {@link #getById} so strangers
+     * can't trigger Telegram uploads).
+     */
+    @Transactional
+    public ChatMessage sendAttachment(UUID chatId, UUID senderId,
+                                      ChatAttachmentService.Uploaded uploaded, String caption) {
+        Chat chat = chats.findById(chatId).orElseThrow(MarketplaceException::chatNotFound);
+        if (!chat.isParticipant(senderId)) {
+            throw MarketplaceException.notChatParticipant();
+        }
+        if (chat.getStatus() != ChatStatus.ACTIVE) {
+            throw MarketplaceException.chatAlreadyClosed();
+        }
+
+        ChatMessage saved = messages.save(ChatMessage.builder()
+                .chatId(chatId)
+                .senderId(senderId)
+                .content(caption == null ? "" : caption.trim())
+                .attachmentType(uploaded.type())
+                .attachmentFileId(uploaded.fileId())
+                .attachmentName(uploaded.name())
+                .attachmentMime(uploaded.mime())
+                .attachmentSize(uploaded.size())
+                .build());
+        chat.setLastMessageAt(saved.getCreatedAt());
+        participants.unhideAll(chatId);
+        notifications.newMessage(chat, senderId);
         return saved;
     }
 
@@ -116,12 +166,53 @@ public class ChatService {
         return messages.countByChatId(chatId);
     }
 
+    /**
+     * Toggles MY star only. {@code chat.important} is recomputed as the OR of
+     * both participants' stars — the expiry scheduler exempts a chat when
+     * either side marked it important.
+     */
     @Transactional
     public Chat toggleImportant(UUID chatId, UUID userId) {
         Chat chat = getById(chatId, userId);
-        chat.setImportant(!chat.isImportant());
-        log.debug("Chat {} important toggled to {} by {}", chatId, chat.isImportant(), userId);
+        ChatParticipant mine = getParticipantRow(chatId, userId);
+        mine.setImportant(!mine.isImportant());
+        boolean aggregate = participants.findByChatId(chatId).stream()
+                .anyMatch(ChatParticipant::isImportant);
+        chat.setImportant(aggregate);
+        log.debug("Chat {} important toggled to {} by {} (aggregate={})",
+                chatId, mine.isImportant(), userId, aggregate);
         return chat;
+    }
+
+    /**
+     * One-sided delete: hides the chat from MY list only. The partner keeps
+     * the conversation; any new message clears the flag and the chat
+     * reappears (see {@link #sendMessage}).
+     */
+    @Transactional
+    public void hide(UUID chatId, UUID userId) {
+        getById(chatId, userId); // participant check
+        ChatParticipant mine = getParticipantRow(chatId, userId);
+        if (mine.getHiddenAt() == null) {
+            mine.setHiddenAt(Instant.now());
+            log.info("Chat {} hidden by {}", chatId, userId);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<ChatParticipant> getParticipant(UUID chatId, UUID userId) {
+        return participants.findByChatIdAndUserId(chatId, userId);
+    }
+
+    /**
+     * Participant rows exist for every chat created after V10; the migration
+     * backfills older ones. A missing row can still occur for chats created by
+     * a concurrent pre-deploy node — self-heal by creating it lazily.
+     */
+    private ChatParticipant getParticipantRow(UUID chatId, UUID userId) {
+        return participants.findByChatIdAndUserId(chatId, userId)
+                .orElseGet(() -> participants.save(
+                        ChatParticipant.builder().chatId(chatId).userId(userId).build()));
     }
 
     @Transactional

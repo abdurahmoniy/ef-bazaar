@@ -83,4 +83,9 @@ public class MarketplaceException extends RuntimeException {
         return new MarketplaceException(HttpStatus.BAD_REQUEST, "cannot_report_own_listing",
                 "O'zingizning e'loningizni shikoyat qila olmaysiz");
     }
+
+    public static MarketplaceException notificationNotFound() {
+        return new MarketplaceException(HttpStatus.NOT_FOUND, "notification_not_found",
+                "Bildirishnoma topilmadi");
+    }
 }

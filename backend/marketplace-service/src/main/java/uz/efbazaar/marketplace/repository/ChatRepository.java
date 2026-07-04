@@ -18,9 +18,14 @@ public interface ChatRepository extends JpaRepository<Chat, UUID> {
 
     Optional<Chat> findByBuyerIdAndListingIdAndStatus(UUID buyerId, UUID listingId, ChatStatus status);
 
+    /**
+     * Chats visible in the user's list — participant row exists and the user
+     * has not hidden ("deleted for me") the conversation.
+     */
     @Query("""
             SELECT c FROM Chat c
-            WHERE (c.buyerId = :userId OR c.sellerId = :userId)
+            JOIN ChatParticipant p ON p.chatId = c.id AND p.userId = :userId
+            WHERE p.hiddenAt IS NULL
             ORDER BY c.lastMessageAt DESC
             """)
     Page<Chat> findByParticipant(@Param("userId") UUID userId, Pageable pageable);

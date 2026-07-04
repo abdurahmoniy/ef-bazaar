@@ -3,6 +3,7 @@ import { Heart, Home, MessageCircle, Plus, Search, ShieldCheck, UserRound } from
 
 import { Logo } from '@/components/brand/logo';
 import { TopBackButton } from '@/components/navigation/top-back-button';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -97,6 +98,7 @@ export function MarketplaceShell({
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            {user && <NotificationBell />}
             <Button asChild size="sm" className="hidden h-10 rounded-lg px-4 sm:inline-flex">
               <Link href={user ? '/marketplace/new' : '/auth/login?from=/marketplace/new'}>
                 <Plus className="h-4 w-4" />

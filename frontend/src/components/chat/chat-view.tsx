@@ -6,13 +6,17 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import {
   AlertTriangle,
   ChevronLeft,
+  Paperclip,
   Send,
   Star,
   StarOff,
   Trash2,
+  X,
 } from 'lucide-react';
 
 import { ChatPinnedHeader } from '@/components/chat/chat-pinned-header';
+import { MessageAttachment, formatBytes } from '@/components/chat/message-attachment';
+import { VoiceRecorder } from '@/components/chat/voice-recorder';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -41,10 +45,13 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
   const [chat, setChat] = useState(initialChat);
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState('');
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSending, startSend] = useTransition();
   const [isUpdating, startUpdate] = useTransition();
   const listRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isClosed = chat.status !== 'ACTIVE';
   const name = partnerName(chat, viewerId);
@@ -77,15 +84,40 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
 
   function handleSend() {
     const content = draft.trim();
-    if (!content) return;
+    if (!content && !pendingFile) return;
     setError(null);
     startSend(async () => {
-      const result = await sendMessage(chat.id, content);
+      const result = pendingFile
+        ? await sendAttachment(chat.id, pendingFile, content)
+        : await sendMessage(chat.id, content);
       if (!result.ok) {
         setError(result.error ?? 'Yuborilmadi');
         return;
       }
       setDraft('');
+      setPendingFile(null);
+      setMessages((prev) => mergeMessages(prev, [result.message]));
+    });
+  }
+
+  function handlePickFile(file: File | null) {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Fayl hajmi 10MB dan oshmasligi kerak');
+      return;
+    }
+    setError(null);
+    setPendingFile(file);
+  }
+
+  function handleSendVoice(file: File) {
+    setError(null);
+    startSend(async () => {
+      const result = await sendAttachment(chat.id, file, '', true);
+      if (!result.ok) {
+        setError(result.error ?? 'Yuborilmadi');
+        return;
+      }
       setMessages((prev) => mergeMessages(prev, [result.message]));
     });
   }
@@ -103,16 +135,22 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
     });
   }
 
-  function handleClose() {
-    if (!confirm('Chatni yopmoqchimisiz? Yopilgan chatga yozib bo\'lmaydi.')) return;
+  function handleDelete() {
+    if (
+      !confirm(
+        "Chatni o'chirmoqchimisiz? U faqat sizning ro'yxatingizdan o'chadi — " +
+          'suhbatdoshingizda saqlanib qoladi.',
+      )
+    )
+      return;
     setError(null);
     startUpdate(async () => {
-      const result = await closeChat(chat.id);
+      const result = await hideChat(chat.id);
       if (!result.ok) {
-        setError(result.error ?? 'Chat yopilmadi');
+        setError(result.error ?? "Chat o'chirilmadi");
         return;
       }
-      setChat(result.chat);
+      router.push('/chats');
       router.refresh();
     });
   }
@@ -160,20 +198,18 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
           >
             {chat.important ? <StarOff className="h-5 w-5" /> : <Star className="h-5 w-5" />}
           </Button>
-          {!isClosed && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              disabled={isUpdating}
-              onClick={handleClose}
-              title="Chatni yakunlash"
-              aria-label="Chatni yakunlash"
-            >
-              <Trash2 className="h-5 w-5" />
-            </Button>
-          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            disabled={isUpdating}
+            onClick={handleDelete}
+            title="Chatni o'chirish"
+            aria-label="Chatni o'chirish"
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
         </div>
       </header>
 
@@ -189,6 +225,7 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
         )}
         {messages.map((message) => {
           const mine = message.senderId === viewerId;
+          const hasAttachment = Boolean(message.attachmentType && message.attachmentFileId);
           return (
             <div
               key={message.id}
@@ -196,13 +233,19 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
             >
               <div
                 className={cn(
-                  'max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words',
+                  'max-w-[80%] rounded-2xl text-sm whitespace-pre-wrap break-words',
+                  hasAttachment && message.attachmentType === 'IMAGE' ? 'p-1' : 'px-3 py-2',
                   mine
                     ? 'rounded-br-md bg-primary text-primary-foreground'
                     : 'rounded-bl-md bg-muted text-foreground',
                 )}
               >
-                {message.content}
+                {hasAttachment && <MessageAttachment message={message} mine={mine} />}
+                {message.content && (
+                  <span className={cn('block', hasAttachment && 'px-2 pb-1 pt-1.5')}>
+                    {message.content}
+                  </span>
+                )}
               </div>
               <span className="mt-0.5 text-[10px] text-muted-foreground">
                 {formatListingDate(message.createdAt)}
@@ -225,30 +268,94 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
         </div>
       ) : (
         <div className="border-t border-border bg-card px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+          {pendingFile && (
+            <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
+              {pendingFile.type.startsWith('image/') && (
+                <img
+                  src={URL.createObjectURL(pendingFile)}
+                  alt=""
+                  className="h-10 w-10 rounded-md object-cover"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-foreground">
+                  {pendingFile.name}
+                </p>
+                <p className="text-[10.5px] text-muted-foreground">
+                  {formatBytes(pendingFile.size)}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 shrink-0 p-0"
+                onClick={() => setPendingFile(null)}
+                aria-label="Faylni olib tashlash"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
           <div className="flex items-end gap-2">
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                handlePickFile(e.target.files?.[0] ?? null);
+                e.target.value = '';
               }}
-              placeholder="Xabar yozing…"
-              rows={2}
-              className="min-h-11 resize-none"
-              disabled={isSending}
             />
-            <Button
-              type="button"
-              size="lg"
-              className="h-11 shrink-0"
-              onClick={handleSend}
-              disabled={isSending || draft.trim().length === 0}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+            {!isRecording && (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="lg"
+                  className="h-11 w-11 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSending}
+                  title="Fayl biriktirish"
+                  aria-label="Fayl biriktirish"
+                >
+                  <Paperclip className="h-5 w-5" />
+                </Button>
+                <Textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder={pendingFile ? 'Izoh (ixtiyoriy)…' : 'Xabar yozing…'}
+                  rows={2}
+                  className="min-h-11 resize-none"
+                  disabled={isSending}
+                />
+              </>
+            )}
+            {draft.trim().length === 0 && !pendingFile ? (
+              <VoiceRecorder
+                disabled={isSending}
+                onSend={handleSendVoice}
+                onError={setError}
+                recording={isRecording}
+                onRecordingChange={setIsRecording}
+              />
+            ) : (
+              <Button
+                type="button"
+                size="lg"
+                className="h-11 shrink-0"
+                onClick={handleSend}
+                disabled={isSending}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           <p className="mt-1 hidden text-[10px] text-muted-foreground md:block">
             Enter — yuborish · Shift+Enter — yangi qator
@@ -294,6 +401,25 @@ async function sendMessage(chatId: string, content: string): Promise<SendResult>
   return { ok: true, message };
 }
 
+async function sendAttachment(
+  chatId: string,
+  file: File,
+  caption: string,
+  voice = false,
+): Promise<SendResult> {
+  const form = new FormData();
+  form.append('file', file);
+  if (caption) form.append('caption', caption);
+  if (voice) form.append('voice', 'true');
+  const response = await fetch(
+    buildMarketplaceApiPath(['v1', 'chats', chatId, 'messages', 'attachments']),
+    { method: 'POST', credentials: 'include', body: form },
+  );
+  if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
+  const message = (await response.json()) as MessageResponse;
+  return { ok: true, message };
+}
+
 type ChatResult =
   | { ok: true; chat: ChatResponse }
   | { ok: false; error: string };
@@ -307,13 +433,15 @@ async function toggleImportant(chatId: string): Promise<ChatResult> {
   return { ok: true, chat: (await response.json()) as ChatResponse };
 }
 
-async function closeChat(chatId: string): Promise<ChatResult> {
+type HideResult = { ok: true } | { ok: false; error: string };
+
+async function hideChat(chatId: string): Promise<HideResult> {
   const response = await fetch(
-    buildMarketplaceApiPath(['v1', 'chats', chatId, 'close']),
+    buildMarketplaceApiPath(['v1', 'chats', chatId, 'hide']),
     { method: 'POST', credentials: 'include' },
   );
   if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
-  return { ok: true, chat: (await response.json()) as ChatResponse };
+  return { ok: true };
 }
 
 async function readErrorMessage(response: Response) {

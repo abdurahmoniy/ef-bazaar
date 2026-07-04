@@ -41,6 +41,17 @@ public class TelegramApiClient {
      * @return sent message id (or empty on failure — we don't crash the caller).
      */
     public Optional<Integer> sendMessage(String chatId, Integer threadId, String text) {
+        return sendMessage(chatId, threadId, text, null);
+    }
+
+    /**
+     * sendMessage with an optional single-button inline keyboard that opens a
+     * Telegram Mini App ({@code web_app} button). Only valid in private chats —
+     * exactly where our DM notifications go. Pass {@code null} button to send a
+     * plain message.
+     */
+    public Optional<Integer> sendMessage(String chatId, Integer threadId, String text,
+                                         WebAppButton button) {
         ObjectNode body = objectMapper.createObjectNode()
                 .put("chat_id", chatId)
                 .put("text", text)
@@ -48,6 +59,17 @@ public class TelegramApiClient {
                 .put("disable_web_page_preview", true);
         if (threadId != null) {
             body.put("message_thread_id", threadId);
+        }
+        if (button != null) {
+            ObjectNode webApp = objectMapper.createObjectNode()
+                    .put("url", button.url());
+            ObjectNode inlineButton = objectMapper.createObjectNode()
+                    .put("text", button.text());
+            inlineButton.set("web_app", webApp);
+            ArrayNode row = objectMapper.createArrayNode().add(inlineButton);
+            ObjectNode markup = objectMapper.createObjectNode();
+            markup.set("inline_keyboard", objectMapper.createArrayNode().add(row));
+            body.set("reply_markup", markup);
         }
         return postJson("sendMessage", body)
                 .map(this::extractMessageId);
@@ -103,6 +125,43 @@ public class TelegramApiClient {
         } catch (WebClientResponseException e) {
             log.error("Telegram sendMediaGroup failed: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
             return List.of();
+        }
+    }
+
+    /**
+     * sendDocument — arbitrary file to the media topic, original bytes kept
+     * (photos sent as documents are NOT recompressed by Telegram). Used for
+     * chat file attachments.
+     *
+     * @return (messageId, document file_id) or empty on failure.
+     */
+    public Optional<UploadedDocument> sendDocument(String chatId, Integer threadId,
+                                                   MediaFile file, String caption) {
+        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("chat_id", chatId);
+        if (threadId != null) form.add("message_thread_id", String.valueOf(threadId));
+        if (caption != null && !caption.isBlank()) {
+            form.add("caption", caption);
+            form.add("parse_mode", "HTML");
+        }
+        form.add("document", asResource(file));
+
+        try {
+            JsonNode result = telegramWebClient.post()
+                    .uri("/sendDocument")
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(BodyInserters.fromMultipartData(form))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .map(r -> r.path("ok").asBoolean() ? r.path("result") : null)
+                    .block();
+            if (result == null) return Optional.empty();
+            String fileId = result.path("document").path("file_id").asText(null);
+            if (fileId == null) return Optional.empty();
+            return Optional.of(new UploadedDocument(result.path("message_id").asInt(), fileId));
+        } catch (WebClientResponseException e) {
+            log.error("sendDocument failed: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
+            return Optional.empty();
         }
     }
 
@@ -285,6 +344,12 @@ public class TelegramApiClient {
 
     public record MediaFile(byte[] bytes, String filename, String contentType) {}
     public record UploadedPhoto(int messageId, String fileId, String fileUniqueId) {}
+
+    /** Single inline-keyboard button that opens a Telegram Mini App. */
+    public record WebAppButton(String text, String url) {}
+
+    /** Result of {@link #sendDocument}. */
+    public record UploadedDocument(int messageId, String fileId) {}
 
     /** Source photo metadata used to dedupe before re-uploading. */
     public record ProfilePhoto(String fileId, String fileUniqueId) {}

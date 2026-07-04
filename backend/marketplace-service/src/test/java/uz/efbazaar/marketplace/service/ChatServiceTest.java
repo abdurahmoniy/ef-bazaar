@@ -10,6 +10,7 @@ import uz.efbazaar.marketplace.domain.*;
 import uz.efbazaar.marketplace.event.MarketplaceEventPublisher;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
+import uz.efbazaar.marketplace.repository.ChatParticipantRepository;
 import uz.efbazaar.marketplace.repository.ChatRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
 import uz.efbazaar.marketplace.security.AuthNameClient;
@@ -29,9 +30,11 @@ class ChatServiceTest {
 
     @Mock ChatRepository chats;
     @Mock ChatMessageRepository messages;
+    @Mock ChatParticipantRepository participants;
     @Mock ListingRepository listings;
     @Mock MarketplaceEventPublisher events;
     @Mock AuthNameClient authNameClient;
+    @Mock NotificationService notifications;
 
     @InjectMocks ChatService service;
 
@@ -167,6 +170,63 @@ class ChatServiceTest {
         assertThatThrownBy(() -> service.sendMessage(chatId, buyerId, "hi"))
                 .isInstanceOf(MarketplaceException.class)
                 .hasMessageContaining("yopilgan");
+    }
+
+    @Test
+    void toggleImportant_togglesMyRowAndRecomputesAggregate() {
+        UUID chatId = UUID.randomUUID();
+        Chat chat = Chat.builder()
+                .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
+                .status(ChatStatus.ACTIVE).important(false).build();
+        ChatParticipant mine = ChatParticipant.builder()
+                .chatId(chatId).userId(buyerId).important(false).build();
+        ChatParticipant partner = ChatParticipant.builder()
+                .chatId(chatId).userId(sellerId).important(false).build();
+        when(chats.findById(chatId)).thenReturn(Optional.of(chat));
+        when(participants.findByChatIdAndUserId(chatId, buyerId)).thenReturn(Optional.of(mine));
+        when(participants.findByChatId(chatId)).thenReturn(java.util.List.of(mine, partner));
+
+        service.toggleImportant(chatId, buyerId);
+
+        assertThat(mine.isImportant()).isTrue();
+        assertThat(partner.isImportant()).isFalse();
+        assertThat(chat.isImportant()).isTrue(); // aggregate: either side starred
+    }
+
+    @Test
+    void hide_setsMyHiddenAtOnly() {
+        UUID chatId = UUID.randomUUID();
+        Chat chat = Chat.builder()
+                .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
+                .status(ChatStatus.ACTIVE).build();
+        ChatParticipant mine = ChatParticipant.builder()
+                .chatId(chatId).userId(buyerId).build();
+        when(chats.findById(chatId)).thenReturn(Optional.of(chat));
+        when(participants.findByChatIdAndUserId(chatId, buyerId)).thenReturn(Optional.of(mine));
+
+        service.hide(chatId, buyerId);
+
+        assertThat(mine.getHiddenAt()).isNotNull();
+        assertThat(chat.getStatus()).isEqualTo(ChatStatus.ACTIVE); // partner unaffected
+    }
+
+    @Test
+    void sendMessage_unhidesChatForEveryone() {
+        UUID chatId = UUID.randomUUID();
+        Chat chat = Chat.builder()
+                .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
+                .status(ChatStatus.ACTIVE).build();
+        when(chats.findById(chatId)).thenReturn(Optional.of(chat));
+        when(messages.save(any(ChatMessage.class))).thenAnswer(inv -> {
+            ChatMessage m = inv.getArgument(0);
+            m.setId(UUID.randomUUID());
+            m.setCreatedAt(java.time.Instant.now());
+            return m;
+        });
+
+        service.sendMessage(chatId, buyerId, "salom");
+
+        org.mockito.Mockito.verify(participants).unhideAll(chatId);
     }
 
     @Test

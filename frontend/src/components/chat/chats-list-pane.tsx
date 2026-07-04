@@ -7,6 +7,7 @@ import { ChevronLeft, MessageCircle, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ChatListItem } from '@/components/chat/chat-list-item';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { partnerName } from '@/lib/chat-format';
 import type { ChatResponse } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
@@ -51,6 +52,7 @@ export function ChatsListPane({ chats, viewerId }: ChatsListPaneProps) {
         </Button>
         <h1 className="text-base font-black text-foreground">Chatlar</h1>
         <div className="ml-auto flex items-center gap-1">
+          <NotificationBell />
           <Button
             type="button"
             variant="ghost"

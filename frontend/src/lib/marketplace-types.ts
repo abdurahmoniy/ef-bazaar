@@ -132,10 +132,29 @@ export interface ChatResponse {
   messageCount: number;
 }
 
+export type AttachmentType = 'IMAGE' | 'FILE' | 'VOICE';
+
 export interface MessageResponse {
   id: string;
   chatId: string;
   senderId: string;
   content: string;
+  attachmentType?: AttachmentType | null;
+  attachmentFileId?: string | null;
+  attachmentName?: string | null;
+  attachmentMime?: string | null;
+  attachmentSize?: number | null;
+  createdAt: string;
+}
+
+export type NotificationType = 'CHAT_CREATED' | 'CHAT_MESSAGE';
+
+export interface NotificationResponse {
+  id: string;
+  type: NotificationType;
+  chatId?: string | null;
+  listingId?: string | null;
+  actorDisplayName?: string | null;
+  readAt?: string | null;
   createdAt: string;
 }

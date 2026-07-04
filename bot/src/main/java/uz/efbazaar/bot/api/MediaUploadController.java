@@ -105,5 +105,41 @@ public class MediaUploadController {
         }
     }
 
+    /**
+     * Single-file upload as a Telegram DOCUMENT — original bytes preserved
+     * (no photo recompression). Used by marketplace-service for chat file
+     * and voice attachments. No Kafka event: chat media is not part of the
+     * listing analytics stream.
+     */
+    @PostMapping(value = "/upload-file", consumes = "multipart/form-data")
+    @ResponseStatus(HttpStatus.OK)
+    public FileUploadResponse uploadFile(@RequestParam("file") MultipartFile file,
+                                         @RequestParam(value = "caption", required = false) String caption) {
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "file majburiy");
+        }
+        MediaFile mediaFile;
+        try {
+            mediaFile = new MediaFile(
+                    file.getBytes(),
+                    file.getOriginalFilename() != null ? file.getOriginalFilename() : "file",
+                    file.getContentType());
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Fayl o'qib bo'lmadi: " + file.getOriginalFilename());
+        }
+
+        var uploaded = telegram.sendDocument(
+                props.groupChatId(), props.topics().media(), mediaFile, caption);
+        if (uploaded.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "Telegram ga yuklash muvaffaqiyatsiz tugadi");
+        }
+        log.info("Uploaded document to media topic: messageId={}", uploaded.get().messageId());
+        return new FileUploadResponse(uploaded.get().fileId(), uploaded.get().messageId());
+    }
+
     public record UploadResponse(List<String> fileIds, List<Integer> messageIds) {}
+
+    public record FileUploadResponse(String fileId, int messageId) {}
 }

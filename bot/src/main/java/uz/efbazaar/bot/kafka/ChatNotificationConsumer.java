@@ -42,9 +42,13 @@ public class ChatNotificationConsumer {
         }
 
         String message = buildMessage(e);
+        // web_app button opens the chat as a Telegram Mini App — no browser
+        // round-trip, and the user is already authenticated via initData.
+        var button = new TelegramApiClient.WebAppButton(
+                "💬 Chatni ochish", webBaseUrl + "/chats/" + e.chatId());
         try {
             Optional<Integer> messageId = telegram.sendMessage(
-                    String.valueOf(e.sellerTelegramId()), null, message);
+                    String.valueOf(e.sellerTelegramId()), null, message, button);
             if (messageId.isEmpty()) {
                 log.warn("Chat DM not delivered to sellerTelegramId={} chatId={}",
                         e.sellerTelegramId(), e.chatId());
@@ -62,12 +66,10 @@ public class ChatNotificationConsumer {
         String buyerLabel = e.buyerTelegramUsername() != null && !e.buyerTelegramUsername().isBlank()
                 ? "@" + escape(e.buyerTelegramUsername())
                 : escape(e.buyerDisplayName() != null ? e.buyerDisplayName() : "Xaridor");
-        String chatUrl = webBaseUrl + "/chats/" + e.chatId();
         String listingUrl = webBaseUrl + "/marketplace/" + e.listingId();
         return "💬 <b>Yangi chat</b>\n"
                 + buyerLabel + " sizning "
-                + "<a href=\"" + listingUrl + "\">e'loningiz</a> uchun bog'landi.\n\n"
-                + "Ochish: " + chatUrl;
+                + "<a href=\"" + listingUrl + "\">e'loningiz</a> uchun bog'landi.";
     }
 
     private static String escape(String s) {
