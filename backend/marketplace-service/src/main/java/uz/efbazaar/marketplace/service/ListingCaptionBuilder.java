@@ -14,10 +14,15 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Composes the plain-text caption attached to the first photo of a listing's
- * Telegram media group. Format is intentionally plain (no MarkdownV2 escaping)
- * so any user-supplied text can pass through safely. Telegram limits captions to
- * 1024 chars — this builder truncates the description tail if needed.
+ * Composes the caption attached to the first photo of a listing's Telegram
+ * media group. Emits HTML — TelegramApiClient.sendMediaGroup sets
+ * {@code parse_mode: HTML} — so field labels can be bolded and card lists
+ * render as bullet points with rating/type/position/style badges.
+ *
+ * <p>User-supplied text (description, attribute strings) is HTML-escaped
+ * before it hits the caption so no `<` in the description breaks the parse.
+ * Telegram limits captions to 1024 chars — this builder truncates the
+ * description tail if the total spills over.
  */
 @Component
 @RequiredArgsConstructor
@@ -34,10 +39,12 @@ public class ListingCaptionBuilder {
     public String build(Listing listing) {
         StringBuilder sb = new StringBuilder(512);
 
-        sb.append("Listing ").append(shortId(listing.getId().toString())).append('\n');
-        sb.append("Narx: ").append(formatPrice(listing.getPrice())).append(" so'm");
+        sb.append("<b>Listing</b> <code>")
+                .append(escape(shortId(listing.getId().toString())))
+                .append("</code>\n");
+        sb.append("<b>Narx:</b> ").append(escape(formatPrice(listing.getPrice()))).append(" so'm");
         if (listing.isPriceNegotiable()) {
-            sb.append(" (kelishuvli)");
+            sb.append(" <i>(kelishuvli)</i>");
         }
         sb.append('\n');
 
@@ -48,18 +55,72 @@ public class ListingCaptionBuilder {
             for (AttributeDefinition def : defs) {
                 Object raw = attrs.get(def.getKey());
                 if (raw == null) continue;
-                String rendered = renderValue(raw);
-                if (rendered.isEmpty()) continue;
-                sb.append(def.getLabelUz()).append(": ").append(rendered).append('\n');
+                appendAttribute(sb, def, raw);
             }
         }
 
         String description = listing.getDescription();
         if (description != null && !description.isBlank()) {
-            sb.append('\n').append(head(description, DESCRIPTION_HEAD_CHARS));
+            sb.append('\n').append(escape(head(description, DESCRIPTION_HEAD_CHARS)));
         }
 
         return truncate(sb.toString(), MAX_CAPTION_LENGTH);
+    }
+
+    private static void appendAttribute(StringBuilder sb, AttributeDefinition def, Object raw) {
+        // Card lists get their own block so the badges show up on separate lines.
+        if (raw instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof Map<?, ?>) {
+            String cards = renderCardList(list);
+            if (cards.isEmpty()) return;
+            sb.append("<b>").append(escape(def.getLabelUz())).append(":</b>\n").append(cards);
+            return;
+        }
+        String rendered = renderValue(raw);
+        if (rendered.isEmpty()) return;
+        sb.append("<b>").append(escape(def.getLabelUz())).append(":</b> ")
+                .append(rendered).append('\n');
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String renderCardList(List<?> list) {
+        StringBuilder out = new StringBuilder();
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> map)) continue;
+            Map<String, Object> card = (Map<String, Object>) map;
+            Object name = card.get("name");
+            if (!(name instanceof String s) || s.isBlank()) continue;
+            out.append("• <b>").append(escape(s)).append("</b>");
+            String suffix = cardSuffix(card);
+            if (!suffix.isEmpty()) out.append(' ').append(suffix);
+            out.append('\n');
+        }
+        return out.toString();
+    }
+
+    private static String cardSuffix(Map<String, Object> card) {
+        StringBuilder parts = new StringBuilder();
+        Object rating = card.get("overall_rating");
+        Object type = card.get("card_type");
+        if (rating instanceof Number || type instanceof String) {
+            parts.append("<code>");
+            if (type instanceof String t && !t.isBlank()) {
+                parts.append(escape(t));
+                if (rating instanceof Number) parts.append(' ');
+            }
+            if (rating instanceof Number n) parts.append(n.intValue());
+            parts.append("</code>");
+        }
+        Object position = card.get("position");
+        if (position instanceof String p && !p.isBlank()) {
+            if (parts.length() > 0) parts.append(" · ");
+            parts.append(escape(p));
+        }
+        Object style = card.get("playing_style");
+        if (style instanceof String st && !st.isBlank()) {
+            if (parts.length() > 0) parts.append(" · ");
+            parts.append("<i>").append(escape(st)).append("</i>");
+        }
+        return parts.toString();
     }
 
     private static String shortId(String uuid) {
@@ -83,11 +144,19 @@ public class ListingCaptionBuilder {
                 String s = item.toString().strip();
                 if (s.isEmpty()) continue;
                 if (joined.length() > 0) joined.append(", ");
-                joined.append(s);
+                joined.append(escape(s));
             }
             return joined.toString();
         }
-        return raw.toString();
+        return escape(raw.toString());
+    }
+
+    /** Minimal HTML-escape for Telegram HTML parse_mode. */
+    private static String escape(String s) {
+        if (s == null || s.isEmpty()) return "";
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;");
     }
 
     private static String head(String s, int max) {
