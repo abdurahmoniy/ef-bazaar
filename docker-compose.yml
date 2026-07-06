@@ -183,7 +183,10 @@ services:
       # efhub daily card scrape — har kuni 06:00 UTC (11:00 Tashkent).
       # Yakuniga yetgach NotifyMarker.NOTIFY bilan INFO log yozadi, u Kafka
       # log-forwarder orqali Telegram logs topikga chiqadi.
+      # Test uchun EFHUB_SYNC_CRON'ni .env'da vaqtincha "0 */5 * * * *"
+      # (har 5 daqiqada) qilib qo'yish mumkin, keyin qaytariladi.
       EFHUB_SYNC_ENABLED: ${EFHUB_SYNC_ENABLED:-true}
+      EFHUB_SYNC_CRON: ${EFHUB_SYNC_CRON:-0 0 6 * * *}
     depends_on:
       postgres:
         condition: service_healthy
