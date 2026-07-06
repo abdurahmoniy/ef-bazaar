@@ -155,8 +155,12 @@ else
 fi
 
 # ─── 5. Retention rollup ───────────────────────────────────────────────
-# Turn OFF trap during rollup — errors here shouldn't fail the whole backup.
+# Turn OFF trap AND `set -e` during rollup — rollup errors are non-fatal
+# (worst case: some old dailies stay uncompressed). If we let `set -e` bubble
+# up, the script exits non-zero and systemd's Restart=on-failure would
+# re-run the whole backup, uploading a duplicate to Telegram.
 trap - ERR
+set +e
 rollup_daily_to_weekly() {
     # Agar daily/ ichida 7+ fayl bo'lsa — eng eski 7 tasini weekly/<YYYY-Www>.tar ga qadash
     mapfile -t old_files < <(ls -1 "$DAILY_DIR" 2>/dev/null | sort | head -n -7)

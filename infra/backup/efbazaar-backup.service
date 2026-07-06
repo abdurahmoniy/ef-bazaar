@@ -4,9 +4,6 @@ Documentation=https://github.com/abdurahmoniy/ef-bazaar/tree/main/infra/backup
 After=docker.service network-online.target
 Wants=network-online.target
 Requires=docker.service
-# StartLimit* [Unit]da bo'lishi shart — [Service]'da systemd 'Unknown key' warning beradi.
-StartLimitBurst=3
-StartLimitIntervalSec=1200
 
 [Service]
 Type=oneshot
@@ -14,9 +11,10 @@ User=root
 WorkingDirectory=/opt/efbazaar/infra/backup
 ExecStart=/usr/bin/env bash /opt/efbazaar/infra/backup/backup-db.sh
 
-# Retries on failure — 3 marta 5 daqiqa oralig'ida.
-Restart=on-failure
-RestartSec=5min
+# NO Restart=on-failure — backup is one-shot, and any real failure already
+# alerts via alert_fail() to the health topic. Retrying would upload a second
+# copy of the same day's dump (user sees 2 backup messages back-to-back).
+# Timer runs again next day; investigate manually if a run fails.
 
 StandardOutput=journal
 StandardError=journal
