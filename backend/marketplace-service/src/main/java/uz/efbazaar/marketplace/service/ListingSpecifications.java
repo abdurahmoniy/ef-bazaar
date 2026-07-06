@@ -10,6 +10,7 @@ import uz.efbazaar.marketplace.dto.ListingFilter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * JPA Specification builder for listing browse.
@@ -21,6 +22,14 @@ import java.util.Map;
  * will be added in a follow-up once the frontend needs them.
  */
 public final class ListingSpecifications {
+
+    /**
+     * Attribute keys stored as comma-separated strings ("Cristiano Ronaldo,
+     * Lionel Messi"). Filtering by one member needs substring match; equality
+     * on the whole string almost never lands a hit. Everything else stays on
+     * equality — booleans, ints, single-value enums.
+     */
+    private static final Set<String> LIST_LIKE_ATTRS = Set.of("valuable_players");
 
     private ListingSpecifications() {}
 
@@ -50,7 +59,13 @@ public final class ListingSpecifications {
                             String.class,
                             root.get("attributes"),
                             cb.literal(entry.getKey()));
-                    ps.add(cb.equal(extracted, String.valueOf(entry.getValue())));
+                    String value = String.valueOf(entry.getValue());
+                    if (LIST_LIKE_ATTRS.contains(entry.getKey())) {
+                        ps.add(cb.like(cb.lower(extracted),
+                                "%" + value.toLowerCase() + "%"));
+                    } else {
+                        ps.add(cb.equal(extracted, value));
+                    }
                 }
             }
             return cb.and(ps.toArray(Predicate[]::new));
