@@ -2,6 +2,7 @@ package uz.efbazaar.marketplace.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Formula;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -68,6 +69,14 @@ public class Listing {
     @Column(name = "forward_count", nullable = false)
     @Builder.Default
     private int forwardCount = 0;
+
+    /**
+     * Read-only aggregate — computed by Hibernate via a subquery so JPA sorts
+     * like {@code ?sort=likeCount,desc} bind to a real column reference. Not
+     * persisted; kept out of writes with `insertable/updatable = false`.
+     */
+    @Formula("(SELECT COUNT(*) FROM listing_likes lk WHERE lk.listing_id = id)")
+    private Long likeCount;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
