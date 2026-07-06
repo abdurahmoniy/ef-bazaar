@@ -35,11 +35,11 @@ export const SEEDED_LISTING_ATTRIBUTE_DEFINITIONS: FormAttributeDefinition[] = [
   {
     key: 'valuable_players',
     labelUz: "Yulduz o'yinchilar",
-    type: 'LIST_STRING',
+    type: 'CARD_LIST',
     required: false,
     position: 30,
     groupKey: 'squad',
-    constraints: { item_max_length: 64 },
+    constraints: { max_items: 12 },
     legacyFieldName: 'valuablePlayers',
   },
   {

@@ -13,7 +13,7 @@ import { listingMediaUrls } from '@/lib/marketplace-media';
 import {
   attributeBoolean,
   attributeNumber,
-  attributeStringList,
+  attributeCardList,
   type ListingResponse,
 } from '@/lib/marketplace-types';
 
@@ -37,7 +37,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   const androidCoins = attributeNumber(listing, 'android_coins') ?? 0;
   const iosCoins = attributeNumber(listing, 'ios_coins') ?? 0;
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
-  const valuablePlayers = attributeStringList(listing, 'valuable_players');
+  const valuablePlayers = attributeCardList(listing, 'valuable_players');
   const coverUrl = listingMediaUrls(listing, 1)[0];
   const href = `/marketplace/${listing.id}`;
 
@@ -180,9 +180,18 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
         </div>
         {valuablePlayers.length > 0 && (
           <div className="flex flex-wrap gap-1 pt-0.5">
-            {valuablePlayers.slice(0, 3).map((player) => (
-              <Badge key={player} variant="muted" className="px-1.5 py-0 text-[10px]">
-                {player}
+            {valuablePlayers.slice(0, 3).map((card) => (
+              <Badge
+                key={card.efhubId || card.name}
+                variant="muted"
+                className="px-1.5 py-0 text-[10px]"
+              >
+                {card.name}
+                {typeof card.overallRating === 'number' && (
+                  <span className="ml-1 rounded bg-primary/10 px-1 text-[9px] font-black text-primary">
+                    {card.overallRating}
+                  </span>
+                )}
               </Badge>
             ))}
           </div>

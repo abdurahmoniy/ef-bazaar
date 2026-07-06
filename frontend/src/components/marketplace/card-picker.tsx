@@ -16,14 +16,13 @@ export interface PlayerCard {
   overallRating?: number;
   cardType?: string;
   imageUrl?: string;
+  skills?: string[];
 }
 
 interface CardPickerProps {
   mode: 'single' | 'multi';
-  value: string[];
-  onChange?: (next: string[]) => void;
-  /** When set, renders hidden <input>s for each value so a native form submits them. */
-  hiddenFieldName?: string;
+  value: PlayerCard[];
+  onChange?: (next: PlayerCard[]) => void;
   max?: number;
   placeholder?: string;
   id?: string;
@@ -35,24 +34,17 @@ const MIN_QUERY = 2;
 const MAX_RESULTS = 20;
 
 /**
- * Serialize a card into the string that gets stored / submitted.
- * - single mode: just the name (broad match — used by the filter).
- * - multi mode: name + OVR + card type, so multiple variants of one player
- *   remain distinguishable in the stored list.
+ * Full-card picker — the caller owns an array of {@link PlayerCard} entities
+ * and rendering / filtering downstream can key off any field
+ * (efhubId, type, rating, skills, …). This is the source of truth for the
+ * listing form's {@code valuable_players} and for the marketplace card
+ * filter; both consume {@code onChange}'s {@link PlayerCard}[] directly
+ * instead of a serialized name string.
  */
-function serializeCard(card: PlayerCard, mode: 'single' | 'multi') {
-  if (mode === 'single') return card.name;
-  const ovr = typeof card.overallRating === 'number' ? ` ${card.overallRating}` : '';
-  const type = card.cardType ? ` ${card.cardType}` : '';
-  const suffix = ovr || type ? ` ·${ovr}${type}` : '';
-  return `${card.name}${suffix}`.trim();
-}
-
 export function CardPicker({
   mode,
   value,
   onChange,
-  hiddenFieldName,
   max = 12,
   placeholder = "O'yinchi qidirish (masalan: Messi)",
   id,
@@ -63,10 +55,6 @@ export function CardPicker({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  // Rich metadata for cards the user picked in this session, keyed by the
-  // serialized identifier. Missing entries (e.g. hydrated from URL) fall back
-  // to a plain-text pill.
-  const [cardCache, setCardCache] = useState<Record<string, PlayerCard>>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -124,30 +112,33 @@ export function CardPicker({
     return () => document.removeEventListener('mousedown', onDown);
   }, []);
 
+  const selectedIds = useMemo(
+    () => new Set(value.map((card) => card.efhubId)),
+    [value],
+  );
+
   const selectCard = useCallback(
     (card: PlayerCard) => {
-      const serialized = serializeCard(card, mode);
-      setCardCache((prev) => ({ ...prev, [serialized]: card }));
       if (mode === 'single') {
-        onChange?.([serialized]);
+        onChange?.([card]);
         setQuery('');
         setOpen(false);
         inputRef.current?.blur();
         return;
       }
-      if (value.includes(serialized)) return;
+      if (selectedIds.has(card.efhubId)) return;
       if (value.length >= max) return;
-      onChange?.([...value, serialized]);
+      onChange?.([...value, card]);
       setQuery('');
       setActiveIndex(-1);
       inputRef.current?.focus();
     },
-    [mode, onChange, value, max],
+    [mode, onChange, value, max, selectedIds],
   );
 
-  const removeAt = useCallback(
-    (identifier: string) => {
-      onChange?.(value.filter((entry) => entry !== identifier));
+  const removeCard = useCallback(
+    (efhubId: number) => {
+      onChange?.(value.filter((card) => card.efhubId !== efhubId));
     },
     [onChange, value],
   );
@@ -181,26 +172,16 @@ export function CardPicker({
     [showDropdown, results, activeIndex, selectCard, trimmedQuery.length],
   );
 
-  const selectedEfhubIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const entry of value) {
-      const card = cardCache[entry];
-      if (card) ids.add(card.efhubId);
-    }
-    return ids;
-  }, [value, cardCache]);
-
   return (
     <div ref={containerRef} className={cn('relative', className)}>
       {value.length > 0 && (
         <div className={cn('mb-2 flex flex-wrap gap-1.5', mode === 'single' && 'gap-2')}>
-          {value.map((entry) => (
+          {value.map((card) => (
             <SelectedPill
-              key={entry}
-              identifier={entry}
-              card={cardCache[entry]}
+              key={card.efhubId}
+              card={card}
               variant={mode === 'single' ? 'primary' : 'muted'}
-              onRemove={() => removeAt(entry)}
+              onRemove={() => removeCard(card.efhubId)}
             />
           ))}
         </div>
@@ -238,60 +219,30 @@ export function CardPicker({
           {!loading && results.length === 0 && (
             <div className="p-3 text-center text-sm text-muted-foreground">Karta topilmadi</div>
           )}
-          {results.map((card, index) => {
-            const serialized = serializeCard(card, mode);
-            const alreadySelected =
-              mode === 'multi' &&
-              (value.includes(serialized) || selectedEfhubIds.has(card.efhubId));
-            return (
-              <CardOption
-                key={card.efhubId}
-                card={card}
-                active={activeIndex === index}
-                disabled={alreadySelected}
-                onSelect={() => selectCard(card)}
-              />
-            );
-          })}
+          {results.map((card, index) => (
+            <CardOption
+              key={card.efhubId}
+              card={card}
+              active={activeIndex === index}
+              disabled={mode === 'multi' && selectedIds.has(card.efhubId)}
+              onSelect={() => selectCard(card)}
+            />
+          ))}
         </div>
       )}
-
-      {hiddenFieldName &&
-        value.map((entry) => (
-          <input key={entry} type="hidden" name={hiddenFieldName} value={entry} />
-        ))}
     </div>
   );
 }
 
 function SelectedPill({
-  identifier,
   card,
   onRemove,
   variant = 'muted',
 }: {
-  identifier: string;
-  card: PlayerCard | undefined;
+  card: PlayerCard;
   onRemove: () => void;
   variant?: 'muted' | 'primary';
 }) {
-  if (!card) {
-    // Fallback: only the serialized string is known (e.g. hydrated from URL).
-    return (
-      <span
-        className={cn(
-          'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold',
-          variant === 'primary'
-            ? 'border-primary bg-primary/5 text-primary'
-            : 'border-border bg-muted text-foreground',
-        )}
-      >
-        {identifier}
-        <RemoveButton onRemove={onRemove} label={identifier} variant={variant} />
-      </span>
-    );
-  }
-
   return (
     <span
       className={cn(

@@ -18,7 +18,7 @@ import { listingMediaUrls } from '@/lib/marketplace-media';
 import {
   attributeBoolean,
   attributeNumber,
-  attributeStringList,
+  attributeCardList,
   type ListingResponse,
 } from '@/lib/marketplace-types';
 import type { User } from '@/lib/types';
@@ -48,7 +48,7 @@ export function MarketplaceListingDetail({
   const androidCoins = attributeNumber(listing, 'android_coins') ?? 0;
   const iosCoins = attributeNumber(listing, 'ios_coins') ?? 0;
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
-  const valuablePlayers = attributeStringList(listing, 'valuable_players');
+  const valuablePlayers = attributeCardList(listing, 'valuable_players');
   const authenticated = viewer !== null;
   const isOwner = viewer?.id === listing.sellerId;
 
@@ -124,9 +124,23 @@ export function MarketplaceListingDetail({
             <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
               <h2 className="text-sm font-bold text-foreground">Yulduz o'yinchilar</h2>
               <div className="mt-3 flex flex-wrap gap-2">
-                {valuablePlayers.map((player) => (
-                  <Badge key={player} variant="muted" className="text-xs">
-                    {player}
+                {valuablePlayers.map((card) => (
+                  <Badge
+                    key={card.efhubId || card.name}
+                    variant="muted"
+                    className="inline-flex items-center gap-1.5 text-xs"
+                  >
+                    <span className="font-semibold">{card.name}</span>
+                    {typeof card.overallRating === 'number' && (
+                      <span className="rounded bg-primary px-1 py-0.5 text-[10px] font-black leading-none text-primary-foreground">
+                        {card.overallRating}
+                      </span>
+                    )}
+                    {card.cardType && (
+                      <span className="text-[10px] font-black uppercase tracking-wide text-primary/70">
+                        {card.cardType}
+                      </span>
+                    )}
                   </Badge>
                 ))}
               </div>
