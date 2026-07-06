@@ -58,6 +58,19 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
   const partnerId = chat.sellerId === viewerId ? chat.buyerId : chat.sellerId;
   const roleLabel = chat.sellerId === viewerId ? 'Xaridor' : 'Sotuvchi';
 
+  // Snapshot of my read cursor at open time — the "Yangi xabarlar" divider
+  // stays anchored there even though markChatRead advances the real cursor.
+  const [newSince] = useState(() => initialChat.lastReadAt ?? null);
+  const firstUnreadId = newSince
+    ? messages.find((m) => m.senderId !== viewerId && m.createdAt > newSince)?.id
+    : undefined;
+
+  // Keep the cursor current while the chat is on screen: on open and whenever
+  // new messages land (own sends included — harmless, one POST per change).
+  useEffect(() => {
+    markChatRead(chat.id);
+  }, [chat.id, messages.length]);
+
   const scrollToBottom = useCallback(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -227,10 +240,19 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
           const mine = message.senderId === viewerId;
           const hasAttachment = Boolean(message.attachmentType && message.attachmentFileId);
           return (
-            <div
-              key={message.id}
-              className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}
-            >
+            <div key={message.id}>
+              {message.id === firstUnreadId && (
+                <div className="my-3 flex items-center gap-3" role="separator">
+                  <span className="h-px flex-1 bg-primary/30" />
+                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-primary">
+                    Yangi xabarlar
+                  </span>
+                  <span className="h-px flex-1 bg-primary/30" />
+                </div>
+              )}
+              <div
+                className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}
+              >
               <div
                 className={cn(
                   'max-w-[80%] rounded-2xl text-sm whitespace-pre-wrap break-words',
@@ -247,9 +269,10 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
                   </span>
                 )}
               </div>
-              <span className="mt-0.5 text-[10px] text-muted-foreground">
-                {formatListingDate(message.createdAt)}
-              </span>
+                <span className="mt-0.5 text-[10px] text-muted-foreground">
+                  {formatListingDate(message.createdAt)}
+                </span>
+              </div>
             </div>
           );
         })}
@@ -431,6 +454,18 @@ async function toggleImportant(chatId: string): Promise<ChatResult> {
   );
   if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
   return { ok: true, chat: (await response.json()) as ChatResponse };
+}
+
+/** Fire-and-forget read-cursor bump — failures self-heal on the next call. */
+async function markChatRead(chatId: string): Promise<void> {
+  try {
+    await fetch(buildMarketplaceApiPath(['v1', 'chats', chatId, 'read']), {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch {
+    // ignore
+  }
 }
 
 type HideResult = { ok: true } | { ok: false; error: string };

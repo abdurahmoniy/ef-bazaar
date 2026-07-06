@@ -133,6 +133,9 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       # Google OAuth — ID token audience (set on console.cloud.google.com)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # Server-to-server shared secret (/internal/** endpoints). Bo'sh bo'lsa
+      # internal endpointlar fail-closed — chat display-name snapshot ishlamaydi.
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -171,6 +174,9 @@ services:
       MEDIA_ALLOWED_TYPES: ${MEDIA_ALLOWED_TYPES}
       # Bot internal URL (rasm forwarding uchun)
       BOT_INTERNAL_BASE_URL: http://bot:8084
+      # Auth internal URL + shared secret (chat display-name snapshot uchun)
+      AUTH_INTERNAL_BASE_URL: http://auth-service:8081
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
       # Debug: 500-larni response body'siga exception class/message qo'shadi.
       # Diagnoz uchun vaqtincha "true" qiling; prod'da "false".
       APP_DEBUG_ERRORS: ${APP_DEBUG_ERRORS:-false}

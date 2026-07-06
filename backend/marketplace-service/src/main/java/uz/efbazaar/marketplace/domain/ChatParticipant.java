@@ -38,6 +38,14 @@ public class ChatParticipant {
     @Column(name = "hidden_at")
     private Instant hiddenAt;
 
+    /**
+     * Read cursor — messages created after this are "unread" for me.
+     * Null only for rows written by pre-V13 nodes during rollout; treated as
+     * "everything read" to avoid flooding the UI.
+     */
+    @Column(name = "last_read_at")
+    private Instant lastReadAt;
+
     @Getter
     @Setter
     @NoArgsConstructor

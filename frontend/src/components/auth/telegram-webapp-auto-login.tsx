@@ -30,6 +30,23 @@ function readMiniAppInitData(): string | null {
 }
 
 /**
+ * Auth'dan keyin qayerga qaytish:
+ * 1. `?from=/...` bo'lsa (login sahifasiga server redirect qo'ygan) — o'sha yerga.
+ *    Faqat ichki path qabul qilinadi (open-redirect himoyasi).
+ * 2. Auth sahifalaridan tashqarida ochilgan bo'lsa — joriy sahifani qayta yuklaymiz
+ *    (deep link allaqachon to'g'ri URL'da).
+ * 3. Aks holda — /profile.
+ */
+function resolvePostLoginTarget(): string {
+  const from = new URLSearchParams(window.location.search).get('from');
+  if (from && from.startsWith('/') && !from.startsWith('//')) return from;
+  if (!window.location.pathname.startsWith('/auth')) {
+    return window.location.pathname + window.location.search;
+  }
+  return '/profile';
+}
+
+/**
  * Mini App context aniqlansa avtomatik login qiladi.
  *
  * Root layout'ga qo'yiladi → har qanday entry point'da (landing, /auth/login,
@@ -66,8 +83,12 @@ export function TelegramWebAppAutoLogin() {
         // Desktop WebView unhandled-rejection'ni jimgina yutib yuboradi. Next.js
         // router.replace() ham ba'zi WebView versiyalarida navigation'ni
         // qo'llab-quvvatlamaydi. window.location.assign — full-page reload,
-        // yangi cookie bilan har qanday WebView'da ishonchli /profile ochadi.
-        window.location.assign('/profile');
+        // yangi cookie bilan har qanday WebView'da ishonchli ochadi.
+        //
+        // Deep link saqlanadi: bot tugmasi /chats/{id} ni ochganda server
+        // /auth/login?from=/chats/{id} ga redirect qiladi — auth'dan keyin
+        // o'sha `from` ga qaytamiz, /profile emas.
+        window.location.assign(resolvePostLoginTarget());
       })
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : 'Kutilmagan xato');

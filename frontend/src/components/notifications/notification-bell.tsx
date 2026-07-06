@@ -18,11 +18,24 @@ import { cn } from '@/lib/utils';
 
 const POLL_INTERVAL_MS = 30_000;
 
+interface NotificationBellProps {
+  className?: string;
+  /**
+   * Horizontal anchor of the dropdown relative to the bell on md+ screens.
+   * 'right' (default) — right edges align; suits bells near the viewport's
+   * right edge (marketplace top bar). 'left' — left edges align, opening
+   * rightward; suits the 320px chats pane where a right-anchored panel would
+   * spill past the pane's left edge. Mobile always right-anchors (viewport-
+   * clamped by max-w).
+   */
+  dropdownAlign?: 'left' | 'right';
+}
+
 /**
  * Bell + unread badge + dropdown. Polls the unread count; loads the list
  * lazily when opened. Clicking an item marks it read and jumps to the chat.
  */
-export function NotificationBell({ className }: { className?: string }) {
+export function NotificationBell({ className, dropdownAlign = 'right' }: NotificationBellProps) {
   const router = useRouter();
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
@@ -99,7 +112,12 @@ export function NotificationBell({ className }: { className?: string }) {
       </Button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card shadow-card-hover">
+        <div
+          className={cn(
+            'absolute top-11 z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card shadow-card-hover',
+            dropdownAlign === 'left' ? 'right-0 md:left-0 md:right-auto' : 'right-0',
+          )}
+        >
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <p className="text-xs font-black uppercase tracking-wider text-foreground">
               Bildirishnomalar

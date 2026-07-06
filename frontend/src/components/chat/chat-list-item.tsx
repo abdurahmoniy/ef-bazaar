@@ -20,6 +20,7 @@ export function ChatListItem({ chat, viewerId }: ChatListItemProps) {
   const name = partnerName(chat, viewerId);
   const partnerId = chat.sellerId === viewerId ? chat.buyerId : chat.sellerId;
   const stamp = chat.lastMessageAt ?? chat.createdAt;
+  const unread = chat.unreadCount ?? 0;
 
   return (
     <Link
@@ -40,7 +41,14 @@ export function ChatListItem({ chat, viewerId }: ChatListItemProps) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-bold text-foreground">{name}</p>
+          <p
+            className={cn(
+              'truncate text-sm text-foreground',
+              unread > 0 ? 'font-black' : 'font-bold',
+            )}
+          >
+            {name}
+          </p>
           {chat.important && <Badge variant="warn">Muhim</Badge>}
           {chat.status !== 'ACTIVE' && (
             <Badge variant="muted" className="uppercase">
@@ -51,11 +59,23 @@ export function ChatListItem({ chat, viewerId }: ChatListItemProps) {
             {formatListingDate(stamp)}
           </span>
         </div>
-        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-          {chat.messageCount === 0
-            ? "Hali xabar yo'q"
-            : `${chat.messageCount} xabar`}
-        </p>
+        <div className="mt-0.5 flex items-center gap-2">
+          <p
+            className={cn(
+              'truncate text-[11px]',
+              unread > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {chat.messageCount === 0
+              ? "Hali xabar yo'q"
+              : `${chat.messageCount} xabar`}
+          </p>
+          {unread > 0 && (
+            <span className="ml-auto grid min-w-5 shrink-0 place-items-center rounded-full bg-primary px-1.5 text-[10.5px] font-bold leading-5 text-primary-foreground">
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
+        </div>
       </div>
     </Link>
   );

@@ -230,6 +230,45 @@ class ChatServiceTest {
     }
 
     @Test
+    void markRead_movesMyCursor() {
+        UUID chatId = UUID.randomUUID();
+        Chat chat = Chat.builder()
+                .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
+                .status(ChatStatus.ACTIVE).build();
+        ChatParticipant mine = ChatParticipant.builder()
+                .chatId(chatId).userId(buyerId).build();
+        when(chats.findById(chatId)).thenReturn(Optional.of(chat));
+        when(participants.findByChatIdAndUserId(chatId, buyerId)).thenReturn(Optional.of(mine));
+
+        service.markRead(chatId, buyerId);
+
+        assertThat(mine.getLastReadAt()).isNotNull();
+    }
+
+    @Test
+    void countUnread_countsPartnerMessagesAfterCursor() {
+        UUID chatId = UUID.randomUUID();
+        java.time.Instant cursor = java.time.Instant.now().minusSeconds(60);
+        ChatParticipant mine = ChatParticipant.builder()
+                .chatId(chatId).userId(buyerId).lastReadAt(cursor).build();
+        when(participants.findByChatIdAndUserId(chatId, buyerId)).thenReturn(Optional.of(mine));
+        when(messages.countByChatIdAndSenderIdNotAndCreatedAtAfter(chatId, buyerId, cursor))
+                .thenReturn(3L);
+
+        assertThat(service.countUnread(chatId, buyerId)).isEqualTo(3);
+    }
+
+    @Test
+    void countUnread_nullCursorMeansAllRead() {
+        UUID chatId = UUID.randomUUID();
+        ChatParticipant mine = ChatParticipant.builder()
+                .chatId(chatId).userId(buyerId).build();
+        when(participants.findByChatIdAndUserId(chatId, buyerId)).thenReturn(Optional.of(mine));
+
+        assertThat(service.countUnread(chatId, buyerId)).isZero();
+    }
+
+    @Test
     void close_marksClosedAndEmitsEvent() {
         UUID chatId = UUID.randomUUID();
         Chat chat = Chat.builder()

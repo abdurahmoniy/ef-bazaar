@@ -130,6 +130,10 @@ export interface ChatResponse {
   createdAt: string;
   closedAt?: string | null;
   messageCount: number;
+  /** Viewer-specific: partner messages after my read cursor. */
+  unreadCount?: number;
+  /** Viewer-specific: my read cursor — drives the "new messages" divider. */
+  lastReadAt?: string | null;
 }
 
 export type AttachmentType = 'IMAGE' | 'FILE' | 'VOICE';

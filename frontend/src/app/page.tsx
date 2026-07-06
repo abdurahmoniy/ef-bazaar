@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
+import { AuthAwareLink } from '@/components/auth/auth-aware-link';
 import { Logo } from '@/components/brand/logo';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 
@@ -199,12 +200,13 @@ function LandingHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link
-            href="/auth/login"
+          <AuthAwareLink
+            anonHref="/auth/login"
+            anonLabel="Kirish"
+            authHref="/profile"
+            authLabel="Profil"
             className="hidden min-h-10 items-center rounded-lg px-3 text-sm font-black text-muted-foreground transition hover:text-foreground sm:flex"
-          >
-            Kirish
-          </Link>
+          />
           <Link
             href="/marketplace"
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-black text-primary-foreground shadow-sm transition hover:bg-primary/90"
@@ -574,9 +576,13 @@ function SiteFooter() {
           <Link href="/marketplace/new" className="transition hover:text-foreground">
             Akkount joylash
           </Link>
-          <Link href="/auth/login" className="transition hover:text-foreground">
-            Kirish
-          </Link>
+          <AuthAwareLink
+            anonHref="/auth/login"
+            anonLabel="Kirish"
+            authHref="/profile"
+            authLabel="Profil"
+            className="transition hover:text-foreground"
+          />
           <Link href={siteConfig.links.telegram} className="transition hover:text-foreground">
             Telegram
           </Link>

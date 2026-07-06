@@ -11,6 +11,8 @@ import uz.efbazaar.marketplace.dto.MessageResponse;
 public interface ChatMapper {
 
     @Mapping(target = "messageCount", ignore = true)
+    @Mapping(target = "unreadCount", ignore = true)
+    @Mapping(target = "lastReadAt", ignore = true)
     ChatResponse toResponse(Chat chat);
 
     MessageResponse toMessageResponse(ChatMessage message);

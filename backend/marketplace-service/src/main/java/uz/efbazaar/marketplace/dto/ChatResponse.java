@@ -19,5 +19,9 @@ public record ChatResponse(
         Instant lastMessageAt,
         Instant createdAt,
         Instant closedAt,
-        long messageCount
+        long messageCount,
+        /** Viewer-specific: partner messages after my read cursor. */
+        long unreadCount,
+        /** Viewer-specific: my read cursor — drives the "new messages" divider. */
+        Instant lastReadAt
 ) {}

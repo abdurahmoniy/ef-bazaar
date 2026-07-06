@@ -99,6 +99,19 @@ export function MarketplaceShell({
 
           <div className="ml-auto flex items-center gap-2">
             {user && <NotificationBell />}
+            {user && (
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="hidden h-10 rounded-lg px-3 sm:inline-flex"
+              >
+                <Link href="/chats" title="Chatlar">
+                  <MessageCircle className="h-4 w-4" />
+                  <span>Chatlar</span>
+                </Link>
+              </Button>
+            )}
             <Button asChild size="sm" className="hidden h-10 rounded-lg px-4 sm:inline-flex">
               <Link href={user ? '/marketplace/new' : '/auth/login?from=/marketplace/new'}>
                 <Plus className="h-4 w-4" />

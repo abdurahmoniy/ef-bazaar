@@ -70,10 +70,13 @@ public class ChatService {
                     .important(false)
                     .lastMessageAt(Instant.now())
                     .build());
+            // Read cursor starts at creation for both sides: everything after
+            // (i.e. the first message) counts as unread for the recipient.
+            Instant now = Instant.now();
             participants.save(ChatParticipant.builder()
-                    .chatId(chat.getId()).userId(buyerId).build());
+                    .chatId(chat.getId()).userId(buyerId).lastReadAt(now).build());
             participants.save(ChatParticipant.builder()
-                    .chatId(chat.getId()).userId(sellerId).build());
+                    .chatId(chat.getId()).userId(sellerId).lastReadAt(now).build());
             events.chatCreated(chat.getId(), listingId, buyerId, sellerId);
             notifications.chatCreated(chat);
             log.info("Chat created: id={} listingId={} buyer={} seller={}",
@@ -202,6 +205,59 @@ public class ChatService {
     @Transactional(readOnly = true)
     public Optional<ChatParticipant> getParticipant(UUID chatId, UUID userId) {
         return participants.findByChatIdAndUserId(chatId, userId);
+    }
+
+    /** Moves my read cursor to now — clears the unread badge for this chat. */
+    @Transactional
+    public void markRead(UUID chatId, UUID userId) {
+        getById(chatId, userId); // participant check
+        getParticipantRow(chatId, userId).setLastReadAt(Instant.now());
+    }
+
+    /**
+     * Partner messages newer than my read cursor. A null cursor (row written
+     * by a pre-V13 node during rollout) counts as "all read" — never floods
+     * the UI with historic messages.
+     */
+    @Transactional(readOnly = true)
+    public long countUnread(UUID chatId, UUID userId) {
+        Instant cursor = participants.findByChatIdAndUserId(chatId, userId)
+                .map(ChatParticipant::getLastReadAt)
+                .orElse(null);
+        if (cursor == null) return 0;
+        return messages.countByChatIdAndSenderIdNotAndCreatedAtAfter(chatId, userId, cursor);
+    }
+
+    /**
+     * Lazy backfill for chats created before the display-name snapshot existed
+     * (or while auth was unreachable): one batched auth lookup per request,
+     * persisted so subsequent reads are free. No-op when nothing is missing or
+     * auth stays unreachable — the frontend keeps its role-label fallback.
+     */
+    @Transactional
+    public void backfillDisplayNames(List<Chat> candidates) {
+        List<Chat> stale = candidates.stream()
+                .filter(c -> c.getBuyerDisplayName() == null || c.getSellerDisplayName() == null)
+                .toList();
+        if (stale.isEmpty()) return;
+
+        List<UUID> ids = stale.stream()
+                .flatMap(c -> java.util.stream.Stream.of(c.getBuyerId(), c.getSellerId()))
+                .distinct()
+                .toList();
+        Map<UUID, String> names = authNameClient.resolveNames(ids);
+        if (names.isEmpty()) return;
+
+        for (Chat chat : stale) {
+            if (chat.getBuyerDisplayName() == null) {
+                chat.setBuyerDisplayName(names.get(chat.getBuyerId()));
+            }
+            if (chat.getSellerDisplayName() == null) {
+                chat.setSellerDisplayName(names.get(chat.getSellerId()));
+            }
+            chats.save(chat); // detached (loaded in a readOnly tx) — merge
+        }
+        log.info("Backfilled display names for {} chats", stale.size());
     }
 
     /**
