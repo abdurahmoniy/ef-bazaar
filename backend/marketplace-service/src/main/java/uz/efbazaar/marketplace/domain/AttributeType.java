@@ -12,5 +12,13 @@ public enum AttributeType {
     STRING,
     TEXT,
     LIST_STRING,
-    ENUM
+    ENUM,
+    /**
+     * Array of full player card entities — used by valuable_players. Each item
+     * must be an object with {@code efhub_id} (long) and {@code name} (string);
+     * other fields (type, overall_rating, playing_style, position, image_url,
+     * skills, …) are stored as-is so the frontend can render rich card badges
+     * and future filters can query any card attribute without a schema change.
+     */
+    CARD_LIST
 }

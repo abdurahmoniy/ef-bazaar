@@ -26,7 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { CardPicker } from '@/components/marketplace/card-picker';
+import { CardPicker, type PlayerCard } from '@/components/marketplace/card-picker';
 import { useTelegramMainButton } from '@/hooks/use-telegram-main-button';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { listingMediaUrls } from '@/lib/marketplace-media';
@@ -55,8 +55,17 @@ interface WizardState {
   description: string;
   price: string;
   priceNegotiable: boolean;
-  attributes: Record<string, string | boolean>;
+  attributes: AttributeMap;
 }
+
+/**
+ * Wizard-side attribute value. CARD_LIST is stored as an array of PlayerCard
+ * objects (never a serialized string) so any downstream code can key off
+ * card.efhubId directly and the picker doesn't have to reserialize on every
+ * keystroke.
+ */
+export type AttributeValue = string | boolean | PlayerCard[];
+export type AttributeMap = Record<string, AttributeValue>;
 
 const MIN_FILES = 1;
 const MAX_FILES = 10;
@@ -680,11 +689,11 @@ function BasicsStep({
           id="valuable-players"
           mode="multi"
           max={12}
-          value={parsePlayerList(state.attributes.valuable_players)}
+          value={playerCards(state.attributes.valuable_players)}
           onChange={(next) =>
             setState((prev) => ({
               ...prev,
-              attributes: { ...prev.attributes, valuable_players: next.join(', ') },
+              attributes: { ...prev.attributes, valuable_players: next },
             }))
           }
         />
@@ -984,37 +993,53 @@ function ErrorList({ errors }: { errors: string[] }) {
   );
 }
 
-function parsePlayerList(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.filter((item): item is string => typeof item === 'string');
-  }
-  if (typeof value !== 'string') return [];
-  return normalizePlayerList(value);
+/** Narrow an unknown wizard-state value to a PlayerCard[] safely. */
+function playerCards(value: unknown): PlayerCard[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is PlayerCard =>
+      !!item &&
+      typeof item === 'object' &&
+      typeof (item as PlayerCard).efhubId === 'number' &&
+      typeof (item as PlayerCard).name === 'string',
+  );
 }
 
 function renderAttributeValue(value: unknown) {
   if (value === undefined || value === '') return <span className="text-muted-foreground">—</span>;
   if (typeof value === 'boolean') return value ? 'Ha' : "Yo'q";
+  if (Array.isArray(value)) {
+    const cards = playerCards(value);
+    if (cards.length === 0) return <span className="text-muted-foreground">—</span>;
+    return cards
+      .map((c) => `${c.name}${c.overallRating ? ` ${c.overallRating}` : ''}${c.cardType ? ` ${c.cardType}` : ''}`)
+      .join(', ');
+  }
   return String(value);
 }
 
+function defaultAttributeValue(def: ListingAttributeDefinition): AttributeValue {
+  if (def.type === 'BOOLEAN') return false;
+  if (def.type === 'CARD_LIST') return [];
+  return '';
+}
+
 function initialAttributes(definitions: readonly ListingAttributeDefinition[]) {
-  const attributes: Record<string, string | boolean> = {};
+  const attributes: AttributeMap = {};
   for (const def of definitions) {
-    if (def.type === 'BOOLEAN') attributes[def.key] = false;
-    else attributes[def.key] = '';
+    attributes[def.key] = defaultAttributeValue(def);
   }
   return attributes;
 }
 
 function mergeAttributes(
-  current: Record<string, string | boolean>,
+  current: AttributeMap,
   definitions: readonly ListingAttributeDefinition[],
 ) {
-  const next: Record<string, string | boolean> = {};
+  const next: AttributeMap = {};
   for (const def of definitions) {
     if (def.key in current) next[def.key] = current[def.key];
-    else next[def.key] = def.type === 'BOOLEAN' ? false : '';
+    else next[def.key] = defaultAttributeValue(def);
   }
   return next;
 }
@@ -1026,8 +1051,8 @@ function mergeAttributes(
 function attributesFromListing(
   raw: Record<string, unknown>,
   definitions: readonly ListingAttributeDefinition[],
-): Record<string, string | boolean> {
-  const out: Record<string, string | boolean> = {};
+): AttributeMap {
+  const out: AttributeMap = {};
   for (const def of definitions) {
     const value = raw?.[def.key];
     if (def.type === 'BOOLEAN') {
@@ -1035,7 +1060,11 @@ function attributesFromListing(
       continue;
     }
     if (value === undefined || value === null) {
-      out[def.key] = '';
+      out[def.key] = defaultAttributeValue(def);
+      continue;
+    }
+    if (def.type === 'CARD_LIST') {
+      out[def.key] = normalizeCardListPayload(value);
       continue;
     }
     if (def.type === 'LIST_STRING') {
@@ -1051,6 +1080,62 @@ function attributesFromListing(
     out[def.key] = typeof value === 'string' ? value : String(value);
   }
   return out;
+}
+
+/**
+ * The backend stores CARD_LIST items with snake_case keys (efhub_id,
+ * overall_rating, image_url) — that's the shape it sends back on GET and
+ * expects on write. The picker works with camelCase. Bridge the two on
+ * hydrate so the picker doesn't need to know about the wire format.
+ */
+function normalizeCardListPayload(value: unknown): PlayerCard[] {
+  if (!Array.isArray(value)) return [];
+  const out: PlayerCard[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue;
+    const item = raw as Record<string, unknown>;
+    const efhubId = item.efhubId ?? item.efhub_id;
+    const name = item.name;
+    if (typeof efhubId !== 'number' || typeof name !== 'string') continue;
+    out.push({
+      efhubId,
+      name,
+      team: typeof item.team === 'string' ? item.team : undefined,
+      position: typeof item.position === 'string' ? item.position : undefined,
+      playingStyle: typeof (item.playingStyle ?? item.playing_style) === 'string'
+        ? String(item.playingStyle ?? item.playing_style)
+        : undefined,
+      overallRating: typeof (item.overallRating ?? item.overall_rating) === 'number'
+        ? Number(item.overallRating ?? item.overall_rating)
+        : undefined,
+      cardType: typeof (item.cardType ?? item.card_type) === 'string'
+        ? String(item.cardType ?? item.card_type)
+        : undefined,
+      imageUrl: typeof (item.imageUrl ?? item.image_url) === 'string'
+        ? String(item.imageUrl ?? item.image_url)
+        : undefined,
+      skills: Array.isArray(item.skills)
+        ? item.skills.filter((s): s is string => typeof s === 'string')
+        : undefined,
+    });
+  }
+  return out;
+}
+
+/** Convert a picker-side card to the snake_case payload the backend expects. */
+function cardToApiPayload(card: PlayerCard): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    efhub_id: card.efhubId,
+    name: card.name,
+  };
+  if (card.team !== undefined) payload.team = card.team;
+  if (card.position !== undefined) payload.position = card.position;
+  if (card.playingStyle !== undefined) payload.playing_style = card.playingStyle;
+  if (card.overallRating !== undefined) payload.overall_rating = card.overallRating;
+  if (card.cardType !== undefined) payload.card_type = card.cardType;
+  if (card.imageUrl !== undefined) payload.image_url = card.imageUrl;
+  if (card.skills !== undefined) payload.skills = card.skills;
+  return payload;
 }
 
 function validateStep(
@@ -1129,6 +1214,11 @@ function buildRequest(
     const raw = state.attributes[def.key];
     if (def.type === 'BOOLEAN') {
       attributes[def.key] = Boolean(raw);
+      continue;
+    }
+    if (def.type === 'CARD_LIST') {
+      const cards = playerCards(raw);
+      if (cards.length > 0) attributes[def.key] = cards.map(cardToApiPayload);
       continue;
     }
     if (typeof raw !== 'string' || !raw.trim()) continue;

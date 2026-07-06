@@ -74,6 +74,7 @@ public class AttributeValidator {
             case TEXT      -> validateString(def, raw, true);
             case LIST_STRING -> validateListString(def, raw);
             case ENUM      -> validateEnum(def, raw);
+            case CARD_LIST -> validateCardList(def, raw);
         };
     }
 
@@ -175,6 +176,51 @@ public class AttributeValidator {
                         "element uzunligi " + itemMax + " dan oshib ketdi: " + v);
             }
             if (seen.add(v)) normalized.add(v);
+        }
+        return normalized;
+    }
+
+    /**
+     * Array of card objects. Enforces the minimum contract every consumer
+     * relies on (efhub_id + name), preserves every other field the frontend
+     * sends so we can search by skill / rating / type later without a schema
+     * change. Duplicates by efhub_id are collapsed.
+     */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> validateCardList(AttributeDefinition def, Object raw) {
+        if (!(raw instanceof List<?> list)) {
+            throw MarketplaceException.invalidAttributeValue(def.getKey(), "ro'yxat kutilgan");
+        }
+        Integer maxItems = readIntConstraint(def, "max_items");
+        if (maxItems != null && list.size() > maxItems) {
+            throw MarketplaceException.invalidAttributeValue(def.getKey(),
+                    "maksimum " + maxItems + " ta card");
+        }
+        List<Map<String, Object>> normalized = new ArrayList<>(list.size());
+        Set<Long> seenIds = new HashSet<>();
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> rawMap)) {
+                throw MarketplaceException.invalidAttributeValue(def.getKey(),
+                        "har bir element obyekt bo'lishi kerak");
+            }
+            Map<String, Object> card = (Map<String, Object>) rawMap;
+            Object efhubIdRaw = card.get("efhub_id");
+            Object nameRaw = card.get("name");
+            if (!(efhubIdRaw instanceof Number efhubNum)) {
+                throw MarketplaceException.invalidAttributeValue(def.getKey(),
+                        "har bir card'da efhub_id (number) bo'lishi shart");
+            }
+            if (!(nameRaw instanceof String nameStr) || nameStr.isBlank()) {
+                throw MarketplaceException.invalidAttributeValue(def.getKey(),
+                        "har bir card'da name (string) bo'lishi shart");
+            }
+            long efhubId = efhubNum.longValue();
+            if (!seenIds.add(efhubId)) continue;
+            // Deep-copy so upstream mutations don't leak into persisted state.
+            Map<String, Object> copy = new HashMap<>(card);
+            copy.put("efhub_id", efhubId);
+            copy.put("name", nameStr.trim());
+            normalized.add(copy);
         }
         return normalized;
     }

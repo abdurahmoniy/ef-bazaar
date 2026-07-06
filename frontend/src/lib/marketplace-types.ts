@@ -7,7 +7,8 @@ export type AttributeType =
   | 'STRING'
   | 'TEXT'
   | 'LIST_STRING'
-  | 'ENUM';
+  | 'ENUM'
+  | 'CARD_LIST';
 
 export type AttributeConstraints = Record<string, unknown>;
 
@@ -109,6 +110,62 @@ export function attributeStringList(listing: ListingResponse, key: string): stri
   const raw = listing.attributes?.[key];
   if (!Array.isArray(raw)) return [];
   return raw.filter((item): item is string => typeof item === 'string');
+}
+
+/**
+ * Public-facing shape for a valuable_players entry after CARD_LIST migration.
+ * Backend stores snake_case; helpers below normalize to something the display
+ * components can consume directly (name plus the badges we care about).
+ */
+export interface AttachedPlayerCard {
+  efhubId: number;
+  name: string;
+  overallRating?: number;
+  cardType?: string;
+  playingStyle?: string;
+  position?: string;
+  imageUrl?: string;
+}
+
+/**
+ * Read valuable_players (or any CARD_LIST attribute) as an array of card
+ * summaries. Legacy string-only entries (older listings from before the
+ * schema flip) are surfaced as {@code {efhubId: 0, name: <string>}} so the
+ * display components can still render something meaningful.
+ */
+export function attributeCardList(listing: ListingResponse, key: string): AttachedPlayerCard[] {
+  const raw = listing.attributes?.[key];
+  if (!Array.isArray(raw)) return [];
+  const out: AttachedPlayerCard[] = [];
+  for (const entry of raw) {
+    if (typeof entry === 'string') {
+      out.push({ efhubId: 0, name: entry });
+      continue;
+    }
+    if (!entry || typeof entry !== 'object') continue;
+    const item = entry as Record<string, unknown>;
+    const efhubIdRaw = (item.efhubId ?? item.efhub_id);
+    const name = item.name;
+    if (typeof name !== 'string') continue;
+    out.push({
+      efhubId: typeof efhubIdRaw === 'number' ? efhubIdRaw : 0,
+      name,
+      overallRating: typeof (item.overallRating ?? item.overall_rating) === 'number'
+        ? Number(item.overallRating ?? item.overall_rating)
+        : undefined,
+      cardType: typeof (item.cardType ?? item.card_type) === 'string'
+        ? String(item.cardType ?? item.card_type)
+        : undefined,
+      playingStyle: typeof (item.playingStyle ?? item.playing_style) === 'string'
+        ? String(item.playingStyle ?? item.playing_style)
+        : undefined,
+      position: typeof item.position === 'string' ? item.position : undefined,
+      imageUrl: typeof (item.imageUrl ?? item.image_url) === 'string'
+        ? String(item.imageUrl ?? item.image_url)
+        : undefined,
+    });
+  }
+  return out;
 }
 
 export interface LikeToggleResponse {

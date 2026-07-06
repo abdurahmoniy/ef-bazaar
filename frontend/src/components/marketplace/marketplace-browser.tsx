@@ -37,7 +37,14 @@ export function MarketplaceBrowser({
 }: MarketplaceBrowserProps) {
   const divisionAttr = filters.attributes?.highest_division_level;
   const divisionValue = typeof divisionAttr === 'string' ? Number(divisionAttr) : undefined;
-  const valuablePlayerAttr = filters.attributes?.valuable_players;
+  const valuablePlayerIdRaw = filters.attributes?.valuable_players_id;
+  const valuablePlayerId = typeof valuablePlayerIdRaw === 'string'
+    ? Number.parseInt(valuablePlayerIdRaw, 10)
+    : undefined;
+  const valuablePlayerNameRaw = filters.attributes?.valuable_players_name;
+  const valuablePlayerName = typeof valuablePlayerNameRaw === 'string'
+    ? valuablePlayerNameRaw
+    : undefined;
   const page = result.ok ? result.data : null;
 
   return (
@@ -48,7 +55,8 @@ export function MarketplaceBrowser({
         minPrice={filters.minPrice}
         maxPrice={filters.maxPrice}
         division={Number.isFinite(divisionValue) ? divisionValue : undefined}
-        valuablePlayer={typeof valuablePlayerAttr === 'string' ? valuablePlayerAttr : undefined}
+        valuablePlayerId={Number.isFinite(valuablePlayerId) ? valuablePlayerId : undefined}
+        valuablePlayerName={valuablePlayerName}
         sortParam={filters.sort}
       />
 

@@ -15,7 +15,8 @@ interface ListingFiltersProps {
   minPrice?: number;
   maxPrice?: number;
   division?: number;
-  valuablePlayer?: string;
+  valuablePlayerId?: number;
+  valuablePlayerName?: string;
   sortParam?: string;
 }
 
@@ -27,7 +28,8 @@ export function ListingFilters({
   minPrice,
   maxPrice,
   division,
-  valuablePlayer,
+  valuablePlayerId,
+  valuablePlayerName,
   sortParam,
 }: ListingFiltersProps) {
   const currentSortId = paramToSortId(sortParam);
@@ -97,8 +99,8 @@ export function ListingFilters({
           <div>
             <div className="mb-1.5 text-xs font-semibold text-muted-foreground">Yulduz o'yinchi</div>
             <CardPickerField
-              name="attr.valuable_players"
-              defaultValue={valuablePlayer}
+              defaultEfhubId={valuablePlayerId}
+              defaultName={valuablePlayerName}
             />
           </div>
 
