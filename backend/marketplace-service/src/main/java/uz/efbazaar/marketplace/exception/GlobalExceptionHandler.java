@@ -9,6 +9,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -52,6 +53,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> onForbidden(AccessDeniedException ex) {
         return build(HttpStatus.FORBIDDEN, "forbidden", "Ruxsat etilmagan", null);
+    }
+
+    /**
+     * Crawler probes for random paths hit Spring's static resource handler
+     * which throws NoResourceFoundException. Route to 404 so it doesn't page
+     * us through the log-forwarder as a 500.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> onNotFound(NoResourceFoundException ex) {
+        return build(HttpStatus.NOT_FOUND, "not_found", "Not Found", null);
     }
 
     @ExceptionHandler(Exception.class)
