@@ -6,5 +6,7 @@ import java.util.UUID;
 public record AuthenticatedUser(
         UUID userId,
         Long telegramId,
-        List<String> roles
+        List<String> roles,
+        /** From the token's {@code name} claim; null for pre-claim tokens (≤15 min old). */
+        String displayName
 ) {}

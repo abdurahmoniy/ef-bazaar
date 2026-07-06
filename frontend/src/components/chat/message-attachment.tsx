@@ -1,17 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import { FileText } from 'lucide-react';
 
+import { MediaLightbox } from '@/components/chat/media-lightbox';
+import { VoicePlayer } from '@/components/chat/voice-player';
 import type { MessageResponse } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
 
 /**
  * Renders the attachment part of a chat message bubble.
- * IMAGE → inline picture (bot photo proxy, click opens original).
- * FILE  → download card (bot file proxy: octet-stream + attachment disposition).
- * VOICE → native audio player fed by the same file proxy.
+ * IMAGE → inline picture; click opens the fullscreen lightbox.
+ * VOICE → Telegram-style player (round play button + waveform bars).
+ * FILE with video/* mime → inline <video> player.
+ * FILE → download card (bot file proxy: octet-stream + attachment disposition).
  */
 export function MessageAttachment({ message, mine }: { message: MessageResponse; mine: boolean }) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const fileId = message.attachmentFileId;
   if (!fileId || !message.attachmentType) return null;
 
@@ -23,23 +28,46 @@ export function MessageAttachment({ message, mine }: { message: MessageResponse;
   switch (message.attachmentType) {
     case 'IMAGE':
       return (
-        <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="block">
-          <img
-            src={photoUrl}
-            alt={message.attachmentName ?? 'Rasm'}
-            loading="lazy"
-            decoding="async"
-            className="max-h-64 w-full rounded-xl object-cover"
-          />
-        </a>
+        <>
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(true)}
+            className="block w-full cursor-zoom-in"
+            aria-label="Rasmni kattalashtirish"
+          >
+            <img
+              src={photoUrl}
+              alt={message.attachmentName ?? 'Rasm'}
+              loading="lazy"
+              decoding="async"
+              className="max-h-64 w-full rounded-xl object-cover"
+            />
+          </button>
+          {lightboxOpen && (
+            <MediaLightbox
+              src={photoUrl}
+              alt={message.attachmentName ?? 'Rasm'}
+              onClose={() => setLightboxOpen(false)}
+            />
+          )}
+        </>
       );
     case 'VOICE':
-      return (
-        // eslint-disable-next-line jsx-a11y/media-has-caption
-        <audio controls preload="metadata" src={fileUrl} className="h-10 w-56 max-w-full" />
-      );
+      return <VoicePlayer src={fileUrl} seed={message.id} mine={mine} />;
     case 'FILE':
     default:
+      if (message.attachmentMime?.startsWith('video/')) {
+        return (
+          // eslint-disable-next-line jsx-a11y/media-has-caption
+          <video
+            src={fileUrl}
+            controls
+            preload="metadata"
+            playsInline
+            className="max-h-64 w-full rounded-xl bg-black"
+          />
+        );
+      }
       return (
         <a
           href={fileUrl}

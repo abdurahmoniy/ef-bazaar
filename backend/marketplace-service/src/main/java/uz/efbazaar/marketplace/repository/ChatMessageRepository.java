@@ -20,4 +20,20 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
 
     /** Newest message — chat list preview line. */
     Optional<ChatMessage> findFirstByChatIdOrderByCreatedAtDesc(UUID chatId);
+
+    /**
+     * Total unread across every chat still visible in the user's list —
+     * drives the badge on the Chatlar nav icon. Null cursors (pre-V13 rows)
+     * count as fully read, matching {@code countUnread}.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT COUNT(m) FROM ChatMessage m, ChatParticipant p
+            WHERE p.chatId = m.chatId
+              AND p.userId = :userId
+              AND p.hiddenAt IS NULL
+              AND p.lastReadAt IS NOT NULL
+              AND m.senderId <> :userId
+              AND m.createdAt > p.lastReadAt
+            """)
+    long totalUnreadFor(@org.springframework.data.repository.query.Param("userId") UUID userId);
 }

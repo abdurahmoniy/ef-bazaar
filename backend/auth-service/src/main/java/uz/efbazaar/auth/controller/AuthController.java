@@ -105,6 +105,11 @@ public class AuthController {
         if (principal.telegramId() != null) {
             headers.add("X-Telegram-Id", principal.telegramId().toString());
         }
+        if (principal.displayName() != null && !principal.displayName().isBlank()) {
+            // Base64 — HTTP headers are ASCII-only and display names aren't.
+            headers.add("X-User-Name", java.util.Base64.getEncoder().encodeToString(
+                    principal.displayName().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        }
         return ResponseEntity.noContent().headers(headers).build();
     }
 }

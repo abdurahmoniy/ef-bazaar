@@ -47,6 +47,13 @@ public class ChatMessage {
     @Column(name = "attachment_size")
     private Long attachmentSize;
 
+    /** Telegram-style quote; nulled by the DB when the quoted message is deleted. */
+    @Column(name = "reply_to_id")
+    private UUID replyToId;
+
+    @Column(name = "edited_at")
+    private Instant editedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

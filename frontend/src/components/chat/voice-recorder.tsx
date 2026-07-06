@@ -20,12 +20,35 @@ interface VoiceRecorderProps {
  *  uploads well under the 10MB attachment cap at opus bitrates). */
 const MAX_DURATION_MS = 120_000;
 
+/**
+ * Preferred container, or empty string to let the browser pick its default —
+ * some WebViews (Telegram in-app, older Safari) report false for every
+ * candidate yet record fine with the default constructor.
+ */
 function pickMimeType(): string {
-  if (typeof MediaRecorder === 'undefined') return '';
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return '';
+  }
   for (const candidate of ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']) {
     if (MediaRecorder.isTypeSupported(candidate)) return candidate;
   }
   return '';
+}
+
+function describeMicError(e: unknown): string {
+  const name = e instanceof DOMException ? e.name : '';
+  switch (name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return "Mikrofonga ruxsat berilmadi — brauzer sozlamalaridan sayt uchun mikrofonni yoqing";
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'Mikrofon topilmadi';
+    case 'NotReadableError':
+      return "Mikrofon band — boshqa ilova ishlatayotgan bo'lishi mumkin";
+    default:
+      return `Ovoz yozib bo'lmadi${name ? ` (${name})` : ''}`;
+  }
 }
 
 /**
@@ -65,8 +88,7 @@ export function VoiceRecorder({
       onError("Brauzeringiz ovoz yozishni qo'llab-quvvatlamaydi");
       return;
     }
-    const mimeType = pickMimeType();
-    if (!mimeType) {
+    if (typeof MediaRecorder === 'undefined') {
       onError("Brauzeringiz ovoz yozishni qo'llab-quvvatlamaydi");
       return;
     }
@@ -74,12 +96,29 @@ export function VoiceRecorder({
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      onError('Mikrofonga ruxsat berilmadi');
+    } catch (e) {
+      onError(describeMicError(e));
       return;
     }
 
-    const recorder = new MediaRecorder(stream, { mimeType });
+    // Empty mimeType → browser default; some WebViews reject every explicit
+    // candidate but record fine without one.
+    const mimeType = pickMimeType();
+    let recorder: MediaRecorder;
+    try {
+      recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+    } catch {
+      try {
+        recorder = new MediaRecorder(stream);
+      } catch {
+        stream.getTracks().forEach((t) => t.stop());
+        onError("Brauzeringiz ovoz yozishni qo'llab-quvvatlamaydi");
+        return;
+      }
+    }
+    const actualMime = recorder.mimeType || mimeType || 'audio/webm';
     recorderRef.current = recorder;
     chunksRef.current = [];
     discardRef.current = false;
@@ -92,10 +131,10 @@ export function VoiceRecorder({
       if (timerRef.current) window.clearInterval(timerRef.current);
       onRecordingChange(false);
       if (discardRef.current) return;
-      const blob = new Blob(chunksRef.current, { type: mimeType });
+      const blob = new Blob(chunksRef.current, { type: actualMime });
       if (blob.size === 0) return;
-      const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
-      onSend(new File([blob], `voice-${Date.now()}.${ext}`, { type: mimeType }));
+      const ext = actualMime.includes('mp4') ? 'm4a' : actualMime.includes('ogg') ? 'ogg' : 'webm';
+      onSend(new File([blob], `voice-${Date.now()}.${ext}`, { type: actualMime }));
     };
 
     const startedAt = Date.now();

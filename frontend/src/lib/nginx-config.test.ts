@@ -84,7 +84,9 @@ describe('nginx api subdomain routing', () => {
     expect(apiLocation).toContain('add_header Access-Control-Allow-Origin $cors_allow_origin always;');
     expect(apiLocation).toContain('add_header Access-Control-Allow-Credentials "true" always;');
     expect(apiLocation).toContain('if ($request_method = OPTIONS)');
-    expect(apiLocation).toContain('proxy_pass http://marketplace_upstream/api/;');
+    // Variable-based upstream: re-resolved per request via the http-level
+    // resolver, so container recreations don't leave nginx on a stale IP.
+    expect(apiLocation).toContain('proxy_pass http://$backend_marketplace$request_uri;');
     expect(config).toContain('rewrite ^/api/(.*)$ /api/$1 break;');
   });
 });

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Heart, Home, MessageCircle, Plus, Search, ShieldCheck, UserRound } from 'lucide-react';
 
+import { ChatsUnreadBadge } from '@/components/chat/chats-unread-badge';
 import { Logo } from '@/components/brand/logo';
 import { TopBackButton } from '@/components/navigation/top-back-button';
 import { NotificationBell } from '@/components/notifications/notification-bell';
@@ -52,7 +53,12 @@ function buildNavItems(user: User | null): NavItem[] {
       id: 'chats',
       href: user ? '/chats' : '/auth/login?from=/chats',
       label: 'Chatlar',
-      icon: <MessageCircle className="h-5 w-5" />,
+      icon: (
+        <span className="relative">
+          <MessageCircle className="h-5 w-5" />
+          {user && <ChatsUnreadBadge />}
+        </span>
+      ),
       requiresAuth: true,
     },
     {
@@ -107,7 +113,10 @@ export function MarketplaceShell({
                 className="hidden h-10 rounded-lg px-3 sm:inline-flex"
               >
                 <Link href="/chats" title="Chatlar">
-                  <MessageCircle className="h-4 w-4" />
+                  <span className="relative">
+                    <MessageCircle className="h-4 w-4" />
+                    <ChatsUnreadBadge />
+                  </span>
                   <span>Chatlar</span>
                 </Link>
               </Button>

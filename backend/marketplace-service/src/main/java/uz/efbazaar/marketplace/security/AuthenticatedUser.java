@@ -6,5 +6,11 @@ import java.util.UUID;
 public record AuthenticatedUser(
         UUID userId,
         Long telegramId,
-        List<String> roles
-) {}
+        List<String> roles,
+        /** Verified display name from auth (X-User-Name header); null on pre-claim tokens. */
+        String displayName
+) {
+    public AuthenticatedUser(UUID userId, Long telegramId, List<String> roles) {
+        this(userId, telegramId, roles, null);
+    }
+}

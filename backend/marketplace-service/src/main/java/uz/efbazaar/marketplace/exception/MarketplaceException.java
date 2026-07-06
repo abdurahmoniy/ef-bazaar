@@ -88,4 +88,14 @@ public class MarketplaceException extends RuntimeException {
         return new MarketplaceException(HttpStatus.NOT_FOUND, "notification_not_found",
                 "Bildirishnoma topilmadi");
     }
+
+    public static MarketplaceException messageNotFound() {
+        return new MarketplaceException(HttpStatus.NOT_FOUND, "message_not_found",
+                "Xabar topilmadi");
+    }
+
+    public static MarketplaceException notMessageSender() {
+        return new MarketplaceException(HttpStatus.FORBIDDEN, "not_message_sender",
+                "Faqat o'z xabaringizni o'zgartira olasiz");
+    }
 }

@@ -21,6 +21,7 @@ public class JwtService {
 
     public static final String CLAIM_TELEGRAM_ID = "tid";
     public static final String CLAIM_ROLES = "roles";
+    public static final String CLAIM_NAME = "name";
     public static final String CLAIM_TYPE = "typ";
     public static final String TYPE_ACCESS = "access";
     public static final String TYPE_REFRESH = "refresh";
@@ -49,6 +50,10 @@ public class JwtService {
                 .id(UUID.randomUUID().toString())
                 .claim(CLAIM_TYPE, TYPE_ACCESS)
                 .claim(CLAIM_ROLES, List.of("ROLE_" + user.getRole().name()))
+                // Display name rides in the token so downstream services get it
+                // from verify headers with zero DB lookups. Refreshes re-issue
+                // the claim, so renames propagate within the 15-min TTL.
+                .claim(CLAIM_NAME, user.displayName())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(exp));
         if (user.getTelegramId() != null) {

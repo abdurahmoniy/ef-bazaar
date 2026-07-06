@@ -230,6 +230,25 @@ class ChatServiceTest {
     }
 
     @Test
+    void stampOwnName_setsCallersSideAndOverwritesOnRename() {
+        Chat chat = Chat.builder()
+                .id(UUID.randomUUID()).listingId(listingId)
+                .buyerId(buyerId).sellerId(sellerId)
+                .sellerDisplayName("Eski Ism")
+                .status(ChatStatus.ACTIVE).build();
+
+        service.stampOwnName(java.util.List.of(chat), buyerId, "Aziz Rahmatov");
+        assertThat(chat.getBuyerDisplayName()).isEqualTo("Aziz Rahmatov");
+        assertThat(chat.getSellerDisplayName()).isEqualTo("Eski Ism"); // partner untouched
+
+        service.stampOwnName(java.util.List.of(chat), sellerId, "Yangi Ism");
+        assertThat(chat.getSellerDisplayName()).isEqualTo("Yangi Ism"); // rename propagates
+
+        service.stampOwnName(java.util.List.of(chat), buyerId, null);
+        assertThat(chat.getBuyerDisplayName()).isEqualTo("Aziz Rahmatov"); // null name = no-op
+    }
+
+    @Test
     void markRead_movesMyCursor() {
         UUID chatId = UUID.randomUUID();
         Chat chat = Chat.builder()

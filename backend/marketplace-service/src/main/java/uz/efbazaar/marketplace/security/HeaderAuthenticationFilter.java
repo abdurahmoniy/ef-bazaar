@@ -38,6 +38,7 @@ public class HeaderAuthenticationFilter extends OncePerRequestFilter {
     public static final String HEADER_USER_ID = "X-User-Id";
     public static final String HEADER_USER_ROLES = "X-User-Roles";
     public static final String HEADER_TELEGRAM_ID = "X-Telegram-Id";
+    public static final String HEADER_USER_NAME = "X-User-Name";
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -51,8 +52,10 @@ public class HeaderAuthenticationFilter extends OncePerRequestFilter {
                 UUID userId = UUID.fromString(userIdHeader);
                 List<String> roles = parseRoles(request.getHeader(HEADER_USER_ROLES));
                 Long telegramId = parseTelegramId(request.getHeader(HEADER_TELEGRAM_ID));
+                String displayName = parseDisplayName(request.getHeader(HEADER_USER_NAME));
 
-                AuthenticatedUser principal = new AuthenticatedUser(userId, telegramId, roles);
+                AuthenticatedUser principal =
+                        new AuthenticatedUser(userId, telegramId, roles, displayName);
                 List<SimpleGrantedAuthority> authorities = roles.stream()
                         .map(SimpleGrantedAuthority::new)
                         .toList();
@@ -80,6 +83,19 @@ public class HeaderAuthenticationFilter extends OncePerRequestFilter {
         try {
             return Long.parseLong(header.trim());
         } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Auth sends the name base64-encoded (headers are ASCII-only). */
+    private String parseDisplayName(String header) {
+        if (!StringUtils.hasText(header)) return null;
+        try {
+            String decoded = new String(
+                    java.util.Base64.getDecoder().decode(header.trim()),
+                    java.nio.charset.StandardCharsets.UTF_8).trim();
+            return decoded.isEmpty() ? null : decoded;
+        } catch (IllegalArgumentException e) {
             return null;
         }
     }

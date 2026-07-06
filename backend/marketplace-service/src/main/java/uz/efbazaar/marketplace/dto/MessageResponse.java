@@ -17,5 +17,12 @@ public record MessageResponse(
         String attachmentName,
         String attachmentMime,
         Long attachmentSize,
+        /** Quoted message id — null when not a reply or when the quote was deleted. */
+        UUID replyToId,
+        /** Sender of the quoted message (viewer-side name resolution). */
+        UUID replySenderId,
+        /** One-line preview of the quoted message. */
+        String replyPreview,
+        Instant editedAt,
         Instant createdAt
 ) {}
