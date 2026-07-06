@@ -114,14 +114,23 @@ public class TelegramApiClient {
         form.add("media", mediaArray.toString());
 
         try {
-            JsonNode response = telegramWebClient.post()
+            // Telegram wraps every response in `{ok, result}`. Peel that off
+            // before extractPhotos, which expects the raw message array.
+            // Without this the upload succeeds (photos land in the media topic)
+            // but bot returns an empty list → 502 back to marketplace-service.
+            JsonNode result = telegramWebClient.post()
                     .uri("/sendMediaGroup")
                     .contentType(MediaType.MULTIPART_FORM_DATA)
                     .body(BodyInserters.fromMultipartData(form))
                     .retrieve()
                     .bodyToMono(JsonNode.class)
+                    .map(r -> r.path("ok").asBoolean() ? r.path("result") : null)
                     .block();
-            return extractPhotos(response);
+            if (result == null) {
+                log.warn("Telegram sendMediaGroup returned ok=false");
+                return List.of();
+            }
+            return extractPhotos(result);
         } catch (WebClientResponseException e) {
             log.error("Telegram sendMediaGroup failed: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
             return List.of();
