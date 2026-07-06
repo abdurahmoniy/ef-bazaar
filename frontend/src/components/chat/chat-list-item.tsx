@@ -66,9 +66,7 @@ export function ChatListItem({ chat, viewerId }: ChatListItemProps) {
               unread > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground',
             )}
           >
-            {chat.messageCount === 0
-              ? "Hali xabar yo'q"
-              : `${chat.messageCount} xabar`}
+            {chat.lastMessagePreview ?? "Hali xabar yo'q"}
           </p>
           {unread > 0 && (
             <span className="ml-auto grid min-w-5 shrink-0 place-items-center rounded-full bg-primary px-1.5 text-[10.5px] font-bold leading-5 text-primary-foreground">

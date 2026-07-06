@@ -115,9 +115,10 @@ public class ChatController {
                 .orElse(r.important());
         var lastReadAt = participant.map(p -> p.getLastReadAt()).orElse(null);
         long unread = chatService.countUnread(chat.getId(), viewerId);
+        String preview = chatService.lastMessagePreview(chat.getId());
         return new ChatResponse(r.id(), r.listingId(), r.buyerId(), r.sellerId(),
                 r.buyerDisplayName(), r.sellerDisplayName(),
                 r.status(), myImportant, r.lastMessageAt(),
-                r.createdAt(), r.closedAt(), count, unread, lastReadAt);
+                r.createdAt(), r.closedAt(), count, unread, lastReadAt, preview);
     }
 }

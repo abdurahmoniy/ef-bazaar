@@ -65,10 +65,24 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
     ? messages.find((m) => m.senderId !== viewerId && m.createdAt > newSince)?.id
     : undefined;
 
-  // Keep the cursor current while the chat is on screen: on open and whenever
-  // new messages land (own sends included — harmless, one POST per change).
+  // On open: move the cursor, then router.refresh() so the chats-list layout
+  // (which persists across client navigations) refetches and clears this
+  // chat's unread badge.
   useEffect(() => {
-    markChatRead(chat.id);
+    let cancelled = false;
+    markChatRead(chat.id).then(() => {
+      if (!cancelled) router.refresh();
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chat.id]);
+
+  // Keep the cursor current while the chat stays on screen (new messages
+  // landing via polling; own sends included — harmless, one POST per change).
+  useEffect(() => {
+    if (messages.length > 0) markChatRead(chat.id);
   }, [chat.id, messages.length]);
 
   const scrollToBottom = useCallback(() => {

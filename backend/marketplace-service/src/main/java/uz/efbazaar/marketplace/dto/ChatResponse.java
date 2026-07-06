@@ -23,5 +23,7 @@ public record ChatResponse(
         /** Viewer-specific: partner messages after my read cursor. */
         long unreadCount,
         /** Viewer-specific: my read cursor — drives the "new messages" divider. */
-        Instant lastReadAt
+        Instant lastReadAt,
+        /** One-line preview of the newest message (attachment → emoji label). */
+        String lastMessagePreview
 ) {}

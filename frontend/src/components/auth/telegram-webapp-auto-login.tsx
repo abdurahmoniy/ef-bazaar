@@ -33,15 +33,19 @@ function readMiniAppInitData(): string | null {
  * Auth'dan keyin qayerga qaytish:
  * 1. `?from=/...` bo'lsa (login sahifasiga server redirect qo'ygan) — o'sha yerga.
  *    Faqat ichki path qabul qilinadi (open-redirect himoyasi).
- * 2. Auth sahifalaridan tashqarida ochilgan bo'lsa — joriy sahifani qayta yuklaymiz
+ * 2. Landing (`/`) da ochilgan bo'lsa (bot menyusidagi "Open mini app") —
+ *    to'g'ridan-to'g'ri bozorga.
+ * 3. Boshqa sahifada ochilgan bo'lsa — joriy sahifani qayta yuklaymiz
  *    (deep link allaqachon to'g'ri URL'da).
- * 3. Aks holda — /profile.
+ * 4. Aks holda (auth sahifalari, from'siz) — /profile.
  */
 function resolvePostLoginTarget(): string {
   const from = new URLSearchParams(window.location.search).get('from');
   if (from && from.startsWith('/') && !from.startsWith('//')) return from;
-  if (!window.location.pathname.startsWith('/auth')) {
-    return window.location.pathname + window.location.search;
+  const path = window.location.pathname;
+  if (path === '/') return '/marketplace';
+  if (!path.startsWith('/auth')) {
+    return path + window.location.search;
   }
   return '/profile';
 }

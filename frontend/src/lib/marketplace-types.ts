@@ -134,6 +134,8 @@ export interface ChatResponse {
   unreadCount?: number;
   /** Viewer-specific: my read cursor — drives the "new messages" divider. */
   lastReadAt?: string | null;
+  /** One-line preview of the newest message (attachment → emoji label). */
+  lastMessagePreview?: string | null;
 }
 
 export type AttachmentType = 'IMAGE' | 'FILE' | 'VOICE';
