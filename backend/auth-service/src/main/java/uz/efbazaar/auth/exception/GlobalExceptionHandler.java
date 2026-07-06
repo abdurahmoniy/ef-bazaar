@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -38,6 +39,18 @@ public class GlobalExceptionHandler {
                 .toList();
         return build(HttpStatus.BAD_REQUEST, "validation_failed",
                 "Kiritilgan ma'lumotlar noto'g'ri", details);
+    }
+
+    /**
+     * Unknown paths (crawler probes for /swagger-ui/random, /wp-admin, etc.)
+     * hit Spring's static resource handler which throws NoResourceFoundException.
+     * The generic Exception handler would turn that into a 500 and page us via
+     * the log-forwarding pipeline; a 404 is the correct semantic and stops the
+     * noise.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> onNotFound(NoResourceFoundException ex) {
+        return build(HttpStatus.NOT_FOUND, "not_found", "Not Found", null);
     }
 
     @ExceptionHandler(Exception.class)
