@@ -169,6 +169,31 @@ public class ChatService {
         return messages.countByChatId(chatId);
     }
 
+    /** One-line preview of the newest message for the chat list. Null when empty. */
+    @Transactional(readOnly = true)
+    public String lastMessagePreview(UUID chatId) {
+        return messages.findFirstByChatIdOrderByCreatedAtDesc(chatId)
+                .map(ChatService::previewOf)
+                .orElse(null);
+    }
+
+    static String previewOf(ChatMessage m) {
+        String content = m.getContent() == null ? "" : m.getContent().trim();
+        if (m.getAttachmentType() != null) {
+            String label = switch (m.getAttachmentType()) {
+                case IMAGE -> "🖼 Rasm";
+                case VOICE -> "🎤 Ovozli xabar";
+                case FILE -> "📎 " + (m.getAttachmentName() != null ? m.getAttachmentName() : "Fayl");
+            };
+            return content.isEmpty() ? label : label + " · " + truncatePreview(content);
+        }
+        return truncatePreview(content);
+    }
+
+    private static String truncatePreview(String s) {
+        return s.length() <= 90 ? s : s.substring(0, 87) + "…";
+    }
+
     /**
      * Toggles MY star only. {@code chat.important} is recomputed as the OR of
      * both participants' stars — the expiry scheduler exempts a chat when

@@ -43,7 +43,10 @@ public class AuthNameClient {
     public Map<UUID, String> resolveNames(Collection<UUID> ids) {
         if (ids == null || ids.isEmpty()) return Map.of();
         if (secret == null || secret.isBlank()) {
-            log.debug("AuthNameClient disabled — app.auth.internal-secret is blank");
+            // WARN, not debug: this is the #1 reason chat titles fall back to
+            // role labels in production — INTERNAL_API_SECRET missing in .env.
+            log.warn("AuthNameClient disabled — INTERNAL_API_SECRET is not set; "
+                    + "chat display names will stay null");
             return Map.of();
         }
         try {

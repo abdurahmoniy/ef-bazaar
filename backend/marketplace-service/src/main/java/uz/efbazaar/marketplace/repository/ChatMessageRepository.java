@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import uz.efbazaar.marketplace.domain.ChatMessage;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> {
@@ -16,4 +17,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
 
     /** Unread = partner's messages after my read cursor. */
     long countByChatIdAndSenderIdNotAndCreatedAtAfter(UUID chatId, UUID senderId, Instant after);
+
+    /** Newest message — chat list preview line. */
+    Optional<ChatMessage> findFirstByChatIdOrderByCreatedAtDesc(UUID chatId);
 }

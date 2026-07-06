@@ -148,7 +148,10 @@ export function MarketplaceShell({
             <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-1.5 text-[11px] font-semibold">
               <ShieldCheck className="h-3.5 w-3.5" />
               <span className="flex-1 truncate">Akkount tasdiqlanmagan — Telegram va Google ulang</span>
-              <Link href="/profile" className="shrink-0 rounded-md bg-white/60 px-2 py-0.5 hover:bg-white">
+              <Link
+                href="/profile?tab=account"
+                className="shrink-0 rounded-md bg-white/60 px-2 py-0.5 hover:bg-white"
+              >
                 Tasdiqlash
               </Link>
             </div>
