@@ -24,7 +24,17 @@
 --    all reference listing_id).
 TRUNCATE TABLE listings CASCADE;
 
--- 2. Retype the attribute definition.
+-- 2. Extend the type-column CHECK to admit the new CARD_LIST value BEFORE
+--    updating any row — otherwise the UPDATE below trips the constraint
+--    installed in V5 and Flyway rolls the whole migration back.
+ALTER TABLE attribute_definitions
+    DROP CONSTRAINT chk_attribute_definitions_type;
+ALTER TABLE attribute_definitions
+    ADD CONSTRAINT chk_attribute_definitions_type CHECK (
+        type IN ('INT', 'DECIMAL', 'BOOLEAN', 'STRING', 'TEXT', 'LIST_STRING', 'ENUM', 'CARD_LIST')
+    );
+
+-- 3. Retype the attribute definition.
 UPDATE attribute_definitions
    SET type = 'CARD_LIST',
        constraints = jsonb_build_object('max_items', 12)
