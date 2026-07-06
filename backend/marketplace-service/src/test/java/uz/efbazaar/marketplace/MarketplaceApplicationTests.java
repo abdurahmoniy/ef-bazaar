@@ -14,9 +14,12 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.kafka.core.KafkaTemplate;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
+import uz.efbazaar.marketplace.repository.ChatParticipantRepository;
 import uz.efbazaar.marketplace.repository.ChatRepository;
 import uz.efbazaar.marketplace.repository.LikeRepository;
+import uz.efbazaar.marketplace.repository.ListingReportRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
+import uz.efbazaar.marketplace.repository.NotificationRepository;
 
 @SpringBootTest(properties = {
         // EfbazaarDataSourceConfig'da @ConfigurationProperties bind bo'lishi uchun fake URL'lar.
@@ -43,7 +46,10 @@ class MarketplaceApplicationTests {
     @MockBean LikeRepository likeRepository;
     @MockBean ChatRepository chatRepository;
     @MockBean ChatMessageRepository chatMessageRepository;
+    @MockBean ChatParticipantRepository chatParticipantRepository;
     @MockBean AttributeDefinitionRepository attributeDefinitionRepository;
+    @MockBean ListingReportRepository listingReportRepository;
+    @MockBean NotificationRepository notificationRepository;
     @MockBean KafkaTemplate<String, Object> kafkaTemplate;
 
     @Test
