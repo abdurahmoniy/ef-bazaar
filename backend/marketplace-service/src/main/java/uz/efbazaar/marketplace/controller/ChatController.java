@@ -34,6 +34,7 @@ public class ChatController {
     public ChatResponse start(@AuthenticationPrincipal AuthenticatedUser user,
                               @Valid @RequestBody StartChatRequest request) {
         Chat chat = chatService.start(user.userId(), request.listingId());
+        chatService.stampOwnName(List.of(chat), user.userId(), user.displayName());
         return enrich(chat, user.userId());
     }
 
@@ -41,6 +42,7 @@ public class ChatController {
     public PageResponse<ChatResponse> mine(@AuthenticationPrincipal AuthenticatedUser user,
                                            @PageableDefault(size = 20) Pageable pageable) {
         Page<Chat> page = chatService.listMine(user.userId(), pageable);
+        chatService.stampOwnName(page.getContent(), user.userId(), user.displayName());
         chatService.backfillDisplayNames(page.getContent());
         return PageResponse.from(page, chat -> enrich(chat, user.userId()));
     }
@@ -54,6 +56,7 @@ public class ChatController {
     public List<ChatResponse> me(@AuthenticationPrincipal AuthenticatedUser user) {
         Pageable top = PageRequest.of(0, 100, Sort.by(Sort.Direction.DESC, "createdAt"));
         List<Chat> mine = chatService.listMine(user.userId(), top).getContent();
+        chatService.stampOwnName(mine, user.userId(), user.displayName());
         chatService.backfillDisplayNames(mine);
         return mine.stream().map(chat -> enrich(chat, user.userId())).toList();
     }
@@ -62,6 +65,7 @@ public class ChatController {
     public ChatResponse get(@AuthenticationPrincipal AuthenticatedUser user,
                             @PathVariable UUID id) {
         Chat chat = chatService.getById(id, user.userId());
+        chatService.stampOwnName(List.of(chat), user.userId(), user.displayName());
         chatService.backfillDisplayNames(List.of(chat));
         return enrich(chat, user.userId());
     }
@@ -89,6 +93,12 @@ public class ChatController {
     public void markRead(@AuthenticationPrincipal AuthenticatedUser user,
                          @PathVariable UUID id) {
         chatService.markRead(id, user.userId());
+    }
+
+    /** Sum of unread messages across all visible chats — nav-icon badge. */
+    @GetMapping("/unread-total")
+    public java.util.Map<String, Long> unreadTotal(@AuthenticationPrincipal AuthenticatedUser user) {
+        return java.util.Map.of("count", chatService.totalUnread(user.userId()));
     }
 
     @PostMapping("/{id}/close")

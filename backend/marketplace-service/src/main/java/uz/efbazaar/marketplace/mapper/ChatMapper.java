@@ -16,5 +16,7 @@ public interface ChatMapper {
     @Mapping(target = "lastMessagePreview", ignore = true)
     ChatResponse toResponse(Chat chat);
 
+    @Mapping(target = "replySenderId", ignore = true)
+    @Mapping(target = "replyPreview", ignore = true)
     MessageResponse toMessageResponse(ChatMessage message);
 }

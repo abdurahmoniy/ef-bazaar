@@ -1,17 +1,55 @@
 import type { ChatResponse } from '@/lib/marketplace-types';
 
+const UZ_MONTHS = [
+  'yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun',
+  'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr',
+];
+
+const UZ_OFFSET_MS = 5 * 60 * 60 * 1000;
+
+/** Calendar day in UZ time (UTC+5) — used to group messages by date. */
+export function uzDayKey(value: string | Date): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return '';
+  const uz = new Date(date.getTime() + UZ_OFFSET_MS);
+  return `${uz.getUTCFullYear()}-${uz.getUTCMonth()}-${uz.getUTCDate()}`;
+}
+
+/** "Bugun" / "Kecha" / "6 iyul" / "6 iyul 2025" — centered day chips. */
+export function formatDayLabel(value: string | Date, now: Date = new Date()): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return '';
+
+  const key = uzDayKey(date);
+  if (key === uzDayKey(now)) return 'Bugun';
+  if (key === uzDayKey(new Date(now.getTime() - 24 * 60 * 60 * 1000))) return 'Kecha';
+
+  const uz = new Date(date.getTime() + UZ_OFFSET_MS);
+  const label = `${uz.getUTCDate()} ${UZ_MONTHS[uz.getUTCMonth()]}`;
+  const nowUz = new Date(now.getTime() + UZ_OFFSET_MS);
+  return uz.getUTCFullYear() === nowUz.getUTCFullYear()
+    ? label
+    : `${label} ${uz.getUTCFullYear()}`;
+}
+
+/** "13:31" — per-bubble stamp; the date lives on the day chip. */
+export function formatMessageTime(value: string | Date): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return '';
+  const uz = new Date(date.getTime() + UZ_OFFSET_MS);
+  return `${String(uz.getUTCHours()).padStart(2, '0')}:${String(uz.getUTCMinutes()).padStart(2, '0')}`;
+}
+
 /**
  * Returns the display name of the *other* participant of the chat, from the
- * viewer's perspective. Falls back to a role label ("Xaridor" / "Sotuvchi")
- * when the snapshot on the backend is null — typically because the chat was
- * created before the buyer/seller name columns existed, or because auth was
- * unreachable at chat-creation time.
+ * viewer's perspective. The neutral fallback covers the window before the
+ * partner's next interaction stamps their verified name onto the chat.
  */
 export function partnerName(chat: ChatResponse, viewerId: string): string {
   const viewerIsSeller = chat.sellerId === viewerId;
   const raw = viewerIsSeller ? chat.buyerDisplayName : chat.sellerDisplayName;
   if (raw && raw.trim().length > 0) return raw;
-  return viewerIsSeller ? 'Xaridor' : 'Sotuvchi';
+  return 'Foydalanuvchi';
 }
 
 export function partnerInitial(name: string): string {

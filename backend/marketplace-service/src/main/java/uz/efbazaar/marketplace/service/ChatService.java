@@ -104,6 +104,11 @@ public class ChatService {
 
     @Transactional
     public ChatMessage sendMessage(UUID chatId, UUID senderId, String content) {
+        return sendMessage(chatId, senderId, content, null);
+    }
+
+    @Transactional
+    public ChatMessage sendMessage(UUID chatId, UUID senderId, String content, UUID replyToId) {
         Chat chat = chats.findById(chatId).orElseThrow(MarketplaceException::chatNotFound);
         if (!chat.isParticipant(senderId)) {
             throw MarketplaceException.notChatParticipant();
@@ -111,11 +116,18 @@ public class ChatService {
         if (chat.getStatus() != ChatStatus.ACTIVE) {
             throw MarketplaceException.chatAlreadyClosed();
         }
+        if (replyToId != null) {
+            // Quote must reference a message from THIS chat.
+            messages.findById(replyToId)
+                    .filter(m -> m.getChatId().equals(chatId))
+                    .orElseThrow(MarketplaceException::messageNotFound);
+        }
 
         ChatMessage saved = messages.save(ChatMessage.builder()
                 .chatId(chatId)
                 .senderId(senderId)
                 .content(content)
+                .replyToId(replyToId)
                 .build());
         chat.setLastMessageAt(saved.getCreatedAt());
         // "Delete for me" is soft: a new message resurfaces the chat for
@@ -169,6 +181,56 @@ public class ChatService {
         return messages.countByChatId(chatId);
     }
 
+    /**
+     * Edits the caller's own message (content only — attachments are
+     * immutable). Marks it with {@code editedAt} for the "tahrirlangan" label.
+     */
+    @Transactional
+    public ChatMessage editMessage(UUID chatId, UUID messageId, UUID senderId, String content) {
+        ChatMessage message = getOwnMessage(chatId, messageId, senderId);
+        message.setContent(content.trim());
+        message.setEditedAt(Instant.now());
+        return message;
+    }
+
+    /** Hard delete of the caller's own message — gone for both sides (Telegram semantics). */
+    @Transactional
+    public void deleteMessage(UUID chatId, UUID messageId, UUID senderId) {
+        ChatMessage message = getOwnMessage(chatId, messageId, senderId);
+        messages.delete(message);
+    }
+
+    private ChatMessage getOwnMessage(UUID chatId, UUID messageId, UUID senderId) {
+        Chat chat = chats.findById(chatId).orElseThrow(MarketplaceException::chatNotFound);
+        if (!chat.isParticipant(senderId)) {
+            throw MarketplaceException.notChatParticipant();
+        }
+        ChatMessage message = messages.findById(messageId)
+                .filter(m -> m.getChatId().equals(chatId))
+                .orElseThrow(MarketplaceException::messageNotFound);
+        if (!message.getSenderId().equals(senderId)) {
+            throw MarketplaceException.notMessageSender();
+        }
+        return message;
+    }
+
+    /** Batch lookup used to attach quoted-message previews to a page of messages. */
+    @Transactional(readOnly = true)
+    public Map<UUID, ChatMessage> messagesByIds(java.util.Collection<UUID> ids) {
+        if (ids.isEmpty()) return Map.of();
+        Map<UUID, ChatMessage> out = new java.util.HashMap<>();
+        for (ChatMessage m : messages.findAllById(ids)) {
+            out.put(m.getId(), m);
+        }
+        return out;
+    }
+
+    /** Sum of unread across all visible chats — the Chatlar nav badge. */
+    @Transactional(readOnly = true)
+    public long totalUnread(UUID userId) {
+        return messages.totalUnreadFor(userId);
+    }
+
     /** One-line preview of the newest message for the chat list. Null when empty. */
     @Transactional(readOnly = true)
     public String lastMessagePreview(UUID chatId) {
@@ -177,7 +239,7 @@ public class ChatService {
                 .orElse(null);
     }
 
-    static String previewOf(ChatMessage m) {
+    public static String previewOf(ChatMessage m) {
         String content = m.getContent() == null ? "" : m.getContent().trim();
         if (m.getAttachmentType() != null) {
             String label = switch (m.getAttachmentType()) {
@@ -251,6 +313,31 @@ public class ChatService {
                 .orElse(null);
         if (cursor == null) return 0;
         return messages.countByChatIdAndSenderIdNotAndCreatedAtAfter(chatId, userId, cursor);
+    }
+
+    /**
+     * Stamps the caller's VERIFIED display name (from the auth token via
+     * X-User-Name) onto their own side of each chat. Needs no server-to-server
+     * call or shared secret — each participant's name materialises as soon as
+     * they interact, and renames propagate because we overwrite on change.
+     */
+    @Transactional
+    public void stampOwnName(List<Chat> candidates, UUID userId, String displayName) {
+        if (displayName == null || displayName.isBlank()) return;
+        for (Chat chat : candidates) {
+            boolean changed = false;
+            if (userId.equals(chat.getBuyerId())
+                    && !displayName.equals(chat.getBuyerDisplayName())) {
+                chat.setBuyerDisplayName(displayName);
+                changed = true;
+            }
+            if (userId.equals(chat.getSellerId())
+                    && !displayName.equals(chat.getSellerDisplayName())) {
+                chat.setSellerDisplayName(displayName);
+                changed = true;
+            }
+            if (changed) chats.save(chat); // detached (readOnly load) — merge
+        }
     }
 
     /**

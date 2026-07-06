@@ -85,6 +85,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         List<String> roles = (rolesClaim instanceof List<?> list)
                 ? (List<String>) list
                 : Collections.emptyList();
-        return new AuthenticatedUser(userId, telegramId, roles);
+        String displayName = claims.get(JwtService.CLAIM_NAME, String.class);
+        return new AuthenticatedUser(userId, telegramId, roles, displayName);
     }
 }

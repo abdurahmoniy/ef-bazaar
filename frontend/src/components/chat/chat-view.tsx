@@ -7,6 +7,8 @@ import {
   AlertTriangle,
   ChevronLeft,
   Paperclip,
+  Pencil,
+  Reply,
   Send,
   Star,
   StarOff,
@@ -15,14 +17,21 @@ import {
 } from 'lucide-react';
 
 import { ChatPinnedHeader } from '@/components/chat/chat-pinned-header';
+import { MessageActionSheet } from '@/components/chat/message-action-sheet';
 import { MessageAttachment, formatBytes } from '@/components/chat/message-attachment';
 import { VoiceRecorder } from '@/components/chat/voice-recorder';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { avatarTone, partnerInitial, partnerName } from '@/lib/chat-format';
+import {
+  avatarTone,
+  formatDayLabel,
+  formatMessageTime,
+  partnerInitial,
+  partnerName,
+  uzDayKey,
+} from '@/lib/chat-format';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
-import { formatListingDate } from '@/lib/marketplace-format';
 import type {
   ChatResponse,
   ListingResponse,
@@ -47,6 +56,9 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
   const [draft, setDraft] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [actionTarget, setActionTarget] = useState<MessageResponse | null>(null);
+  const [replyTo, setReplyTo] = useState<MessageResponse | null>(null);
+  const [editing, setEditing] = useState<MessageResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSending, startSend] = useTransition();
   const [isUpdating, startUpdate] = useTransition();
@@ -56,7 +68,6 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
   const isClosed = chat.status !== 'ACTIVE';
   const name = partnerName(chat, viewerId);
   const partnerId = chat.sellerId === viewerId ? chat.buyerId : chat.sellerId;
-  const roleLabel = chat.sellerId === viewerId ? 'Xaridor' : 'Sotuvchi';
 
   // Snapshot of my read cursor at open time — the "Yangi xabarlar" divider
   // stays anchored there even though markChatRead advances the real cursor.
@@ -100,7 +111,12 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
     const tick = async () => {
       const page = await fetchMessages(chat.id);
       if (cancelled || !page) return;
-      setMessages((prev) => mergeMessages(prev, page.content));
+      // Single-page fetch covers the whole history → treat the server as the
+      // source of truth so partner-side deletions and edits propagate; fall
+      // back to merge only when history is longer than one page.
+      setMessages((prev) =>
+        page.totalPages <= 1 ? page.content : mergeMessages(prev, page.content),
+      );
     };
     const timer = window.setInterval(tick, POLL_INTERVAL_MS);
     return () => {
@@ -114,16 +130,75 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
     if (!content && !pendingFile) return;
     setError(null);
     startSend(async () => {
+      if (editing) {
+        const result = await editMessage(chat.id, editing.id, content);
+        if (!result.ok) {
+          setError(result.error ?? 'Tahrirlanmadi');
+          return;
+        }
+        setDraft('');
+        setEditing(null);
+        setMessages((prev) => prev.map((m) => (m.id === result.message.id ? result.message : m)));
+        return;
+      }
       const result = pendingFile
         ? await sendAttachment(chat.id, pendingFile, content)
-        : await sendMessage(chat.id, content);
+        : await sendMessage(chat.id, content, replyTo?.id ?? null);
       if (!result.ok) {
         setError(result.error ?? 'Yuborilmadi');
         return;
       }
       setDraft('');
       setPendingFile(null);
+      setReplyTo(null);
       setMessages((prev) => mergeMessages(prev, [result.message]));
+    });
+  }
+
+  // ----- message actions (Telegram-style sheet) -----
+
+  function startReply(message: MessageResponse) {
+    setActionTarget(null);
+    setEditing(null);
+    setReplyTo(message);
+  }
+
+  function startEdit(message: MessageResponse) {
+    setActionTarget(null);
+    setReplyTo(null);
+    setPendingFile(null);
+    setEditing(message);
+    setDraft(message.content);
+  }
+
+  function cancelComposerMode() {
+    if (editing) setDraft('');
+    setEditing(null);
+    setReplyTo(null);
+  }
+
+  async function handleCopyMessage(message: MessageResponse) {
+    setActionTarget(null);
+    try {
+      await navigator.clipboard.writeText(message.content);
+    } catch {
+      setError("Nusxa olib bo'lmadi");
+    }
+  }
+
+  function handleDeleteMessage(message: MessageResponse) {
+    setActionTarget(null);
+    if (!confirm("Xabarni o'chirmoqchimisiz? U ikkala tarafdan ham o'chadi.")) return;
+    setError(null);
+    startUpdate(async () => {
+      const result = await deleteMessage(chat.id, message.id);
+      if (!result.ok) {
+        setError(result.error ?? "Xabar o'chirilmadi");
+        return;
+      }
+      setMessages((prev) => prev.filter((m) => m.id !== message.id));
+      if (replyTo?.id === message.id) setReplyTo(null);
+      if (editing?.id === message.id) cancelComposerMode();
     });
   }
 
@@ -209,7 +284,7 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
             )}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            {roleLabel} · {messages.length} xabar
+            {messages.length} xabar
           </p>
         </div>
         <div className="flex items-center gap-0.5">
@@ -250,11 +325,20 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
             Hali xabarlar yo'q. Birinchi bo'lib salom bering.
           </p>
         )}
-        {messages.map((message) => {
+        {messages.map((message, index) => {
           const mine = message.senderId === viewerId;
           const hasAttachment = Boolean(message.attachmentType && message.attachmentFileId);
+          const prev = index > 0 ? messages[index - 1] : null;
+          const newDay = !prev || uzDayKey(prev.createdAt) !== uzDayKey(message.createdAt);
           return (
             <div key={message.id}>
+              {newDay && (
+                <div className="my-3 flex justify-center" role="separator">
+                  <span className="rounded-full bg-muted px-3 py-1 text-[10.5px] font-bold text-muted-foreground">
+                    {formatDayLabel(message.createdAt)}
+                  </span>
+                </div>
+              )}
               {message.id === firstUnreadId && (
                 <div className="my-3 flex items-center gap-3" role="separator">
                   <span className="h-px flex-1 bg-primary/30" />
@@ -267,24 +351,55 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
               <div
                 className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}
               >
-              <div
-                className={cn(
-                  'max-w-[80%] rounded-2xl text-sm whitespace-pre-wrap break-words',
-                  hasAttachment && message.attachmentType === 'IMAGE' ? 'p-1' : 'px-3 py-2',
-                  mine
-                    ? 'rounded-br-md bg-primary text-primary-foreground'
-                    : 'rounded-bl-md bg-muted text-foreground',
-                )}
-              >
-                {hasAttachment && <MessageAttachment message={message} mine={mine} />}
-                {message.content && (
-                  <span className={cn('block', hasAttachment && 'px-2 pb-1 pt-1.5')}>
-                    {message.content}
-                  </span>
-                )}
-              </div>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setActionTarget(message)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') setActionTarget(message);
+                  }}
+                  className={cn(
+                    'max-w-[80%] cursor-pointer rounded-2xl text-left text-sm whitespace-pre-wrap break-words',
+                    hasAttachment && message.attachmentType === 'IMAGE' ? 'p-1' : 'px-3 py-2',
+                    mine
+                      ? 'rounded-br-md bg-primary text-primary-foreground'
+                      : 'rounded-bl-md bg-muted text-foreground',
+                  )}
+                >
+                  {message.replyToId && (
+                    <span
+                      className={cn(
+                        'mb-1 block rounded-lg border-l-2 px-2 py-1 text-[11.5px]',
+                        mine
+                          ? 'border-primary-foreground/60 bg-white/10 text-primary-foreground/90'
+                          : 'border-primary bg-primary/5 text-muted-foreground',
+                      )}
+                    >
+                      <span className="block font-bold">
+                        {message.replySenderId === viewerId ? 'Siz' : name}
+                      </span>
+                      <span className="block truncate">
+                        {message.replyPreview ?? "O'chirilgan xabar"}
+                      </span>
+                    </span>
+                  )}
+                  {hasAttachment && (
+                    // Media controls (lightbox, play, download) must not open
+                    // the message action sheet.
+                    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+                    <span className="block" onClick={(e) => e.stopPropagation()}>
+                      <MessageAttachment message={message} mine={mine} />
+                    </span>
+                  )}
+                  {message.content && (
+                    <span className={cn('block', hasAttachment && 'px-2 pb-1 pt-1.5')}>
+                      {message.content}
+                    </span>
+                  )}
+                </div>
                 <span className="mt-0.5 text-[10px] text-muted-foreground">
-                  {formatListingDate(message.createdAt)}
+                  {formatMessageTime(message.createdAt)}
+                  {message.editedAt && ' · tahrirlangan'}
                 </span>
               </div>
             </div>
@@ -305,6 +420,37 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
         </div>
       ) : (
         <div className="border-t border-border bg-card px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+          {(replyTo || editing) && (
+            <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
+              {editing ? (
+                <Pencil className="h-4 w-4 shrink-0 text-primary" />
+              ) : (
+                <Reply className="h-4 w-4 shrink-0 text-primary" />
+              )}
+              <div className="min-w-0 flex-1 border-l-2 border-primary pl-2">
+                <p className="text-[10.5px] font-bold text-primary">
+                  {editing
+                    ? 'Tahrirlash'
+                    : (replyTo?.senderId === viewerId ? 'Siz' : name) + 'ga javob'}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {(editing ?? replyTo)?.content.trim() ||
+                    (editing ?? replyTo)?.attachmentName ||
+                    'Xabar'}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 shrink-0 p-0"
+                onClick={cancelComposerMode}
+                aria-label="Bekor qilish"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
           {pendingFile && (
             <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
               {pendingFile.type.startsWith('image/') && (
@@ -346,18 +492,20 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
             />
             {!isRecording && (
               <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="lg"
-                  className="h-11 w-11 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isSending}
-                  title="Fayl biriktirish"
-                  aria-label="Fayl biriktirish"
-                >
-                  <Paperclip className="h-5 w-5" />
-                </Button>
+                {!editing && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="lg"
+                    className="h-11 w-11 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isSending}
+                    title="Fayl biriktirish"
+                    aria-label="Fayl biriktirish"
+                  >
+                    <Paperclip className="h-5 w-5" />
+                  </Button>
+                )}
                 <Textarea
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
@@ -374,7 +522,7 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
                 />
               </>
             )}
-            {draft.trim().length === 0 && !pendingFile ? (
+            {draft.trim().length === 0 && !pendingFile && !editing && !replyTo ? (
               <VoiceRecorder
                 disabled={isSending}
                 onSend={handleSendVoice}
@@ -398,6 +546,18 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
             Enter — yuborish · Shift+Enter — yangi qator
           </p>
         </div>
+      )}
+
+      {actionTarget && (
+        <MessageActionSheet
+          message={actionTarget}
+          mine={actionTarget.senderId === viewerId}
+          onReply={() => startReply(actionTarget)}
+          onCopy={() => handleCopyMessage(actionTarget)}
+          onEdit={() => startEdit(actionTarget)}
+          onDelete={() => handleDeleteMessage(actionTarget)}
+          onClose={() => setActionTarget(null)}
+        />
       )}
     </div>
   );
@@ -423,11 +583,34 @@ type SendResult =
   | { ok: true; message: MessageResponse }
   | { ok: false; error: string };
 
-async function sendMessage(chatId: string, content: string): Promise<SendResult> {
+async function sendMessage(
+  chatId: string,
+  content: string,
+  replyToId: string | null = null,
+): Promise<SendResult> {
   const response = await fetch(
     buildMarketplaceApiPath(['v1', 'chats', chatId, 'messages']),
     {
       method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(replyToId ? { content, replyToId } : { content }),
+    },
+  );
+  if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
+  const message = (await response.json()) as MessageResponse;
+  return { ok: true, message };
+}
+
+async function editMessage(
+  chatId: string,
+  messageId: string,
+  content: string,
+): Promise<SendResult> {
+  const response = await fetch(
+    buildMarketplaceApiPath(['v1', 'chats', chatId, 'messages', messageId]),
+    {
+      method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ content }),
@@ -436,6 +619,18 @@ async function sendMessage(chatId: string, content: string): Promise<SendResult>
   if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
   const message = (await response.json()) as MessageResponse;
   return { ok: true, message };
+}
+
+async function deleteMessage(
+  chatId: string,
+  messageId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const response = await fetch(
+    buildMarketplaceApiPath(['v1', 'chats', chatId, 'messages', messageId]),
+    { method: 'DELETE', credentials: 'include' },
+  );
+  if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
+  return { ok: true };
 }
 
 async function sendAttachment(

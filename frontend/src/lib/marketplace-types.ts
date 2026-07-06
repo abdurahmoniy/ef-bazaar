@@ -150,6 +150,11 @@ export interface MessageResponse {
   attachmentName?: string | null;
   attachmentMime?: string | null;
   attachmentSize?: number | null;
+  /** Quoted message id — null when not a reply or the quote was deleted. */
+  replyToId?: string | null;
+  replySenderId?: string | null;
+  replyPreview?: string | null;
+  editedAt?: string | null;
   createdAt: string;
 }
 
