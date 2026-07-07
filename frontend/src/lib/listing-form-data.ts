@@ -169,6 +169,8 @@ function parseAttributeValue(
       return parseDecimalAttribute(definition, raw);
     case 'LIST_STRING':
       return parseListStringAttribute(definition, raw);
+    case 'CARD_LIST':
+      return parseCardListAttribute(definition, raw);
     case 'ENUM':
       return parseEnumAttribute(definition, raw);
     case 'STRING':
@@ -228,6 +230,34 @@ function parseListStringAttribute(
         error: `${definition.labelUz} elementi ${itemMaxLength} belgidan oshmasligi kerak`,
       };
     }
+  }
+
+  return { ok: true, value: values };
+}
+
+/**
+ * CARD_LIST attributes submitted through the legacy text field carry only
+ * player names, so they are sent as plain strings — the wire shape the
+ * backend and display components still accept for legacy entries. Full card
+ * objects are only produced by the wizard's card picker.
+ */
+function parseCardListAttribute(
+  definition: ListingAttributeDefinition,
+  raw: string,
+): AttributeParseResult {
+  const values = normalizePlayerList(raw);
+  if (values.length === 0) {
+    return definition.required
+      ? { ok: false, error: `${definition.labelUz} maydonini to'ldiring` }
+      : { ok: true, omit: true };
+  }
+
+  const maxItems = numberConstraint(definition, 'max_items');
+  if (maxItems !== undefined && values.length > maxItems) {
+    return {
+      ok: false,
+      error: `${definition.labelUz} ${maxItems} tadan oshmasligi kerak`,
+    };
   }
 
   return { ok: true, value: values };
