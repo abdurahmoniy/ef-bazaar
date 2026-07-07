@@ -22,12 +22,10 @@ public class PlayerPageParser {
 
     private static final Logger log = LoggerFactory.getLogger(PlayerPageParser.class);
 
-    private static final Pattern NEXT_F_PUSH = Pattern.compile(
-            "self\\.__next_f\\.push\\(\\[(\\d+),\\s*(\"(?:[^\"\\\\]|\\\\.)*\")\\]\\)");
-
-    // "player":{ ... } with up to one level of nested braces
-    private static final Pattern PLAYER_BLOCK = Pattern.compile(
-            "\"player\":\\{[^{}]*(?:\\{[^{}]*\\}[^{}]*)*\\}");
+    // Extracted with a linear scan, not regex: payloads run to hundreds of KB and
+    // a per-character regex loop overflows the stack (java.util.regex recursion).
+    private static final String PUSH_PREFIX = "self.__next_f.push([";
+    private static final String PLAYER_KEY = "\"player\":";
 
     private static final Pattern BASE_STATS = Pattern.compile("\"baseStats\":(\\{[^}]+\\})");
     private static final Pattern SKILLS = Pattern.compile("\"playerSkills\":\\[([^\\]]*)\\]");
@@ -42,9 +40,14 @@ public class PlayerPageParser {
     }
 
     public ScrapedCard parse(String html, long pidHint) {
-        Matcher m = NEXT_F_PUSH.matcher(html);
-        while (m.find()) {
-            String rawQuoted = m.group(2);
+        int from = 0;
+        int idx;
+        while ((idx = html.indexOf(PUSH_PREFIX, from)) >= 0) {
+            from = idx + PUSH_PREFIX.length();
+            String rawQuoted = extractPushString(html, from);
+            if (rawQuoted == null) {
+                continue;
+            }
             String decoded;
             try {
                 decoded = mapper.readValue(rawQuoted, String.class);
@@ -62,9 +65,70 @@ public class PlayerPageParser {
         return null;
     }
 
+    /**
+     * Reads the string literal of a {@code self.__next_f.push([<n>,"..."])} call.
+     * {@code pos} points just past the prefix. Returns the literal with its quotes
+     * (ready for Jackson), or null if the payload has a different shape.
+     */
+    private static String extractPushString(String html, int pos) {
+        int n = html.length();
+        int i = pos;
+        int digitsStart = i;
+        while (i < n && Character.isDigit(html.charAt(i))) {
+            i++;
+        }
+        if (i == digitsStart || i >= n || html.charAt(i) != ',') {
+            return null;
+        }
+        i++;
+        while (i < n && Character.isWhitespace(html.charAt(i))) {
+            i++;
+        }
+        if (i >= n || html.charAt(i) != '"') {
+            return null;
+        }
+        int quoteStart = i;
+        i++;
+        while (i < n) {
+            char c = html.charAt(i);
+            if (c == '\\') {
+                i += 2;
+            } else if (c == '"') {
+                return html.startsWith("])", i + 1) ? html.substring(quoteStart, i + 1) : null;
+            } else {
+                i++;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the {@code "player":{...}} block (balanced braces), or null.
+     */
+    private static String extractPlayerBlock(String decoded) {
+        int idx = decoded.indexOf(PLAYER_KEY);
+        if (idx < 0 || idx + PLAYER_KEY.length() >= decoded.length()
+                || decoded.charAt(idx + PLAYER_KEY.length()) != '{') {
+            return null;
+        }
+        int depth = 0;
+        for (int i = idx + PLAYER_KEY.length(); i < decoded.length(); i++) {
+            char c = decoded.charAt(i);
+            if (c == '{') {
+                depth++;
+            } else if (c == '}') {
+                depth--;
+                if (depth == 0) {
+                    return decoded.substring(idx, i + 1);
+                }
+            }
+        }
+        return null;
+    }
+
     private ScrapedCard build(String decoded, long pidHint) {
-        Matcher pm = PLAYER_BLOCK.matcher(decoded);
-        String playerBlob = pm.find() ? pm.group(0) : decoded;
+        String block = extractPlayerBlock(decoded);
+        String playerBlob = block != null ? block : decoded;
 
         long efhubId = pidHint;
         String idStr = matchStr(playerBlob, "id");
