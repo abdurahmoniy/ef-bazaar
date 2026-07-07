@@ -144,6 +144,25 @@ export async function getAdminStats(): Promise<FetchResult<AdminStatsResponse>> 
   return safeFetch<AdminStatsResponse>(`${MARKETPLACE_PREFIX}/admin/stats`);
 }
 
+export async function getAdminUsers(
+  search?: string,
+  page = 0,
+  size = 20,
+): Promise<FetchResult<PageResponse<User>>> {
+  const params = new URLSearchParams({ page: String(page), size: String(size), sort: 'createdAt,desc' });
+  if (search) params.set('search', search);
+  return safeFetch<PageResponse<User>>(`/auth/v1/admin/users?${params.toString()}`);
+}
+
+/** All definitions including inactive — the admin table shows the `active` flag. */
+export async function getAdminAttributeDefinitions(): Promise<
+  FetchResult<AttributeDefinitionResponse[]>
+> {
+  return safeFetch<AttributeDefinitionResponse[]>(
+    `${MARKETPLACE_PREFIX}/attributes?includeInactive=true`,
+  );
+}
+
 export async function getAdminReports(
   status?: ReportStatus,
   page = 0,

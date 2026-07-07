@@ -170,6 +170,30 @@ export function attributeCardList(listing: ListingResponse, key: string): Attach
 
 // ---------- admin ----------
 
+/** POST /admin/attributes payload — mirrors AttributeDefinitionCreateRequest. */
+export interface AttributeDefinitionCreatePayload {
+  key: string;
+  labelUz: string;
+  type: AttributeType;
+  required: boolean;
+  position: number;
+  groupKey?: string | null;
+  constraints?: unknown;
+  searchable?: boolean | null;
+}
+
+/** PUT /admin/attributes/{id} payload — `key` is immutable, `active` togglable. */
+export interface AttributeDefinitionUpdatePayload {
+  labelUz: string;
+  type: AttributeType;
+  required: boolean;
+  position: number;
+  groupKey?: string | null;
+  constraints?: unknown;
+  searchable?: boolean | null;
+  active?: boolean | null;
+}
+
 export type ReportStatus = 'PENDING' | 'RESOLVED' | 'DISMISSED';
 
 /** Moderation view of a listing report; listing fields are null when the listing row is gone. */

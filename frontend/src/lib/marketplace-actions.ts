@@ -1,7 +1,12 @@
 'use client';
 
 import { buildMarketplaceApiPath } from './marketplace-client-api';
-import type { LikeToggleResponse } from './marketplace-types';
+import type {
+  AttributeDefinitionCreatePayload,
+  AttributeDefinitionResponse,
+  AttributeDefinitionUpdatePayload,
+  LikeToggleResponse,
+} from './marketplace-types';
 
 export type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -103,5 +108,35 @@ export function adminRestoreListing(listingId: string): Promise<ActionResult<unk
     ['v1', 'admin', 'listings', listingId, 'restore'],
     { method: 'POST' },
     "E'lon tiklanmadi",
+  );
+}
+
+export function adminCreateAttribute(
+  payload: AttributeDefinitionCreatePayload,
+): Promise<ActionResult<AttributeDefinitionResponse>> {
+  return marketplaceRequest<AttributeDefinitionResponse>(
+    ['v1', 'admin', 'attributes'],
+    { method: 'POST', body: JSON.stringify(payload) },
+    'Atribut yaratilmadi',
+  );
+}
+
+export function adminUpdateAttribute(
+  id: string,
+  payload: AttributeDefinitionUpdatePayload,
+): Promise<ActionResult<AttributeDefinitionResponse>> {
+  return marketplaceRequest<AttributeDefinitionResponse>(
+    ['v1', 'admin', 'attributes', id],
+    { method: 'PUT', body: JSON.stringify(payload) },
+    'Atribut yangilanmadi',
+  );
+}
+
+/** Soft delete — backend flips {@code active=false}; the definition stays listed as inactive. */
+export function adminDeleteAttribute(id: string): Promise<ActionResult<null>> {
+  return marketplaceRequest<null>(
+    ['v1', 'admin', 'attributes', id],
+    { method: 'DELETE' },
+    "Atribut o'chirilmadi",
   );
 }

@@ -67,6 +67,12 @@ public class AuthException extends RuntimeException {
                 "Google email tasdiqlanmagan");
     }
 
+    /** Admin endpoints reject self-targeting — no self-demote / self-delete via moderation. */
+    public static AuthException cannotModifySelf() {
+        return new AuthException(HttpStatus.BAD_REQUEST, "cannot_modify_self",
+                "O'z akkauntingizni bu yerdan o'zgartira olmaysiz");
+    }
+
     public static AuthException googleNotConfigured() {
         return new AuthException(HttpStatus.SERVICE_UNAVAILABLE, "google_not_configured",
                 "Google OAuth hozircha sozlanmagan");
