@@ -9,6 +9,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
@@ -63,6 +64,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<Map<String, Object>> onNotFound(NoResourceFoundException ex) {
         return build(HttpStatus.NOT_FOUND, "not_found", "Not Found", null);
+    }
+
+    /**
+     * Partial UUIDs / bad number formats in path variables come from crawlers,
+     * browser URL autocomplete firing SSR fetches mid-typing (…/listings/4cd952dc-),
+     * or malformed client links. The correct response is 400, not 500 — and it
+     * keeps the health topic quiet.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> onTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return build(HttpStatus.BAD_REQUEST, "bad_request",
+                "So'rov parametri noto'g'ri", null);
     }
 
     @ExceptionHandler(Exception.class)

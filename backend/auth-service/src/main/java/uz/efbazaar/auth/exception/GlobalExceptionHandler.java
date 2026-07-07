@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
@@ -51,6 +52,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<Map<String, Object>> onNotFound(NoResourceFoundException ex) {
         return build(HttpStatus.NOT_FOUND, "not_found", "Not Found", null);
+    }
+
+    /**
+     * Partial UUIDs / bad number formats in path variables. Browser URL
+     * autocomplete tends to fire SSR fetches mid-typing (…/users/4cd952dc-),
+     * or a broken link sends a truncated id. Correct answer is 400, not 500.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> onTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return build(HttpStatus.BAD_REQUEST, "bad_request",
+                "So'rov parametri noto'g'ri", null);
     }
 
     @ExceptionHandler(Exception.class)
