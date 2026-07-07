@@ -1,13 +1,22 @@
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle2, Flag, Package, Trash2, XCircle } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Flag,
+  Package,
+  Trash2,
+  UsersRound,
+  XCircle,
+} from 'lucide-react';
 
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
-import { getAdminStats } from '@/lib/marketplace-server';
+import { getAdminStats, getAdminUsers } from '@/lib/marketplace-server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
-  const result = await getAdminStats();
+  // Users live in auth-service — fetched separately from marketplace stats.
+  const [result, usersResult] = await Promise.all([getAdminStats(), getAdminUsers(undefined, 0, 1)]);
 
   if (!result.ok) {
     return <ApiErrorPanel title="Statistika yuklanmadi" error={result.error} />;
@@ -16,6 +25,12 @@ export default async function AdminDashboardPage() {
   const stats = result.data;
 
   const cards = [
+    {
+      label: 'Foydalanuvchilar',
+      value: usersResult.ok ? usersResult.data.totalElements : '—',
+      icon: <UsersRound className="h-5 w-5 text-primary" />,
+      href: '/admin/users',
+    },
     {
       label: "Jami e'lonlar",
       value: stats.totalListings,

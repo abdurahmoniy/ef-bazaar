@@ -2,8 +2,11 @@ package uz.efbazaar.auth.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uz.efbazaar.auth.domain.Role;
 import uz.efbazaar.auth.domain.User;
 import uz.efbazaar.auth.event.AuthEventPublisher;
 import uz.efbazaar.auth.exception.AuthException;
@@ -40,5 +43,41 @@ public class UserService {
         userRepository.delete(user);
         events.userDeleted(id, telegramId, email);
         log.info("User deleted: id={} telegramId={} email={}", id, telegramId, email);
+    }
+
+    // ---------- Admin moderation ----------
+
+    @Transactional(readOnly = true)
+    public Page<User> findAll(String search, Pageable pageable) {
+        if (search == null || search.isBlank()) {
+            return userRepository.findAll(pageable);
+        }
+        return userRepository.search(search.trim(), pageable);
+    }
+
+    /**
+     * Change a user's role. Self-targeting is rejected so an admin cannot demote
+     * themselves and lock everyone out of the panel by accident. Existing access
+     * tokens keep their old roles claim until they expire (max 15 min).
+     */
+    @Transactional
+    public User changeRole(UUID adminId, UUID targetId, Role role) {
+        if (adminId.equals(targetId)) {
+            throw AuthException.cannotModifySelf();
+        }
+        User user = userRepository.findById(targetId).orElseThrow(AuthException::userNotFound);
+        user.setRole(role);
+        User saved = userRepository.save(user);
+        log.info("User role changed: id={} role={} adminId={}", targetId, role, adminId);
+        return saved;
+    }
+
+    /** Hard-delete on behalf of an admin — same downstream purge as {@link #deleteById}. */
+    @Transactional
+    public void deleteByAdmin(UUID adminId, UUID targetId) {
+        if (adminId.equals(targetId)) {
+            throw AuthException.cannotModifySelf();
+        }
+        deleteById(targetId);
     }
 }

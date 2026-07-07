@@ -62,6 +62,8 @@ public class SecurityConfig {
                         // runs before Spring Security below. Nginx blocks the
                         // /internal/** prefix from the public network.
                         .requestMatchers("/internal/**").permitAll()
+                        // Admin — user moderation
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // Protected
                         .anyRequest().authenticated())
                 .addFilterBefore(internalSecretFilter, UsernamePasswordAuthenticationFilter.class)

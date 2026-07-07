@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Flag, LayoutDashboard, Package } from 'lucide-react';
+import { Flag, LayoutDashboard, Package, SlidersHorizontal, UsersRound } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -10,6 +10,8 @@ const TABS: Array<{ href: string; label: string; icon: React.ReactNode }> = [
   { href: '/admin', label: 'Statistika', icon: <LayoutDashboard className="h-4 w-4" /> },
   { href: '/admin/reports', label: 'Shikoyatlar', icon: <Flag className="h-4 w-4" /> },
   { href: '/admin/listings', label: "E'lonlar", icon: <Package className="h-4 w-4" /> },
+  { href: '/admin/users', label: 'Foydalanuvchilar', icon: <UsersRound className="h-4 w-4" /> },
+  { href: '/admin/attributes', label: 'Atributlar', icon: <SlidersHorizontal className="h-4 w-4" /> },
 ];
 
 export function AdminTabs() {
