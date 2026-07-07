@@ -19,6 +19,8 @@ public interface ListingRepository extends JpaRepository<Listing, UUID>,
 
     Page<Listing> findByStatus(ListingStatus status, Pageable pageable);
 
+    long countByStatus(ListingStatus status);
+
     /**
      * Listings currently liked by {@code userId}. Filters out non-ACTIVE listings
      * so the favourites view doesn't show SOLD/DELETED entries the user liked earlier.

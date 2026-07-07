@@ -84,6 +84,16 @@ public class MarketplaceException extends RuntimeException {
                 "O'zingizning e'loningizni shikoyat qila olmaysiz");
     }
 
+    public static MarketplaceException reportNotFound() {
+        return new MarketplaceException(HttpStatus.NOT_FOUND, "report_not_found",
+                "Shikoyat topilmadi");
+    }
+
+    public static MarketplaceException listingAlreadyActive() {
+        return new MarketplaceException(HttpStatus.CONFLICT, "listing_already_active",
+                "E'lon allaqachon aktiv");
+    }
+
     public static MarketplaceException notificationNotFound() {
         return new MarketplaceException(HttpStatus.NOT_FOUND, "notification_not_found",
                 "Bildirishnoma topilmadi");
