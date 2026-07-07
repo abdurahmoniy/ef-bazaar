@@ -1,8 +1,10 @@
-import { BadgeCheck, Mail, Send, ShieldAlert } from 'lucide-react';
+import Link from 'next/link';
+import { BadgeCheck, Mail, Send, ShieldAlert, ShieldCheck } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { isAdmin } from '@/lib/admin';
 import type { User } from '@/lib/types';
 
 interface ProfileHeaderProps {
@@ -65,6 +67,15 @@ export function ProfileHeader({ user }: ProfileHeaderProps) {
               <Badge variant="outline">A'zo: {memberSinceLabel}</Badge>
             </div>
           </div>
+          {isAdmin(user) && (
+            <Link
+              href="/admin"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10 sm:ml-auto sm:self-start"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Admin panel
+            </Link>
+          )}
         </div>
       </CardContent>
     </Card>
