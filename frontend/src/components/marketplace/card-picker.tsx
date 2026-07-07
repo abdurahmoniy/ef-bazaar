@@ -27,6 +27,8 @@ interface CardPickerProps {
   placeholder?: string;
   id?: string;
   className?: string;
+  /** How selected cards render: text pill (default) or square image-only tile. */
+  selectedVariant?: 'pill' | 'tile';
 }
 
 const DEBOUNCE_MS = 250;
@@ -49,6 +51,7 @@ export function CardPicker({
   placeholder = "O'yinchi qidirish (masalan: Messi)",
   id,
   className,
+  selectedVariant = 'pill',
 }: CardPickerProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PlayerCard[]>([]);
@@ -175,15 +178,28 @@ export function CardPicker({
   return (
     <div ref={containerRef} className={cn('relative', className)}>
       {value.length > 0 && (
-        <div className={cn('mb-2 flex flex-wrap gap-1.5', mode === 'single' && 'gap-2')}>
-          {value.map((card) => (
-            <SelectedPill
-              key={card.efhubId}
-              card={card}
-              variant={mode === 'single' ? 'primary' : 'muted'}
-              onRemove={() => removeCard(card.efhubId)}
-            />
-          ))}
+        <div
+          className={cn(
+            'mb-2 flex flex-wrap gap-1.5',
+            (mode === 'single' || selectedVariant === 'tile') && 'gap-2',
+          )}
+        >
+          {value.map((card) =>
+            selectedVariant === 'tile' ? (
+              <SelectedTile
+                key={card.efhubId}
+                card={card}
+                onRemove={() => removeCard(card.efhubId)}
+              />
+            ) : (
+              <SelectedPill
+                key={card.efhubId}
+                card={card}
+                variant={mode === 'single' ? 'primary' : 'muted'}
+                onRemove={() => removeCard(card.efhubId)}
+              />
+            ),
+          )}
         </div>
       )}
 
@@ -231,6 +247,39 @@ export function CardPicker({
         </div>
       )}
     </div>
+  );
+}
+
+function SelectedTile({ card, onRemove }: { card: PlayerCard; onRemove: () => void }) {
+  return (
+    <span
+      title={card.name}
+      className="relative block h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted shadow-sm"
+    >
+      {card.imageUrl ? (
+        <img
+          src={card.imageUrl}
+          alt={card.name}
+          loading="lazy"
+          className="h-full w-full object-cover object-top"
+          onError={(event) => {
+            (event.target as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      ) : (
+        <span className="grid h-full w-full place-items-center px-1 text-center text-[9px] font-bold leading-tight text-muted-foreground">
+          {card.name}
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`${card.name} - o'chirish`}
+        className="absolute right-0.5 top-0.5 grid h-5 w-5 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </span>
   );
 }
 
