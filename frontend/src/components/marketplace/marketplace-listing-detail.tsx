@@ -3,6 +3,7 @@ import { BadgeCheck, Coins, Gamepad2, MapPin, ShieldCheck, Sparkles } from 'luci
 import { ListingActions } from '@/components/marketplace/listing-actions';
 import { ListingCard } from '@/components/marketplace/listing-card';
 import { ListingMediaGallery } from '@/components/marketplace/listing-media-gallery';
+import { PlayerCardTile } from '@/components/marketplace/player-card-tile';
 import { SellerCard } from '@/components/marketplace/seller-card';
 import { ShareListingButton } from '@/components/marketplace/share-listing-button';
 import { BackLink } from '@/components/navigation/back-link';
@@ -125,23 +126,7 @@ export function MarketplaceListingDetail({
               <h2 className="text-sm font-bold text-foreground">Yulduz o'yinchilar</h2>
               <div className="mt-3 flex flex-wrap gap-2">
                 {valuablePlayers.map((card) => (
-                  <Badge
-                    key={card.efhubId || card.name}
-                    variant="muted"
-                    className="inline-flex items-center gap-1.5 text-xs"
-                  >
-                    <span className="font-semibold">{card.name}</span>
-                    {typeof card.overallRating === 'number' && (
-                      <span className="rounded bg-primary px-1 py-0.5 text-[10px] font-black leading-none text-primary-foreground">
-                        {card.overallRating}
-                      </span>
-                    )}
-                    {card.cardType && (
-                      <span className="text-[10px] font-black uppercase tracking-wide text-primary/70">
-                        {card.cardType}
-                      </span>
-                    )}
-                  </Badge>
+                  <PlayerCardTile key={card.efhubId || card.name} card={card} />
                 ))}
               </div>
             </div>

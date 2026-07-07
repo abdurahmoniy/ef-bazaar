@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Search, X } from 'lucide-react';
 
+import { PlayerCardTile } from '@/components/marketplace/player-card-tile';
 import { Input } from '@/components/ui/input';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { cn } from '@/lib/utils';
@@ -252,25 +253,7 @@ export function CardPicker({
 
 function SelectedTile({ card, onRemove }: { card: PlayerCard; onRemove: () => void }) {
   return (
-    <span
-      title={card.name}
-      className="relative block h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted shadow-sm"
-    >
-      {card.imageUrl ? (
-        <img
-          src={card.imageUrl}
-          alt={card.name}
-          loading="lazy"
-          className="h-full w-full object-cover object-top"
-          onError={(event) => {
-            (event.target as HTMLImageElement).style.display = 'none';
-          }}
-        />
-      ) : (
-        <span className="grid h-full w-full place-items-center px-1 text-center text-[9px] font-bold leading-tight text-muted-foreground">
-          {card.name}
-        </span>
-      )}
+    <PlayerCardTile card={card}>
       <button
         type="button"
         onClick={onRemove}
@@ -279,7 +262,7 @@ function SelectedTile({ card, onRemove }: { card: PlayerCard; onRemove: () => vo
       >
         <X className="h-3 w-3" />
       </button>
-    </span>
+    </PlayerCardTile>
   );
 }
 
