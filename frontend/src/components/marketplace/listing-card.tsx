@@ -13,8 +13,6 @@ import { listingMediaUrls } from '@/lib/marketplace-media';
 import {
   attributeBoolean,
   attributeNumber,
-  attributeCardList,
-  type AttachedPlayerCard,
   type ListingResponse,
 } from '@/lib/marketplace-types';
 
@@ -23,9 +21,6 @@ interface ListingCardProps {
   /** When true, renders a compact horizontal layout used by list view / small containers. */
   variant?: 'grid' | 'list';
 }
-
-const GRID_PLAYER_LIMIT = 3;
-const LIST_PLAYER_LIMIT = 4;
 
 export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   // `likedByMe` is omitted (undefined) by the backend when the viewer is anonymous;
@@ -40,7 +35,6 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   const androidCoins = attributeNumber(listing, 'android_coins') ?? 0;
   const iosCoins = attributeNumber(listing, 'ios_coins') ?? 0;
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
-  const valuablePlayers = sortByRating(attributeCardList(listing, 'valuable_players'));
   const coverUrl = listingMediaUrls(listing, 1)[0];
   const href = `/marketplace/${listing.id}`;
 
@@ -81,9 +75,6 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
               {formatPriceUZS(listing.price)}
             </span>
           </div>
-          {valuablePlayers.length > 0 && (
-            <PlayerChips players={valuablePlayers} limit={LIST_PLAYER_LIMIT} />
-          )}
           <div className="mt-auto flex flex-wrap items-center gap-1.5 text-[11px]">
             {division !== undefined && (
               <Badge variant="outline">
@@ -170,9 +161,6 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
             {title}
           </h2>
         </Link>
-        {valuablePlayers.length > 0 && (
-          <PlayerChips players={valuablePlayers} limit={GRID_PLAYER_LIMIT} />
-        )}
         <div className="mt-auto grid grid-cols-2 gap-1.5 pt-1 text-[11px]">
           <Metric
             icon={<Smartphone className="h-3 w-3" />}
@@ -195,43 +183,6 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
         </div>
       </div>
     </article>
-  );
-}
-
-/** Highest-rated cards first so the strongest selling point is what buyers see. */
-function sortByRating(cards: AttachedPlayerCard[]) {
-  return [...cards].sort((a, b) => (b.overallRating ?? 0) - (a.overallRating ?? 0));
-}
-
-function PlayerChips({ players, limit }: { players: AttachedPlayerCard[]; limit: number }) {
-  const visible = players.slice(0, limit);
-  const overflow = players.length - visible.length;
-  return (
-    <div className="flex flex-wrap gap-1">
-      {visible.map((card) => (
-        <span
-          key={card.efhubId || card.name}
-          className="inline-flex max-w-full items-center gap-1 rounded-md border border-primary/20 bg-primary/5 py-0.5 pl-1 pr-1.5 text-[11px] font-semibold text-foreground"
-        >
-          {typeof card.overallRating === 'number' && (
-            <span className="rounded bg-primary px-1 text-[10px] font-black leading-4 text-primary-foreground">
-              {card.overallRating}
-            </span>
-          )}
-          <span className="truncate">{card.name}</span>
-          {card.position && (
-            <span className="text-[9px] font-black uppercase text-muted-foreground">
-              {card.position}
-            </span>
-          )}
-        </span>
-      ))}
-      {overflow > 0 && (
-        <span className="inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground">
-          +{overflow}
-        </span>
-      )}
-    </div>
   );
 }
 
