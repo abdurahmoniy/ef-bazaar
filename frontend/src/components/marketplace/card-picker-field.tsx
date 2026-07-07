@@ -7,7 +7,7 @@ import { CardPicker, type PlayerCard } from '@/components/marketplace/card-picke
 interface CardPickerFieldProps {
   /** Card efhub_id from URL (persisted between renders). */
   defaultEfhubId?: number;
-  /** Card name from URL — used as the pill label until we re-hydrate the full card. */
+  /** Card name from URL — used as the tile label until we re-hydrate the full card. */
   defaultName?: string;
   placeholder?: string;
   id?: string;
@@ -21,9 +21,9 @@ interface CardPickerFieldProps {
  *      (same player, different card is still relevant to the caller);
  *   2. sort the exact-card matches ahead of same-name matches.
  * Falls back to a minimal {@link PlayerCard} placeholder when the URL only
- * carries the id/name pair — enough to render the pill without a fresh
- * lookup, and the real card metadata reappears the next time the user
- * opens the picker.
+ * carries the id/name pair — enough to render the selected tile (name-only,
+ * no image) without a fresh lookup, and the real card metadata reappears
+ * the next time the user opens the picker.
  */
 export function CardPickerField({
   defaultEfhubId,
@@ -48,6 +48,7 @@ export function CardPickerField({
         value={value}
         onChange={setValue}
         placeholder={placeholder}
+        selectedVariant="tile"
       />
       {active && (
         <>
