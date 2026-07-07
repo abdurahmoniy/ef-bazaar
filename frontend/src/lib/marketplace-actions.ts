@@ -71,3 +71,37 @@ export function toggleListingLike(
     'Like saqlanmadi',
   );
 }
+
+// ---------- admin (backend rejects non-ROLE_ADMIN callers with 403) ----------
+
+export function adminResolveReport(reportId: string): Promise<ActionResult<null>> {
+  return marketplaceRequest<null>(
+    ['v1', 'admin', 'reports', reportId, 'resolve'],
+    { method: 'POST' },
+    'Shikoyat yangilanmadi',
+  );
+}
+
+export function adminDismissReport(reportId: string): Promise<ActionResult<null>> {
+  return marketplaceRequest<null>(
+    ['v1', 'admin', 'reports', reportId, 'dismiss'],
+    { method: 'POST' },
+    'Shikoyat yangilanmadi',
+  );
+}
+
+export function adminDeleteListing(listingId: string): Promise<ActionResult<null>> {
+  return marketplaceRequest<null>(
+    ['v1', 'admin', 'listings', listingId],
+    { method: 'DELETE' },
+    "E'lon o'chirilmadi",
+  );
+}
+
+export function adminRestoreListing(listingId: string): Promise<ActionResult<unknown>> {
+  return marketplaceRequest<unknown>(
+    ['v1', 'admin', 'listings', listingId, 'restore'],
+    { method: 'POST' },
+    "E'lon tiklanmadi",
+  );
+}

@@ -168,6 +168,35 @@ export function attributeCardList(listing: ListingResponse, key: string): Attach
   return out;
 }
 
+// ---------- admin ----------
+
+export type ReportStatus = 'PENDING' | 'RESOLVED' | 'DISMISSED';
+
+/** Moderation view of a listing report; listing fields are null when the listing row is gone. */
+export interface AdminReportResponse {
+  id: string;
+  listingId: string;
+  listingDescription?: string | null;
+  listingStatus?: ListingStatus | null;
+  sellerId?: string | null;
+  sellerName?: string | null;
+  reporterId: string;
+  reporterName?: string | null;
+  reason: string;
+  details?: string | null;
+  status: ReportStatus;
+  createdAt: string;
+}
+
+export interface AdminStatsResponse {
+  totalListings: number;
+  activeListings: number;
+  soldListings: number;
+  deletedListings: number;
+  totalReports: number;
+  pendingReports: number;
+}
+
 export interface LikeToggleResponse {
   listingId: string;
   liked: boolean;

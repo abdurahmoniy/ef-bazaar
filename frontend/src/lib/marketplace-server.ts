@@ -3,12 +3,16 @@ import 'server-only';
 import { apiFetch, ApiException } from './api';
 import { buildListingSearchParams } from './marketplace-format';
 import type {
+  AdminReportResponse,
+  AdminStatsResponse,
   AttributeDefinitionResponse,
   ChatResponse,
   ListingBrowseParams,
   ListingResponse,
+  ListingStatus,
   MessageResponse,
   PageResponse,
+  ReportStatus,
 } from './marketplace-types';
 import type { User } from './types';
 
@@ -132,6 +136,36 @@ export async function getUserProfile(userId: string): Promise<User | null> {
   const result = await safeFetch<User>('/auth/v1/users/me');
   const me = nullifyExpected(result);
   return me && me.id === userId ? me : null;
+}
+
+// ---------- admin (backend rejects non-ROLE_ADMIN callers with 403) ----------
+
+export async function getAdminStats(): Promise<FetchResult<AdminStatsResponse>> {
+  return safeFetch<AdminStatsResponse>(`${MARKETPLACE_PREFIX}/admin/stats`);
+}
+
+export async function getAdminReports(
+  status?: ReportStatus,
+  page = 0,
+  size = 20,
+): Promise<FetchResult<PageResponse<AdminReportResponse>>> {
+  const params = new URLSearchParams({ page: String(page), size: String(size), sort: 'createdAt,desc' });
+  if (status) params.set('status', status);
+  return safeFetch<PageResponse<AdminReportResponse>>(
+    `${MARKETPLACE_PREFIX}/admin/reports?${params.toString()}`,
+  );
+}
+
+export async function getAdminListings(
+  status?: ListingStatus,
+  page = 0,
+  size = 20,
+): Promise<FetchResult<PageResponse<ListingResponse>>> {
+  const params = new URLSearchParams({ page: String(page), size: String(size), sort: 'createdAt,desc' });
+  if (status) params.set('status', status);
+  return safeFetch<PageResponse<ListingResponse>>(
+    `${MARKETPLACE_PREFIX}/admin/listings?${params.toString()}`,
+  );
 }
 
 export async function getSimilarListings(

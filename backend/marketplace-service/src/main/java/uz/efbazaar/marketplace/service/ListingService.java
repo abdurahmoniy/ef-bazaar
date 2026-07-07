@@ -138,6 +138,43 @@ public class ListingService {
         return listings.findLikedByUser(userId, pageable);
     }
 
+    // ----- admin moderation -----
+
+    /** All listings regardless of owner; optional status filter for the admin table. */
+    @Transactional(readOnly = true)
+    public Page<Listing> findForAdmin(ListingStatus status, Pageable pageable) {
+        return status == null
+                ? listings.findAll(pageable)
+                : listings.findByStatus(status, pageable);
+    }
+
+    /** Moderation soft-delete — same status flip as {@link #delete} but skips the owner check. */
+    @Transactional
+    public Listing adminDelete(UUID id, UUID adminId) {
+        Listing listing = listings.findById(id).orElseThrow(MarketplaceException::listingNotFound);
+        listing.setStatus(ListingStatus.DELETED);
+        Listing saved = listings.save(listing);
+        events.listingDeleted(saved.getId(), saved.getSellerId(), ListingStatus.DELETED);
+        log.info("Listing deleted by admin: id={} sellerId={} adminId={}",
+                id, saved.getSellerId(), adminId);
+        return saved;
+    }
+
+    /** Bring a SOLD/DELETED listing back to ACTIVE (e.g. after a mistaken takedown). */
+    @Transactional
+    public Listing adminRestore(UUID id, UUID adminId) {
+        Listing listing = listings.findById(id).orElseThrow(MarketplaceException::listingNotFound);
+        if (listing.getStatus() == ListingStatus.ACTIVE) {
+            throw MarketplaceException.listingAlreadyActive();
+        }
+        listing.setStatus(ListingStatus.ACTIVE);
+        Listing saved = listings.save(listing);
+        events.listingUpdated(saved);
+        log.info("Listing restored by admin: id={} sellerId={} adminId={}",
+                id, saved.getSellerId(), adminId);
+        return saved;
+    }
+
     // ----- internal -----
 
     private Listing getOwned(UUID id, UUID sellerId) {
