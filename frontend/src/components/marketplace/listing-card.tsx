@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BadgeCheck, Coins, Gamepad2, ShieldCheck } from 'lucide-react';
+import { Apple, BadgeCheck, Gamepad2, ShieldCheck, Smartphone } from 'lucide-react';
 
 import { ListingLikeButton } from '@/components/marketplace/listing-like-button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import {
   attributeBoolean,
   attributeNumber,
   attributeCardList,
+  type AttachedPlayerCard,
   type ListingResponse,
 } from '@/lib/marketplace-types';
 
@@ -23,13 +24,15 @@ interface ListingCardProps {
   variant?: 'grid' | 'list';
 }
 
+const GRID_PLAYER_LIMIT = 3;
+const LIST_PLAYER_LIMIT = 4;
+
 export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   // `likedByMe` is omitted (undefined) by the backend when the viewer is anonymous;
   // presence of the field is a reliable authentication signal.
   const authenticated = listing.likedByMe !== undefined && listing.likedByMe !== null;
   const likedByMe = listing.likedByMe === true;
   const title = listing.description.split('\n')[0]?.trim() || 'eFootball account';
-  const preview = listing.description.replace(/\s+/g, ' ').slice(0, 140);
   const isSold = listing.status === 'SOLD';
 
   const division = attributeNumber(listing, 'highest_division_level');
@@ -37,7 +40,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   const androidCoins = attributeNumber(listing, 'android_coins') ?? 0;
   const iosCoins = attributeNumber(listing, 'ios_coins') ?? 0;
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
-  const valuablePlayers = attributeCardList(listing, 'valuable_players');
+  const valuablePlayers = sortByRating(attributeCardList(listing, 'valuable_players'));
   const coverUrl = listingMediaUrls(listing, 1)[0];
   const href = `/marketplace/${listing.id}`;
 
@@ -64,7 +67,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
             initialLiked={likedByMe}
             initialCount={listing.likeCount}
             authenticated={authenticated}
-            className="absolute right-2 top-2"
+            className="absolute left-2 top-2"
           />
         )}
         <div className="flex min-w-0 flex-1 flex-col gap-2 p-3 sm:p-4">
@@ -78,7 +81,9 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
               {formatPriceUZS(listing.price)}
             </span>
           </div>
-          <p className="line-clamp-2 text-xs text-muted-foreground sm:text-sm">{preview}</p>
+          {valuablePlayers.length > 0 && (
+            <PlayerChips players={valuablePlayers} limit={LIST_PLAYER_LIMIT} />
+          )}
           <div className="mt-auto flex flex-wrap items-center gap-1.5 text-[11px]">
             {division !== undefined && (
               <Badge variant="outline">
@@ -91,11 +96,14 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
               </Badge>
             )}
             <Badge variant="outline">
-              <Coins className="h-3 w-3" /> {formatCompactNumber(androidCoins + iosCoins)}
+              <Smartphone className="h-3 w-3" /> {formatCompactNumber(androidCoins)}
+            </Badge>
+            <Badge variant="outline">
+              <Apple className="h-3 w-3" /> {formatCompactNumber(iosCoins)}
             </Badge>
             {listing.priceNegotiable && <Badge variant="price">savdolashish</Badge>}
             {hasGooglePlayLink && (
-              <Badge variant="muted">
+              <Badge variant="verified">
                 <BadgeCheck className="h-3 w-3" /> Google
               </Badge>
             )}
@@ -130,6 +138,11 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
             {divisionLabel(division)}
           </div>
         )}
+        {teamStrength !== undefined && (
+          <div className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur">
+            <Gamepad2 className="h-3 w-3" /> {formatCompactNumber(teamStrength)}
+          </div>
+        )}
       </Link>
       {!isSold && (
         <ListingLikeButton
@@ -157,20 +170,22 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
             {title}
           </h2>
         </Link>
-        <div className="mt-1 grid grid-cols-3 gap-1.5 text-[11px]">
-          <Metric icon={<ShieldCheck className="h-3 w-3" />} value={division === undefined ? '—' : `D${division}`} label="Div" />
+        {valuablePlayers.length > 0 && (
+          <PlayerChips players={valuablePlayers} limit={GRID_PLAYER_LIMIT} />
+        )}
+        <div className="mt-auto grid grid-cols-2 gap-1.5 pt-1 text-[11px]">
           <Metric
-            icon={<Gamepad2 className="h-3 w-3" />}
-            value={teamStrength === undefined ? '—' : formatCompactNumber(teamStrength)}
-            label="Str"
+            icon={<Smartphone className="h-3 w-3" />}
+            value={formatCompactNumber(androidCoins)}
+            label="Android"
           />
           <Metric
-            icon={<Coins className="h-3 w-3" />}
-            value={formatCompactNumber(androidCoins + iosCoins)}
-            label="Coin"
+            icon={<Apple className="h-3 w-3" />}
+            value={formatCompactNumber(iosCoins)}
+            label="iOS"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-1 pt-1 text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
           <span>{formatListingDate(listing.createdAt)}</span>
           {hasGooglePlayLink && (
             <span className="ml-auto inline-flex items-center gap-1 font-semibold text-primary">
@@ -178,26 +193,45 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
             </span>
           )}
         </div>
-        {valuablePlayers.length > 0 && (
-          <div className="flex flex-wrap gap-1 pt-0.5">
-            {valuablePlayers.slice(0, 3).map((card) => (
-              <Badge
-                key={card.efhubId || card.name}
-                variant="muted"
-                className="px-1.5 py-0 text-[10px]"
-              >
-                {card.name}
-                {typeof card.overallRating === 'number' && (
-                  <span className="ml-1 rounded bg-primary/10 px-1 text-[9px] font-black text-primary">
-                    {card.overallRating}
-                  </span>
-                )}
-              </Badge>
-            ))}
-          </div>
-        )}
       </div>
     </article>
+  );
+}
+
+/** Highest-rated cards first so the strongest selling point is what buyers see. */
+function sortByRating(cards: AttachedPlayerCard[]) {
+  return [...cards].sort((a, b) => (b.overallRating ?? 0) - (a.overallRating ?? 0));
+}
+
+function PlayerChips({ players, limit }: { players: AttachedPlayerCard[]; limit: number }) {
+  const visible = players.slice(0, limit);
+  const overflow = players.length - visible.length;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {visible.map((card) => (
+        <span
+          key={card.efhubId || card.name}
+          className="inline-flex max-w-full items-center gap-1 rounded-md border border-primary/20 bg-primary/5 py-0.5 pl-1 pr-1.5 text-[11px] font-semibold text-foreground"
+        >
+          {typeof card.overallRating === 'number' && (
+            <span className="rounded bg-primary px-1 text-[10px] font-black leading-4 text-primary-foreground">
+              {card.overallRating}
+            </span>
+          )}
+          <span className="truncate">{card.name}</span>
+          {card.position && (
+            <span className="text-[9px] font-black uppercase text-muted-foreground">
+              {card.position}
+            </span>
+          )}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span className="inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground">
+          +{overflow}
+        </span>
+      )}
+    </div>
   );
 }
 
