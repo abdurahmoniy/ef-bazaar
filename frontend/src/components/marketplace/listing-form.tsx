@@ -689,6 +689,7 @@ function BasicsStep({
           id="valuable-players"
           mode="multi"
           max={12}
+          selectedVariant="tile"
           value={playerCards(state.attributes.valuable_players)}
           onChange={(next) =>
             setState((prev) => ({
@@ -698,7 +699,7 @@ function BasicsStep({
           }
         />
         <p className="text-[11px] text-muted-foreground">
-          Qidiruvdan tanlang. Rasmi, OVR va o'ynash uslubi ko'rinadi (max 12 ta).
+          Qidiruvdan tanlang. Tanlangan o'yinchilar rasm ko'rinishida chiqadi (max 12 ta).
         </p>
       </div>
 
