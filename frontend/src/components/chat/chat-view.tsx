@@ -515,6 +515,17 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
                       handleSend();
                     }
                   }}
+                  onPaste={(e) => {
+                    if (editing) return;
+                    const item = Array.from(e.clipboardData.items).find(
+                      (i) => i.kind === 'file' && i.type.startsWith('image/'),
+                    );
+                    const file = item?.getAsFile();
+                    if (file) {
+                      e.preventDefault();
+                      handlePickFile(file);
+                    }
+                  }}
                   placeholder={pendingFile ? 'Izoh (ixtiyoriy)…' : 'Xabar yozing…'}
                   rows={2}
                   className="min-h-11 resize-none"
