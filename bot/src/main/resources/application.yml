@@ -56,7 +56,8 @@ app:
       logs:         ${TELEGRAM_TOPIC_LOGS:6}
       registration: ${TELEGRAM_TOPIC_REGISTRATION:4}
       media:        ${TELEGRAM_TOPIC_MEDIA:2}
-    webhook-url: ${TELEGRAM_WEBHOOK_URL:}
+    webhook-url:    ${TELEGRAM_WEBHOOK_URL:}
+    webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
 
 springdoc:
   api-docs:

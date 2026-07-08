@@ -244,9 +244,17 @@ public class TelegramApiClient {
         }
     }
 
-    /** Webhook ni o'rnatadi. Bo'sh URL bersangiz, webhook o'chiriladi. */
-    public void setWebhook(String url) {
+    /**
+     * Webhook'ni o'rnatadi. Bo'sh URL webhook'ni o'chiradi (secret ham ignore'lanadi).
+     * {@code secret} bo'sh emas bo'lsa Telegram har POST'da uni
+     * {@code X-Telegram-Bot-Api-Secret-Token} header'ida qaytaradi — controller
+     * shu bilan real Telegram va soxta chaqiruvni ajratadi.
+     */
+    public void setWebhook(String url, String secret) {
         ObjectNode body = objectMapper.createObjectNode().put("url", url == null ? "" : url);
+        if (secret != null && !secret.isBlank()) {
+            body.put("secret_token", secret);
+        }
         postJson("setWebhook", body)
                 .ifPresentOrElse(
                         r -> log.info("Webhook set to '{}'", url),
