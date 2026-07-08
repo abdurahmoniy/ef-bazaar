@@ -59,7 +59,6 @@ ON CONFLICT (key) DO UPDATE SET
 -- type-column CHECK already admits ENUM (V5), so no ALTER TABLE needed.
 UPDATE attribute_definitions
    SET required    = TRUE,
-       type        = 'ENUM',
        position    = 10,
        group_key   = 'gameplay',
        constraints = '{"options":["1","2","3","4"],"option_labels_uz":{"1":"Divisiya 1","2":"Divisiya 2","3":"Divisiya 3","4":"Divisiya 4+"}}'::jsonb,
