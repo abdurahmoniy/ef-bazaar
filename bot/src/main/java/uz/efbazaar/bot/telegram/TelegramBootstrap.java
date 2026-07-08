@@ -35,11 +35,14 @@ public class TelegramBootstrap {
             return;
         }
         if (props.isWebhookMode()) {
+            if (props.webhookSecret() == null || props.webhookSecret().isBlank()) {
+                log.warn("Webhook mode without a secret — /bot/webhook is unauthenticated. Set TELEGRAM_WEBHOOK_SECRET.");
+            }
             log.info("Registering webhook at {}", props.webhookUrl());
-            telegram.setWebhook(props.webhookUrl());
+            telegram.setWebhook(props.webhookUrl(), props.webhookSecret());
         } else {
             log.info("No webhook URL — clearing any existing webhook and using long-polling");
-            telegram.setWebhook("");
+            telegram.setWebhook("", null);
             longPolling = true;
         }
     }

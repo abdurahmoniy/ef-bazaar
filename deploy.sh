@@ -87,6 +87,7 @@ write_env() {
   upsert_env .env TELEGRAM_TOPIC_REGISTRATION "${TELEGRAM_TOPIC_REGISTRATION:-4}"
   upsert_env .env TELEGRAM_TOPIC_MEDIA        "${TELEGRAM_TOPIC_MEDIA:-2}"
   upsert_env .env TELEGRAM_WEBHOOK_URL        "${TELEGRAM_WEBHOOK_URL:-}"
+  upsert_env .env TELEGRAM_WEBHOOK_SECRET     "${TELEGRAM_WEBHOOK_SECRET:-}"
 
   upsert_env .env MEDIA_MIN_FILES         1
   upsert_env .env MEDIA_MAX_FILES         6

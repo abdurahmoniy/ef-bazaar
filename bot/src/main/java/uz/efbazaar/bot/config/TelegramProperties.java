@@ -9,7 +9,8 @@ public record TelegramProperties(
         String apiBaseUrl,
         String groupChatId,
         Topics topics,
-        String webhookUrl
+        String webhookUrl,
+        String webhookSecret
 ) {
     public record Topics(
             Integer logs,
