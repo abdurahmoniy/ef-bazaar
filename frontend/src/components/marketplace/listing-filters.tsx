@@ -20,7 +20,13 @@ interface ListingFiltersProps {
   sortParam?: string;
 }
 
-const DIVISION_CHOICES = [1, 2, 3];
+const DIVISION_CHOICES = [1, 2, 3, 4] as const;
+const DIVISION_LABELS: Record<number, string> = {
+  1: 'Divisiya 1',
+  2: 'Divisiya 2',
+  3: 'Divisiya 3',
+  4: 'Divisiya 4+',
+};
 
 export function ListingFilters({
   activeFilter,
@@ -90,7 +96,7 @@ export function ListingFilters({
               <option value="">Barchasi</option>
               {DIVISION_CHOICES.map((div) => (
                 <option key={div} value={div}>
-                  Divisiya {div}
+                  {DIVISION_LABELS[div]}
                 </option>
               ))}
             </Select>

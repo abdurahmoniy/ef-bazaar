@@ -52,16 +52,17 @@ ON CONFLICT (key) DO UPDATE SET
 
 -- ---- (3) correct existing rows.
 
--- highest_division_level: 3 tiers only on this platform (top-tier accounts).
--- Retype from INT → ENUM so the value is a bounded discrete choice; the FE
--- renders it as a badge picker instead of a number spinner. The type-column
--- CHECK already admits ENUM (V5 seed lists it), so no ALTER TABLE needed.
+-- highest_division_level: 4 discrete tiers matching the League badge artwork.
+-- Buckets: "1", "2", "3", "4" where "4" means division 4 or higher (all D4–D9
+-- accounts share a single badge). Retype INT → ENUM so the stored value maps
+-- 1:1 to a badge asset; the FE renders it as a badge-tile picker. The
+-- type-column CHECK already admits ENUM (V5), so no ALTER TABLE needed.
 UPDATE attribute_definitions
    SET required    = TRUE,
        type        = 'ENUM',
        position    = 10,
        group_key   = 'gameplay',
-       constraints = '{"options":["1","2","3"],"option_labels_uz":{"1":"Divisiya 1","2":"Divisiya 2","3":"Divisiya 3"}}'::jsonb,
+       constraints = '{"options":["1","2","3","4"],"option_labels_uz":{"1":"Divisiya 1","2":"Divisiya 2","3":"Divisiya 3","4":"Divisiya 4+"}}'::jsonb,
        updated_at  = NOW()
  WHERE key = 'highest_division_level';
 

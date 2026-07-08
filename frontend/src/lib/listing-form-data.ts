@@ -20,8 +20,13 @@ export const SEEDED_LISTING_ATTRIBUTE_DEFINITIONS: FormAttributeDefinition[] = [
     position: 10,
     groupKey: 'gameplay',
     constraints: {
-      options: ['1', '2', '3'],
-      option_labels_uz: { '1': 'Divisiya 1', '2': 'Divisiya 2', '3': 'Divisiya 3' },
+      options: ['1', '2', '3', '4'],
+      option_labels_uz: {
+        '1': 'Divisiya 1',
+        '2': 'Divisiya 2',
+        '3': 'Divisiya 3',
+        '4': 'Divisiya 4+',
+      },
     },
     legacyFieldName: 'highestDivisionLevel',
   },
