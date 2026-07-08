@@ -31,10 +31,13 @@ jobs:
         with:
           fetch-depth: 0
       - name: Ensure migrations are append-only
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          BASE="origin/${{ github.base_ref }}"
-          git fetch --no-tags --prune --depth=1 origin "${{ github.base_ref }}"
-          CHANGED=$(git diff --name-status --find-renames "$BASE...HEAD" \
+          # fetch-depth: 0 already pulled full history above; the PR event
+          # exposes the base commit SHA directly. A shallow fetch here would
+          # break the merge-base for the three-dot diff.
+          CHANGED=$(git diff --name-status --find-renames "$BASE_SHA...HEAD" \
                     -- 'backend/*/src/main/resources/db/migration/V*__*.sql')
           if [ -z "$CHANGED" ]; then
             echo "No migration changes."
