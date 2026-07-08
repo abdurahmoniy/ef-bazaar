@@ -46,9 +46,15 @@ export function MarketplaceListingDetail({
   const mediaUrls = listingMediaUrls(listing);
   const division = attributeNumber(listing, 'highest_division_level');
   const teamStrength = attributeNumber(listing, 'team_strength');
-  const androidCoins = attributeNumber(listing, 'android_coins') ?? 0;
-  const iosCoins = attributeNumber(listing, 'ios_coins') ?? 0;
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
+  const hasGameCenterLink = attributeBoolean(listing, 'has_game_center_link');
+  // Zero-out coin display for platforms the account isn't bound to; matches
+  // the backend cross-field rule that rejects orphaned coin balances.
+  const androidCoins = hasGooglePlayLink ? attributeNumber(listing, 'android_coins') ?? 0 : 0;
+  const iosCoins = hasGameCenterLink ? attributeNumber(listing, 'ios_coins') ?? 0 : 0;
+  const exchangeMode = typeof listing.attributes?.exchange_mode === 'string'
+    ? (listing.attributes.exchange_mode as string)
+    : undefined;
   const valuablePlayers = attributeCardList(listing, 'valuable_players');
   const authenticated = viewer !== null;
   const isOwner = viewer?.id === listing.sellerId;
@@ -138,6 +144,8 @@ export function MarketplaceListingDetail({
             androidCoins={androidCoins}
             iosCoins={iosCoins}
             hasGooglePlayLink={hasGooglePlayLink}
+            hasGameCenterLink={hasGameCenterLink}
+            exchangeMode={exchangeMode}
             priceNegotiable={listing.priceNegotiable}
           />
         </div>
@@ -191,6 +199,16 @@ export function MarketplaceListingDetail({
   );
 }
 
+function exchangeModeLabel(mode?: string): string {
+  switch (mode) {
+    case 'EXCHANGE_ONLY':           return 'Obmen';
+    case 'EXCHANGE_WITH_SURCHARGE': return 'Obmen + doplata';
+    case 'BOTH':                    return 'Obmen yoki obmen + doplata';
+    case 'NONE':                    return "Yo'q";
+    default:                        return '—';
+  }
+}
+
 function StatCard({
   icon,
   label,
@@ -217,6 +235,8 @@ function AttributeTable({
   androidCoins,
   iosCoins,
   hasGooglePlayLink,
+  hasGameCenterLink,
+  exchangeMode,
   priceNegotiable,
 }: {
   division?: number;
@@ -224,16 +244,24 @@ function AttributeTable({
   androidCoins: number;
   iosCoins: number;
   hasGooglePlayLink: boolean;
+  hasGameCenterLink: boolean;
+  exchangeMode?: string;
   priceNegotiable: boolean;
 }) {
   const rows: Array<{ label: string; value: string }> = [
     { label: 'Eng yuqori Division', value: division === undefined ? '—' : String(division) },
     { label: 'Team Strength', value: teamStrength === undefined ? '—' : formatCompactNumber(teamStrength) },
-    { label: 'Android coin', value: formatCompactNumber(androidCoins) },
-    { label: 'iOS coin', value: formatCompactNumber(iosCoins) },
-    { label: 'Google Play link', value: hasGooglePlayLink ? 'Mavjud' : "Yo'q" },
-    { label: 'Savdolashish', value: priceNegotiable ? 'Mumkin' : "Yo'q" },
+    { label: 'Google Play ulangan', value: hasGooglePlayLink ? 'Ha' : "Yo'q" },
+    { label: 'Game Center ulangan', value: hasGameCenterLink ? 'Ha' : "Yo'q" },
   ];
+  if (hasGooglePlayLink) {
+    rows.push({ label: 'Android coin', value: formatCompactNumber(androidCoins) });
+  }
+  if (hasGameCenterLink) {
+    rows.push({ label: 'iOS coin', value: formatCompactNumber(iosCoins) });
+  }
+  rows.push({ label: 'Obmen', value: exchangeModeLabel(exchangeMode) });
+  rows.push({ label: 'Savdolashish', value: priceNegotiable ? 'Mumkin' : "Yo'q" });
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">

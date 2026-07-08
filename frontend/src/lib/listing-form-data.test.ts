@@ -109,6 +109,7 @@ describe('createListingRequestFromForm', () => {
         android_coins: 100,
         ios_coins: 50,
         has_google_play_link: true,
+        has_game_center_link: false,
         valuable_players: ['Messi', 'Neymar', 'Mbappe'],
       },
     });

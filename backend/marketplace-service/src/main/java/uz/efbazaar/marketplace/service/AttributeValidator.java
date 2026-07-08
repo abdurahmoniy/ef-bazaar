@@ -60,7 +60,33 @@ public class AttributeValidator {
             }
             normalized.put(def.getKey(), coerceAndCheck(def, raw));
         }
+
+        applyCrossFieldRules(normalized);
         return normalized;
+    }
+
+    /**
+     * Cross-field consistency rules that can't be expressed as per-attribute
+     * constraints. Currently: coin balances only make sense when the matching
+     * platform binding is set — an iOS-only account can't hold Android coins.
+     * Rules operate on the normalized map so INT values are already {@link Long}
+     * and BOOLEAN values are already {@link Boolean}.
+     */
+    private void applyCrossFieldRules(Map<String, Object> normalized) {
+        requirePlatformLinkForCoins(normalized, "android_coins", "has_google_play_link");
+        requirePlatformLinkForCoins(normalized, "ios_coins",     "has_game_center_link");
+    }
+
+    private void requirePlatformLinkForCoins(Map<String, Object> normalized,
+                                             String coinsKey,
+                                             String linkKey) {
+        Object coins = normalized.get(coinsKey);
+        if (!(coins instanceof Long n) || n <= 0) return;
+        Object link = normalized.get(linkKey);
+        if (!(link instanceof Boolean b) || !b) {
+            throw MarketplaceException.invalidAttributeValue(coinsKey,
+                    "faqat " + linkKey + " = true bo'lganda kiritish mumkin");
+        }
     }
 
     // ---------- per-type handling ----------
