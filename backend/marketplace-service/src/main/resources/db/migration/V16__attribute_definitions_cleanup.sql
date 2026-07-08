@@ -52,16 +52,11 @@ ON CONFLICT (key) DO UPDATE SET
 
 -- ---- (3) correct existing rows.
 
--- highest_division_level: 3 tiers only on this platform (top-tier accounts).
--- Retype from INT → ENUM so the value is a bounded discrete choice; the FE
--- renders it as a badge picker instead of a number spinner. The type-column
--- CHECK already admits ENUM (V5 seed lists it), so no ALTER TABLE needed.
 UPDATE attribute_definitions
    SET required    = TRUE,
-       type        = 'ENUM',
        position    = 10,
        group_key   = 'gameplay',
-       constraints = '{"options":["1","2","3"],"option_labels_uz":{"1":"Divisiya 1","2":"Divisiya 2","3":"Divisiya 3"}}'::jsonb,
+       constraints = '{"min":1,"max":9}'::jsonb,
        updated_at  = NOW()
  WHERE key = 'highest_division_level';
 
