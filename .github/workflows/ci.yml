@@ -21,6 +21,38 @@ permissions:
   pull-requests: read
 
 jobs:
+  # Flyway applied migration'ni o'zgartirish taqiqlangan — checksum mismatch bilan
+  # prod deploy'ni yiqadi. Ushbu guard PR'da V*__*.sql o'zgargan/o'chirilgan/nom
+  # o'zgargan bo'lsa fail qiladi. Schema o'zgarishi doim YANGI V<n>__ migration'da.
+  guard-migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Ensure migrations are append-only
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          git fetch --no-tags --prune --depth=1 origin "${{ github.base_ref }}"
+          CHANGED=$(git diff --name-status --find-renames "$BASE...HEAD" \
+                    -- 'backend/*/src/main/resources/db/migration/V*__*.sql')
+          if [ -z "$CHANGED" ]; then
+            echo "No migration changes."
+            exit 0
+          fi
+          # 'A<TAB>path'  → adding a new migration is the only accepted change.
+          # 'M<TAB>path'  → edits to an applied file break checksum on next deploy.
+          # 'D<TAB>path'  → deleting an applied file leaves the DB with a version we can't validate.
+          # 'R<score>...' → renaming shifts the version number (or filename Flyway hashes).
+          BAD=$(printf "%s\n" "$CHANGED" | awk '$1 !~ /^A/')
+          if [ -n "$BAD" ]; then
+            echo "::error::Flyway migrations are append-only. Schema changes must land in a NEW V<n>__ file, never edited in place."
+            printf "%s\n" "$BAD"
+            exit 1
+          fi
+          echo "OK — only additions:"
+          printf "%s\n" "$CHANGED"
+
   detect:
     runs-on: ubuntu-latest
     outputs:
