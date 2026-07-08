@@ -176,7 +176,11 @@ public class PlayerPageParser {
                 skills,
                 comSkills,
                 addPosJson,
-                decoded
+                // rawJson=null → CardWriter re-serialises via Jackson. The raw
+                // Next.js chunk we started from is not valid JSON (has the
+                // "<hex>:" flight/RSC prefix) so it can't be stored in a JSONB
+                // column directly. Matches load.py which json.dumps(row) too.
+                null
         );
     }
 
