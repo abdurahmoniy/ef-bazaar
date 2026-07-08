@@ -1,5 +1,6 @@
 import { BadgeCheck, Coins, Gamepad2, MapPin, ShieldCheck, Sparkles } from 'lucide-react';
 
+import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { ListingActions } from '@/components/marketplace/listing-actions';
 import { ListingCard } from '@/components/marketplace/listing-card';
 import { ListingMediaGallery } from '@/components/marketplace/listing-media-gallery';
@@ -45,6 +46,7 @@ export function MarketplaceListingDetail({
     .trim();
   const mediaUrls = listingMediaUrls(listing);
   const division = attributeNumber(listing, 'highest_division_level');
+  const divisionBadgeLevel = toDivisionLevel(division);
   const teamStrength = attributeNumber(listing, 'team_strength');
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
   const hasGameCenterLink = attributeBoolean(listing, 'has_game_center_link');
@@ -72,16 +74,21 @@ export function MarketplaceListingDetail({
 
           <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-primary">
-                  {divisionLabel(division)}
-                </p>
-                <h1 className="mt-1 text-xl font-black leading-tight text-foreground sm:text-2xl">
-                  {title}
-                </h1>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {formatListingDate(listing.createdAt)} • ID: {listing.id.slice(0, 8)}
-                </p>
+              <div className="flex min-w-0 items-start gap-3">
+                {divisionBadgeLevel && (
+                  <DivisionBadge level={divisionBadgeLevel} size={54} glow />
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wide text-primary">
+                    {divisionLabel(division)}
+                  </p>
+                  <h1 className="mt-1 text-xl font-black leading-tight text-foreground sm:text-2xl">
+                    {title}
+                  </h1>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatListingDate(listing.createdAt)} • ID: {listing.id.slice(0, 8)}
+                  </p>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 {listing.status === 'SOLD' && <Badge variant="danger">Sotilgan</Badge>}
@@ -105,11 +112,20 @@ export function MarketplaceListingDetail({
           </div>
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <StatCard
-              icon={<ShieldCheck className="h-4 w-4" />}
-              label="Division"
-              value={division === undefined ? '—' : String(division)}
-            />
+            {divisionBadgeLevel ? (
+              <div className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border bg-card p-3 shadow-card sm:p-4">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Division
+                </span>
+                <DivisionBadge level={divisionBadgeLevel} size={48} glow />
+              </div>
+            ) : (
+              <StatCard
+                icon={<ShieldCheck className="h-4 w-4" />}
+                label="Division"
+                value={division === undefined ? '—' : String(division)}
+              />
+            )}
             <StatCard
               icon={<Gamepad2 className="h-4 w-4" />}
               label="Team strength"

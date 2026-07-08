@@ -15,11 +15,14 @@ export const SEEDED_LISTING_ATTRIBUTE_DEFINITIONS: FormAttributeDefinition[] = [
   {
     key: 'highest_division_level',
     labelUz: 'Eng yuqori division',
-    type: 'INT',
+    type: 'ENUM',
     required: true,
     position: 10,
     groupKey: 'gameplay',
-    constraints: { min: 1, max: 9 },
+    constraints: {
+      options: ['1', '2', '3'],
+      option_labels_uz: { '1': 'Divisiya 1', '2': 'Divisiya 2', '3': 'Divisiya 3' },
+    },
     legacyFieldName: 'highestDivisionLevel',
   },
   {
