@@ -173,6 +173,18 @@ status                ACTIVE | SOLD | DELETED
 
 ---
 
+## Flyway migration qoidasi (buzilmasin)
+
+**`main` ga merge bo'lgan `V*__*.sql` fayl endi immutable.** Prod DB'da
+allaqachon bor va uning checksumi saqlangan — fayl ichini o'zgartirsangiz
+navbatdagi deploy Flyway checksum mismatch bilan crash bo'ladi.
+
+- Schema/data o'zgarishi kerak bo'lsa — **yangi** `V<n+1>__...sql` fayl qo'shing.
+- Applied migration'ni edit qilish, rename qilish, o'chirish taqiqlanadi.
+- CI `guard-migrations` job'i PR'da shuni tekshiradi: `A` (add) dan boshqa
+  status bilan V-fayl o'zgargan bo'lsa PR merge bo'lmaydi.
+- Xatolik ikki marta prod'ni yiqdi (PR #98, PR #101) — takrorlanmasin.
+
 ## Muhim cheklovlar
 
 - Hech qachon `auth-service` DB siga boshqa servisdan to'g'ridan ulanma
