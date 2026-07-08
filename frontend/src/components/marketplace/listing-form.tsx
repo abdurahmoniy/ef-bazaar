@@ -1288,7 +1288,8 @@ function isAttributeType(value: unknown) {
     value === 'STRING' ||
     value === 'TEXT' ||
     value === 'LIST_STRING' ||
-    value === 'ENUM'
+    value === 'ENUM' ||
+    value === 'CARD_LIST'
   );
 }
 

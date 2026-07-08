@@ -32,9 +32,12 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
 
   const division = attributeNumber(listing, 'highest_division_level');
   const teamStrength = attributeNumber(listing, 'team_strength');
-  const androidCoins = attributeNumber(listing, 'android_coins') ?? 0;
-  const iosCoins = attributeNumber(listing, 'ios_coins') ?? 0;
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
+  const hasGameCenterLink = attributeBoolean(listing, 'has_game_center_link');
+  // Only surface coin balances for platforms actually bound to the account —
+  // an iOS-only account can't hold Android coins (see AttributeValidator).
+  const androidCoins = hasGooglePlayLink ? attributeNumber(listing, 'android_coins') ?? 0 : 0;
+  const iosCoins = hasGameCenterLink ? attributeNumber(listing, 'ios_coins') ?? 0 : 0;
   const coverUrl = listingMediaUrls(listing, 1)[0];
   const href = `/marketplace/${listing.id}`;
 
