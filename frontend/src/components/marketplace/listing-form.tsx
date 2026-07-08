@@ -7,10 +7,10 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  Banknote,
   Check,
   CheckCircle2,
   Coins,
-  DollarSign,
   Gamepad2,
   ImagePlus,
   ImageIcon,
@@ -781,6 +781,7 @@ function AttributeInput({
 
   if (definition.type === 'ENUM') {
     const options = stringListConstraint(definition, 'options');
+    const labels = stringMapConstraint(definition, 'option_labels_uz');
     return (
       <div className="space-y-2">
         <Label>{definition.labelUz}</Label>
@@ -790,7 +791,7 @@ function AttributeInput({
           </option>
           {options.map((option) => (
             <option key={option} value={option}>
-              {option}
+              {labels[option] ?? option}
             </option>
           ))}
         </Select>
@@ -856,7 +857,7 @@ function PricingStep({
       <div className="space-y-2">
         <Label htmlFor="price">Narx, so'm</Label>
         <div className="relative">
-          <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Banknote className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id="price"
             type="number"
@@ -967,7 +968,7 @@ function ReviewStep({
               >
                 <dt className="text-muted-foreground">{def.labelUz}</dt>
                 <dd className="font-semibold text-foreground">
-                  {renderAttributeValue(state.attributes[def.key])}
+                  {renderAttributeValue(state.attributes[def.key], def)}
                 </dd>
               </div>
             ))}
@@ -1006,7 +1007,7 @@ function playerCards(value: unknown): PlayerCard[] {
   );
 }
 
-function renderAttributeValue(value: unknown) {
+function renderAttributeValue(value: unknown, def?: ListingAttributeDefinition) {
   if (value === undefined || value === '') return <span className="text-muted-foreground">—</span>;
   if (typeof value === 'boolean') return value ? 'Ha' : "Yo'q";
   if (Array.isArray(value)) {
@@ -1015,6 +1016,10 @@ function renderAttributeValue(value: unknown) {
     return cards
       .map((c) => `${c.name}${c.overallRating ? ` ${c.overallRating}` : ''}${c.cardType ? ` ${c.cardType}` : ''}`)
       .join(', ');
+  }
+  if (typeof value === 'string' && def?.type === 'ENUM') {
+    const labels = stringMapConstraint(def, 'option_labels_uz');
+    return labels[value] ?? value;
   }
   return String(value);
 }
@@ -1261,6 +1266,19 @@ function numberConstraint(definition: ListingAttributeDefinition, key: string) {
 function stringListConstraint(definition: ListingAttributeDefinition, key: string) {
   const raw = definition.constraints?.[key];
   return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function stringMapConstraint(
+  definition: ListingAttributeDefinition,
+  key: string,
+): Record<string, string> {
+  const raw = definition.constraints?.[key];
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v === 'string') out[k] = v;
+  }
+  return out;
 }
 
 function isRecord(payload: unknown): payload is Record<string, unknown> {
