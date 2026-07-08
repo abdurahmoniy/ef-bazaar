@@ -20,7 +20,7 @@ interface ListingFiltersProps {
   sortParam?: string;
 }
 
-const DIVISION_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const DIVISION_CHOICES = [1, 2, 3];
 
 export function ListingFilters({
   activeFilter,
@@ -90,7 +90,7 @@ export function ListingFilters({
               <option value="">Barchasi</option>
               {DIVISION_CHOICES.map((div) => (
                 <option key={div} value={div}>
-                  Division {div}+
+                  Divisiya {div}
                 </option>
               ))}
             </Select>

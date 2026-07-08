@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { CardPicker, type PlayerCard } from '@/components/marketplace/card-picker';
+import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { useTelegramMainButton } from '@/hooks/use-telegram-main-button';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { listingMediaUrls } from '@/lib/marketplace-media';
@@ -782,6 +783,44 @@ function AttributeInput({
   if (definition.type === 'ENUM') {
     const options = stringListConstraint(definition, 'options');
     const labels = stringMapConstraint(definition, 'option_labels_uz');
+    if (definition.key === 'highest_division_level') {
+      return (
+        <div className="space-y-2 sm:col-span-2">
+          <Label>{definition.labelUz}</Label>
+          <div
+            role="radiogroup"
+            aria-label={definition.labelUz}
+            className="grid grid-cols-3 gap-2"
+          >
+            {options.map((option) => {
+              const level = toDivisionLevel(option);
+              if (!level) return null;
+              const selected = raw === option;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => update(option)}
+                  className={cn(
+                    'flex flex-col items-center gap-1 rounded-xl border-2 bg-card p-3 transition',
+                    selected
+                      ? 'border-primary shadow-card-hover'
+                      : 'border-border hover:border-primary/40',
+                  )}
+                >
+                  <DivisionBadge level={level} size={56} glow={selected} />
+                  <span className="text-xs font-bold text-foreground">
+                    {labels[option] ?? `Divisiya ${option}`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="space-y-2">
         <Label>{definition.labelUz}</Label>

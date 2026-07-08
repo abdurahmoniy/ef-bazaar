@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Apple, BadgeCheck, Gamepad2, ShieldCheck, Smartphone } from 'lucide-react';
 
+import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { ListingLikeButton } from '@/components/marketplace/listing-like-button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -31,6 +32,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   const isSold = listing.status === 'SOLD';
 
   const division = attributeNumber(listing, 'highest_division_level');
+  const divisionBadgeLevel = toDivisionLevel(division);
   const teamStrength = attributeNumber(listing, 'team_strength');
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
   const hasGameCenterLink = attributeBoolean(listing, 'has_game_center_link');
@@ -79,11 +81,13 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
             </span>
           </div>
           <div className="mt-auto flex flex-wrap items-center gap-1.5 text-[11px]">
-            {division !== undefined && (
+            {divisionBadgeLevel ? (
+              <DivisionBadge level={divisionBadgeLevel} size={22} />
+            ) : division !== undefined ? (
               <Badge variant="outline">
                 <ShieldCheck className="h-3 w-3" /> Div {division}
               </Badge>
-            )}
+            ) : null}
             {teamStrength !== undefined && (
               <Badge variant="outline">
                 <Gamepad2 className="h-3 w-3" /> {formatCompactNumber(teamStrength)}
@@ -127,11 +131,15 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
           </div>
         )}
         {isSold && <SoldOverlay />}
-        {division !== undefined && (
+        {divisionBadgeLevel ? (
+          <div className="absolute left-2 top-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+            <DivisionBadge level={divisionBadgeLevel} size={40} />
+          </div>
+        ) : division !== undefined ? (
           <div className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur">
             {divisionLabel(division)}
           </div>
-        )}
+        ) : null}
         {teamStrength !== undefined && (
           <div className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur">
             <Gamepad2 className="h-3 w-3" /> {formatCompactNumber(teamStrength)}
