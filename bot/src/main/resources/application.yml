@@ -28,6 +28,9 @@ spring:
 
 server:
   port: 8084
+  # Nginx (proxy-common.inc) sends X-Forwarded-Proto/Host — honor them so springdoc
+  # generates https://api.efbazaar.uz in OpenAPI servers[] instead of plain http.
+  forward-headers-strategy: framework
   error:
     include-message: always
 
