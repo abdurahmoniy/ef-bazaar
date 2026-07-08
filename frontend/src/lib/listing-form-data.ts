@@ -97,7 +97,15 @@ export const SEEDED_LISTING_ATTRIBUTE_DEFINITIONS: FormAttributeDefinition[] = [
     required: false,
     position: 80,
     groupKey: 'price',
-    constraints: { options: ['NONE', 'EXCHANGE_ONLY', 'EXCHANGE_WITH_SURCHARGE', 'BOTH'] },
+    constraints: {
+      options: ['NONE', 'EXCHANGE_ONLY', 'EXCHANGE_WITH_SURCHARGE', 'BOTH'],
+      option_labels_uz: {
+        NONE: "Yo'q",
+        EXCHANGE_ONLY: 'Faqat obmen',
+        EXCHANGE_WITH_SURCHARGE: 'Obmen + doplata',
+        BOTH: 'Obmen yoki obmen + doplata',
+      },
+    },
   },
 ];
 
