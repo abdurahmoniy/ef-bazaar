@@ -16,8 +16,17 @@ export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 12;
 
 export const metadata: Metadata = {
-  title: 'Marketplace',
-  description: "eFootball akkountlarini ko'rish va saralash.",
+  title: 'eFootball akkount bozori',
+  description:
+    "Diviziyon, jamoa kuchi, tanga miqdori va narx bo'yicha eFootball akkountlarini toping. Sotuvchi bilan Telegram orqali bevosita bog'laning.",
+  alternates: { canonical: '/marketplace' },
+  openGraph: {
+    title: 'eFootball akkount bozori | efBazaar',
+    description:
+      "Diviziyon, jamoa kuchi va tanga miqdori bo'yicha eFootball akkountlarini toping — narxi ochiq, sotuvchi Telegram'da.",
+    url: '/marketplace',
+    type: 'website',
+  },
 };
 
 interface MarketplacePageProps {
