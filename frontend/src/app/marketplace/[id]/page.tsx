@@ -5,17 +5,50 @@ import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { MarketplaceListingDetail } from '@/components/marketplace/marketplace-listing-detail';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
+import { listingMediaUrls } from '@/lib/marketplace-media';
 import {
   getListing,
   getSimilarListings,
   getUserProfile,
 } from '@/lib/marketplace-server';
+import {
+  attributeNumber,
+  type ListingResponse,
+} from '@/lib/marketplace-types';
 import { resolveOptionalUser } from '@/lib/optional-auth';
+import { absoluteUrl, siteConfig } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
 interface ListingPageProps {
   params: Promise<{ id: string }>;
+}
+
+function firstNonEmptyLine(text: string) {
+  return text.split('\n').map((line) => line.trim()).find(Boolean) ?? '';
+}
+
+function buildListingTitle(listing: ListingResponse) {
+  const parts: string[] = [];
+  const division = attributeNumber(listing, 'highest_division_level');
+  if (division) parts.push(`Divizion ${division}`);
+  const strength = attributeNumber(listing, 'team_strength');
+  if (strength) parts.push(`${strength} kuch`);
+  const head = firstNonEmptyLine(listing.description);
+  if (head) parts.push(head);
+  const title = parts.filter(Boolean).join(' · ') || 'eFootball akkount';
+  return title.length > 80 ? `${title.slice(0, 77)}…` : title;
+}
+
+function buildListingDescription(listing: ListingResponse) {
+  const flat = listing.description.replace(/\s+/g, ' ').trim();
+  const priceUZS = Number(listing.price);
+  const priceLabel = Number.isFinite(priceUZS)
+    ? `${new Intl.NumberFormat('uz-UZ').format(priceUZS)} so'm`
+    : null;
+  const parts = [flat.slice(0, 140), priceLabel].filter(Boolean);
+  const combined = parts.join(' · ');
+  return combined.length > 160 ? `${combined.slice(0, 157)}…` : combined;
 }
 
 export async function generateMetadata({ params }: ListingPageProps): Promise<Metadata> {
@@ -27,11 +60,83 @@ export async function generateMetadata({ params }: ListingPageProps): Promise<Me
       robots: { index: false, follow: false },
     };
   }
-  const title = result.data.description.split('\n')[0]?.trim() || 'eFootball account';
+
+  const listing = result.data;
+  const canonical = `/marketplace/${listing.id}`;
+  const title = buildListingTitle(listing);
+  const description = buildListingDescription(listing);
+  const mediaUrls = listingMediaUrls(listing, 4).map((url) => absoluteUrl(url));
+  const ogFallback = absoluteUrl('/opengraph-image');
+  const images = mediaUrls.length > 0 ? mediaUrls : [ogFallback];
+
+  // Sold and deleted listings shouldn't be indexed — they can't fulfill the query.
+  const isPublic = listing.status === 'ACTIVE';
+
   return {
     title,
-    description: result.data.description.slice(0, 160),
-    robots: { index: false, follow: true },
+    description,
+    alternates: { canonical },
+    robots: isPublic
+      ? { index: true, follow: true }
+      : { index: false, follow: true },
+    openGraph: {
+      type: 'website',
+      title,
+      description,
+      url: canonical,
+      siteName: siteConfig.name,
+      locale: siteConfig.locale,
+      images: images.map((url) => ({ url, alt: title })),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images,
+    },
+  };
+}
+
+function buildListingJsonLd(listing: ListingResponse) {
+  const canonicalUrl = absoluteUrl(`/marketplace/${listing.id}`);
+  const priceValue = Number(listing.price);
+  const images = listingMediaUrls(listing, 6).map((url) => absoluteUrl(url));
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    '@id': `${canonicalUrl}#product`,
+    name: buildListingTitle(listing),
+    description: listing.description.replace(/\s+/g, ' ').trim().slice(0, 500),
+    url: canonicalUrl,
+    ...(images.length > 0 ? { image: images } : {}),
+    category: 'eFootball account',
+    brand: {
+      '@type': 'Brand',
+      name: 'eFootball',
+    },
+    offers: {
+      '@type': 'Offer',
+      url: canonicalUrl,
+      priceCurrency: 'UZS',
+      price: Number.isFinite(priceValue) ? priceValue : undefined,
+      availability:
+        listing.status === 'ACTIVE'
+          ? 'https://schema.org/InStock'
+          : listing.status === 'SOLD'
+            ? 'https://schema.org/SoldOut'
+            : 'https://schema.org/Discontinued',
+      itemCondition: 'https://schema.org/UsedCondition',
+    },
+    ...(listing.likeCount > 0
+      ? {
+          interactionStatistic: {
+            '@type': 'InteractionCounter',
+            interactionType: 'https://schema.org/LikeAction',
+            userInteractionCount: listing.likeCount,
+          },
+        }
+      : {}),
   };
 }
 
@@ -59,8 +164,14 @@ export default async function ListingPage({ params }: ListingPageProps) {
     getSimilarListings(listing),
   ]);
 
+  const jsonLd = JSON.stringify(buildListingJsonLd(listing)).replace(/</g, '\\u003c');
+
   return (
     <MarketplaceShell user={viewer} activeTab="home" backHref="/marketplace" backLabel="Bozor">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLd }}
+      />
       <MarketplaceListingDetail
         listing={listing}
         viewer={viewer}

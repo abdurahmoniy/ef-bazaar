@@ -23,6 +23,10 @@ function buildContentSecurityPolicy() {
     'https://accounts.google.com',
     'https://apis.google.com',
     'https://www.gstatic.com',
+    // Yandex Metrika (analytics + webvisor)
+    'https://mc.yandex.ru',
+    'https://mc.yandex.com',
+    'https://yastatic.net',
   ];
 
   const connectSrc = [
@@ -32,6 +36,10 @@ function buildContentSecurityPolicy() {
     'https://accounts.google.com',
     'https://oauth2.googleapis.com',
     'https://*.telegram.org',
+    'https://mc.yandex.ru',
+    'https://mc.yandex.com',
+    'https://mc.webvisor.org',
+    'https://mc.webvisor.com',
     ...(isProduction ? [] : ['ws:', 'wss:', 'http:', 'https:']),
   ];
 
@@ -44,6 +52,8 @@ function buildContentSecurityPolicy() {
     'https://*.telegram.org',
     'https://efimg.com',
     'https://*.efimg.com',
+    'https://mc.yandex.ru',
+    'https://mc.yandex.com',
     apiOrigin,
   ];
 
@@ -52,6 +62,8 @@ function buildContentSecurityPolicy() {
     'https://oauth.telegram.org',
     'https://accounts.google.com',
     'https://*.telegram.org',
+    'https://mc.yandex.ru',
+    'https://mc.yandex.com',
   ];
 
   return [
@@ -90,7 +102,10 @@ const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   poweredByHeader: false,
+  compress: true,
   images: {
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60 * 60 * 24 * 7,
     remotePatterns: [
       { protocol: 'https', hostname: 't.me' },
       { protocol: 'https', hostname: '*.googleusercontent.com' },
@@ -100,14 +115,42 @@ const nextConfig = {
     ],
   },
   async headers() {
+    // Non-public app surfaces — never fed to a search index even if a stray
+    // link leaks. Kept in sync with the disallow list in robots.ts.
+    const privatePaths = [
+      '/api/:path*',
+      '/bot/:path*',
+      '/admin/:path*',
+      '/auth/:path*',
+      '/profile/:path*',
+      '/chats/:path*',
+      '/favorites/:path*',
+      '/marketplace/new',
+      '/marketplace/:id/edit',
+    ];
     return [
       {
         source: '/(.*)',
         headers: securityHeaders,
       },
-      {
-        source: '/api/:path*',
+      ...privatePaths.map((source) => ({
+        source,
         headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+      })),
+      // Sitemap + robots should be freshly re-crawled but cached briefly at the
+      // edge to absorb Googlebot bursts without hitting the backend every time.
+      {
+        source: '/sitemap.xml',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, s-maxage=3600, must-revalidate' },
+          { key: 'Content-Type', value: 'application/xml; charset=utf-8' },
+        ],
+      },
+      {
+        source: '/robots.txt',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, s-maxage=86400, must-revalidate' },
+        ],
       },
     ];
   },
