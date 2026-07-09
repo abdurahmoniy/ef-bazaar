@@ -13,6 +13,6 @@
 
 UPDATE attribute_definitions
    SET type        = 'ENUM',
-       constraints = '{"options":["1","2","3"],"option_labels_uz":{"1":"Division 1","2":"Division 2","3":"Division 3"}}'::jsonb,
+       constraints = '{"options":["1","2","3"],"option_labels_uz":{"1":"Divisiya 1","2":"Divisiya 2","3":"Divisiya 3"}}'::jsonb,
        updated_at  = NOW()
  WHERE key = 'highest_division_level';
