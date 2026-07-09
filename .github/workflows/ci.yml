@@ -21,22 +21,35 @@ permissions:
   pull-requests: read
 
 jobs:
-  # Flyway applied migration'ni o'zgartirish taqiqlangan — checksum mismatch bilan
-  # prod deploy'ni yiqadi. Ushbu guard PR'da V*__*.sql o'zgargan/o'chirilgan/nom
-  # o'zgargan bo'lsa fail qiladi. Schema o'zgarishi doim YANGI V<n>__ migration'da.
-  guard-migrations:
+  # Bir job — ikki tekshiruv. Ilgari `guard-migrations` va `detect` alohida
+  # runner so'rar edi va ikkalasi ham GitHub'ning runner navbatida qotib
+  # qolar edi. Bitta runner'ga siqib olsak, 50% kamroq assignment kutamiz.
+  #
+  #   1) Flyway append-only guard — V*__*.sql edit/delete/rename PR'ni bloklaydi.
+  #      Prior-blob restore uchun istisno: agar fayl content'i ilgari kommit'da
+  #      bo'lgan blobga aynan mos kelsa, edit qabul qilinadi (Azizbek allaqachon
+  #      applied V-faylni edit qildi → uni prod checksum'iga qaytarish uchun).
+  #   2) Path filter — o'zgargan servisni aniqlaydi (test-java, test-frontend
+  #      uchun input).
+  #
+  # Guard step fail bo'lsa job fail bo'ladi va downstream testlar skip bo'ladi
+  # — fast-fail, chunki checksum yiqilgan bo'lsa test ma'lumoti keraksiz.
+  precheck:
     runs-on: ubuntu-latest
+    outputs:
+      auth: ${{ steps.filter.outputs.auth }}
+      marketplace: ${{ steps.filter.outputs.marketplace }}
+      recommendation: ${{ steps.filter.outputs.recommendation }}
+      bot: ${{ steps.filter.outputs.bot }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0     # guard-migrations three-dot diff'i uchun kerak
       - name: Ensure migrations are append-only
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          # fetch-depth: 0 already pulled full history above; the PR event
-          # exposes the base commit SHA directly. A shallow fetch here would
-          # break the merge-base for the three-dot diff.
           CHANGED=$(git diff --name-status --find-renames "$BASE_SHA...HEAD" \
                     -- 'backend/*/src/main/resources/db/migration/V*__*.sql')
           if [ -z "$CHANGED" ]; then
@@ -57,7 +70,6 @@ jobs:
             case "$status" in
               A) continue ;;
               M)
-                # Is HEAD's blob for $path identical to any prior commit's blob at $path?
                 CURR_BLOB=$(git rev-parse "HEAD:$path")
                 MATCH=$(git log --format=%H "$BASE_SHA" -- "$path" | while read c; do
                           git rev-parse "$c:$path" 2>/dev/null
@@ -80,17 +92,6 @@ jobs:
           fi
           echo "OK."
           printf "%s\n" "$CHANGED"
-
-  detect:
-    runs-on: ubuntu-latest
-    outputs:
-      auth: ${{ steps.filter.outputs.auth }}
-      marketplace: ${{ steps.filter.outputs.marketplace }}
-      recommendation: ${{ steps.filter.outputs.recommendation }}
-      bot: ${{ steps.filter.outputs.bot }}
-      frontend: ${{ steps.filter.outputs.frontend }}
-    steps:
-      - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -107,7 +108,7 @@ jobs:
               - 'frontend/**'
 
   test-java:
-    needs: detect
+    needs: precheck
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -115,16 +116,16 @@ jobs:
         include:
           - name: auth-service
             path: backend/auth-service
-            changed: ${{ needs.detect.outputs.auth }}
+            changed: ${{ needs.precheck.outputs.auth }}
           - name: marketplace-service
             path: backend/marketplace-service
-            changed: ${{ needs.detect.outputs.marketplace }}
+            changed: ${{ needs.precheck.outputs.marketplace }}
           - name: recommendation-service
             path: backend/recommendation-service
-            changed: ${{ needs.detect.outputs.recommendation }}
+            changed: ${{ needs.precheck.outputs.recommendation }}
           - name: bot
             path: bot
-            changed: ${{ needs.detect.outputs.bot }}
+            changed: ${{ needs.precheck.outputs.bot }}
     steps:
       - if: matrix.changed == 'true'
         uses: actions/checkout@v4
@@ -140,8 +141,8 @@ jobs:
         run: mvn -B -ntp verify
 
   test-frontend:
-    needs: detect
-    if: needs.detect.outputs.frontend == 'true'
+    needs: precheck
+    if: needs.precheck.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
