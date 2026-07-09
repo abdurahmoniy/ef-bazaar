@@ -67,10 +67,11 @@ public class AttributeValidator {
 
     /**
      * Cross-field consistency rules that can't be expressed as per-attribute
-     * constraints. Currently: coin balances only make sense when the matching
-     * platform binding is set — an iOS-only account can't hold Android coins.
-     * Rules operate on the normalized map so INT values are already {@link Long}
-     * and BOOLEAN values are already {@link Boolean}.
+     * constraints. Currently: any non-zero coin balance implies the account
+     * is bound to that platform's store — an iOS-only account can't hold
+     * Android coins, and a negative balance is still a balance. Rules operate
+     * on the normalized map so INT values are already {@link Long} and
+     * BOOLEAN values are already {@link Boolean}.
      */
     private void applyCrossFieldRules(Map<String, Object> normalized) {
         requirePlatformLinkForCoins(normalized, "android_coins", "has_google_play_link");
@@ -81,7 +82,7 @@ public class AttributeValidator {
                                              String coinsKey,
                                              String linkKey) {
         Object coins = normalized.get(coinsKey);
-        if (!(coins instanceof Long n) || n <= 0) return;
+        if (!(coins instanceof Long n) || n == 0) return;
         Object link = normalized.get(linkKey);
         if (!(link instanceof Boolean b) || !b) {
             throw MarketplaceException.invalidAttributeValue(coinsKey,

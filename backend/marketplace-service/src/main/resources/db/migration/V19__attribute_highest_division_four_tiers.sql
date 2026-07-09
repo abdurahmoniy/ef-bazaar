@@ -8,6 +8,6 @@
 -- lives here.
 
 UPDATE attribute_definitions
-   SET constraints = '{"options":["1","2","3","4"],"option_labels_uz":{"1":"Divisiya 1","2":"Divisiya 2","3":"Divisiya 3","4":"Divisiya 4+"}}'::jsonb,
+   SET constraints = '{"options":["1","2","3","4"],"option_labels_uz":{"1":"Division 1","2":"Division 2","3":"Division 3","4":"Division 4+"}}'::jsonb,
        updated_at  = NOW()
  WHERE key = 'highest_division_level';
