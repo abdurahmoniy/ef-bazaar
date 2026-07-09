@@ -44,16 +44,41 @@ jobs:
             exit 0
           fi
           # 'A<TAB>path'  → adding a new migration is the only accepted change.
-          # 'M<TAB>path'  → edits to an applied file break checksum on next deploy.
+          # 'M<TAB>path'  → edits break checksum, UNLESS the resulting blob
+          #                 is byte-identical to a previously-committed blob
+          #                 at the same path (restore-to-prior-content, which
+          #                 is exactly what Flyway needs when a prior PR
+          #                 mutated a file in place and prod refuses to boot).
           # 'D<TAB>path'  → deleting an applied file leaves the DB with a version we can't validate.
           # 'R<score>...' → renaming shifts the version number (or filename Flyway hashes).
-          BAD=$(printf "%s\n" "$CHANGED" | awk '$1 !~ /^A/')
-          if [ -n "$BAD" ]; then
-            echo "::error::Flyway migrations are append-only. Schema changes must land in a NEW V<n>__ file, never edited in place."
-            printf "%s\n" "$BAD"
+          FAIL=0
+          while IFS=$'\t' read -r status path; do
+            [ -z "$status" ] && continue
+            case "$status" in
+              A) continue ;;
+              M)
+                # Is HEAD's blob for $path identical to any prior commit's blob at $path?
+                CURR_BLOB=$(git rev-parse "HEAD:$path")
+                MATCH=$(git log --format=%H "$BASE_SHA" -- "$path" | while read c; do
+                          git rev-parse "$c:$path" 2>/dev/null
+                        done | grep -Fx "$CURR_BLOB" | head -n1)
+                if [ -n "$MATCH" ]; then
+                  echo "restore OK — $path ← historical blob $CURR_BLOB"
+                  continue
+                fi
+                echo "::error::$path edited (checksum will diverge from prod). Migrations are append-only."
+                FAIL=1
+                ;;
+              *)
+                echo "::error::$path status=$status not allowed."
+                FAIL=1
+                ;;
+            esac
+          done < <(printf "%s\n" "$CHANGED")
+          if [ "$FAIL" -eq 1 ]; then
             exit 1
           fi
-          echo "OK — only additions:"
+          echo "OK."
           printf "%s\n" "$CHANGED"
 
   detect:
