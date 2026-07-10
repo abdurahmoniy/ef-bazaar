@@ -41,6 +41,7 @@ jobs:
       auth:           ${{ steps.filter.outputs.auth }}
       marketplace:    ${{ steps.filter.outputs.marketplace }}
       recommendation: ${{ steps.filter.outputs.recommendation }}
+      trade:          ${{ steps.filter.outputs.trade }}
       bot:            ${{ steps.filter.outputs.bot }}
       frontend:       ${{ steps.filter.outputs.frontend }}
       nginx:          ${{ steps.filter.outputs.nginx }}
@@ -62,6 +63,9 @@ jobs:
               - '.github/workflows/build.yml'
             recommendation:
               - 'backend/recommendation-service/**'
+              - '.github/workflows/build.yml'
+            trade:
+              - 'backend/trade-service/**'
               - '.github/workflows/build.yml'
             bot:
               - 'bot/**'
@@ -85,6 +89,7 @@ jobs:
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.auth }}"           == "true" ]]; then add auth-service           backend/auth-service           auth-service;           fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.marketplace }}"    == "true" ]]; then add marketplace-service    backend/marketplace-service    marketplace-service;    fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.recommendation }}" == "true" ]]; then add recommendation-service backend/recommendation-service recommendation-service; fi
+          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.trade }}"          == "true" ]]; then add trade-service          backend/trade-service          trade-service;          fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.bot }}"            == "true" ]]; then add bot                    bot                            bot;                    fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.frontend }}"       == "true" ]]; then add frontend               frontend                       frontend;               fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.nginx }}"          == "true" ]]; then add nginx                  nginx                          nginx;                  fi

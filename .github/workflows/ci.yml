@@ -40,6 +40,7 @@ jobs:
       auth: ${{ steps.filter.outputs.auth }}
       marketplace: ${{ steps.filter.outputs.marketplace }}
       recommendation: ${{ steps.filter.outputs.recommendation }}
+      trade: ${{ steps.filter.outputs.trade }}
       bot: ${{ steps.filter.outputs.bot }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
@@ -102,6 +103,8 @@ jobs:
               - 'backend/marketplace-service/**'
             recommendation:
               - 'backend/recommendation-service/**'
+            trade:
+              - 'backend/trade-service/**'
             bot:
               - 'bot/**'
             frontend:
@@ -123,6 +126,9 @@ jobs:
           - name: recommendation-service
             path: backend/recommendation-service
             changed: ${{ needs.precheck.outputs.recommendation }}
+          - name: trade-service
+            path: backend/trade-service
+            changed: ${{ needs.precheck.outputs.trade }}
           - name: bot
             path: bot
             changed: ${{ needs.precheck.outputs.bot }}
