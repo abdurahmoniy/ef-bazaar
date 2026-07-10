@@ -63,6 +63,7 @@ write_env() {
   upsert_env .env AUTH_DB_NAME               auth_db
   upsert_env .env MARKETPLACE_DB_NAME        marketplace_db
   upsert_env .env RECOMMENDATION_DB_NAME     recommendation_db
+  upsert_env .env TRADE_DB_NAME              trade_db
 
   upsert_env .env REDIS_HOST                 redis
   upsert_env .env REDIS_PORT                 6379
@@ -264,6 +265,46 @@ sync_db_password() {
   echo "==> DB password sync OK"
 }
 
+# ─── Trade-service bootstrap ────────────────────────────────────────────────
+# Idempotent, first-run bootstrap for trade-service. Safe to run every deploy.
+#
+#   1. master_key (32 raw bytes, base64) — used to derive AES-256-GCM keys for
+#      PAN, CVV, and mailbox-password at-rest encryption. Generated ONCE per
+#      environment; rotating it makes all previously-encrypted data unreadable.
+#   2. trade_db — postgres' MULTIPLE_DATABASES init script only fires on a
+#      fresh data volume, so on this long-lived server we create the DB
+#      ourselves if it's missing.
+# ─────────────────────────────────────────────────────────────────────────────
+trade_bootstrap() {
+  local key_file="infra/secrets/master_key"
+  local trade_db="${TRADE_DB_NAME:-trade_db}"
+
+  if [[ ! -s "$key_file" ]]; then
+    echo "==> Generating $key_file (first-run bootstrap)"
+    mkdir -p "$(dirname "$key_file")"
+    openssl rand -base64 32 > "$key_file"
+    chmod 600 "$key_file"
+    echo "!! NEW master_key generated at $key_file"
+    echo "!! Back this file up NOW. Rotating it destroys previously-encrypted data."
+  fi
+
+  # Only proceed with DB creation if postgres is running.
+  if ! docker compose ps --services --filter status=running | grep -q '^postgres$'; then
+    echo "!! postgres not running — skipping trade_db check"
+    return 0
+  fi
+
+  # `psql -lqt` lists databases; column 1 is the name. Trim whitespace + grep exact.
+  if docker compose exec -T postgres psql -U efbazaar -lqt 2>/dev/null \
+       | awk -F'|' '{gsub(/ /,"",$1); print $1}' \
+       | grep -qx "$trade_db"; then
+    return 0
+  fi
+
+  echo "==> Creating $trade_db (missing — first-run bootstrap)"
+  docker compose exec -T postgres createdb -U efbazaar "$trade_db"
+}
+
 # ─── Diff: qaysi kontaynerlar recreate bo'ladi (informational only) ─────────
 report_changes() {
   echo "==> Checking which services have image/config changes"
@@ -286,6 +327,7 @@ docker compose pull
 # Postgres'ni alohida ko'taramiz parol sync uchun.
 docker compose up -d postgres
 sync_db_password
+trade_bootstrap
 
 # Force-all override
 RECREATE_FLAG=""
