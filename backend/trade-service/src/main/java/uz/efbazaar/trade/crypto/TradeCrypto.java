@@ -1,6 +1,5 @@
 package uz.efbazaar.trade.crypto;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
@@ -9,7 +8,6 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Arrays;
-import java.util.function.Supplier;
 
 /**
  * AES-256-GCM with HKDF-derived per-record keys.
@@ -24,24 +22,18 @@ public class TradeCrypto {
     private static final int GCM_TAG_BITS = 128;
     private static final int GCM_IV_BYTES = 12;
 
-    private final Supplier<byte[]> masterKeySource;
+    private final MasterKeyProvider provider;
     private final SecureRandom random;
 
-    @Autowired
     public TradeCrypto(MasterKeyProvider provider) {
-        this(provider::masterKey);
-    }
-
-    /** Test-friendly constructor. */
-    public TradeCrypto(Supplier<byte[]> masterKeySource) {
-        this.masterKeySource = masterKeySource;
+        this.provider = provider;
         this.random = new SecureRandom();
     }
 
     public EncryptedField encrypt(String context, byte[] plaintext) {
         try {
             byte[] key = HkdfDeriver.derive(
-                    masterKeySource.get(),
+                    provider.masterKey(),
                     context.getBytes(StandardCharsets.UTF_8),
                     32);
             byte[] iv = new byte[GCM_IV_BYTES];
@@ -64,7 +56,7 @@ public class TradeCrypto {
     public byte[] decrypt(String context, EncryptedField field) {
         try {
             byte[] key = HkdfDeriver.derive(
-                    masterKeySource.get(),
+                    provider.masterKey(),
                     context.getBytes(StandardCharsets.UTF_8),
                     32);
             byte[] cipherAndTag = new byte[field.ciphertext().length + field.tag().length];
