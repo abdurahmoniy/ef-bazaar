@@ -1,5 +1,5 @@
 const VIEWBOX = 100;
-const BRAND_VIOLET = '#6835de';
+const BRAND_TEAL = '#1d8b80';
 
 interface BrandMarkOGProps {
   size: number;
@@ -28,7 +28,7 @@ export function BrandMarkOG({ size, radius }: BrandMarkOGProps) {
         width: size,
         height: size,
         display: 'flex',
-        background: BRAND_VIOLET,
+        background: BRAND_TEAL,
         borderRadius: cornerRadius,
       }}
     >
