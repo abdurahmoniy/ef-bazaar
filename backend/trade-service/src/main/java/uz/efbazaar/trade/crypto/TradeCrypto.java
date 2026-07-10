@@ -33,7 +33,7 @@ public class TradeCrypto {
     }
 
     /** Test-friendly constructor. */
-    TradeCrypto(Supplier<byte[]> masterKeySource) {
+    public TradeCrypto(Supplier<byte[]> masterKeySource) {
         this.masterKeySource = masterKeySource;
         this.random = new SecureRandom();
     }
