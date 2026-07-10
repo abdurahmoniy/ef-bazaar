@@ -2621,10 +2621,14 @@ Plan B picks up from this foundation to add:
 - WSS transport for the secured chat.
 - Kafka producer for `efbazaar.trade.*` topics.
 - Real JWT-based auth (replace the `X-User-Id` header shim on the Card and Mailbox controllers).
-- Global exception handler that maps `EntityNotFoundException` → 404 (currently surfaces as 500 — Plan B fixes this in one place).
+- ~~Global exception handler that maps `EntityNotFoundException` → 404~~ — done in the Plan A final-review fix batch (`TradeExceptionHandler`), ahead of Plan B.
 - Testcontainers-backed integration tests against real postgres (replacing the H2 shim for tests that exercise Postgres-specific SQL).
+- **PaymentAdapter interface takes plaintext PAN parameter (`createPayoutIntent(..., String recipientCardPan, ...)`).** Reviewer flagged this as a step down from the otherwise-strict at-rest-encryption discipline. Before `UzumPaymentAdapter` is implemented, refactor the interface to accept `UUID recipientCardId` (or a sealed `PanReference` wrapper) so the adapter itself decrypts inside a narrow method scope rather than every caller holding a plaintext PAN.
 
 ## Deployment Notes (Plan A)
 
-- **V2 was retroactively edited during Task 10** to change `last4` from `CHAR(4)` to `VARCHAR(4)` (Hibernate `ddl-auto: validate` rejected the mismatch on container startup). Any environment where V2 had already been applied with `CHAR(4)` must run `flyway repair` (or drop and recreate `trade_db` in disposable envs) before deploying this branch. Local dev during Task 10 already handled this by re-creating `trade_db` fresh.
+- **V2 was retroactively edited during Task 10** to change `last4` from `CHAR(4)` to `VARCHAR(4)` (Hibernate `ddl-auto: validate` rejected the mismatch on container startup). For any environment where V2 had already been applied with `CHAR(4)`, a `flyway repair` alone will NOT alter the column — it only rewrites the checksum. The full remediation is:
+    1. `docker compose exec postgres psql -U efbazaar -d trade_db -c "ALTER TABLE cards ALTER COLUMN last4 TYPE VARCHAR(4);"`
+    2. Restart trade-service; Flyway will re-verify and either succeed (checksum matches after the ALTER) or complain — in which case run `flyway repair` to align the metadata table.
+- After Plan A, **do not edit already-applied migrations in place** — use a new forward-only V<n> migration for schema drift. The V2 edit was a one-time exception driven by the fact that no shared environment had yet applied it.
 - The compose stack's `postgres` container's `POSTGRES_MULTIPLE_DATABASES` init script only fires on a truly-fresh data volume. Existing installations that had `postgres_data` populated before `TRADE_DB_NAME` was added to `.env` must create `trade_db` manually: `docker compose exec postgres psql -U efbazaar -c "CREATE DATABASE trade_db OWNER efbazaar;"`.
