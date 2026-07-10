@@ -28,7 +28,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_MULTIPLE_DATABASES: ${AUTH_DB_NAME},${MARKETPLACE_DB_NAME},${RECOMMENDATION_DB_NAME},${EFBAZAAR_DB_NAME:-efbazaar}
+      POSTGRES_MULTIPLE_DATABASES: ${AUTH_DB_NAME},${MARKETPLACE_DB_NAME},${RECOMMENDATION_DB_NAME},${TRADE_DB_NAME},${EFBAZAAR_DB_NAME:-efbazaar}
     ports:
       - "${POSTGRES_PORT_HOST:-5432}:5432"
     volumes:
@@ -231,6 +231,32 @@ services:
     networks:
       - efbazaar-net
 
+  # ---------- Trade service (escrow orchestrator, Plan A foundation) ----------
+  trade-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-trade-service:${IMAGE_TAG:-latest}
+    build:
+      context: ./backend/trade-service
+    container_name: efbazaar-trade
+    restart: unless-stopped
+    environment:
+      JAVA_OPTS: "-Xms96m -Xmx280m -XX:MaxMetaspaceSize=160m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${TRADE_DB_NAME}
+      MASTER_KEY_FILE: /run/secrets/master_key
+    secrets:
+      - master_key
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 320m
+    memswap_limit: 480m
+    networks:
+      - efbazaar-net
+
   bot:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-bot:${IMAGE_TAG:-latest}
     container_name: efbazaar-bot
@@ -342,3 +368,7 @@ volumes:
 networks:
   efbazaar-net:
     driver: bridge
+
+secrets:
+  master_key:
+    file: ./infra/secrets/master_key
