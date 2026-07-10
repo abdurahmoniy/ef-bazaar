@@ -14,7 +14,7 @@ CREATE TABLE cards (
     pan_iv            BYTEA        NOT NULL,
     pan_tag           BYTEA        NOT NULL,
 
-    last4             CHAR(4)      NOT NULL,
+    last4             VARCHAR(4)   NOT NULL,
     expiry_month      SMALLINT     NOT NULL,
     expiry_year       SMALLINT     NOT NULL,
     brand             VARCHAR(16)  NOT NULL,
