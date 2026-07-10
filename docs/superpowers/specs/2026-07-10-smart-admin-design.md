@@ -125,7 +125,7 @@ Smart-admin is delivered as **two new services** plus frontend surfaces. Existin
 │    - PaymentAdapter (Mock / Uzum)                              │
 │    - Mail viewer IMAP proxy (session-based)                    │
 │    - Admin dashboard endpoints (TOTP-gated)                    │
-│    - DB: postgres schema `trade`                               │
+│    - DB: postgres database `trade_db`                          │
 └──────────────────┬────────────────────────────────────────────┘
                    │ Kafka
                    ▼
@@ -152,7 +152,7 @@ Smart-admin is delivered as **two new services** plus frontend surfaces. Existin
 - **marketplace-service is barely touched:** it only gets a small consumer that renders `TradeProposal` system messages into the existing marketplace chat. This preserves the existing chat contract and avoids a large rewrite.
 - **Worker in Python:** `rotate.py` is Python; IMAP libraries are mature in Python. Keeping Konami-specific integration in a single Python process avoids a Java rewrite and isolates the fragile-third-party surface.
 - **Kafka boundary between trade-service and worker:** the worker exposes no HTTP inbound. Simpler ops, natural retry semantics, consumer-group parallelism.
-- **Shared postgres, per-service schema:** avoids operational overhead of a second postgres instance while keeping data ownership clear. Cross-schema joins are disallowed by convention.
+- **Shared postgres instance, per-service database:** matches the current efbazaar pattern (`auth_db`, `marketplace_db`, `recommendation_db`). Trade-service gets its own `trade_db`. Cross-database joins are impossible at the engine level — clean boundary by construction.
 
 ### 4.3 Scalability
 
@@ -165,7 +165,7 @@ Smart-admin is delivered as **two new services** plus frontend surfaces. Existin
 
 ## 5. Data Model
 
-### 5.1 New entities (Java / JPA — owned by trade-service, schema `trade`)
+### 5.1 New entities (Java / JPA — owned by trade-service, database `trade_db`)
 
 ```
 trade
@@ -441,7 +441,11 @@ Path: `~/IdeaProjects/ef-bazaar/backend/trade-service/`.
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/efbazaar?currentSchema=trade
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${TRADE_DB_NAME}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MASTER_KEY_FILE: /run/secrets/master_key
       MAILCOW_API_URL: https://mail.efbazaar.uz/api/v1
