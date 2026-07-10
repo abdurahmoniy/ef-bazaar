@@ -76,8 +76,18 @@ class MailboxControllerIT {
                 .andExpect(jsonPath("$.email", equalTo("owned@efbazaar.uz")))
                 .andExpect(jsonPath("$.encryptedPassword").doesNotExist());
     }
-    // Note: cross-user access ("stranger can't fetch owner's mailbox") is not
-    // asserted here because Plan A has no ControllerAdvice yet — an EntityNotFoundException
-    // currently surfaces as 500. Plan B adds a global exception handler that maps it
-    // to 404, and Plan B's TradeControllerIT covers this properly.
+    // Note: cross-user access ("stranger can't fetch owner's mailbox") is covered below.
+
+    @Test
+    void getRejectsOtherUsersMailboxWith404() throws Exception {
+        UUID owner = UUID.randomUUID();
+        UUID stranger = UUID.randomUUID();
+        var mbox = mailboxService.create("private@efbazaar.uz", owner, UUID.randomUUID(),
+                "pw".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(get("/api/v1/mailboxes/" + mbox.getId())
+                        .header("X-User-Id", stranger.toString()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code", equalTo("not_found")));
+    }
 }
