@@ -4,41 +4,41 @@
 
 @layer base {
   :root {
-    /* Backdrop — warm white, denser than pure paper for marketplace feel */
-    --background: 36 30% 97%;
-    --foreground: 220 25% 12%;
+    /* Backdrop — cool violet-tinted white for gaming-marketplace feel */
+    --background: 250 30% 98%;
+    --foreground: 250 25% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 25% 12%;
+    --card-foreground: 250 25% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 12%;
+    --popover-foreground: 250 25% 12%;
 
-    /* Bright green — punchier than muted teal, reads well next to amber */
-    --primary: 148 68% 36%;
+    /* Violet — modern gaming-market primary */
+    --primary: 258 72% 54%;
     --primary-foreground: 0 0% 100%;
 
-    /* Amber — used for price and secondary CTAs (OLX-style price prominence) */
-    --secondary: 32 96% 52%;
-    --secondary-foreground: 24 40% 12%;
+    /* Lime — used for price and secondary CTAs (price prominence) */
+    --secondary: 84 72% 42%;
+    --secondary-foreground: 84 85% 12%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 10% 42%;
+    --muted: 250 15% 96%;
+    --muted-foreground: 250 8% 44%;
 
-    --accent: 148 55% 95%;
-    --accent-foreground: 148 68% 26%;
+    --accent: 258 70% 95%;
+    --accent-foreground: 258 72% 40%;
 
     --destructive: 0 78% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 14% 88%;
-    --input: 220 14% 88%;
-    --ring: 148 68% 36%;
+    --border: 250 15% 88%;
+    --input: 250 15% 88%;
+    --ring: 258 72% 54%;
 
     /* Marketplace-specific tokens */
-    --price: 22 92% 46%;
+    --price: 84 78% 27%;
     --price-foreground: 0 0% 100%;
-    --surface-alt: 220 30% 98%;
+    --surface-alt: 250 35% 99%;
 
     --radius: 0.625rem;
   }

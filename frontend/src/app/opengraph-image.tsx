@@ -11,7 +11,7 @@ export const size = {
 };
 export const contentType = 'image/png';
 
-const PRIMARY = '#1f7a4d';
+const PRIMARY = '#6835de';
 const INK = '#1c1917';
 const MUTED = '#6b7280';
 const BORDER = '#e5e7eb';
@@ -24,7 +24,7 @@ export default function OpenGraphImage() {
           width: '100%',
           height: '100%',
           display: 'flex',
-          background: '#fafaf7',
+          background: '#f9f8fb',
           color: INK,
           fontFamily: 'Inter, Arial, sans-serif',
           padding: 56,
