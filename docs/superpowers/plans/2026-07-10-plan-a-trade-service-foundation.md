@@ -2623,3 +2623,8 @@ Plan B picks up from this foundation to add:
 - Real JWT-based auth (replace the `X-User-Id` header shim on the Card and Mailbox controllers).
 - Global exception handler that maps `EntityNotFoundException` → 404 (currently surfaces as 500 — Plan B fixes this in one place).
 - Testcontainers-backed integration tests against real postgres (replacing the H2 shim for tests that exercise Postgres-specific SQL).
+
+## Deployment Notes (Plan A)
+
+- **V2 was retroactively edited during Task 10** to change `last4` from `CHAR(4)` to `VARCHAR(4)` (Hibernate `ddl-auto: validate` rejected the mismatch on container startup). Any environment where V2 had already been applied with `CHAR(4)` must run `flyway repair` (or drop and recreate `trade_db` in disposable envs) before deploying this branch. Local dev during Task 10 already handled this by re-creating `trade_db` fresh.
+- The compose stack's `postgres` container's `POSTGRES_MULTIPLE_DATABASES` init script only fires on a truly-fresh data volume. Existing installations that had `postgres_data` populated before `TRADE_DB_NAME` was added to `.env` must create `trade_db` manually: `docker compose exec postgres psql -U efbazaar -c "CREATE DATABASE trade_db OWNER efbazaar;"`.
