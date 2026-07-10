@@ -4,41 +4,41 @@
 
 @layer base {
   :root {
-    /* Backdrop — cool violet-tinted white for gaming-marketplace feel */
-    --background: 250 30% 98%;
-    --foreground: 250 25% 12%;
+    /* Backdrop — warm white, denser than pure paper for marketplace feel */
+    --background: 40 25% 97%;
+    --foreground: 220 25% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 250 25% 12%;
+    --card-foreground: 220 25% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 250 25% 12%;
+    --popover-foreground: 220 25% 12%;
 
-    /* Violet — modern gaming-market primary */
-    --primary: 258 72% 54%;
+    /* Teal — calm, premium marketplace primary */
+    --primary: 174 65% 33%;
     --primary-foreground: 0 0% 100%;
 
-    /* Lime — used for price and secondary CTAs (price prominence) */
-    --secondary: 84 72% 42%;
-    --secondary-foreground: 84 85% 12%;
+    /* Coral — used for price and secondary CTAs (price prominence) */
+    --secondary: 12 85% 52%;
+    --secondary-foreground: 12 70% 14%;
 
-    --muted: 250 15% 96%;
-    --muted-foreground: 250 8% 44%;
+    --muted: 40 12% 95%;
+    --muted-foreground: 30 8% 42%;
 
-    --accent: 258 70% 95%;
-    --accent-foreground: 258 72% 40%;
+    --accent: 174 45% 93%;
+    --accent-foreground: 174 65% 24%;
 
     --destructive: 0 78% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 250 15% 88%;
-    --input: 250 15% 88%;
-    --ring: 258 72% 54%;
+    --border: 35 15% 87%;
+    --input: 35 15% 87%;
+    --ring: 174 65% 33%;
 
     /* Marketplace-specific tokens */
-    --price: 84 78% 27%;
+    --price: 12 80% 42%;
     --price-foreground: 0 0% 100%;
-    --surface-alt: 250 35% 99%;
+    --surface-alt: 40 30% 98%;
 
     --radius: 0.625rem;
   }
