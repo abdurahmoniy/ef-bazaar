@@ -38,3 +38,7 @@ management:
   endpoint:
     health:
       show-details: never
+
+trade:
+  crypto:
+    master-key-file: ${MASTER_KEY_FILE:}

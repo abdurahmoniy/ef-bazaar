@@ -14,3 +14,7 @@ spring:
 
   flyway:
     enabled: false
+
+trade:
+  crypto:
+    master-key-file: target/test-classes/test-master-key.b64
