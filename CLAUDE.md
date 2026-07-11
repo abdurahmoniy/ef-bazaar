@@ -175,15 +175,29 @@ status                ACTIVE | SOLD | DELETED
 
 ## Flyway migration qoidasi (buzilmasin)
 
-**`main` ga merge bo'lgan `V*__*.sql` fayl endi immutable.** Prod DB'da
-allaqachon bor va uning checksumi saqlangan — fayl ichini o'zgartirsangiz
-navbatdagi deploy Flyway checksum mismatch bilan crash bo'ladi.
+Ikki xil migration bor va ular bir xil qoidaga bo'ysunmaydi:
 
-- Schema/data o'zgarishi kerak bo'lsa — **yangi** `V<n+1>__...sql` fayl qo'shing.
-- Applied migration'ni edit qilish, rename qilish, o'chirish taqiqlanadi.
-- CI `guard-migrations` job'i PR'da shuni tekshiradi: `A` (add) dan boshqa
-  status bilan V-fayl o'zgargan bo'lsa PR merge bo'lmaydi.
-- Xatolik ikki marta prod'ni yiqdi (PR #98, PR #101) — takrorlanmasin.
+**`V<n>__*.sql` — versionli, immutable.**
+Bir marta ishlaydi, checksumi Flyway `flyway_schema_history` da qulflanadi.
+`main` ga merge bo'lgan V-faylni edit qilsangiz keyingi deploy checksum
+mismatch bilan crash bo'ladi (PR #98, #101, #104, #107 dan darsim).
+
+- DDL uchun ishlatiladi: `CREATE TABLE`, `ALTER TABLE`, `DROP INDEX`, yangi
+  ustun, yangi CHECK, ...
+- O'zgartirish kerak bo'lsa — **yangi** `V<n+1>__...sql`.
+- Edit / rename / delete taqiqlanadi. CI `guard-migrations` job'i PR'da
+  shuni tekshiradi va merge'ni bloklaydi.
+
+**`R__*.sql` — repeatable, edit qilish uchun mo'ljallangan.**
+Har content o'zgarganda Flyway qayta ishga tushiradi. `V__` lardan keyin,
+har boot'da.
+
+- Faqat *idempotent* data uchun: `INSERT ... ON CONFLICT DO UPDATE`,
+  `UPDATE ... WHERE`. DDL yozmang — bir necha marta ishlaganida yiqiladi.
+- Hozircha bitta: `R__attribute_definitions.sql` — barcha attribute
+  rowlarning desired final state'i. Label / constraint / position tweak
+  bo'lsa shu faylni edit qilamiz, yangi migration ochmaymiz.
+- CI guardi R-fayllarga tegmaydi (edit ruxsat etilgan).
 
 ## Muhim cheklovlar
 
