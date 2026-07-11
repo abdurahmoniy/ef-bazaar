@@ -14,7 +14,8 @@ efBazaar/
 ├── backend/
 │   ├── auth-service/           # JWT, SSO — Spring Boot, port 8081
 │   ├── marketplace-service/    # E'lonlar, like, savat, chat — Spring Boot, port 8082
-│   └── recommendation-service/ # Recommendation engine — Spring Boot, port 8083
+│   ├── recommendation-service/ # Recommendation engine — Spring Boot, port 8083
+│   └── trade-service/          # Escrow trade orchestrator — Spring Boot, port 8085
 ├── frontend/                   # React (Vite) — MVP auth UI, port 5173/80
 ├── bot/                        # Telegram bot — Spring Boot, port 8084
 ├── nginx/                      # Reverse proxy
