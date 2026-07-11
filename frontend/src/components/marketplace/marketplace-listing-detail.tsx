@@ -1,4 +1,4 @@
-import { BadgeCheck, Coins, Gamepad2, MapPin, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeftRight, BadgeCheck, Coins, Gamepad2, MapPin, ShieldCheck, Sparkles } from 'lucide-react';
 
 import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { ListingActions } from '@/components/marketplace/listing-actions';
@@ -19,8 +19,10 @@ import {
 import { listingMediaUrls } from '@/lib/marketplace-media';
 import {
   attributeBoolean,
-  attributeNumber,
   attributeCardList,
+  attributeNumber,
+  attributeString,
+  listingAcceptsExchange,
   type ListingResponse,
 } from '@/lib/marketplace-types';
 import type { User } from '@/lib/types';
@@ -54,9 +56,9 @@ export function MarketplaceListingDetail({
   // the backend cross-field rule that rejects orphaned coin balances.
   const androidCoins = hasGooglePlayLink ? attributeNumber(listing, 'android_coins') ?? 0 : 0;
   const iosCoins = hasGameCenterLink ? attributeNumber(listing, 'ios_coins') ?? 0 : 0;
-  const exchangeMode = typeof listing.attributes?.exchange_mode === 'string'
-    ? (listing.attributes.exchange_mode as string)
-    : undefined;
+  const exchangeMode = attributeString(listing, 'exchange_mode');
+  const acceptsExchange = listingAcceptsExchange(listing);
+  const playersCount = attributeNumber(listing, 'players_count');
   const valuablePlayers = attributeCardList(listing, 'valuable_players');
   const authenticated = viewer !== null;
   const isOwner = viewer?.id === listing.sellerId;
@@ -93,9 +95,19 @@ export function MarketplaceListingDetail({
               <div className="flex flex-wrap gap-2">
                 {listing.status === 'SOLD' && <Badge variant="danger">Sotilgan</Badge>}
                 {listing.priceNegotiable && <Badge variant="price">Savdolashish</Badge>}
+                {acceptsExchange && (
+                  <Badge variant="info">
+                    <ArrowLeftRight className="h-3 w-3" /> Obmen
+                  </Badge>
+                )}
                 {hasGooglePlayLink && (
                   <Badge variant="verified">
                     <BadgeCheck className="h-3 w-3" /> Google ulangan
+                  </Badge>
+                )}
+                {hasGameCenterLink && (
+                  <Badge variant="verified">
+                    <BadgeCheck className="h-3 w-3" /> Game Center ulangan
                   </Badge>
                 )}
               </div>
@@ -123,7 +135,7 @@ export function MarketplaceListingDetail({
               <StatCard
                 icon={<ShieldCheck className="h-4 w-4" />}
                 label="Division"
-                value={division === undefined ? '—' : String(division)}
+                value={division === undefined ? '—' : divisionLabel(division)}
               />
             )}
             <StatCard
@@ -157,6 +169,7 @@ export function MarketplaceListingDetail({
           <AttributeTable
             division={division}
             teamStrength={teamStrength}
+            playersCount={playersCount}
             androidCoins={androidCoins}
             iosCoins={iosCoins}
             hasGooglePlayLink={hasGooglePlayLink}
@@ -248,6 +261,7 @@ function StatCard({
 function AttributeTable({
   division,
   teamStrength,
+  playersCount,
   androidCoins,
   iosCoins,
   hasGooglePlayLink,
@@ -257,6 +271,7 @@ function AttributeTable({
 }: {
   division?: number;
   teamStrength?: number;
+  playersCount?: number;
   androidCoins: number;
   iosCoins: number;
   hasGooglePlayLink: boolean;
@@ -265,8 +280,9 @@ function AttributeTable({
   priceNegotiable: boolean;
 }) {
   const rows: Array<{ label: string; value: string }> = [
-    { label: 'Eng yuqori Division', value: division === undefined ? '—' : String(division) },
+    { label: 'Eng yuqori Division', value: division === undefined ? '—' : divisionLabel(division) },
     { label: 'Team Strength', value: teamStrength === undefined ? '—' : formatCompactNumber(teamStrength) },
+    { label: "Jami o'yinchilar", value: playersCount === undefined ? '—' : formatCompactNumber(playersCount) },
     { label: 'Google Play ulangan', value: hasGooglePlayLink ? 'Ha' : "Yo'q" },
     { label: 'Game Center ulangan', value: hasGameCenterLink ? 'Ha' : "Yo'q" },
   ];

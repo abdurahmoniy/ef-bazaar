@@ -43,6 +43,15 @@ const FILTER_PARAMS = MARKETPLACE_FILTERS.reduce(
 
 const ATTR_PARAM_PREFIX = 'attr.';
 
+// Values + labels mirror the platform attribute definition (R__attribute_definitions.sql).
+export const PLATFORM_FILTER_OPTIONS = [
+  { value: 'MOBILE', label: 'Mobile' },
+  { value: 'STEAM', label: 'Steam' },
+  { value: 'PLAYSTATION', label: 'PlayStation' },
+] as const;
+
+export const DEFAULT_PLATFORM = 'MOBILE';
+
 function isMarketplaceFilterId(value: string): value is MarketplaceFilterId {
   return value in FILTER_PARAMS;
 }
@@ -112,11 +121,16 @@ export function formatListingDate(value: string | Date) {
   return `${day} ${month} ${hour}:${minute}`;
 }
 
+/**
+ * 4-tier division model: 1–3 are exact, 4 covers "4 or higher". Legacy
+ * listings created before the enum flip may hold 5–9 — they collapse
+ * into the "4+" bucket, mirroring {@code toDivisionLevel}.
+ */
 export function divisionLabel(value: number | undefined) {
-  if (value === undefined || !Number.isInteger(value) || value < 1 || value > 9) {
+  if (value === undefined || !Number.isInteger(value) || value < 1) {
     return 'Division -';
   }
-  return `Division ${value}`;
+  return value >= 4 ? 'Division 4+' : `Division ${value}`;
 }
 
 export function normalizePlayerList(value: string) {
@@ -165,8 +179,9 @@ export function parseListingSearchParams(input: SearchParamInput = {}): ListingB
     params.attributes = { ...(params.attributes ?? {}), [attrKey]: value };
   }
 
-  if (params.attributes && Object.keys(params.attributes).length === 0) {
-    delete params.attributes;
+  // The platform filter is required — an omitted attr.platform means the default.
+  if (!params.attributes?.platform) {
+    params.attributes = { ...(params.attributes ?? {}), platform: DEFAULT_PLATFORM };
   }
   return params;
 }

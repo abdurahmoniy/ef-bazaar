@@ -7,7 +7,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import {
+	DEFAULT_PLATFORM,
 	MARKETPLACE_FILTERS,
+	PLATFORM_FILTER_OPTIONS,
 	type MarketplaceFilterId,
 } from '@/lib/marketplace-format'
 import { LISTING_SORT_OPTIONS, paramToSortId } from '@/lib/marketplace-sort'
@@ -77,6 +79,25 @@ export function ListingFilters({
 				</div>
 
 				<div className='space-y-3'>
+					<div>
+						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
+							Platforma
+						</div>
+						{/* Required — no "Barchasi" option; an unset URL means the default. */}
+						<Select
+							name='attr.platform'
+							required
+							defaultValue={attr('platform') || DEFAULT_PLATFORM}
+							className='h-10'
+						>
+							{PLATFORM_FILTER_OPTIONS.map((option) => (
+								<option key={option.value} value={option.value}>
+									{option.label}
+								</option>
+							))}
+						</Select>
+					</div>
+
 					<div>
 						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
 							Narx, so'm

@@ -1205,6 +1205,10 @@ function defaultAttributeValue(
 ): AttributeValue {
 	if (def.type === 'BOOLEAN') return false
 	if (def.type === 'CARD_LIST') return []
+	if (def.type === 'ENUM') {
+		const preset = def.constraints?.default
+		if (typeof preset === 'string') return preset
+	}
 	return ''
 }
 

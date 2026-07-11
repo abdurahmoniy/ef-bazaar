@@ -80,6 +80,23 @@ export const SEEDED_LISTING_ATTRIBUTE_DEFINITIONS: FormAttributeDefinition[] = [
     legacyFieldName: 'iosCoins',
   },
   {
+    key: 'platform',
+    labelUz: 'Platforma',
+    type: 'ENUM',
+    required: true,
+    position: 60,
+    groupKey: 'platform',
+    constraints: {
+      options: ['MOBILE', 'STEAM', 'PLAYSTATION'],
+      option_labels_uz: {
+        MOBILE: 'Mobile',
+        STEAM: 'Steam',
+        PLAYSTATION: 'PlayStation',
+      },
+      default: 'MOBILE',
+    },
+  },
+  {
     key: 'has_game_center_link',
     labelUz: 'Game Center ulangan',
     type: 'BOOLEAN',
