@@ -28,8 +28,10 @@ describe('marketplace formatting helpers', () => {
 
   it('labels valid and invalid divisions', () => {
     expect(divisionLabel(1)).toBe('Division 1');
-    expect(divisionLabel(9)).toBe('Division 9');
-    expect(divisionLabel(15)).toBe('Division -');
+    expect(divisionLabel(3)).toBe('Division 3');
+    expect(divisionLabel(4)).toBe('Division 4+');
+    expect(divisionLabel(9)).toBe('Division 4+');
+    expect(divisionLabel(0)).toBe('Division -');
     expect(divisionLabel(undefined)).toBe('Division -');
   });
 
@@ -52,7 +54,14 @@ describe('marketplace formatting helpers', () => {
     expect(parsed).toEqual({
       page: 2,
       search: 'Messi',
-      attributes: { valuable_players: 'Neymar' },
+      attributes: { valuable_players: 'Neymar', platform: 'MOBILE' },
+    });
+  });
+
+  it('defaults the required platform filter and lets the URL override it', () => {
+    expect(parseListingSearchParams({}).attributes).toEqual({ platform: 'MOBILE' });
+    expect(parseListingSearchParams({ 'attr.platform': 'STEAM' }).attributes).toEqual({
+      platform: 'STEAM',
     });
   });
 
@@ -68,6 +77,7 @@ describe('marketplace formatting helpers', () => {
       'team_strength.min': '2000',
       'team_strength.max': '4000',
       exchange_mode: 'BOTH',
+      platform: 'MOBILE',
     });
 
     const rebuilt = buildListingSearchParams(parsed);
@@ -79,7 +89,7 @@ describe('marketplace formatting helpers', () => {
 
   it('applies the google-linked filter as an attribute equality param', () => {
     const parsed = parseListingSearchParams({ filter: 'google' });
-    expect(parsed.attributes).toEqual({ has_google_play_link: 'true' });
+    expect(parsed.attributes).toEqual({ has_google_play_link: 'true', platform: 'MOBILE' });
   });
 
   it('falls back to the all filter for unknown filter ids', () => {

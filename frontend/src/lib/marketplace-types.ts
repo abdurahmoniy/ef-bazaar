@@ -106,6 +106,21 @@ export function attributeBoolean(listing: ListingResponse, key: string): boolean
   return raw === true || raw === 'true';
 }
 
+/** Read a STRING/ENUM attribute, returning {@code undefined} if missing or blank. */
+export function attributeString(listing: ListingResponse, key: string): string | undefined {
+  const raw = listing.attributes?.[key];
+  return typeof raw === 'string' && raw.trim() ? raw : undefined;
+}
+
+/**
+ * True when the seller accepts an account exchange in any form —
+ * mirrors the `exchange_mode` ENUM options minus NONE.
+ */
+export function listingAcceptsExchange(listing: ListingResponse): boolean {
+  const mode = attributeString(listing, 'exchange_mode');
+  return mode === 'EXCHANGE_ONLY' || mode === 'EXCHANGE_WITH_SURCHARGE' || mode === 'BOTH';
+}
+
 export function attributeStringList(listing: ListingResponse, key: string): string[] {
   const raw = listing.attributes?.[key];
   if (!Array.isArray(raw)) return [];
