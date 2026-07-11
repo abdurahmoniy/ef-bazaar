@@ -45,8 +45,20 @@ const EXCHANGE_MODE_OPTIONS = [
 	{ value: 'BOTH', label: 'Obmen yoki obmen + doplata' },
 ] as const
 
-export function ListingFilters({
-	activeFilter,
+export function ListingFilters(props: ListingFiltersProps) {
+	return (
+		<aside className='hidden space-y-3 lg:sticky lg:top-32 lg:block'>
+			<QuickChips activeFilter={props.activeFilter} query={props.query} />
+			<ListingFiltersForm
+				{...props}
+				className='rounded-xl border border-border bg-card p-4 shadow-card'
+				showHeading
+			/>
+		</aside>
+	)
+}
+
+export function ListingFiltersForm({
 	query,
 	minPrice,
 	maxPrice,
@@ -56,29 +68,24 @@ export function ListingFilters({
 	valuablePlayerName,
 	sortParam,
 	attributes,
-}: ListingFiltersProps) {
+	className,
+	showHeading = false,
+}: ListingFiltersProps & { className?: string; showHeading?: boolean }) {
 	const currentSortId = paramToSortId(sortParam)
 	const attr = (key: string) => attributes?.[key] ?? ''
 
 	return (
-		<aside className='space-y-3 md:sticky md:top-32'>
-			<div className='hidden md:block'>
-				<QuickChips activeFilter={activeFilter} query={query} />
-			</div>
+		<form action='/marketplace' method='get' className={className}>
+			{query && <input type='hidden' name='q' value={query} />}
 
-			<form
-				action='/marketplace'
-				method='get'
-				className='rounded-xl border border-border bg-card p-4 shadow-card'
-			>
-				{query && <input type='hidden' name='q' value={query} />}
-
+			{showHeading && (
 				<div className='flex items-center gap-2 pb-3 text-sm font-bold text-foreground'>
 					<SlidersHorizontal className='h-4 w-4 text-primary' />
 					Filtrlar
 				</div>
+			)}
 
-				<div className='space-y-3'>
+			<div className='space-y-3'>
 					<div>
 						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
 							Platforma
@@ -282,8 +289,7 @@ export function ListingFilters({
 						</Button>
 					</div>
 				</div>
-			</form>
-		</aside>
+		</form>
 	)
 }
 
