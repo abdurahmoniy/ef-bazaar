@@ -11,7 +11,7 @@ describe('HomePage redesign contract', () => {
   it('renders the marketplace-first hero in Uzbek with primary routes', () => {
     const markup = renderLanding();
 
-    expect(markup).toContain('efBazaar');
+    expect(markup).toContain('eFBazaar');
     expect(markup).toContain('Diviziyon, kuch, tanga');
     expect(markup).toContain('href="/marketplace"');
     expect(markup).toContain('href="/marketplace/new"');

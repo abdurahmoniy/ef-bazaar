@@ -7,6 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import uz.efbazaar.marketplace.domain.AttributeDefinition;
+import uz.efbazaar.marketplace.domain.AttributeType;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.domain.ListingStatus;
 import uz.efbazaar.marketplace.dto.ListingCreateRequest;
@@ -15,11 +17,15 @@ import uz.efbazaar.marketplace.dto.ListingUpdateRequest;
 import uz.efbazaar.marketplace.event.MarketplaceEventPublisher;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.mapper.ListingMapper;
+import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -32,6 +38,7 @@ public class ListingService {
     private final MediaService mediaService;
     private final ListingCaptionBuilder captionBuilder;
     private final MarketplaceEventPublisher events;
+    private final AttributeDefinitionRepository attributeDefinitions;
 
     /**
      * Atomic create — validates payload/attrs first (fail fast, no side effect),
@@ -125,7 +132,38 @@ public class ListingService {
 
     @Transactional(readOnly = true)
     public Page<Listing> browse(ListingFilter filter, Pageable pageable) {
-        return listings.findAll(ListingSpecifications.withFilter(filter), pageable);
+        return listings.findAll(
+                ListingSpecifications.withFilter(sanitizeRangeFilters(filter)), pageable);
+    }
+
+    /**
+     * Range keys ({@code <key>.min}/{@code <key>.max}) are only honored for
+     * active INT/DECIMAL attribute definitions — the Specification casts the
+     * JSONB text to numeric, and letting a caller aim that cast at a string
+     * attribute (or send a non-numeric bound) would abort the whole query.
+     * Offending keys are dropped silently; equality keys pass through as-is.
+     */
+    ListingFilter sanitizeRangeFilters(ListingFilter filter) {
+        Map<String, Object> attrs = filter.attributes();
+        if (attrs == null || attrs.isEmpty()
+                || attrs.keySet().stream().noneMatch(ListingSpecifications::isRangeKey)) {
+            return filter;
+        }
+
+        Set<String> numericKeys = attributeDefinitions.findAllByActiveTrueOrderByPositionAsc().stream()
+                .filter(d -> d.getType() == AttributeType.INT || d.getType() == AttributeType.DECIMAL)
+                .map(AttributeDefinition::getKey)
+                .collect(Collectors.toSet());
+
+        Map<String, Object> cleaned = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : attrs.entrySet()) {
+            String base = ListingSpecifications.rangeBaseKey(entry.getKey());
+            if (base == null || numericKeys.contains(base)) {
+                cleaned.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return new ListingFilter(filter.minPrice(), filter.maxPrice(),
+                filter.priceNegotiable(), filter.search(), cleaned);
     }
 
     @Transactional(readOnly = true)

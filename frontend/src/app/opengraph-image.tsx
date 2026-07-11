@@ -4,7 +4,7 @@ import { BrandMarkOG } from '@/components/brand/brand-mark-og';
 import { siteConfig } from '@/lib/site';
 
 export const runtime = 'edge';
-export const alt = 'efBazaar — eFootball akkount bozori';
+export const alt = 'eFBazaar — eFootball akkount bozori';
 export const size = {
   width: 1200,
   height: 630,

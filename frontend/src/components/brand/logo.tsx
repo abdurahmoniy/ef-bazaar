@@ -23,7 +23,7 @@ export function Logo({ size = 'md', href = '/', className }: LogoProps) {
         <BrandMark className={s.icon} />
       </span>
       <span>
-        <span className="text-foreground">ef</span>
+        <span className="text-foreground">eF</span>
         <span className="text-primary">Bazaar</span>
       </span>
     </div>
@@ -31,7 +31,7 @@ export function Logo({ size = 'md', href = '/', className }: LogoProps) {
 
   if (href) {
     return (
-      <Link href={href} className="inline-block transition-opacity hover:opacity-80" aria-label="efBazaar bosh sahifa">
+      <Link href={href} className="inline-block transition-opacity hover:opacity-80" aria-label="eFBazaar bosh sahifa">
         {content}
       </Link>
     );

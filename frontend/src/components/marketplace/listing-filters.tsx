@@ -3,6 +3,7 @@ import Link from 'next/link'
 
 import { CardPickerField } from '@/components/marketplace/card-picker-field'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import {
@@ -17,10 +18,13 @@ interface ListingFiltersProps {
 	query?: string
 	minPrice?: number
 	maxPrice?: number
+	priceNegotiable?: boolean
 	division?: number
 	valuablePlayerId?: number
 	valuablePlayerName?: string
 	sortParam?: string
+	/** Raw attr.* filters from the URL — source of defaultValues for attribute fields. */
+	attributes?: Record<string, string>
 }
 
 const DIVISION_CHOICES = [1, 2, 3, 4] as const
@@ -31,17 +35,28 @@ const DIVISION_LABELS: Record<number, string> = {
 	4: 'Division 4+',
 }
 
+// Values + labels mirror the exchange_mode attribute definition (V17 migration).
+const EXCHANGE_MODE_OPTIONS = [
+	{ value: 'NONE', label: "Obmen yo'q" },
+	{ value: 'EXCHANGE_ONLY', label: 'Faqat obmen' },
+	{ value: 'EXCHANGE_WITH_SURCHARGE', label: 'Obmen + doplata' },
+	{ value: 'BOTH', label: 'Obmen yoki obmen + doplata' },
+] as const
+
 export function ListingFilters({
 	activeFilter,
 	query,
 	minPrice,
 	maxPrice,
+	priceNegotiable,
 	division,
 	valuablePlayerId,
 	valuablePlayerName,
 	sortParam,
+	attributes,
 }: ListingFiltersProps) {
 	const currentSortId = paramToSortId(sortParam)
+	const attr = (key: string) => attributes?.[key] ?? ''
 
 	return (
 		<aside className='space-y-3 md:sticky md:top-32'>
@@ -54,9 +69,6 @@ export function ListingFilters({
 				method='get'
 				className='rounded-xl border border-border bg-card p-4 shadow-card'
 			>
-				{activeFilter !== 'all' && (
-					<input type='hidden' name='filter' value={activeFilter} />
-				)}
 				{query && <input type='hidden' name='q' value={query} />}
 
 				<div className='flex items-center gap-2 pb-3 text-sm font-bold text-foreground'>
@@ -109,6 +121,106 @@ export function ListingFilters({
 								</option>
 							))}
 						</Select>
+					</div>
+
+					<div>
+						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
+							Team Strength
+						</div>
+						<div className='grid grid-cols-2 gap-2'>
+							<Input
+								name='attr.team_strength.min'
+								type='number'
+								inputMode='numeric'
+								min={0}
+								step={100}
+								placeholder='dan'
+								defaultValue={attr('team_strength.min')}
+								className='h-10 rounded-lg'
+							/>
+							<Input
+								name='attr.team_strength.max'
+								type='number'
+								inputMode='numeric'
+								min={0}
+								step={100}
+								placeholder='gacha'
+								defaultValue={attr('team_strength.max')}
+								className='h-10 rounded-lg'
+							/>
+						</div>
+					</div>
+
+					<div>
+						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
+							Coin (kamida)
+						</div>
+						<div className='grid grid-cols-2 gap-2'>
+							<Input
+								name='attr.android_coins.min'
+								type='number'
+								inputMode='numeric'
+								min={0}
+								step={1000}
+								placeholder='Android'
+								aria-label='Android coin (kamida)'
+								defaultValue={attr('android_coins.min')}
+								className='h-10 rounded-lg'
+							/>
+							<Input
+								name='attr.ios_coins.min'
+								type='number'
+								inputMode='numeric'
+								min={0}
+								step={1000}
+								placeholder='iOS'
+								aria-label='iOS coin (kamida)'
+								defaultValue={attr('ios_coins.min')}
+								className='h-10 rounded-lg'
+							/>
+						</div>
+					</div>
+
+					<div>
+						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
+							Obmen shartlari
+						</div>
+						<Select
+							name='attr.exchange_mode'
+							defaultValue={attr('exchange_mode')}
+							className='h-10'
+						>
+							<option value=''>Barchasi</option>
+							{EXCHANGE_MODE_OPTIONS.map((option) => (
+								<option key={option.value} value={option.value}>
+									{option.label}
+								</option>
+							))}
+						</Select>
+					</div>
+
+					<div className='space-y-2'>
+						<Checkbox
+							name='priceNegotiable'
+							value='true'
+							defaultChecked={priceNegotiable === true}
+							label='Savdolashish mumkin'
+							className='p-2'
+						/>
+						<Checkbox
+							name='attr.has_google_play_link'
+							value='true'
+							defaultChecked={attr('has_google_play_link') === 'true'}
+							label='Google Play ulangan'
+							className='p-2'
+						/>
+						<Checkbox
+							name='attr.has_game_center_link'
+							value='true'
+							defaultChecked={attr('has_game_center_link') === 'true'}
+							label='Game Center ulangan'
+							className='p-2'
+						/>
 					</div>
 
 					<div>

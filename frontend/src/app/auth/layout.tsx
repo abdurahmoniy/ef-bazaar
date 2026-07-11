@@ -24,7 +24,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </main>
 
       <footer className="container py-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} efBazaar •{' '}
+        © {new Date().getFullYear()} eFBazaar •{' '}
         <Link href="/" className="hover:text-foreground transition-colors">
           Bosh sahifa
         </Link>
