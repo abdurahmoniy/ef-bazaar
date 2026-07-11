@@ -1,6 +1,6 @@
 import type { TelegramWebApp } from '@/lib/types';
 
-/** efBazaar's `--background` — used to keep Telegram's own chrome color seamless. */
+/** eFBazaar's `--background` — used to keep Telegram's own chrome color seamless. */
 export const TELEGRAM_CHROME_COLOR = '#f9f8f5';
 
 export function getTelegramWebApp(): TelegramWebApp | undefined {

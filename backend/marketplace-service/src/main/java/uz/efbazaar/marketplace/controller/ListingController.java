@@ -37,6 +37,7 @@ public class ListingController {
     /**
      * Browse with typed filters + dynamic attribute equality via {@code ?attr.<key>=<value>}.
      * E.g. {@code ?attr.highest_division_level=7&attr.has_google_play_link=true}.
+     * Numeric attributes also take range bounds: {@code ?attr.team_strength.min=2000&attr.team_strength.max=4000}.
      */
     @GetMapping
     public PageResponse<ListingResponse> browse(

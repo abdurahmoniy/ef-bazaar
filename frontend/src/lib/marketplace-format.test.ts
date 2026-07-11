@@ -56,6 +56,27 @@ describe('marketplace formatting helpers', () => {
     });
   });
 
+  it('round-trips attribute range params (attr.<key>.min/.max)', () => {
+    const parsed = parseListingSearchParams({
+      'attr.team_strength.min': '2000',
+      'attr.team_strength.max': '4000',
+      'attr.android_coins.min': '',
+      'attr.exchange_mode': 'BOTH',
+    });
+
+    expect(parsed.attributes).toEqual({
+      'team_strength.min': '2000',
+      'team_strength.max': '4000',
+      exchange_mode: 'BOTH',
+    });
+
+    const rebuilt = buildListingSearchParams(parsed);
+    expect(rebuilt.get('attr.team_strength.min')).toBe('2000');
+    expect(rebuilt.get('attr.team_strength.max')).toBe('4000');
+    expect(rebuilt.get('attr.exchange_mode')).toBe('BOTH');
+    expect(rebuilt.has('attr.android_coins.min')).toBe(false);
+  });
+
   it('applies the google-linked filter as an attribute equality param', () => {
     const parsed = parseListingSearchParams({ filter: 'google' });
     expect(parsed.attributes).toEqual({ has_google_play_link: 'true' });

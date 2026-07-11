@@ -50,7 +50,7 @@ export const metadata: Metadata = {
         url: absoluteUrl('/opengraph-image'),
         width: 1200,
         height: 630,
-        alt: 'efBazaar eFootball account marketplace preview',
+        alt: 'eFBazaar eFootball account marketplace preview',
       },
     ],
   },

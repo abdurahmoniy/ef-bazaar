@@ -54,10 +54,12 @@ export function MarketplaceBrowser({
         query={query}
         minPrice={filters.minPrice}
         maxPrice={filters.maxPrice}
+        priceNegotiable={filters.priceNegotiable}
         division={Number.isFinite(divisionValue) ? divisionValue : undefined}
         valuablePlayerId={Number.isFinite(valuablePlayerId) ? valuablePlayerId : undefined}
         valuablePlayerName={valuablePlayerName}
         sortParam={filters.sort}
+        attributes={filters.attributes}
       />
 
       <section className="min-w-0 space-y-3">
