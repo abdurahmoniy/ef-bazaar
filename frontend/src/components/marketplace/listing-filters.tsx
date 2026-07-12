@@ -235,18 +235,20 @@ export function ListingFiltersForm({
 							label='Savdolashish mumkin'
 							className='p-2'
 						/>
+						{/* Store links block a clean transfer (only Konami ID moves), so
+						    buyers filter for accounts WITHOUT them. */}
 						<Checkbox
 							name='attr.has_google_play_link'
-							value='true'
-							defaultChecked={attr('has_google_play_link') === 'true'}
-							label='Google Play ulangan'
+							value='false'
+							defaultChecked={attr('has_google_play_link') === 'false'}
+							label='Google Play ulanmagan'
 							className='p-2'
 						/>
 						<Checkbox
 							name='attr.has_game_center_link'
-							value='true'
-							defaultChecked={attr('has_game_center_link') === 'true'}
-							label='Game Center ulangan'
+							value='false'
+							defaultChecked={attr('has_game_center_link') === 'false'}
+							label='Game Center ulanmagan'
 							className='p-2'
 						/>
 					</div>

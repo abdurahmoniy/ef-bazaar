@@ -1,4 +1,4 @@
-import { ArrowLeftRight, BadgeCheck, Coins, Gamepad2, MapPin, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeftRight, Coins, Gamepad2, MapPin, ShieldCheck, Sparkles, TriangleAlert } from 'lucide-react';
 
 import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { ListingActions } from '@/components/marketplace/listing-actions';
@@ -50,12 +50,18 @@ export function MarketplaceListingDetail({
   const division = attributeNumber(listing, 'highest_division_level');
   const divisionBadgeLevel = toDivisionLevel(division);
   const teamStrength = attributeNumber(listing, 'team_strength');
+  // A store link (Google Play / Game Center) can't be removed, so the previous
+  // owner keeps a way back into a transferred account — surface it as a caution.
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
   const hasGameCenterLink = attributeBoolean(listing, 'has_game_center_link');
-  // Zero-out coin display for platforms the account isn't bound to; matches
-  // the backend cross-field rule that rejects orphaned coin balances.
-  const androidCoins = hasGooglePlayLink ? attributeNumber(listing, 'android_coins') ?? 0 : 0;
-  const iosCoins = hasGameCenterLink ? attributeNumber(listing, 'ios_coins') ?? 0 : 0;
+  const linkedStores = [
+    hasGooglePlayLink && 'Google Play',
+    hasGameCenterLink && 'Game Center',
+  ]
+    .filter(Boolean)
+    .join(' va ');
+  const androidCoins = attributeNumber(listing, 'android_coins');
+  const iosCoins = attributeNumber(listing, 'ios_coins');
   const exchangeMode = attributeString(listing, 'exchange_mode');
   const acceptsExchange = listingAcceptsExchange(listing);
   const playersCount = attributeNumber(listing, 'players_count');
@@ -101,17 +107,28 @@ export function MarketplaceListingDetail({
                   </Badge>
                 )}
                 {hasGooglePlayLink && (
-                  <Badge variant="verified">
-                    <BadgeCheck className="h-3 w-3" /> Google ulangan
+                  <Badge variant="warn">
+                    <TriangleAlert className="h-3 w-3" /> Google Play ulangan
                   </Badge>
                 )}
                 {hasGameCenterLink && (
-                  <Badge variant="verified">
-                    <BadgeCheck className="h-3 w-3" /> Game Center ulangan
+                  <Badge variant="warn">
+                    <TriangleAlert className="h-3 w-3" /> Game Center ulangan
                   </Badge>
                 )}
               </div>
             </div>
+
+            {linkedStores && (
+              <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+                <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Bu akkount {linkedStores} bilan ulangan. Bu ulanishni uzib
+                  bo'lmaydi — akkount faqat Konami ID orqali o'tkaziladi va
+                  avvalgi egasida kirish imkoni saqlanib qolishi mumkin.
+                </span>
+              </p>
+            )}
 
             {restDescription && (
               <>
@@ -146,7 +163,7 @@ export function MarketplaceListingDetail({
             <StatCard
               icon={<Coins className="h-4 w-4" />}
               label="Coins"
-              value={formatCompactNumber(androidCoins + iosCoins)}
+              value={formatCompactNumber((androidCoins ?? 0) + (iosCoins ?? 0))}
             />
             <StatCard
               icon={<Sparkles className="h-4 w-4" />}
@@ -272,8 +289,8 @@ function AttributeTable({
   division?: number;
   teamStrength?: number;
   playersCount?: number;
-  androidCoins: number;
-  iosCoins: number;
+  androidCoins?: number;
+  iosCoins?: number;
   hasGooglePlayLink: boolean;
   hasGameCenterLink: boolean;
   exchangeMode?: string;
@@ -286,10 +303,10 @@ function AttributeTable({
     { label: 'Google Play ulangan', value: hasGooglePlayLink ? 'Ha' : "Yo'q" },
     { label: 'Game Center ulangan', value: hasGameCenterLink ? 'Ha' : "Yo'q" },
   ];
-  if (hasGooglePlayLink) {
+  if (androidCoins !== undefined) {
     rows.push({ label: 'Android coin', value: formatCompactNumber(androidCoins) });
   }
-  if (hasGameCenterLink) {
+  if (iosCoins !== undefined) {
     rows.push({ label: 'iOS coin', value: formatCompactNumber(iosCoins) });
   }
   rows.push({ label: 'Obmen', value: exchangeModeLabel(exchangeMode) });

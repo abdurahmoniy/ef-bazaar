@@ -20,10 +20,15 @@ const UZ_MONTHS = [
 export const MARKETPLACE_FILTERS = [
   { id: 'all', label: 'Barchasi', params: {} },
   { id: 'negotiable', label: 'Savdolashish', params: { priceNegotiable: true } },
+  // Store links (Google Play / Game Center) can't be removed from an account,
+  // so a transfer via Konami ID leaves the previous owner with access. "Clean"
+  // accounts — no store link — are the safe ones to buy.
   {
-    id: 'google',
-    label: 'Google linked',
-    params: { attributes: { has_google_play_link: 'true' } },
+    id: 'clean',
+    label: 'Toza akkount',
+    params: {
+      attributes: { has_google_play_link: 'false', has_game_center_link: 'false' },
+    },
   },
 ] as const satisfies readonly {
   id: string;

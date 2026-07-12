@@ -40,4 +40,35 @@ describe('ListingCard', () => {
     expect(markup).toContain('src="/bot/photo/telegram%20file%2Fid"');
     expect(markup).toContain('alt="Strong account with rare players rasmi"');
   });
+
+  it('shows coin balances even when no store link is set', () => {
+    const markup = renderToStaticMarkup(
+      createElement(ListingCard, {
+        listing: listing({
+          attributes: { android_coins: 12500, ios_coins: 900 },
+        }),
+      }),
+    );
+
+    expect(markup).toContain('12 500');
+    expect(markup).toContain('900');
+    expect(markup).not.toContain('Google Play');
+    expect(markup).not.toContain('Game Center');
+  });
+
+  it('flags store-linked accounts with a warning, not a verified badge', () => {
+    const markup = renderToStaticMarkup(
+      createElement(ListingCard, {
+        listing: listing({
+          attributes: {
+            has_google_play_link: true,
+            has_game_center_link: true,
+          },
+        }),
+      }),
+    );
+
+    expect(markup).toContain('Google Play');
+    expect(markup).toContain('Game Center');
+  });
 });

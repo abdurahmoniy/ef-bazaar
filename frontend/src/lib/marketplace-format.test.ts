@@ -87,9 +87,13 @@ describe('marketplace formatting helpers', () => {
     expect(rebuilt.has('attr.android_coins.min')).toBe(false);
   });
 
-  it('applies the google-linked filter as an attribute equality param', () => {
-    const parsed = parseListingSearchParams({ filter: 'google' });
-    expect(parsed.attributes).toEqual({ has_google_play_link: 'true', platform: 'MOBILE' });
+  it('applies the clean-account filter as attribute equality params', () => {
+    const parsed = parseListingSearchParams({ filter: 'clean' });
+    expect(parsed.attributes).toEqual({
+      has_google_play_link: 'false',
+      has_game_center_link: 'false',
+      platform: 'MOBILE',
+    });
   });
 
   it('falls back to the all filter for unknown filter ids', () => {
