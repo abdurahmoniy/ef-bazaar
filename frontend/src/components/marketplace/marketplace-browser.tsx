@@ -75,8 +75,8 @@ export function MarketplaceBrowser({
     Boolean(attrs['android_coins.min']),
     Boolean(attrs['ios_coins.min']),
     Boolean(attrs.exchange_mode),
-    attrs.has_google_play_link === 'true',
-    attrs.has_game_center_link === 'true',
+    Boolean(attrs.has_google_play_link),
+    Boolean(attrs.has_game_center_link),
     filterProps.valuablePlayerId !== undefined,
     Boolean(attrs.platform) && attrs.platform !== DEFAULT_PLATFORM,
   ].filter(Boolean).length;

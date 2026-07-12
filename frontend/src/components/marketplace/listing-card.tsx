@@ -2,11 +2,11 @@ import Link from 'next/link';
 import {
   Apple,
   ArrowLeftRight,
-  BadgeCheck,
   Gamepad2,
   ShieldCheck,
   Smartphone,
   Sparkles,
+  TriangleAlert,
 } from 'lucide-react';
 
 import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
@@ -45,12 +45,12 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   const divisionBadgeLevel = toDivisionLevel(division);
   const teamStrength = attributeNumber(listing, 'team_strength');
   const starPlayerCount = attributeCardList(listing, 'valuable_players').length;
+  // A store link (Google Play / Game Center) can't be removed, so the previous
+  // owner keeps a way back into a transferred account — surface it as a caution.
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
   const hasGameCenterLink = attributeBoolean(listing, 'has_game_center_link');
-  // Coin chips double as platform indicators: they render only for platforms
-  // actually bound to the account (see AttributeValidator's cross-field rule).
-  const androidCoins = hasGooglePlayLink ? attributeNumber(listing, 'android_coins') ?? 0 : undefined;
-  const iosCoins = hasGameCenterLink ? attributeNumber(listing, 'ios_coins') ?? 0 : undefined;
+  const androidCoins = attributeNumber(listing, 'android_coins');
+  const iosCoins = attributeNumber(listing, 'ios_coins');
   const acceptsExchange = listingAcceptsExchange(listing);
   const coverUrl = listingMediaUrls(listing, 1)[0];
   const href = `/marketplace/${listing.id}`;
@@ -124,8 +124,13 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
               </Badge>
             )}
             {hasGooglePlayLink && (
-              <Badge variant="verified">
-                <BadgeCheck className="h-3 w-3" /> Google
+              <Badge variant="warn">
+                <TriangleAlert className="h-3 w-3" /> Google Play
+              </Badge>
+            )}
+            {hasGameCenterLink && (
+              <Badge variant="warn">
+                <TriangleAlert className="h-3 w-3" /> Game Center
               </Badge>
             )}
             <span className="ml-auto text-muted-foreground">
@@ -202,9 +207,12 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
         </div>
         <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
           <span>{formatListingDate(listing.createdAt)}</span>
-          {hasGooglePlayLink && (
-            <span className="ml-auto inline-flex items-center gap-1 font-semibold text-primary">
-              <BadgeCheck className="h-3 w-3" /> Google
+          {(hasGooglePlayLink || hasGameCenterLink) && (
+            <span className="ml-auto inline-flex items-center gap-1 font-semibold text-amber-700">
+              <TriangleAlert className="h-3 w-3" />
+              {[hasGooglePlayLink && 'Google Play', hasGameCenterLink && 'Game Center']
+                .filter(Boolean)
+                .join(' + ')}
             </span>
           )}
         </div>
