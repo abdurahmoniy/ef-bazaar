@@ -183,12 +183,12 @@ export function ListingFiltersForm({
 						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
 							Coin (kamida)
 						</div>
+						{/* No min / inputMode: balances can be negative, and the
+						    digit-only mobile keypad has no minus key. */}
 						<div className='grid grid-cols-2 gap-2'>
 							<Input
 								name='attr.android_coins.min'
 								type='number'
-								inputMode='numeric'
-								min={0}
 								step={1000}
 								placeholder='Android'
 								aria-label='Android coin (kamida)'
@@ -198,8 +198,6 @@ export function ListingFiltersForm({
 							<Input
 								name='attr.ios_coins.min'
 								type='number'
-								inputMode='numeric'
-								min={0}
 								step={1000}
 								placeholder='iOS'
 								aria-label='iOS coin (kamida)'

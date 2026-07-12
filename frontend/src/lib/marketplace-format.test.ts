@@ -20,6 +20,9 @@ describe('marketplace formatting helpers', () => {
   it('formats compact integer metrics with spaces', () => {
     expect(formatCompactNumber(0)).toBe('0');
     expect(formatCompactNumber(12500)).toBe('12 500');
+    // Coin balances can go below zero (spent > owned).
+    expect(formatCompactNumber(-12500)).toBe('-12 500');
+    expect(formatCompactNumber(-900)).toBe('-900');
   });
 
   it('formats listing dates in Uzbekistan time', () => {
