@@ -1,7 +1,9 @@
 package uz.efbazaar.trade.card;
 
+import jakarta.servlet.Filter;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -38,11 +40,23 @@ class CardControllerIT extends AbstractPostgresIT {
     @Autowired
     private WebApplicationContext ctx;
 
+    @Autowired
+    @Qualifier("springSecurityFilterChain")
+    private Filter springSecurityFilterChain;
+
     private MockMvc mvc;
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.webAppContextSetup(ctx).build();
+        mvc = MockMvcBuilders.webAppContextSetup(ctx)
+                .addFilters(springSecurityFilterChain)
+                .build();
+    }
+
+    @Test
+    void anonymousCallReturns401() throws Exception {
+        mvc.perform(get("/api/v1/cards"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

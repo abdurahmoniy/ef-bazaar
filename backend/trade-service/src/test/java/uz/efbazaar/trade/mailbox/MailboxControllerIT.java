@@ -1,8 +1,10 @@
 package uz.efbazaar.trade.mailbox;
 
+import jakarta.servlet.Filter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -43,11 +45,23 @@ class MailboxControllerIT extends AbstractPostgresIT {
     @Autowired
     private MailboxService mailboxService;
 
+    @Autowired
+    @Qualifier("springSecurityFilterChain")
+    private Filter springSecurityFilterChain;
+
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.webAppContextSetup(ctx).build();
+        mvc = MockMvcBuilders.webAppContextSetup(ctx)
+                .addFilters(springSecurityFilterChain)
+                .build();
+    }
+
+    @Test
+    void anonymousCallReturns401() throws Exception {
+        mvc.perform(get("/api/v1/mailboxes"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
