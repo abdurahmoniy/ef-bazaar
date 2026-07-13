@@ -231,7 +231,7 @@ services:
     networks:
       - efbazaar-net
 
-  # ---------- Trade service (escrow orchestrator, Plan A foundation) ----------
+  # ---------- Trade service (escrow orchestrator, Plan B lifecycle) ----------
   trade-service:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-trade-service:${IMAGE_TAG:-latest}
     build:
@@ -246,14 +246,23 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${TRADE_DB_NAME}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      MAILCOW_API_URL: https://mail.efbazaar.uz/api/v1
       MASTER_KEY_FILE: /run/secrets/master_key
     secrets:
       - master_key
     depends_on:
       postgres:
         condition: service_healthy
-    mem_limit: 320m
-    memswap_limit: 480m
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    mem_limit: 384m
+    memswap_limit: 512m
     networks:
       - efbazaar-net
 
