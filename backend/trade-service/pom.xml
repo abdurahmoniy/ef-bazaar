@@ -22,7 +22,30 @@
         <mapstruct.version>1.6.2</mapstruct.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <springdoc.version>2.6.0</springdoc.version>
+        <testcontainers.version>1.20.3</testcontainers.version>
     </properties>
+
+    <!--
+        spring-boot-starter-parent:3.3.4 pins org.testcontainers:testcontainers (and
+        friends, e.g. jdbc/database-commons) to 1.19.8 via its own dependencyManagement.
+        Without this import, the explicit 1.20.3 versions below on junit-jupiter/
+        postgresql/kafka only apply to those three artifacts — their *transitive*
+        testcontainers-core dependency still resolves to the parent's 1.19.8, which is
+        exactly the version drift the trade-service Testcontainers adoption must avoid.
+        Importing the official BOM keeps every org.testcontainers:* artifact on one
+        version without hand-pinning each transitive module.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -102,23 +125,24 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Testcontainers — replaces H2 shim from Plan A -->
+        <!-- Testcontainers — replaces H2 shim from Plan A. Versions come from the
+             testcontainers-bom import above, so every org.testcontainers:* artifact
+             (including transitives like testcontainers-core/jdbc/database-commons)
+             stays on ${testcontainers.version} instead of drifting to whatever
+             spring-boot-starter-parent otherwise pins. -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>1.20.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
-            <version>1.20.3</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>kafka</artifactId>
-            <version>1.20.3</version>
             <scope>test</scope>
         </dependency>
 
@@ -170,6 +194,22 @@
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
+            </plugin>
+            <!-- *IT.java classes (CardControllerIT, MailboxControllerIT, ...) are
+                 Testcontainers-backed integration tests. Surefire's default include/
+                 exclude patterns skip anything named *IT by convention — without this
+                 failsafe binding, `mvn verify` silently never runs them. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
