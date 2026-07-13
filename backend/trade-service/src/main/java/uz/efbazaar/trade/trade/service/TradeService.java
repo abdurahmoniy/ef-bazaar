@@ -15,6 +15,7 @@ import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.dto.TradeResponse;
 import uz.efbazaar.trade.trade.repository.TradeChatRepository;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
+import uz.efbazaar.trade.trade.ws.TradeBroadcaster;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -32,6 +33,7 @@ public class TradeService {
     private final TradeStateHandler handler;
     private final TradeAuditService audit;
     private final MailboxService mailboxes;
+    private final TradeBroadcaster broadcaster;
 
     @Transactional
     public TradeResponse openTrade(UUID sellerId, UUID buyerId, long priceUzs,
@@ -73,6 +75,7 @@ public class TradeService {
                 "buyerId", buyerId.toString(),
                 "priceUzs", String.valueOf(priceUzs)
         ));
+        broadcaster.publishStateChange(t.getId(), toResponse(t, null));
         return toResponse(t, null);
     }
 
@@ -99,6 +102,7 @@ public class TradeService {
         trades.save(t);
         audit.record(t.getId(), actor, actorId, "STATE_TRANSITION",
                 Map.of("from", from.name(), "to", to.name(), "event", event.name()));
+        broadcaster.publishStateChange(t.getId(), toResponse(t, null));
         return t;
     }
 

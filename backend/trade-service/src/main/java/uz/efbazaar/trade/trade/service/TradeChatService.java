@@ -12,6 +12,7 @@ import uz.efbazaar.trade.trade.domain.*;
 import uz.efbazaar.trade.trade.dto.TradeMessageResponse;
 import uz.efbazaar.trade.trade.repository.TradeChatRepository;
 import uz.efbazaar.trade.trade.repository.TradeMessageRepository;
+import uz.efbazaar.trade.trade.ws.TradeBroadcaster;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -25,6 +26,7 @@ public class TradeChatService {
     private final TradeChatRepository chats;
     private final TradeMessageRepository messages;
     private final TradeCrypto crypto;
+    private final TradeBroadcaster broadcaster;
 
     @Transactional
     public TradeMessage postText(UUID tradeId, UUID viewerUserId, String text) {
@@ -51,7 +53,12 @@ public class TradeChatService {
                 .iv(enc.iv())
                 .tag(enc.tag())
                 .build();
-        return messages.save(msg);
+        messages.save(msg);
+
+        TradeMessageResponse resp = new TradeMessageResponse(msg.getId(), msg.getSenderType(),
+                msg.getMessageType(), text, msg.getMetadata(), msg.getCreatedAt());
+        broadcaster.publishMessage(tradeId, role, resp);
+        return msg;
     }
 
     @Transactional(readOnly = true)
