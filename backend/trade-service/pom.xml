@@ -164,6 +164,7 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-messaging</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
