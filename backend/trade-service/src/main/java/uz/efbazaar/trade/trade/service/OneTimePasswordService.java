@@ -119,7 +119,9 @@ public class OneTimePasswordService {
     }
 
     /**
-     * Fetches key from Redis, decrypts, deletes the key. Second call throws.
+     * Atomically fetches-and-deletes the key from Redis (GETDEL), then decrypts.
+     * Second call throws — the GETDEL is atomic so concurrent revealers cannot
+     * both observe the key.
      */
     @Transactional
     public String reveal(UUID tradeId, UUID messageId, UUID viewerUserId) {
@@ -135,7 +137,9 @@ public class OneTimePasswordService {
                 .filter(m -> m.getMessageType() == TradeMessageType.PASSWORD_ONETIME)
                 .orElseThrow(() -> new EntityNotFoundException("password message"));
 
-        String encoded = redis.opsForValue().get(redisKey(tradeId, messageId));
+        // Atomic fetch-and-delete (Redis GETDEL, since 6.2) — a second concurrent
+        // caller is guaranteed to observe null, closing the reveal-twice race.
+        String encoded = redis.opsForValue().getAndDelete(redisKey(tradeId, messageId));
         if (encoded == null) {
             throw new IllegalStateException("Password already revealed or expired");
         }
@@ -156,8 +160,6 @@ public class OneTimePasswordService {
             throw new IllegalStateException("Failed to decrypt one-time password", e);
         }
 
-        // Point of no return.
-        redis.delete(redisKey(tradeId, messageId));
         audit.record(tradeId, ActorType.USER, viewerUserId, "PASSWORD_REVEALED",
                 Map.of("messageId", messageId.toString()));
         return plaintext;

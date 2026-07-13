@@ -49,6 +49,11 @@ public class TradeExceptionHandler {
         return status(HttpStatus.TOO_MANY_REQUESTS, e.getMessage());
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    ResponseEntity<Map<String, Object>> onIllegalState(IllegalStateException e) {
+        return status(HttpStatus.GONE, e.getMessage());
+    }
+
     private Map<String, Object> body(HttpStatus status, String code) {
         return Map.of(
                 "timestamp", Instant.now().toString(),
