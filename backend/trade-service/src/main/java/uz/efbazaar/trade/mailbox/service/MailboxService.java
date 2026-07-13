@@ -74,6 +74,26 @@ public class MailboxService {
         return mailboxes.save(m).getId();
     }
 
+    /**
+     * Overwrites the mailbox address + encrypted password after the (mock or real)
+     * worker responds to an email-provision-request or mailbox-rotate-request. A
+     * {@code null} email keeps the current address (used by the rotate response,
+     * which only changes the password).
+     */
+    @Transactional
+    public void overwriteAddressAndPassword(UUID mailboxId, String email,
+                                            byte[] encPass, byte[] iv, byte[] tag) {
+        Mailbox m = mailboxes.findById(mailboxId)
+                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
+        if (email != null) {
+            m.setEmail(email);
+        }
+        m.setEncryptedPassword(encPass);
+        m.setPasswordIv(iv);
+        m.setPasswordTag(tag);
+        mailboxes.save(m);
+    }
+
     @Transactional
     public void assignOwner(UUID mailboxId, UUID newOwnerId) {
         Mailbox m = mailboxes.findById(mailboxId)
