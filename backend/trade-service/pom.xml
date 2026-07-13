@@ -160,11 +160,13 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- WebSocket STOMP client for IT — same version as spring-messaging -->
+        <!-- spring-messaging: required at compile scope because KafkaTemplate's API
+             surface (used by TradeEventPublisher, main-scope) references
+             org.springframework.messaging.Message. Also doubles as the WebSocket
+             STOMP client dependency for IT. -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-messaging</artifactId>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 
