@@ -20,6 +20,8 @@ class TradeProposalServiceIT extends AbstractIntegrationIT {
 
     @Autowired TradeProposalService svc;
     @Autowired StringRedisTemplate redis;
+    @Autowired uz.efbazaar.trade.trade.service.TradeService tradeService;
+    @Autowired uz.efbazaar.trade.trade.repository.TradeChatRepository chats;
 
     @Test
     void createStoresRedisEntryWithTtl() {
@@ -42,5 +44,22 @@ class TradeProposalServiceIT extends AbstractIntegrationIT {
         UUID unknown = UUID.randomUUID();
         assertThatThrownBy(() -> svc.reject(UUID.randomUUID(), unknown))
                 .isInstanceOf(ProposalNotFoundException.class);
+    }
+
+    @Test
+    void acceptCreatesTradeAndTwoChats() {
+        UUID seller = UUID.randomUUID();
+        UUID buyer = UUID.randomUUID();
+        UUID sellerCard = UUID.randomUUID();
+        UUID buyerCard = UUID.randomUUID();
+
+        ProposalCreateRequest req = new ProposalCreateRequest(
+                UUID.randomUUID(), buyer, seller, buyer, 500_000L,
+                sellerCard, null);
+        ProposalResponse pr = svc.create(seller, req);
+
+        var trade = svc.accept(buyer, pr.proposalId(), buyerCard);
+        assertThat(trade.state()).isEqualTo(uz.efbazaar.trade.trade.domain.TradeState.INITIATED);
+        assertThat(chats.findByTradeId(trade.id())).hasSize(2);
     }
 }

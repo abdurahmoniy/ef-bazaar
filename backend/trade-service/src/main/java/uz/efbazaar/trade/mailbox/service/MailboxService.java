@@ -9,6 +9,7 @@ import uz.efbazaar.trade.crypto.TradeCrypto;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,5 +47,48 @@ public class MailboxService {
         return mailboxes.findByIdAndOwnerUserId(mailboxId, ownerUserId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Mailbox " + mailboxId + " not found for user " + ownerUserId));
+    }
+
+    /** Returns the raw entity — needed by TradeStateHandler to read the email address. */
+    @Transactional(readOnly = true)
+    public Mailbox getRaw(UUID mailboxId) {
+        return mailboxes.findById(mailboxId)
+                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
+    }
+
+    /**
+     * Creates a mailbox row with a synthetic email + zero-byte encrypted password so
+     * TradeService.openTrade can reserve the FK before the worker (mock or real) has
+     * actually provisioned Mailcow. The email-provisioned consumer (Task 14) overwrites
+     * both fields once the worker responds.
+     */
+    @Transactional
+    public UUID createPlaceholder(String syntheticEmail) {
+        Mailbox m = Mailbox.builder()
+                .id(UUID.randomUUID())
+                .email(syntheticEmail)
+                .encryptedPassword(new byte[]{0})
+                .passwordIv(new byte[12])
+                .passwordTag(new byte[16])
+                .build();
+        return mailboxes.save(m).getId();
+    }
+
+    @Transactional
+    public void assignOwner(UUID mailboxId, UUID newOwnerId) {
+        Mailbox m = mailboxes.findById(mailboxId)
+                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
+        m.setOwnerUserId(newOwnerId);
+        m.setTradeId(null);
+        m.setHandedOffAt(Instant.now());
+        mailboxes.save(m);
+    }
+
+    @Transactional
+    public void stripFromTrade(UUID mailboxId) {
+        Mailbox m = mailboxes.findById(mailboxId)
+                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
+        m.setTradeId(null);
+        mailboxes.save(m);
     }
 }
