@@ -36,4 +36,15 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
               AND m.createdAt > p.lastReadAt
             """)
     long totalUnreadFor(@org.springframework.data.repository.query.Param("userId") UUID userId);
+
+    boolean existsByProposalId(UUID proposalId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("""
+            UPDATE ChatMessage m
+               SET m.proposalOutcome = :outcome
+             WHERE m.proposalId = :proposalId
+            """)
+    int updateProposalOutcome(@org.springframework.data.repository.query.Param("proposalId") UUID proposalId,
+                              @org.springframework.data.repository.query.Param("outcome") String outcome);
 }
