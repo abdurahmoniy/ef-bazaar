@@ -103,4 +103,20 @@ class MailboxControllerIT extends AbstractPostgresIT {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code", equalTo("not_found")));
     }
+
+    @Test
+    void adminCanListOrphaned() throws Exception {
+        mvc.perform(get("/api/v1/admin/mailboxes/orphaned")
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Roles", "ROLE_USER,ROLE_ADMIN"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void nonAdminIsForbidden() throws Exception {
+        mvc.perform(get("/api/v1/admin/mailboxes/orphaned")
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Roles", "ROLE_USER"))
+                .andExpect(status().isForbidden());
+    }
 }
