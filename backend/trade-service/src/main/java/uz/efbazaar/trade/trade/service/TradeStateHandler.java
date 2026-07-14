@@ -8,6 +8,7 @@ import uz.efbazaar.trade.kafka.TradeEventPublisher;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.Trade;
+import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.domain.TradeState;
 
 import java.time.Duration;
@@ -41,8 +42,17 @@ public class TradeStateHandler {
      * BEFORE the trade is saved. Mutates the trade's {@code stateDeadline}
      * and {@code terminalReason}, publishes Kafka events, and touches
      * ancillary services.
+     *
+     * @param event the event that triggered this transition, or {@code null}
+     *              for the system-initiated entry into {@code INITIATED} from
+     *              {@link TradeService#openTrade}. Used to distinguish a fresh
+     *              entry into {@code VERIFYING_KONAMI_LINK} from the
+     *              {@code RECHECK} self-loop (spec §3.3): recheck re-polls
+     *              IMAP explicitly via {@code events.imapPollRequest(...)} in
+     *              the controller and must not re-trigger a Konami
+     *              forgot-password rotation.
      */
-    public void onEnter(Trade trade, TradeState newState, ActorType actor, UUID actorId) {
+    public void onEnter(Trade trade, TradeState newState, ActorType actor, UUID actorId, TradeEvent event) {
         switch (newState) {
             case INITIATED -> {
                 trade.setStateDeadline(null);
@@ -52,9 +62,11 @@ public class TradeStateHandler {
             case WAITING_EMAIL_CHANGE      -> trade.setStateDeadline(now(twecS));
             case VERIFYING_KONAMI_LINK -> {
                 trade.setStateDeadline(now(tvklS));
-                // fire-and-forget forgot-password. The mailbox email is stored on the mailbox row.
-                var mb = mailboxes.getRaw(trade.getMailboxId());
-                events.forgotPasswordRequest(trade.getId(), mb.getEmail(), null);
+                if (event != TradeEvent.RECHECK) {
+                    // fire-and-forget forgot-password. The mailbox email is stored on the mailbox row.
+                    var mb = mailboxes.getRaw(trade.getMailboxId());
+                    events.forgotPasswordRequest(trade.getId(), mb.getEmail(), null);
+                }
             }
             case WAITING_PASSWORD          -> trade.setStateDeadline(now(twpwS));
             case WAITING_BUYER_VERIFY      -> trade.setStateDeadline(now(twbvS));

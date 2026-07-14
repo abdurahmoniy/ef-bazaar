@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -49,7 +51,30 @@ public class TradeEventPublisher {
                 new TradeEvents.MailboxRotateRequest(mailboxId));
     }
 
+    /**
+     * Publishes are deferred to run after the enclosing transaction commits
+     * when one is active. Several of these events (e.g. email-provision-request
+     * fired on trade INITIATED) are triggered from inside the same
+     * {@code @Transactional} method that first inserts the row they refer to.
+     * Consumers (MockWorker + our own listeners) can round-trip fast enough
+     * that they'd otherwise look up a row that isn't committed yet and drop
+     * the event. Sending synchronously is safe outside a transaction (e.g.
+     * proposal creation, which has no DB row to race against).
+     */
     private void send(String topic, String key, Object payload) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doSend(topic, key, payload);
+                }
+            });
+        } else {
+            doSend(topic, key, payload);
+        }
+    }
+
+    private void doSend(String topic, String key, Object payload) {
         kafka.send(topic, key, payload)
                 .whenComplete((r, ex) -> {
                     if (ex != null) {

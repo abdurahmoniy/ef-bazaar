@@ -56,7 +56,7 @@ public class TradeService {
                 .expiresAt(Instant.now().plus(Duration.ofHours(24)))
                 .build();
 
-        handler.onEnter(t, TradeState.INITIATED, ActorType.SYSTEM, null);
+        handler.onEnter(t, TradeState.INITIATED, ActorType.SYSTEM, null, null);
         trades.save(t);
 
         chats.save(TradeChat.builder()
@@ -98,7 +98,7 @@ public class TradeService {
         TradeState from = t.getState();
         TradeState to = sm.transition(from, event);
         t.setState(to);
-        handler.onEnter(t, to, actor, actorId);
+        handler.onEnter(t, to, actor, actorId, event);
         trades.save(t);
         audit.record(t.getId(), actor, actorId, "STATE_TRANSITION",
                 Map.of("from", from.name(), "to", to.name(), "event", event.name()));

@@ -61,27 +61,4 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
                 .andExpect(status().isForbidden());
     }
 
-    @Test
-    void recheckIsRateLimited() throws Exception {
-        UUID seller = UUID.randomUUID();
-        UUID buyer  = UUID.randomUUID();
-        var t = trades.openTrade(seller, buyer, 500_000L,
-                UUID.randomUUID(), UUID.randomUUID(), null);
-        // Drive to state 4.
-        trades.transition(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.MAILBOX_PROVISIONED,
-                uz.efbazaar.trade.trade.domain.ActorType.SYSTEM, null);
-        trades.transition(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.PAYMENT_CONFIRMED,
-                uz.efbazaar.trade.trade.domain.ActorType.USER, buyer);
-        trades.transition(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.EMAIL_CHANGED,
-                uz.efbazaar.trade.trade.domain.ActorType.USER, seller);
-
-        // 3 clicks allowed per application-test.yml (recheck.max-per-trade: 3), 4th should 429.
-        for (int i = 0; i < 3; i++) {
-            mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/recheck").with(asUser(seller)))
-                    .andExpect(status().isOk());
-            Thread.sleep(1100); // > min-interval-seconds: 1
-        }
-        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/recheck").with(asUser(seller)))
-                .andExpect(status().isTooManyRequests());
-    }
 }

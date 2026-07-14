@@ -8,6 +8,7 @@ import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.Trade;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
+import uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
 import uz.efbazaar.trade.trade.service.TradeService;
 
@@ -33,7 +34,16 @@ public class EmailProvisionedConsumer {
         }
         mailboxes.overwriteAddressAndPassword(t.getMailboxId(),
                 e.mailboxEmail(), e.encryptedPassword(), e.iv(), e.tag());
-        tradeService.transition(e.tradeId(), TradeEvent.MAILBOX_PROVISIONED,
-                ActorType.WORKER, null);
+        try {
+            tradeService.transition(e.tradeId(), TradeEvent.MAILBOX_PROVISIONED,
+                    ActorType.WORKER, null);
+        } catch (InvalidTradeTransitionException ex) {
+            // Kafka is at-least-once; the trade may have already moved past
+            // INITIATED (e.g. a caller drove the transition directly, or this
+            // is a redelivery). Not a failure worth crash-looping the listener
+            // over — the mailbox row is still updated above either way.
+            log.warn("email-provisioned for trade {} arrived after state moved on: {}",
+                    e.tradeId(), ex.getMessage());
+        }
     }
 }

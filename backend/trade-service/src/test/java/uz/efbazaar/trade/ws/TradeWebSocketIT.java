@@ -17,7 +17,9 @@ import org.springframework.web.socket.sockjs.client.WebSocketTransport;
 import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
 import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
+import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.dto.TradeResponse;
+import uz.efbazaar.trade.trade.repository.TradeRepository;
 import uz.efbazaar.trade.trade.service.TradeService;
 
 import java.lang.reflect.Type;
@@ -28,12 +30,14 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class TradeWebSocketIT extends AbstractIntegrationIT {
 
     @LocalServerPort int port;
     @Autowired TradeService trades;
+    @Autowired TradeRepository tradeRepo;
 
     @Test
     void sellerReceivesStateChange() throws Exception {
@@ -42,6 +46,14 @@ class TradeWebSocketIT extends AbstractIntegrationIT {
 
         TradeResponse t = trades.openTrade(seller, buyer, 500_000L,
                 UUID.randomUUID(), UUID.randomUUID(), null);
+
+        // MockWorker (Task 14) + EmailProvisionedConsumer race to drive
+        // INITIATED -> WAITING_PAYMENT as soon as openTrade's transaction commits.
+        // Wait that out first so the state is deterministic before we connect —
+        // then drive a TIMEOUT ourselves (a transition no Kafka consumer competes
+        // for) so the WS push we assert on isn't racing live infrastructure.
+        await().atMost(10, TimeUnit.SECONDS).until(() ->
+                tradeRepo.findById(t.id()).orElseThrow().getState() == TradeState.WAITING_PAYMENT);
 
         var sockJs = new SockJsClient(List.of(new WebSocketTransport(new StandardWebSocketClient())));
         var stomp = new WebSocketStompClient(sockJs);
@@ -62,11 +74,16 @@ class TradeWebSocketIT extends AbstractIntegrationIT {
             @Override public void handleFrame(StompHeaders headers, Object payload) { queue.offer(payload); }
         });
 
-        // Fire a state change — MAILBOX_PROVISIONED brings us to WAITING_PAYMENT
-        trades.transition(t.id(), TradeEvent.MAILBOX_PROVISIONED, ActorType.SYSTEM, null);
+        // TIMEOUT from WAITING_PAYMENT -> ORPHANED is user/system driven only —
+        // no live Kafka consumer competes for it, so this transition is deterministic.
+        // Re-check that we're still in WAITING_PAYMENT before firing TIMEOUT
+        // (the trade's WAITING_PAYMENT deadline might have already expired).
+        await().atMost(10, TimeUnit.SECONDS).until(() ->
+                tradeRepo.findById(t.id()).orElseThrow().getState() == TradeState.WAITING_PAYMENT);
+        trades.transition(t.id(), TradeEvent.TIMEOUT, ActorType.SYSTEM, null);
 
         Object frame = queue.poll(5, TimeUnit.SECONDS);
         assertThat(frame).isNotNull();
-        assertThat(frame.toString()).contains("WAITING_PAYMENT");
+        assertThat(frame.toString()).contains("ORPHANED");
     }
 }
