@@ -14,4 +14,4 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N"]
-ignore = ["B008"]  # FastAPI Depends() shows up in default args
+ignore = ["B008", "N818"]  # FastAPI Depends() shows up in default args; N818 for domain exception naming
