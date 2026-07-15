@@ -1,5 +1,5 @@
 -- ==============================================================
--- marketplace-service V21 — chat message type.
+-- marketplace-service V22 — chat message type.
 -- Existing rows are chat text — default to 'TEXT'. Trade-service will
 -- insert 'TRADE_PROPOSAL' rows via its Kafka consumer (see
 -- TradeProposalConsumer). No other types envisioned for MVP.
