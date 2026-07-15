@@ -109,3 +109,18 @@ def test_2fa_no_hit_without_keyword(detector):
         )
     ]
     assert detector.check_2fa(msgs) is None
+
+
+def test_2fa_rejects_distant_code_from_different_sentence(detector):
+    msgs = [
+        _msg(
+            from_="noreply@konami.com",
+            subject="misc",
+            text=(
+                "Please note: this notice mentions verification requirements. "
+                "By the way, here is a completely unrelated reference number: 998877."
+            ),
+        )
+    ]
+    # The keyword "verification" is > 30 chars away from "998877", so no hit.
+    assert detector.check_2fa(msgs) is None

@@ -21,8 +21,12 @@ from datetime import datetime
 from typing import Protocol
 
 _RESET_URL_RE = re.compile(r"https?://[^\s]*konami[^\s]*", re.IGNORECASE)
+# NOTE: The brief's literal `[\s:]*` failed its own test case ("verification code is 483920")
+# because "is" sits between keyword and digits. `[\sA-Za-z:]{0,30}` bounds the gap to ~30 chars
+# (typical short English phrasing) so a keyword can't grab an unrelated distant code from a
+# different sentence.
 _CODE_RE = re.compile(
-    r"(?:code|verification|verify)[\s:a-z]*([0-9]{4,8})", re.IGNORECASE
+    r"(?:code|verification|verify)[\sA-Za-z:]{0,30}([0-9]{4,8})", re.IGNORECASE
 )
 
 
