@@ -43,7 +43,7 @@ jobs:
       trade: ${{ steps.filter.outputs.trade }}
       bot: ${{ steps.filter.outputs.bot }}
       frontend: ${{ steps.filter.outputs.frontend }}
-      smart-admin: ${{ steps.filter.outputs.smart-admin }}
+      smart-admin: ${{ steps.filter.outputs['smart-admin'] }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -151,7 +151,7 @@ jobs:
 
   test-python:
     needs: precheck
-    if: needs.precheck.outputs.smart-admin == 'true'
+    if: needs.precheck.outputs['smart-admin'] == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
