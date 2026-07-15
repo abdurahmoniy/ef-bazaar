@@ -4,8 +4,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.trade.kafka.TradeEventPublisher;
 import uz.efbazaar.trade.kafka.TradeEvents;
 import uz.efbazaar.trade.trade.domain.ActorType;
@@ -90,7 +92,7 @@ public class TradeProposalService {
 
         // The accepter must be the OTHER party — a proposer accepting their own proposal is nonsense.
         if (accepterUserId.equals(proposerUserId)) {
-            throw new IllegalStateException("Proposer cannot accept own proposal");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Proposer cannot accept own proposal");
         }
 
         // Which card belongs to which side?

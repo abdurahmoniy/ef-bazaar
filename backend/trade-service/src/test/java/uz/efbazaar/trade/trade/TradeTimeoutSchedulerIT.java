@@ -34,7 +34,7 @@ class TradeTimeoutSchedulerIT extends AbstractIntegrationIT {
         UUID buyer = UUID.randomUUID();
         var t = trades.openTrade(seller, buyer, 500_000L,
                 UUID.randomUUID(), UUID.randomUUID(), null);
-        trades.transition(t.id(), TradeEvent.MAILBOX_PROVISIONED, ActorType.SYSTEM, null);
+        trades.transition(t.id(), TradeEvent.MAILBOX_PROVISIONED, ActorType.WORKER, null);
 
         await().atMost(15, TimeUnit.SECONDS).untilAsserted(() -> {
             scheduler.sweep(); // don't wait for the fixedRate — call directly

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import uz.efbazaar.trade.card.exception.CardValidationException;
 import uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException;
+import uz.efbazaar.trade.trade.exception.PasswordAlreadyRevealedException;
 import uz.efbazaar.trade.trade.exception.ProposalNotFoundException;
 import uz.efbazaar.trade.trade.exception.RateLimitedException;
 
@@ -49,9 +50,9 @@ public class TradeExceptionHandler {
         return status(HttpStatus.TOO_MANY_REQUESTS, e.getMessage());
     }
 
-    @ExceptionHandler(IllegalStateException.class)
-    ResponseEntity<Map<String, Object>> onIllegalState(IllegalStateException e) {
-        return status(HttpStatus.GONE, e.getMessage());
+    @ExceptionHandler(PasswordAlreadyRevealedException.class)
+    ResponseEntity<Map<String, Object>> onPasswordAlreadyRevealed(PasswordAlreadyRevealedException e) {
+        return status(HttpStatus.GONE, "Password already revealed");
     }
 
     private Map<String, Object> body(HttpStatus status, String code) {

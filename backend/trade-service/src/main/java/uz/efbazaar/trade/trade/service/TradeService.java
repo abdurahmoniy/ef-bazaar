@@ -13,6 +13,7 @@ import uz.efbazaar.trade.trade.domain.TradeChat;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.dto.TradeResponse;
+import uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException;
 import uz.efbazaar.trade.trade.repository.TradeChatRepository;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
 import uz.efbazaar.trade.trade.ws.TradeBroadcaster;
@@ -96,6 +97,13 @@ public class TradeService {
         Trade t = trades.findById(tradeId)
                 .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
         TradeState from = t.getState();
+        // MAILBOX_PROVISIONED must only be driven by the worker's
+        // email-provisioned response — otherwise any caller could advance
+        // INITIATED -> WAITING_PAYMENT with a placeholder mailbox that has
+        // no real address/password yet (zero-byte escrow mailbox).
+        if (event == TradeEvent.MAILBOX_PROVISIONED && actor != ActorType.WORKER) {
+            throw new InvalidTradeTransitionException(from, event);
+        }
         TradeState to = sm.transition(from, event);
         t.setState(to);
         handler.onEnter(t, to, actor, actorId, event);

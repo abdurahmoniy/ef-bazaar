@@ -16,11 +16,18 @@ import java.util.Base64;
 /**
  * Stand-in for the Python smart-admin-worker (Plan C). Consumes the four
  * request topics and synthesises the response topics so trade-service can
- * complete a full happy-path in {@code local} / {@code test} / {@code docker}
- * profiles. NOT enabled in {@code prod}.
+ * complete a full happy-path in {@code local} / {@code test} / {@code
+ * mockworker} profiles.
+ *
+ * <p>Deliberately NOT tied to {@code docker} — {@code SPRING_PROFILES_ACTIVE}
+ * is set to {@code docker} for every environment that runs via
+ * docker-compose, including production. Gating on {@code docker} would mean
+ * MockWorker silently answers Kafka provisioning requests in prod. Dev
+ * environments opt in explicitly by adding {@code mockworker} to
+ * {@code SPRING_PROFILES_ACTIVE} (see {@code .env.example}).
  */
 @Slf4j
-@Profile({"local", "test", "docker"})
+@Profile({"local", "test", "mockworker"})
 @Component
 @RequiredArgsConstructor
 public class MockWorker {

@@ -6,6 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
 import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
+import uz.efbazaar.trade.trade.exception.PasswordAlreadyRevealedException;
 import uz.efbazaar.trade.trade.repository.TradeMessageRepository;
 import uz.efbazaar.trade.trade.service.OneTimePasswordService;
 import uz.efbazaar.trade.trade.service.TradeService;
@@ -30,7 +31,7 @@ class OneTimePasswordServiceTest extends AbstractIntegrationIT {
         var trade = trades.openTrade(seller, buyer, 500_000L,
                 UUID.randomUUID(), UUID.randomUUID(), null);
         // Fast-forward to WAITING_PASSWORD.
-        trades.transition(trade.id(), TradeEvent.MAILBOX_PROVISIONED, ActorType.SYSTEM, null);
+        trades.transition(trade.id(), TradeEvent.MAILBOX_PROVISIONED, ActorType.WORKER, null);
         trades.transition(trade.id(), TradeEvent.PAYMENT_CONFIRMED,  ActorType.USER, buyer);
         trades.transition(trade.id(), TradeEvent.EMAIL_CHANGED,       ActorType.USER, seller);
         trades.transition(trade.id(), TradeEvent.KONAMI_EMAIL_RECEIVED, ActorType.WORKER, null);
@@ -40,7 +41,7 @@ class OneTimePasswordServiceTest extends AbstractIntegrationIT {
         assertThat(otp.reveal(trade.id(), msgId, buyer)).isEqualTo("SuperSecret42");
         // Second reveal is impossible — Redis key gone.
         assertThatThrownBy(() -> otp.reveal(trade.id(), msgId, buyer))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(PasswordAlreadyRevealedException.class);
     }
 
     @Test
@@ -50,7 +51,7 @@ class OneTimePasswordServiceTest extends AbstractIntegrationIT {
 
         var trade = trades.openTrade(seller, buyer, 500_000L,
                 UUID.randomUUID(), UUID.randomUUID(), null);
-        trades.transition(trade.id(), TradeEvent.MAILBOX_PROVISIONED, ActorType.SYSTEM, null);
+        trades.transition(trade.id(), TradeEvent.MAILBOX_PROVISIONED, ActorType.WORKER, null);
         trades.transition(trade.id(), TradeEvent.PAYMENT_CONFIRMED,  ActorType.USER, buyer);
         trades.transition(trade.id(), TradeEvent.EMAIL_CHANGED,       ActorType.USER, seller);
         trades.transition(trade.id(), TradeEvent.KONAMI_EMAIL_RECEIVED, ActorType.WORKER, null);

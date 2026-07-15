@@ -8,8 +8,10 @@ import uz.efbazaar.trade.trade.domain.ParticipantRole;
 import uz.efbazaar.trade.trade.domain.TradeMessage;
 import uz.efbazaar.trade.trade.domain.TradeMessageType;
 import uz.efbazaar.trade.trade.domain.TradeSenderType;
+import uz.efbazaar.trade.trade.dto.TradeMessageResponse;
 import uz.efbazaar.trade.trade.repository.TradeChatRepository;
 import uz.efbazaar.trade.trade.repository.TradeMessageRepository;
+import uz.efbazaar.trade.trade.ws.TradeBroadcaster;
 
 import java.util.Map;
 import java.util.UUID;
@@ -25,6 +27,7 @@ public class Imap2faCodeConsumer {
 
     private final TradeChatRepository chats;
     private final TradeMessageRepository messages;
+    private final TradeBroadcaster broadcaster;
 
     @KafkaListener(
             topics = TradeEvents.TOPIC_IMAP_2FA,
@@ -37,12 +40,17 @@ public class Imap2faCodeConsumer {
             log.warn("imap-2fa for trade {} with no buyer chat", e.tradeId());
             return;
         }
-        messages.save(TradeMessage.builder()
+        TradeMessage msg = TradeMessage.builder()
                 .id(UUID.randomUUID())
                 .tradeChatId(buyer.get().getId())
                 .senderType(TradeSenderType.SMART_ADMIN)
                 .messageType(TradeMessageType.STATUS)
                 .metadata(Map.of("code", "IMAP_2FA_CODE", "value", e.code()))
-                .build());
+                .build();
+        messages.save(msg);
+
+        TradeMessageResponse resp = new TradeMessageResponse(msg.getId(), msg.getSenderType(),
+                msg.getMessageType(), null, msg.getMetadata(), msg.getCreatedAt());
+        broadcaster.publishMessage(e.tradeId(), ParticipantRole.BUYER, resp);
     }
 }

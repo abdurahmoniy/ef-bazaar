@@ -2,12 +2,16 @@ package uz.efbazaar.trade.trade.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.trade.trade.domain.*;
+import uz.efbazaar.trade.trade.exception.PasswordAlreadyRevealedException;
 import uz.efbazaar.trade.trade.repository.TradeChatRepository;
 import uz.efbazaar.trade.trade.repository.TradeMessageRepository;
 
@@ -32,6 +36,7 @@ import java.util.UUID;
  * mathematically unrecoverable — not by admins, not by us with the master
  * key, not by anyone. Spec §6 §12 mandate this exactly.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OneTimePasswordService {
@@ -81,11 +86,6 @@ public class OneTimePasswordService {
 
         UUID messageId = UUID.randomUUID();
 
-        // Store the key in Redis. Deleting it on reveal makes the ciphertext permanently opaque.
-        redis.opsForValue().set(redisKey(tradeId, messageId),
-                Base64.getEncoder().encodeToString(key),
-                Duration.ofSeconds(REDIS_TTL_SECONDS));
-
         var buyerChat = chats.findByTradeIdAndParticipant(tradeId, ParticipantRole.BUYER)
                 .orElseThrow(() -> new EntityNotFoundException("buyer chat"));
 
@@ -114,8 +114,32 @@ public class OneTimePasswordService {
                 .build();
         messages.save(sellerMarker);
 
+        // State-machine guard runs BEFORE the Redis key is written — if the
+        // trade isn't in WAITING_PASSWORD this throws and the transaction
+        // rolls back, so we never orphan a key with no reachable message row.
         trades.transition(tradeId, TradeEvent.PASSWORD_SENT, ActorType.USER, senderUserId);
+
+        // Defer the Redis put to afterCommit (same pattern as
+        // TradeEventPublisher.send): if the transaction rolls back for any
+        // reason after this point, the key is never written.
+        String redisKey = redisKey(tradeId, messageId);
+        String encodedKey = Base64.getEncoder().encodeToString(key);
+        putRedisKeyAfterCommit(redisKey, encodedKey);
+
         return messageId;
+    }
+
+    private void putRedisKeyAfterCommit(String redisKey, String encodedKey) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    redis.opsForValue().set(redisKey, encodedKey, Duration.ofSeconds(REDIS_TTL_SECONDS));
+                }
+            });
+        } else {
+            redis.opsForValue().set(redisKey, encodedKey, Duration.ofSeconds(REDIS_TTL_SECONDS));
+        }
     }
 
     /**
@@ -141,7 +165,7 @@ public class OneTimePasswordService {
         // caller is guaranteed to observe null, closing the reveal-twice race.
         String encoded = redis.opsForValue().getAndDelete(redisKey(tradeId, messageId));
         if (encoded == null) {
-            throw new IllegalStateException("Password already revealed or expired");
+            throw new PasswordAlreadyRevealedException("Password already revealed or expired");
         }
         byte[] key = Base64.getDecoder().decode(encoded);
 
@@ -160,8 +184,19 @@ public class OneTimePasswordService {
             throw new IllegalStateException("Failed to decrypt one-time password", e);
         }
 
-        audit.record(tradeId, ActorType.USER, viewerUserId, "PASSWORD_REVEALED",
-                Map.of("messageId", messageId.toString()));
+        // The Redis GETDEL above is atomic and already irreversible by this
+        // point — the key is gone regardless of what happens next. If the
+        // audit write fails, we must NOT let that surface as an error to the
+        // buyer (they already have the plaintext and cannot re-request it);
+        // instead we log at ERROR so ops has a trace even without a DB row.
+        try {
+            audit.record(tradeId, ActorType.USER, viewerUserId, "PASSWORD_REVEALED",
+                    Map.of("messageId", messageId.toString()));
+        } catch (RuntimeException e) {
+            log.error("Failed to audit PASSWORD_REVEALED after successful GETDEL — " +
+                            "tradeId={} messageId={} viewerUserId={}",
+                    tradeId, messageId, viewerUserId, e);
+        }
         return plaintext;
     }
 
