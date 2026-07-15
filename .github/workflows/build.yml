@@ -45,6 +45,7 @@ jobs:
       bot:            ${{ steps.filter.outputs.bot }}
       frontend:       ${{ steps.filter.outputs.frontend }}
       nginx:          ${{ steps.filter.outputs.nginx }}
+      smart-admin:    ${{ steps.filter.outputs.smart-admin }}
       matrix:         ${{ steps.build-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
@@ -76,6 +77,9 @@ jobs:
             nginx:
               - 'nginx/**'
               - '.github/workflows/build.yml'
+            smart-admin:
+              - 'smart-admin-worker/**'
+              - '.github/workflows/build.yml'
 
       - id: build-matrix
         env:
@@ -93,6 +97,7 @@ jobs:
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.bot }}"            == "true" ]]; then add bot                    bot                            bot;                    fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.frontend }}"       == "true" ]]; then add frontend               frontend                       frontend;               fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.nginx }}"          == "true" ]]; then add nginx                  nginx                          nginx;                  fi
+          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.smart-admin }}" == "true" ]]; then add smart-admin-worker      smart-admin-worker             smart-admin-worker;     fi
 
           if [ ${#ITEMS[@]} -eq 0 ]; then
             MATRIX='{"include":[]}'
