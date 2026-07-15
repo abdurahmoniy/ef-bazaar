@@ -282,11 +282,19 @@ trade_bootstrap() {
   if [[ ! -s "$key_file" ]]; then
     echo "==> Generating $key_file (first-run bootstrap)"
     mkdir -p "$(dirname "$key_file")"
+    chmod 700 "$(dirname "$key_file")"
     openssl rand -base64 32 > "$key_file"
-    chmod 600 "$key_file"
     echo "!! NEW master_key generated at $key_file"
     echo "!! Back this file up NOW. Rotating it destroys previously-encrypted data."
   fi
+
+  # File mode 0644 (owner rw, others r) so Docker's tmpfs mount at
+  # /run/secrets/master_key is world-readable inside the container, letting
+  # the non-root `app` user read it. The containing directory is 0700 so
+  # only root can even list it on the host — the file's mode matters only
+  # for the docker-daemon-mediated mount, not for host visibility.
+  chmod 644 "$key_file"
+  chmod 700 "$(dirname "$key_file")" 2>/dev/null || true
 
   # Only proceed with DB creation if postgres is running.
   if ! docker compose ps --services --filter status=running | grep -q '^postgres$'; then

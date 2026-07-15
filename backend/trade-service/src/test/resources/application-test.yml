@@ -1,20 +1,34 @@
 spring:
-  datasource:
-    url: jdbc:h2:mem:trade_db_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   flyway:
-    enabled: false
+    enabled: true
+
+  # Kafka bootstrap comes from @DynamicPropertySource in AbstractIntegrationIT
+  kafka:
+    consumer:
+      # Faster group assignment in tests — default is 3s
+      properties:
+        session.timeout.ms: 6000
+        heartbeat.interval.ms: 2000
 
 trade:
   crypto:
-    master-key-file: target/test-classes/test-master-key.b64
+    master-key-file: ${MASTER_KEY_FILE:target/test-master-key}
+  timeouts:
+    # Shorter windows so timeout scheduler tests don't take 30 min
+    waiting-payment-seconds: 2
+    waiting-email-change-seconds: 2
+    verifying-konami-link-seconds: 2
+    waiting-password-seconds: 2
+    waiting-buyer-verify-seconds: 2
+  recheck:
+    max-per-trade: 3
+    min-interval-seconds: 1
+  proposal:
+    ttl-seconds: 60

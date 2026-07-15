@@ -15,7 +15,7 @@ efBazaar/
 │   ├── auth-service/           # JWT, SSO — Spring Boot, port 8081
 │   ├── marketplace-service/    # E'lonlar, like, savat, chat — Spring Boot, port 8082
 │   ├── recommendation-service/ # Recommendation engine — Spring Boot, port 8083
-│   └── trade-service/          # Escrow trade orchestrator — Spring Boot, port 8085
+│   └── trade-service/          # Escrow trade lifecycle: proposals, state machine, encrypted per-role chats, one-time password passthrough, WSS live push, Kafka boundary to smart-admin-worker — Spring Boot, port 8085
 ├── frontend/                   # React (Vite) — MVP auth UI, port 5173/80
 ├── bot/                        # Telegram bot — Spring Boot, port 8084
 ├── nginx/                      # Reverse proxy
@@ -48,6 +48,7 @@ efBazaar/
 | marketplace-service | 8082 | /api/marketplace/** |
 | recommendation-service | 8083 | /api/rec/** |
 | bot | 8084 | /bot/webhook |
+| trade-service | 8085 | /api/v1/trades/** |
 | frontend | 80 | / |
 | PostgreSQL | 5432 | internal only |
 | Redis | 6379 | internal only |

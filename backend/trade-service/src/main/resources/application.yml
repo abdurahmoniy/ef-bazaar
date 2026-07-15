@@ -24,6 +24,24 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: trade-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "uz.efbazaar.*"
+
 server:
   port: 8085
   forward-headers-strategy: framework
@@ -34,11 +52,28 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
+      base-path: /actuator
   endpoint:
     health:
-      show-details: never
+      show-details: when_authorized
+  health:
+    kafka:
+      enabled: false
 
 trade:
   crypto:
     master-key-file: ${MASTER_KEY_FILE:}
+  timeouts:
+    waiting-payment-seconds: 1800
+    waiting-email-change-seconds: 1800
+    verifying-konami-link-seconds: 1800
+    waiting-password-seconds: 1800
+    waiting-buyer-verify-seconds: 86400
+  recheck:
+    max-per-trade: 5
+    min-interval-seconds: 300
+  proposal:
+    ttl-seconds: 600
+  mailcow:
+    api-url: ${MAILCOW_API_URL:https://mail.efbazaar.uz/api/v1}

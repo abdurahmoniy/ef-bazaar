@@ -4,20 +4,17 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uz.efbazaar.trade.card.dto.CardCreateRequest;
 import uz.efbazaar.trade.card.dto.CardResponse;
 import uz.efbazaar.trade.card.mapper.CardMapper;
 import uz.efbazaar.trade.card.service.CardService;
+import uz.efbazaar.trade.security.AuthenticatedUser;
 
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Plan A auth model: caller identity comes from X-User-Id header, set by nginx
- * after the auth-service auth_request check. Plan B replaces this with a real
- * JWT resolver and Spring Security config.
- */
 @RestController
 @RequestMapping("/api/v1/cards")
 @RequiredArgsConstructor
@@ -28,15 +25,15 @@ public class CardController {
 
     @PostMapping
     public ResponseEntity<CardResponse> create(
-            @RequestHeader("X-User-Id") UUID userId,
+            @AuthenticationPrincipal AuthenticatedUser me,
             @Valid @RequestBody CardCreateRequest request) {
-        var card = cardService.create(userId, request);
+        var card = cardService.create(me.userId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toResponse(card));
     }
 
     @GetMapping
-    public List<CardResponse> listSaved(@RequestHeader("X-User-Id") UUID userId) {
-        return cardService.listSaved(userId).stream()
+    public List<CardResponse> listSaved(@AuthenticationPrincipal AuthenticatedUser me) {
+        return cardService.listSaved(me.userId()).stream()
                 .map(mapper::toResponse)
                 .toList();
     }
@@ -44,8 +41,8 @@ public class CardController {
     @DeleteMapping("/{cardId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(
-            @RequestHeader("X-User-Id") UUID userId,
+            @AuthenticationPrincipal AuthenticatedUser me,
             @PathVariable UUID cardId) {
-        cardService.delete(userId, cardId);
+        cardService.delete(me.userId(), cardId);
     }
 }
