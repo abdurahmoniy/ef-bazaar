@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import base64
 import json
-from dataclasses import dataclass, fields, is_dataclass
+import types
+import typing
+from dataclasses import MISSING, dataclass, fields, is_dataclass
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -149,10 +151,19 @@ def from_json(topic: str, data: bytes) -> Any:
         raise ValueError(f"no DTO registered for topic {topic}")
     payload = json.loads(data.decode("utf-8"))
     kwargs = {}
-    for field_name in cls.__dataclass_fields__:
-        camel = _to_camel(field_name)
-        raw = payload.get(camel)
-        kwargs[field_name] = _decode_field(field_name, raw)
+    for field in fields(cls):
+        camel = _to_camel(field.name)
+        if camel not in payload:
+            # Optional fields (Union[..., None]) may be absent; anything else
+            # without a default is required — surface a clear ValueError rather
+            # than a cryptic TypeError from the dataclass constructor.
+            if _field_is_optional(field.type) or field.default is not MISSING \
+                    or field.default_factory is not MISSING:
+                continue
+            raise ValueError(
+                f"Missing required field '{camel}' in {cls.__name__} payload"
+            )
+        kwargs[field.name] = _decode_field(field.name, payload[camel])
     return cls(**kwargs)
 
 
@@ -162,3 +173,22 @@ def _decode_field(name: str, raw: Any) -> Any:
     if name in ("trade_id", "mailbox_id"):
         return UUID(raw)
     return raw
+
+
+def _field_is_optional(annotation: Any) -> bool:
+    """True if the annotation is a Union (or PEP-604 X | None) that includes None.
+
+    Because our dataclasses declare `from __future__ import annotations`, the
+    `field.type` we see is a string like ``"str | None"`` — evaluate it against
+    the module namespace before inspecting the resulting type.
+    """
+    resolved = annotation
+    if isinstance(annotation, str):
+        try:
+            resolved = eval(annotation, globals())  # noqa: S307 — trusted DTO annotations
+        except Exception:
+            return False
+    origin = typing.get_origin(resolved)
+    if origin is typing.Union or origin is types.UnionType:
+        return type(None) in typing.get_args(resolved)
+    return False

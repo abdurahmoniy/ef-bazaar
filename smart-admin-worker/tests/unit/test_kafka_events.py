@@ -74,3 +74,29 @@ def test_email_provisioned_bytes_encoded_as_base64():
 def test_from_json_raises_on_unknown_topic():
     with pytest.raises(ValueError):
         from_json("efbazaar.trade.nonexistent", b"{}")
+
+
+def test_from_json_raises_clear_error_on_missing_required_field():
+    # ForgotPasswordRequest requires tradeId + mailboxEmail; konamiId is Optional.
+    payload = {"tradeId": "11111111-1111-1111-1111-111111111111"}  # missing mailboxEmail
+    with pytest.raises(ValueError, match="Missing required field 'mailboxEmail'"):
+        from_json(
+            "efbazaar.trade.forgot-password-request",
+            json.dumps(payload).encode(),
+        )
+
+
+def test_from_json_ignores_extra_fields():
+    payload = {
+        "tradeId": "11111111-1111-1111-1111-111111111111",
+        "mailboxEmail": "trade-abc@efbazaar.uz",
+        "konamiId": None,
+        "extraField": "should be ignored",
+        "anotherOne": 42,
+    }
+    ev = from_json(
+        "efbazaar.trade.forgot-password-request",
+        json.dumps(payload).encode(),
+    )
+    assert isinstance(ev, e.ForgotPasswordRequest)
+    assert ev.mailbox_email == "trade-abc@efbazaar.uz"
