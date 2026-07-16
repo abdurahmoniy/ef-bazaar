@@ -54,7 +54,7 @@ public class TradeBroadcaster {
 
     private static TradeResponse withRole(TradeResponse r, ParticipantRole role) {
         return new TradeResponse(r.id(), r.state(), r.sellerId(), r.buyerId(),
-                r.priceUzs(), r.mailboxId(), r.createdAt(), r.expiresAt(),
+                r.priceUzs(), r.mailboxId(), r.chatId(), r.createdAt(), r.expiresAt(),
                 r.stateDeadline(), role);
     }
 }

@@ -22,6 +22,15 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
     Optional<Trade> findByIdAndParticipant(@Param("id") UUID id,
                                            @Param("userId") UUID userId);
 
+    @Query("""
+            SELECT t FROM Trade t
+             WHERE t.chatId = :chatId
+               AND (t.sellerId = :userId OR t.buyerId = :userId)
+             ORDER BY t.createdAt DESC
+            """)
+    List<Trade> findByChatIdAndParticipantOrderByCreatedAtDesc(@Param("chatId") UUID chatId,
+                                                               @Param("userId") UUID userId);
+
     List<Trade> findByStateInAndStateDeadlineBefore(Set<TradeState> states,
                                                     Instant cutoff);
 

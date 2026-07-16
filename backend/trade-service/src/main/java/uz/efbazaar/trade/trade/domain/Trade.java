@@ -32,6 +32,14 @@ public class Trade {
     @Column(name = "listing_id", updatable = false)
     private UUID listingId;
 
+    /**
+     * The marketplace-service chat this trade was opened from. Nullable
+     * because openTrade callers that don't have a chat context (some
+     * integration tests, legacy rows) are still valid.
+     */
+    @Column(name = "chat_id", updatable = false)
+    private UUID chatId;
+
     @Column(name = "price_uzs", nullable = false, updatable = false)
     private long priceUzs;
 
