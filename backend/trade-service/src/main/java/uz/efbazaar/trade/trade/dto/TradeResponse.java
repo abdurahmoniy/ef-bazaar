@@ -13,6 +13,7 @@ public record TradeResponse(
         UUID buyerId,
         long priceUzs,
         UUID mailboxId,
+        UUID chatId,
         Instant createdAt,
         Instant expiresAt,
         Instant stateDeadline,

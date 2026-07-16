@@ -100,8 +100,10 @@ public class TradeProposalService {
         UUID buyerCardId  = buyerId.equals(proposerUserId)  ? proposerCard : accepterCardId;
 
         UUID listingId = optionalUuid(raw.get("listingId"));
+        UUID chatId    = optionalUuid(raw.get("marketplaceChatId"));
 
-        var trade = trades.openTrade(sellerId, buyerId, amountUzs, sellerCardId, buyerCardId, listingId);
+        var trade = trades.openTrade(sellerId, buyerId, amountUzs,
+                sellerCardId, buyerCardId, listingId, chatId);
 
         redis.delete(redisKey(proposalId));
         events.proposalResolved(proposalId, TradeEvents.ProposalOutcome.ACCEPTED);

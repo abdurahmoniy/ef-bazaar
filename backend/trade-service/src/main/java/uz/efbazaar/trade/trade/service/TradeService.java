@@ -39,6 +39,13 @@ public class TradeService {
     @Transactional
     public TradeResponse openTrade(UUID sellerId, UUID buyerId, long priceUzs,
                                    UUID sellerCardId, UUID buyerCardId, UUID listingId) {
+        return openTrade(sellerId, buyerId, priceUzs, sellerCardId, buyerCardId, listingId, null);
+    }
+
+    @Transactional
+    public TradeResponse openTrade(UUID sellerId, UUID buyerId, long priceUzs,
+                                   UUID sellerCardId, UUID buyerCardId, UUID listingId,
+                                   UUID chatId) {
         // The mailbox row is created up-front with a synthetic email; the worker
         // (Task 14) overwrites the email + password once it "provisions" Mailcow
         // in response to the email-provision-request event.
@@ -49,6 +56,7 @@ public class TradeService {
                 .sellerId(sellerId)
                 .buyerId(buyerId)
                 .listingId(listingId)
+                .chatId(chatId)
                 .priceUzs(priceUzs)
                 .state(TradeState.INITIATED)
                 .mailboxId(mailboxId)
@@ -117,8 +125,20 @@ public class TradeService {
     public TradeResponse toResponse(Trade t, ParticipantRole role) {
         return new TradeResponse(t.getId(), t.getState(),
                 t.getSellerId(), t.getBuyerId(), t.getPriceUzs(),
-                t.getMailboxId(), t.getCreatedAt(), t.getExpiresAt(),
+                t.getMailboxId(), t.getChatId(), t.getCreatedAt(), t.getExpiresAt(),
                 t.getStateDeadline(), role);
+    }
+
+    /**
+     * Trades in the given marketplace chat where {@code viewerUserId} is a
+     * participant. Newest first — the chat panel typically shows only the
+     * most recent trade for the chat.
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<TradeResponse> listByChat(UUID chatId, UUID viewerUserId) {
+        return trades.findByChatIdAndParticipantOrderByCreatedAtDesc(chatId, viewerUserId).stream()
+                .map(t -> toResponse(t, t.roleFor(viewerUserId)))
+                .toList();
     }
 
     private UUID allocatePlaceholderMailbox() {
