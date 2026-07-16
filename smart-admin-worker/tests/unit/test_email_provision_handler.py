@@ -9,6 +9,7 @@ from smart_admin_worker.crypto.field_encryptor import FieldEncryptor
 from smart_admin_worker.handlers.email_provision import EmailProvisionHandler
 from smart_admin_worker.kafka import events as e
 from smart_admin_worker.mailcow.client import Mailbox
+from smart_admin_worker.mailcow.errors import MailboxAlreadyExists
 
 
 @pytest.fixture
@@ -57,3 +58,57 @@ async def test_creates_mailbox_and_publishes_provisioned(encryptor):
     # Mailcow was called with a password we generated — verify it matches the encrypted one.
     generated_password = call.kwargs.get("password") or call.args[2]
     assert plaintext == generated_password
+
+
+async def test_populates_caches_on_fresh_create(encryptor):
+    mailcow = AsyncMock()
+    mailcow.create_mailbox.return_value = Mailbox(email="trade-abc@efbazaar.uz")
+    producer = AsyncMock()
+    password_cache: dict[str, str] = {}
+    mailbox_id_to_email: dict[UUID, str] = {}
+
+    handler = EmailProvisionHandler(
+        mailcow=mailcow,
+        encryptor=encryptor,
+        producer=producer,
+        mailcow_domain="efbazaar.uz",
+        password_cache=password_cache,
+        mailbox_id_to_email=mailbox_id_to_email,
+    )
+    trade_id = UUID("22222222-2222-2222-2222-222222222222")
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id))
+
+    # Password cache was populated with the generated password.
+    assert "trade-abc@efbazaar.uz" in password_cache
+    generated_password = mailcow.create_mailbox.await_args.kwargs["password"]
+    assert password_cache["trade-abc@efbazaar.uz"] == generated_password
+
+    # Mailbox-id-to-email cache holds the trade UUID → email mapping.
+    assert mailbox_id_to_email[trade_id] == "trade-abc@efbazaar.uz"
+
+
+async def test_does_not_populate_caches_on_replay(encryptor):
+    """On MailboxAlreadyExists (Kafka replay) we don't know the real password,
+    so the caches must NOT be touched — poisoning them would break IMAP login."""
+    mailcow = AsyncMock()
+    mailcow.create_mailbox.side_effect = MailboxAlreadyExists(200, "object_exists")
+    producer = AsyncMock()
+    password_cache: dict[str, str] = {}
+    mailbox_id_to_email: dict[UUID, str] = {}
+
+    handler = EmailProvisionHandler(
+        mailcow=mailcow,
+        encryptor=encryptor,
+        producer=producer,
+        mailcow_domain="efbazaar.uz",
+        password_cache=password_cache,
+        mailbox_id_to_email=mailbox_id_to_email,
+    )
+    trade_id = UUID("33333333-3333-3333-3333-333333333333")
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id))
+
+    assert password_cache == {}
+    assert mailbox_id_to_email == {}
+    # But the publish still happened so trade-service can persist the (new)
+    # encrypted payload — replay must remain idempotent.
+    producer.publish.assert_awaited_once()

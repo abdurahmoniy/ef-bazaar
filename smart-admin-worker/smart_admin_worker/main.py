@@ -115,6 +115,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     email_provision_handler = EmailProvisionHandler(
         mailcow=mailcow, encryptor=encryptor, producer=producer, mailcow_domain="efbazaar.uz",
+        password_cache=app.state.password_cache,
+        mailbox_id_to_email=app.state.mailbox_id_to_email,
     )
 
     handlers: dict[str, Callable[[object], Awaitable[None]]] = {
