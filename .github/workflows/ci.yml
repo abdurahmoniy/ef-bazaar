@@ -97,6 +97,8 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          list-files: shell
+          base: ${{ github.event.pull_request.base.sha }}
           filters: |
             auth:
               - 'backend/auth-service/**'
