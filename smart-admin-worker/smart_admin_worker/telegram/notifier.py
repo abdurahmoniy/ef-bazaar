@@ -1,0 +1,111 @@
+"""Telegram Bot API notifier for smart-admin-worker events.
+
+Design:
+- Reuses the ef-bazaar Telegram bot credentials (see docker-compose `bot` block).
+- Posts to a forum-topic on the ops group chat so mailbox events don't drown
+  out other channels.
+- Every notify_* method is best-effort: Telegram outage, DNS glitch, HTTP 5xx —
+  none of them may propagate into the caller. Trades must keep flowing even if
+  the ops group is offline.
+- If bot_token or chat_id is missing (unset in this environment) the notifier
+  degrades to a silent no-op — logged once on the first call so operators can
+  tell the difference from "sent but not delivered".
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+from uuid import UUID
+
+import httpx
+import structlog
+
+if TYPE_CHECKING:  # pragma: no cover
+    pass
+
+log = structlog.get_logger(__name__)
+
+_SEND_TIMEOUT_SECONDS = 5.0
+
+
+class TelegramNotifier:
+    """Thin async wrapper over Telegram Bot API sendMessage.
+
+    The single shared httpx client is passed in from the composition root so
+    connections stay pooled across many notifications and its lifecycle is
+    owned by the FastAPI lifespan (not by this class).
+    """
+
+    def __init__(
+        self,
+        bot_token: str | None,
+        chat_id: str | None,
+        topic_id: int | None,
+        http_client: httpx.AsyncClient,
+    ) -> None:
+        self._bot_token = bot_token
+        self._chat_id = chat_id
+        self._topic_id = topic_id
+        self._http = http_client
+        # Inert when we don't have both a token and a chat — this lets ops
+        # deploy the worker without Telegram credentials during initial rollout.
+        self._enabled = bool(bot_token) and bool(chat_id)
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    async def notify_mailbox_created(
+        self,
+        trade_id: UUID,
+        mailbox_email: str,
+        capacity: dict[str, int] | None,
+    ) -> None:
+        """Fire off a "mailbox created" message. Silent on any failure."""
+        if not self._enabled:
+            return
+        text = self._format_mailbox_created(trade_id, mailbox_email, capacity)
+        await self._send(text)
+
+    @staticmethod
+    def _format_mailbox_created(
+        trade_id: UUID,
+        mailbox_email: str,
+        capacity: dict[str, int] | None,
+    ) -> str:
+        short_id = str(trade_id)[:8]
+        now = datetime.now(UTC).strftime("%H:%M")
+        lines = [
+            "✅ Yangi mailbox yaratildi",
+            f"\U0001f194 Trade: {short_id}",
+            f"\U0001f4e7 {mailbox_email}",
+        ]
+        if capacity is not None:
+            used = capacity.get("used", 0)
+            limit = capacity.get("limit", 0)
+            pct = int(round(used * 100 / limit)) if limit > 0 else 0
+            lines.append(f"\U0001f4ca {used}/{limit} mailbox ({pct}%)")
+        lines.append(f"\U0001f550 {now} UTC")
+        return "\n".join(lines)
+
+    async def _send(self, text: str) -> None:
+        payload: dict[str, object] = {
+            "chat_id": self._chat_id,
+            "text": text,
+            "disable_web_page_preview": True,
+        }
+        if self._topic_id is not None:
+            payload["message_thread_id"] = self._topic_id
+
+        url = f"https://api.telegram.org/bot{self._bot_token}/sendMessage"
+        try:
+            resp = await self._http.post(url, json=payload, timeout=_SEND_TIMEOUT_SECONDS)
+            if resp.status_code >= 400:
+                log.warning(
+                    "telegram_notify_failed",
+                    status_code=resp.status_code,
+                    body=resp.text[:200],
+                )
+        except Exception as exc:  # noqa: BLE001 — best-effort, never propagate
+            log.warning("telegram_notify_error", error=str(exc), error_type=type(exc).__name__)

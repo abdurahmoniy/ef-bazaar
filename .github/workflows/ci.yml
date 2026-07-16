@@ -94,24 +94,35 @@ jobs:
           fi
           echo "OK."
           printf "%s\n" "$CHANGED"
-      - uses: dorny/paths-filter@v3
+      # Path filter — o'zgargan servisni aniqlaydi.
+      # Ilgari dorny/paths-filter@v3 ishlatilar edi, lekin u GitHub'ning
+      # `GET /repos/{}/{}/pulls/{n}/files` API'iga tayanadi va API vaqti-vaqti
+      # bilan 500 (Unicorn) qaytaradi — PR bloklanib qoladi. Endi to'g'ridan-
+      # to'g'ri git diff bilan hisoblaymiz — fetch-depth: 0 allaqachon o'rnatilgan
+      # (yuqorida migration guard uchun).
+      - name: Detect changed services via git
         id: filter
-        with:
-          filters: |
-            auth:
-              - 'backend/auth-service/**'
-            marketplace:
-              - 'backend/marketplace-service/**'
-            recommendation:
-              - 'backend/recommendation-service/**'
-            trade:
-              - 'backend/trade-service/**'
-            bot:
-              - 'bot/**'
-            frontend:
-              - 'frontend/**'
-            smart-admin:
-              - 'smart-admin-worker/**'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          files=$(git diff --name-only "$BASE_SHA...HEAD")
+          echo "Changed files:"
+          printf "%s\n" "$files"
+          set_output() {
+            local name="$1" prefix="$2"
+            if printf "%s\n" "$files" | grep -q "^$prefix"; then
+              echo "$name=true"  >> "$GITHUB_OUTPUT"
+            else
+              echo "$name=false" >> "$GITHUB_OUTPUT"
+            fi
+          }
+          set_output auth           'backend/auth-service/'
+          set_output marketplace    'backend/marketplace-service/'
+          set_output recommendation 'backend/recommendation-service/'
+          set_output trade          'backend/trade-service/'
+          set_output bot            'bot/'
+          set_output frontend       'frontend/'
+          set_output smart-admin    'smart-admin-worker/'
 
   test-java:
     needs: precheck

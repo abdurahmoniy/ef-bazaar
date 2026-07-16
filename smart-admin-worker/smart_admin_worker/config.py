@@ -56,6 +56,12 @@ class Settings(BaseSettings):
     healthcheck_port: int = Field(default=8086, alias="WORKER_HEALTHCHECK_PORT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
+    # Telegram notifications (all optional — worker starts cleanly with none set;
+    # if token or chat id is missing the notifier degrades to a silent no-op).
+    telegram_bot_token: str | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
+    telegram_group_chat_id: str | None = Field(default=None, alias="TELEGRAM_GROUP_CHAT_ID")
+    telegram_topic_logs: int | None = Field(default=None, alias="TELEGRAM_TOPIC_LOGS")
+
     @model_validator(mode="after")
     def clamp_concurrent_rotate(self) -> Settings:
         cap = self.max_concurrent_rotate_cap

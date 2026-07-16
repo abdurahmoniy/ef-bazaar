@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import UUID
 
+import httpx
 import redis.asyncio as aioredis
 import structlog
 from fastapi import FastAPI
@@ -41,6 +42,7 @@ from smart_admin_worker.konami.client import KonamiClient
 from smart_admin_worker.logging_config import configure_logging
 from smart_admin_worker.mailcow.client import MailcowClient
 from smart_admin_worker.redis.lock import RedisLockManager
+from smart_admin_worker.telegram.notifier import TelegramNotifier
 
 
 def _load_master_key(path: Path) -> bytes:
@@ -113,8 +115,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         """
         return app.state.mailbox_id_to_email.get(mailbox_id, "")
 
+    # Shared httpx client for Telegram notifications. Small pool — one worker,
+    # low notify rate — and a generous overall timeout so slow DNS doesn't
+    # immediately blow through the tighter per-request timeout inside the
+    # notifier.
+    notifier_http_client = httpx.AsyncClient(
+        timeout=httpx.Timeout(30.0),
+        limits=httpx.Limits(max_connections=5, max_keepalive_connections=5),
+    )
+    notifier = TelegramNotifier(
+        bot_token=settings.telegram_bot_token,
+        chat_id=settings.telegram_group_chat_id,
+        topic_id=settings.telegram_topic_logs,
+        http_client=notifier_http_client,
+    )
+    log.info("telegram_notifier_init", enabled=notifier.enabled)
+
     email_provision_handler = EmailProvisionHandler(
         mailcow=mailcow, encryptor=encryptor, producer=producer, mailcow_domain="efbazaar.uz",
+        password_cache=app.state.password_cache,
+        mailbox_id_to_email=app.state.mailbox_id_to_email,
+        notifier=notifier,
     )
 
     handlers: dict[str, Callable[[object], Awaitable[None]]] = {
@@ -169,6 +190,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await poller_registry.cancel_all()
             await mailcow.aclose()
             await redis_client.aclose()
+            await notifier_http_client.aclose()
             log.info("shutdown")
     finally:
         await producer.stop()

@@ -72,6 +72,37 @@ class MailcowClient:
         body = await self._post("/delete/mailbox", payload)
         self._raise_for_msg(body, when_missing=MailboxNotFound)
 
+    async def get_domain_capacity(self, domain: str) -> dict[str, int] | None:
+        """Return current mailbox usage for the domain, or None on any error.
+
+        Mailcow's /get/domain/<domain> returns a single object with
+        ``mboxes_in_domain`` (used) and ``mboxes_left`` (remaining), from which
+        the total limit is derived. This is best-effort decoration for the
+        Telegram notification — any failure (HTTP error, unexpected shape,
+        Mailcow down) returns None rather than raising, since a missing capacity
+        line is much better than a crashed provision handler.
+        """
+        try:
+            r = await self._client.get(f"/get/domain/{domain}")
+            if r.status_code >= 400:
+                return None
+            data = r.json()
+        except (httpx.HTTPError, ValueError):
+            return None
+
+        # Mailcow returns the object directly for /get/domain/<name>, but some
+        # deployments return [obj]. Handle both defensively.
+        if isinstance(data, list):
+            data = data[0] if data else {}
+        if not isinstance(data, dict):
+            return None
+
+        used = data.get("mboxes_in_domain")
+        left = data.get("mboxes_left")
+        if not isinstance(used, int) or not isinstance(left, int):
+            return None
+        return {"used": used, "limit": used + left}
+
     async def _post(self, path: str, payload: Any) -> list[dict]:
         r = await self._client.post(path, json=payload)
         if r.status_code >= 400:

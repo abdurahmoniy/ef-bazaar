@@ -283,12 +283,17 @@ services:
       MASTER_KEY_FILE: /run/secrets/master_key
       IMAP_HOST: mail.efbazaar.uz
       IMAP_PORT: "993"
-      KONAMI_SENDER_ALLOWLIST: "noreply@konami.com,no-reply@konami.jp,noreply@konami.net"
+      KONAMI_SENDER_ALLOWLIST: "noreply@konami.com,no-reply@konami.jp,noreply@konami.net,konami-info@konami.net"
       MAX_CONCURRENT_ROTATE: "1"
       MAX_CONCURRENT_ROTATE_CAP: "5"
       IMAP_POLL_INTERVAL_SECONDS: "5"
       WORKER_HEALTHCHECK_PORT: "8086"
       LOG_LEVEL: INFO
+      # Optional — mirrored from the bot service. Worker degrades to a silent
+      # no-op notifier if any of these is unset.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_GROUP_CHAT_ID: ${TELEGRAM_GROUP_CHAT_ID}
+      TELEGRAM_TOPIC_LOGS: ${TELEGRAM_TOPIC_LOGS}
     secrets:
       - mailcow_api_key
       - master_key
