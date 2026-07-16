@@ -313,6 +313,20 @@ trade_bootstrap() {
   docker compose exec -T postgres createdb -U efbazaar "$trade_db"
 }
 
+# ─── Smart-admin-worker bootstrap ──────────────────────────────────────────
+# Verifies mailcow_api_key exists and sets file/dir permissions.
+# Safe to run every deploy; idempotent.
+# ────────────────────────────────────────────────────────────────────────────
+sa_worker_bootstrap() {
+  local key_file="infra/secrets/mailcow_api_key"
+  if [[ ! -s "$key_file" ]]; then
+    echo "ERROR: $key_file is missing. Generate an API key in Mailcow admin (Configuration → Access → API) and write it to that file, one line, no quotes."
+    return 1
+  fi
+  chmod 644 "$key_file"
+  chmod 700 "$(dirname "$key_file")" 2>/dev/null || true
+}
+
 # ─── Diff: qaysi kontaynerlar recreate bo'ladi (informational only) ─────────
 report_changes() {
   echo "==> Checking which services have image/config changes"
@@ -336,6 +350,7 @@ docker compose pull
 docker compose up -d postgres
 sync_db_password
 trade_bootstrap
+sa_worker_bootstrap
 
 # Force-all override
 RECREATE_FLAG=""

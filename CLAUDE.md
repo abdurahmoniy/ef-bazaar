@@ -49,10 +49,13 @@ efBazaar/
 | recommendation-service | 8083 | /api/rec/** |
 | bot | 8084 | /bot/webhook |
 | trade-service | 8085 | /api/v1/trades/** |
+| smart-admin-worker | 8086 | — (internal only) |
 | frontend | 80 | / |
 | PostgreSQL | 5432 | internal only |
 | Redis | 6379 | internal only |
 | Kafka | 9092 | internal only |
+
+**smart-admin-worker** (Python 3.12) — Konami/mail automation for the trade lifecycle. Consumes Kafka `efbazaar.trade.*` request topics, provisions Mailcow mailboxes, drives Konami forgot-password via `rotate.py` (Chromium subprocess), polls IMAP for reset/2FA emails, and rotates mailbox passwords when trades close. DB-less. Adds backpressure events (`worker-queued`, `worker-started`) so an over-subscribed worker never silently orphans a trade — trade-service extends the deadline and posts a chat status.
 
 ---
 
