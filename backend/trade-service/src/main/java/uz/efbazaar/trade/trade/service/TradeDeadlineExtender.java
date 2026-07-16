@@ -43,12 +43,17 @@ public class TradeDeadlineExtender {
         if (t.getState().isTerminal()) {
             return ExtensionOutcome.TRADE_TERMINAL;
         }
+        // Peek the counter BEFORE the DB write so we can enforce the cap without
+        // committing a Redis INCR that a subsequent JPA rollback would leave behind.
+        // We then INCR only after the save succeeds — the trade-off is that a
+        // Redis INCR failure after a successful save (a) leaves the deadline
+        // extended and (b) lets the user try one extra extension on the next
+        // tick. That is a strictly milder failure mode than pre-INCR + rollback,
+        // which would prematurely CAP the trade.
         String counterKey = "trade:" + tradeId + ":deadline-extensions";
-        Long count = redis.opsForValue().increment(counterKey);
-        if (count != null && count == 1L) {
-            redis.expire(counterKey, Duration.ofHours(24));
-        }
-        if (count != null && count > maxExtensions) {
+        String currentRaw = redis.opsForValue().get(counterKey);
+        long currentCount = currentRaw == null ? 0L : Long.parseLong(currentRaw);
+        if (currentCount >= maxExtensions) {
             return ExtensionOutcome.CAPPED;
         }
         Instant candidate = Instant.now().plus(Duration.ofSeconds(seconds * 2L + 900));
@@ -56,6 +61,10 @@ public class TradeDeadlineExtender {
         Instant newDeadline = (current == null || candidate.isAfter(current)) ? candidate : current;
         t.setStateDeadline(newDeadline);
         trades.save(t);
+        Long count = redis.opsForValue().increment(counterKey);
+        if (count != null && count == 1L) {
+            redis.expire(counterKey, Duration.ofHours(24));
+        }
         log.info("extended trade {} deadline to {} (extension #{})", tradeId, newDeadline, count);
         return ExtensionOutcome.EXTENDED;
     }
