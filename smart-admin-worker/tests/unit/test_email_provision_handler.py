@@ -112,3 +112,83 @@ async def test_does_not_populate_caches_on_replay(encryptor):
     # But the publish still happened so trade-service can persist the (new)
     # encrypted payload — replay must remain idempotent.
     producer.publish.assert_awaited_once()
+
+
+async def test_notifier_called_on_fresh_create(encryptor):
+    mailcow = AsyncMock()
+    mailcow.create_mailbox.return_value = Mailbox(email="trade-abc@efbazaar.uz")
+    mailcow.get_domain_capacity = AsyncMock(return_value={"used": 4, "limit": 10})
+    producer = AsyncMock()
+    notifier = AsyncMock()
+    notifier.enabled = True
+
+    handler = EmailProvisionHandler(
+        mailcow=mailcow,
+        encryptor=encryptor,
+        producer=producer,
+        mailcow_domain="efbazaar.uz",
+        notifier=notifier,
+    )
+    trade_id = UUID("44444444-4444-4444-4444-444444444444")
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id))
+
+    # Fire-and-forget task — give the loop a tick to run it.
+    import asyncio as _asyncio
+    for _ in range(3):
+        await _asyncio.sleep(0)
+
+    notifier.notify_mailbox_created.assert_awaited_once()
+    call_kwargs = notifier.notify_mailbox_created.await_args.kwargs
+    assert call_kwargs["trade_id"] == trade_id
+    assert call_kwargs["mailbox_email"] == "trade-abc@efbazaar.uz"
+    assert call_kwargs["capacity"] == {"used": 4, "limit": 10}
+
+
+async def test_notifier_not_called_on_replay(encryptor):
+    mailcow = AsyncMock()
+    mailcow.create_mailbox.side_effect = MailboxAlreadyExists(200, "object_exists")
+    producer = AsyncMock()
+    notifier = AsyncMock()
+    notifier.enabled = True
+
+    handler = EmailProvisionHandler(
+        mailcow=mailcow,
+        encryptor=encryptor,
+        producer=producer,
+        mailcow_domain="efbazaar.uz",
+        notifier=notifier,
+    )
+    trade_id = UUID("55555555-5555-5555-5555-555555555555")
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id))
+
+    import asyncio as _asyncio
+    for _ in range(3):
+        await _asyncio.sleep(0)
+
+    notifier.notify_mailbox_created.assert_not_awaited()
+
+
+async def test_notifier_skipped_when_disabled(encryptor):
+    """A disabled notifier (missing token/chat) must not be called at all —
+    saves a coroutine allocation per provision on unconfigured deployments."""
+    mailcow = AsyncMock()
+    mailcow.create_mailbox.return_value = Mailbox(email="trade-abc@efbazaar.uz")
+    producer = AsyncMock()
+    notifier = AsyncMock()
+    notifier.enabled = False
+
+    handler = EmailProvisionHandler(
+        mailcow=mailcow,
+        encryptor=encryptor,
+        producer=producer,
+        mailcow_domain="efbazaar.uz",
+        notifier=notifier,
+    )
+    trade_id = UUID("66666666-6666-6666-6666-666666666666")
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id))
+
+    import asyncio as _asyncio
+    for _ in range(3):
+        await _asyncio.sleep(0)
+
+    notifier.notify_mailbox_created.assert_not_awaited()
