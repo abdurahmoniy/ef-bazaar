@@ -7,6 +7,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import uz.efbazaar.trade.card.exception.CardValidationException;
+import uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException;
+import uz.efbazaar.trade.trade.exception.PasswordAlreadyRevealedException;
+import uz.efbazaar.trade.trade.exception.ProposalNotFoundException;
+import uz.efbazaar.trade.trade.exception.RateLimitedException;
 
 import java.time.Instant;
 import java.util.Map;
@@ -31,11 +35,38 @@ public class TradeExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body(HttpStatus.BAD_REQUEST, "card_invalid"));
     }
 
+    @ExceptionHandler(ProposalNotFoundException.class)
+    ResponseEntity<Map<String, Object>> onProposalNotFound(ProposalNotFoundException e) {
+        return status(HttpStatus.NOT_FOUND, e.getMessage());
+    }
+
+    @ExceptionHandler(InvalidTradeTransitionException.class)
+    ResponseEntity<Map<String, Object>> onInvalidTransition(InvalidTradeTransitionException e) {
+        return status(HttpStatus.CONFLICT, e.getMessage());
+    }
+
+    @ExceptionHandler(RateLimitedException.class)
+    ResponseEntity<Map<String, Object>> onRateLimit(RateLimitedException e) {
+        return status(HttpStatus.TOO_MANY_REQUESTS, e.getMessage());
+    }
+
+    @ExceptionHandler(PasswordAlreadyRevealedException.class)
+    ResponseEntity<Map<String, Object>> onPasswordAlreadyRevealed(PasswordAlreadyRevealedException e) {
+        return status(HttpStatus.GONE, "Password already revealed");
+    }
+
     private Map<String, Object> body(HttpStatus status, String code) {
         return Map.of(
                 "timestamp", Instant.now().toString(),
                 "status", status.value(),
                 "code", code
         );
+    }
+
+    private static ResponseEntity<Map<String, Object>> status(HttpStatus s, String msg) {
+        return ResponseEntity.status(s).body(Map.of(
+                "status", s.value(),
+                "error", s.getReasonPhrase(),
+                "message", msg));
     }
 }

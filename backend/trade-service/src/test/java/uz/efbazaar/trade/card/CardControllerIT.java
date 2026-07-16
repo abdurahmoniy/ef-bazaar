@@ -1,15 +1,17 @@
 package uz.efbazaar.trade.card;
 
+import jakarta.servlet.Filter;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import uz.efbazaar.trade.testsupport.AbstractPostgresIT;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,8 +24,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
-@ActiveProfiles("test")
-class CardControllerIT {
+class CardControllerIT extends AbstractPostgresIT {
 
     private static Path masterKeyFile;
 
@@ -39,11 +40,23 @@ class CardControllerIT {
     @Autowired
     private WebApplicationContext ctx;
 
+    @Autowired
+    @Qualifier("springSecurityFilterChain")
+    private Filter springSecurityFilterChain;
+
     private MockMvc mvc;
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.webAppContextSetup(ctx).build();
+        mvc = MockMvcBuilders.webAppContextSetup(ctx)
+                .addFilters(springSecurityFilterChain)
+                .build();
+    }
+
+    @Test
+    void anonymousCallReturns401() throws Exception {
+        mvc.perform(get("/api/v1/cards"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

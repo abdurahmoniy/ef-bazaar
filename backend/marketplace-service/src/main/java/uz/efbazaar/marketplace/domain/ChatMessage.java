@@ -57,8 +57,26 @@ public class ChatMessage {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", nullable = false, length = 24)
+    @Builder.Default
+    private ChatMessageType messageType = ChatMessageType.TEXT;
+
+    /** Non-null only when messageType = TRADE_PROPOSAL. Correlates to trade-service proposal. */
+    @Column(name = "proposal_id")
+    private UUID proposalId;
+
+    /** PENDING at insert; flips to ACCEPTED/REJECTED/EXPIRED when trade-service emits the resolution event. */
+    @Column(name = "proposal_outcome", length = 16)
+    private String proposalOutcome;
+
     @PrePersist
     void onCreate() {
-        createdAt = Instant.now();
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+        if (messageType == null) {
+            messageType = ChatMessageType.TEXT;
+        }
     }
 }

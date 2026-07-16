@@ -1,16 +1,18 @@
 package uz.efbazaar.trade.mailbox;
 
+import jakarta.servlet.Filter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
+import uz.efbazaar.trade.testsupport.AbstractPostgresIT;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -24,8 +26,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
-@ActiveProfiles("test")
-class MailboxControllerIT {
+class MailboxControllerIT extends AbstractPostgresIT {
 
     private static Path masterKeyFile;
 
@@ -44,11 +45,23 @@ class MailboxControllerIT {
     @Autowired
     private MailboxService mailboxService;
 
+    @Autowired
+    @Qualifier("springSecurityFilterChain")
+    private Filter springSecurityFilterChain;
+
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.webAppContextSetup(ctx).build();
+        mvc = MockMvcBuilders.webAppContextSetup(ctx)
+                .addFilters(springSecurityFilterChain)
+                .build();
+    }
+
+    @Test
+    void anonymousCallReturns401() throws Exception {
+        mvc.perform(get("/api/v1/mailboxes"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -89,5 +102,21 @@ class MailboxControllerIT {
                         .header("X-User-Id", stranger.toString()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code", equalTo("not_found")));
+    }
+
+    @Test
+    void adminCanListOrphaned() throws Exception {
+        mvc.perform(get("/api/v1/admin/mailboxes/orphaned")
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Roles", "ROLE_USER,ROLE_ADMIN"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void nonAdminIsForbidden() throws Exception {
+        mvc.perform(get("/api/v1/admin/mailboxes/orphaned")
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Roles", "ROLE_USER"))
+                .andExpect(status().isForbidden());
     }
 }

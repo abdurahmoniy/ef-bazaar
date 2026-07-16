@@ -2,14 +2,13 @@ package uz.efbazaar.trade;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import uz.efbazaar.trade.testsupport.AbstractPostgresIT;
 
 @SpringBootTest
-@ActiveProfiles("test")
-class TradeApplicationTests {
+class TradeApplicationTests extends AbstractPostgresIT {
 
     @Test
     void contextLoads() {
-        // Full context with H2 datasource, no Flyway.
+        // Full context with real Flyway-migrated Postgres.
     }
 }
