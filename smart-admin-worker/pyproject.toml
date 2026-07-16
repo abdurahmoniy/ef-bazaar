@@ -11,6 +11,8 @@ addopts = "-ra -q --strict-markers"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Vendored automation script — relocated verbatim from upstream; not style-owned here.
+extend-exclude = ["smart_admin_worker/konami/rotate/rotate.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N"]
