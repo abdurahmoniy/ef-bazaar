@@ -6,15 +6,14 @@ so trade-service can extend the state deadline and post a STATUS message
 in the trade chat. Once we actually acquire the semaphore we publish
 worker-started so the user sees things are moving.
 
-We deliberately reach past KonamiClient's public trigger_reset() and drive
-the semaphore + subprocess call ourselves: worker-started must fire after
-the semaphore is acquired but before the subprocess starts, and
-trigger_reset doesn't expose a seam for that.
+We drive the semaphore + subprocess call ourselves (via KonamiClient's public
+``semaphore`` property and ``invoke_reset`` method) rather than calling
+``trigger_reset``: worker-started must fire after the semaphore is acquired
+but before the subprocess starts, and ``trigger_reset`` doesn't let a caller
+observe that boundary.
 """
 
 from __future__ import annotations
-
-import asyncio
 
 from smart_admin_worker.kafka import events as e
 from smart_admin_worker.kafka.producer import KafkaProducerClient
@@ -36,7 +35,7 @@ class ForgotPasswordHandler:
         # locked() — true the instant there's no free slot — to decide whether
         # *this* call will have to wait at all; queue_position() then tells us
         # how many callers are already ahead of us in line for the estimate.
-        semaphore = self._konami._semaphore  # noqa: SLF001 — intentional
+        semaphore = self._konami.semaphore
         if semaphore.locked():
             queue_position = self._konami.queue_position()
             await self._producer.publish(
@@ -49,9 +48,9 @@ class ForgotPasswordHandler:
                 ),
             )
 
-        # Intentional private access: we need to publish worker-started AFTER
-        # the semaphore is acquired but BEFORE the subprocess runs, which the
-        # public trigger_reset() interface doesn't expose.
+        # worker-started must fire AFTER the semaphore is acquired but BEFORE
+        # the subprocess runs — we call invoke_reset() rather than
+        # trigger_reset() precisely because we already hold the slot.
         async with semaphore:
             await self._producer.publish(
                 TOPIC_WORKER_STARTED,
@@ -61,10 +60,4 @@ class ForgotPasswordHandler:
                     purpose="forgot-password",
                 ),
             )
-            # Call the subprocess directly, bypassing trigger_reset's own
-            # semaphore acquisition — we already hold the slot.
-            await asyncio.to_thread(
-                self._konami._run_subprocess,  # noqa: SLF001 — intentional
-                event.mailbox_email,
-                event.konami_id,
-            )
+            await self._konami.invoke_reset(event.mailbox_email, event.konami_id)

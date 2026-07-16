@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import threading
 from unittest.mock import AsyncMock
 from uuid import UUID
 
@@ -14,7 +13,7 @@ async def test_publishes_worker_started_when_semaphore_free():
     producer = AsyncMock()
 
     class InstantKonami(KonamiClient):
-        def _run_subprocess(self, email, konami_id):  # override — skip real subprocess
+        async def invoke_reset(self, email, konami_id):  # override — skip real subprocess
             return None
 
     konami = InstantKonami(max_concurrent=1)
@@ -35,15 +34,13 @@ async def test_publishes_worker_started_when_semaphore_free():
 async def test_publishes_worker_queued_when_semaphore_busy():
     producer = AsyncMock()
 
-    # _run_subprocess executes inside a worker thread (via asyncio.to_thread),
-    # so it needs thread-safe primitives rather than asyncio.Event.
-    started = threading.Event()
-    hold = threading.Event()
+    started = asyncio.Event()
+    hold = asyncio.Event()
 
     class SlowKonami(KonamiClient):
-        def _run_subprocess(self, email, konami_id):  # override — simulate a slow subprocess
+        async def invoke_reset(self, email, konami_id):  # override — simulate slow work
             started.set()
-            hold.wait()
+            await hold.wait()
 
     konami = SlowKonami(max_concurrent=1)
     handler = ForgotPasswordHandler(konami=konami, producer=producer)
@@ -54,7 +51,7 @@ async def test_publishes_worker_queued_when_semaphore_busy():
     task_a = asyncio.create_task(handler.handle(e.ForgotPasswordRequest(
         trade_id=tid_a, mailbox_email="a@x", konami_id=None,
     )))
-    await asyncio.to_thread(started.wait)  # A is holding the semaphore
+    await started.wait()  # A is holding the semaphore
 
     task_b = asyncio.create_task(handler.handle(e.ForgotPasswordRequest(
         trade_id=tid_b, mailbox_email="b@x", konami_id=None,

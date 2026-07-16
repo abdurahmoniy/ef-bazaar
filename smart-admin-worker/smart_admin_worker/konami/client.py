@@ -36,6 +36,16 @@ class KonamiClient:
         self._max_concurrent = max_concurrent
         self._timeout = timeout_seconds
 
+    @property
+    def semaphore(self) -> asyncio.Semaphore:
+        """Concurrency gate — exposed so callers that need to interleave work
+        around slot acquisition (e.g. publish a "queued" event before acquire,
+        publish a "started" event after acquire but before the subprocess
+        runs) can drive it directly. Callers that just want to run a reset
+        should prefer :meth:`trigger_reset`.
+        """
+        return self._semaphore
+
     def queue_position(self) -> int:
         # Best-effort snapshot: number of tasks currently blocked waiting for a slot.
         # Access to internal `_waiters` is intentional; asyncio.Semaphore exposes
@@ -45,7 +55,14 @@ class KonamiClient:
 
     async def trigger_reset(self, email: str, konami_id: str | None) -> None:
         async with self._semaphore:
-            await asyncio.to_thread(self._run_subprocess, email, konami_id)
+            await self.invoke_reset(email, konami_id)
+
+    async def invoke_reset(self, email: str, konami_id: str | None) -> None:
+        """Run rotate.py for ``email`` in a worker thread. Does NOT acquire the
+        semaphore — callers driving the slot themselves (see
+        :attr:`semaphore`) call this once they hold a slot.
+        """
+        await asyncio.to_thread(self._run_subprocess, email, konami_id)
 
     def _run_subprocess(self, email: str, konami_id: str | None) -> None:
         env = os.environ.copy()
