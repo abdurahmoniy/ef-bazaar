@@ -283,7 +283,7 @@ services:
       MASTER_KEY_FILE: /run/secrets/master_key
       IMAP_HOST: mail.efbazaar.uz
       IMAP_PORT: "993"
-      KONAMI_SENDER_ALLOWLIST: "noreply@konami.com,no-reply@konami.jp,noreply@konami.net"
+      KONAMI_SENDER_ALLOWLIST: "noreply@konami.com,no-reply@konami.jp,noreply@konami.net,konami-info@konami.net"
       MAX_CONCURRENT_ROTATE: "1"
       MAX_CONCURRENT_ROTATE_CAP: "5"
       IMAP_POLL_INTERVAL_SECONDS: "5"
