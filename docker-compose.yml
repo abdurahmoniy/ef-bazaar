@@ -289,6 +289,11 @@ services:
       IMAP_POLL_INTERVAL_SECONDS: "5"
       WORKER_HEALTHCHECK_PORT: "8086"
       LOG_LEVEL: INFO
+      # Optional — mirrored from the bot service. Worker degrades to a silent
+      # no-op notifier if any of these is unset.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_GROUP_CHAT_ID: ${TELEGRAM_GROUP_CHAT_ID}
+      TELEGRAM_TOPIC_LOGS: ${TELEGRAM_TOPIC_LOGS}
     secrets:
       - mailcow_api_key
       - master_key
