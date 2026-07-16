@@ -1,4 +1,12 @@
-"""aiokafka producer with fire-and-forget send + JSON serialization."""
+"""aiokafka producer that blocks on broker ack (acks="all") + JSON serialization.
+
+`publish()` uses `send_and_wait` under the hood, so every call awaits the full
+in-sync-replica acknowledgement before returning. That means back-pressure and
+broker/network failures surface synchronously to the caller — the trade-off for
+losing the throughput of a true fire-and-forget send. Idempotence is off
+(single-writer-per-key semantics are already handled up-stream), but `acks="all"`
+keeps us durable against a single-broker failure between send and ack.
+"""
 
 from __future__ import annotations
 
