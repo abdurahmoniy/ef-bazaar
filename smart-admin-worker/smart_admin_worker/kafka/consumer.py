@@ -14,7 +14,6 @@ from collections.abc import Awaitable, Callable, Mapping
 from aiokafka import AIOKafkaConsumer
 from tenacity import (
     AsyncRetrying,
-    RetryError,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
@@ -107,9 +106,10 @@ class KafkaConsumerRunner:
             ):
                 with attempt:
                     await handler(event)
-        except RetryError:
-            log.error("handler for %s failed after retries — dropping message", msg.topic)
         except Exception as e:  # noqa: BLE001
+            # tenacity's reraise=True re-raises the original exception from the
+            # last attempt, not a RetryError, so this is the only branch that's
+            # ever reachable here.
             log.error("handler for %s exhausted retries: %s", msg.topic, e)
         finally:
             await self._consumer.commit()
