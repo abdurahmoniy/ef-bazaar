@@ -152,6 +152,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         try:
             yield
         finally:
+            # Cleanup order note: producer.stop() is NOT called here — it runs
+            # in the outer `finally` below instead, after everything else has
+            # shut down. The original design called for
+            # consumer.stop -> poller_registry.cancel_all -> producer.stop ->
+            # mailcow.aclose -> redis_client.aclose, but I1's fix (see comment
+            # above producer.start()) wraps producer.start()/stop() around the
+            # *entire* consumer lifecycle so that a failed consumer.start()
+            # still stops the producer. A necessary consequence of that shape
+            # is that producer.stop() can only live in the outermost finally,
+            # i.e. last. This is intentional: the producer must outlive every
+            # other service, since any of them (e.g. handlers still in flight
+            # via poller_registry) could still try to emit a Kafka message
+            # during shutdown.
             await consumer.stop()
             await poller_registry.cancel_all()
             await mailcow.aclose()
