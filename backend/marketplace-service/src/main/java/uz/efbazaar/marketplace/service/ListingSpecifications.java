@@ -5,11 +5,14 @@ import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Order;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import org.hibernate.query.criteria.HibernateCriteriaBuilder;
+import org.hibernate.query.criteria.JpaExpression;
 import org.springframework.data.jpa.domain.Specification;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.domain.ListingStatus;
 import uz.efbazaar.marketplace.dto.ListingFilter;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +24,13 @@ import java.util.Map;
  * property access. Dynamic filters on {@code attributes} JSONB use Postgres
  * {@code jsonb_extract_path_text} for equality-match — good enough for the
  * common filter cases in phase 1b.
+ *
+ * <p>Numeric attributes additionally support range filtering via the
+ * {@code <key>.min} / {@code <key>.max} suffix convention (query params
+ * {@code attr.team_strength.min=2000&attr.team_strength.max=4000}). The JSONB
+ * text is cast to numeric, so the caller MUST pre-filter range keys to
+ * attribute definitions of type INT/DECIMAL — casting arbitrary text aborts
+ * the whole query. {@link ListingService#browse} does that sanitization.
  *
  * <p>Card-list attributes ({@code valuable_players}) are stored as an array
  * of card objects (see {@code AttributeType.CARD_LIST}). Two synthetic
@@ -44,7 +54,24 @@ public final class ListingSpecifications {
     static final String CARD_NAME_KEY = "valuable_players_name";
     private static final String VALUABLE_PLAYERS = "valuable_players";
 
+    static final String RANGE_MIN_SUFFIX = ".min";
+    static final String RANGE_MAX_SUFFIX = ".max";
+
     private ListingSpecifications() {}
+
+    /** True when the filter key uses the {@code <key>.min}/{@code <key>.max} range convention. */
+    static boolean isRangeKey(String key) {
+        return rangeBaseKey(key) != null;
+    }
+
+    /** Attribute key a range filter applies to, or {@code null} when {@code key} is not a range key. */
+    static String rangeBaseKey(String key) {
+        if (key.endsWith(RANGE_MIN_SUFFIX) || key.endsWith(RANGE_MAX_SUFFIX)) {
+            String base = key.substring(0, key.length() - RANGE_MIN_SUFFIX.length());
+            return base.isEmpty() ? null : base;
+        }
+        return null;
+    }
 
     public static Specification<Listing> withFilter(ListingFilter f) {
         return (root, query, cb) -> {
@@ -109,6 +136,16 @@ public final class ListingSpecifications {
         for (Map.Entry<String, Object> entry : attributes.entrySet()) {
             String key = entry.getKey();
             if (CARD_ID_KEY.equals(key) || CARD_NAME_KEY.equals(key)) continue;
+            String base = rangeBaseKey(key);
+            if (base != null) {
+                BigDecimal bound = readDecimal(entry.getValue());
+                if (bound == null) continue;
+                Expression<BigDecimal> numeric = extractNumeric(cb, root, base);
+                ps.add(key.endsWith(RANGE_MIN_SUFFIX)
+                        ? cb.greaterThanOrEqualTo(numeric, bound)
+                        : cb.lessThanOrEqualTo(numeric, bound));
+                continue;
+            }
             Expression<String> extracted = extractText(cb, root, key);
             ps.add(cb.equal(extracted, String.valueOf(entry.getValue())));
         }
@@ -122,6 +159,30 @@ public final class ListingSpecifications {
                 String.class,
                 root.get("attributes"),
                 cb.literal(key));
+    }
+
+    /**
+     * JSONB value cast to numeric for range comparisons. Missing attributes
+     * extract as NULL and simply never match, which is the behaviour we want
+     * for range filters.
+     */
+    @SuppressWarnings("unchecked")
+    private static Expression<BigDecimal> extractNumeric(CriteriaBuilder cb,
+                                                         Root<Listing> root,
+                                                         String key) {
+        Expression<String> text = extractText(cb, root, key);
+        return ((HibernateCriteriaBuilder) cb).cast((JpaExpression<String>) text, BigDecimal.class);
+    }
+
+    private static BigDecimal readDecimal(Object raw) {
+        if (raw == null) return null;
+        if (raw instanceof BigDecimal d) return d;
+        if (raw instanceof Number n) return new BigDecimal(n.toString());
+        try {
+            return new BigDecimal(String.valueOf(raw).trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static Long readLong(Object raw) {

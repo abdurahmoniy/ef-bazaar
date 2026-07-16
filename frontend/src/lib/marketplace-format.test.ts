@@ -20,6 +20,9 @@ describe('marketplace formatting helpers', () => {
   it('formats compact integer metrics with spaces', () => {
     expect(formatCompactNumber(0)).toBe('0');
     expect(formatCompactNumber(12500)).toBe('12 500');
+    // Coin balances can go below zero (spent > owned).
+    expect(formatCompactNumber(-12500)).toBe('-12 500');
+    expect(formatCompactNumber(-900)).toBe('-900');
   });
 
   it('formats listing dates in Uzbekistan time', () => {
@@ -28,8 +31,10 @@ describe('marketplace formatting helpers', () => {
 
   it('labels valid and invalid divisions', () => {
     expect(divisionLabel(1)).toBe('Division 1');
-    expect(divisionLabel(9)).toBe('Division 9');
-    expect(divisionLabel(15)).toBe('Division -');
+    expect(divisionLabel(3)).toBe('Division 3');
+    expect(divisionLabel(4)).toBe('Division 4+');
+    expect(divisionLabel(9)).toBe('Division 4+');
+    expect(divisionLabel(0)).toBe('Division -');
     expect(divisionLabel(undefined)).toBe('Division -');
   });
 
@@ -52,13 +57,46 @@ describe('marketplace formatting helpers', () => {
     expect(parsed).toEqual({
       page: 2,
       search: 'Messi',
-      attributes: { valuable_players: 'Neymar' },
+      attributes: { valuable_players: 'Neymar', platform: 'MOBILE' },
     });
   });
 
-  it('applies the google-linked filter as an attribute equality param', () => {
-    const parsed = parseListingSearchParams({ filter: 'google' });
-    expect(parsed.attributes).toEqual({ has_google_play_link: 'true' });
+  it('defaults the required platform filter and lets the URL override it', () => {
+    expect(parseListingSearchParams({}).attributes).toEqual({ platform: 'MOBILE' });
+    expect(parseListingSearchParams({ 'attr.platform': 'STEAM' }).attributes).toEqual({
+      platform: 'STEAM',
+    });
+  });
+
+  it('round-trips attribute range params (attr.<key>.min/.max)', () => {
+    const parsed = parseListingSearchParams({
+      'attr.team_strength.min': '2000',
+      'attr.team_strength.max': '4000',
+      'attr.android_coins.min': '',
+      'attr.exchange_mode': 'BOTH',
+    });
+
+    expect(parsed.attributes).toEqual({
+      'team_strength.min': '2000',
+      'team_strength.max': '4000',
+      exchange_mode: 'BOTH',
+      platform: 'MOBILE',
+    });
+
+    const rebuilt = buildListingSearchParams(parsed);
+    expect(rebuilt.get('attr.team_strength.min')).toBe('2000');
+    expect(rebuilt.get('attr.team_strength.max')).toBe('4000');
+    expect(rebuilt.get('attr.exchange_mode')).toBe('BOTH');
+    expect(rebuilt.has('attr.android_coins.min')).toBe(false);
+  });
+
+  it('applies the clean-account filter as attribute equality params', () => {
+    const parsed = parseListingSearchParams({ filter: 'clean' });
+    expect(parsed.attributes).toEqual({
+      has_google_play_link: 'false',
+      has_game_center_link: 'false',
+      platform: 'MOBILE',
+    });
   });
 
   it('falls back to the all filter for unknown filter ids', () => {

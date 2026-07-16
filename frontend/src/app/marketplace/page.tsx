@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     "Diviziyon, jamoa kuchi, tanga miqdori va narx bo'yicha eFootball akkountlarini toping. Sotuvchi bilan Telegram orqali bevosita bog'laning.",
   alternates: { canonical: '/marketplace' },
   openGraph: {
-    title: 'eFootball akkount bozori | efBazaar',
+    title: 'eFootball akkount bozori | eFBazaar',
     description:
       "Diviziyon, jamoa kuchi va tanga miqdori bo'yicha eFootball akkountlarini toping — narxi ochiq, sotuvchi Telegram'da.",
     url: '/marketplace',

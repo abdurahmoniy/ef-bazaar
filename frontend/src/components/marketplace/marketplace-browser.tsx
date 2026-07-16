@@ -3,13 +3,19 @@ import { LayoutGrid, List, Package2, Plus } from 'lucide-react';
 
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { ListingCard } from '@/components/marketplace/listing-card';
-import { ListingFilters, QuickChips } from '@/components/marketplace/listing-filters';
+import {
+  ListingFilters,
+  ListingFiltersForm,
+  QuickChips,
+} from '@/components/marketplace/listing-filters';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
+import { MobileFilterSheet } from '@/components/marketplace/mobile-filter-sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
   buildListingSearchParams,
   formatCompactNumber,
+  DEFAULT_PLATFORM,
   type MarketplaceFilterId,
 } from '@/lib/marketplace-format';
 import type { FetchResult } from '@/lib/marketplace-server';
@@ -47,18 +53,37 @@ export function MarketplaceBrowser({
     : undefined;
   const page = result.ok ? result.data : null;
 
+  const filterProps = {
+    activeFilter,
+    query,
+    minPrice: filters.minPrice,
+    maxPrice: filters.maxPrice,
+    priceNegotiable: filters.priceNegotiable,
+    division: Number.isFinite(divisionValue) ? divisionValue : undefined,
+    valuablePlayerId: Number.isFinite(valuablePlayerId) ? valuablePlayerId : undefined,
+    valuablePlayerName,
+    sortParam: filters.sort,
+    attributes: filters.attributes,
+  };
+
+  const attrs = filters.attributes ?? {};
+  const activeFilterCount = [
+    filters.minPrice !== undefined || filters.maxPrice !== undefined,
+    filters.priceNegotiable === true,
+    filterProps.division !== undefined,
+    Boolean(attrs['team_strength.min'] || attrs['team_strength.max']),
+    Boolean(attrs['android_coins.min']),
+    Boolean(attrs['ios_coins.min']),
+    Boolean(attrs.exchange_mode),
+    Boolean(attrs.has_google_play_link),
+    Boolean(attrs.has_game_center_link),
+    filterProps.valuablePlayerId !== undefined,
+    Boolean(attrs.platform) && attrs.platform !== DEFAULT_PLATFORM,
+  ].filter(Boolean).length;
+
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:gap-6">
-      <ListingFilters
-        activeFilter={activeFilter}
-        query={query}
-        minPrice={filters.minPrice}
-        maxPrice={filters.maxPrice}
-        division={Number.isFinite(divisionValue) ? divisionValue : undefined}
-        valuablePlayerId={Number.isFinite(valuablePlayerId) ? valuablePlayerId : undefined}
-        valuablePlayerName={valuablePlayerName}
-        sortParam={filters.sort}
-      />
+      <ListingFilters {...filterProps} />
 
       <section className="min-w-0 space-y-3">
         <BrowseHeader
@@ -68,8 +93,13 @@ export function MarketplaceBrowser({
           totalElements={page?.totalElements ?? 0}
         />
 
-        <div className="lg:hidden">
-          <QuickChips activeFilter={activeFilter} query={query} />
+        <div className="flex items-center gap-2 lg:hidden">
+          <MobileFilterSheet activeCount={activeFilterCount}>
+            <ListingFiltersForm {...filterProps} />
+          </MobileFilterSheet>
+          <div className="min-w-0 flex-1">
+            <QuickChips activeFilter={activeFilter} query={query} />
+          </div>
         </div>
 
         {!result.ok ? (

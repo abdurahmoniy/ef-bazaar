@@ -1,18 +1,30 @@
+import { useId } from 'react';
+
+import { E_MARK, E_MARK_VIEWBOX } from '@/components/brand/e-mark';
+
 interface BrandMarkProps {
   className?: string;
 }
 
 /**
- * Single glyph: a circular bowl + crossbar ending in a ball — reads as a
- * geometric "e" (efBazaar) with a football kicked off the tail. Kept to
- * three thick strokes on purpose so it stays legible at favicon sizes.
+ * eFBazaar "e" glyph: the sliced-disc "e" — top arc, crossbar (flat left
+ * end, disc-rounded right end), bottom arc. Drawn in currentColor; the
+ * arcs are punched out of the disc with a luminance mask so the
+ * background shows through on any surface.
  */
 export function BrandMark({ className }: BrandMarkProps) {
+  const maskId = useId();
+  const { disc, hole, band, barPath } = E_MARK;
+
   return (
-    <svg viewBox="0 0 100 100" fill="none" className={className} aria-hidden>
-      <circle cx="46" cy="52" r="24" stroke="currentColor" strokeWidth="14" />
-      <line x1="24" y1="52" x2="76" y2="52" stroke="currentColor" strokeWidth="14" strokeLinecap="round" />
-      <circle cx="85" cy="52" r="9" fill="currentColor" />
+    <svg viewBox={`0 0 ${E_MARK_VIEWBOX} ${E_MARK_VIEWBOX}`} fill="none" className={className} aria-hidden>
+      <mask id={maskId}>
+        <rect width={E_MARK_VIEWBOX} height={E_MARK_VIEWBOX} fill="#fff" />
+        <circle cx={hole.cx} cy={hole.cy} r={hole.r} fill="#000" />
+        <rect x="0" y={band.y} width={E_MARK_VIEWBOX} height={band.height} fill="#000" />
+      </mask>
+      <circle cx={disc.cx} cy={disc.cy} r={disc.r} fill="currentColor" mask={`url(#${maskId})`} />
+      <path d={barPath} fill="currentColor" />
     </svg>
   );
 }

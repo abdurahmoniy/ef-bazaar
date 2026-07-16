@@ -95,6 +95,7 @@ describe('createListingRequestFromForm', () => {
     formData.set('teamStrength', '3150');
     formData.set('androidCoins', '100');
     formData.set('iosCoins', '50');
+    formData.set('attr.platform', 'MOBILE');
     formData.set('price', '450000');
     formData.set('hasGooglePlayLink', 'on');
     formData.set('priceNegotiable', 'on');
@@ -104,10 +105,12 @@ describe('createListingRequestFromForm', () => {
       price: 450000,
       priceNegotiable: true,
       attributes: {
-        highest_division_level: 2,
+        // Seeded definition is ENUM since the 4-tier flip — value stays a string.
+        highest_division_level: '2',
         team_strength: 3150,
         android_coins: 100,
         ios_coins: 50,
+        platform: 'MOBILE',
         has_google_play_link: true,
         has_game_center_link: false,
         valuable_players: ['Messi', 'Neymar', 'Mbappe'],
@@ -118,10 +121,11 @@ describe('createListingRequestFromForm', () => {
   it('omits valuable_players when the field is empty', () => {
     const formData = new FormData();
     formData.set('description', 'Solid account no legends');
-    formData.set('highestDivisionLevel', '5');
+    formData.set('highestDivisionLevel', '3');
     formData.set('teamStrength', '2800');
     formData.set('androidCoins', '0');
     formData.set('iosCoins', '0');
+    formData.set('attr.platform', 'MOBILE');
     formData.set('price', '100000');
 
     const result = createListingRequestFromForm(formData);

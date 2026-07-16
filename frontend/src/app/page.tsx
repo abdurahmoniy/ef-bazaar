@@ -48,7 +48,7 @@ const FAQ_ITEMS = [
   {
     question: "To'lovni qanday amalga oshiraman?",
     answer:
-      "efBazaar to'lovni o'z ichiga olmaydi — narx va to'lov usulini sotuvchi bilan chat orqali kelishasiz. Login-parolini esa faqat kelishuv yakunida, ishonchli xaridoringizga bering.",
+      "eFBazaar to'lovni o'z ichiga olmaydi — narx va to'lov usulini sotuvchi bilan chat orqali kelishasiz. Login-parolini esa faqat kelishuv yakunida, ishonchli xaridoringizga bering.",
   },
   {
     question: "Sotuvchiga yozgan xabarim qancha turadi?",
@@ -70,7 +70,12 @@ const structuredData = {
       '@id': `${siteConfig.url}/#organization`,
       name: siteConfig.name,
       url: siteConfig.url,
-      logo: absoluteUrl('/icon'),
+      logo: {
+        '@type': 'ImageObject',
+        url: absoluteUrl('/brand-icon/512'),
+        width: 512,
+        height: 512,
+      },
       sameAs: [siteConfig.links.telegram],
     },
     {
@@ -627,7 +632,7 @@ function ExchangeModes() {
         </h2>
         <p className="mt-3 max-w-2xl leading-7 text-muted-foreground">
           O&apos;zbekistondagi eFootball hamjamiyatida akkountlar tez-tez akkountga almashtiriladi.
-          efBazaar buni birinchi darajali holat sifatida qo&apos;llab-quvvatlaydi — sotuvchi shartlarni,
+          eFBazaar buni birinchi darajali holat sifatida qo&apos;llab-quvvatlaydi — sotuvchi shartlarni,
           xaridor filtrni tanlaydi.
         </p>
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -655,7 +660,7 @@ function DivisionLadder() {
           D1&apos;dan D4+&apos;gacha — har biri uchun o&apos;z xaridori bor.
         </h2>
         <p className="mt-3 max-w-2xl leading-7 text-muted-foreground">
-          eFootball&apos;da Diviziyon 1 eng yuqori daraja. efBazaar 4 rasmiy badge&apos;dan foydalanadi:
+          eFootball&apos;da Diviziyon 1 eng yuqori daraja. eFBazaar 4 rasmiy badge&apos;dan foydalanadi:
           D1, D2, D3 va D4+ — D4 va undan past hammasi bir badge ostida. Boshlang&apos;ich starter
           akkountdan tortib elite D1 jamoasigacha — hammasi bitta filtrda.
         </p>
@@ -741,7 +746,7 @@ function TrustGrid() {
   return (
     <section className="container pb-10 sm:pb-14">
       <div className="rounded-xl border border-border bg-accent/40 p-5 sm:p-8">
-        <p className="text-sm font-black uppercase text-primary">Nega aynan efBazaar</p>
+        <p className="text-sm font-black uppercase text-primary">Nega aynan eFBazaar</p>
         <h2 className="mt-2 max-w-2xl text-2xl font-black leading-tight text-foreground sm:text-3xl">
           O&apos;yin qoidalari oldindan aniq — syurprizsiz savdo.
         </h2>
@@ -854,7 +859,7 @@ function SiteFooter() {
   return (
     <footer className="border-t border-border py-8">
       <div className="container flex flex-col gap-4 text-sm font-bold text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <Link href="/" className="font-black text-foreground">efBazaar</Link>
+        <Link href="/" className="font-black text-foreground">eFBazaar</Link>
         <div className="flex flex-wrap gap-x-5 gap-y-2">
           <Link href="/marketplace" className="transition hover:text-foreground">
             Bozor

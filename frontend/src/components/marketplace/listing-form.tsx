@@ -801,6 +801,15 @@ function BasicsStep({
 // ─────────────────────────────────────────────────────────────
 // Gameplay step
 
+// Store links can't be removed from an eFootball account — a transfer only
+// moves the Konami ID, so a linked account is a caution flag for buyers.
+const STORE_LINK_HINTS: Record<string, string> = {
+	has_google_play_link:
+		"Google Play ulanishini uzib bo'lmaydi — akkount faqat Konami ID orqali o'tkaziladi.",
+	has_game_center_link:
+		"Game Center ulanishini uzib bo'lmaydi — akkount faqat Konami ID orqali o'tkaziladi.",
+}
+
 function GameplayStep({
 	state,
 	setState,
@@ -839,6 +848,7 @@ function GameplayStep({
 							key={def.key}
 							id={`attr-${def.key}`}
 							label={def.labelUz}
+							description={STORE_LINK_HINTS[def.key]}
 							checked={Boolean(state.attributes[def.key])}
 							onChange={(event) =>
 								setState((prev) => ({
@@ -943,6 +953,9 @@ function AttributeInput({
 	if (definition.type === 'INT' || definition.type === 'DECIMAL') {
 		const min = numberConstraint(definition, 'min')
 		const max = numberConstraint(definition, 'max')
+		// Fields without a non-negative floor (coin balances can go below zero)
+		// must not force the digit-only mobile keypad — it has no minus key.
+		const allowsNegative = min === undefined || min < 0
 		const isDivision = definition.key === 'highest_division_level'
 		const icon = definition.key.includes('coin') ? (
 			<Coins className='h-4 w-4 text-muted-foreground' />
@@ -961,7 +974,7 @@ function AttributeInput({
 					)}
 					<Input
 						type='number'
-						inputMode='numeric'
+						inputMode={allowsNegative ? undefined : 'numeric'}
 						min={min}
 						max={max}
 						step={definition.type === 'DECIMAL' ? '0.01' : '1'}
@@ -1205,6 +1218,10 @@ function defaultAttributeValue(
 ): AttributeValue {
 	if (def.type === 'BOOLEAN') return false
 	if (def.type === 'CARD_LIST') return []
+	if (def.type === 'ENUM') {
+		const preset = def.constraints?.default
+		if (typeof preset === 'string') return preset
+	}
 	return ''
 }
 

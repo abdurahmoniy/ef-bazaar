@@ -1,5 +1,13 @@
 import Link from 'next/link';
-import { Apple, BadgeCheck, Gamepad2, ShieldCheck, Smartphone } from 'lucide-react';
+import {
+  Apple,
+  ArrowLeftRight,
+  Gamepad2,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  TriangleAlert,
+} from 'lucide-react';
 
 import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { ListingLikeButton } from '@/components/marketplace/listing-like-button';
@@ -13,7 +21,9 @@ import {
 import { listingMediaUrls } from '@/lib/marketplace-media';
 import {
   attributeBoolean,
+  attributeCardList,
   attributeNumber,
+  listingAcceptsExchange,
   type ListingResponse,
 } from '@/lib/marketplace-types';
 
@@ -34,12 +44,14 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   const division = attributeNumber(listing, 'highest_division_level');
   const divisionBadgeLevel = toDivisionLevel(division);
   const teamStrength = attributeNumber(listing, 'team_strength');
+  const starPlayerCount = attributeCardList(listing, 'valuable_players').length;
+  // A store link (Google Play / Game Center) can't be removed, so the previous
+  // owner keeps a way back into a transferred account — surface it as a caution.
   const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
   const hasGameCenterLink = attributeBoolean(listing, 'has_game_center_link');
-  // Only surface coin balances for platforms actually bound to the account —
-  // an iOS-only account can't hold Android coins (see AttributeValidator).
-  const androidCoins = hasGooglePlayLink ? attributeNumber(listing, 'android_coins') ?? 0 : 0;
-  const iosCoins = hasGameCenterLink ? attributeNumber(listing, 'ios_coins') ?? 0 : 0;
+  const androidCoins = attributeNumber(listing, 'android_coins');
+  const iosCoins = attributeNumber(listing, 'ios_coins');
+  const acceptsExchange = listingAcceptsExchange(listing);
   const coverUrl = listingMediaUrls(listing, 1)[0];
   const href = `/marketplace/${listing.id}`;
 
@@ -76,16 +88,19 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
                 {title}
               </h2>
             </Link>
-            <span className="text-lg font-black text-[hsl(var(--price))] sm:text-xl">
-              {formatPriceUZS(listing.price)}
-            </span>
+            <div className="flex shrink-0 flex-col items-end gap-0.5">
+              <span className="text-lg font-black text-[hsl(var(--price))] sm:text-xl">
+                {formatPriceUZS(listing.price)}
+              </span>
+              <DealTags negotiable={listing.priceNegotiable} exchange={acceptsExchange} />
+            </div>
           </div>
           <div className="mt-auto flex flex-wrap items-center gap-1.5 text-[11px]">
             {divisionBadgeLevel ? (
               <DivisionBadge level={divisionBadgeLevel} size={22} />
             ) : division !== undefined ? (
               <Badge variant="outline">
-                <ShieldCheck className="h-3 w-3" /> Div {division}
+                <ShieldCheck className="h-3 w-3" /> {divisionLabel(division)}
               </Badge>
             ) : null}
             {teamStrength !== undefined && (
@@ -93,16 +108,29 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
                 <Gamepad2 className="h-3 w-3" /> {formatCompactNumber(teamStrength)}
               </Badge>
             )}
-            <Badge variant="outline">
-              <Smartphone className="h-3 w-3" /> {formatCompactNumber(androidCoins)}
-            </Badge>
-            <Badge variant="outline">
-              <Apple className="h-3 w-3" /> {formatCompactNumber(iosCoins)}
-            </Badge>
-            {listing.priceNegotiable && <Badge variant="price">savdolashish</Badge>}
+            {starPlayerCount > 0 && (
+              <Badge variant="outline">
+                <Sparkles className="h-3 w-3" /> {starPlayerCount} karta
+              </Badge>
+            )}
+            {androidCoins !== undefined && (
+              <Badge variant="outline">
+                <Smartphone className="h-3 w-3" /> {formatCompactNumber(androidCoins)}
+              </Badge>
+            )}
+            {iosCoins !== undefined && (
+              <Badge variant="outline">
+                <Apple className="h-3 w-3" /> {formatCompactNumber(iosCoins)}
+              </Badge>
+            )}
             {hasGooglePlayLink && (
-              <Badge variant="verified">
-                <BadgeCheck className="h-3 w-3" /> Google
+              <Badge variant="warn">
+                <TriangleAlert className="h-3 w-3" /> Google Play
+              </Badge>
+            )}
+            {hasGameCenterLink && (
+              <Badge variant="warn">
+                <TriangleAlert className="h-3 w-3" /> Game Center
               </Badge>
             )}
             <span className="ml-auto text-muted-foreground">
@@ -140,11 +168,6 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
             {divisionLabel(division)}
           </div>
         ) : null}
-        {teamStrength !== undefined && (
-          <div className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur">
-            <Gamepad2 className="h-3 w-3" /> {formatCompactNumber(teamStrength)}
-          </div>
-        )}
       </Link>
       {!isSold && (
         <ListingLikeButton
@@ -157,38 +180,39 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
       )}
 
       <div className="flex flex-1 flex-col gap-2 p-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-lg font-black leading-none text-[hsl(var(--price))]">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <span className="whitespace-nowrap text-lg font-black leading-none text-[hsl(var(--price))]">
             {formatPriceUZS(listing.price)}
           </span>
-          {listing.priceNegotiable && (
-            <span className="text-[10px] font-bold uppercase tracking-wide text-secondary-foreground/70">
-              savdolashish
-            </span>
-          )}
+          <DealTags negotiable={listing.priceNegotiable} exchange={acceptsExchange} />
         </div>
         <Link href={href}>
           <h2 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
             {title}
           </h2>
         </Link>
-        <div className="mt-auto grid grid-cols-2 gap-1.5 pt-1 text-[11px]">
-          <Metric
-            icon={<Smartphone className="h-3 w-3" />}
-            value={formatCompactNumber(androidCoins)}
-            label="Android"
-          />
-          <Metric
-            icon={<Apple className="h-3 w-3" />}
-            value={formatCompactNumber(iosCoins)}
-            label="iOS"
-          />
+        <div className="mt-auto flex flex-wrap gap-1.5 pt-1 text-[11px]">
+          {teamStrength !== undefined && (
+            <Metric icon={<Gamepad2 className="h-3 w-3" />} value={formatCompactNumber(teamStrength)} />
+          )}
+          {starPlayerCount > 0 && (
+            <Metric icon={<Sparkles className="h-3 w-3" />} value={`${starPlayerCount} karta`} />
+          )}
+          {androidCoins !== undefined && (
+            <Metric icon={<Smartphone className="h-3 w-3" />} value={formatCompactNumber(androidCoins)} />
+          )}
+          {iosCoins !== undefined && (
+            <Metric icon={<Apple className="h-3 w-3" />} value={formatCompactNumber(iosCoins)} />
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
           <span>{formatListingDate(listing.createdAt)}</span>
-          {hasGooglePlayLink && (
-            <span className="ml-auto inline-flex items-center gap-1 font-semibold text-primary">
-              <BadgeCheck className="h-3 w-3" /> Google
+          {(hasGooglePlayLink || hasGameCenterLink) && (
+            <span className="ml-auto inline-flex items-center gap-1 font-semibold text-amber-700">
+              <TriangleAlert className="h-3 w-3" />
+              {[hasGooglePlayLink && 'Google Play', hasGameCenterLink && 'Game Center']
+                .filter(Boolean)
+                .join(' + ')}
             </span>
           )}
         </div>
@@ -197,20 +221,30 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   );
 }
 
-function Metric({
-  icon,
-  value,
-  label,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  label: string;
-}) {
+/** Compact "savdo" / "obmen" tags shown next to the price. */
+function DealTags({ negotiable, exchange }: { negotiable: boolean; exchange: boolean }) {
+  if (!negotiable && !exchange) return null;
   return (
-    <div className="flex items-center justify-center gap-1 rounded-md bg-muted/70 px-1.5 py-1">
+    <span className="flex shrink-0 items-center gap-1">
+      {negotiable && (
+        <span className="rounded-full bg-[hsl(var(--price)/0.14)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[hsl(var(--price))]">
+          savdo
+        </span>
+      )}
+      {exchange && (
+        <span className="inline-flex items-center gap-0.5 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-foreground">
+          <ArrowLeftRight className="h-2.5 w-2.5" /> obmen
+        </span>
+      )}
+    </span>
+  );
+}
+
+function Metric({ icon, value }: { icon: React.ReactNode; value: string }) {
+  return (
+    <div className="flex items-center gap-1 rounded-md bg-muted/70 px-1.5 py-1">
       <span className="text-muted-foreground">{icon}</span>
       <span className="truncate font-bold text-foreground">{value}</span>
-      <span className="hidden truncate text-muted-foreground sm:inline">{label}</span>
     </div>
   );
 }

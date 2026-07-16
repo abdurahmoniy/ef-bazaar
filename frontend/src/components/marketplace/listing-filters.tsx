@@ -3,10 +3,13 @@ import Link from 'next/link'
 
 import { CardPickerField } from '@/components/marketplace/card-picker-field'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import {
+	DEFAULT_PLATFORM,
 	MARKETPLACE_FILTERS,
+	PLATFORM_FILTER_OPTIONS,
 	type MarketplaceFilterId,
 } from '@/lib/marketplace-format'
 import { LISTING_SORT_OPTIONS, paramToSortId } from '@/lib/marketplace-sort'
@@ -17,10 +20,13 @@ interface ListingFiltersProps {
 	query?: string
 	minPrice?: number
 	maxPrice?: number
+	priceNegotiable?: boolean
 	division?: number
 	valuablePlayerId?: number
 	valuablePlayerName?: string
 	sortParam?: string
+	/** Raw attr.* filters from the URL — source of defaultValues for attribute fields. */
+	attributes?: Record<string, string>
 }
 
 const DIVISION_CHOICES = [1, 2, 3, 4] as const
@@ -31,40 +37,74 @@ const DIVISION_LABELS: Record<number, string> = {
 	4: 'Division 4+',
 }
 
-export function ListingFilters({
-	activeFilter,
+// Values + labels mirror the exchange_mode attribute definition (V17 migration).
+const EXCHANGE_MODE_OPTIONS = [
+	{ value: 'NONE', label: "Obmen yo'q" },
+	{ value: 'EXCHANGE_ONLY', label: 'Faqat obmen' },
+	{ value: 'EXCHANGE_WITH_SURCHARGE', label: 'Obmen + doplata' },
+	{ value: 'BOTH', label: 'Obmen yoki obmen + doplata' },
+] as const
+
+export function ListingFilters(props: ListingFiltersProps) {
+	return (
+		<aside className='hidden space-y-3 lg:sticky lg:top-32 lg:block'>
+			<QuickChips activeFilter={props.activeFilter} query={props.query} />
+			<ListingFiltersForm
+				{...props}
+				className='rounded-xl border border-border bg-card p-4 shadow-card'
+				showHeading
+			/>
+		</aside>
+	)
+}
+
+export function ListingFiltersForm({
 	query,
 	minPrice,
 	maxPrice,
+	priceNegotiable,
 	division,
 	valuablePlayerId,
 	valuablePlayerName,
 	sortParam,
-}: ListingFiltersProps) {
+	attributes,
+	className,
+	showHeading = false,
+}: ListingFiltersProps & { className?: string; showHeading?: boolean }) {
 	const currentSortId = paramToSortId(sortParam)
+	const attr = (key: string) => attributes?.[key] ?? ''
 
 	return (
-		<aside className='space-y-3 md:sticky md:top-32'>
-			<div className='hidden md:block'>
-				<QuickChips activeFilter={activeFilter} query={query} />
-			</div>
+		<form action='/marketplace' method='get' className={className}>
+			{query && <input type='hidden' name='q' value={query} />}
 
-			<form
-				action='/marketplace'
-				method='get'
-				className='rounded-xl border border-border bg-card p-4 shadow-card'
-			>
-				{activeFilter !== 'all' && (
-					<input type='hidden' name='filter' value={activeFilter} />
-				)}
-				{query && <input type='hidden' name='q' value={query} />}
-
+			{showHeading && (
 				<div className='flex items-center gap-2 pb-3 text-sm font-bold text-foreground'>
 					<SlidersHorizontal className='h-4 w-4 text-primary' />
 					Filtrlar
 				</div>
+			)}
 
-				<div className='space-y-3'>
+			<div className='space-y-3'>
+					<div>
+						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
+							Platforma
+						</div>
+						{/* Required — no "Barchasi" option; an unset URL means the default. */}
+						<Select
+							name='attr.platform'
+							required
+							defaultValue={attr('platform') || DEFAULT_PLATFORM}
+							className='h-10'
+						>
+							{PLATFORM_FILTER_OPTIONS.map((option) => (
+								<option key={option.value} value={option.value}>
+									{option.label}
+								</option>
+							))}
+						</Select>
+					</div>
+
 					<div>
 						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
 							Narx, so'm
@@ -113,6 +153,106 @@ export function ListingFilters({
 
 					<div>
 						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
+							Team Strength
+						</div>
+						<div className='grid grid-cols-2 gap-2'>
+							<Input
+								name='attr.team_strength.min'
+								type='number'
+								inputMode='numeric'
+								min={0}
+								step={100}
+								placeholder='dan'
+								defaultValue={attr('team_strength.min')}
+								className='h-10 rounded-lg'
+							/>
+							<Input
+								name='attr.team_strength.max'
+								type='number'
+								inputMode='numeric'
+								min={0}
+								step={100}
+								placeholder='gacha'
+								defaultValue={attr('team_strength.max')}
+								className='h-10 rounded-lg'
+							/>
+						</div>
+					</div>
+
+					<div>
+						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
+							Coin (kamida)
+						</div>
+						{/* No min / inputMode: balances can be negative, and the
+						    digit-only mobile keypad has no minus key. */}
+						<div className='grid grid-cols-2 gap-2'>
+							<Input
+								name='attr.android_coins.min'
+								type='number'
+								step={1000}
+								placeholder='Android'
+								aria-label='Android coin (kamida)'
+								defaultValue={attr('android_coins.min')}
+								className='h-10 rounded-lg'
+							/>
+							<Input
+								name='attr.ios_coins.min'
+								type='number'
+								step={1000}
+								placeholder='iOS'
+								aria-label='iOS coin (kamida)'
+								defaultValue={attr('ios_coins.min')}
+								className='h-10 rounded-lg'
+							/>
+						</div>
+					</div>
+
+					<div>
+						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
+							Obmen shartlari
+						</div>
+						<Select
+							name='attr.exchange_mode'
+							defaultValue={attr('exchange_mode')}
+							className='h-10'
+						>
+							<option value=''>Barchasi</option>
+							{EXCHANGE_MODE_OPTIONS.map((option) => (
+								<option key={option.value} value={option.value}>
+									{option.label}
+								</option>
+							))}
+						</Select>
+					</div>
+
+					<div className='space-y-2'>
+						<Checkbox
+							name='priceNegotiable'
+							value='true'
+							defaultChecked={priceNegotiable === true}
+							label='Savdolashish mumkin'
+							className='p-2'
+						/>
+						{/* Store links block a clean transfer (only Konami ID moves), so
+						    buyers filter for accounts WITHOUT them. */}
+						<Checkbox
+							name='attr.has_google_play_link'
+							value='false'
+							defaultChecked={attr('has_google_play_link') === 'false'}
+							label='Google Play ulanmagan'
+							className='p-2'
+						/>
+						<Checkbox
+							name='attr.has_game_center_link'
+							value='false'
+							defaultChecked={attr('has_game_center_link') === 'false'}
+							label='Game Center ulanmagan'
+							className='p-2'
+						/>
+					</div>
+
+					<div>
+						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
 							Yulduz o'yinchi
 						</div>
 						<CardPickerField
@@ -149,8 +289,7 @@ export function ListingFilters({
 						</Button>
 					</div>
 				</div>
-			</form>
-		</aside>
+		</form>
 	)
 }
 
