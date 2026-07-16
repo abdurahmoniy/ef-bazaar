@@ -79,3 +79,52 @@ async def test_auth_header_sent(client):
     )
     await client.create_mailbox("trade-abc", "efbazaar.uz", "Pw!12345")
     assert route.calls.last.request.headers["X-API-Key"] == "test-key"
+
+
+@respx.mock
+async def test_get_domain_capacity_success(client):
+    respx.get(f"{BASE}/get/domain/efbazaar.uz").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "mboxes_in_domain": 3,
+                "mboxes_left": 7,
+                "domain_name": "efbazaar.uz",
+            },
+        )
+    )
+    cap = await client.get_domain_capacity("efbazaar.uz")
+    assert cap == {"used": 3, "limit": 10}
+
+
+@respx.mock
+async def test_get_domain_capacity_list_shape(client):
+    """Some Mailcow versions wrap the response in a list — handle that too."""
+    respx.get(f"{BASE}/get/domain/efbazaar.uz").mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"mboxes_in_domain": 1, "mboxes_left": 9}],
+        )
+    )
+    cap = await client.get_domain_capacity("efbazaar.uz")
+    assert cap == {"used": 1, "limit": 10}
+
+
+@respx.mock
+async def test_get_domain_capacity_returns_none_on_5xx(client):
+    respx.get(f"{BASE}/get/domain/efbazaar.uz").mock(return_value=httpx.Response(502))
+    assert await client.get_domain_capacity("efbazaar.uz") is None
+
+
+@respx.mock
+async def test_get_domain_capacity_returns_none_on_unexpected_shape(client):
+    respx.get(f"{BASE}/get/domain/efbazaar.uz").mock(
+        return_value=httpx.Response(200, json={"unexpected": "shape"})
+    )
+    assert await client.get_domain_capacity("efbazaar.uz") is None
+
+
+@respx.mock
+async def test_get_domain_capacity_returns_none_on_network_error(client):
+    respx.get(f"{BASE}/get/domain/efbazaar.uz").mock(side_effect=httpx.ConnectError("boom"))
+    assert await client.get_domain_capacity("efbazaar.uz") is None
