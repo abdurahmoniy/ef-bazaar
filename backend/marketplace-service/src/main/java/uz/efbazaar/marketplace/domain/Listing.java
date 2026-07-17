@@ -78,6 +78,12 @@ public class Listing {
     @Formula("(SELECT COUNT(*) FROM listing_likes lk WHERE lk.listing_id = id)")
     private Long likeCount;
 
+    @Column(name = "sold_at")
+    private Instant soldAt;
+
+    @Column(name = "sold_to_user_id")
+    private UUID soldToUserId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
