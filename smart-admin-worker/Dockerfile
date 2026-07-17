@@ -28,7 +28,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # read it. Without this, launch_random_chromium() in rotate.py fails on all
 # three channels (bundled-chromium / chrome / msedge).
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
-RUN python -m patchright install chromium \
+# --with-deps: patchright'ning o'zi kerakli sistemik apt-paketlarni
+# o'rnatadi (libatk, libnspr4, libdrm2, libxkbcommon0, libatspi2.0-0,
+# va h.k. ~30 ta paket). Buularsiz Chromium SIGTRAP bilan darhol crash
+# bo'ladi (chrome_crashpad_handler: --database is required — bu kutubxona
+# yo'qligining alomati). apt-get lists build oxirida tozalanadi.
+RUN python -m patchright install --with-deps chromium \
+    && rm -rf /var/lib/apt/lists/* \
     && chmod -R a+rx /opt/playwright-browsers
 
 COPY smart_admin_worker/ ./smart_admin_worker/
