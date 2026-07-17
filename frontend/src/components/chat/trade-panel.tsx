@@ -14,6 +14,7 @@ import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
 import {
   TRADE_STATE_LABEL_UZ,
   type CardResponse,
+  type PendingProposalResponse,
   type ProposalAcceptRequest,
   type ProposalCreateRequest,
   type ProposalResponse,
@@ -25,6 +26,12 @@ interface TradePanelProps {
   chat: ChatResponse;
   viewerId: string;
   listing: ListingResponse | null;
+  /**
+   * Server-fetched pending proposal for this chat, if any. Present for BOTH
+   * seller and buyer on first render — fixes the bug where the buyer's
+   * browser had no way to see a proposal the seller had already sent.
+   */
+  initialPendingProposal?: PendingProposalResponse | null;
 }
 
 /**
@@ -39,13 +46,26 @@ interface TradePanelProps {
  * States past WAITING_PAYMENT are display-only; per-state actions land in a
  * follow-up PR.
  */
-export function TradePanel({ chat, viewerId, listing }: TradePanelProps) {
+export function TradePanel({
+  chat,
+  viewerId,
+  listing,
+  initialPendingProposal = null,
+}: TradePanelProps) {
   const router = useRouter();
   const isSeller = chat.sellerId === viewerId;
   const otherPartyId = isSeller ? chat.buyerId : chat.sellerId;
 
   const [trades, setTrades] = useState<TradeResponse[] | null>(null);
-  const [proposal, setProposal] = useState<PendingProposal | null>(null);
+  const [proposal, setProposal] = useState<PendingProposal | null>(
+    initialPendingProposal
+      ? {
+          id: initialPendingProposal.proposalId,
+          priceUzs: initialPendingProposal.amountUzs,
+          expiresAt: initialPendingProposal.expiresAt,
+        }
+      : null,
+  );
   const [showProposeModal, setShowProposeModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);

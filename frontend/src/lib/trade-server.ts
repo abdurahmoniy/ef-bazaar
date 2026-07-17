@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { apiFetch, ApiException } from './api';
-import type { CardResponse, TradeResponse } from './trade-types';
+import type { CardResponse, PendingProposalResponse, TradeResponse } from './trade-types';
 
 /**
  * trade-service is exposed at `/api/v1/...` in nginx (no service prefix like
@@ -43,4 +43,22 @@ export async function getTradesByChat(chatId: string): Promise<TradeResponse[]> 
 /** Cards saved to the caller's profile — used to pre-fill the trade card picker. */
 export async function getMyCards(): Promise<CardResponse[]> {
   return (await safeGet<CardResponse[]>(`${TRADE_PREFIX}/cards`)) ?? [];
+}
+
+/**
+ * Look up the pending proposal for a marketplace chat. Server-side because
+ * proposals live only in Redis with a 10-minute TTL and the buyer's browser
+ * has no other source for them — without this the buyer would never see a
+ * seller's proposal after a page refresh.
+ *
+ * Returns null when no proposal exists or the caller isn't a participant
+ * (backend returns 404 in both cases so existence isn't leaked).
+ */
+export async function getPendingProposal(
+  chatId: string,
+): Promise<PendingProposalResponse | null> {
+  const encoded = encodeURIComponent(chatId);
+  return await safeGet<PendingProposalResponse>(
+    `${TRADE_PREFIX}/trades/proposals?chatId=${encoded}`,
+  );
 }
