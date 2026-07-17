@@ -51,6 +51,11 @@ public class TradeEventPublisher {
                 new TradeEvents.MailboxRotateRequest(mailboxId));
     }
 
+    public void listingSold(UUID listingId, UUID buyerId, UUID sellerId, long priceUzs) {
+        send(TradeEvents.TOPIC_LISTING_SOLD, listingId.toString(),
+                new TradeEvents.ListingSold(listingId, buyerId, sellerId, priceUzs, Instant.now()));
+    }
+
     /**
      * Publishes are deferred to run after the enclosing transaction commits
      * when one is active. Several of these events (e.g. email-provision-request
