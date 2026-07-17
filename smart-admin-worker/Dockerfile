@@ -11,7 +11,7 @@
 # History: python:3.12-slim (Debian 13 → 12) + apt chromium + patchright
 # 1.48/latest all failed with chrome_crashpad_handler '--database required'
 # or segfault. MS Playwright image is the tested-baseline that just works.
-FROM mcr.microsoft.com/playwright/python:v1.55.0-jammy
+FROM mcr.microsoft.com/playwright/python:v1.55.0-noble
 
 # curl for the HEALTHCHECK
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
