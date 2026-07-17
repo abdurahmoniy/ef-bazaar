@@ -9,5 +9,5 @@ tenacity==9.0.0
 structlog==24.4.0
 pydantic-settings==2.5.2
 prometheus-client==0.20.0
-patchright>=1.50
+patchright==1.47.4
 python-dotenv>=1.0
