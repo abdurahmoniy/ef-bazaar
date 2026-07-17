@@ -33,6 +33,9 @@ const VALID_TABS: ProfileTabId[] = [
   'chats',
   'favorites',
   'kartalar',
+  // 'pochta' is a link-out to /mail, never rendered inside the profile shell —
+  // omit it here so ?tab=pochta falls back to 'listings' rather than a blank
+  // section.
   'account',
 ];
 
