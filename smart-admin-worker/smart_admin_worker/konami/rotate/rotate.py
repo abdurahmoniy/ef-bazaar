@@ -388,8 +388,13 @@ def main() -> int:
             request_reset(page, email)
         except Exception as e:
             print(f"FAILED: {e}", file=sys.stderr)
-            page.screenshot(path="failure.png", full_page=True)
-            print("Screenshot saqlandi: failure.png", file=sys.stderr)
+            # Container's app user can't write to /app; use /tmp which is
+            # world-writable. Screenshot may itself raise (page closed) — swallow.
+            try:
+                page.screenshot(path="/tmp/failure.png", full_page=True)
+                print("Screenshot saqlandi: /tmp/failure.png", file=sys.stderr)
+            except Exception as se:  # noqa: BLE001
+                print(f"Screenshot ham qulaydi: {se}", file=sys.stderr)
             return 1
         finally:
             context.close()
