@@ -597,6 +597,8 @@ function WaitingEmailChangeSellerPanel({
   );
 }
 
+const KONAMI_FORGOT_URL = 'https://my.konami.net/en_US/password-reminder/input-email-address';
+
 function VerifyingKonamiSellerPanel({
   trade,
   onActionError,
@@ -607,6 +609,48 @@ function VerifyingKonamiSellerPanel({
   onRefresh: () => Promise<void> | void;
 }) {
   const [submitting, startSubmit] = useTransition();
+  const [copied, setCopied] = useState(false);
+  const konamiTabRef = useRef<Window | null>(null);
+
+  const mailboxEmail = trade.mailboxEmail ?? '';
+  // Try passing email as query param — Konami may auto-fill; if not seller pastes.
+  const konamiHref = mailboxEmail
+    ? `${KONAMI_FORGOT_URL}?email=${encodeURIComponent(mailboxEmail)}`
+    : KONAMI_FORGOT_URL;
+
+  // When the panel unmounts (state transitioned to WAITING_PASSWORD after
+  // IMAP detected the reset email), close the Konami tab we opened. This
+  // matches the seller's mental model: "I sent forgot-password, it's done,
+  // I can go back to the trade panel."
+  useEffect(() => {
+    return () => {
+      if (konamiTabRef.current && !konamiTabRef.current.closed) {
+        try {
+          konamiTabRef.current.close();
+        } catch {
+          // browser may block close if we didn't open the window; harmless
+        }
+      }
+    };
+  }, []);
+
+  async function copyEmail() {
+    if (!mailboxEmail) return;
+    try {
+      await navigator.clipboard.writeText(mailboxEmail);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard may be blocked — silent, seller can select manually
+    }
+  }
+
+  function openKonami(ev: React.MouseEvent<HTMLButtonElement>) {
+    ev.preventDefault();
+    // window.open() gives us a reference we can close later. noopener isolates
+    // the child window from ours (Konami cannot navigate/access this page).
+    konamiTabRef.current = window.open(konamiHref, '_blank', 'noopener');
+  }
 
   function recheck() {
     onActionError(null);
@@ -621,10 +665,37 @@ function VerifyingKonamiSellerPanel({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+        <p className="font-medium">Konami sahifasida forgot password so&apos;rang</p>
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+          <li>Pastdagi tugma orqali Konami forgot-password sahifasini oching.</li>
+          <li>Sahifada quyidagi emailni kiriting (yoki nusxa oling) va &quot;Send&quot; tugmasini bosing.</li>
+          <li>Konami xatni <b>{mailboxEmail || 'escrow mailbox'}</b> ga yuboradi. Kelishini avtomatik kutamiz — kelgach yangi tab o&apos;zi yopiladi.</li>
+        </ol>
+      </div>
+
+      {mailboxEmail && (
+        <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2">
+          <code className="flex-1 truncate text-xs font-mono">{mailboxEmail}</code>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={copyEmail}
+          >
+            {copied ? '✓ Nusxa olindi' : 'Nusxa'}
+          </Button>
+        </div>
+      )}
+
+      <Button type="button" className="w-full" onClick={openKonami}>
+        Konami forgot-password sahifasini ochish
+      </Button>
+
       <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-        Konami reset xatini oldingizmi? &quot;Qayta tekshir&quot; tugmasini
-        bosib IMAP orqali tekshiruvni qayta ishga tushiring.
+        Xat kelgach state avtomatik yangilanadi. Yoki qo&apos;lda tekshirish uchun:
       </div>
       <Button
         type="button"

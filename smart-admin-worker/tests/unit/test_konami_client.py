@@ -18,6 +18,7 @@ def _fake_run(*, returncode=0, stderr=b""):
 
 
 async def test_trigger_reset_calls_subprocess(monkeypatch):
+    monkeypatch.setenv("KONAMI_ROTATE_ENABLED", "true")
     seen = {}
 
     def _capture(cmd, env, capture_output, timeout, check=False):
@@ -34,6 +35,7 @@ async def test_trigger_reset_calls_subprocess(monkeypatch):
 
 
 async def test_trigger_reset_raises_on_nonzero_exit(monkeypatch):
+    monkeypatch.setenv("KONAMI_ROTATE_ENABLED", "true")
     monkeypatch.setattr(subprocess, "run", _fake_run(returncode=2, stderr=b"boom"))
     client = KonamiClient(max_concurrent=1, timeout_seconds=30)
     with pytest.raises(KonamiRotateFailed) as ei:
@@ -43,6 +45,7 @@ async def test_trigger_reset_raises_on_nonzero_exit(monkeypatch):
 
 
 async def test_semaphore_serializes_calls(monkeypatch):
+    monkeypatch.setenv("KONAMI_ROTATE_ENABLED", "true")
     events = []
 
     def _slow_run(cmd, env, capture_output, timeout, check=False):
