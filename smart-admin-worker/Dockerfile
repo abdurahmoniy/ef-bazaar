@@ -1,41 +1,34 @@
 # ==============================================================
 # smart-admin-worker — Python 3.12 + Chromium for rotate.py
 # ==============================================================
+#
+# Uses Microsoft's official Playwright base image which ships:
+#   - Ubuntu 22.04 (jammy) — stable Chromium ABI baseline
+#   - Python 3.12
+#   - All Chromium system libs (libnss3, libatk, libgbm, etc)
+#   - Xvfb + fonts
+#
+# History: python:3.12-slim (Debian 13 → 12) + apt chromium + patchright
+# 1.48/latest all failed with chrome_crashpad_handler '--database required'
+# or segfault. MS Playwright image is the tested-baseline that just works.
+FROM mcr.microsoft.com/playwright/python:v1.55.0-jammy
 
-FROM python:3.12-slim-bookworm
-
-# Chromium for Konami rotate.py (Playwright subprocess). Also curl for the
-# Docker HEALTHCHECK, plus font/lib deps Chromium needs to render pages.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        chromium \
-        fonts-liberation \
-        libnss3 \
-        libgbm1 \
-        libasound2 \
-        curl \
+# curl for the HEALTHCHECK
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd -r app && useradd -r -g app app
+RUN groupadd -r app && useradd -r -g app app -m
 WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# patchright needs its OWN bundled Chromium — the apt-installed chromium
-# above satisfies system-lib deps but patchright looks for its bundled
-# binary under PLAYWRIGHT_BROWSERS_PATH. Install to a shared system path so
-# both root (during build) and the non-root 'app' user (at runtime) can
-# read it. Without this, launch_random_chromium() in rotate.py fails on all
-# three channels (bundled-chromium / chrome / msedge).
-ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers
-# --with-deps: patchright'ning o'zi kerakli sistemik apt-paketlarni
-# o'rnatadi (libatk, libnspr4, libdrm2, libxkbcommon0, libatspi2.0-0,
-# va h.k. ~30 ta paket). Buularsiz Chromium SIGTRAP bilan darhol crash
-# bo'ladi (chrome_crashpad_handler: --database is required — bu kutubxona
-# yo'qligining alomati). apt-get lists build oxirida tozalanadi.
-RUN python -m patchright install --with-deps chromium \
-    && rm -rf /var/lib/apt/lists/* \
-    && chmod -R a+rx /opt/playwright-browsers
+# MS Playwright base has playwright's own Chromium at /ms-playwright.
+# patchright bundles its own patched Chromium (anti-bot detection) — install
+# to the same shared path with a+rx so the non-root 'app' user can read it.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN python -m patchright install chromium \
+    && chmod -R a+rx /ms-playwright
 
 COPY smart_admin_worker/ ./smart_admin_worker/
 
