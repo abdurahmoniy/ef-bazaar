@@ -2,7 +2,7 @@
 # smart-admin-worker — Python 3.12 + Chromium for rotate.py
 # ==============================================================
 
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 
 # Chromium for Konami rotate.py (Playwright subprocess). Also curl for the
 # Docker HEALTHCHECK, plus font/lib deps Chromium needs to render pages.
