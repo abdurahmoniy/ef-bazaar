@@ -61,7 +61,17 @@ class KonamiClient:
         """Run rotate.py for ``email`` in a worker thread. Does NOT acquire the
         semaphore — callers driving the slot themselves (see
         :attr:`semaphore`) call this once they hold a slot.
+
+        Konami's server-side bot detection blocks our datacenter IPs at the
+        HTTP/2 layer (INTERNAL_ERROR stream reset) and even HTTP/1.1 requests
+        time out. The seller now clicks forgot-password from their own
+        residential browser via the frontend TradePanel. This method
+        short-circuits unless KONAMI_ROTATE_ENABLED=true, so the semaphore
+        hold in the caller is preserved (for worker-queued/started UX) but
+        the doomed subprocess call is skipped in production.
         """
+        if os.environ.get("KONAMI_ROTATE_ENABLED", "false").lower() != "true":
+            return
         await asyncio.to_thread(self._run_subprocess, email, konami_id)
 
     def _run_subprocess(self, email: str, konami_id: str | None) -> None:
