@@ -37,7 +37,13 @@ export interface ProposalResponse {
   expiresAt: string;
 }
 
-export type CardBrand = 'HUMO' | 'UZCARD' | 'VISA' | 'MASTERCARD' | 'UNKNOWN';
+/**
+ * Mirrors `uz.efbazaar.trade.card.domain.CardBrand` — the backend enum uses
+ * `MC` (not `MASTERCARD`), so JSON on the wire matches these strings exactly.
+ * `UNKNOWN` is a defensive fallback for older records; new writes always pick
+ * one of the four supported brands.
+ */
+export type CardBrand = 'HUMO' | 'UZCARD' | 'VISA' | 'MC' | 'UNKNOWN';
 
 export interface CardResponse {
   id: string;
