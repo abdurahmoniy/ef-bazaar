@@ -610,12 +610,29 @@ function VerifyingKonamiSellerPanel({
 }) {
   const [submitting, startSubmit] = useTransition();
   const [copied, setCopied] = useState(false);
+  const konamiTabRef = useRef<Window | null>(null);
 
   const mailboxEmail = trade.mailboxEmail ?? '';
   // Try passing email as query param — Konami may auto-fill; if not seller pastes.
   const konamiHref = mailboxEmail
     ? `${KONAMI_FORGOT_URL}?email=${encodeURIComponent(mailboxEmail)}`
     : KONAMI_FORGOT_URL;
+
+  // When the panel unmounts (state transitioned to WAITING_PASSWORD after
+  // IMAP detected the reset email), close the Konami tab we opened. This
+  // matches the seller's mental model: "I sent forgot-password, it's done,
+  // I can go back to the trade panel."
+  useEffect(() => {
+    return () => {
+      if (konamiTabRef.current && !konamiTabRef.current.closed) {
+        try {
+          konamiTabRef.current.close();
+        } catch {
+          // browser may block close if we didn't open the window; harmless
+        }
+      }
+    };
+  }, []);
 
   async function copyEmail() {
     if (!mailboxEmail) return;
@@ -626,6 +643,13 @@ function VerifyingKonamiSellerPanel({
     } catch {
       // clipboard may be blocked — silent, seller can select manually
     }
+  }
+
+  function openKonami(ev: React.MouseEvent<HTMLButtonElement>) {
+    ev.preventDefault();
+    // window.open() gives us a reference we can close later. noopener isolates
+    // the child window from ours (Konami cannot navigate/access this page).
+    konamiTabRef.current = window.open(konamiHref, '_blank', 'noopener');
   }
 
   function recheck() {
@@ -647,7 +671,7 @@ function VerifyingKonamiSellerPanel({
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
           <li>Pastdagi tugma orqali Konami forgot-password sahifasini oching.</li>
           <li>Sahifada quyidagi emailni kiriting (yoki nusxa oling) va &quot;Send&quot; tugmasini bosing.</li>
-          <li>Konami xatni <b>{mailboxEmail || 'escrow mailbox'}</b> ga yuboradi. Kelishini avtomatik kutamiz.</li>
+          <li>Konami xatni <b>{mailboxEmail || 'escrow mailbox'}</b> ga yuboradi. Kelishini avtomatik kutamiz — kelgach yangi tab o&apos;zi yopiladi.</li>
         </ol>
       </div>
 
@@ -666,10 +690,8 @@ function VerifyingKonamiSellerPanel({
         </div>
       )}
 
-      <Button asChild type="button" className="w-full">
-        <a href={konamiHref} target="_blank" rel="noopener noreferrer">
-          Konami forgot-password sahifasini ochish
-        </a>
+      <Button type="button" className="w-full" onClick={openKonami}>
+        Konami forgot-password sahifasini ochish
       </Button>
 
       <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
