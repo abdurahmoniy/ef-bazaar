@@ -77,7 +77,7 @@ class MailControllerIT extends AbstractPostgresIT {
     void inboxForOtherUsersMailboxReturns404() throws Exception {
         UUID owner = UUID.randomUUID();
         UUID stranger = UUID.randomUUID();
-        var mbox = mailboxService.create("private@efbazaar.uz", owner, UUID.randomUUID(),
+        var mbox = mailboxService.create(uniqueEmail("inbox-others"), owner, UUID.randomUUID(),
                 "pw".getBytes(StandardCharsets.UTF_8));
 
         mvc.perform(get("/api/v1/mail/" + mbox.getId() + "/inbox")
@@ -89,7 +89,7 @@ class MailControllerIT extends AbstractPostgresIT {
     void messageForOtherUsersMailboxReturns404() throws Exception {
         UUID owner = UUID.randomUUID();
         UUID stranger = UUID.randomUUID();
-        var mbox = mailboxService.create("private2@efbazaar.uz", owner, UUID.randomUUID(),
+        var mbox = mailboxService.create(uniqueEmail("msg-others"), owner, UUID.randomUUID(),
                 "pw".getBytes(StandardCharsets.UTF_8));
 
         mvc.perform(get("/api/v1/mail/" + mbox.getId() + "/messages/1")
@@ -101,12 +101,22 @@ class MailControllerIT extends AbstractPostgresIT {
     void attachmentForOtherUsersMailboxReturns404() throws Exception {
         UUID owner = UUID.randomUUID();
         UUID stranger = UUID.randomUUID();
-        var mbox = mailboxService.create("private3@efbazaar.uz", owner, UUID.randomUUID(),
+        var mbox = mailboxService.create(uniqueEmail("att-others"), owner, UUID.randomUUID(),
                 "pw".getBytes(StandardCharsets.UTF_8));
 
         mvc.perform(get("/api/v1/mail/" + mbox.getId() + "/messages/1/attachments/1")
                         .header("X-User-Id", stranger.toString()))
                 .andExpect(status().isNotFound());
+    }
+
+    /**
+     * mailboxes.email has a UNIQUE constraint; hardcoded addresses collide with
+     * data left by earlier runs when this test class is re-executed inside the
+     * same Testcontainers Postgres instance (Surefire fork reuse in CI).
+     * Suffix a fresh UUID so each test's mailbox is unique.
+     */
+    private static String uniqueEmail(String prefix) {
+        return prefix + "-" + UUID.randomUUID() + "@efbazaar.uz";
     }
 
     @Test
