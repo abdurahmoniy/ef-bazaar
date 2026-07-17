@@ -273,6 +273,10 @@ services:
       context: ./smart-admin-worker
     container_name: efbazaar-smart-admin
     restart: unless-stopped
+    # Chromium (rotate.py subprocess) needs /dev/shm > 64MB default; without
+    # this, chrome_crashpad_handler subprocess fails with '--database is
+    # required' and Chromium exits SIGTRAP before opening any page.
+    shm_size: '2gb'
     environment:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       REDIS_HOST: ${REDIS_HOST}
