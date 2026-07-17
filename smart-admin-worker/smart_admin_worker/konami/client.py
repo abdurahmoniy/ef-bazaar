@@ -67,6 +67,9 @@ class KonamiClient:
     def _run_subprocess(self, email: str, konami_id: str | None) -> None:
         env = os.environ.copy()
         env["KONAMI_EMAIL"] = email
+        # Container has no X server — Playwright refuses without headless=True.
+        # Force headless unless caller (or the base env) explicitly opts out.
+        env.setdefault("HEADLESS", "true")
         if konami_id:
             env["KONAMI_ID"] = konami_id
         try:
