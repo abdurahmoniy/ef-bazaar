@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { CircleUser, Heart, MessageCircle, Package } from 'lucide-react';
+import { CircleUser, CreditCard, Heart, MessageCircle, Package } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
-export type ProfileTabId = 'listings' | 'chats' | 'favorites' | 'account';
+export type ProfileTabId = 'listings' | 'chats' | 'favorites' | 'kartalar' | 'account';
 
 interface ProfileTabsProps {
   active: ProfileTabId;
@@ -14,6 +14,7 @@ const TABS: Array<{ id: ProfileTabId; label: string; icon: React.ReactNode }> = 
   { id: 'listings', label: "E'lonlarim", icon: <Package className="h-4 w-4" /> },
   { id: 'chats', label: 'Chatlar', icon: <MessageCircle className="h-4 w-4" /> },
   { id: 'favorites', label: 'Sevimli', icon: <Heart className="h-4 w-4" /> },
+  { id: 'kartalar', label: 'Kartalar', icon: <CreditCard className="h-4 w-4" /> },
   { id: 'account', label: 'Akkount', icon: <CircleUser className="h-4 w-4" /> },
 ];
 
