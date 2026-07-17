@@ -20,6 +20,7 @@ public record ListingResponse(
         Map<String, Object> attributes,
         List<String> mediaMessageIds,
         ListingStatus status,
+        Instant soldAt,
         int forwardCount,
         long likeCount,
         Boolean likedByMe,
