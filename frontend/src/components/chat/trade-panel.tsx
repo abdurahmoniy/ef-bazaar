@@ -1,8 +1,18 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
-import { AlertTriangle, Handshake, ShieldCheck, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Copy,
+  Handshake,
+  Loader2,
+  RefreshCw,
+  ShieldCheck,
+  X,
+  XCircle,
+} from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +22,7 @@ import { Select } from '@/components/ui/select';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
 import {
+  isTerminalState,
   TRADE_STATE_LABEL_UZ,
   type CardResponse,
   type PendingProposalResponse,
@@ -21,6 +32,9 @@ import {
   type TradeResponse,
 } from '@/lib/trade-types';
 import { cn } from '@/lib/utils';
+
+/** Polling cadence for both trade-state and pending-proposal watchers. */
+const POLL_INTERVAL_MS = 4000;
 
 interface TradePanelProps {
   chat: ChatResponse;
@@ -35,16 +49,17 @@ interface TradePanelProps {
 }
 
 /**
- * Minimum-viable trade driver rendered above the chat message stream. Handles
- * only the first hop of the trade lifecycle so the end-to-end Kafka pipeline
- * (smart-admin-worker → Mailcow → Telegram log) can be exercised from the
- * browser without curl:
+ * Full-lifecycle trade driver rendered above the chat message stream.
  *
- *   1. Seller posts a proposal (price + card).
- *   2. Buyer accepts (their card) → trade opens → INITIATED → WAITING_PAYMENT.
+ * Phase 1 (propose/accept) is unchanged. Once a trade is active this panel
+ * renders state-conditional buttons — the buyer confirms payment, the seller
+ * confirms the Konami email change, either side can retrigger IMAP verify,
+ * the seller submits the Konami password, the buyer reveals it, then either
+ * confirms or rejects. Each mutation triggers an immediate `reload` and a
+ * background 4-second poll keeps state fresh without WebSockets.
  *
- * States past WAITING_PAYMENT are display-only; per-state actions land in a
- * follow-up PR.
+ * Reveal is one-shot — the plaintext lives in this component's React state
+ * for as long as the buyer stays on the page.
  */
 export function TradePanel({
   chat,
@@ -69,22 +84,74 @@ export function TradePanel({
   const [showProposeModal, setShowProposeModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  /** Guard against overlapping polls (setInterval fires while a fetch is in flight). */
+  const reloadInFlight = useRef(false);
+  const proposalPollInFlight = useRef(false);
 
   const activeTrade = trades && trades.length > 0 ? trades[0] : null;
 
   const reload = useCallback(async () => {
+    if (reloadInFlight.current) return;
+    reloadInFlight.current = true;
     setRefreshing(true);
     try {
       const list = await fetchTradesByChat(chat.id);
       setTrades(list);
     } finally {
       setRefreshing(false);
+      reloadInFlight.current = false;
     }
   }, [chat.id]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // ---- polling: trade state while non-terminal ----
+  // Key on primitives (id + state) so we don't tear down / re-create the
+  // interval on every 4-second refetch. The interval is only reset when
+  // the trade transitions to a new state or (rare) the trade id changes.
+  const activeTradeId = activeTrade?.id ?? null;
+  const activeTradeState = activeTrade?.state ?? null;
+  useEffect(() => {
+    if (!activeTradeId || !activeTradeState) return;
+    if (isTerminalState(activeTradeState)) return;
+    const id = window.setInterval(() => {
+      void reload();
+    }, POLL_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [activeTradeId, activeTradeState, reload]);
+
+  // ---- polling: pending proposal until either trade opens or proposal seen ----
+  const hasProposal = proposal !== null;
+  const hasActiveTrade = activeTrade !== null;
+  useEffect(() => {
+    if (hasActiveTrade) return;
+    if (hasProposal) return;
+    const tick = async () => {
+      if (proposalPollInFlight.current) return;
+      proposalPollInFlight.current = true;
+      try {
+        const p = await fetchPendingProposal(chat.id);
+        if (p) {
+          setProposal({
+            id: p.proposalId,
+            priceUzs: p.amountUzs,
+            expiresAt: p.expiresAt,
+          });
+        } else {
+          // Also refresh trades — proposal may have been accepted between polls.
+          await reload();
+        }
+      } finally {
+        proposalPollInFlight.current = false;
+      }
+    };
+    const id = window.setInterval(() => {
+      void tick();
+    }, POLL_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [hasActiveTrade, hasProposal, chat.id, reload]);
 
   const handleProposalCreated = useCallback(
     (p: ProposalResponse, priceUzs: number) => {
@@ -113,10 +180,15 @@ export function TradePanel({
     );
   }
 
-  // ---- active trade (post-accept) — read-only status card ----
+  // ---- active trade (post-accept) — state-conditional actions ----
   if (activeTrade) {
     return (
-      <ActiveTradeCard trade={activeTrade} onRefresh={reload} refreshing={refreshing} />
+      <ActiveTradeCard
+        trade={activeTrade}
+        viewerId={viewerId}
+        onRefresh={reload}
+        refreshing={refreshing}
+      />
     );
   }
 
@@ -184,17 +256,34 @@ export function TradePanel({
 
 function ActiveTradeCard({
   trade,
+  viewerId,
   onRefresh,
   refreshing,
 }: {
   trade: TradeResponse;
-  onRefresh: () => void;
+  viewerId: string;
+  onRefresh: () => Promise<void> | void;
   refreshing: boolean;
 }) {
+  const isBuyer = trade.buyerId === viewerId;
+  const isSeller = trade.sellerId === viewerId;
   const shortId = trade.id.slice(0, 8);
+  /**
+   * Reveal is one-shot per spec — server returns 410 Gone on the second
+   * call. We stash the plaintext in local state so the buyer can keep
+   * looking at it while deciding to confirm/reject.
+   */
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Clear any transient error when the state changes on its own.
+  useEffect(() => {
+    setActionError(null);
+  }, [trade.state]);
+
   return (
-    <div className="mx-auto max-w-md rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
-      <div className="mb-2 flex items-center gap-2">
+    <div className="mx-auto max-w-md space-y-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
+      <div className="flex items-center gap-2">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
           <ShieldCheck className="h-4 w-4" />
         </span>
@@ -208,11 +297,36 @@ function ActiveTradeCard({
         </div>
         <Badge variant="verified">{TRADE_STATE_LABEL_UZ[trade.state]}</Badge>
       </div>
+
+      <TradeStateActions
+        trade={trade}
+        isBuyer={isBuyer}
+        isSeller={isSeller}
+        revealedPassword={revealedPassword}
+        onRevealed={setRevealedPassword}
+        onActionError={setActionError}
+        onRefresh={onRefresh}
+      />
+
+      {actionError && (
+        <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>{actionError}</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-        <span>Rol: {trade.role === 'SELLER' ? 'Sotuvchi' : trade.role === 'BUYER' ? 'Xaridor' : '—'}</span>
+        <span>
+          Rol:{' '}
+          {trade.role === 'SELLER'
+            ? 'Sotuvchi'
+            : trade.role === 'BUYER'
+              ? 'Xaridor'
+              : '—'}
+        </span>
         <button
           type="button"
-          onClick={onRefresh}
+          onClick={() => void onRefresh()}
           disabled={refreshing}
           className="text-primary underline underline-offset-2 disabled:opacity-50"
         >
@@ -220,6 +334,721 @@ function ActiveTradeCard({
         </button>
       </div>
     </div>
+  );
+}
+
+// -------------------- state-conditional actions --------------------
+
+interface StateActionProps {
+  trade: TradeResponse;
+  isBuyer: boolean;
+  isSeller: boolean;
+  revealedPassword: string | null;
+  onRevealed: (pw: string) => void;
+  onActionError: (msg: string | null) => void;
+  onRefresh: () => Promise<void> | void;
+}
+
+function TradeStateActions({
+  trade,
+  isBuyer,
+  isSeller,
+  revealedPassword,
+  onRevealed,
+  onActionError,
+  onRefresh,
+}: StateActionProps) {
+  switch (trade.state) {
+    case 'INITIATED':
+      return <InitiatedPanel />;
+    case 'WAITING_PAYMENT':
+      return isBuyer ? (
+        <WaitingPaymentBuyerPanel
+          trade={trade}
+          onActionError={onActionError}
+          onRefresh={onRefresh}
+        />
+      ) : (
+        <InfoBox>Xaridor to&apos;lovni amalga oshirishini kutmoqda.</InfoBox>
+      );
+    case 'WAITING_EMAIL_CHANGE':
+      return isSeller ? (
+        <WaitingEmailChangeSellerPanel
+          trade={trade}
+          onActionError={onActionError}
+          onRefresh={onRefresh}
+        />
+      ) : (
+        <InfoBox>Sotuvchi email o&apos;zgartirishini kutmoqda.</InfoBox>
+      );
+    case 'VERIFYING_KONAMI_LINK':
+      return isSeller ? (
+        <VerifyingKonamiSellerPanel
+          trade={trade}
+          onActionError={onActionError}
+          onRefresh={onRefresh}
+        />
+      ) : (
+        <InfoBox>Konami tekshirilmoqda…</InfoBox>
+      );
+    case 'WAITING_PASSWORD':
+      return isSeller ? (
+        <WaitingPasswordSellerPanel
+          trade={trade}
+          onActionError={onActionError}
+          onRefresh={onRefresh}
+        />
+      ) : (
+        <InfoBox>Sotuvchi Konami parolini yuborishini kutmoqda.</InfoBox>
+      );
+    case 'WAITING_BUYER_VERIFY':
+      return isBuyer ? (
+        <WaitingBuyerVerifyBuyerPanel
+          trade={trade}
+          revealedPassword={revealedPassword}
+          onRevealed={onRevealed}
+          onActionError={onActionError}
+          onRefresh={onRefresh}
+        />
+      ) : (
+        <InfoBox>Xaridor tasdiqlashini kutmoqda.</InfoBox>
+      );
+    case 'SUCCESS':
+      return <SuccessPanel trade={trade} />;
+    case 'REJECTED':
+      return (
+        <TerminalBanner tone="destructive" icon={<XCircle className="h-4 w-4" />}>
+          Savdo rad etildi.
+        </TerminalBanner>
+      );
+    case 'ORPHANED':
+      return (
+        <TerminalBanner tone="muted" icon={<AlertTriangle className="h-4 w-4" />}>
+          Savdo muddati tugadi.
+        </TerminalBanner>
+      );
+    default:
+      return null;
+  }
+}
+
+// -------------------- per-state panels --------------------
+
+function InitiatedPanel() {
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+      <span>Mailbox tayyorlanmoqda…</span>
+    </div>
+  );
+}
+
+function WaitingPaymentBuyerPanel({
+  trade,
+  onActionError,
+  onRefresh,
+}: {
+  trade: TradeResponse;
+  onActionError: (msg: string | null) => void;
+  onRefresh: () => Promise<void> | void;
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const [submitting, startSubmit] = useTransition();
+
+  function confirm() {
+    onActionError(null);
+    startSubmit(async () => {
+      const r = await postTradeAction(trade.id, 'payment-confirmed');
+      if (!r.ok) {
+        onActionError(r.error);
+        return;
+      }
+      setShowModal(false);
+      await onRefresh();
+    });
+  }
+
+  return (
+    <>
+      <Button
+        type="button"
+        className="w-full"
+        onClick={() => setShowModal(true)}
+        disabled={submitting}
+      >
+        To&apos;ladim
+      </Button>
+      {showModal && (
+        <ConfirmModal
+          title="To'lovni tasdiqlash"
+          body={
+            <p>
+              Karta hisobingizdan{' '}
+              <span className="font-semibold text-foreground">
+                {formatPriceUZS(trade.priceUzs)}
+              </span>{' '}
+              yechilganiga ishonchingiz komilmi?
+            </p>
+          }
+          confirmLabel={submitting ? 'Tasdiqlanmoqda…' : "Ha, to'ladim"}
+          submitting={submitting}
+          onConfirm={confirm}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function WaitingEmailChangeSellerPanel({
+  trade,
+  onActionError,
+  onRefresh,
+}: {
+  trade: TradeResponse;
+  onActionError: (msg: string | null) => void;
+  onRefresh: () => Promise<void> | void;
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const [submitting, startSubmit] = useTransition();
+  const [copied, setCopied] = useState(false);
+  const email = trade.mailboxEmail;
+
+  function confirm() {
+    onActionError(null);
+    startSubmit(async () => {
+      const r = await postTradeAction(trade.id, 'email-changed');
+      if (!r.ok) {
+        onActionError(r.error);
+        return;
+      }
+      setShowModal(false);
+      await onRefresh();
+    });
+  }
+
+  async function copyEmail() {
+    if (!email) return;
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard access can fail (permissions, http). Silent — user can select manually.
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="rounded-lg bg-primary/5 px-3 py-2 text-xs">
+        <p className="mb-1 font-semibold text-foreground">Konami email manzili</p>
+        {email ? (
+          <div className="flex items-center gap-2">
+            <code className="flex-1 truncate rounded bg-white/70 px-2 py-1 text-[11px] font-mono text-foreground">
+              {email}
+            </code>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2"
+              onClick={copyEmail}
+              aria-label="Nusxa olish"
+            >
+              <Copy className="mr-1 h-3.5 w-3.5" />
+              {copied ? 'Nusxalandi' : 'Nusxa'}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-muted-foreground">Manzil tayyorlanmoqda…</p>
+        )}
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Konami saytiga kirib akkount email manzilini yuqoridagi manzilga
+          o&apos;zgartiring.
+        </p>
+      </div>
+      <Button
+        type="button"
+        className="w-full"
+        onClick={() => setShowModal(true)}
+        disabled={submitting || !email}
+      >
+        Email o&apos;zgartirdim
+      </Button>
+      {showModal && email && (
+        <ConfirmModal
+          title="Email o'zgarishini tasdiqlash"
+          body={
+            <p>
+              Konami saytida email manzilini{' '}
+              <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                {email}
+              </code>{' '}
+              ga o&apos;zgartirdingizmi?
+            </p>
+          }
+          confirmLabel={submitting ? 'Tasdiqlanmoqda…' : 'Ha, tasdiqlayman'}
+          submitting={submitting}
+          onConfirm={confirm}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function VerifyingKonamiSellerPanel({
+  trade,
+  onActionError,
+  onRefresh,
+}: {
+  trade: TradeResponse;
+  onActionError: (msg: string | null) => void;
+  onRefresh: () => Promise<void> | void;
+}) {
+  const [submitting, startSubmit] = useTransition();
+
+  function recheck() {
+    onActionError(null);
+    startSubmit(async () => {
+      const r = await postTradeAction(trade.id, 'recheck');
+      if (!r.ok) {
+        onActionError(r.error);
+        return;
+      }
+      await onRefresh();
+    });
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+        Konami reset xatini oldingizmi? &quot;Qayta tekshir&quot; tugmasini
+        bosib IMAP orqali tekshiruvni qayta ishga tushiring.
+      </div>
+      <Button
+        type="button"
+        variant="secondary"
+        className="w-full"
+        onClick={recheck}
+        disabled={submitting}
+      >
+        <RefreshCw className={cn('mr-2 h-3.5 w-3.5', submitting && 'animate-spin')} />
+        {submitting ? 'Tekshirilmoqda…' : 'Qayta tekshir'}
+      </Button>
+    </div>
+  );
+}
+
+function WaitingPasswordSellerPanel({
+  trade,
+  onActionError,
+  onRefresh,
+}: {
+  trade: TradeResponse;
+  onActionError: (msg: string | null) => void;
+  onRefresh: () => Promise<void> | void;
+}) {
+  const [showModal, setShowModal] = useState(false);
+  return (
+    <>
+      <Button
+        type="button"
+        className="w-full"
+        onClick={() => setShowModal(true)}
+      >
+        Konami parolini yuborish
+      </Button>
+      {showModal && (
+        <SendPasswordModal
+          trade={trade}
+          onClose={() => setShowModal(false)}
+          onSent={async () => {
+            setShowModal(false);
+            onActionError(null);
+            await onRefresh();
+          }}
+          onError={onActionError}
+        />
+      )}
+    </>
+  );
+}
+
+function WaitingBuyerVerifyBuyerPanel({
+  trade,
+  revealedPassword,
+  onRevealed,
+  onActionError,
+  onRefresh,
+}: {
+  trade: TradeResponse;
+  revealedPassword: string | null;
+  onRevealed: (pw: string) => void;
+  onActionError: (msg: string | null) => void;
+  onRefresh: () => Promise<void> | void;
+}) {
+  const [showRevealModal, setShowRevealModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [revealing, startReveal] = useTransition();
+  const [confirming, startConfirm] = useTransition();
+  const [rejecting, startReject] = useTransition();
+  const [copied, setCopied] = useState(false);
+
+  function reveal() {
+    if (!trade.passwordMessageId) {
+      onActionError('Parol xabari topilmadi — sahifani yangilang.');
+      return;
+    }
+    onActionError(null);
+    startReveal(async () => {
+      const r = await postReveal(trade.id, trade.passwordMessageId!);
+      if (!r.ok) {
+        onActionError(r.error);
+        setShowRevealModal(false);
+        return;
+      }
+      onRevealed(r.data.password);
+      setShowRevealModal(false);
+    });
+  }
+
+  function confirmTrade() {
+    onActionError(null);
+    startConfirm(async () => {
+      const r = await postTradeAction(trade.id, 'confirm');
+      if (!r.ok) {
+        onActionError(r.error);
+        return;
+      }
+      setShowConfirmModal(false);
+      await onRefresh();
+    });
+  }
+
+  function rejectTrade() {
+    onActionError(null);
+    startReject(async () => {
+      const r = await postTradeAction(trade.id, 'reject');
+      if (!r.ok) {
+        onActionError(r.error);
+        return;
+      }
+      setShowRejectModal(false);
+      await onRefresh();
+    });
+  }
+
+  async function copyPw() {
+    if (!revealedPassword) return;
+    try {
+      await navigator.clipboard.writeText(revealedPassword);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Silent — user can select manually.
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {revealedPassword ? (
+        <>
+          <div className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary">
+              Konami paroli
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 truncate rounded bg-white/80 px-2 py-1 font-mono text-sm text-foreground">
+                {revealedPassword}
+              </code>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2"
+                onClick={copyPw}
+                aria-label="Nusxa olish"
+              >
+                <Copy className="mr-1 h-3.5 w-3.5" />
+                {copied ? 'Nusxalandi' : 'Nusxa'}
+              </Button>
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Parolni sotuvchining Konami akkauntida ishlata olganingizni
+              tekshiring. Bu parol qayta ochilmaydi.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              className="flex-1"
+              onClick={() => setShowConfirmModal(true)}
+              disabled={confirming || rejecting}
+            >
+              Tasdiqlash
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setShowRejectModal(true)}
+              disabled={confirming || rejecting}
+            >
+              Rad etish
+            </Button>
+          </div>
+        </>
+      ) : (
+        <Button
+          type="button"
+          className="w-full"
+          onClick={() => setShowRevealModal(true)}
+          disabled={revealing || !trade.passwordMessageId}
+        >
+          Parolni ko&apos;rsatish
+        </Button>
+      )}
+
+      {showRevealModal && (
+        <ConfirmModal
+          title="Parolni ochish"
+          body={
+            <p>
+              Parol faqat <b>bir marta</b> ochiladi. Ochilgach uni ko&apos;chirib
+              olishga tayyormisiz?
+            </p>
+          }
+          confirmLabel={revealing ? 'Ochilmoqda…' : "Ha, ochaman"}
+          submitting={revealing}
+          onConfirm={reveal}
+          onClose={() => setShowRevealModal(false)}
+        />
+      )}
+      {showConfirmModal && (
+        <ConfirmModal
+          title="Savdoni tasdiqlash"
+          body={
+            <p>
+              Sotuvchining Konami akkauntiga muvaffaqiyatli kirdingizmi?
+              Tasdiqlagach savdo yakunlanadi.
+            </p>
+          }
+          confirmLabel={confirming ? 'Tasdiqlanmoqda…' : 'Ha, tasdiqlayman'}
+          submitting={confirming}
+          onConfirm={confirmTrade}
+          onClose={() => setShowConfirmModal(false)}
+        />
+      )}
+      {showRejectModal && (
+        <ConfirmModal
+          title="Savdoni rad etish"
+          body={
+            <p>
+              Rad etilsa savdo yopiladi va sotuvchi bilan qayta bog&apos;lanish
+              kerak bo&apos;ladi. Davom etasizmi?
+            </p>
+          }
+          confirmLabel={rejecting ? 'Rad etilmoqda…' : 'Ha, rad etaman'}
+          submitting={rejecting}
+          destructive
+          onConfirm={rejectTrade}
+          onClose={() => setShowRejectModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SuccessPanel({ trade }: { trade: TradeResponse }) {
+  return (
+    <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-3 text-xs text-emerald-900">
+      <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
+        <CheckCircle2 className="h-4 w-4" />
+        Savdo muvaffaqiyatli yakunlandi
+      </div>
+      <p>
+        {formatPriceUZS(trade.priceUzs)} to&apos;landi va Konami akkaunti
+        o&apos;tkazildi. Tabriklaymiz!
+      </p>
+    </div>
+  );
+}
+
+function TerminalBanner({
+  tone,
+  icon,
+  children,
+}: {
+  tone: 'destructive' | 'muted';
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const cls =
+    tone === 'destructive'
+      ? 'border-destructive/40 bg-destructive/10 text-destructive'
+      : 'border-border bg-muted/40 text-muted-foreground';
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-2 rounded-lg border px-3 py-2 text-xs',
+        cls,
+      )}
+    >
+      {icon}
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function InfoBox({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
+// -------------------- confirm/send-password modals --------------------
+
+function ConfirmModal({
+  title,
+  body,
+  confirmLabel,
+  submitting,
+  destructive,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  body: React.ReactNode;
+  confirmLabel: string;
+  submitting: boolean;
+  destructive?: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <ModalShell title={title} onClose={onClose}>
+      <div className="space-y-3">
+        <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-foreground">
+          {body}
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            Bekor qilish
+          </Button>
+          <Button
+            type="button"
+            className={cn(
+              destructive &&
+                'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+            )}
+            onClick={onConfirm}
+            disabled={submitting}
+          >
+            {confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+function SendPasswordModal({
+  trade,
+  onClose,
+  onSent,
+  onError,
+}: {
+  trade: TradeResponse;
+  onClose: () => void;
+  onSent: () => Promise<void> | void;
+  onError: (msg: string) => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [submitting, startSubmit] = useTransition();
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = password.trim();
+    if (trimmed.length < 4) {
+      setLocalError("Parol kamida 4 belgidan iborat bo'lishi kerak");
+      return;
+    }
+    setLocalError(null);
+    startSubmit(async () => {
+      const r = await postSendPassword(trade.id, trimmed);
+      if (!r.ok) {
+        setLocalError(null);
+        onError(r.error);
+        return;
+      }
+      await onSent();
+    });
+  }
+
+  return (
+    <ModalShell title="Konami parolini yuborish" onClose={onClose}>
+      <form className="space-y-3" onSubmit={handleSubmit}>
+        <div className="rounded-lg bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+          Konami saytida yangi parolni o&apos;rnatgach uni bu yerga kiriting.
+          Xaridor faqat bir marta ochib ko&apos;ra oladi.
+        </div>
+        <div>
+          <Label htmlFor="konami-password">Parol</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="konami-password"
+              type={showPw ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Konami paroli"
+              autoComplete="off"
+              minLength={4}
+              maxLength={200}
+              required
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="shrink-0"
+              onClick={() => setShowPw((v) => !v)}
+            >
+              {showPw ? 'Yashirish' : "Ko'rsatish"}
+            </Button>
+          </div>
+        </div>
+        {localError && (
+          <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            <span>{localError}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            disabled={submitting}
+          >
+            Bekor qilish
+          </Button>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? 'Yuborilmoqda…' : 'Yuborish'}
+          </Button>
+        </div>
+      </form>
+    </ModalShell>
   );
 }
 
@@ -572,6 +1401,22 @@ async function fetchTradesByChat(chatId: string): Promise<TradeResponse[]> {
   return (await response.json()) as TradeResponse[];
 }
 
+async function fetchPendingProposal(
+  chatId: string,
+): Promise<PendingProposalResponse | null> {
+  const response = await fetch(
+    `/api/trade/v1/trades/proposals?chatId=${encodeURIComponent(chatId)}`,
+    { credentials: 'include', headers: { Accept: 'application/json' } },
+  );
+  if (response.status === 204 || response.status === 404) return null;
+  if (!response.ok) return null;
+  try {
+    return (await response.json()) as PendingProposalResponse;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchCards(): Promise<CardResponse[]> {
   const response = await fetch('/api/trade/v1/cards', {
     credentials: 'include',
@@ -611,6 +1456,73 @@ async function postProposalAccept(
   );
   if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
   return { ok: true, data: (await response.json()) as TradeResponse };
+}
+
+/**
+ * Fires a state-transition action. `path` is one of the segments under
+ * `/trades/{id}/actions/…` (payment-confirmed, email-changed, recheck,
+ * confirm, reject). Response body is the updated TradeResponse but the
+ * caller usually just reloads the list.
+ */
+async function postTradeAction(
+  tradeId: string,
+  path: 'payment-confirmed' | 'email-changed' | 'recheck' | 'confirm' | 'reject',
+): Promise<MutationResult<TradeResponse>> {
+  const response = await fetch(
+    `/api/trade/v1/trades/${encodeURIComponent(tradeId)}/actions/${path}`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    },
+  );
+  if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
+  return { ok: true, data: (await response.json()) as TradeResponse };
+}
+
+async function postSendPassword(
+  tradeId: string,
+  password: string,
+): Promise<MutationResult<{ messageId: string }>> {
+  const response = await fetch(
+    `/api/trade/v1/trades/${encodeURIComponent(tradeId)}/messages/password`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ password }),
+    },
+  );
+  if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
+  return {
+    ok: true,
+    data: (await response.json()) as { messageId: string },
+  };
+}
+
+async function postReveal(
+  tradeId: string,
+  messageId: string,
+): Promise<MutationResult<{ password: string }>> {
+  const response = await fetch(
+    `/api/trade/v1/trades/${encodeURIComponent(tradeId)}/messages/${encodeURIComponent(messageId)}/reveal`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    },
+  );
+  if (!response.ok) {
+    // 410 Gone means the one-shot Redis key has already been consumed.
+    if (response.status === 410) {
+      return { ok: false, error: 'Parol allaqachon ochilgan yoki muddati tugagan' };
+    }
+    return { ok: false, error: await readErrorMessage(response) };
+  }
+  return {
+    ok: true,
+    data: (await response.json()) as { password: string },
+  };
 }
 
 async function readErrorMessage(response: Response) {

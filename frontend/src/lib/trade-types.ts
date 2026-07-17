@@ -25,11 +25,23 @@ export interface TradeResponse {
   buyerId: string;
   priceUzs: number;
   mailboxId: string | null;
+  /**
+   * Escrow-mailbox address; the seller pastes this into Konami during
+   * WAITING_EMAIL_CHANGE. `null` while INITIATED (worker hasn't returned
+   * the real address yet).
+   */
+  mailboxEmail: string | null;
   chatId: string | null;
   createdAt: string;
   expiresAt: string | null;
   stateDeadline: string | null;
   role: ParticipantRole | null;
+  /**
+   * Set once the seller has sent the Konami password — the buyer POSTs
+   * `/trades/{id}/messages/{passwordMessageId}/reveal` to unlock it once.
+   * `null` before WAITING_BUYER_VERIFY.
+   */
+  passwordMessageId: string | null;
 }
 
 export interface ProposalResponse {
@@ -91,11 +103,22 @@ export interface ProposalAcceptRequest {
 export const TRADE_STATE_LABEL_UZ: Record<TradeState, string> = {
   INITIATED: 'Boshlangan',
   WAITING_PAYMENT: "To'lov kutilmoqda",
-  WAITING_EMAIL_CHANGE: "Email o'zgarishi kutilmoqda",
-  VERIFYING_KONAMI_LINK: 'Konami havolasi tekshirilmoqda',
+  WAITING_EMAIL_CHANGE: "Email o'zgartirish kutilmoqda",
+  VERIFYING_KONAMI_LINK: 'Konami tekshiruvi',
   WAITING_PASSWORD: 'Parol kutilmoqda',
-  WAITING_BUYER_VERIFY: 'Xaridor tasdiqi kutilmoqda',
-  SUCCESS: 'Yakunlandi',
-  REJECTED: 'Rad etildi',
-  ORPHANED: 'Bekor qilindi',
+  WAITING_BUYER_VERIFY: 'Xaridor tasdiqlashini kutmoqda',
+  SUCCESS: 'Muvaffaqiyatli yakunlandi',
+  REJECTED: 'Rad etilgan',
+  ORPHANED: 'Muddati tugagan',
 };
+
+/** Terminal trade states — polling should stop and no actions are shown. */
+export const TERMINAL_TRADE_STATES: ReadonlyArray<TradeState> = [
+  'SUCCESS',
+  'REJECTED',
+  'ORPHANED',
+];
+
+export function isTerminalState(state: TradeState): boolean {
+  return TERMINAL_TRADE_STATES.includes(state);
+}
