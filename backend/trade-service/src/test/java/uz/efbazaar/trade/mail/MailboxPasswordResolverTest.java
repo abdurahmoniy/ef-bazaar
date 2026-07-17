@@ -3,7 +3,6 @@ package uz.efbazaar.trade.mail;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import uz.efbazaar.trade.crypto.EncryptedField;
-import uz.efbazaar.trade.crypto.MasterKeyProvider;
 import uz.efbazaar.trade.crypto.TradeCrypto;
 import uz.efbazaar.trade.mail.service.MailboxPasswordResolver;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
@@ -109,10 +108,4 @@ class MailboxPasswordResolverTest {
                 .build();
     }
 
-    /** Minimal in-memory master-key provider so we don't need Spring context. */
-    private static class InMemoryKey implements MasterKeyProvider {
-        private final byte[] key;
-        InMemoryKey(byte[] key) { this.key = key; }
-        @Override public byte[] masterKey() { return key; }
-    }
 }
