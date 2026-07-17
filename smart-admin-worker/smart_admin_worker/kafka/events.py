@@ -81,6 +81,14 @@ class MailboxRotated:
     tag: bytes
 
 
+@dataclass(frozen=True, slots=True)
+class KonamiEmailChangeCodeReceived:
+    trade_id: UUID
+    verification_code: str
+    received_at: datetime
+    sender: str
+
+
 # ---------- Backpressure DTOs (worker produces, NEW) ----------
 
 
@@ -108,6 +116,7 @@ _SNAKE_TO_CAMEL_OVERRIDES: dict[str, str] = {
     "mailbox_email": "mailboxEmail",
     "konami_id": "konamiId",
     "received_at": "receivedAt",
+    "verification_code": "verificationCode",
 }
 
 

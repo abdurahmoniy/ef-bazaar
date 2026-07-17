@@ -24,7 +24,12 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
 
-from smart_admin_worker.imap.detector import KonamiEmailDetector, ResetHit, TwoFaHit
+from smart_admin_worker.imap.detector import (
+    EmailChangeCodeHit,
+    KonamiEmailDetector,
+    ResetHit,
+    TwoFaHit,
+)
 from smart_admin_worker.redis.lock import RedisLockManager
 
 log = logging.getLogger(__name__)
@@ -33,6 +38,10 @@ log = logging.getLogger(__name__)
 class PollPurpose(str, Enum):
     VERIFY_LINK = "VERIFY_LINK"
     WAIT_2FA_CODE = "WAIT_2FA_CODE"
+    # NEW: seller has started the Konami "Update Email Address" flow — the
+    # 6-digit verification code lands in the escrow mailbox they can't read.
+    # Smart-admin scrapes it and relays via Kafka so the frontend can show it.
+    WAIT_EMAIL_CHANGE_CODE = "WAIT_EMAIL_CHANGE_CODE"
 
 
 class ImapConnectionFactory(Protocol):
@@ -48,6 +57,7 @@ class ImapPoller:
     poll_interval: float
     on_reset: Callable[[ResetHit], Awaitable[None]] | None
     on_2fa: Callable[[TwoFaHit], Awaitable[None]] | None
+    on_email_change_code: Callable[[EmailChangeCodeHit], Awaitable[None]] | None = None
     imap_host: str = "mail.efbazaar.uz"
     imap_port: int = 993
 

@@ -7,7 +7,12 @@ from datetime import UTC, datetime
 
 import pytest
 
-from smart_admin_worker.imap.detector import KonamiEmailDetector, ResetHit, TwoFaHit
+from smart_admin_worker.imap.detector import (
+    EmailChangeCodeHit,
+    KonamiEmailDetector,
+    ResetHit,
+    TwoFaHit,
+)
 
 
 @dataclass
@@ -18,7 +23,11 @@ class FakeMsg:
     date: datetime
 
 
-ALLOWLIST = frozenset({"noreply@konami.com", "no-reply@konami.jp"})
+ALLOWLIST = frozenset({
+    "noreply@konami.com",
+    "no-reply@konami.jp",
+    "konami-info@konami.net",
+})
 
 
 @pytest.fixture
@@ -124,3 +133,67 @@ def test_2fa_rejects_distant_code_from_different_sentence(detector):
     ]
     # The keyword "verification" is > 30 chars away from "998877", so no hit.
     assert detector.check_2fa(msgs) is None
+
+
+# ---- email-change verification code (KONAMI account email update flow) ----
+
+
+def test_email_change_hit_on_real_konami_body(detector):
+    """Matches the exact body Konami sends on account email update — see brief."""
+    msgs = [
+        _msg(
+            from_="konami-info@konami.net",
+            subject="[KONAMI ID] Update Email Address",
+            text=(
+                "Thank you for using a KONAMI ID.\n"
+                "Enter the verification code to complete the email address update.\n"
+                "247616 is the verification code.\n"
+                "Please note that this verification code is only valid for 5 minutes."
+            ),
+        )
+    ]
+    hit = detector.check_email_change_verification(msgs)
+    assert isinstance(hit, EmailChangeCodeHit)
+    assert hit.verification_code == "247616"
+    assert hit.sender == "konami-info@konami.net"
+
+
+def test_email_change_no_hit_when_subject_missing(detector):
+    """Body regex alone is not enough — subject must also mention email update.
+    This is the belt-and-braces guard against ordinary 2FA login mails whose
+    body could otherwise trip the digit-first phrasing."""
+    msgs = [
+        _msg(
+            from_="konami-info@konami.net",
+            subject="Weekly newsletter",  # NOT "Update Email Address"
+            text="247616 is the verification code. Have a nice day.",
+        )
+    ]
+    assert detector.check_email_change_verification(msgs) is None
+
+
+def test_email_change_no_hit_on_ordinary_2fa_body(detector):
+    """A common 2FA login mail says 'verification code is 123456' (digits at
+    the END, keyword first). That shape must NOT match the email-change regex,
+    otherwise the seller would see a login code instead of the update code."""
+    msgs = [
+        _msg(
+            from_="noreply@konami.com",
+            subject="Your verification code",
+            text="Your verification code is 123456. Do not share it.",
+        )
+    ]
+    assert detector.check_email_change_verification(msgs) is None
+
+
+def test_email_change_no_hit_when_sender_not_allowlisted(detector):
+    """Sender allowlist is authoritative — a phishing mail with a matching
+    subject+body must still be dropped."""
+    msgs = [
+        _msg(
+            from_="phishing@evil.com",
+            subject="[KONAMI ID] Update Email Address",
+            text="247616 is the verification code.",
+        )
+    ]
+    assert detector.check_email_change_verification(msgs) is None

@@ -10,6 +10,14 @@ Beyond that:
 
 - 2FA: 4-8 digit run near a keyword ("code", "verification", "verify"). If both
   present, return the digit run.
+
+- Email-change verification code: Konami sends a 6-digit code to the NEW email
+  ("... is the verification code") when the account owner changes their KONAMI
+  ID email. Since the escrow mailbox IS the new address, the seller can't see
+  this code on their end — smart-admin scrapes it and relays it via a Kafka
+  event so the frontend can show it to the seller. We require BOTH subject
+  ("update email address") AND body regex to reduce false positives against
+  ordinary 2FA logins ("your verification code is ...").
 """
 
 from __future__ import annotations
@@ -27,6 +35,17 @@ _RESET_URL_RE = re.compile(r"https?://[^\s]*konami[^\s]*", re.IGNORECASE)
 # different sentence.
 _CODE_RE = re.compile(
     r"(?:code|verification|verify)[\sA-Za-z:]{0,30}([0-9]{4,8})", re.IGNORECASE
+)
+# Email-change verification: Konami's literal phrasing is "247616 is the
+# verification code." — digits come FIRST, followed by "is the verification
+# code". This shape is distinctive enough on its own that a general 2FA login
+# ("your verification code is 483920") won't trip it, but we still gate on the
+# subject line as a belt-and-braces guard.
+_EMAIL_CHANGE_CODE_RE = re.compile(
+    r"(\d{6})\s+is\s+the\s+verification\s+code", re.IGNORECASE
+)
+_EMAIL_CHANGE_SUBJECT_RE = re.compile(
+    r"update\s+email\s+address", re.IGNORECASE
 )
 
 
@@ -49,6 +68,13 @@ class TwoFaHit:
     sender: str
     received_at: datetime
     code: str
+
+
+@dataclass(frozen=True, slots=True)
+class EmailChangeCodeHit:
+    sender: str
+    received_at: datetime
+    verification_code: str
 
 
 class KonamiEmailDetector:
@@ -81,5 +107,31 @@ class KonamiEmailDetector:
                     sender=m.from_.lower(),
                     received_at=m.date,
                     code=match.group(1),
+                )
+        return None
+
+    def check_email_change_verification(
+        self, messages: Iterable[Msg]
+    ) -> EmailChangeCodeHit | None:
+        """Detect the "[KONAMI ID] Update Email Address" verification email.
+
+        Requires all three: allowlisted sender, subject matching
+        ``update email address``, and a body containing ``NNNNNN is the
+        verification code``. Missing any one → no hit. This is stricter than
+        ``check_2fa`` on purpose — the code is used to authorize a state-
+        changing action on the seller's Konami account, so a false positive
+        would surface the wrong 6 digits to the seller.
+        """
+        for m in messages:
+            if not self._sender_ok(m.from_):
+                continue
+            if not _EMAIL_CHANGE_SUBJECT_RE.search(m.subject or ""):
+                continue
+            match = _EMAIL_CHANGE_CODE_RE.search(m.text or "")
+            if match:
+                return EmailChangeCodeHit(
+                    sender=m.from_.lower(),
+                    received_at=m.date,
+                    verification_code=match.group(1),
                 )
         return None
