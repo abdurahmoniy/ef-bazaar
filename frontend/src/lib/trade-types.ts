@@ -38,6 +38,24 @@ export interface ProposalResponse {
 }
 
 /**
+ * Full snapshot of a pending proposal, returned by
+ * `GET /api/v1/trades/proposals?chatId=...`. Mirrors
+ * `uz.efbazaar.trade.trade.dto.ProposalDetailsResponse`. Both participants
+ * fetch this on chat open so the buyer sees the seller's pending proposal
+ * without any real-time channel.
+ */
+export interface PendingProposalResponse {
+  proposalId: string;
+  marketplaceChatId: string;
+  sellerId: string;
+  buyerId: string;
+  proposerUserId: string;
+  amountUzs: number;
+  listingId: string | null;
+  expiresAt: string;
+}
+
+/**
  * Mirrors `uz.efbazaar.trade.card.domain.CardBrand` — the backend enum uses
  * `MC` (not `MASTERCARD`), so JSON on the wire matches these strings exactly.
  * `UNKNOWN` is a defensive fallback for older records; new writes always pick
