@@ -54,12 +54,12 @@ public class EmailProvisionedConsumer {
             mailboxes.overwriteAddressAndPassword(placeholderId,
                     e.mailboxEmail(), e.encryptedPassword(), e.iv(), e.tag());
         } else {
-            UUID persisted = mailboxes.adoptWorkerMailboxId(placeholderId, workerId,
+            // adopt() also repoints trade.mailbox_id to the persisted id in its
+            // own tx, so we deliberately do NOT re-save `t` here: our in-memory
+            // copy is stale after adopt commits, and calling save(t) would
+            // overwrite the adopt update with the pre-adopt placeholderId.
+            mailboxes.adoptWorkerMailboxId(placeholderId, workerId,
                     e.mailboxEmail(), e.encryptedPassword(), e.iv(), e.tag());
-            if (!persisted.equals(placeholderId)) {
-                t.setMailboxId(persisted);
-                trades.save(t);
-            }
         }
         try {
             tradeService.transition(e.tradeId(), TradeEvent.MAILBOX_PROVISIONED,

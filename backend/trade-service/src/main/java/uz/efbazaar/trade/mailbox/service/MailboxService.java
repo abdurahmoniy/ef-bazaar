@@ -9,6 +9,8 @@ import uz.efbazaar.trade.crypto.EncryptedField;
 import uz.efbazaar.trade.crypto.TradeCrypto;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
+import uz.efbazaar.trade.trade.domain.Trade;
+import uz.efbazaar.trade.trade.repository.TradeRepository;
 
 import java.time.Instant;
 import java.util.List;
@@ -20,6 +22,7 @@ import java.util.UUID;
 public class MailboxService {
 
     private final MailboxRepository mailboxes;
+    private final TradeRepository trades;
     private final TradeCrypto crypto;
 
     @Transactional
@@ -164,9 +167,17 @@ public class MailboxService {
         UUID ownerUserId = placeholder.getOwnerUserId();
         Instant createdAt = placeholder.getCreatedAt();
 
-        // Delete + flush before insert so the new row (which may not collide on
-        // the unique email index yet but will collide on the FK once the trade
-        // row is updated) doesn't trip on stale references.
+        // trades.mailbox_id has a FK into mailboxes.id, so we can't delete the
+        // placeholder while any trade still points at it. Repoint the owning
+        // trade's FK to null first, flush, then swap the row, then repoint to
+        // the new id. All three writes are in the same @Transactional method
+        // so no other reader ever sees a dangling FK.
+        Trade owningTrade = trades.findByMailboxId(placeholderId).orElse(null);
+        if (owningTrade != null) {
+            owningTrade.setMailboxId(null);
+            trades.saveAndFlush(owningTrade);
+        }
+
         mailboxes.delete(placeholder);
         mailboxes.flush();
 
@@ -181,6 +192,12 @@ public class MailboxService {
                 .createdAt(createdAt != null ? createdAt : Instant.now())
                 .build();
         mailboxes.save(replacement);
+        mailboxes.flush();
+
+        if (owningTrade != null) {
+            owningTrade.setMailboxId(workerMailboxId);
+            trades.save(owningTrade);
+        }
         return workerMailboxId;
     }
 
