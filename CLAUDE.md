@@ -16,7 +16,8 @@ efBazaar/
 │   ├── marketplace-service/    # E'lonlar, like, savat, chat — Spring Boot, port 8082
 │   ├── recommendation-service/ # Recommendation engine — Spring Boot, port 8083
 │   └── trade-service/          # Escrow trade lifecycle: proposals, state machine, encrypted per-role chats, one-time password passthrough, WSS live push, Kafka boundary to smart-admin-worker — Spring Boot, port 8085
-├── frontend/                   # React (Vite) — MVP auth UI, port 5173/80
+├── frontend/                   # Next.js — asosiy sayt (efbazaar.uz)
+├── mail/                       # Next.js — read-only webmail (mail.efbazaar.uz), trade-service mail API frontendi
 ├── bot/                        # Telegram bot — Spring Boot, port 8084
 ├── nginx/                      # Reverse proxy
 └── docker-compose.yml
@@ -51,6 +52,7 @@ efBazaar/
 | trade-service | 8085 | /api/v1/trades/** |
 | smart-admin-worker | 8086 | — (internal only) |
 | frontend | 80 | / |
+| mail-frontend | 3000 | mail.efbazaar.uz/ (Mailcow: /api, /SOGo, ActiveSync saqlanadi) |
 | PostgreSQL | 5432 | internal only |
 | Redis | 6379 | internal only |
 | Kafka | 9092 | internal only |

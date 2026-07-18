@@ -8,9 +8,10 @@ import type {
 } from './mail-types';
 
 /**
- * Server-side fetchers for the read-only webmail feature. Mirrors the
- * trade-server helpers — all reads go through `/api/trade/v1/mail/**`, which
- * nginx forwards to trade-service at `/api/v1/mail/**`.
+ * Server-side fetchers for the read-only webmail app. All reads go through
+ * internal nginx (`INTERNAL_API_BASE_URL` → `/api/trade/v1/mail/**`), which
+ * strips the `/trade/` prefix and forwards to trade-service at
+ * `/api/v1/mail/**`.
  *
  * IMAP hiccups (dovecot brief unavailability, network blips, credential
  * decryption errors) come back as 5xx from the backend. We surface those

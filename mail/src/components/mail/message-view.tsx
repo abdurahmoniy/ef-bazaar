@@ -30,7 +30,7 @@ export function MessageView({ mailboxId, message }: MessageViewProps) {
     <article className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Link
-          href={`/mail/${mailboxId}`}
+          href={`/${mailboxId}`}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-muted"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
@@ -69,7 +69,7 @@ export function MessageView({ mailboxId, message }: MessageViewProps) {
 
       {hasHtml ? (
         <div
-          className="mail-html-body prose prose-sm max-w-none text-sm text-foreground"
+          className="mail-html-body"
           // Sanitised server-side by Jsoup — see MessageView docstring.
           dangerouslySetInnerHTML={{ __html: message.bodyHtml ?? '' }}
         />

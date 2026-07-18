@@ -88,26 +88,6 @@ export async function getListing(id: string): Promise<FetchResult<ListingRespons
   return safeFetch<ListingResponse>(`${MARKETPLACE_PREFIX}/listings/${encodeURIComponent(id)}`);
 }
 
-export interface CardSearchResult {
-  efhubId: number;
-  name: string;
-  cardType?: string;
-  overallRating?: number;
-}
-
-/**
- * Card catalog lookup — used by SEO landing pages to resolve a player query
- * ("messi") to the canonical card name ("L. Messi") that the
- * attr.valuable_players_name browse filter matches exactly.
- */
-export async function searchCards(query: string, limit = 1): Promise<CardSearchResult[]> {
-  const params = new URLSearchParams({ q: query, limit: String(limit) });
-  const result = await safeFetch<CardSearchResult[]>(
-    `${MARKETPLACE_PREFIX}/cards/search?${params.toString()}`,
-  );
-  return result.ok && Array.isArray(result.data) ? result.data : [];
-}
-
 export async function getAttributeDefinitions(): Promise<AttributeDefinitionResponse[]> {
   const result = await safeFetch<AttributeDefinitionResponse[]>(`${MARKETPLACE_PREFIX}/attributes`);
   return result.ok ? result.data : [];

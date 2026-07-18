@@ -53,7 +53,7 @@ function MailboxRow({ mailbox, active }: { mailbox: MailboxSummary; active: bool
 
   return (
     <Link
-      href={`/mail/${mailbox.id}`}
+      href={`/${mailbox.id}`}
       aria-current={active ? 'page' : undefined}
       className={cn(
         'flex items-center gap-3 rounded-lg px-2 py-2 transition-colors',

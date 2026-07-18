@@ -43,7 +43,7 @@ function MessageRow({ mailboxId, msg }: { mailboxId: string; msg: InboxMessage }
   const displayFrom = msg.fromName || msg.fromAddress || 'Noma\'lum';
   return (
     <Link
-      href={`/mail/${mailboxId}/${encodeURIComponent(msg.messageId)}`}
+      href={`/${mailboxId}/${encodeURIComponent(msg.messageId)}`}
       className={cn(
         'flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:gap-3',
         !msg.seen && 'bg-primary/[0.04]',

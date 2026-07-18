@@ -10,7 +10,7 @@ import { SiteFooter } from '@/components/site-footer';
 import { getMe } from '@/lib/auth';
 import { buildListingSearchParams, formatCompactNumber } from '@/lib/marketplace-format';
 import { getMarketplaceLanding, type MarketplaceLandingDef } from '@/lib/marketplace-landing';
-import { browseListings, searchCards } from '@/lib/marketplace-server';
+import { browseListings } from '@/lib/marketplace-server';
 import type { ListingBrowseParams, ListingResponse } from '@/lib/marketplace-types';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 import { absoluteUrl, siteConfig } from '@/lib/site';
@@ -48,16 +48,6 @@ export async function generateMetadata({ params }: LandingPageProps): Promise<Me
       title: def.title,
       description: def.description,
     },
-  };
-}
-
-async function resolveLandingParams(def: MarketplaceLandingDef): Promise<ListingBrowseParams> {
-  if (!def.playerQuery) return def.params;
-  const cards = await searchCards(def.playerQuery, 1);
-  const cardName = cards[0]?.name ?? def.playerQuery;
-  return {
-    ...def.params,
-    attributes: { ...(def.params.attributes ?? {}), valuable_players_name: cardName },
   };
 }
 
@@ -101,7 +91,7 @@ export default async function MarketplaceLandingPage({ params }: LandingPageProp
   const def = getMarketplaceLanding(slug);
   if (!def) notFound();
 
-  const filters = await resolveLandingParams(def);
+  const filters = def.params;
   const [viewer, result] = await Promise.all([
     resolveOptionalUser(getMe),
     browseListings({ ...filters, size: PAGE_SIZE, sort: 'createdAt,desc' }),

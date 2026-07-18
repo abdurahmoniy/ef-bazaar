@@ -8,12 +8,12 @@ import { MailShell } from '@/components/mail/mail-shell';
 import { Button } from '@/components/ui/button';
 import { getMe } from '@/lib/auth';
 import { getInbox, getMyMailboxes } from '@/lib/mail-server';
+import { mainSiteLoginUrl } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Pochta',
-  robots: { index: false, follow: false },
 };
 
 const PAGE_SIZE = 50;
@@ -29,7 +29,7 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
   const offset = Math.max(0, Number.parseInt(search.offset ?? '0', 10) || 0);
 
   const user = await getMe();
-  if (!user) redirect(`/auth/login?from=/mail/${mailboxId}`);
+  if (!user) redirect(mainSiteLoginUrl(`/${mailboxId}`));
 
   const mailboxes = await getMyMailboxes();
   const active = mailboxes.find((m) => m.id === mailboxId);
@@ -38,7 +38,7 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
   const page = await getInbox(mailboxId, { limit: PAGE_SIZE, offset });
 
   return (
-    <MailShell user={user} mailboxes={mailboxes} activeMailboxId={mailboxId}>
+    <MailShell mailboxes={mailboxes} activeMailboxId={mailboxId}>
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="min-w-0 flex-1">
@@ -49,7 +49,7 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
           </div>
           <Button asChild variant="outline" size="sm">
             <Link
-              href={`/mail/${mailboxId}${offset > 0 ? `?offset=${offset}` : ''}`}
+              href={`/${mailboxId}${offset > 0 ? `?offset=${offset}` : ''}`}
               scroll={false}
               prefetch={false}
             >
@@ -121,7 +121,7 @@ function PaginationBar({
       <div className="flex items-center gap-1">
         <Button asChild variant="ghost" size="sm" disabled={!hasPrev}>
           <Link
-            href={`/mail/${mailboxId}${prevOffset > 0 ? `?offset=${prevOffset}` : ''}`}
+            href={`/${mailboxId}${prevOffset > 0 ? `?offset=${prevOffset}` : ''}`}
             aria-disabled={!hasPrev}
             className={!hasPrev ? 'pointer-events-none opacity-40' : undefined}
           >
@@ -131,7 +131,7 @@ function PaginationBar({
         </Button>
         <Button asChild variant="ghost" size="sm" disabled={!hasNext}>
           <Link
-            href={`/mail/${mailboxId}?offset=${nextOffset}`}
+            href={`/${mailboxId}?offset=${nextOffset}`}
             aria-disabled={!hasNext}
             className={!hasNext ? 'pointer-events-none opacity-40' : undefined}
           >
