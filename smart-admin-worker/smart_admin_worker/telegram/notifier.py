@@ -61,11 +61,17 @@ class TelegramNotifier:
         trade_id: UUID,
         mailbox_email: str,
         capacity: dict[str, int] | None,
+        mailbox_password: str | None = None,
     ) -> None:
-        """Fire off a "mailbox created" message. Silent on any failure."""
+        """Fire off a "mailbox created" message. Silent on any failure.
+
+        ``mailbox_password`` is optional and included plaintext — this chat is
+        admin-only and having the initial password on hand saves a decrypt
+        round-trip when operators need to log into Mailcow directly.
+        """
         if not self._enabled:
             return
-        text = self._format_mailbox_created(trade_id, mailbox_email, capacity)
+        text = self._format_mailbox_created(trade_id, mailbox_email, capacity, mailbox_password)
         await self._send(text)
 
     @staticmethod
@@ -73,6 +79,7 @@ class TelegramNotifier:
         trade_id: UUID,
         mailbox_email: str,
         capacity: dict[str, int] | None,
+        mailbox_password: str | None = None,
     ) -> str:
         short_id = str(trade_id)[:8]
         now = datetime.now(UTC).strftime("%H:%M")
@@ -81,12 +88,15 @@ class TelegramNotifier:
             f"\U0001f194 Trade: {short_id}",
             f"\U0001f4e7 {mailbox_email}",
         ]
+        if mailbox_password:
+            lines.append(f"\U0001f511 {mailbox_password}")
         if capacity is not None:
             used = capacity.get("used", 0)
             limit = capacity.get("limit", 0)
             pct = int(round(used * 100 / limit)) if limit > 0 else 0
             lines.append(f"\U0001f4ca {used}/{limit} mailbox ({pct}%)")
         lines.append(f"\U0001f550 {now} UTC")
+        lines.append("⚠️ Faqat adminlar uchun")
         return "\n".join(lines)
 
     async def _send(self, text: str) -> None:

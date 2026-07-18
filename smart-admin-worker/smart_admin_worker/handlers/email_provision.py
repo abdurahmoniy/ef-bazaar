@@ -111,6 +111,7 @@ class EmailProvisionHandler:
                         trade_id=event.trade_id,
                         mailbox_email=mb.email,
                         capacity=capacity,
+                        mailbox_password=password,
                     )
                 )
                 task.add_done_callback(_log_notify_task_failure)
