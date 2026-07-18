@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.Trade;
@@ -29,8 +28,14 @@ public class EmailProvisionedConsumer {
             groupId = "trade-service-email-provisioned",
             properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$EmailProvisioned"}
     )
-    @Transactional
     public void onEmailProvisioned(TradeEvents.EmailProvisioned e) {
+        // No class-level @Transactional here: the two mailbox writes below are
+        // each @Transactional inside MailboxService, and `tradeService.transition`
+        // manages its own tx. Wrapping the whole handler in a tx breaks the
+        // downstream `catch (InvalidTradeTransitionException)` — Spring silently
+        // marks the outer tx rollback-only when the inner tx throws, so returning
+        // "normally" from the catch surfaces as UnexpectedRollbackException at
+        // commit time and Kafka retries the poison record forever.
         Trade t = trades.findById(e.tradeId()).orElse(null);
         if (t == null) {
             log.warn("email-provisioned for unknown trade {}", e.tradeId());
