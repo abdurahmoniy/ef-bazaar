@@ -25,7 +25,10 @@ public class ListingSoldConsumer {
     @KafkaListener(
             topics = "efbazaar.trade.listing-sold",
             groupId = "marketplace-listing-sold",
-            properties = {"spring.json.value.default.type=uz.efbazaar.marketplace.kafka.ListingSoldDto"}
+            properties = {
+                    "spring.json.value.default.type=uz.efbazaar.marketplace.kafka.ListingSoldDto",
+                    "spring.json.use.type.headers=false"
+            }
     )
     @Transactional
     public void onSold(ListingSoldDto e) {
