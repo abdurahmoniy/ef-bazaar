@@ -35,12 +35,6 @@ export interface MarketplaceLandingDef {
   intro: string;
   /** Pre-applied browse filters (page/size/sort are set by the route). */
   params: ListingBrowseParams;
-  /**
-   * Player pages filter cards by exact card name, but the canonical name
-   * ("L. Messi") lives in the card catalog — the route resolves this query
-   * via cards/search first and falls back to the raw value.
-   */
-  playerQuery?: string;
 }
 
 function division(level: 1 | 2 | 3 | 4): MarketplaceLandingDef {
@@ -63,7 +57,12 @@ function division(level: 1 | 2 | 3 | 4): MarketplaceLandingDef {
   };
 }
 
-function player(slug: string, displayName: string, playerQuery: string): MarketplaceLandingDef {
+/**
+ * `cardName` must be the EXACT card catalog name (cards/search `name` field) —
+ * the backend valuable_players_name filter is a full-name equality match, and
+ * resolving it from search ranking is wrong (q=Ronaldo top-ranks Rivaldo).
+ */
+function player(slug: string, displayName: string, cardName: string): MarketplaceLandingDef {
   return {
     slug,
     group: 'player',
@@ -72,8 +71,7 @@ function player(slug: string, displayName: string, playerQuery: string): Marketp
     description: `${displayName} kartasi bor eFootball akkountlarni bir joyda toping: Epic, Big Time va Show Time kartalar, divizion va narxi bilan. Sotuvchi Telegram'da.`,
     h1: `${displayName} kartali akkountlar`,
     intro: `Sotuvda ${displayName} kartasi biriktirilgan eFootball akkountlar. Karta turi (Epic, Big Time, Show Time), divizion va jamoa kuchi har bir e'londa ko'rsatilgan.`,
-    params: {},
-    playerQuery,
+    params: { attributes: { valuable_players_name: cardName } },
   };
 }
 
@@ -120,11 +118,11 @@ export const MARKETPLACE_LANDINGS: readonly MarketplaceLandingDef[] = [
       "PlayStation'da o'ynaladigan eFootball akkountlar ro'yxati. Har bir e'londa divizion, jamoa kuchi va obmen shartlari ko'rsatilgan.",
     params: { attributes: { platform: 'PLAYSTATION' } },
   },
-  player('messi', 'Messi', 'Messi'),
-  player('ronaldo', 'Ronaldo', 'Ronaldo'),
-  player('mbappe', 'Mbappe', 'Mbappe'),
-  player('neymar', 'Neymar', 'Neymar'),
-  player('haaland', 'Haaland', 'Haaland'),
+  player('messi', 'Messi', 'Lionel Messi'),
+  player('ronaldo', 'Ronaldo', 'Cristiano Ronaldo'),
+  player('mbappe', 'Mbappe', 'Kylian Mbappe'),
+  player('neymar', 'Neymar', 'Neymar Jr'),
+  player('haaland', 'Haaland', 'Erling Haaland'),
 ] as const;
 
 export function getMarketplaceLanding(slug: string): MarketplaceLandingDef | undefined {
