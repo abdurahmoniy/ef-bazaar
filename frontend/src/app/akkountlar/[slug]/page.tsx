@@ -6,13 +6,10 @@ import { ArrowRight, Package2 } from 'lucide-react';
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { ListingCard } from '@/components/marketplace/listing-card';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
+import { SiteFooter } from '@/components/site-footer';
 import { getMe } from '@/lib/auth';
 import { buildListingSearchParams, formatCompactNumber } from '@/lib/marketplace-format';
-import {
-  MARKETPLACE_LANDINGS,
-  getMarketplaceLanding,
-  type MarketplaceLandingDef,
-} from '@/lib/marketplace-landing';
+import { getMarketplaceLanding, type MarketplaceLandingDef } from '@/lib/marketplace-landing';
 import { browseListings, searchCards } from '@/lib/marketplace-server';
 import type { ListingBrowseParams, ListingResponse } from '@/lib/marketplace-types';
 import { resolveOptionalUser } from '@/lib/optional-auth';
@@ -115,8 +112,6 @@ export default async function MarketplaceLandingPage({ params }: LandingPageProp
     /</g,
     '\\u003c',
   );
-  const siblings = MARKETPLACE_LANDINGS.filter((entry) => entry.slug !== def.slug);
-
   return (
     <MarketplaceShell user={viewer} activeTab="home" backHref="/marketplace" backLabel="Bozor">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
@@ -169,25 +164,9 @@ export default async function MarketplaceLandingPage({ params }: LandingPageProp
             </div>
           </>
         )}
-
-        <nav aria-label="Boshqa kategoriyalar" className="border-t border-border pt-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Boshqa kategoriyalar
-          </p>
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {siblings.map((entry) => (
-              <li key={entry.slug}>
-                <Link
-                  href={`/akkountlar/${entry.slug}`}
-                  className="inline-flex rounded-full border border-border bg-card px-3 py-1.5 text-xs font-bold text-foreground shadow-card transition hover:border-primary hover:text-primary"
-                >
-                  {entry.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
       </section>
+
+      <SiteFooter embedded />
     </MarketplaceShell>
   );
 }

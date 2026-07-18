@@ -22,6 +22,7 @@ import {
 
 import { AuthAwareLink } from '@/components/auth/auth-aware-link';
 import { Logo } from '@/components/brand/logo';
+import { SiteFooter } from '@/components/site-footer';
 import { MARKETPLACE_LANDINGS } from '@/lib/marketplace-landing';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 
@@ -886,30 +887,3 @@ function Pill({ icon: Icon, children }: { icon?: LucideIcon; children: ReactNode
   );
 }
 
-function SiteFooter() {
-  return (
-    <footer className="border-t border-border py-8">
-      <div className="container flex flex-col gap-4 text-sm font-bold text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <Link href="/" className="font-black text-foreground">eFBazaar</Link>
-        <div className="flex flex-wrap gap-x-5 gap-y-2">
-          <Link href="/marketplace" className="transition hover:text-foreground">
-            Bozor
-          </Link>
-          <Link href="/marketplace/new" className="transition hover:text-foreground">
-            Akkount joylash
-          </Link>
-          <AuthAwareLink
-            anonHref="/auth/login"
-            anonLabel="Kirish"
-            authHref="/profile"
-            authLabel="Profil"
-            className="transition hover:text-foreground"
-          />
-          <Link href={siteConfig.links.telegram} className="transition hover:text-foreground">
-            Telegram
-          </Link>
-        </div>
-      </div>
-    </footer>
-  );
-}
