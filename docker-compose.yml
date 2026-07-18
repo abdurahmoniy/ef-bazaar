@@ -266,6 +266,68 @@ services:
     networks:
       - efbazaar-net
 
+  # ---------- Smart-admin worker (Plan C) ----------
+  smart-admin-worker:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-smart-admin-worker:${IMAGE_TAG:-latest}
+    build:
+      context: ./smart-admin-worker
+    container_name: efbazaar-smart-admin
+    restart: unless-stopped
+    # Chromium (rotate.py subprocess) needs:
+    #   - /dev/shm > 64MB default (crashpad handler heap)
+    #   - init: true — Docker's tini as PID 1 correctly reaps subprocesses;
+    #     without this Chromium's crashpad_handler gets orphaned/killed by
+    #     Python PID 1 and the IPC socket resets before args are passed
+    #     (symptom: 'chrome_crashpad_handler: --database is required' +
+    #     'recvmsg: Connection reset by peer').
+    #   - seccomp=unconfined — Docker's default seccomp profile blocks
+    #     syscalls Chromium's sandboxed renderer needs even with
+    #     --no-sandbox; loosening this is the standard workaround for
+    #     headless Chromium in slim containers.
+    shm_size: '2gb'
+    init: true
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MAILCOW_API_URL: https://mail.efbazaar.uz/api/v1
+      MAILCOW_API_KEY_FILE: /run/secrets/mailcow_api_key
+      MASTER_KEY_FILE: /run/secrets/master_key
+      IMAP_HOST: mail.efbazaar.uz
+      IMAP_PORT: "993"
+      KONAMI_SENDER_ALLOWLIST: "noreply@konami.com,no-reply@konami.jp,noreply@konami.net,konami-info@konami.net"
+      MAX_CONCURRENT_ROTATE: "1"
+      MAX_CONCURRENT_ROTATE_CAP: "5"
+      IMAP_POLL_INTERVAL_SECONDS: "5"
+      WORKER_HEALTHCHECK_PORT: "8086"
+      LOG_LEVEL: INFO
+      # Optional — mirrored from the bot service. Worker degrades to a silent
+      # no-op notifier if any of these is unset.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_GROUP_CHAT_ID: ${TELEGRAM_GROUP_CHAT_ID}
+      TELEGRAM_TOPIC_LOGS: ${TELEGRAM_TOPIC_LOGS}
+    secrets:
+      - mailcow_api_key
+      - master_key
+    depends_on:
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    mem_limit: 720m
+    memswap_limit: 900m
+    networks:
+      - efbazaar-net
+
   bot:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-bot:${IMAGE_TAG:-latest}
     container_name: efbazaar-bot
@@ -381,3 +443,5 @@ networks:
 secrets:
   master_key:
     file: ./infra/secrets/master_key
+  mailcow_api_key:
+    file: ./infra/secrets/mailcow_api_key

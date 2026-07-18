@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { LogoutButton } from '@/components/profile/logout-button';
 import { ProfileAccount } from '@/components/profile/profile-account';
+import { ProfileCards } from '@/components/profile/profile-cards';
 import { ProfileChats } from '@/components/profile/profile-chats';
 import { ProfileHeader } from '@/components/profile/profile-header';
 import { ProfileListings } from '@/components/profile/profile-listings';
@@ -14,6 +15,7 @@ import {
   getMyFavorites,
   getMyListings,
 } from '@/lib/marketplace-server';
+import { getMyCards } from '@/lib/trade-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +28,16 @@ interface ProfilePageProps {
   searchParams?: Promise<{ tab?: string }>;
 }
 
-const VALID_TABS: ProfileTabId[] = ['listings', 'chats', 'favorites', 'account'];
+const VALID_TABS: ProfileTabId[] = [
+  'listings',
+  'chats',
+  'favorites',
+  'kartalar',
+  // 'pochta' is a link-out to /mail, never rendered inside the profile shell —
+  // omit it here so ?tab=pochta falls back to 'listings' rather than a blank
+  // section.
+  'account',
+];
 
 function resolveTab(value: string | undefined): ProfileTabId {
   return VALID_TABS.includes(value as ProfileTabId) ? (value as ProfileTabId) : 'listings';
@@ -43,10 +54,13 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
 
   // Fetch tab data server-side. Fetch counts even for inactive tabs so the badges render.
-  const [listings, chats, favorites] = await Promise.all([
+  // Cards are only fetched when the Kartalar tab is active — the list has no
+  // count badge and the other tabs don't need it.
+  const [listings, chats, favorites, cards] = await Promise.all([
     getMyListings(),
     getMyChats(),
     getMyFavorites(),
+    activeTab === 'kartalar' ? getMyCards() : Promise.resolve([]),
   ]);
 
   return (
@@ -69,6 +83,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           {activeTab === 'listings' && <ProfileListings listings={listings} />}
           {activeTab === 'chats' && <ProfileChats chatCount={chats.length} />}
           {activeTab === 'favorites' && <ProfileListings listings={favorites} favorites />}
+          {activeTab === 'kartalar' && <ProfileCards cards={cards} />}
           {activeTab === 'account' && (
             <ProfileAccount user={user} googleClientId={googleClientId} botUsername={botUsername} />
           )}

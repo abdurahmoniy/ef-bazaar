@@ -22,6 +22,9 @@ public final class TradeEvents {
     public static final String TOPIC_IMAP_2FA             = "efbazaar.trade.imap-2fa-code";
     public static final String TOPIC_MAILBOX_ROTATE_REQ   = "efbazaar.trade.mailbox-rotate-request";
     public static final String TOPIC_MAILBOX_ROTATED      = "efbazaar.trade.mailbox-rotated";
+    public static final String TOPIC_WORKER_QUEUED        = "efbazaar.trade.worker-queued";
+    public static final String TOPIC_WORKER_STARTED       = "efbazaar.trade.worker-started";
+    public static final String TOPIC_LISTING_SOLD         = "efbazaar.trade.listing-sold";
 
     public enum ProposalOutcome { ACCEPTED, REJECTED, EXPIRED }
     public enum ImapPurpose      { VERIFY_LINK, WAIT_2FA_CODE }
@@ -77,4 +80,26 @@ public final class TradeEvents {
             byte[] encryptedPassword,
             byte[] iv,
             byte[] tag) {}
+
+    public record WorkerQueued(
+            UUID tradeId,
+            String purpose,
+            int estimatedWaitSeconds) {}
+
+    public record WorkerStarted(
+            UUID tradeId,
+            String purpose) {}
+
+    /**
+     * Emitted after a trade reaches SUCCESS so marketplace-service can mark
+     * the underlying listing SOLD and demote it in browse results. Only
+     * published when the trade was opened from a listing (spec proposals
+     * without a listing context leave this event out).
+     */
+    public record ListingSold(
+            UUID listingId,
+            UUID buyerId,
+            UUID sellerId,
+            long priceUzs,
+            Instant soldAt) {}
 }

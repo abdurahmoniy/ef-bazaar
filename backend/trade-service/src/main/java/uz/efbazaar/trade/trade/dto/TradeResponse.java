@@ -13,8 +13,13 @@ public record TradeResponse(
         UUID buyerId,
         long priceUzs,
         UUID mailboxId,
+        /** Escrow mailbox address — seller needs it to change the Konami email. */
+        String mailboxEmail,
+        UUID chatId,
         Instant createdAt,
         Instant expiresAt,
         Instant stateDeadline,
-        ParticipantRole role  // set by the controller based on the caller
+        ParticipantRole role, // set by the controller based on the caller
+        /** Set once WAITING_BUYER_VERIFY is reached so the buyer knows which message to reveal. */
+        UUID passwordMessageId
 ) {}

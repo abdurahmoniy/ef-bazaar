@@ -75,6 +75,16 @@ public class TradeStateHandler {
                 trade.setTerminalReason("BUYER_CONFIRMED");
                 events.mailboxRotateRequest(trade.getMailboxId());
                 mailboxes.assignOwner(trade.getMailboxId(), trade.getBuyerId());
+                // Notify marketplace-service so the listing sinks to the end
+                // of browse results and picks up the "Sotildi" badge. Skip
+                // if this trade was opened from a spec (no listing context).
+                if (trade.getListingId() != null) {
+                    events.listingSold(
+                            trade.getListingId(),
+                            trade.getBuyerId(),
+                            trade.getSellerId(),
+                            trade.getPriceUzs());
+                }
                 audit.record(trade.getId(), actor, actorId, "TRADE_SUCCESS",
                         Map.of("mailboxHandedTo", trade.getBuyerId().toString()));
             }

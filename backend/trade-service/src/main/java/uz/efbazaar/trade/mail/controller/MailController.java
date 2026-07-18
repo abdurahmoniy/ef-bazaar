@@ -1,0 +1,114 @@
+package uz.efbazaar.trade.mail.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import uz.efbazaar.trade.mail.dto.InboxPage;
+import uz.efbazaar.trade.mail.dto.MailboxSummary;
+import uz.efbazaar.trade.mail.dto.MessageDetail;
+import uz.efbazaar.trade.mail.service.MailRateLimiter;
+import uz.efbazaar.trade.mail.service.MailService;
+import uz.efbazaar.trade.mail.service.RateLimitExceededException;
+import uz.efbazaar.trade.security.AuthenticatedUser;
+
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Read-only webmail endpoints. Every endpoint under {@code /api/v1/mail} is
+ * a safe HTTP method (GET) — this is a hard invariant that mirrors the "no
+ * reply / forward / compose" product decision. Never add a mutating verb here
+ * without updating the product owner.
+ *
+ * <p>Endpoints:
+ * <ul>
+ *   <li>{@code GET /mailboxes} — sidebar list with unread + last-activity</li>
+ *   <li>{@code GET /{mbox}/inbox?limit=&offset=} — paged inbox slice</li>
+ *   <li>{@code GET /{mbox}/messages/{msgId}} — full message with sanitised body</li>
+ *   <li>{@code GET /{mbox}/messages/{msgId}/attachments/{attId}} — binary download</li>
+ * </ul>
+ */
+@RestController
+@RequestMapping("/api/v1/mail")
+@RequiredArgsConstructor
+public class MailController {
+
+    private final MailService mail;
+    private final MailRateLimiter rateLimiter;
+
+    @GetMapping("/mailboxes")
+    public List<MailboxSummary> mailboxes(@AuthenticationPrincipal AuthenticatedUser me) {
+        enforceRateLimit(me.userId());
+        return mail.listMyMailboxes(me.userId());
+    }
+
+    @GetMapping("/{mailboxId}/inbox")
+    public InboxPage inbox(
+            @AuthenticationPrincipal AuthenticatedUser me,
+            @PathVariable UUID mailboxId,
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(defaultValue = "0") int offset) {
+        enforceRateLimit(me.userId());
+        return mail.listInbox(me.userId(), mailboxId, limit, offset);
+    }
+
+    @GetMapping("/{mailboxId}/messages/{messageId}")
+    public MessageDetail message(
+            @AuthenticationPrincipal AuthenticatedUser me,
+            @PathVariable UUID mailboxId,
+            @PathVariable String messageId) {
+        enforceRateLimit(me.userId());
+        return mail.getMessage(me.userId(), mailboxId, messageId);
+    }
+
+    @GetMapping("/{mailboxId}/messages/{messageId}/attachments/{attachmentId}")
+    public ResponseEntity<Resource> attachment(
+            @AuthenticationPrincipal AuthenticatedUser me,
+            @PathVariable UUID mailboxId,
+            @PathVariable String messageId,
+            @PathVariable String attachmentId) {
+        enforceRateLimit(me.userId());
+        var payload = mail.getAttachment(me.userId(), mailboxId, messageId, attachmentId);
+
+        String filename = payload.filename() != null && !payload.filename().isBlank()
+                ? payload.filename()
+                : "attachment";
+        // Always attachment (never inline) — the MVP never renders untrusted
+        // binaries in the browser, even for image/pdf types. Preview support
+        // is explicitly out of scope.
+        ContentDisposition cd = ContentDisposition.attachment()
+                .filename(filename, StandardCharsets.UTF_8)
+                .build();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentDisposition(cd);
+        headers.setContentLength(payload.bytes().length);
+        MediaType ct;
+        try {
+            ct = MediaType.parseMediaType(payload.contentType());
+        } catch (Exception ex) {
+            ct = MediaType.APPLICATION_OCTET_STREAM;
+        }
+        headers.setContentType(ct);
+
+        Resource body = new ByteArrayResource(payload.bytes());
+        return new ResponseEntity<>(body, headers, 200);
+    }
+
+    private void enforceRateLimit(UUID userId) {
+        if (!rateLimiter.tryAcquire(userId)) {
+            throw new RateLimitExceededException("Mail request rate limit exceeded");
+        }
+    }
+}

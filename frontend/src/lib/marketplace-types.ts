@@ -60,6 +60,7 @@ export interface ListingResponse {
   /** Legacy backend name; values are Telegram file_id strings for /bot/photo/{fileId}. */
   mediaMessageIds: string[];
   status: ListingStatus;
+  soldAt?: string | null;
   forwardCount: number;
   likeCount: number;
   likedByMe?: boolean | null;

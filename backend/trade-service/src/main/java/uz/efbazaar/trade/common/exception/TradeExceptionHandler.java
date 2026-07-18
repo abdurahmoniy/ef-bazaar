@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import uz.efbazaar.trade.card.exception.CardValidationException;
+import uz.efbazaar.trade.mail.service.MessageNotFoundException;
+import uz.efbazaar.trade.mail.service.RateLimitExceededException;
 import uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException;
 import uz.efbazaar.trade.trade.exception.PasswordAlreadyRevealedException;
 import uz.efbazaar.trade.trade.exception.ProposalNotFoundException;
@@ -53,6 +55,19 @@ public class TradeExceptionHandler {
     @ExceptionHandler(PasswordAlreadyRevealedException.class)
     ResponseEntity<Map<String, Object>> onPasswordAlreadyRevealed(PasswordAlreadyRevealedException e) {
         return status(HttpStatus.GONE, "Password already revealed");
+    }
+
+    @ExceptionHandler(MessageNotFoundException.class)
+    ResponseEntity<Map<String, Object>> onMessageNotFound(MessageNotFoundException e) {
+        // 404 without echoing the id — the caller supplied it; leaking it back
+        // is fine, but keep the shape identical to other not-found responses.
+        log.debug("mail message not found: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body(HttpStatus.NOT_FOUND, "not_found"));
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    ResponseEntity<Map<String, Object>> onMailRateLimit(RateLimitExceededException e) {
+        return status(HttpStatus.TOO_MANY_REQUESTS, e.getMessage());
     }
 
     private Map<String, Object> body(HttpStatus status, String code) {

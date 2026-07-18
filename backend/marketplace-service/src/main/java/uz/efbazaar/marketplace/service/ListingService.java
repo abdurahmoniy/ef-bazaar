@@ -132,8 +132,18 @@ public class ListingService {
 
     @Transactional(readOnly = true)
     public Page<Listing> browse(ListingFilter filter, Pageable pageable) {
+        // Prepend "status ASC" so ACTIVE (alphabetically less than SOLD) is
+        // always ranked ahead of SOLD, then the caller's sort takes over.
+        // Buyers see live inventory first without SOLD entries disappearing.
+        org.springframework.data.domain.Sort combined =
+                org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Order.asc("status"))
+                        .and(pageable.getSort());
+        org.springframework.data.domain.Pageable ranked =
+                org.springframework.data.domain.PageRequest.of(
+                        pageable.getPageNumber(), pageable.getPageSize(), combined);
         return listings.findAll(
-                ListingSpecifications.withFilter(sanitizeRangeFilters(filter)), pageable);
+                ListingSpecifications.withFilter(sanitizeRangeFilters(filter)), ranked);
     }
 
     /**
@@ -174,6 +184,35 @@ public class ListingService {
     @Transactional(readOnly = true)
     public Page<Listing> findLiked(UUID userId, Pageable pageable) {
         return listings.findLikedByUser(userId, pageable);
+    }
+
+    // ----- trade-service Kafka integration -----
+
+    /**
+     * Trade-service reports a completed trade — flip the listing to SOLD.
+     * Idempotent so the {@code listing-sold} consumer can survive Kafka
+     * redeliveries safely. Missing listings log a warning and return quietly.
+     */
+    @Transactional
+    public void markSold(UUID listingId, UUID buyerId, java.time.Instant soldAt) {
+        Listing listing = listings.findById(listingId).orElse(null);
+        if (listing == null) {
+            log.warn("markSold: listing {} not found (Kafka replay of pre-migration event?)", listingId);
+            return;
+        }
+        if (listing.getStatus() == ListingStatus.SOLD) {
+            log.debug("markSold: listing {} already SOLD, skipping", listingId);
+            return;
+        }
+        if (listing.getStatus() == ListingStatus.DELETED) {
+            log.warn("markSold: listing {} is DELETED — not overwriting with SOLD", listingId);
+            return;
+        }
+        listing.setStatus(ListingStatus.SOLD);
+        listing.setSoldAt(soldAt);
+        listing.setSoldToUserId(buyerId);
+        listings.save(listing);
+        log.info("Listing marked SOLD: id={} buyerId={}", listingId, buyerId);
     }
 
     // ----- admin moderation -----

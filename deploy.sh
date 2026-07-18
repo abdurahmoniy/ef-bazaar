@@ -313,6 +313,41 @@ trade_bootstrap() {
   docker compose exec -T postgres createdb -U efbazaar "$trade_db"
 }
 
+# ─── Smart-admin-worker bootstrap ──────────────────────────────────────────
+# Writes mailcow_api_key from the CI-injected env var (same pattern as
+# master_key). If the env var is empty we leave any existing file untouched
+# so operators can still bootstrap manually — but a missing file without a
+# secret is a hard error, mirroring the previous behaviour.
+# Safe to run every deploy; idempotent.
+# ────────────────────────────────────────────────────────────────────────────
+sa_worker_bootstrap() {
+  local key_file="infra/secrets/mailcow_api_key"
+  mkdir -p "$(dirname "$key_file")"
+  chmod 700 "$(dirname "$key_file")" 2>/dev/null || true
+
+  if [[ -n "${MAILCOW_API_KEY:-}" ]]; then
+    # Content changed? Rewrite; otherwise no-op to avoid noisy mtime updates.
+    if [[ ! -f "$key_file" ]] || ! printf '%s' "$MAILCOW_API_KEY" | cmp -s - "$key_file"; then
+      echo "==> Writing $key_file from CI secret"
+      printf '%s' "$MAILCOW_API_KEY" > "$key_file"
+    fi
+  else
+    echo "==> MAILCOW_API_KEY not set in env — keeping existing $key_file (if any)"
+  fi
+
+  if [[ ! -s "$key_file" ]]; then
+    echo "ERROR: $key_file is missing. Set MAILCOW_API_KEY as a CI secret, or generate one in Mailcow admin (Configuration → Access → API) and write it to that file, one line, no quotes."
+    return 1
+  fi
+
+  # File mode 0644 — same rationale as master_key: docker's tmpfs mount at
+  # /run/secrets/mailcow_api_key is world-readable inside the container so the
+  # non-root app user can read it; the containing directory is 0700 so only
+  # root can list it on the host.
+  chmod 644 "$key_file"
+  chmod 700 "$(dirname "$key_file")" 2>/dev/null || true
+}
+
 # ─── Diff: qaysi kontaynerlar recreate bo'ladi (informational only) ─────────
 report_changes() {
   echo "==> Checking which services have image/config changes"
@@ -336,6 +371,7 @@ docker compose pull
 docker compose up -d postgres
 sync_db_password
 trade_bootstrap
+sa_worker_bootstrap
 
 # Force-all override
 RECREATE_FLAG=""

@@ -59,6 +59,8 @@ docker-compose.override.yml
 
 # ===== Secrets (never commit) =====
 infra/secrets/master_key
+# Mailcow API key (never commit)
+infra/secrets/mailcow_api_key
 
 # ===== Vercel =====
 .vercel

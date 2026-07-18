@@ -18,6 +18,7 @@ import {
 
 import { ChatPinnedHeader } from '@/components/chat/chat-pinned-header';
 import { MessageActionSheet } from '@/components/chat/message-action-sheet';
+import { TradePanel } from '@/components/chat/trade-panel';
 import { MessageAttachment, formatBytes } from '@/components/chat/message-attachment';
 import { VoiceRecorder } from '@/components/chat/voice-recorder';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,7 @@ import type {
   MessageResponse,
   PageResponse,
 } from '@/lib/marketplace-types';
+import type { PendingProposalResponse } from '@/lib/trade-types';
 import { cn } from '@/lib/utils';
 
 interface ChatViewProps {
@@ -45,11 +47,18 @@ interface ChatViewProps {
   viewerId: string;
   initialMessages: MessageResponse[];
   listing: ListingResponse | null;
+  initialPendingProposal?: PendingProposalResponse | null;
 }
 
 const POLL_INTERVAL_MS = 5000;
 
-export function ChatView({ chat: initialChat, viewerId, initialMessages, listing }: ChatViewProps) {
+export function ChatView({
+  chat: initialChat,
+  viewerId,
+  initialMessages,
+  listing,
+  initialPendingProposal = null,
+}: ChatViewProps) {
   const router = useRouter();
   const [chat, setChat] = useState(initialChat);
   const [messages, setMessages] = useState(initialMessages);
@@ -320,6 +329,12 @@ export function ChatView({ chat: initialChat, viewerId, initialMessages, listing
         className="flex-1 space-y-2 overflow-y-auto px-3 py-4"
       >
         <ChatPinnedHeader listing={listing} />
+        <TradePanel
+          chat={chat}
+          viewerId={viewerId}
+          listing={listing}
+          initialPendingProposal={initialPendingProposal}
+        />
         {messages.length === 0 && (
           <p className="pt-4 text-center text-xs text-muted-foreground">
             Hali xabarlar yo'q. Birinchi bo'lib salom bering.

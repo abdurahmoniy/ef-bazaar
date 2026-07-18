@@ -20,6 +20,8 @@ public interface ListingMapper {
     @Mapping(target = "forwardCount", ignore = true)
     @Mapping(target = "mediaMessageIds", ignore = true)
     @Mapping(target = "attributes", ignore = true)
+    @Mapping(target = "soldAt", ignore = true)
+    @Mapping(target = "soldToUserId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     Listing toEntity(ListingCreateRequest request);
@@ -30,6 +32,8 @@ public interface ListingMapper {
     @Mapping(target = "forwardCount", ignore = true)
     @Mapping(target = "mediaMessageIds", ignore = true)
     @Mapping(target = "attributes", ignore = true)
+    @Mapping(target = "soldAt", ignore = true)
+    @Mapping(target = "soldToUserId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     void update(@MappingTarget Listing target, ListingUpdateRequest request);

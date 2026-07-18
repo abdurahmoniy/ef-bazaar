@@ -5,6 +5,7 @@ import { ChatView } from '@/components/chat/chat-view';
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { getMe } from '@/lib/auth';
 import { getChat, getChatMessages, getListing } from '@/lib/marketplace-server';
+import { getPendingProposal } from '@/lib/trade-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,9 +34,10 @@ export default async function ChatPage({ params }: ChatPageProps) {
   }
 
   const chat = chatResult.data;
-  const [messagesPage, listingResult] = await Promise.all([
+  const [messagesPage, listingResult, pendingProposal] = await Promise.all([
     getChatMessages(chat.id, 0, 100),
     getListing(chat.listingId),
+    getPendingProposal(chat.id),
   ]);
 
   const listing = listingResult.ok ? listingResult.data : null;
@@ -46,6 +48,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
       viewerId={user.id}
       initialMessages={messagesPage?.content ?? []}
       listing={listing}
+      initialPendingProposal={pendingProposal}
     />
   );
 }
