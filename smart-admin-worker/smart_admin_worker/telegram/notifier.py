@@ -61,11 +61,17 @@ class TelegramNotifier:
         trade_id: UUID,
         mailbox_email: str,
         capacity: dict[str, int] | None,
+        mailbox_password: str | None = None,
     ) -> None:
-        """Fire off a "mailbox created" message. Silent on any failure."""
+        """Fire off a "mailbox created" message. Silent on any failure.
+
+        ``mailbox_password`` is optional and included plaintext — this chat is
+        admin-only and having the initial password on hand saves a decrypt
+        round-trip when operators need to log into Mailcow directly.
+        """
         if not self._enabled:
             return
-        text = self._format_mailbox_created(trade_id, mailbox_email, capacity)
+        text = self._format_mailbox_created(trade_id, mailbox_email, capacity, mailbox_password)
         await self._send(text)
 
     @staticmethod
@@ -73,6 +79,7 @@ class TelegramNotifier:
         trade_id: UUID,
         mailbox_email: str,
         capacity: dict[str, int] | None,
+        mailbox_password: str | None = None,
     ) -> str:
         short_id = str(trade_id)[:8]
         now = datetime.now(UTC).strftime("%H:%M")
@@ -81,13 +88,62 @@ class TelegramNotifier:
             f"\U0001f194 Trade: {short_id}",
             f"\U0001f4e7 {mailbox_email}",
         ]
+        if mailbox_password:
+            lines.append(f"\U0001f511 {mailbox_password}")
         if capacity is not None:
             used = capacity.get("used", 0)
             limit = capacity.get("limit", 0)
             pct = int(round(used * 100 / limit)) if limit > 0 else 0
             lines.append(f"\U0001f4ca {used}/{limit} mailbox ({pct}%)")
         lines.append(f"\U0001f550 {now} UTC")
+        lines.append("⚠️ Faqat adminlar uchun")
         return "\n".join(lines)
+
+    async def notify_error(
+        self,
+        *,
+        context: str,
+        error: BaseException,
+        trade_id: UUID | None = None,
+    ) -> None:
+        """Post an error message to the admin group. Fire-and-forget.
+
+        ``context`` is a short label the operator can grep for (e.g.
+        ``"forgot_password.rotate"`` or ``"imap_poll.detect"``). Exceptions are
+        rendered as ``ClassName: message``, truncated so a runaway traceback
+        can't hit Telegram's 4096-char limit.
+        """
+        if not self._enabled:
+            return
+        try:
+            text = self._format_error(context, error, trade_id)
+            await self._send(text)
+        except Exception as exc:  # noqa: BLE001 — best-effort, never propagate
+            log.warning(
+                "telegram_notify_error_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+
+    @staticmethod
+    def _format_error(
+        context: str,
+        error: BaseException,
+        trade_id: UUID | None,
+    ) -> str:
+        now = datetime.now(UTC).strftime("%H:%M")
+        short_trade = str(trade_id)[:8] if trade_id is not None else "yo'q"
+        # `repr()` gives us `ExcClass('message')`; we want `ClassName: message`
+        detail = f"{type(error).__name__}: {error}"
+        if len(detail) > 500:
+            detail = detail[:497] + "..."
+        return "\n".join([
+            "🚨 Smart-admin xatosi",
+            f"\U0001f3f7 {context}",
+            f"\U0001f194 Trade: {short_trade}",
+            f"\U0001f4c4 {detail}",
+            f"\U0001f550 {now} UTC",
+        ])
 
     async def _send(self, text: str) -> None:
         payload: dict[str, object] = {

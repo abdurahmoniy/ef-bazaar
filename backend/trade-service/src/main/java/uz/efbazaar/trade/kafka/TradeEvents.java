@@ -25,6 +25,7 @@ public final class TradeEvents {
     public static final String TOPIC_WORKER_QUEUED        = "efbazaar.trade.worker-queued";
     public static final String TOPIC_WORKER_STARTED       = "efbazaar.trade.worker-started";
     public static final String TOPIC_LISTING_SOLD         = "efbazaar.trade.listing-sold";
+    public static final String TOPIC_KONAMI_EMAIL_CHANGE_CODE = "efbazaar.trade.konami-email-change-code-received";
 
     public enum ProposalOutcome { ACCEPTED, REJECTED, EXPIRED }
     public enum ImapPurpose      { VERIFY_LINK, WAIT_2FA_CODE }
@@ -42,10 +43,27 @@ public final class TradeEvents {
             Instant resolvedAt) {}
 
     public record EmailProvisionRequest(
-            UUID tradeId) {}
+            UUID tradeId,
+            /** Placeholder mailbox id the worker should echo back in
+             * {@link EmailProvisioned} so trade-service, MailboxPasswordResolver,
+             * and the worker's rotate cache all agree on a single UUID (no
+             * FK-hostile swap in adoptWorkerMailboxId). */
+            UUID mailboxId) {}
 
+    /**
+     * {@code mailboxId} is the UUID the worker assigned to this mailbox. It is
+     * the same id used to derive the encryption context (`mbox-{mailboxId}`)
+     * and to key the worker's rotate cache. Trade-service adopts it as
+     * {@code mailboxes.id} so a later {@code MailboxRotateRequest} — which
+     * carries the persisted {@code mailboxId} — finds the right cache entry.
+     *
+     * <p>Legacy events emitted before this field existed will arrive with a
+     * null value; the consumer keeps the placeholder id in that case so a
+     * mid-upgrade Kafka replay still lands somewhere sensible.
+     */
     public record EmailProvisioned(
             UUID tradeId,
+            UUID mailboxId,
             String mailboxEmail,
             byte[] encryptedPassword,
             byte[] iv,
@@ -102,4 +120,18 @@ public final class TradeEvents {
             UUID sellerId,
             long priceUzs,
             Instant soldAt) {}
+
+    /**
+     * Konami's server sends a 6-digit code to the escrow mailbox when the
+     * seller updates their KONAMI ID email. Smart-admin's IMAP detector picks
+     * it up and publishes this event so trade-service can surface the code to
+     * the seller (they enter it back on Konami to complete the email change).
+     * TTL is 5 minutes on Konami's side; we don't enforce that here — the UI
+     * just shows what we've got.
+     */
+    public record KonamiEmailChangeCodeReceived(
+            UUID tradeId,
+            String verificationCode,
+            Instant receivedAt,
+            String sender) {}
 }

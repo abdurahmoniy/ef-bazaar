@@ -56,7 +56,7 @@ public class TradeStateHandler {
         switch (newState) {
             case INITIATED -> {
                 trade.setStateDeadline(null);
-                events.emailProvisionRequest(trade.getId());
+                events.emailProvisionRequest(trade.getId(), trade.getMailboxId());
             }
             case WAITING_PAYMENT           -> trade.setStateDeadline(now(twpS));
             case WAITING_EMAIL_CHANGE      -> trade.setStateDeadline(now(twecS));

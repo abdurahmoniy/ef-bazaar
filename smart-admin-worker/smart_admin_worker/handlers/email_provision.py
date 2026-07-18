@@ -61,6 +61,12 @@ class EmailProvisionHandler:
     async def handle(self, event: e.EmailProvisionRequest) -> None:
         local_part = self._local_part_for(event.trade_id)
         password = self._generate_password()
+        # Echo back the mailbox id trade-service supplied in the request.
+        # Aligning the id here means MailboxService.adoptWorkerMailboxId takes
+        # the "already matches" fast path (in-place overwrite, no delete-and-
+        # insert swap) and MailboxRotateHandler can find the email in cache
+        # via the same UUID trade-service later publishes on rotate-request.
+        mailbox_id = event.mailbox_id
 
         fresh_create = True
         try:
@@ -75,7 +81,7 @@ class EmailProvisionHandler:
             fresh_create = False
 
         field = self._encryptor.encrypt(
-            f"mbox-{event.trade_id}",
+            f"mbox-{mailbox_id}",
             password.encode("utf-8"),
         )
 
@@ -84,6 +90,7 @@ class EmailProvisionHandler:
             str(event.trade_id),
             e.EmailProvisioned(
                 trade_id=event.trade_id,
+                mailbox_id=mailbox_id,
                 mailbox_email=mb.email,
                 encrypted_password=field.ciphertext,
                 iv=field.iv,
@@ -98,7 +105,10 @@ class EmailProvisionHandler:
             if self._password_cache is not None:
                 self._password_cache[mb.email] = password
             if self._mailbox_id_to_email is not None:
-                self._mailbox_id_to_email[event.trade_id] = mb.email
+                # Key by the mailbox UUID (matches the id trade-service will
+                # persist and later echo back on MailboxRotateRequest), not the
+                # trade UUID.
+                self._mailbox_id_to_email[mailbox_id] = mb.email
 
             # Fire-and-forget Telegram notification: a slow / dead Telegram must
             # never stall the handler and prevent trade-service from getting
@@ -111,6 +121,7 @@ class EmailProvisionHandler:
                         trade_id=event.trade_id,
                         mailbox_email=mb.email,
                         capacity=capacity,
+                        mailbox_password=password,
                     )
                 )
                 task.add_done_callback(_log_notify_task_failure)
