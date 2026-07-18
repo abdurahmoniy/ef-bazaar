@@ -2,10 +2,14 @@ package uz.efbazaar.trade.mail;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import uz.efbazaar.trade.crypto.EncryptedField;
 import uz.efbazaar.trade.crypto.TradeCrypto;
 import uz.efbazaar.trade.mail.service.MailboxPasswordResolver;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
+import uz.efbazaar.trade.trade.repository.TradeRepository;
+
+import java.util.Optional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
@@ -23,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class MailboxPasswordResolverTest {
 
     private TradeCrypto crypto;
+    private TradeRepository trades;
     private MailboxPasswordResolver resolver;
 
     @BeforeEach
@@ -30,7 +35,13 @@ class MailboxPasswordResolverTest {
         byte[] masterKey = new byte[32];
         new SecureRandom().nextBytes(masterKey);
         crypto = new TradeCrypto(() -> masterKey);
-        resolver = new MailboxPasswordResolver(crypto);
+        trades = Mockito.mock(TradeRepository.class);
+        // Every test in this class hands the resolver a Mailbox whose tradeId
+        // is already populated — the trade-repo fallback (for post-handoff
+        // rows where mailbox.tradeId=null) never fires, so returning empty is
+        // the safe default.
+        Mockito.when(trades.findByMailboxId(Mockito.any())).thenReturn(Optional.empty());
+        resolver = new MailboxPasswordResolver(crypto, trades);
     }
 
     @Test
