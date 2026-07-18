@@ -6,9 +6,13 @@ import org.springframework.stereotype.Component;
 import uz.efbazaar.trade.crypto.EncryptedField;
 import uz.efbazaar.trade.crypto.TradeCrypto;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
+import uz.efbazaar.trade.trade.domain.Trade;
+import uz.efbazaar.trade.trade.repository.TradeRepository;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Multi-context password decryptor for mailbox rows.
@@ -39,6 +43,7 @@ import java.util.List;
 public class MailboxPasswordResolver {
 
     private final TradeCrypto crypto;
+    private final TradeRepository trades;
 
     public byte[] decryptPassword(Mailbox mbox) {
         EncryptedField field = new EncryptedField(
@@ -55,8 +60,17 @@ public class MailboxPasswordResolver {
             // Fall through to alternative contexts.
         }
 
-        if (mbox.getTradeId() != null) {
-            String tradeCtx = "mbox-" + mbox.getTradeId();
+        // Mailbox.tradeId is nulled once the trade closes (assignOwner strips
+        // the FK so future scans don't reattach). Falling back to the historical
+        // trade by mailboxId recovers the original provisioning context.
+        UUID effectiveTradeId = mbox.getTradeId();
+        if (effectiveTradeId == null) {
+            Optional<Trade> handedOff = trades.findByMailboxId(mbox.getId());
+            effectiveTradeId = handedOff.map(Trade::getId).orElse(null);
+        }
+
+        if (effectiveTradeId != null) {
+            String tradeCtx = "mbox-" + effectiveTradeId;
             tried.add(tradeCtx);
             try {
                 byte[] plain = crypto.decrypt(tradeCtx, field);
@@ -67,7 +81,7 @@ public class MailboxPasswordResolver {
                 // Try mock contexts next.
             }
 
-            String mockTradeCtx = "mbox-mock-" + mbox.getTradeId();
+            String mockTradeCtx = "mbox-mock-" + effectiveTradeId;
             tried.add(mockTradeCtx);
             try {
                 byte[] plain = crypto.decrypt(mockTradeCtx, field);
