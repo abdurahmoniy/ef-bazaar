@@ -94,6 +94,65 @@ public class MailboxService {
         mailboxes.save(m);
     }
 
+    /**
+     * Replaces a placeholder mailbox row (id = {@code placeholderId}) with a new
+     * row keyed by the worker-supplied UUID. Called from
+     * {@link uz.efbazaar.trade.kafka.EmailProvisionedConsumer} when the worker
+     * assigns its own mailbox id — the encryption context, rotate-cache lookup,
+     * and persisted id all have to be the same UUID for
+     * {@link uz.efbazaar.trade.kafka.MailboxRotatedConsumer} and
+     * {@link uz.efbazaar.trade.mail.service.MailboxPasswordResolver} to keep
+     * working end-to-end.
+     *
+     * <p>{@code mailboxes.id} is {@code updatable = false} (JPA PK) so we can't
+     * mutate it in place — instead we delete the placeholder row and insert a
+     * fresh row carrying the placeholder's {@code trade_id} FK.
+     *
+     * <p>Returns the id that ended up in the DB. If the placeholder id already
+     * matches {@code workerMailboxId} we take the simpler path and just
+     * overwrite address/password; the return value is stable in either case so
+     * callers can update {@code trade.mailboxId} unconditionally.
+     */
+    @Transactional
+    public UUID adoptWorkerMailboxId(UUID placeholderId, UUID workerMailboxId,
+                                     String email, byte[] encPass, byte[] iv, byte[] tag) {
+        Mailbox placeholder = mailboxes.findById(placeholderId)
+                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + placeholderId));
+        if (workerMailboxId.equals(placeholderId)) {
+            // Happens when a caller (e.g. MockWorker) chose to echo the
+            // placeholder id back — no swap needed, just overwrite the fields.
+            placeholder.setEmail(email);
+            placeholder.setEncryptedPassword(encPass);
+            placeholder.setPasswordIv(iv);
+            placeholder.setPasswordTag(tag);
+            mailboxes.save(placeholder);
+            return placeholderId;
+        }
+
+        UUID tradeId = placeholder.getTradeId();
+        UUID ownerUserId = placeholder.getOwnerUserId();
+        Instant createdAt = placeholder.getCreatedAt();
+
+        // Delete + flush before insert so the new row (which may not collide on
+        // the unique email index yet but will collide on the FK once the trade
+        // row is updated) doesn't trip on stale references.
+        mailboxes.delete(placeholder);
+        mailboxes.flush();
+
+        Mailbox replacement = Mailbox.builder()
+                .id(workerMailboxId)
+                .email(email)
+                .ownerUserId(ownerUserId)
+                .tradeId(tradeId)
+                .encryptedPassword(encPass)
+                .passwordIv(iv)
+                .passwordTag(tag)
+                .createdAt(createdAt != null ? createdAt : Instant.now())
+                .build();
+        mailboxes.save(replacement);
+        return workerMailboxId;
+    }
+
     @Transactional
     public void assignOwner(UUID mailboxId, UUID newOwnerId) {
         Mailbox m = mailboxes.findById(mailboxId)

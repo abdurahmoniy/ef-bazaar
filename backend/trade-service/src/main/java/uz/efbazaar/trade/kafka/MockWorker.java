@@ -12,6 +12,7 @@ import uz.efbazaar.trade.crypto.TradeCrypto;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.UUID;
 
 /**
  * Stand-in for the Python smart-admin-worker (Plan C). Consumes the four
@@ -44,11 +45,17 @@ public class MockWorker {
     public void onProvisionRequest(TradeEvents.EmailProvisionRequest req) {
         String email = "trade-" + req.tradeId().toString().substring(0, 8) + "@efbazaar.uz";
         String pw = randomPassword();
+        UUID mailboxId = UUID.randomUUID();
+        // Encryption context stays on the mock-specific prefix so
+        // MailboxPasswordResolver's fallback context (`mbox-mock-{tradeId}`)
+        // still decrypts these rows for local dev. `mailboxId` is the id
+        // trade-service will adopt via MailboxService.adoptWorkerMailboxId.
         EncryptedField enc = crypto.encrypt("mbox-mock-" + req.tradeId(), pw.getBytes());
         kafka.send(TradeEvents.TOPIC_EMAIL_PROVISIONED, req.tradeId().toString(),
-                new TradeEvents.EmailProvisioned(req.tradeId(), email,
+                new TradeEvents.EmailProvisioned(req.tradeId(), mailboxId, email,
                         enc.ciphertext(), enc.iv(), enc.tag()));
-        log.info("MockWorker provisioned {} for trade {}", email, req.tradeId());
+        log.info("MockWorker provisioned {} for trade {} as mailbox {}",
+                email, req.tradeId(), mailboxId);
     }
 
     @KafkaListener(

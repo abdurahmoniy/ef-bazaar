@@ -44,8 +44,20 @@ public final class TradeEvents {
     public record EmailProvisionRequest(
             UUID tradeId) {}
 
+    /**
+     * {@code mailboxId} is the UUID the worker assigned to this mailbox. It is
+     * the same id used to derive the encryption context (`mbox-{mailboxId}`)
+     * and to key the worker's rotate cache. Trade-service adopts it as
+     * {@code mailboxes.id} so a later {@code MailboxRotateRequest} — which
+     * carries the persisted {@code mailboxId} — finds the right cache entry.
+     *
+     * <p>Legacy events emitted before this field existed will arrive with a
+     * null value; the consumer keeps the placeholder id in that case so a
+     * mid-upgrade Kafka replay still lands somewhere sensible.
+     */
     public record EmailProvisioned(
             UUID tradeId,
+            UUID mailboxId,
             String mailboxEmail,
             byte[] encryptedPassword,
             byte[] iv,
