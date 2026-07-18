@@ -95,6 +95,20 @@ export function adminDismissReport(reportId: string): Promise<ActionResult<null>
   );
 }
 
+/**
+ * Owner-side soft-delete: flips the listing to DELETED status via
+ * DELETE /api/v1/listings/{id}. Backend rejects with 403 if the caller isn't
+ * the seller. Row stays in the DB for audit; the browse filter (ACTIVE + SOLD)
+ * hides it. Undo requires an admin restore.
+ */
+export function deleteListing(listingId: string): Promise<ActionResult<null>> {
+  return marketplaceRequest<null>(
+    ['v1', 'listings', listingId],
+    { method: 'DELETE' },
+    "E'lon o'chirilmadi",
+  );
+}
+
 export function adminDeleteListing(listingId: string): Promise<ActionResult<null>> {
   return marketplaceRequest<null>(
     ['v1', 'admin', 'listings', listingId],
