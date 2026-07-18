@@ -373,6 +373,25 @@ services:
     networks:
       - efbazaar-net
 
+  # ---------- Mail frontend (mail.efbazaar.uz) ----------
+  # Read-only webmail app — trade-service /api/v1/mail/** ni ko'rsatadi.
+  # Login UI yo'q: auth cookie'lar Domain=efbazaar.uz bilan yozilgani uchun
+  # asosiy saytdagi session shu subdomain'da ham amal qiladi.
+
+  mail-frontend:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-mail-frontend:${IMAGE_TAG:-latest}
+    container_name: efbazaar-mail-frontend
+    restart: unless-stopped
+    environment:
+      INTERNAL_API_BASE_URL: http://nginx:8080/api
+      AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-efbazaar.uz}
+      NEXT_PUBLIC_MAIN_SITE_URL: ${APP_BASE_URL:-https://efbazaar.uz}
+      NODE_OPTIONS: "--max-old-space-size=192"
+    mem_limit: 256m
+    memswap_limit: 384m
+    networks:
+      - efbazaar-net
+
   # ---------- Reverse proxy ----------
 
   nginx:
@@ -398,6 +417,7 @@ services:
       - marketplace-service
       - bot
       - frontend
+      - mail-frontend
     mem_limit: 64m
     memswap_limit: 96m
     networks:

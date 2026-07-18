@@ -98,11 +98,25 @@ const securityHeaders = [
     : []),
 ];
 
+// Webmail moved to its own app on the mail subdomain; old in-app /mail links
+// (profile tab, login `from=` round-trips, bookmarks) redirect there 1:1.
+const mailAppUrl = (process.env.NEXT_PUBLIC_MAIL_BASE_URL || 'https://mail.efbazaar.uz')
+  .replace(/\/+$/, '');
+
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  async redirects() {
+    return [
+      {
+        source: '/mail/:path*',
+        destination: `${mailAppUrl}/:path*`,
+        permanent: false,
+      },
+    ];
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60 * 60 * 24 * 7,

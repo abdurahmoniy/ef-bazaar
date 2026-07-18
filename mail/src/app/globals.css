@@ -1,0 +1,147 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens mirrored from frontend/src/app/globals.css so the mail app
+   is visually indistinguishable from the marketplace. If the marketplace
+   palette changes, copy the :root block here too. */
+@layer base {
+  :root {
+    --background: 40 25% 97%;
+    --foreground: 220 25% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 12%;
+
+    --primary: 174 65% 33%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 12 85% 52%;
+    --secondary-foreground: 12 70% 14%;
+
+    --muted: 40 12% 95%;
+    --muted-foreground: 30 8% 42%;
+
+    --accent: 174 45% 93%;
+    --accent-foreground: 174 65% 24%;
+
+    --destructive: 0 78% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 35 15% 87%;
+    --input: 35 15% 87%;
+    --ring: 174 65% 33%;
+
+    --radius: 0.625rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: light;
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    min-height: 100vh;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  ::selection {
+    @apply bg-primary/20 text-foreground;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  button:focus-visible {
+    outline: none;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-4;
+  }
+
+  /* Sanitised HTML email bodies (message reader). The Jsoup safelist strips
+     every class/style attribute, so senders' layout collapses to bare tags —
+     these rules give those tags readable defaults. Keep selectors scoped
+     under .mail-html-body: email markup is arbitrary and must never leak
+     styling out into the app shell. */
+  .mail-html-body {
+    overflow-wrap: anywhere; /* Konami reset URLs are very long */
+    @apply text-sm leading-relaxed text-foreground;
+  }
+  .mail-html-body p,
+  .mail-html-body ul,
+  .mail-html-body ol,
+  .mail-html-body table,
+  .mail-html-body blockquote,
+  .mail-html-body pre {
+    @apply my-3;
+  }
+  .mail-html-body a {
+    @apply font-semibold text-primary underline underline-offset-2;
+  }
+  .mail-html-body ul {
+    @apply list-disc pl-5;
+  }
+  .mail-html-body ol {
+    @apply list-decimal pl-5;
+  }
+  .mail-html-body li {
+    @apply my-1;
+  }
+  .mail-html-body h1,
+  .mail-html-body h2,
+  .mail-html-body h3,
+  .mail-html-body h4,
+  .mail-html-body h5,
+  .mail-html-body h6 {
+    @apply mb-2 mt-4 font-bold text-foreground;
+  }
+  .mail-html-body h1 {
+    @apply text-lg;
+  }
+  .mail-html-body h2 {
+    @apply text-base;
+  }
+  .mail-html-body blockquote {
+    @apply border-l-2 border-border pl-3 text-muted-foreground;
+  }
+  .mail-html-body pre {
+    @apply overflow-x-auto rounded-lg bg-muted p-3 text-xs;
+  }
+  .mail-html-body code {
+    @apply rounded bg-muted px-1 py-0.5 text-xs;
+  }
+  .mail-html-body hr {
+    @apply my-4 border-border;
+  }
+  .mail-html-body table {
+    /* block + overflow so a wide marketing table scrolls inside the reader
+       instead of stretching the whole page */
+    @apply block max-w-full overflow-x-auto text-xs;
+  }
+  .mail-html-body th,
+  .mail-html-body td {
+    @apply border border-border px-2 py-1 text-left align-top;
+  }
+}
+
+@layer utilities {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-black/10 hover:bg-black/20;
+  }
+}
