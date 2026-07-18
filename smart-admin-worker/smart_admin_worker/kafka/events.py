@@ -52,6 +52,7 @@ class MailboxRotateRequest:
 @dataclass(frozen=True, slots=True)
 class EmailProvisioned:
     trade_id: UUID
+    mailbox_id: UUID
     mailbox_email: str
     encrypted_password: bytes
     iv: bytes

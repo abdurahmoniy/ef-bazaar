@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import secrets
 from typing import TYPE_CHECKING
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import structlog
 
@@ -61,6 +61,13 @@ class EmailProvisionHandler:
     async def handle(self, event: e.EmailProvisionRequest) -> None:
         local_part = self._local_part_for(event.trade_id)
         password = self._generate_password()
+        # Worker owns the mailbox UUID so the encryption context (`mbox-{id}`),
+        # the rotate lookup key, and the row we ask trade-service to persist all
+        # line up. Historically Java made a placeholder UUID for the mailbox
+        # while the worker encrypted with `mbox-{trade_id}` — those two IDs
+        # never matched, so MailboxRotateHandler couldn't find the email and
+        # Mailcow rejected the PATCH with `username_invalid`.
+        mailbox_id = uuid4()
 
         fresh_create = True
         try:
@@ -75,7 +82,7 @@ class EmailProvisionHandler:
             fresh_create = False
 
         field = self._encryptor.encrypt(
-            f"mbox-{event.trade_id}",
+            f"mbox-{mailbox_id}",
             password.encode("utf-8"),
         )
 
@@ -84,6 +91,7 @@ class EmailProvisionHandler:
             str(event.trade_id),
             e.EmailProvisioned(
                 trade_id=event.trade_id,
+                mailbox_id=mailbox_id,
                 mailbox_email=mb.email,
                 encrypted_password=field.ciphertext,
                 iv=field.iv,
@@ -98,7 +106,10 @@ class EmailProvisionHandler:
             if self._password_cache is not None:
                 self._password_cache[mb.email] = password
             if self._mailbox_id_to_email is not None:
-                self._mailbox_id_to_email[event.trade_id] = mb.email
+                # Key by the mailbox UUID (matches the id trade-service will
+                # persist and later echo back on MailboxRotateRequest), not the
+                # trade UUID.
+                self._mailbox_id_to_email[mailbox_id] = mb.email
 
             # Fire-and-forget Telegram notification: a slow / dead Telegram must
             # never stall the handler and prevent trade-service from getting

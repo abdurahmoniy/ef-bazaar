@@ -60,12 +60,14 @@ def test_worker_queued_serialization():
 def test_email_provisioned_bytes_encoded_as_base64():
     ev = e.EmailProvisioned(
         trade_id=UUID("11111111-1111-1111-1111-111111111111"),
+        mailbox_id=UUID("22222222-2222-2222-2222-222222222222"),
         mailbox_email="a@b",
         encrypted_password=b"\x01\x02",
         iv=b"\x03" * 12,
         tag=b"\x04" * 16,
     )
     payload = json.loads(to_json(ev))
+    assert payload["mailboxId"] == "22222222-2222-2222-2222-222222222222"
     assert payload["encryptedPassword"] == "AQI="
     assert payload["iv"] == "AwMDAwMDAwMDAwMD"
     assert payload["tag"] == "BAQEBAQEBAQEBAQEBAQEBA=="
