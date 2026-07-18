@@ -22,6 +22,7 @@ import {
 
 import { AuthAwareLink } from '@/components/auth/auth-aware-link';
 import { Logo } from '@/components/brand/logo';
+import { MARKETPLACE_LANDINGS } from '@/lib/marketplace-landing';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 
 const FAQ_ITEMS = [
@@ -280,6 +281,7 @@ export default function HomePage() {
         <DivisionLadder />
         <HowItWorks />
         <TrustGrid />
+        <PopularCategories />
         <Faq />
         <FinalCta />
         <SiteFooter />
@@ -762,6 +764,35 @@ function TrustGrid() {
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function PopularCategories() {
+  return (
+    <section className="container pb-10 sm:pb-14">
+      <div className="rounded-xl border border-border bg-white p-5 shadow-card sm:p-7">
+        <p className="text-sm font-black uppercase text-primary">Kategoriyalar</p>
+        <h2 className="mt-2 max-w-2xl text-2xl font-black leading-tight text-foreground sm:text-3xl">
+          Qidirganingizni to&apos;g&apos;ridan-to&apos;g&apos;ri oching.
+        </h2>
+        <p className="mt-3 max-w-2xl leading-7 text-muted-foreground">
+          Divizion, platforma yoki yulduz karta bo&apos;yicha tayyor sahifalar — har birida shu
+          kategoriyaga mos e&apos;lonlar jamlangan.
+        </p>
+        <ul className="mt-5 flex flex-wrap gap-2">
+          {MARKETPLACE_LANDINGS.map((entry) => (
+            <li key={entry.slug}>
+              <Link
+                href={`/akkountlar/${entry.slug}`}
+                className="inline-flex min-h-10 items-center rounded-full border border-border bg-muted/40 px-4 text-sm font-bold text-foreground transition hover:border-primary hover:text-primary"
+              >
+                {entry.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 
+import { MARKETPLACE_LANDINGS } from '@/lib/marketplace-landing';
 import { browseListings } from '@/lib/marketplace-server';
 import { absoluteUrl } from '@/lib/site';
 
@@ -31,6 +32,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'yearly',
       priority: 0.3,
     },
+    ...MARKETPLACE_LANDINGS.map((def) => ({
+      url: absoluteUrl(`/akkountlar/${def.slug}`),
+      lastModified: now,
+      changeFrequency: 'daily' as const,
+      priority: 0.8,
+    })),
   ];
 
   const listingEntries: MetadataRoute.Sitemap = [];
