@@ -2,6 +2,7 @@ package uz.efbazaar.trade.mailbox.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.trade.crypto.EncryptedField;
@@ -13,6 +14,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MailboxService {
@@ -116,8 +118,37 @@ public class MailboxService {
     @Transactional
     public UUID adoptWorkerMailboxId(UUID placeholderId, UUID workerMailboxId,
                                      String email, byte[] encPass, byte[] iv, byte[] tag) {
-        Mailbox placeholder = mailboxes.findById(placeholderId)
-                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + placeholderId));
+        // If the placeholder row is already gone we're either on a Kafka replay
+        // (the swap happened on an earlier delivery) or in a test path that
+        // never created a placeholder. Either way, the worker-owned id is what
+        // trade-service should end up with — check if it already exists, and
+        // upsert.
+        Mailbox existingWorker = mailboxes.findById(workerMailboxId).orElse(null);
+        Mailbox placeholder = mailboxes.findById(placeholderId).orElse(null);
+        if (placeholder == null && existingWorker == null) {
+            log.warn("adoptWorkerMailboxId: neither placeholder {} nor worker {} exists — "
+                    + "creating fresh row for worker id", placeholderId, workerMailboxId);
+            Mailbox fresh = Mailbox.builder()
+                    .id(workerMailboxId)
+                    .email(email)
+                    .encryptedPassword(encPass)
+                    .passwordIv(iv)
+                    .passwordTag(tag)
+                    .createdAt(Instant.now())
+                    .build();
+            mailboxes.save(fresh);
+            return workerMailboxId;
+        }
+        if (placeholder == null) {
+            // Worker row already exists (Kafka replay after a successful swap).
+            // Refresh the password fields defensively; email should already match.
+            existingWorker.setEmail(email);
+            existingWorker.setEncryptedPassword(encPass);
+            existingWorker.setPasswordIv(iv);
+            existingWorker.setPasswordTag(tag);
+            mailboxes.save(existingWorker);
+            return workerMailboxId;
+        }
         if (workerMailboxId.equals(placeholderId)) {
             // Happens when a caller (e.g. MockWorker) chose to echo the
             // placeholder id back — no swap needed, just overwrite the fields.
