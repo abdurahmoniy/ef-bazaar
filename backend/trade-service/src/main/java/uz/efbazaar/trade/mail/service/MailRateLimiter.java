@@ -4,7 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import uz.efbazaar.trade.mail.config.MailProperties;
 
-import java.time.Instant;
+import java.time.Clock;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,15 +24,22 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MailRateLimiter {
 
     private final int perSecondLimit;
+    private final Clock clock;
     private final ConcurrentHashMap<UUID, Bucket> buckets = new ConcurrentHashMap<>();
 
     public MailRateLimiter(MailProperties props) {
+        this(props, Clock.systemUTC());
+    }
+
+    /** Test seam — inject a fixed Clock to avoid second-boundary flakes. */
+    public MailRateLimiter(MailProperties props, Clock clock) {
         this.perSecondLimit = props.rateLimit().perUserPerSecond();
+        this.clock = clock;
     }
 
     /** @return true when the request is allowed; false when the caller has exceeded the budget. */
     public boolean tryAcquire(UUID userId) {
-        long now = Instant.now().getEpochSecond();
+        long now = clock.instant().getEpochSecond();
         Bucket b = buckets.computeIfAbsent(userId, u -> new Bucket());
         synchronized (b) {
             if (b.epochSecond != now) {
