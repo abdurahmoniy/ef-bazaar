@@ -2,22 +2,27 @@ package uz.efbazaar.trade.mailbox.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.trade.crypto.EncryptedField;
 import uz.efbazaar.trade.crypto.TradeCrypto;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
+import uz.efbazaar.trade.trade.domain.Trade;
+import uz.efbazaar.trade.trade.repository.TradeRepository;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MailboxService {
 
     private final MailboxRepository mailboxes;
+    private final TradeRepository trades;
     private final TradeCrypto crypto;
 
     @Transactional
@@ -92,6 +97,89 @@ public class MailboxService {
         m.setPasswordIv(iv);
         m.setPasswordTag(tag);
         mailboxes.save(m);
+    }
+
+    /**
+     * Replaces a placeholder mailbox row (id = {@code placeholderId}) with a new
+     * row keyed by the worker-supplied UUID. Called from
+     * {@link uz.efbazaar.trade.kafka.EmailProvisionedConsumer} when the worker
+     * assigns its own mailbox id — the encryption context, rotate-cache lookup,
+     * and persisted id all have to be the same UUID for
+     * {@link uz.efbazaar.trade.kafka.MailboxRotatedConsumer} and
+     * {@link uz.efbazaar.trade.mail.service.MailboxPasswordResolver} to keep
+     * working end-to-end.
+     *
+     * <p>{@code mailboxes.id} is {@code updatable = false} (JPA PK) so we can't
+     * mutate it in place — instead we delete the placeholder row and insert a
+     * fresh row carrying the placeholder's {@code trade_id} FK.
+     *
+     * <p>Returns the id that ended up in the DB. If the placeholder id already
+     * matches {@code workerMailboxId} we take the simpler path and just
+     * overwrite address/password; the return value is stable in either case so
+     * callers can update {@code trade.mailboxId} unconditionally.
+     */
+    @Transactional
+    public UUID adoptWorkerMailboxId(UUID placeholderId, UUID workerMailboxId,
+                                     String email, byte[] encPass, byte[] iv, byte[] tag) {
+        // If the placeholder row is already gone we're either on a Kafka replay
+        // (the swap happened on an earlier delivery) or in a test path that
+        // never created a placeholder. Either way, the worker-owned id is what
+        // trade-service should end up with — check if it already exists, and
+        // upsert.
+        Mailbox existingWorker = mailboxes.findById(workerMailboxId).orElse(null);
+        Mailbox placeholder = mailboxes.findById(placeholderId).orElse(null);
+        if (placeholder == null && existingWorker == null) {
+            log.warn("adoptWorkerMailboxId: neither placeholder {} nor worker {} exists — "
+                    + "creating fresh row for worker id", placeholderId, workerMailboxId);
+            Mailbox fresh = Mailbox.builder()
+                    .id(workerMailboxId)
+                    .email(email)
+                    .encryptedPassword(encPass)
+                    .passwordIv(iv)
+                    .passwordTag(tag)
+                    .createdAt(Instant.now())
+                    .build();
+            mailboxes.save(fresh);
+            return workerMailboxId;
+        }
+        if (placeholder == null) {
+            // Worker row already exists (Kafka replay after a successful swap).
+            // Refresh the password fields defensively; email should already match.
+            existingWorker.setEmail(email);
+            existingWorker.setEncryptedPassword(encPass);
+            existingWorker.setPasswordIv(iv);
+            existingWorker.setPasswordTag(tag);
+            mailboxes.save(existingWorker);
+            return workerMailboxId;
+        }
+        if (workerMailboxId.equals(placeholderId)) {
+            // Happens when a caller (e.g. MockWorker) chose to echo the
+            // placeholder id back — no swap needed, just overwrite the fields.
+            placeholder.setEmail(email);
+            placeholder.setEncryptedPassword(encPass);
+            placeholder.setPasswordIv(iv);
+            placeholder.setPasswordTag(tag);
+            mailboxes.save(placeholder);
+            return placeholderId;
+        }
+
+        // Workers echo back the placeholder id trade-service supplied in
+        // EmailProvisionRequest, so the else-branch of this method should be
+        // unreachable in production. Kept as a defensive log: swapping ids at
+        // this point would need a full FK dance (trades.mailbox_id → mailboxes.id)
+        // which races with in-flight state transitions. If we ever hit this
+        // branch it means the worker regressed to generating its own UUID —
+        // fix the worker, don't try to swap here.
+        log.error("adoptWorkerMailboxId: worker id {} != placeholder id {} — "
+                + "worker MUST echo back the placeholder id. Row NOT swapped; "
+                + "overwriting placeholder fields to keep the trade usable.",
+                workerMailboxId, placeholderId);
+        placeholder.setEmail(email);
+        placeholder.setEncryptedPassword(encPass);
+        placeholder.setPasswordIv(iv);
+        placeholder.setPasswordTag(tag);
+        mailboxes.save(placeholder);
+        return placeholderId;
     }
 
     @Transactional

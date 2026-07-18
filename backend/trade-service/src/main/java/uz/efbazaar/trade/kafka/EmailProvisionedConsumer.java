@@ -12,6 +12,8 @@ import uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
 import uz.efbazaar.trade.trade.service.TradeService;
 
+import java.util.UUID;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -27,13 +29,38 @@ public class EmailProvisionedConsumer {
             properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$EmailProvisioned"}
     )
     public void onEmailProvisioned(TradeEvents.EmailProvisioned e) {
+        // No class-level @Transactional here: the two mailbox writes below are
+        // each @Transactional inside MailboxService, and `tradeService.transition`
+        // manages its own tx. Wrapping the whole handler in a tx breaks the
+        // downstream `catch (InvalidTradeTransitionException)` — Spring silently
+        // marks the outer tx rollback-only when the inner tx throws, so returning
+        // "normally" from the catch surfaces as UnexpectedRollbackException at
+        // commit time and Kafka retries the poison record forever.
         Trade t = trades.findById(e.tradeId()).orElse(null);
         if (t == null) {
             log.warn("email-provisioned for unknown trade {}", e.tradeId());
             return;
         }
-        mailboxes.overwriteAddressAndPassword(t.getMailboxId(),
-                e.mailboxEmail(), e.encryptedPassword(), e.iv(), e.tag());
+        UUID placeholderId = t.getMailboxId();
+        UUID workerId = e.mailboxId();
+        if (workerId == null) {
+            // Legacy wire (worker built before this field existed). Fall back
+            // to the placeholder id we already assigned — rotate will still
+            // miss the cache, but that's the pre-fix behavior we're documenting
+            // rather than a regression from this consumer.
+            log.warn("email-provisioned for trade {} arrived without mailboxId; "
+                    + "keeping placeholder id {} (rotate cache will miss)",
+                    e.tradeId(), placeholderId);
+            mailboxes.overwriteAddressAndPassword(placeholderId,
+                    e.mailboxEmail(), e.encryptedPassword(), e.iv(), e.tag());
+        } else {
+            // adopt() also repoints trade.mailbox_id to the persisted id in its
+            // own tx, so we deliberately do NOT re-save `t` here: our in-memory
+            // copy is stale after adopt commits, and calling save(t) would
+            // overwrite the adopt update with the pre-adopt placeholderId.
+            mailboxes.adoptWorkerMailboxId(placeholderId, workerId,
+                    e.mailboxEmail(), e.encryptedPassword(), e.iv(), e.tag());
+        }
         try {
             tradeService.transition(e.tradeId(), TradeEvent.MAILBOX_PROVISIONED,
                     ActorType.WORKER, null);

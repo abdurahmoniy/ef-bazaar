@@ -512,7 +512,9 @@ function WaitingEmailChangeSellerPanel({
   const [showModal, setShowModal] = useState(false);
   const [submitting, startSubmit] = useTransition();
   const [copied, setCopied] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
   const email = trade.mailboxEmail;
+  const code = trade.emailChangeVerificationCode;
 
   function confirm() {
     onActionError(null);
@@ -535,6 +537,17 @@ function WaitingEmailChangeSellerPanel({
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
       // Clipboard access can fail (permissions, http). Silent — user can select manually.
+    }
+  }
+
+  async function copyCode() {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setCodeCopied(true);
+      window.setTimeout(() => setCodeCopied(false), 1500);
+    } catch {
+      // silent
     }
   }
 
@@ -567,11 +580,47 @@ function WaitingEmailChangeSellerPanel({
           o&apos;zgartiring.
         </p>
       </div>
+
+      {/* Konami sends a 6-digit code to the escrow mailbox. Smart-admin's IMAP
+          detector picks it up and populates emailChangeVerificationCode. The
+          seller enters it on Konami to complete the email change, then presses
+          the button below. */}
+      <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+        <p className="mb-1 font-semibold text-foreground">Konami tasdiqlash kodi</p>
+        {code ? (
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded bg-white/70 px-2 py-1 text-center text-lg font-mono font-bold tracking-widest text-primary">
+              {code}
+            </code>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9 px-2"
+              onClick={copyCode}
+              aria-label="Kodni nusxa olish"
+            >
+              <Copy className="mr-1 h-3.5 w-3.5" />
+              {codeCopied ? 'Nusxalandi' : 'Nusxa'}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-muted-foreground">
+            Konami dan tasdiqlash kodini kutmoqda…
+          </p>
+        )}
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Bu kodni Konami sahifasidagi email o&apos;zgartirish oynasiga
+          kiriting.
+        </p>
+      </div>
+
       <Button
         type="button"
         className="w-full"
         onClick={() => setShowModal(true)}
-        disabled={submitting || !email}
+        disabled={submitting || !email || !code}
+        title={!code ? "Avval Konami tasdiqlash kodini kiriting va kuting" : undefined}
       >
         Email o&apos;zgartirdim
       </Button>

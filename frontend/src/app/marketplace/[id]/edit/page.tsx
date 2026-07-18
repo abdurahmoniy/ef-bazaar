@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 
+import { DeleteListingButton } from '@/components/marketplace/delete-listing-button';
 import { ListingForm } from '@/components/marketplace/listing-form';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
@@ -45,6 +46,7 @@ export default async function EditListingPage({ params }: EditPageProps) {
           </p>
         </header>
         <ListingForm attributeDefinitions={definitions} initialListing={result.data} />
+        <DeleteListingButton listingId={id} />
       </section>
     </MarketplaceShell>
   );

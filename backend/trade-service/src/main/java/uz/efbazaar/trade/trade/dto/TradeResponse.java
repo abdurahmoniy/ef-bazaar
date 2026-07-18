@@ -21,5 +21,9 @@ public record TradeResponse(
         Instant stateDeadline,
         ParticipantRole role, // set by the controller based on the caller
         /** Set once WAITING_BUYER_VERIFY is reached so the buyer knows which message to reveal. */
-        UUID passwordMessageId
+        UUID passwordMessageId,
+        /** Konami email-change verification code (6 digits). Populated by
+         * KonamiEmailChangeCodeConsumer during WAITING_EMAIL_CHANGE. */
+        String emailChangeVerificationCode
 ) {}
+

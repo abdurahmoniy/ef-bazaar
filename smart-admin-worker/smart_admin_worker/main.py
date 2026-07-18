@@ -138,7 +138,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         notifier=notifier,
     )
 
-    handlers: dict[str, Callable[[object], Awaitable[None]]] = {
+    raw_handlers: dict[str, Callable[[object], Awaitable[None]]] = {
         TOPIC_EMAIL_PROVISION_REQ: email_provision_handler.handle,
         TOPIC_FORGOT_PW_REQ: ForgotPasswordHandler(konami=konami, producer=producer).handle,
         TOPIC_IMAP_POLL_REQ: ImapPollHandler(
@@ -148,6 +148,40 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             mailcow=mailcow, encryptor=encryptor, producer=producer,
             email_provider=email_provider,
         ).handle,
+    }
+
+    # Wrap each handler so any exception fires a Telegram error notification
+    # for admins before being re-raised (aiokafka retry logic still applies).
+    # Shorthand context labels help ops grep for a specific failure mode.
+    context_labels: dict[str, str] = {
+        TOPIC_EMAIL_PROVISION_REQ: "email_provision",
+        TOPIC_FORGOT_PW_REQ: "forgot_password",
+        TOPIC_IMAP_POLL_REQ: "imap_poll",
+        TOPIC_MAILBOX_ROTATE_REQ: "mailbox_rotate",
+    }
+
+    def _wrap(
+        topic: str,
+        fn: Callable[[object], Awaitable[None]],
+    ) -> Callable[[object], Awaitable[None]]:
+        label = context_labels.get(topic, topic)
+
+        async def wrapped(event: object) -> None:
+            try:
+                await fn(event)
+            except Exception as exc:
+                # Best-effort: notify admin group without blocking retry semantics.
+                trade_id = getattr(event, "trade_id", None) or getattr(event, "mailbox_id", None)
+                try:
+                    await notifier.notify_error(context=label, error=exc, trade_id=trade_id)
+                except Exception:  # noqa: BLE001
+                    pass
+                raise
+
+        return wrapped
+
+    handlers: dict[str, Callable[[object], Awaitable[None]]] = {
+        topic: _wrap(topic, fn) for topic, fn in raw_handlers.items()
     }
 
     consumer = KafkaConsumerRunner(

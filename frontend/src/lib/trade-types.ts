@@ -42,6 +42,12 @@ export interface TradeResponse {
    * `null` before WAITING_BUYER_VERIFY.
    */
   passwordMessageId: string | null;
+  /**
+   * Konami email-change verification code (6 digits) detected in the escrow
+   * mailbox. Gates the "Email o'zgartirdim" button in WAITING_EMAIL_CHANGE.
+   * `null` until the code arrives; ~5-min Konami TTL is not enforced here.
+   */
+  emailChangeVerificationCode: string | null;
 }
 
 export interface ProposalResponse {
