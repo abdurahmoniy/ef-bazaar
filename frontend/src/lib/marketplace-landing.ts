@@ -12,8 +12,18 @@ import type { ListingBrowseParams } from './marketplace-types';
  * Slugs are URLs — renaming one after it's indexed loses the ranking, so treat
  * them as append-only.
  */
+export type MarketplaceLandingGroup = 'division' | 'platform' | 'player';
+
+export const LANDING_GROUP_LABELS: Record<MarketplaceLandingGroup, string> = {
+  division: 'Divizionlar',
+  platform: 'Platforma va tur',
+  player: 'Yulduz kartalar',
+};
+
 export interface MarketplaceLandingDef {
   slug: string;
+  /** Column the link belongs to in footers and category blocks. */
+  group: MarketplaceLandingGroup;
   /** Short label for category chips and cross-links. */
   label: string;
   /** <title> — the root layout template appends "| eFBazaar". */
@@ -43,6 +53,7 @@ function division(level: 1 | 2 | 3 | 4): MarketplaceLandingDef {
         : "o'rta bosqichdagi mustahkam jamoalar";
   return {
     slug: `divizion-${level}`,
+    group: 'division',
     label,
     title: `${label} eFootball akkountlar — narxlari bilan`,
     description: `${label} darajasidagi eFootball akkountlar: ${tone}. Jamoa kuchi, tanga miqdori va narxi ochiq — sotuvchi bilan Telegram orqali bevosita bog'laning.`,
@@ -55,6 +66,7 @@ function division(level: 1 | 2 | 3 | 4): MarketplaceLandingDef {
 function player(slug: string, displayName: string, playerQuery: string): MarketplaceLandingDef {
   return {
     slug,
+    group: 'player',
     label: displayName,
     title: `${displayName} kartali eFootball akkountlar`,
     description: `${displayName} kartasi bor eFootball akkountlarni bir joyda toping: Epic, Big Time va Show Time kartalar, divizion va narxi bilan. Sotuvchi Telegram'da.`,
@@ -72,6 +84,7 @@ export const MARKETPLACE_LANDINGS: readonly MarketplaceLandingDef[] = [
   division(4),
   {
     slug: 'toza-akkount',
+    group: 'platform',
     label: 'Toza akkount',
     title: "Toza eFootball akkountlar — Google Play va Game Center ulanmagan",
     description:
@@ -85,6 +98,7 @@ export const MARKETPLACE_LANDINGS: readonly MarketplaceLandingDef[] = [
   },
   {
     slug: 'steam',
+    group: 'platform',
     label: 'Steam',
     title: 'Steam eFootball akkountlar',
     description:
@@ -96,6 +110,7 @@ export const MARKETPLACE_LANDINGS: readonly MarketplaceLandingDef[] = [
   },
   {
     slug: 'playstation',
+    group: 'platform',
     label: 'PlayStation',
     title: 'PlayStation eFootball akkountlar',
     description:
