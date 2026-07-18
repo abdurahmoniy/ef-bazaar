@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import secrets
 from typing import TYPE_CHECKING
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import structlog
 
@@ -61,13 +61,12 @@ class EmailProvisionHandler:
     async def handle(self, event: e.EmailProvisionRequest) -> None:
         local_part = self._local_part_for(event.trade_id)
         password = self._generate_password()
-        # Worker owns the mailbox UUID so the encryption context (`mbox-{id}`),
-        # the rotate lookup key, and the row we ask trade-service to persist all
-        # line up. Historically Java made a placeholder UUID for the mailbox
-        # while the worker encrypted with `mbox-{trade_id}` — those two IDs
-        # never matched, so MailboxRotateHandler couldn't find the email and
-        # Mailcow rejected the PATCH with `username_invalid`.
-        mailbox_id = uuid4()
+        # Echo back the mailbox id trade-service supplied in the request.
+        # Aligning the id here means MailboxService.adoptWorkerMailboxId takes
+        # the "already matches" fast path (in-place overwrite, no delete-and-
+        # insert swap) and MailboxRotateHandler can find the email in cache
+        # via the same UUID trade-service later publishes on rotate-request.
+        mailbox_id = event.mailbox_id
 
         fresh_create = True
         try:

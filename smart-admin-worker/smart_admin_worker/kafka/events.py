@@ -25,6 +25,10 @@ from smart_admin_worker.kafka import topics
 @dataclass(frozen=True, slots=True)
 class EmailProvisionRequest:
     trade_id: UUID
+    # Placeholder mailbox id supplied by trade-service. Worker echoes it back
+    # in EmailProvisioned so all IDs (persisted mailbox row, encryption
+    # context, rotate cache key) share the same UUID.
+    mailbox_id: UUID
 
 
 @dataclass(frozen=True, slots=True)

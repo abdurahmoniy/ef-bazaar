@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -29,7 +29,7 @@ async def test_creates_mailbox_and_publishes_provisioned(encryptor):
         mailcow_domain="efbazaar.uz",
     )
     trade_id = UUID("11111111-1111-1111-1111-111111111111")
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id))
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
 
     mailcow.create_mailbox.assert_awaited_once()
     call = mailcow.create_mailbox.await_args
@@ -82,7 +82,7 @@ async def test_populates_caches_on_fresh_create(encryptor):
         mailbox_id_to_email=mailbox_id_to_email,
     )
     trade_id = UUID("22222222-2222-2222-2222-222222222222")
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id))
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
 
     # Password cache was populated with the generated password.
     assert "trade-abc@efbazaar.uz" in password_cache
@@ -120,7 +120,7 @@ async def test_does_not_populate_caches_on_replay(encryptor):
         mailbox_id_to_email=mailbox_id_to_email,
     )
     trade_id = UUID("33333333-3333-3333-3333-333333333333")
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id))
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
 
     assert password_cache == {}
     assert mailbox_id_to_email == {}
@@ -145,7 +145,7 @@ async def test_notifier_called_on_fresh_create(encryptor):
         notifier=notifier,
     )
     trade_id = UUID("44444444-4444-4444-4444-444444444444")
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id))
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
 
     # Fire-and-forget task — give the loop a tick to run it.
     import asyncio as _asyncio
@@ -174,7 +174,7 @@ async def test_notifier_not_called_on_replay(encryptor):
         notifier=notifier,
     )
     trade_id = UUID("55555555-5555-5555-5555-555555555555")
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id))
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
 
     import asyncio as _asyncio
     for _ in range(3):
@@ -200,7 +200,7 @@ async def test_notifier_skipped_when_disabled(encryptor):
         notifier=notifier,
     )
     trade_id = UUID("66666666-6666-6666-6666-666666666666")
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id))
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
 
     import asyncio as _asyncio
     for _ in range(3):

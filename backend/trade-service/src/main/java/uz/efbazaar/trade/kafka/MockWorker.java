@@ -45,11 +45,11 @@ public class MockWorker {
     public void onProvisionRequest(TradeEvents.EmailProvisionRequest req) {
         String email = "trade-" + req.tradeId().toString().substring(0, 8) + "@efbazaar.uz";
         String pw = randomPassword();
-        UUID mailboxId = UUID.randomUUID();
-        // Encryption context stays on the mock-specific prefix so
-        // MailboxPasswordResolver's fallback context (`mbox-mock-{tradeId}`)
-        // still decrypts these rows for local dev. `mailboxId` is the id
-        // trade-service will adopt via MailboxService.adoptWorkerMailboxId.
+        // Echo back the placeholder id trade-service supplied. Encryption
+        // context stays on the mock-specific prefix so MailboxPasswordResolver's
+        // fallback (`mbox-mock-{tradeId}`) still decrypts these rows for local
+        // dev / integration tests.
+        UUID mailboxId = req.mailboxId();
         EncryptedField enc = crypto.encrypt("mbox-mock-" + req.tradeId(), pw.getBytes());
         kafka.send(TradeEvents.TOPIC_EMAIL_PROVISIONED, req.tradeId().toString(),
                 new TradeEvents.EmailProvisioned(req.tradeId(), mailboxId, email,

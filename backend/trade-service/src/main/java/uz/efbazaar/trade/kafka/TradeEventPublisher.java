@@ -30,9 +30,9 @@ public class TradeEventPublisher {
                 new TradeEvents.ProposalResolved(proposalId, outcome, Instant.now()));
     }
 
-    public void emailProvisionRequest(UUID tradeId) {
+    public void emailProvisionRequest(UUID tradeId, UUID mailboxId) {
         send(TradeEvents.TOPIC_EMAIL_PROVISION_REQ, tradeId.toString(),
-                new TradeEvents.EmailProvisionRequest(tradeId));
+                new TradeEvents.EmailProvisionRequest(tradeId, mailboxId));
     }
 
     public void forgotPasswordRequest(UUID tradeId, String mailboxEmail, String konamiId) {

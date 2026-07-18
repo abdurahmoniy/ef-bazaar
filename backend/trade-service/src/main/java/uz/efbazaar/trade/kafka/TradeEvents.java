@@ -43,7 +43,12 @@ public final class TradeEvents {
             Instant resolvedAt) {}
 
     public record EmailProvisionRequest(
-            UUID tradeId) {}
+            UUID tradeId,
+            /** Placeholder mailbox id the worker should echo back in
+             * {@link EmailProvisioned} so trade-service, MailboxPasswordResolver,
+             * and the worker's rotate cache all agree on a single UUID (no
+             * FK-hostile swap in adoptWorkerMailboxId). */
+            UUID mailboxId) {}
 
     /**
      * {@code mailboxId} is the UUID the worker assigned to this mailbox. It is

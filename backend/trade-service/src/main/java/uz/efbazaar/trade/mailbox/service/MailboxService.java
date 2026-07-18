@@ -163,42 +163,23 @@ public class MailboxService {
             return placeholderId;
         }
 
-        UUID tradeId = placeholder.getTradeId();
-        UUID ownerUserId = placeholder.getOwnerUserId();
-        Instant createdAt = placeholder.getCreatedAt();
-
-        // trades.mailbox_id has a FK into mailboxes.id, so we can't delete the
-        // placeholder while any trade still points at it. Repoint the owning
-        // trade's FK to null first, flush, then swap the row, then repoint to
-        // the new id. All three writes are in the same @Transactional method
-        // so no other reader ever sees a dangling FK.
-        Trade owningTrade = trades.findByMailboxId(placeholderId).orElse(null);
-        if (owningTrade != null) {
-            owningTrade.setMailboxId(null);
-            trades.saveAndFlush(owningTrade);
-        }
-
-        mailboxes.delete(placeholder);
-        mailboxes.flush();
-
-        Mailbox replacement = Mailbox.builder()
-                .id(workerMailboxId)
-                .email(email)
-                .ownerUserId(ownerUserId)
-                .tradeId(tradeId)
-                .encryptedPassword(encPass)
-                .passwordIv(iv)
-                .passwordTag(tag)
-                .createdAt(createdAt != null ? createdAt : Instant.now())
-                .build();
-        mailboxes.save(replacement);
-        mailboxes.flush();
-
-        if (owningTrade != null) {
-            owningTrade.setMailboxId(workerMailboxId);
-            trades.save(owningTrade);
-        }
-        return workerMailboxId;
+        // Workers echo back the placeholder id trade-service supplied in
+        // EmailProvisionRequest, so the else-branch of this method should be
+        // unreachable in production. Kept as a defensive log: swapping ids at
+        // this point would need a full FK dance (trades.mailbox_id → mailboxes.id)
+        // which races with in-flight state transitions. If we ever hit this
+        // branch it means the worker regressed to generating its own UUID —
+        // fix the worker, don't try to swap here.
+        log.error("adoptWorkerMailboxId: worker id {} != placeholder id {} — "
+                + "worker MUST echo back the placeholder id. Row NOT swapped; "
+                + "overwriting placeholder fields to keep the trade usable.",
+                workerMailboxId, placeholderId);
+        placeholder.setEmail(email);
+        placeholder.setEncryptedPassword(encPass);
+        placeholder.setPasswordIv(iv);
+        placeholder.setPasswordTag(tag);
+        mailboxes.save(placeholder);
+        return placeholderId;
     }
 
     @Transactional
