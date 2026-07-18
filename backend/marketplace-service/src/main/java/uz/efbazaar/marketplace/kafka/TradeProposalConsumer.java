@@ -27,7 +27,10 @@ public class TradeProposalConsumer {
     @KafkaListener(
             topics = "efbazaar.trade.proposal-created",
             groupId = "marketplace-trade-proposal",
-            properties = {"spring.json.value.default.type=uz.efbazaar.marketplace.kafka.TradeProposalCreatedDto"}
+            properties = {
+                    "spring.json.value.default.type=uz.efbazaar.marketplace.kafka.TradeProposalCreatedDto",
+                    "spring.json.use.type.headers=false"
+            }
     )
     @Transactional
     public void onCreated(TradeProposalCreatedDto e) {
@@ -52,7 +55,10 @@ public class TradeProposalConsumer {
     @KafkaListener(
             topics = "efbazaar.trade.proposal-resolved",
             groupId = "marketplace-trade-proposal",
-            properties = {"spring.json.value.default.type=uz.efbazaar.marketplace.kafka.TradeProposalResolvedDto"}
+            properties = {
+                    "spring.json.value.default.type=uz.efbazaar.marketplace.kafka.TradeProposalResolvedDto",
+                    "spring.json.use.type.headers=false"
+            }
     )
     @Transactional
     public void onResolved(TradeProposalResolvedDto e) {

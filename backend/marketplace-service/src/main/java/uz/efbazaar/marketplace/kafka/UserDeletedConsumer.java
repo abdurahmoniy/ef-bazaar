@@ -38,7 +38,10 @@ public class UserDeletedConsumer {
     @KafkaListener(
             topics = "efbazaar.auth.user-deleted",
             groupId = "marketplace-user-deleted",
-            properties = {"spring.json.value.default.type=uz.efbazaar.marketplace.kafka.UserDeletedDto"}
+            properties = {
+                    "spring.json.value.default.type=uz.efbazaar.marketplace.kafka.UserDeletedDto",
+                    "spring.json.use.type.headers=false"
+            }
     )
     @Transactional
     public void onUserDeleted(UserDeletedDto e) {
