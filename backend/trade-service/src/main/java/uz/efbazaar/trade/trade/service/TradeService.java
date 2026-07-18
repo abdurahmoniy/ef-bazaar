@@ -133,7 +133,8 @@ public class TradeService {
         return new TradeResponse(t.getId(), t.getState(),
                 t.getSellerId(), t.getBuyerId(), t.getPriceUzs(),
                 t.getMailboxId(), mailboxEmail, t.getChatId(), t.getCreatedAt(), t.getExpiresAt(),
-                t.getStateDeadline(), role, passwordMessageId);
+                t.getStateDeadline(), role, passwordMessageId,
+                t.getEmailChangeVerificationCode());
     }
 
     /**

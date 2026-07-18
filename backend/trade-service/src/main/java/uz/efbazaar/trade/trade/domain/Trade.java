@@ -74,6 +74,15 @@ public class Trade {
     @Column(name = "terminal_reason", length = 64)
     private String terminalReason;
 
+    /** Verification code Konami sent to the escrow mailbox during the email
+     * update. Populated by KonamiEmailChangeCodeConsumer; the seller sees it
+     * on the WAITING_EMAIL_CHANGE panel and types it back on Konami. */
+    @Column(name = "email_change_verification_code", length = 16)
+    private String emailChangeVerificationCode;
+
+    @Column(name = "email_change_verification_code_at")
+    private Instant emailChangeVerificationCodeAt;
+
     /** Convenience for controllers: which side is this user? Throws if neither. */
     public ParticipantRole roleFor(UUID userId) {
         if (userId.equals(sellerId)) return ParticipantRole.SELLER;
