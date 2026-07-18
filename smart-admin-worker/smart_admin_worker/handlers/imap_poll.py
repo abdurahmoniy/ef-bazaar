@@ -12,7 +12,11 @@ from smart_admin_worker.imap.poller import PollPurpose
 from smart_admin_worker.imap.registry import ImapPollerRegistry
 from smart_admin_worker.kafka import events as e
 from smart_admin_worker.kafka.producer import KafkaProducerClient
-from smart_admin_worker.kafka.topics import TOPIC_IMAP_2FA, TOPIC_KONAMI_EMAIL
+from smart_admin_worker.kafka.topics import (
+    TOPIC_IMAP_2FA,
+    TOPIC_KONAMI_EMAIL,
+    TOPIC_KONAMI_EMAIL_CHANGE_CODE,
+)
 
 PasswordProvider = Callable[[str], Awaitable[str]]
 
@@ -55,11 +59,28 @@ class ImapPollHandler:
                 ),
             )
 
+        async def on_email_change_code(hit):
+            await self._producer.publish(
+                TOPIC_KONAMI_EMAIL_CHANGE_CODE,
+                str(event.trade_id),
+                e.KonamiEmailChangeCodeReceived(
+                    trade_id=event.trade_id,
+                    verification_code=hit.verification_code,
+                    received_at=hit.received_at,
+                    sender=hit.sender,
+                ),
+            )
+
         try:
             self._registry.start(
                 event.mailbox_email, password, purpose,
                 on_reset=on_reset if purpose is PollPurpose.VERIFY_LINK else None,
                 on_2fa=on_2fa if purpose is PollPurpose.WAIT_2FA_CODE else None,
+                on_email_change_code=(
+                    on_email_change_code
+                    if purpose is PollPurpose.WAIT_EMAIL_CHANGE_CODE
+                    else None
+                ),
             )
         except ValueError:
             # Already polling — this is a re-fire, no-op.

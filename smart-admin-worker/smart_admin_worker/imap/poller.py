@@ -89,13 +89,17 @@ class ImapPoller:
             elif isinstance(hit, TwoFaHit) and self.on_2fa is not None:
                 await self.on_2fa(hit)
                 detected = True
+            elif isinstance(hit, EmailChangeCodeHit) and self.on_email_change_code is not None:
+                await self.on_email_change_code(hit)
+                detected = True
 
     def _fetch_and_detect(
         self, mailbox_email: str, password: str, purpose: PollPurpose
-    ) -> ResetHit | TwoFaHit | None:
+    ) -> ResetHit | TwoFaHit | EmailChangeCodeHit | None:
         with self.factory.open(self.imap_host, self.imap_port, mailbox_email, password) as conn:
             msgs = list(conn.fetch())
         if purpose is PollPurpose.VERIFY_LINK:
             return self.detector.check_reset(msgs)
-        else:
-            return self.detector.check_2fa(msgs)
+        if purpose is PollPurpose.WAIT_EMAIL_CHANGE_CODE:
+            return self.detector.check_email_change_verification(msgs)
+        return self.detector.check_2fa(msgs)

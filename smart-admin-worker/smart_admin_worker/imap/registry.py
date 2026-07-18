@@ -5,7 +5,12 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 
-from smart_admin_worker.imap.detector import KonamiEmailDetector, ResetHit, TwoFaHit
+from smart_admin_worker.imap.detector import (
+    EmailChangeCodeHit,
+    KonamiEmailDetector,
+    ResetHit,
+    TwoFaHit,
+)
 from smart_admin_worker.imap.poller import ImapConnectionFactory, ImapPoller, PollPurpose
 from smart_admin_worker.redis.lock import RedisLockManager
 
@@ -35,6 +40,7 @@ class ImapPollerRegistry:
         purpose: PollPurpose,
         on_reset: Callable[[ResetHit], Awaitable[None]] | None,
         on_2fa: Callable[[TwoFaHit], Awaitable[None]] | None,
+        on_email_change_code: Callable[[EmailChangeCodeHit], Awaitable[None]] | None = None,
     ) -> asyncio.Task:
         key = (mailbox_email, purpose)
         if key in self._tasks and not self._tasks[key].done():
@@ -46,6 +52,7 @@ class ImapPollerRegistry:
             poll_interval=self._poll_interval,
             on_reset=on_reset,
             on_2fa=on_2fa,
+            on_email_change_code=on_email_change_code,
             imap_host=self._imap_host,
             imap_port=self._imap_port,
         )
