@@ -1,6 +1,7 @@
 package uz.efbazaar.trade.mail.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import uz.efbazaar.trade.mail.config.MailProperties;
 
@@ -27,6 +28,7 @@ public class MailRateLimiter {
     private final Clock clock;
     private final ConcurrentHashMap<UUID, Bucket> buckets = new ConcurrentHashMap<>();
 
+    @Autowired
     public MailRateLimiter(MailProperties props) {
         this(props, Clock.systemUTC());
     }
