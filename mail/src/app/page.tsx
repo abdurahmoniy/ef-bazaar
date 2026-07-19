@@ -34,12 +34,14 @@ export default async function MailLandingPage() {
 
   return (
     <MailShell mailboxes={mailboxes} activeMailboxId={null}>
-      <div className="rounded-xl border border-dashed border-border bg-card px-6 py-16 text-center shadow-card">
-        <Inbox className="mx-auto h-10 w-10 text-muted-foreground/50" />
-        <h1 className="mt-3 text-lg font-black text-foreground">
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+        <span className="grid h-16 w-16 place-items-center rounded-full bg-muted">
+          <Inbox className="h-7 w-7 text-muted-foreground/70" />
+        </span>
+        <h1 className="mt-4 text-lg font-black text-foreground">
           Pochta topilmadi
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
           Sizga hali biror akkountning pochtasi topshirilmagan. Marketplace&apos;dan
           savdo yakunlanganda pochta shu yerda paydo bo&apos;ladi.
         </p>

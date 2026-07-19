@@ -134,3 +134,52 @@ export function mailAvatarInitial(email: string): string {
   const localPart = at > 0 ? email.substring(0, at) : email;
   return localPart.charAt(0).toUpperCase();
 }
+
+/** Saturated-but-readable palette for avatar circles. First entry is the
+    brand teal so single-mailbox users see the brand color. */
+const AVATAR_COLORS = [
+  'hsl(174 65% 33%)', // brand teal
+  'hsl(262 45% 45%)', // violet
+  'hsl(12 70% 45%)',  // orange-red
+  'hsl(210 60% 42%)', // blue
+  'hsl(330 55% 42%)', // magenta
+  'hsl(150 45% 34%)', // green
+  'hsl(32 75% 40%)',  // amber
+];
+
+/**
+ * Deterministic avatar background per address, so every mailbox / sender
+ * keeps a stable, distinct color across renders and sessions.
+ */
+export function mailAvatarColor(email: string): string {
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    hash = (hash * 31 + email.charCodeAt(i)) | 0;
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+/**
+ * Compact inbox-row timestamp, Gmail-style: today (UZ time) → "14:05",
+ * this year → "17 iyul", older → "17 iyul 2025". Scanning a list of these
+ * is faster than reading "N soat oldin" phrases; the exact stamp stays in
+ * the row tooltip via fullDateUz.
+ */
+export function listTimeUz(value: string | Date | null | undefined, now: Date = new Date()): string {
+  if (!value) return '—';
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return '—';
+
+  const uz = new Date(date.getTime() + UZ_OFFSET_MS);
+  const nowUz = new Date(now.getTime() + UZ_OFFSET_MS);
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  const sameDay =
+    uz.getUTCFullYear() === nowUz.getUTCFullYear() &&
+    uz.getUTCMonth() === nowUz.getUTCMonth() &&
+    uz.getUTCDate() === nowUz.getUTCDate();
+  if (sameDay) return `${pad(uz.getUTCHours())}:${pad(uz.getUTCMinutes())}`;
+
+  const label = `${uz.getUTCDate()} ${UZ_MONTHS[uz.getUTCMonth()]}`;
+  return uz.getUTCFullYear() === nowUz.getUTCFullYear() ? label : `${label} ${uz.getUTCFullYear()}`;
+}

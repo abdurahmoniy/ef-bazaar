@@ -7,10 +7,11 @@ import { CopyButton } from '@/components/mail/copy-button';
 import { InboxView } from '@/components/mail/inbox-view';
 import { MailShell } from '@/components/mail/mail-shell';
 import { RefreshControls } from '@/components/mail/refresh-controls';
-import { Button } from '@/components/ui/button';
 import { getMe } from '@/lib/auth';
+import { mailAvatarColor, mailAvatarInitial } from '@/lib/mail-format';
 import { getInbox, getMyMailboxes } from '@/lib/mail-server';
 import { mainSiteLoginUrl } from '@/lib/site';
+import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,14 +47,23 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
 
   return (
     <MailShell mailboxes={mailboxes} activeMailboxId={mailboxId}>
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-1">
-              <h1 className="truncate text-base font-black text-foreground">{active.email}</h1>
-              <CopyButton value={active.email} label="Pochta manzilini nusxalash" />
+      <div className="flex min-h-full flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              className="hidden h-10 w-10 shrink-0 place-items-center rounded-full text-base font-black text-white shadow-sm sm:grid"
+              style={{ backgroundColor: mailAvatarColor(active.email) }}
+              aria-hidden
+            >
+              {mailAvatarInitial(active.email)}
+            </span>
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-1">
+                <h1 className="truncate text-base font-black text-foreground">{active.email}</h1>
+                <CopyButton value={active.email} label="Pochta manzilini nusxalash" />
+              </div>
+              <p className="text-xs text-muted-foreground">{summary}</p>
             </div>
-            <p className="text-xs text-muted-foreground">{summary}</p>
           </div>
           <RefreshControls />
         </div>
@@ -85,10 +95,12 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
 
 function ImapError() {
   return (
-    <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-8 text-center">
-      <AlertTriangle className="mx-auto h-6 w-6 text-destructive" />
-      <p className="mt-2 text-sm font-bold text-destructive">Xatlarni olishda xatolik</p>
-      <p className="mt-1 text-xs text-muted-foreground">
+    <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+      <span className="grid h-14 w-14 place-items-center rounded-full bg-destructive/10">
+        <AlertTriangle className="h-6 w-6 text-destructive" />
+      </span>
+      <p className="mt-4 text-sm font-bold text-destructive">Xatlarni olishda xatolik</p>
+      <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
         Serverga vaqtincha ulanib bo&apos;lmadi. Bir daqiqadan keyin qayta urinib ko&apos;ring.
       </p>
     </div>
@@ -114,32 +126,42 @@ function PaginationBar({
   const to = Math.min(total, offset + pageSize);
 
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-2 text-xs text-muted-foreground shadow-card">
-      <span>
+    <div className="mt-auto flex shrink-0 items-center justify-between border-t border-border bg-card px-4 py-2 sm:px-6">
+      <span className="text-xs tabular-nums text-muted-foreground">
         {from}–{to} / {total}
       </span>
       <div className="flex items-center gap-1">
-        <Button asChild variant="ghost" size="sm" disabled={!hasPrev}>
-          <Link
-            href={`/${mailboxId}${prevOffset > 0 ? `?offset=${prevOffset}` : ''}`}
-            aria-disabled={!hasPrev}
-            className={!hasPrev ? 'pointer-events-none opacity-40' : undefined}
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-            Oldingi
-          </Link>
-        </Button>
-        <Button asChild variant="ghost" size="sm" disabled={!hasNext}>
-          <Link
-            href={`/${mailboxId}?offset=${nextOffset}`}
-            aria-disabled={!hasNext}
-            className={!hasNext ? 'pointer-events-none opacity-40' : undefined}
-          >
-            Keyingi
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
-        </Button>
+        <PageArrow
+          href={hasPrev ? `/${mailboxId}${prevOffset > 0 ? `?offset=${prevOffset}` : ''}` : null}
+          label="Oldingi sahifa"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </PageArrow>
+        <PageArrow href={hasNext ? `/${mailboxId}?offset=${nextOffset}` : null} label="Keyingi sahifa">
+          <ChevronRight className="h-4 w-4" />
+        </PageArrow>
       </div>
     </div>
+  );
+}
+
+function PageArrow({
+  href,
+  label,
+  children,
+}: {
+  href: string | null;
+  label: string;
+  children: React.ReactNode;
+}) {
+  const cls = cn(
+    'inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors',
+    href ? 'hover:bg-muted hover:text-foreground' : 'pointer-events-none opacity-30',
+  );
+  if (!href) return <span className={cls}>{children}</span>;
+  return (
+    <Link href={href} title={label} aria-label={label} className={cls}>
+      {children}
+    </Link>
   );
 }

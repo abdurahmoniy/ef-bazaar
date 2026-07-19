@@ -46,7 +46,7 @@ export function MobileSidebar({ mailboxes, activeMailboxId }: MobileSidebarProps
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Pochtalar ro'yxatini ochish"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-foreground hover:bg-muted"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted"
       >
         <Menu className="h-4 w-4" />
       </button>
@@ -78,7 +78,7 @@ export function MobileSidebar({ mailboxes, activeMailboxId }: MobileSidebarProps
               <MailSidebar
                 mailboxes={mailboxes}
                 activeMailboxId={activeMailboxId}
-                variant="flat"
+                hideHeader
               />
             </div>
           </div>

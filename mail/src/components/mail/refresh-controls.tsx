@@ -56,10 +56,10 @@ export function RefreshControls() {
         }
         aria-pressed={auto}
         className={cn(
-          'inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-colors',
+          'inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition-colors',
           auto
-            ? 'border-primary/30 bg-primary/5 text-primary'
-            : 'border-border bg-white text-muted-foreground hover:bg-muted',
+            ? 'border-primary/30 bg-primary/10 text-primary'
+            : 'border-border bg-card text-muted-foreground hover:bg-muted',
         )}
       >
         <span
@@ -75,7 +75,7 @@ export function RefreshControls() {
         type="button"
         onClick={refresh}
         disabled={isPending}
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-white px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
       >
         <RotateCw className={cn('h-3.5 w-3.5', isPending && 'animate-spin')} />
         Yangilash

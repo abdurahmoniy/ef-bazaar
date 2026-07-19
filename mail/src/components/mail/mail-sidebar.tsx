@@ -1,95 +1,104 @@
 import Link from 'next/link';
-import { Inbox, Mail } from 'lucide-react';
+import { Inbox } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { fullDateUz, mailAvatarInitial, relativeUz } from '@/lib/mail-format';
+import { fullDateUz, mailAvatarColor, mailAvatarInitial, relativeUz } from '@/lib/mail-format';
 import type { MailboxSummary } from '@/lib/mail-types';
 
 interface MailSidebarProps {
   mailboxes: MailboxSummary[];
   /** UUID of the mailbox currently open, or null on the empty landing. */
   activeMailboxId: string | null;
-  /** Hides the sidebar container styles when embedded inside a mobile sheet. */
-  variant?: 'panel' | 'flat';
+  /** Hides the section label when the parent (mobile drawer) has its own. */
+  hideHeader?: boolean;
 }
 
 /**
  * Gmail-style account switcher for the /mail feature. Renders one row per
- * owned mailbox with an avatar circle, email, unread badge, and relative last
- * activity. Server component — every mailbox's row is a plain <Link> so
- * navigation between mailboxes triggers a fresh SSR fetch.
+ * owned mailbox with a colored avatar circle, email, unread badge, and
+ * relative last activity. Server component — every mailbox's row is a plain
+ * <Link> so navigation between mailboxes triggers a fresh SSR fetch.
  */
-export function MailSidebar({ mailboxes, activeMailboxId, variant = 'panel' }: MailSidebarProps) {
-  const wrapperClass = variant === 'panel'
-    ? 'rounded-xl border border-border bg-card shadow-card'
-    : '';
-
+export function MailSidebar({ mailboxes, activeMailboxId, hideHeader }: MailSidebarProps) {
   return (
-    <aside className={wrapperClass}>
-      {variant === 'panel' && (
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <Mail className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
-            Pochta
+    <div className="flex h-full min-h-0 flex-col">
+      {!hideHeader && (
+        <div className="flex items-center justify-between px-4 pb-1 pt-4">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            Pochtalarim
           </span>
+          {mailboxes.length > 0 && (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold tabular-nums text-muted-foreground">
+              {mailboxes.length}
+            </span>
+          )}
         </div>
       )}
       {mailboxes.length === 0 ? (
         <EmptySidebar />
       ) : (
-        <ul className={cn('overflow-y-auto p-2', variant === 'panel' && 'max-h-[calc(100vh-14rem)]')}>
-          {mailboxes.map((mb) => (
-            <li key={mb.id}>
-              <MailboxRow mailbox={mb} active={mb.id === activeMailboxId} />
-            </li>
-          ))}
-        </ul>
+        <nav className="min-h-0 flex-1 overflow-y-auto p-2" aria-label="Pochtalar">
+          <ul className="space-y-0.5">
+            {mailboxes.map((mb) => (
+              <li key={mb.id}>
+                <MailboxRow mailbox={mb} active={mb.id === activeMailboxId} />
+              </li>
+            ))}
+          </ul>
+        </nav>
       )}
-    </aside>
+    </div>
   );
 }
 
 function MailboxRow({ mailbox, active }: { mailbox: MailboxSummary; active: boolean }) {
   const unread = mailbox.unreadCount;
-  const initial = mailAvatarInitial(mailbox.email);
+  const hasUnread = typeof unread === 'number' && unread > 0;
 
   return (
     <Link
       href={`/${mailbox.id}`}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex items-center gap-3 rounded-lg px-2 py-2 transition-colors',
-        active
-          ? 'bg-primary/10 text-foreground'
-          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+        'relative flex items-center gap-3 rounded-lg py-2.5 pl-3.5 pr-2.5 transition-colors',
+        active ? 'bg-primary/10' : 'hover:bg-muted',
       )}
     >
+      {active && (
+        <span
+          className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary"
+          aria-hidden
+        />
+      )}
       <span
-        className={cn(
-          'grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-black',
-          active ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
-        )}
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-black text-white shadow-sm"
+        style={{ backgroundColor: mailAvatarColor(mailbox.email) }}
         aria-hidden
       >
-        {initial}
+        {mailAvatarInitial(mailbox.email)}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-foreground">
+        <span
+          className={cn(
+            'block truncate text-sm text-foreground',
+            active || hasUnread ? 'font-bold' : 'font-medium',
+          )}
+        >
           {mailbox.email}
         </span>
         <span
-          className="block truncate text-[11px] text-muted-foreground"
+          className={cn(
+            'block truncate text-[11px]',
+            hasUnread ? 'font-semibold text-primary' : 'text-muted-foreground',
+          )}
           title={fullDateUz(mailbox.lastActivityAt)}
         >
           {relativeUz(mailbox.lastActivityAt)}
         </span>
       </span>
-      {typeof unread === 'number' && unread > 0 && (
+      {hasUnread && (
         <span
-          className={cn(
-            'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-black',
-            active ? 'bg-primary-foreground text-primary' : 'bg-primary text-primary-foreground',
-          )}
+          className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-black tabular-nums text-primary-foreground"
           aria-label={`${unread} yangi xat`}
         >
           {unread > 99 ? '99+' : unread}
@@ -101,10 +110,12 @@ function MailboxRow({ mailbox, active }: { mailbox: MailboxSummary; active: bool
 
 function EmptySidebar() {
   return (
-    <div className="p-6 text-center">
-      <Inbox className="mx-auto h-8 w-8 text-muted-foreground/50" />
-      <p className="mt-2 text-xs font-semibold text-foreground">Sizda pochta yo&apos;q</p>
-      <p className="mt-1 text-[11px] text-muted-foreground">
+    <div className="px-6 py-10 text-center">
+      <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-muted">
+        <Inbox className="h-5 w-5 text-muted-foreground/70" />
+      </span>
+      <p className="mt-3 text-xs font-bold text-foreground">Sizda pochta yo&apos;q</p>
+      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
         Savdo yakunlanganda pochta shu yerda paydo bo&apos;ladi.
       </p>
     </div>

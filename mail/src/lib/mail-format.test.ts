@@ -4,6 +4,8 @@ import {
   extractOtpCode,
   formatBytes,
   fullDateUz,
+  listTimeUz,
+  mailAvatarColor,
   mailAvatarInitial,
   relativeUz,
   stripHtml,
@@ -124,6 +126,45 @@ describe('mail-format', () => {
 
     it('ignores long numbers like phone numbers embedded in digits', () => {
       expect(extractOtpCode('Call +998901234567 for help', null)).toBeNull();
+    });
+  });
+
+  describe('listTimeUz', () => {
+    it('returns UZ-time clock for same-day timestamps', () => {
+      const now = new Date('2026-07-17T12:00:00Z');
+      // 04:05 UTC → 09:05 UZ, same UZ day.
+      expect(listTimeUz('2026-07-17T04:05:00Z', now)).toBe('09:05');
+    });
+
+    it('respects the UZ day boundary, not the UTC one', () => {
+      const now = new Date('2026-07-17T12:00:00Z');
+      // 20:30 UTC on the 16th → 01:30 UZ on the 17th → same UZ day → clock.
+      expect(listTimeUz('2026-07-16T20:30:00Z', now)).toBe('01:30');
+    });
+
+    it('returns day + month for older same-year dates', () => {
+      const now = new Date('2026-07-17T12:00:00Z');
+      expect(listTimeUz('2026-05-10T09:00:00Z', now)).toBe('10 may');
+    });
+
+    it('appends the year for older years', () => {
+      const now = new Date('2026-07-17T12:00:00Z');
+      expect(listTimeUz('2024-12-31T05:00:00Z', now)).toBe('31 dekabr 2024');
+    });
+
+    it('returns em-dash for null / invalid input', () => {
+      expect(listTimeUz(null)).toBe('—');
+      expect(listTimeUz('nope')).toBe('—');
+    });
+  });
+
+  describe('mailAvatarColor', () => {
+    it('is deterministic for the same address', () => {
+      expect(mailAvatarColor('carla@efbazaar.uz')).toBe(mailAvatarColor('carla@efbazaar.uz'));
+    });
+
+    it('returns a css hsl() color', () => {
+      expect(mailAvatarColor('zeb@example.com')).toMatch(/^hsl\(/);
     });
   });
 
