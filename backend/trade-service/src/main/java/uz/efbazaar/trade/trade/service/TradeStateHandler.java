@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import uz.efbazaar.trade.kafka.TradeEventPublisher;
+import uz.efbazaar.trade.kafka.TradeEvents;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.Trade;
@@ -59,7 +60,17 @@ public class TradeStateHandler {
                 events.emailProvisionRequest(trade.getId(), trade.getMailboxId());
             }
             case WAITING_PAYMENT           -> trade.setStateDeadline(now(twpS));
-            case WAITING_EMAIL_CHANGE      -> trade.setStateDeadline(now(twecS));
+            case WAITING_EMAIL_CHANGE -> {
+                trade.setStateDeadline(now(twecS));
+                // Konami will send a 6-digit verification code to the escrow
+                // mailbox when the seller starts the "Update Email Address"
+                // flow. Start polling now so the code lands in the trade panel
+                // as soon as it arrives — seller can't read the escrow inbox
+                // themselves during WAITING_EMAIL_CHANGE.
+                var mb = mailboxes.getRaw(trade.getMailboxId());
+                events.imapPollRequest(trade.getId(), mb.getEmail(),
+                        TradeEvents.ImapPurpose.WAIT_EMAIL_CHANGE_CODE);
+            }
             case VERIFYING_KONAMI_LINK -> {
                 trade.setStateDeadline(now(tvklS));
                 if (event != TradeEvent.RECHECK) {
