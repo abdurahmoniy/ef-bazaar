@@ -13,27 +13,29 @@ import type { TelegramAuthData } from '@/lib/types';
 interface LoginFormProps {
   botUsername: string;
   googleClientId: string;
+  /** Login'dan keyin qaytish manzili (`?from=` dan) — server action tekshiradi. */
+  from?: string;
 }
 
-export function LoginForm({ botUsername, googleClientId }: LoginFormProps) {
+export function LoginForm({ botUsername, googleClientId, from }: LoginFormProps) {
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
 
   const onTelegram = React.useCallback(async (data: TelegramAuthData) => {
     setError(null);
     setPending(true);
-    const res = await telegramAuthAction(data);
+    const res = await telegramAuthAction(data, from);
     setPending(false);
     if (!res.ok) setError(res.error ?? 'Telegram auth ishlamadi');
-  }, []);
+  }, [from]);
 
   const onGoogle = React.useCallback(async (idToken: string) => {
     setError(null);
     setPending(true);
-    const res = await googleLoginAction(idToken);
+    const res = await googleLoginAction(idToken, from);
     setPending(false);
     if (!res.ok) setError(res.error ?? 'Google login ishlamadi');
-  }, []);
+  }, [from]);
 
   return (
     <div className="space-y-5">

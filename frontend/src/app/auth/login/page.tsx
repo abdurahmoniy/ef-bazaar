@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/card'
 import { getMe } from '@/lib/auth'
 import { resolveAuthPageUser } from '@/lib/auth-page'
+import { resolvePostLoginPath } from '@/lib/safe-redirect'
 import { LoginForm } from './login-form'
 
 export const dynamic = 'force-dynamic'
@@ -17,8 +18,15 @@ export const metadata: Metadata = {
 	title: 'Kirish',
 }
 
-export default async function LoginPage() {
-	if (await resolveAuthPageUser(getMe)) redirect('/profile')
+interface LoginPageProps {
+	searchParams?: Promise<{ from?: string }>
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+	const { from } = (searchParams ? await searchParams : {}) as { from?: string }
+	// `from=` bilan kelgan bo'lsa (masalan mail.efbazaar.uz dan) login'dan
+	// keyin o'sha yerga qaytamiz — allaqachon login bo'lgan user ham.
+	if (await resolveAuthPageUser(getMe)) redirect(resolvePostLoginPath(from))
 
 	const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot'
 	const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
@@ -33,7 +41,11 @@ export default async function LoginPage() {
 				</CardDescription>
 			</CardHeader>
 			<CardContent className='space-y-6'>
-				<LoginForm botUsername={botUsername} googleClientId={googleClientId} />
+				<LoginForm
+					botUsername={botUsername}
+					googleClientId={googleClientId}
+					from={from}
+				/>
 			</CardContent>
 		</Card>
 	)

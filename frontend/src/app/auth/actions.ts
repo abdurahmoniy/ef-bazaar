@@ -12,6 +12,7 @@ import {
   deleteAccount,
 } from '@/lib/auth';
 import { ApiException } from '@/lib/api';
+import { resolvePostLoginPath } from '@/lib/safe-redirect';
 import type { TelegramAuthData } from '@/lib/types';
 
 export interface ActionResult {
@@ -22,9 +23,14 @@ export interface ActionResult {
 
 /**
  * Telegram Login Widget natijasini qabul qiladi.
- * Muvaffaqiyatli bo'lsa → /profile ga redirect.
+ * Muvaffaqiyatli bo'lsa → `from` (ichki path, masalan `/mail/...`) yoki
+ * /profile ga redirect. `from` server tomonda sanitizatsiya qilinadi —
+ * clientdan kelgan qiymatga ishonilmaydi.
  */
-export async function telegramAuthAction(data: TelegramAuthData): Promise<ActionResult> {
+export async function telegramAuthAction(
+  data: TelegramAuthData,
+  from?: string,
+): Promise<ActionResult> {
   try {
     await telegramAuth(data);
   } catch (e) {
@@ -33,7 +39,7 @@ export async function telegramAuthAction(data: TelegramAuthData): Promise<Action
     }
     return { ok: false, error: 'Auth-service ulanib bo\'lmadi' };
   }
-  redirect('/profile');
+  redirect(resolvePostLoginPath(from));
 }
 
 /**
@@ -66,7 +72,10 @@ export async function telegramWebAppAuthAction(initData: string): Promise<Action
  * mavjud emas bo'lsa yangi user avtomatik yaratiladi. Alohida "not linked"
  * xato yo'q, oddiy hollar bilan cheklanadi.
  */
-export async function googleLoginAction(idToken: string): Promise<ActionResult> {
+export async function googleLoginAction(
+  idToken: string,
+  from?: string,
+): Promise<ActionResult> {
   try {
     await googleLogin(idToken);
   } catch (e) {
@@ -75,7 +84,7 @@ export async function googleLoginAction(idToken: string): Promise<ActionResult> 
     }
     return { ok: false, error: 'Auth-service ulanib bo\'lmadi' };
   }
-  redirect('/profile');
+  redirect(resolvePostLoginPath(from));
 }
 
 /**

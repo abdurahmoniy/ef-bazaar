@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 import { telegramWebAppAuthAction } from '@/app/auth/actions';
+import { isSafeInternalPath } from '@/lib/safe-redirect';
 
 /**
  * Telegram Mini App initData'ni URL hash'dan to'g'ridan-to'g'ri o'qiydi.
@@ -41,7 +42,7 @@ function readMiniAppInitData(): string | null {
  */
 function resolvePostLoginTarget(): string {
   const from = new URLSearchParams(window.location.search).get('from');
-  if (from && from.startsWith('/') && !from.startsWith('//')) return from;
+  if (from && isSafeInternalPath(from)) return from;
   const path = window.location.pathname;
   if (path === '/') return '/marketplace';
   if (!path.startsWith('/auth')) {
