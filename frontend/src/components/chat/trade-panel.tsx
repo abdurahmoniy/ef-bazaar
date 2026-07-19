@@ -815,6 +815,8 @@ function WaitingBuyerVerifyBuyerPanel({
   const [confirming, startConfirm] = useTransition();
   const [rejecting, startReject] = useTransition();
   const [copied, setCopied] = useState(false);
+  const [emailCopied, setEmailCopied] = useState(false);
+  const mailboxEmail = trade.mailboxEmail ?? '';
 
   function reveal() {
     if (!trade.passwordMessageId) {
@@ -832,6 +834,17 @@ function WaitingBuyerVerifyBuyerPanel({
       onRevealed(r.data.password);
       setShowRevealModal(false);
     });
+  }
+
+  async function copyEmail() {
+    if (!mailboxEmail) return;
+    try {
+      await navigator.clipboard.writeText(mailboxEmail);
+      setEmailCopied(true);
+      window.setTimeout(() => setEmailCopied(false), 1500);
+    } catch {
+      // Silent — user can select manually.
+    }
   }
 
   function confirmTrade() {
@@ -875,29 +888,54 @@ function WaitingBuyerVerifyBuyerPanel({
     <div className="space-y-2">
       {revealedPassword ? (
         <>
-          <div className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
-            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary">
-              Konami paroli
-            </p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 truncate rounded bg-white/80 px-2 py-1 font-mono text-sm text-foreground">
-                {revealedPassword}
-              </code>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2"
-                onClick={copyPw}
-                aria-label="Nusxa olish"
-              >
-                <Copy className="mr-1 h-3.5 w-3.5" />
-                {copied ? 'Nusxalandi' : 'Nusxa'}
-              </Button>
+          <div className="space-y-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
+            {mailboxEmail && (
+              <div>
+                <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary">
+                  Konami email
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 truncate rounded bg-white/80 px-2 py-1 font-mono text-sm text-foreground">
+                    {mailboxEmail}
+                  </code>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={copyEmail}
+                    aria-label="Emailni nusxa olish"
+                  >
+                    <Copy className="mr-1 h-3.5 w-3.5" />
+                    {emailCopied ? 'Nusxalandi' : 'Nusxa'}
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div>
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary">
+                Konami paroli
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 truncate rounded bg-white/80 px-2 py-1 font-mono text-sm text-foreground">
+                  {revealedPassword}
+                </code>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2"
+                  onClick={copyPw}
+                  aria-label="Nusxa olish"
+                >
+                  <Copy className="mr-1 h-3.5 w-3.5" />
+                  {copied ? 'Nusxalandi' : 'Nusxa'}
+                </Button>
+              </div>
             </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Parolni sotuvchining Konami akkauntida ishlata olganingizni
-              tekshiring. Bu parol qayta ochilmaydi.
+            <p className="text-[11px] text-muted-foreground">
+              Yuqoridagi email + parol bilan Konami akkauntga kira olganingizni
+              tekshiring. Parol qayta ochilmaydi.
             </p>
           </div>
           <div className="flex items-center gap-2">
