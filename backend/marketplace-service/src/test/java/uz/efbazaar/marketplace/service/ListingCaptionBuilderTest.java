@@ -73,7 +73,9 @@ class ListingCaptionBuilderTest {
 
     @Test
     void user_supplied_lt_in_description_is_escaped() {
-        when(definitions.findAllByActiveTrueOrderByPositionAsc()).thenReturn(List.of());
+        // No attribute stub needed — with an empty attrs map, build() skips
+        // the definitions lookup entirely, so a when(...) here would trigger
+        // Mockito's UnnecessaryStubbingException under STRICT_STUBS.
         Listing l = listing(List.of());
         l.setDescription("watch <script>alert(1)</script>");
 
