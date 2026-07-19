@@ -42,9 +42,13 @@ function ShellSkeleton({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function InboxSkeleton() {
+/**
+ * Inbox pane only — used by [mailboxId]/loading.tsx, which renders inside
+ * the persistent layout shell (header + sidebar stay mounted).
+ */
+export function InboxContentSkeleton() {
   return (
-    <ShellSkeleton>
+    <div className="flex min-h-full flex-col">
       <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
           <div className="hidden h-10 w-10 animate-pulse rounded-full bg-muted sm:block" />
@@ -68,13 +72,14 @@ export function InboxSkeleton() {
           </div>
         ))}
       </div>
-    </ShellSkeleton>
+    </div>
   );
 }
 
-export function MessageSkeleton() {
+/** Reader pane only — used by [mailboxId]/[messageId]/loading.tsx. */
+export function MessageContentSkeleton() {
   return (
-    <ShellSkeleton>
+    <div className="flex min-h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-4 py-2 sm:px-6">
         <Bar className="h-7 w-20 rounded-full" />
         <Bar className="h-7 w-24 rounded-full" />
@@ -97,6 +102,15 @@ export function MessageSkeleton() {
           <Bar className="h-3.5 w-2/3" />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Whole-app skeleton for the root loading boundary (first paint only). */
+export function InboxSkeleton() {
+  return (
+    <ShellSkeleton>
+      <InboxContentSkeleton />
     </ShellSkeleton>
   );
 }

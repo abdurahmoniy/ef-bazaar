@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 
-import { MailShell } from '@/components/mail/mail-shell';
+import { MarkReadBeacon } from '@/components/mail/mark-read-beacon';
 import { MessageView, type MessageNav } from '@/components/mail/message-view';
-import { getMe } from '@/lib/auth';
-import { getInbox, getMessage, getMyMailboxes } from '@/lib/mail-server';
-import { mainSiteLoginUrl } from '@/lib/site';
+import { getInbox, getMessage } from '@/lib/mail-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,13 +21,8 @@ interface MessagePageProps {
 export default async function MessagePage({ params }: MessagePageProps) {
   const { mailboxId, messageId } = await params;
 
-  const user = await getMe();
-  if (!user) redirect(mainSiteLoginUrl(`/${mailboxId}/${messageId}`));
-
-  const mailboxes = await getMyMailboxes();
-  const active = mailboxes.find((m) => m.id === mailboxId);
-  if (!active) notFound();
-
+  // Session, shell and mailbox-ownership checks live in ../layout.tsx; the
+  // backend re-verifies ownership on every call anyway (403 → null → 404).
   const [message, inbox] = await Promise.all([
     getMessage(mailboxId, messageId),
     // Best-effort neighbour lookup for prev/next navigation — a null inbox
@@ -53,8 +46,9 @@ export default async function MessagePage({ params }: MessagePageProps) {
   }
 
   return (
-    <MailShell mailboxes={mailboxes} activeMailboxId={mailboxId}>
+    <>
+      <MarkReadBeacon mailboxId={mailboxId} messageId={decodedId} seen={message.seen} />
       <MessageView mailboxId={mailboxId} message={message} nav={nav} />
-    </MailShell>
+    </>
   );
 }

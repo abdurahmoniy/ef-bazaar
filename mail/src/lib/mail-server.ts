@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { cache } from 'react';
+
 import { apiFetch, ApiException } from './api';
 import type {
   InboxPage,
@@ -38,10 +40,14 @@ async function safeGet<T>(path: string): Promise<T | null> {
   }
 }
 
-/** Sidebar list — mailboxes owned by the caller with unread/last-activity. */
-export async function getMyMailboxes(): Promise<MailboxSummary[]> {
+/**
+ * Sidebar list — mailboxes owned by the caller with unread/last-activity.
+ * Wrapped in React cache() so the [mailboxId] layout and its pages share one
+ * backend call per request instead of fetching the list twice.
+ */
+export const getMyMailboxes = cache(async (): Promise<MailboxSummary[]> => {
   return (await safeGet<MailboxSummary[]>(`${MAIL_PREFIX}/mailboxes`)) ?? [];
-}
+});
 
 /** Paginated inbox slice for one mailbox. */
 export async function getInbox(

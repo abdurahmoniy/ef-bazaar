@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -117,6 +118,24 @@ class MailControllerIT extends AbstractPostgresIT {
      */
     private static String uniqueEmail(String prefix) {
         return prefix + "-" + UUID.randomUUID() + "@efbazaar.uz";
+    }
+
+    @Test
+    void anonymousMarkReadReturns401() throws Exception {
+        mvc.perform(post("/api/v1/mail/" + UUID.randomUUID() + "/messages/1/read"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void markReadForOtherUsersMailboxReturns404() throws Exception {
+        UUID owner = UUID.randomUUID();
+        UUID stranger = UUID.randomUUID();
+        var mbox = mailboxService.create(uniqueEmail("read-others"), owner, UUID.randomUUID(),
+                "pw".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(post("/api/v1/mail/" + mbox.getId() + "/messages/1/read")
+                        .header("X-User-Id", stranger.toString()))
+                .andExpect(status().isNotFound());
     }
 
     @Test
