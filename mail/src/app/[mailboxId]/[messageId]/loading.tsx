@@ -1,5 +1,5 @@
-import { MessageSkeleton } from '@/components/mail/mail-skeleton';
+import { MessageContentSkeleton } from '@/components/mail/mail-skeleton';
 
 export default function Loading() {
-  return <MessageSkeleton />;
+  return <MessageContentSkeleton />;
 }

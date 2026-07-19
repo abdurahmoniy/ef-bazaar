@@ -5,13 +5,16 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import uz.efbazaar.trade.mail.dto.InboxPage;
 import uz.efbazaar.trade.mail.dto.MailboxSummary;
@@ -26,16 +29,17 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Read-only webmail endpoints. Every endpoint under {@code /api/v1/mail} is
- * a safe HTTP method (GET) — this is a hard invariant that mirrors the "no
- * reply / forward / compose" product decision. Never add a mutating verb here
- * without updating the product owner.
+ * Webmail endpoints. The "no reply / forward / compose" product decision
+ * still holds — the only mutation is marking a message read, which the
+ * webmail fires when the user opens a message. Never add another mutating
+ * verb here without updating the product owner.
  *
  * <p>Endpoints:
  * <ul>
  *   <li>{@code GET /mailboxes} — sidebar list with unread + last-activity</li>
  *   <li>{@code GET /{mbox}/inbox?limit=&offset=} — paged inbox slice</li>
  *   <li>{@code GET /{mbox}/messages/{msgId}} — full message with sanitised body</li>
+ *   <li>{@code POST /{mbox}/messages/{msgId}/read} — set \Seen (idempotent)</li>
  *   <li>{@code GET /{mbox}/messages/{msgId}/attachments/{attId}} — binary download</li>
  * </ul>
  */
@@ -70,6 +74,16 @@ public class MailController {
             @PathVariable String messageId) {
         enforceRateLimit(me.userId());
         return mail.getMessage(me.userId(), mailboxId, messageId);
+    }
+
+    @PostMapping("/{mailboxId}/messages/{messageId}/read")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void markRead(
+            @AuthenticationPrincipal AuthenticatedUser me,
+            @PathVariable UUID mailboxId,
+            @PathVariable String messageId) {
+        enforceRateLimit(me.userId());
+        mail.markSeen(me.userId(), mailboxId, messageId);
     }
 
     @GetMapping("/{mailboxId}/messages/{messageId}/attachments/{attachmentId}")

@@ -37,14 +37,15 @@ import java.util.stream.Stream;
 import org.eclipse.angus.mail.imap.IMAPFolder;
 
 /**
- * Read-only IMAP fetcher backing the {@code /api/v1/mail/**} endpoints. Every
- * public method verifies mailbox ownership before touching IMAP — a stranger's
+ * IMAP fetcher backing the {@code /api/v1/mail/**} endpoints. Every public
+ * method verifies mailbox ownership before touching IMAP — a stranger's
  * user id must never see a 200 response for another buyer's mailbox.
  *
- * <p>All folder opens use {@link Folder#READ_ONLY}. This is a hard invariant:
- * READ_WRITE would let a bug in {@link #getMessage} accidentally flip \Seen
- * flags or (worse) trigger \Deleted on expunge. The MVP intentionally never
- * mutates any IMAP state.
+ * <p>All read paths open folders {@link Folder#READ_ONLY} so a fetch can never
+ * accidentally flip flags or (worse) trigger \Deleted on expunge. The single
+ * deliberate mutation is {@link #markSeen}: it opens READ_WRITE, sets exactly
+ * the \Seen flag on one UID, and closes without expunge. Do not add any other
+ * mutation without the same scrutiny.
  */
 @Slf4j
 @Service
@@ -224,6 +225,39 @@ public class MailService {
                 body.plain,
                 body.attachments,
                 seen);
+    }
+
+    // ---------- mark as read ----------
+
+    /**
+     * Sets the \Seen flag on one message. Called by the webmail when the user
+     * opens a message, so the inbox reflects what's actually been read. This
+     * is the only READ_WRITE folder open in the service — it touches exactly
+     * one flag on one UID and closes with {@code close(false)} (never expunge).
+     * Idempotent: marking an already-seen message is a no-op.
+     */
+    public void markSeen(UUID userId, UUID mailboxId, String messageId) {
+        Mailbox mb = mailboxes.getOwned(userId, mailboxId);
+        long uid = parseUid(messageId);
+        try {
+            Store store = pool.acquire(mb);
+            IMAPFolder inbox = (IMAPFolder) store.getFolder("INBOX");
+            inbox.open(Folder.READ_WRITE);
+            try {
+                Message msg = inbox.getMessageByUID(uid);
+                if (msg == null) {
+                    throw new MessageNotFoundException("Message " + messageId + " not found");
+                }
+                if (!msg.isSet(Flags.Flag.SEEN)) {
+                    msg.setFlag(Flags.Flag.SEEN, true);
+                }
+            } finally {
+                silentClose(inbox);
+            }
+        } catch (MessagingException e) {
+            pool.invalidate(mb.getId());
+            throw new IllegalStateException("IMAP markSeen failed for mailbox " + mailboxId, e);
+        }
     }
 
     // ---------- attachment download ----------

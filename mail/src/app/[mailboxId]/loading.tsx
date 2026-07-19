@@ -1,5 +1,5 @@
-import { InboxSkeleton } from '@/components/mail/mail-skeleton';
+import { InboxContentSkeleton } from '@/components/mail/mail-skeleton';
 
 export default function Loading() {
-  return <InboxSkeleton />;
+  return <InboxContentSkeleton />;
 }

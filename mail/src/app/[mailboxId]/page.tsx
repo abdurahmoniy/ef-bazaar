@@ -1,16 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { CopyButton } from '@/components/mail/copy-button';
 import { InboxView } from '@/components/mail/inbox-view';
-import { MailShell } from '@/components/mail/mail-shell';
 import { RefreshControls } from '@/components/mail/refresh-controls';
-import { getMe } from '@/lib/auth';
 import { mailAvatarColor, mailAvatarInitial } from '@/lib/mail-format';
 import { getInbox, getMyMailboxes } from '@/lib/mail-server';
-import { mainSiteLoginUrl } from '@/lib/site';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -31,9 +28,8 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
   const search = (searchParams ? await searchParams : {}) as { offset?: string };
   const offset = Math.max(0, Number.parseInt(search.offset ?? '0', 10) || 0);
 
-  const user = await getMe();
-  if (!user) redirect(mainSiteLoginUrl(`/${mailboxId}`));
-
+  // Session + shell live in layout.tsx; getMyMailboxes() is request-memoized
+  // so this lookup reuses the layout's fetch.
   const mailboxes = await getMyMailboxes();
   const active = mailboxes.find((m) => m.id === mailboxId);
   if (!active) notFound();
@@ -46,50 +42,48 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
     : 'Yangilashda xatolik';
 
   return (
-    <MailShell mailboxes={mailboxes} activeMailboxId={mailboxId}>
-      <div className="flex min-h-full flex-col">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <span
-              className="hidden h-10 w-10 shrink-0 place-items-center rounded-full text-base font-black text-white shadow-sm sm:grid"
-              style={{ backgroundColor: mailAvatarColor(active.email) }}
-              aria-hidden
-            >
-              {mailAvatarInitial(active.email)}
-            </span>
-            <div className="min-w-0">
-              <div className="flex min-w-0 items-center gap-1">
-                <h1 className="truncate text-base font-black text-foreground">{active.email}</h1>
-                <CopyButton value={active.email} label="Pochta manzilini nusxalash" />
-              </div>
-              <p className="text-xs text-muted-foreground">{summary}</p>
+    <div className="flex min-h-full flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className="hidden h-10 w-10 shrink-0 place-items-center rounded-full text-base font-black text-white shadow-sm sm:grid"
+            style={{ backgroundColor: mailAvatarColor(active.email) }}
+            aria-hidden
+          >
+            {mailAvatarInitial(active.email)}
+          </span>
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-1">
+              <h1 className="truncate text-base font-black text-foreground">{active.email}</h1>
+              <CopyButton value={active.email} label="Pochta manzilini nusxalash" />
             </div>
+            <p className="text-xs text-muted-foreground">{summary}</p>
           </div>
-          <RefreshControls />
         </div>
-
-        {page === null ? (
-          <ImapError />
-        ) : (
-          <>
-            <InboxView
-              mailboxId={mailboxId}
-              mailboxEmail={active.email}
-              messages={page.messages}
-              emptySlice={offset > 0 && page.messages.length === 0}
-            />
-            {(offset > 0 || page.messages.length === PAGE_SIZE) && (
-              <PaginationBar
-                mailboxId={mailboxId}
-                offset={offset}
-                total={page.total}
-                pageSize={PAGE_SIZE}
-              />
-            )}
-          </>
-        )}
+        <RefreshControls />
       </div>
-    </MailShell>
+
+      {page === null ? (
+        <ImapError />
+      ) : (
+        <>
+          <InboxView
+            mailboxId={mailboxId}
+            mailboxEmail={active.email}
+            messages={page.messages}
+            emptySlice={offset > 0 && page.messages.length === 0}
+          />
+          {(offset > 0 || page.messages.length === PAGE_SIZE) && (
+            <PaginationBar
+              mailboxId={mailboxId}
+              offset={offset}
+              total={page.total}
+              pageSize={PAGE_SIZE}
+            />
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
