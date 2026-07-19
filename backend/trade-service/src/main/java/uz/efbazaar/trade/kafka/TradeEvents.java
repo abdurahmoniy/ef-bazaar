@@ -28,7 +28,7 @@ public final class TradeEvents {
     public static final String TOPIC_KONAMI_EMAIL_CHANGE_CODE = "efbazaar.trade.konami-email-change-code-received";
 
     public enum ProposalOutcome { ACCEPTED, REJECTED, EXPIRED }
-    public enum ImapPurpose      { VERIFY_LINK, WAIT_2FA_CODE }
+    public enum ImapPurpose      { VERIFY_LINK, WAIT_2FA_CODE, WAIT_EMAIL_CHANGE_CODE }
 
     public record ProposalCreated(
             UUID proposalId,
