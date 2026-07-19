@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { AlertTriangle, ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 
-import { InboxList } from '@/components/mail/inbox-list';
+import { CopyButton } from '@/components/mail/copy-button';
+import { InboxView } from '@/components/mail/inbox-view';
 import { MailShell } from '@/components/mail/mail-shell';
+import { RefreshControls } from '@/components/mail/refresh-controls';
 import { Button } from '@/components/ui/button';
 import { getMe } from '@/lib/auth';
 import { getInbox, getMyMailboxes } from '@/lib/mail-server';
@@ -37,32 +39,30 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
 
   const page = await getInbox(mailboxId, { limit: PAGE_SIZE, offset });
 
+  const unread = active.unreadCount;
+  const summary = page
+    ? `Jami ${page.total} xat${typeof unread === 'number' && unread > 0 ? ` · ${unread} o'qilmagan` : ''}`
+    : 'Yangilashda xatolik';
+
   return (
     <MailShell mailboxes={mailboxes} activeMailboxId={mailboxId}>
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-black text-foreground">{active.email}</h1>
-            <p className="text-xs text-muted-foreground">
-              {page ? `Jami ${page.total} xat` : 'Yangilashda xatolik'}
-            </p>
+            <div className="flex min-w-0 items-center gap-1">
+              <h1 className="truncate text-base font-black text-foreground">{active.email}</h1>
+              <CopyButton value={active.email} label="Pochta manzilini nusxalash" />
+            </div>
+            <p className="text-xs text-muted-foreground">{summary}</p>
           </div>
-          <Button asChild variant="outline" size="sm">
-            <Link
-              href={`/${mailboxId}${offset > 0 ? `?offset=${offset}` : ''}`}
-              scroll={false}
-              prefetch={false}
-            >
-              <RotateCw className="h-3.5 w-3.5" /> Yangilash
-            </Link>
-          </Button>
+          <RefreshControls />
         </div>
 
         {page === null ? (
           <ImapError />
         ) : (
           <>
-            <InboxList
+            <InboxView
               mailboxId={mailboxId}
               mailboxEmail={active.email}
               messages={page.messages}

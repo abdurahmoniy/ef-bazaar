@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatBytes, mailAvatarInitial, relativeUz } from './mail-format';
+import {
+  extractOtpCode,
+  formatBytes,
+  fullDateUz,
+  mailAvatarInitial,
+  relativeUz,
+  stripHtml,
+} from './mail-format';
 
 describe('mail-format', () => {
   describe('relativeUz', () => {
@@ -51,6 +58,72 @@ describe('mail-format', () => {
     it('renders KiB / MiB with one decimal', () => {
       expect(formatBytes(2048)).toBe('2.0 KB');
       expect(formatBytes(1024 * 1024 * 3)).toBe('3.0 MB');
+    });
+  });
+
+  describe('fullDateUz', () => {
+    it('renders UZ-time absolute stamp', () => {
+      // 09:00 UTC → 14:00 UZ (+5)
+      expect(fullDateUz('2026-07-17T09:00:00Z')).toBe('17 iyul 2026, 14:00');
+    });
+
+    it('pads minutes and hours', () => {
+      // 23:05 UTC → 04:05 next day UZ
+      expect(fullDateUz('2026-07-17T23:05:00Z')).toBe('18 iyul 2026, 04:05');
+    });
+
+    it('returns em-dash for null / invalid input', () => {
+      expect(fullDateUz(null)).toBe('—');
+      expect(fullDateUz('nope')).toBe('—');
+    });
+  });
+
+  describe('stripHtml', () => {
+    it('strips tags and decodes common entities', () => {
+      expect(stripHtml('<p>Salom &amp; xush kelibsiz</p>').trim()).toBe(
+        'Salom & xush kelibsiz',
+      );
+    });
+
+    it('turns block boundaries into newlines', () => {
+      const text = stripHtml('<p>Your code:</p><p>482913</p>');
+      expect(text).toContain('\n');
+      expect(text).toContain('482913');
+    });
+  });
+
+  describe('extractOtpCode', () => {
+    it('finds a code on the same line as the keyword', () => {
+      expect(extractOtpCode('Your verification code is 482913', null)).toBe('482913');
+    });
+
+    it('finds a code on the line below the label (Konami layout)', () => {
+      expect(extractOtpCode('認証コード:\n\n7261\n\nこのコードは10分間有効です', null)).toBe('7261');
+    });
+
+    it('reads the code out of sanitised HTML when plain is missing', () => {
+      expect(
+        extractOtpCode(null, '<p>Tasdiqlash kodi:</p><p><b>558201</b></p>'),
+      ).toBe('558201');
+    });
+
+    it('skips bare years in favour of a real code', () => {
+      expect(
+        extractOtpCode('© 2026 KONAMI — your code 4821 expires soon', null),
+      ).toBe('4821');
+    });
+
+    it('falls back to a standalone digit line', () => {
+      expect(extractOtpCode('Assalomu alaykum\n\n930127\n\nRahmat', null)).toBe('930127');
+    });
+
+    it('returns null when nothing code-like exists', () => {
+      expect(extractOtpCode('Hech qanday raqam yo\'q bu xatda.', null)).toBeNull();
+      expect(extractOtpCode(null, null)).toBeNull();
+    });
+
+    it('ignores long numbers like phone numbers embedded in digits', () => {
+      expect(extractOtpCode('Call +998901234567 for help', null)).toBeNull();
     });
   });
 
