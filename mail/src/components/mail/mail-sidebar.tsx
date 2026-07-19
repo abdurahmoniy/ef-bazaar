@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Inbox, Mail } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { mailAvatarInitial, relativeUz } from '@/lib/mail-format';
+import { fullDateUz, mailAvatarInitial, relativeUz } from '@/lib/mail-format';
 import type { MailboxSummary } from '@/lib/mail-types';
 
 interface MailSidebarProps {
@@ -26,16 +26,18 @@ export function MailSidebar({ mailboxes, activeMailboxId, variant = 'panel' }: M
 
   return (
     <aside className={wrapperClass}>
-      <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-        <Mail className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
-          Pochta
-        </span>
-      </div>
+      {variant === 'panel' && (
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+          <Mail className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+            Pochta
+          </span>
+        </div>
+      )}
       {mailboxes.length === 0 ? (
         <EmptySidebar />
       ) : (
-        <ul className="max-h-[calc(100vh-14rem)] overflow-y-auto p-2">
+        <ul className={cn('overflow-y-auto p-2', variant === 'panel' && 'max-h-[calc(100vh-14rem)]')}>
           {mailboxes.map((mb) => (
             <li key={mb.id}>
               <MailboxRow mailbox={mb} active={mb.id === activeMailboxId} />
@@ -75,7 +77,10 @@ function MailboxRow({ mailbox, active }: { mailbox: MailboxSummary; active: bool
         <span className="block truncate text-sm font-semibold text-foreground">
           {mailbox.email}
         </span>
-        <span className="block truncate text-[11px] text-muted-foreground">
+        <span
+          className="block truncate text-[11px] text-muted-foreground"
+          title={fullDateUz(mailbox.lastActivityAt)}
+        >
           {relativeUz(mailbox.lastActivityAt)}
         </span>
       </span>

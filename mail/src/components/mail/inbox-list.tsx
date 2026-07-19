@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Inbox, Paperclip } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { relativeUz } from '@/lib/mail-format';
+import { fullDateUz, relativeUz } from '@/lib/mail-format';
 import type { InboxMessage } from '@/lib/mail-types';
 
 interface InboxListProps {
@@ -78,7 +78,10 @@ function MessageRow({ mailboxId, msg }: { mailboxId: string; msg: InboxMessage }
           {msg.snippet}
         </span>
       </span>
-      <span className="shrink-0 text-[11px] font-medium text-muted-foreground sm:w-24 sm:text-right">
+      <span
+        className="shrink-0 text-[11px] font-medium text-muted-foreground sm:w-24 sm:text-right"
+        title={fullDateUz(msg.receivedAt)}
+      >
         {relativeUz(msg.receivedAt)}
       </span>
     </Link>
