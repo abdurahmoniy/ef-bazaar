@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { getAuthCookieClearOptions, getAuthCookieOptions } from './lib/auth-cookies';
+import { isSafeInternalPath } from './lib/safe-redirect';
 import { refreshSession, type RefreshedTokens } from './lib/session-refresh';
 
 const ACCESS_COOKIE = 'access_token';
@@ -111,6 +112,14 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isAuthOnlyLoggedOutPath(pathname) && hasSession) {
+    // `from=` bilan kelgan (masalan mail.efbazaar.uz dan) allaqachon login
+    // bo'lgan user login sahifasiga emas — to'g'ridan-to'g'ri manzilga.
+    // isSafeInternalPath faqat shu saytning ichki path'ini o'tkazadi, shuning
+    // uchun redirect har doim same-origin bo'ladi.
+    const from = request.nextUrl.searchParams.get('from');
+    if (from && isSafeInternalPath(from)) {
+      return finalize(NextResponse.redirect(new URL(from, request.url)));
+    }
     const marketplace = request.nextUrl.clone();
     marketplace.pathname = '/marketplace';
     marketplace.search = '';
