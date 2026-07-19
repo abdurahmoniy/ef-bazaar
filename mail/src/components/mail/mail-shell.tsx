@@ -12,20 +12,20 @@ interface MailShellProps {
 }
 
 /**
- * Standalone chrome for mail.efbazaar.uz: slim top bar with the brand and a
- * link back to the marketplace, then the two-column sidebar + reader grid.
- * On mobile the sidebar collapses into a hamburger drawer so the inbox is
- * the first thing on screen.
+ * Standalone chrome for mail.efbazaar.uz, laid out like a desktop mail
+ * client: fixed top bar, full-height sidebar column on the left, and a white
+ * reading pane that scrolls independently. On mobile the sidebar collapses
+ * into a hamburger drawer so the inbox is the first thing on screen.
  */
 export function MailShell({ mailboxes, activeMailboxId, children }: MailShellProps) {
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-border bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-        <div className="container-page flex h-14 items-center justify-between gap-3">
+    <div className="flex h-dvh flex-col overflow-hidden bg-background">
+      <header className="z-20 shrink-0 border-b border-border bg-card">
+        <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-2">
             <MobileSidebar mailboxes={mailboxes} activeMailboxId={activeMailboxId} />
-            <a href={MAIN_SITE_URL} className="flex min-w-0 items-center gap-2">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+            <a href={MAIN_SITE_URL} className="flex min-w-0 items-center gap-2.5">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground shadow-sm">
                 <Mail className="h-4 w-4" />
               </span>
               <span className="truncate text-sm font-black text-foreground">
@@ -35,7 +35,7 @@ export function MailShell({ mailboxes, activeMailboxId, children }: MailShellPro
           </div>
           <a
             href={`${MAIN_SITE_URL}/marketplace`}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             Bozorga qaytish
             <ArrowUpRight className="h-3.5 w-3.5" />
@@ -43,14 +43,14 @@ export function MailShell({ mailboxes, activeMailboxId, children }: MailShellPro
         </div>
       </header>
 
-      <main className="container-page py-4">
-        <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-          <div className="hidden lg:block">
-            <MailSidebar mailboxes={mailboxes} activeMailboxId={activeMailboxId} />
-          </div>
-          <div className="min-w-0">{children}</div>
-        </div>
-      </main>
+      <div className="flex min-h-0 flex-1">
+        <aside className="hidden w-72 shrink-0 border-r border-border bg-background lg:flex lg:flex-col xl:w-80">
+          <MailSidebar mailboxes={mailboxes} activeMailboxId={activeMailboxId} />
+        </aside>
+        <main className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-card">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

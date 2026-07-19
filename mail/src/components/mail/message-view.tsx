@@ -19,6 +19,7 @@ import {
   extractOtpCode,
   formatBytes,
   fullDateUz,
+  mailAvatarColor,
   mailAvatarInitial,
   relativeUz,
 } from '@/lib/mail-format';
@@ -42,7 +43,8 @@ interface MessageViewProps {
 }
 
 /**
- * Full message reader. HTML body is already sanitised server-side by Jsoup
+ * Full message reader: a sticky back / prev-next toolbar over a centered
+ * reading column. HTML body is already sanitised server-side by Jsoup
  * (script / iframe / img / style stripped) — we render it with
  * `dangerouslySetInnerHTML` because we've already proved it's safe on the
  * trade-service side and shipping a client-side sanitiser (DOMPurify) would
@@ -63,156 +65,159 @@ export function MessageView({ mailboxId, message, nav }: MessageViewProps) {
   const otpCode = extractOtpCode(message.bodyPlain, message.bodyHtml);
 
   return (
-    <article className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
+    <div className="flex min-h-full flex-col">
       <MessageHotkeys
         backHref={`/${mailboxId}`}
         prevHref={nav?.prevHref ?? null}
         nextHref={nav?.nextHref ?? null}
       />
 
-      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-card/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-card/80 sm:px-6">
         <Link
           href={`/${mailboxId}`}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 hover:bg-muted"
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           <span>Inbox</span>
         </Link>
         {nav && (nav.prevHref || nav.nextHref) && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
             {nav.position !== null && nav.total !== null && (
               <span className="mr-1 tabular-nums">
                 {nav.position} / {nav.total}
               </span>
             )}
             <NavArrow href={nav.prevHref} label="Yangiroq xat (←)">
-              <ChevronLeft className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-4 w-4" />
             </NavArrow>
             <NavArrow href={nav.nextHref} label="Eskiroq xat (→)">
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-4 w-4" />
             </NavArrow>
           </div>
         )}
       </div>
 
-      <header className="space-y-3 border-b border-border pb-4">
-        <h1 className="text-lg font-black text-foreground sm:text-xl">
-          {message.subject || '(mavzu yo\'q)'}
-        </h1>
-        <div className="flex items-start gap-3">
-          <span
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-muted text-sm font-black text-foreground"
-            aria-hidden
-          >
-            {mailAvatarInitial(message.fromAddress || displayFrom)}
-          </span>
-          <dl className="grid min-w-0 flex-1 gap-1 text-xs sm:grid-cols-[6rem_1fr]">
-            <dt className="font-semibold text-muted-foreground">Kimdan:</dt>
-            <dd className="flex min-w-0 items-center gap-1 text-foreground">
-              <span className="truncate">
-                <span className="font-semibold">{displayFrom}</span>
-                {message.fromAddress && message.fromName && (
-                  <span className="ml-1 text-muted-foreground">&lt;{message.fromAddress}&gt;</span>
+      <article className="mx-auto w-full max-w-3xl flex-1 space-y-5 px-4 py-5 sm:px-6 sm:py-6">
+        <header className="space-y-4 border-b border-border pb-5">
+          <h1 className="text-lg font-black leading-snug text-foreground sm:text-xl">
+            {message.subject || '(mavzu yo\'q)'}
+          </h1>
+          <div className="flex items-start gap-3">
+            <span
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-black text-white shadow-sm"
+              style={{ backgroundColor: mailAvatarColor(message.fromAddress || displayFrom) }}
+              aria-hidden
+            >
+              {mailAvatarInitial(message.fromAddress || displayFrom)}
+            </span>
+            <dl className="grid min-w-0 flex-1 gap-1 text-xs sm:grid-cols-[6rem_1fr]">
+              <dt className="font-semibold text-muted-foreground">Kimdan:</dt>
+              <dd className="flex min-w-0 items-center gap-1 text-foreground">
+                <span className="truncate">
+                  <span className="font-semibold">{displayFrom}</span>
+                  {message.fromAddress && message.fromName && (
+                    <span className="ml-1 text-muted-foreground">&lt;{message.fromAddress}&gt;</span>
+                  )}
+                </span>
+                {message.fromAddress && (
+                  <CopyButton value={message.fromAddress} label="Manzilni nusxalash" />
                 )}
-              </span>
-              {message.fromAddress && (
-                <CopyButton value={message.fromAddress} label="Manzilni nusxalash" />
+              </dd>
+              {message.toAddresses.length > 0 && (
+                <>
+                  <dt className="font-semibold text-muted-foreground">Kimga:</dt>
+                  <dd className="text-foreground">{message.toAddresses.join(', ')}</dd>
+                </>
               )}
-            </dd>
-            {message.toAddresses.length > 0 && (
-              <>
-                <dt className="font-semibold text-muted-foreground">Kimga:</dt>
-                <dd className="text-foreground">{message.toAddresses.join(', ')}</dd>
-              </>
-            )}
-            {message.ccAddresses.length > 0 && (
-              <>
-                <dt className="font-semibold text-muted-foreground">Nusxa:</dt>
-                <dd className="text-foreground">{message.ccAddresses.join(', ')}</dd>
-              </>
-            )}
-            <dt className="font-semibold text-muted-foreground">Vaqt:</dt>
-            <dd className="text-foreground">
-              {fullDateUz(message.receivedAt)}
-              <span className="ml-1 text-muted-foreground">
-                ({relativeUz(message.receivedAt)})
-              </span>
-            </dd>
-          </dl>
-        </div>
-      </header>
-
-      {otpCode && (
-        <aside className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/25 bg-accent px-4 py-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <KeyRound className="h-4 w-4" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-accent-foreground">
-              Tasdiqlash kodi topildi
-            </p>
-            <p className="font-mono text-xl font-black tracking-[0.3em] text-foreground">
-              {otpCode}
-            </p>
+              {message.ccAddresses.length > 0 && (
+                <>
+                  <dt className="font-semibold text-muted-foreground">Nusxa:</dt>
+                  <dd className="text-foreground">{message.ccAddresses.join(', ')}</dd>
+                </>
+              )}
+              <dt className="font-semibold text-muted-foreground">Vaqt:</dt>
+              <dd className="text-foreground">
+                {fullDateUz(message.receivedAt)}
+                <span className="ml-1 text-muted-foreground">
+                  ({relativeUz(message.receivedAt)})
+                </span>
+              </dd>
+            </dl>
           </div>
-          <CopyButton
-            value={otpCode}
-            label="Kodni nusxalash"
-            className="border border-primary/30 bg-white px-3 py-2 text-primary hover:bg-white/70 hover:text-primary"
-          >
-            Nusxalash
-          </CopyButton>
-        </aside>
-      )}
+        </header>
 
-      {hasHtml ? (
-        <div
-          className="mail-html-body"
-          // Sanitised server-side by Jsoup — see MessageView docstring.
-          dangerouslySetInnerHTML={{ __html: message.bodyHtml ?? '' }}
-        />
-      ) : hasPlain ? (
-        <pre className="whitespace-pre-wrap break-words font-sans text-sm text-foreground">
-          {message.bodyPlain}
-        </pre>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Xat matnini ko&apos;rsatib bo&apos;lmadi.
-        </p>
-      )}
+        {otpCode && (
+          <aside className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/25 bg-accent px-4 py-3 shadow-card">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+              <KeyRound className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-accent-foreground">
+                Tasdiqlash kodi topildi
+              </p>
+              <p className="font-mono text-xl font-black tracking-[0.3em] text-foreground">
+                {otpCode}
+              </p>
+            </div>
+            <CopyButton
+              value={otpCode}
+              label="Kodni nusxalash"
+              className="border border-primary/30 bg-white px-3 py-2 text-primary hover:bg-white/70 hover:text-primary"
+            >
+              Nusxalash
+            </CopyButton>
+          </aside>
+        )}
 
-      {message.attachments.length > 0 && (
-        <section className="border-t border-border pt-4">
-          <h2 className="mb-2 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            <Paperclip className="h-3.5 w-3.5" />
-            Ilovalar ({message.attachments.length})
-          </h2>
-          <ul className="flex flex-wrap gap-2">
-            {message.attachments.map((att) => {
-              const Icon = attachmentIcon(att.contentType);
-              return (
-                <li key={att.attachmentId}>
-                  <a
-                    href={attachmentDownloadUrl(mailboxId, message.messageId, att.attachmentId)}
-                    className="group inline-flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs hover:border-primary/40 hover:bg-muted"
-                    // Backend always returns Content-Disposition: attachment,
-                    // so this triggers a download rather than in-app preview.
-                    download
-                  >
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                    <span className="max-w-[16rem] truncate font-semibold text-foreground">
-                      {att.filename || 'ilova'}
-                    </span>
-                    <span className="text-muted-foreground">{formatBytes(att.sizeBytes)}</span>
-                    <Download className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-    </article>
+        {hasHtml ? (
+          <div
+            className="mail-html-body"
+            // Sanitised server-side by Jsoup — see MessageView docstring.
+            dangerouslySetInnerHTML={{ __html: message.bodyHtml ?? '' }}
+          />
+        ) : hasPlain ? (
+          <pre className="whitespace-pre-wrap break-words font-sans text-sm text-foreground">
+            {message.bodyPlain}
+          </pre>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Xat matnini ko&apos;rsatib bo&apos;lmadi.
+          </p>
+        )}
+
+        {message.attachments.length > 0 && (
+          <section className="border-t border-border pt-4">
+            <h2 className="mb-2 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              <Paperclip className="h-3.5 w-3.5" />
+              Ilovalar ({message.attachments.length})
+            </h2>
+            <ul className="flex flex-wrap gap-2">
+              {message.attachments.map((att) => {
+                const Icon = attachmentIcon(att.contentType);
+                return (
+                  <li key={att.attachmentId}>
+                    <a
+                      href={attachmentDownloadUrl(mailboxId, message.messageId, att.attachmentId)}
+                      className="group inline-flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs transition-colors hover:border-primary/40 hover:bg-muted"
+                      // Backend always returns Content-Disposition: attachment,
+                      // so this triggers a download rather than in-app preview.
+                      download
+                    >
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      <span className="max-w-[16rem] truncate font-semibold text-foreground">
+                        {att.filename || 'ilova'}
+                      </span>
+                      <span className="text-muted-foreground">{formatBytes(att.sizeBytes)}</span>
+                      <Download className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+      </article>
+    </div>
   );
 }
 
@@ -226,8 +231,8 @@ function NavArrow({
   children: React.ReactNode;
 }) {
   const cls = cn(
-    'inline-flex h-7 w-7 items-center justify-center rounded-md',
-    href ? 'hover:bg-muted' : 'pointer-events-none opacity-30',
+    'inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors',
+    href ? 'hover:bg-muted hover:text-foreground' : 'pointer-events-none opacity-30',
   );
   if (!href) {
     return <span className={cls}>{children}</span>;
