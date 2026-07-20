@@ -15,7 +15,7 @@ public record ListingFilter(
         BigDecimal minPrice,
         BigDecimal maxPrice,
         Boolean priceNegotiable,
-        String search,                       // full-text search in description (LIKE for MVP)
+        String search,                       // full-text search in description + valuable_players names (LIKE for MVP)
         /**
          * Attribute filters keyed by definition key. Plain keys are equality
          * matched, e.g. {@code {"exchange_mode": "BOTH"}}; keys suffixed with

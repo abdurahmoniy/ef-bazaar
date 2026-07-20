@@ -30,6 +30,21 @@ export const MARKETPLACE_FILTERS = [
       attributes: { has_google_play_link: 'false', has_game_center_link: 'false' },
     },
   },
+  {
+    id: 'division1',
+    label: 'Division 1',
+    params: { attributes: { highest_division_level: '1' } },
+  },
+  {
+    id: 'strong',
+    label: '3000+ kuch',
+    params: { attributes: { 'team_strength.min': '3000' } },
+  },
+  {
+    id: 'exchange',
+    label: 'Faqat obmen',
+    params: { attributes: { exchange_mode: 'EXCHANGE_ONLY' } },
+  },
 ] as const satisfies readonly {
   id: string;
   label: string;
