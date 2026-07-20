@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { MyGamerCardSection } from '@/components/gamer/my-gamer-card-section';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { LogoutButton } from '@/components/profile/logout-button';
 import { ProfileAccount } from '@/components/profile/profile-account';
@@ -31,6 +32,7 @@ const VALID_TABS: ProfileTabId[] = [
   'listings',
   'favorites',
   'kartalar',
+  'gamer',
   // 'pochta' is a link-out to /mail, never rendered inside the profile shell —
   // omit it here so ?tab=pochta falls back to 'listings' rather than a blank
   // section. Same for legacy ?tab=chats links: chats live at /chats now, the
@@ -86,6 +88,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           {activeTab === 'listings' && <ProfileListings listings={listings} />}
           {activeTab === 'favorites' && <ProfileListings listings={favorites} favorites />}
           {activeTab === 'kartalar' && <ProfileCards cards={cards} />}
+          {activeTab === 'gamer' && <MyGamerCardSection />}
           {activeTab === 'account' && (
             <ProfileAccount user={user} googleClientId={googleClientId} botUsername={botUsername} />
           )}

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BadgeCheck, MessageCircle, ShieldAlert, Star } from 'lucide-react';
+import { BadgeCheck, IdCard, MessageCircle, ShieldAlert, Star } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -12,9 +12,11 @@ interface SellerCardProps {
     'id' | 'displayName' | 'telegramPhotoUrl' | 'telegramUsername' | 'verified' | 'createdAt'
   > | null;
   isViewerOwner?: boolean;
+  /** Trust module: seller is on the public blacklist — show the red warning. */
+  blacklisted?: boolean;
 }
 
-export function SellerCard({ seller, isViewerOwner }: SellerCardProps) {
+export function SellerCard({ seller, isViewerOwner, blacklisted }: SellerCardProps) {
   if (!seller) {
     return (
       <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground shadow-card">
@@ -38,6 +40,15 @@ export function SellerCard({ seller, isViewerOwner }: SellerCardProps) {
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+      {blacklisted && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+          <ShieldAlert className="h-4 w-4 shrink-0" />
+          Bu sotuvchi qora ro'yxatda —{' '}
+          <Link href="/blacklist" className="underline underline-offset-2">
+            sababini ko'rish
+          </Link>
+        </div>
+      )}
       <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Sotuvchi</div>
       <div className="mt-3 flex items-start gap-3">
         <Avatar className="h-12 w-12 ring-2 ring-primary/10">
@@ -68,6 +79,12 @@ export function SellerCard({ seller, isViewerOwner }: SellerCardProps) {
             <span className="inline-flex items-center gap-1">
               <Star className="h-3 w-3" /> A'zo: {memberSinceLabel}
             </span>
+            <Link
+              href={`/gamers/${seller.id}`}
+              className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+            >
+              <IdCard className="h-3 w-3" /> Gamer Card
+            </Link>
           </div>
         </div>
       </div>

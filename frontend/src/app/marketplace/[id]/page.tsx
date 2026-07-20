@@ -15,6 +15,7 @@ import {
   attributeNumber,
   type ListingResponse,
 } from '@/lib/marketplace-types';
+import { isUserBlacklisted } from '@/lib/gamer-server';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 
@@ -159,9 +160,10 @@ export default async function ListingPage({ params }: ListingPageProps) {
   }
 
   const listing = result.data;
-  const [seller, similar] = await Promise.all([
+  const [seller, similar, sellerBlacklisted] = await Promise.all([
     getUserProfile(listing.sellerId),
     getSimilarListings(listing),
+    isUserBlacklisted(listing.sellerId),
   ]);
 
   const jsonLd = JSON.stringify(buildListingJsonLd(listing)).replace(/</g, '\\u003c');
@@ -176,6 +178,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
         listing={listing}
         viewer={viewer}
         seller={seller}
+        sellerBlacklisted={sellerBlacklisted}
         similarListings={similar}
       />
     </MarketplaceShell>
