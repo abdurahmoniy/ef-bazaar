@@ -63,6 +63,15 @@ public class NotificationService {
                                 .build()));
     }
 
+    /** Trust-module notice (warning/block/unblock) — no chat/listing context. */
+    @Transactional
+    public void trustNotice(UUID userId, NotificationType type) {
+        notifications.save(Notification.builder()
+                .userId(userId)
+                .type(type)
+                .build());
+    }
+
     @Transactional(readOnly = true)
     public Page<Notification> list(UUID userId, Pageable pageable) {
         return notifications.findByUserIdOrderByCreatedAtDesc(userId, pageable);

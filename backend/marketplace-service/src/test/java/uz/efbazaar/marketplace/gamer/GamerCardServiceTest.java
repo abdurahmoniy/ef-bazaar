@@ -34,12 +34,13 @@ class GamerCardServiceTest {
     @Mock private GamerProfileRepository profiles;
     @Mock private ListingRepository listings;
     @Mock private AuthSummaryClient authSummary;
+    @Mock private uz.efbazaar.marketplace.trust.BlacklistGuard blacklistGuard;
 
     private GamerCardService service;
 
     @BeforeEach
     void setUp() {
-        service = new GamerCardService(stats, profiles, listings, authSummary);
+        service = new GamerCardService(stats, profiles, listings, authSummary, blacklistGuard);
         lenient().when(stats.findById(USER)).thenReturn(Optional.empty());
         lenient().when(profiles.findById(USER)).thenReturn(Optional.empty());
         lenient().when(listings.countBySellerIdAndStatus(any(), any())).thenReturn(0L);

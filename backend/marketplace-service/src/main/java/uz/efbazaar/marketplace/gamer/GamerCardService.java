@@ -13,6 +13,7 @@ import uz.efbazaar.marketplace.gamer.GamerRepositories.GamerProfileRepository;
 import uz.efbazaar.marketplace.gamer.GamerRepositories.GamerStatsRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
 import uz.efbazaar.marketplace.security.AuthSummaryClient;
+import uz.efbazaar.marketplace.trust.BlacklistGuard;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -34,6 +35,7 @@ public class GamerCardService {
     private final GamerProfileRepository profiles;
     private final ListingRepository listings;
     private final AuthSummaryClient authSummary;
+    private final BlacklistGuard blacklistGuard;
 
     @Transactional(readOnly = true)
     public GamerCardResponse getCard(UUID userId) {
@@ -72,7 +74,7 @@ public class GamerCardService {
                 winRate,
                 s.getTournaments(),
                 active, sold, bought,
-                false,  // blacklisted — trust moduli kelganda ulanadi
+                blacklistGuard.isBlacklisted(userId),
                 p == null ? null : p.getBio(),
                 p == null ? null : p.getPlatform(),
                 p == null ? null : p.getHighestDivision(),

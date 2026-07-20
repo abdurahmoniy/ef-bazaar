@@ -108,4 +108,9 @@ public class MarketplaceException extends RuntimeException {
         return new MarketplaceException(HttpStatus.FORBIDDEN, "not_message_sender",
                 "Faqat o'z xabaringizni o'zgartira olasiz");
     }
+
+    public static MarketplaceException userBlacklisted() {
+        return new MarketplaceException(HttpStatus.FORBIDDEN, "user_blacklisted",
+                "Akkauntingiz qora ro'yxatda — bu amal bloklangan");
+    }
 }

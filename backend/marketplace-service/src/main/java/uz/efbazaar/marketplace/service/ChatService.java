@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import uz.efbazaar.marketplace.trust.BlacklistGuard;
 
 @Slf4j
 @Service
@@ -34,9 +35,13 @@ public class ChatService {
     private final MarketplaceEventPublisher events;
     private final AuthNameClient authNameClient;
     private final NotificationService notifications;
+    private final BlacklistGuard blacklistGuard;
 
     @Transactional
     public Chat start(UUID buyerId, UUID listingId) {
+        if (blacklistGuard.isBlacklisted(buyerId)) {
+            throw MarketplaceException.userBlacklisted();
+        }
         Listing listing = listings.findById(listingId)
                 .orElseThrow(MarketplaceException::listingNotFound);
         if (listing.getStatus() != ListingStatus.ACTIVE) {

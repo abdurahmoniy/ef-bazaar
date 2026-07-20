@@ -36,6 +36,7 @@ class ChatServiceTest {
     @Mock AuthNameClient authNameClient;
     @Mock NotificationService notifications;
 
+    @Mock uz.efbazaar.marketplace.trust.BlacklistGuard blacklistGuard;
     @InjectMocks ChatService service;
 
     private UUID sellerId;

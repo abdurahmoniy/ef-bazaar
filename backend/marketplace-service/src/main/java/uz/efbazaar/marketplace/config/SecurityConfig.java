@@ -39,6 +39,8 @@ public class SecurityConfig {
                         // (share page, listing seller card).
                         .requestMatchers("/api/v1/gamer-cards/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/gamer-cards/*").permitAll()
+                        // Public — qora ro'yxat (rate limit nginx'da)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/blacklist", "/api/v1/blacklist/check").permitAll()
                         // Public — attribute definitions (form rendering + filter discovery)
                         .requestMatchers(HttpMethod.GET, "/api/v1/attributes", "/api/v1/attributes/*").permitAll()
                         // Public — health

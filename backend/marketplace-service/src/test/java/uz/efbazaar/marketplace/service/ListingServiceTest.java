@@ -50,6 +50,7 @@ class ListingServiceTest {
     @Mock AttributeDefinitionRepository attributeDefinitions;
     @Spy  ListingMapper mapper = Mappers.getMapper(ListingMapper.class);
 
+    @Mock uz.efbazaar.marketplace.trust.BlacklistGuard blacklistGuard;
     @InjectMocks ListingService service;
 
     private UUID sellerId;
