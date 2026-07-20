@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const mailConfigPath = join(process.cwd(), '..', 'nginx', 'conf.d', 'mail.conf');
+const mailcowConfigPath = join(process.cwd(), '..', 'nginx', 'conf.d', 'mailcow.conf');
 const backendsPath = join(process.cwd(), '..', 'nginx', 'conf.d', 'backends.inc');
 
 function extractBlocks(config: string, directive: RegExp) {
@@ -54,25 +55,49 @@ describe('nginx mail subdomain routing', () => {
     expect(tradeLocation).toContain('proxy_pass http://$backend_mail$request_uri;');
   });
 
-  it('keeps the Mailcow admin API reachable (smart-admin-worker depends on it)', () => {
-    // MAILCOW_API_URL=https://mail.efbazaar.uz/api/v1 — o'chirilsa worker
-    // mailbox yarata olmaydi va trade lifecycle to'xtaydi.
-    const apiLocation = extractBlocks(mailServer ?? '', /\blocation\s+\/api\/\s*\{/g)[0];
-    expect(apiLocation).toContain('proxy_pass https://host.docker.internal:8443;');
-  });
-
-  it('keeps autodiscover/autoconfig hosts fully on Mailcow', () => {
-    const autoServer = extractBlocks(config, /\bserver\s*\{/g).find(
-      (block) =>
-        /\bserver_name\s+autodiscover\.efbazaar\.uz\b/.test(block) &&
-        /\blisten\s+443\b/.test(block),
-    );
-    expect(autoServer).toBeDefined();
-    expect(autoServer).toContain('proxy_pass https://host.docker.internal:8443;');
+  it('has no Mailcow carve-outs — all Mailcow paths moved to mailcow.efbazaar.uz', () => {
+    // /api/ (Mailcow admin), /SOGo, /Microsoft-Server-ActiveSync used to live
+    // in this file. After the mailcow.efbazaar.uz cutover they're only served
+    // by mailcow.conf.
+    expect(mailServer).not.toMatch(/\blocation\s+\/api\/\s*\{/);
+    expect(mailServer).not.toMatch(/\blocation\s+\/SOGo\b/);
+    expect(mailServer).not.toMatch(/\blocation\s+\/Microsoft-Server-ActiveSync\b/);
+    expect(mailServer).not.toContain('host.docker.internal:8443');
   });
 
   it('declares the mail backend variable for per-request DNS re-resolution', () => {
     const backends = readFileSync(backendsPath, 'utf8');
     expect(backends).toMatch(/set \$backend_mail\s+"mail-frontend:3000";/);
+  });
+});
+
+describe('nginx mailcow subdomain routing', () => {
+  const config = readFileSync(mailcowConfigPath, 'utf8');
+  const mailcowServer = extractBlocks(config, /\bserver\s*\{/g).find(
+    (block) =>
+      /\bserver_name\s+.*mailcow\.efbazaar\.uz\b/.test(block) && /\blisten\s+443\b/.test(block),
+  );
+
+  it('mailcow.efbazaar.uz proxies everything to the Mailcow container', () => {
+    expect(mailcowServer).toBeDefined();
+    const rootLocation = extractBlocks(mailcowServer ?? '', /\blocation\s+\/\s*\{/g)[0];
+    expect(rootLocation).toContain('proxy_pass https://host.docker.internal:8443;');
+  });
+
+  it('mailcow subdomain serves autodiscover + autoconfig on the same block', () => {
+    // Email clients try https://autodiscover.<domain>/autodiscover/autodiscover.xml
+    // and https://autoconfig.<domain>/mail/config-v1.1.xml — both must reach
+    // Mailcow. Alias them onto the mailcow server block.
+    expect(mailcowServer).toMatch(/\bautodiscover\.efbazaar\.uz\b/);
+    expect(mailcowServer).toMatch(/\bautoconfig\.efbazaar\.uz\b/);
+  });
+
+  it('mailcow subdomain gives ActiveSync longer timeouts for mobile clients', () => {
+    const asLocation = extractBlocks(
+      mailcowServer ?? '',
+      /\blocation\s+\/Microsoft-Server-ActiveSync\b/g,
+    )[0];
+    expect(asLocation).toBeDefined();
+    expect(asLocation).toMatch(/proxy_read_timeout\s+1200s;/);
   });
 });

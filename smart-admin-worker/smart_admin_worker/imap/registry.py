@@ -22,7 +22,7 @@ class ImapPollerRegistry:
         detector: KonamiEmailDetector,
         lock: RedisLockManager,
         poll_interval: float,
-        imap_host: str = "mail.efbazaar.uz",
+        imap_host: str = "mailcow.efbazaar.uz",
         imap_port: int = 993,
     ) -> None:
         self._factory = factory

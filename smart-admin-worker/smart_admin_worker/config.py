@@ -27,14 +27,14 @@ class Settings(BaseSettings):
 
     # Mailcow
     mailcow_api_url: str = Field(
-        default="https://mail.efbazaar.uz/api/v1", alias="MAILCOW_API_URL"
+        default="https://mailcow.efbazaar.uz/api/v1", alias="MAILCOW_API_URL"
     )
     mailcow_api_key_file: Path = Field(
         default=Path("/run/secrets/mailcow_api_key"), alias="MAILCOW_API_KEY_FILE"
     )
 
     # IMAP
-    imap_host: str = Field(default="mail.efbazaar.uz", alias="IMAP_HOST")
+    imap_host: str = Field(default="mailcow.efbazaar.uz", alias="IMAP_HOST")
     imap_port: int = Field(default=993, alias="IMAP_PORT")
     imap_poll_interval_seconds: int = Field(default=5, alias="IMAP_POLL_INTERVAL_SECONDS")
     imap_poll_lock_ttl_seconds: int = Field(default=6, alias="IMAP_POLL_LOCK_TTL_SECONDS")

@@ -76,13 +76,13 @@ trade:
   proposal:
     ttl-seconds: 600
   mailcow:
-    api-url: ${MAILCOW_API_URL:https://mail.efbazaar.uz/api/v1}
+    api-url: ${MAILCOW_API_URL:https://mailcow.efbazaar.uz/api/v1}
   mail:
     imap:
       # Same defaults as smart-admin-worker so both services agree on the target
       # dovecot host. In prod both point at dovecot-mailcow on the internal docker
-      # network; locally IMAP_HOST=mail.efbazaar.uz works from a dev machine.
-      host: ${IMAP_HOST:mail.efbazaar.uz}
+      # network; locally IMAP_HOST=mailcow.efbazaar.uz works from a dev machine.
+      host: ${IMAP_HOST:mailcow.efbazaar.uz}
       port: ${IMAP_PORT:993}
       connection-timeout-ms: 10000
       read-timeout-ms: 15000
