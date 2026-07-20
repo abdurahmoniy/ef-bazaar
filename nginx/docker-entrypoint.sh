@@ -36,4 +36,11 @@ chmod -R 755 /var/www/certbot
 mkdir -p /etc/nginx/auth
 [ -f /etc/nginx/auth/swagger.htpasswd ] || : > /etc/nginx/auth/swagger.htpasswd
 
+# Secret'lar env'dan conf variable'ga (nginx env o'qiy olmaydi).
+# INTERNAL_API_SECRET bo'sh bo'lsa ham fayl yaratiladi — Chempionat header-auth
+# bo'sh secretni rad etadi (fail-closed), nginx esa include'ni topa oladi.
+cat > /etc/nginx/conf.d/secrets.inc <<EOF
+set \$efbazaar_internal_secret "${INTERNAL_API_SECRET:-}";
+EOF
+
 exec nginx -g 'daemon off;'
