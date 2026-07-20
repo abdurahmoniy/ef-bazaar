@@ -1,6 +1,6 @@
 # Chempionat-X integratsiyasi + Gamer Card + Blacklist — arxitektura plani
 
-**Sana:** 2026-07-15
+**Sana:** 2026-07-15 (rev. 2026-07-20 — trade-service/escrow, smart-admin-worker va yangi migratsiyalarga moslandi)
 **Status:** Tasdiqlangan yo'nalish, implementatsiya boshlanmagan
 **Qamrov:** ikkita repo — `ef-bazaar` (monorepo) va `Chempionat-X` (alohida repo)
 
@@ -73,13 +73,28 @@ ko'chirish — katta va xatarli migratsiya, **qilinmaydi**. Buning o'rniga:
   yolg'on natijaga qarshi birinchi qatlam allaqachon bor.
 - `UserResponse`da `telegramId` bor — identity mapping uchun yetarli.
 - **ELO yo'q, shikoyat tizimi yo'q** — ikkalasi ham yangi quriladi.
+- 2026-07 rev.: Flyway boshi hali ham `V17` — plandagi `V18/V19/V20` raqamlari amalda.
+  Yangi qo'shilganlar (natija formasi screenshot upload/preview, join request'ni inline
+  tasdiqlash/rad etish, organizer to'lov retry) ELO trigger'iga zid emas, aksincha approval
+  workflow'ni mustahkamlaydi.
 
 ### efBazaar
 - marketplace-service'da moderatsiya patterni tayyor: `ListingReport` + `AdminReportController` + admin UI.
 - Ichki servislararo chaqiruv patterni tayyor: `AuthNameClient` → `X-Internal-Secret` bilan
   `POST /internal/auth/v1/users/names/batch` (fail-soft).
-- marketplace Flyway boshi: `V21` (yangi migratsiyalar `V22`dan boshlanadi, append-only!).
+- marketplace Flyway boshi: `V23` (yangi migratsiyalar `V24`dan boshlanadi, append-only!).
 - Kafka konvensiyasi: `efbazaar.<service>.<event>`, idempotency key bilan.
+- **trade-service (8085) — escrow endi to'liq ishlaydi** (2026-07 rev.):
+  - Trade lifecycle: `INITIATED → … → SUCCESS | REJECTED | ORPHANED` (`TradeState`).
+  - Savdo taklifi marketplace chat ichida: `chat_messages.message_type = TRADE_PROPOSAL`
+    (V22), `proposal_id` + outcome bilan.
+  - `efbazaar.trade.listing-sold` eventi bor: `{listingId, buyerId, sellerId, priceUzs, soldAt}`;
+    marketplace uni consume qilib `listings.sold_at` + `sold_to_user_id` saqlaydi (V23).
+    **Demak escrow savdolar statistikasi uchun yangi event ham, yangi consumer ham kerak emas.**
+- **smart-admin-worker (Python, 8086)** — Konami/mail avtomatlashtiruvi; escrow jarayonida
+  Konami akkaunt email'i bilan ishlaydi (blacklist identifikatorlari uchun ahamiyatli, 5.3-band).
+- Frontend profil sahifasida stats-baza tayyor: `profile-header.tsx` `StatCell` grid bilan
+  (e'lonlar / sevimlilar / chatlar) — Gamer Card UI shu patternni kengaytiradi.
 
 ---
 
@@ -141,10 +156,13 @@ ko'chirish — katta va xatarli migratsiya, **qilinmaydi**. Buning o'rniga:
   Mavjud `names/batch` tegilmaydi.
 
 ### 5.2. marketplace-service — `gamer` paketi (Gamer Card)
-- `V22__gamer_stats.sql` — Kafka projection: `gamer_stats (user_id PK, elo, wins, draws, losses, goals_for, goals_against, tournaments_count, escrow_trades_count, updated_at)`.
-  - Consumerlar: `efbazaar.tournament.elo-updated`, `match-finished`, keyinroq `efbazaar.trade.trade-completed`.
+- `V24__gamer_stats.sql` — Kafka projection: `gamer_stats (user_id PK, elo, wins, draws, losses, goals_for, goals_against, tournaments_count, updated_at)`.
+  - Consumerlar: `efbazaar.tournament.elo-updated`, `match-finished`.
   - Nega projection (sinxron HTTP fan-out emas): turnir servisi yotsa ham karta ochiladi (fail-soft).
-- `V23__gamer_profiles.sql`: `gamer_profiles (user_id PK, bio VARCHAR(280), platform ANDROID|IOS|BOTH, highest_division 1..9, favorite_team, timestamps)`.
+  - **Escrow savdolar soni projectionga KIRMAYDI** — u allaqachon lokal `listings` jadvalidan
+    to'g'ridan hisoblanadi: sotganlari = `seller_id + status=SOLD`, olganlari = `sold_to_user_id`
+    (V23 `listing_sold_metadata` buni ta'minlab bo'lgan). Yangi consumer kerak emas.
+- `V25__gamer_profiles.sql`: `gamer_profiles (user_id PK, bio VARCHAR(280), platform ANDROID|IOS|BOTH, highest_division 1..9, favorite_team, timestamps)`.
 - API:
   - `GET /api/v1/gamer-cards/{userId}` — public, bitta javobda: identity (auth summary'dan,
     fail-soft), ELO + tier, W/D/L + win rate + gollar, turnirlar soni, escrow savdolar soni,
@@ -155,7 +173,7 @@ ko'chirish — katta va xatarli migratsiya, **qilinmaydi**. Buning o'rniga:
   tajribasi namuna).
 
 ### 5.3. marketplace-service — `trust` paketi (shikoyatlar + Blacklist)
-- `V24__trust.sql`:
+- `V26__trust.sql`:
 
 ```sql
 complaints (
@@ -185,6 +203,11 @@ blacklist_identifiers (            -- yangi akkaunt ochsa ham ushlash uchun
 )
 ```
 
+- **Konami identifikatorlarining tabiiy manbasi — escrow flow** (2026-07 rev.): trade-service +
+  smart-admin-worker savdo jarayonida Konami akkaunt email'i bilan ishlaydi. `FRAUD` shikoyati
+  TRADE kontekstda tasdiqlansa, trade yozuvidan Konami identifikatorlari olinib
+  `blacklist_identifiers`ga qo'shiladi — qo'lda yig'ish shart emas, ma'lumot verified.
+
 - **Penalty engine** (CONFIRMED shikoyatlar bo'yicha avtomatik, admin override bilan):
 
 | Tasdiqlangan shikoyatlar | Jazo |
@@ -205,7 +228,7 @@ blacklist_identifiers (            -- yangi akkaunt ochsa ham ushlash uchun
 | Joy | Cheklov |
 |---|---|
 | marketplace | listing yaratish ✗, chat ochish ✗, listinglar `BLOCKED` statusga (qaytarish mumkin) |
-| trade-service | escrow boshlash ✗ |
+| trade-service | savdo taklifi (`TRADE_PROPOSAL`) yaratish ✗ va qabul qilish ✗ — mavjud chatlar orqali ham escrow boshlanmasin |
 | Chempionat-X | turnirga join ✗, organizer request ✗ (4.5-band) |
 | frontend | Bozorda "Qora ro'yxat" tab; listing/chat/Gamer Card'da qizil ogohlantirish |
 
@@ -213,6 +236,8 @@ blacklist_identifiers (            -- yangi akkaunt ochsa ham ushlash uchun
 - `/tournaments/**` — turnirlar ro'yxati, jadval, bracket, join (proxy orqali chempionat-api'ga,
   auth avtomatik — 4.2 tufayli to'liq interaktiv).
 - `GamerCard` komponenti — listing sahifasi, chat header, `/gamers/[id]`, profil edit, PNG ulashish.
+  Mavjud `profile-header.tsx` (`StatCell` grid) patterni asos qilib olinadi — profil sahifasi
+  allaqachon stats ko'rsatadi, Gamer Card unga ELO/tier/W-D-L qatlamini qo'shadi.
 - `/blacklist` public sahifa (qidiruv: username/telefon/Konami ID) + `/admin/blacklist`.
 - `ListingStatus`ga `BLOCKED` qo'shiladi; public querylar uni chiqarib tashlaydi.
 
@@ -220,7 +245,11 @@ blacklist_identifiers (            -- yangi akkaunt ochsa ham ushlash uchun
 - Shared external docker network (`efbazaar-net`) — Chempionat compose unga qo'shiladi,
   Kafka va auth-service'ga shu orqali yetadi.
 - efBazaar nginx: `/api/tournaments/**` → auth verify subrequest → chempionat-api
-  (+ `X-Internal-Secret`).
+  (+ `X-Internal-Secret`). Routing container nomi orqali — host port ochilmaydi.
+- **Diqqat:** 8086 endi band (smart-admin-worker). Chempionat-api'ga host port kerak bo'lsa —
+  8087; lekin default holatda shart emas.
+- Nginx'da `/api/tournaments/**` prefiksi trade-service'ning `/api/v1/trades/**` bloki bilan
+  to'qnashmaydi — tekshirildi.
 
 ---
 
@@ -256,8 +285,9 @@ Har bir band alohida PR(lar); ikkala repo o'z CI'si bilan mustaqil deploy bo'lad
 
 ## 8. Ochiq savollar (implementatsiyadan oldin hal qilinadi)
 
-1. **Konami ID yig'ish nuqtasi** — turnirga yozilishda majburiymi, listing yaratishdami,
-   ikkalasidami? Blacklist'ning "yangi akkaunt ochsa ham aniqlanadi" qismi shunga bog'liq.
+1. **Konami ID yig'ish nuqtasi** — savdo tomoni hal bo'ldi (2026-07 rev.): escrow flow
+   Konami identifikatorlarini verified holda beradi (5.3-band). Ochiq qolgan qismi: turnir
+   qatnashchilaridan Konami ID so'raladimi (lag-break qilganlarni yangi akkauntda ushlash uchun)?
 2. **Penaltidagi g'alaba ELO'da** — to'liq g'alabami? Hozirgi default: ha, lekin K/2.
 3. **"Duel" (turnirdan tashqari 1v1 challenge)** — Chempionat-X'da hozir yo'q. ELO engine
    buni qo'llaydigan qilib quriladi (match source: TOURNAMENT | DUEL), lekin duel featuresi
