@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Package2, Plus } from 'lucide-react';
 
 import { ListingCard } from '@/components/marketplace/listing-card';
+import { ListingOwnerActions } from '@/components/profile/listing-owner-actions';
 import { Button } from '@/components/ui/button';
 import type { ListingResponse } from '@/lib/marketplace-types';
 
@@ -36,9 +37,16 @@ export function ProfileListings({ listings, favorites = false }: ProfileListings
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {listings.map((listing) => (
-        <ListingCard key={listing.id} listing={listing} />
-      ))}
+      {listings.map((listing) =>
+        favorites ? (
+          <ListingCard key={listing.id} listing={listing} />
+        ) : (
+          <div key={listing.id} className="flex flex-col gap-2">
+            <ListingCard listing={listing} />
+            <ListingOwnerActions listingId={listing.id} />
+          </div>
+        ),
+      )}
     </div>
   );
 }

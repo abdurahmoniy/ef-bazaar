@@ -93,12 +93,14 @@ export function MarketplaceBrowser({
           totalElements={page?.totalElements ?? 0}
         />
 
-        <div className="flex items-center gap-2 lg:hidden">
-          <MobileFilterSheet activeCount={activeFilterCount}>
-            <ListingFiltersForm {...filterProps} />
-          </MobileFilterSheet>
+        <div className="flex items-center gap-2">
+          <div className="shrink-0 lg:hidden">
+            <MobileFilterSheet activeCount={activeFilterCount}>
+              <ListingFiltersForm {...filterProps} />
+            </MobileFilterSheet>
+          </div>
           <div className="min-w-0 flex-1">
-            <QuickChips activeFilter={activeFilter} query={query} />
+            <QuickChips activeFilter={activeFilter} query={query} view={view} />
           </div>
         </div>
 

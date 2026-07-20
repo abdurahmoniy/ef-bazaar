@@ -92,8 +92,15 @@ public final class ListingSpecifications {
                 ps.add(cb.equal(root.get("priceNegotiable"), f.priceNegotiable()));
             }
             if (f.search() != null && !f.search().isBlank()) {
-                ps.add(cb.like(cb.lower(root.get("description")),
-                        "%" + f.search().toLowerCase() + "%"));
+                // Free-text search covers the description AND the serialized
+                // valuable_players card array, so a player name like "ronaldo"
+                // finds listings even when the seller never mentions the player
+                // in the description. Substring match over the JSONB text is the
+                // same approach the valuable_players_name filter uses.
+                String pattern = "%" + f.search().toLowerCase() + "%";
+                ps.add(cb.or(
+                        cb.like(cb.lower(root.get("description")), pattern),
+                        cb.like(cb.lower(extractText(cb, root, VALUABLE_PLAYERS)), pattern)));
             }
             if (f.attributes() != null && !f.attributes().isEmpty()) {
                 applyAttributeFilters(cb, query, root, ps, f.attributes());

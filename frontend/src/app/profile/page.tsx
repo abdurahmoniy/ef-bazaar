@@ -5,7 +5,6 @@ import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { LogoutButton } from '@/components/profile/logout-button';
 import { ProfileAccount } from '@/components/profile/profile-account';
 import { ProfileCards } from '@/components/profile/profile-cards';
-import { ProfileChats } from '@/components/profile/profile-chats';
 import { ProfileHeader } from '@/components/profile/profile-header';
 import { ProfileListings } from '@/components/profile/profile-listings';
 import { ProfileTabs, type ProfileTabId } from '@/components/profile/profile-tabs';
@@ -30,12 +29,12 @@ interface ProfilePageProps {
 
 const VALID_TABS: ProfileTabId[] = [
   'listings',
-  'chats',
   'favorites',
   'kartalar',
   // 'pochta' is a link-out to /mail, never rendered inside the profile shell —
   // omit it here so ?tab=pochta falls back to 'listings' rather than a blank
-  // section.
+  // section. Same for legacy ?tab=chats links: chats live at /chats now, the
+  // profile no longer has a chats tab.
   'account',
 ];
 
@@ -66,22 +65,25 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   return (
     <MarketplaceShell user={user} activeTab="profile" hideSearch>
       <div className="space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <ProfileHeader user={user} />
-        </div>
+        <ProfileHeader
+          user={user}
+          stats={{
+            listings: listings.length,
+            favorites: favorites.length,
+            chats: chats.length,
+          }}
+        />
 
         <ProfileTabs
           active={activeTab}
           counts={{
             listings: listings.length,
-            chats: chats.length,
             favorites: favorites.length,
           }}
         />
 
         <section>
           {activeTab === 'listings' && <ProfileListings listings={listings} />}
-          {activeTab === 'chats' && <ProfileChats chatCount={chats.length} />}
           {activeTab === 'favorites' && <ProfileListings listings={favorites} favorites />}
           {activeTab === 'kartalar' && <ProfileCards cards={cards} />}
           {activeTab === 'account' && (

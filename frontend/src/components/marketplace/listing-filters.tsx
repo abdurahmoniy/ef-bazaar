@@ -48,7 +48,6 @@ const EXCHANGE_MODE_OPTIONS = [
 export function ListingFilters(props: ListingFiltersProps) {
 	return (
 		<aside className='hidden space-y-3 lg:sticky lg:top-32 lg:block'>
-			<QuickChips activeFilter={props.activeFilter} query={props.query} />
 			<ListingFiltersForm
 				{...props}
 				className='rounded-xl border border-border bg-card p-4 shadow-card'
@@ -296,16 +295,18 @@ export function ListingFiltersForm({
 export function QuickChips({
 	activeFilter,
 	query,
+	view,
 }: {
 	activeFilter: MarketplaceFilterId
 	query?: string
+	view?: 'grid' | 'list'
 }) {
 	return (
 		<div className='flex gap-2 overflow-x-auto no-scrollbar pb-1'>
 			{MARKETPLACE_FILTERS.map((filter) => (
 				<Link
 					key={filter.id}
-					href={filterHref(filter.id, query)}
+					href={filterHref(filter.id, query, view)}
 					className={cn(
 						'shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
 						filter.id === activeFilter
@@ -320,10 +321,11 @@ export function QuickChips({
 	)
 }
 
-function filterHref(filterId: MarketplaceFilterId, query?: string) {
+function filterHref(filterId: MarketplaceFilterId, query?: string, view?: 'grid' | 'list') {
 	const params = new URLSearchParams()
 	if (filterId !== 'all') params.set('filter', filterId)
 	if (query?.trim()) params.set('q', query.trim())
+	if (view === 'list') params.set('view', 'list')
 	const serialized = params.toString()
 	return serialized ? `/marketplace?${serialized}` : '/marketplace'
 }
