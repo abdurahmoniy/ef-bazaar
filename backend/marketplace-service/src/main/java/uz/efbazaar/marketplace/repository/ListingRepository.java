@@ -21,6 +21,12 @@ public interface ListingRepository extends JpaRepository<Listing, UUID>,
 
     long countByStatus(ListingStatus status);
 
+    // Gamer Card trust counters — escrow history straight from listing rows
+    // (sold_at/sold_to_user_id are written by the listing-sold consumer).
+    long countBySellerIdAndStatus(UUID sellerId, ListingStatus status);
+
+    long countBySoldToUserId(UUID buyerId);
+
     /**
      * Listings currently liked by {@code userId}. Filters out non-ACTIVE listings
      * so the favourites view doesn't show SOLD/DELETED entries the user liked earlier.
