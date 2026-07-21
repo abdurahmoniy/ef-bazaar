@@ -17,6 +17,9 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  */
 @Configuration(proxyBeanMethods = false)
 @Profile("!test")
-@EnableJpaRepositories(considerNestedRepositories = true)
+@EnableJpaRepositories(
+        basePackages = "uz.efbazaar.marketplace",
+        considerNestedRepositories = true
+)
 class NestedJpaRepositoriesConfig {
 }
