@@ -1,6 +1,7 @@
 package uz.efbazaar.marketplace.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,13 +12,17 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import uz.efbazaar.marketplace.security.HeaderAuthenticationFilter;
+import uz.efbazaar.marketplace.security.InternalApiProperties;
+import uz.efbazaar.marketplace.security.InternalSecretFilter;
 
 @Configuration
 @EnableWebSecurity
+@EnableConfigurationProperties(InternalApiProperties.class)
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final HeaderAuthenticationFilter headerAuthFilter;
+    private final InternalSecretFilter internalSecretFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -54,8 +59,13 @@ public class SecurityConfig {
                                 "/webjars/**").permitAll()
                         // Admin — attribute + future admin operations
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        // Internal server-to-server (e.g. Chempionat-X trust bridge).
+                        // Auth handled by InternalSecretFilter (X-Internal-Secret)
+                        // which runs first; nginx blocks the prefix externally.
+                        .requestMatchers("/internal/**").permitAll()
                         // Hamma boshqa endpoint auth talab qiladi
                         .anyRequest().authenticated())
+                .addFilterBefore(internalSecretFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

@@ -49,6 +49,40 @@ export interface BlacklistEntry {
   active: boolean;
 }
 
+export type TrustComplaintStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED';
+
+export type TrustComplaintCategory = 'LAG_BREAK' | 'FRAUD' | 'TOXIC' | 'FAKE_RESULT';
+
+export type TrustContextType = 'MATCH' | 'TRADE' | 'CHAT';
+
+/** Mirrors TrustDtos.ComplaintResponse — admin review surface. */
+export interface TrustComplaint {
+  id: string;
+  complainantId: string;
+  accusedId: string;
+  contextType: TrustContextType;
+  contextId: string;
+  category: TrustComplaintCategory;
+  details: string | null;
+  evidenceMessageIds: string[] | null;
+  status: TrustComplaintStatus;
+  createdAt: string;
+  reviewedAt: string | null;
+}
+
+export const TRUST_CATEGORY_LABELS: Record<TrustComplaintCategory, string> = {
+  LAG_BREAK: 'Lag-break',
+  FRAUD: 'Firibgarlik',
+  TOXIC: 'Toksik xatti-harakat',
+  FAKE_RESULT: "Yolg'on natija",
+};
+
+export const TRUST_CONTEXT_LABELS: Record<TrustContextType, string> = {
+  MATCH: 'Match',
+  TRADE: 'Savdo',
+  CHAT: 'Chat',
+};
+
 /** Tier presentation: label + gradient used by the card and badges. */
 export const TIER_META: Record<
   GamerTier,

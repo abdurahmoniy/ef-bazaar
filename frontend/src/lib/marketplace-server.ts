@@ -14,6 +14,7 @@ import type {
   PageResponse,
   ReportStatus,
 } from './marketplace-types';
+import type { TrustComplaint, TrustComplaintStatus } from './gamer-types';
 import type { User } from './types';
 
 const MARKETPLACE_PREFIX = '/marketplace/v1';
@@ -184,6 +185,19 @@ export async function getAdminListings(
   if (status) params.set('status', status);
   return safeFetch<PageResponse<ListingResponse>>(
     `${MARKETPLACE_PREFIX}/admin/listings?${params.toString()}`,
+  );
+}
+
+export async function getAdminTrustComplaints(
+  status?: TrustComplaintStatus,
+  page = 0,
+  size = 20,
+): Promise<FetchResult<PageResponse<TrustComplaint>>> {
+  // Backend o'zi createdAt DESC bilan tartiblaydi (findByStatusOrderByCreatedAtDesc).
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (status) params.set('status', status);
+  return safeFetch<PageResponse<TrustComplaint>>(
+    `${MARKETPLACE_PREFIX}/admin/trust/complaints?${params.toString()}`,
   );
 }
 

@@ -102,6 +102,11 @@ app:
   auth:
     internal-base-url: ${AUTH_INTERNAL_BASE_URL:http://auth-service:8081}
     internal-secret: ${INTERNAL_API_SECRET:}
+  # Shared secret required on INBOUND /internal/** calls (e.g. Chempionat-X
+  # trust bridge). Blank → filter rejects all such traffic. Reuses the same
+  # env var as outbound so services on the docker network share one secret.
+  internal:
+    secret: ${INTERNAL_API_SECRET:}
   chat:
     expire-after-hours: 24
     expire-check-interval-ms: 300000
