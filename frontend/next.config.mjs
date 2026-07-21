@@ -9,6 +9,16 @@ const isProduction = process.env.NODE_ENV === 'production';
 function buildContentSecurityPolicy() {
   const apiOrigin = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.efbazaar.uz';
   const siteOrigin = process.env.NEXT_PUBLIC_BASE_URL || 'https://efbazaar.uz';
+  // Chempionat-X — turnirlar public API'si, browser'dan RTK Query orqali to'g'ridan.
+  const chempionatOrigin = (() => {
+    const raw = process.env.NEXT_PUBLIC_CHEMPIONAT_API_URL;
+    if (!raw) return 'https://api.chempox.uz';
+    try {
+      return new URL(raw).origin;
+    } catch {
+      return 'https://api.chempox.uz';
+    }
+  })();
 
   const scriptSrc = [
     "'self'",
@@ -33,6 +43,7 @@ function buildContentSecurityPolicy() {
     "'self'",
     apiOrigin,
     siteOrigin,
+    chempionatOrigin,
     'https://accounts.google.com',
     'https://oauth2.googleapis.com',
     'https://*.telegram.org',
