@@ -9,12 +9,12 @@ set $backend_auth        "auth-service:8081";
 set $backend_marketplace "marketplace-service:8082";
 set $backend_bot         "bot:8084";
 set $backend_trade       "trade-service:8085";
-# Chempionat-X — alohida server, public HTTPS orqali (`api.chempox.uz`).
-# 2-server split rejimida shared docker network yo'q; proxy_pass https:// bilan
-# ishlatiladi va Host/SNI aynan `api.chempox.uz` bo'lishi kerak (aks holda
-# TLS handshake yoki upstream routing yiqiladi). Public reads (list/standings/…)
-# browser'dan RTK Query orqali to'g'ridan Chempionat'ga ketadi — bu upstream
-# faqat auth talab qiluvchi write endpoint'lar uchun.
-set $backend_tournament  "api.chempox.uz";
+# Chempionat-X — bir xost, shared docker network (co-location). nginx
+# `chempionat-api` (REST) va `chempox-front` (Next.js static) ni docker DNS
+# orqali topadi. `/api/tournaments/**` integratsiya yo'li ham, chempox.uz /
+# api.chempox.uz native domenlari ham (chempox.conf) shu internal upstream'lar
+# orqali ishlaydi — public HTTPS/TLS loop yo'q.
+set $backend_tournament    "chempionat-api:8080";
+set $backend_chempox_front "chempox-front:80";
 set $backend_frontend    "frontend:3000";
 set $backend_mail        "mail-frontend:3000";
