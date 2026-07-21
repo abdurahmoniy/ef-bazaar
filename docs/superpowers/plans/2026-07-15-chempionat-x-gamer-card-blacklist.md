@@ -1,12 +1,14 @@
 # Chempionat-X integratsiyasi + Gamer Card + Blacklist — arxitektura plani
 
 **Sana:** 2026-07-15 (rev. 2026-07-20 — trade-service/escrow, smart-admin-worker va yangi migratsiyalarga moslandi)
-**Status:** Implementatsiya davom etmoqda — backend qismlari tayyor:
-identity bridge + dual auth (Chempionat V18), ELO engine + Kafka publisher
-(Chempionat V19), auth summary endpoint, Gamer Card backend (V24/V25),
-Trust/Blacklist backend (V26). Qolgan: frontend (GamerCard UI, /blacklist,
-/tournaments), infra config (docker network + nginx), Chempionat blacklist
-consumer, bot lag-break.
+**Status (2026-07-21):** Barcha fazalar implementatsiya qilindi — identity
+bridge + dual auth (V18), ELO + Kafka publisher (V19), blacklist consumer +
+join enforcement (V20), auth summary endpoint, Gamer Card (V24/V25 + UI +
+PNG), Trust/Blacklist (V26 + public/admin UI), /tournaments sahifalari +
+PublicTournamentController, lag-break/fake-result avtoshikoyat bridge
+(ResultRejectedEvent → internal trust API), nginx + compose overlay.
+Qolgani faqat deploy-side: serverda secretlar, shared network va flaglarni
+yoqish (docker-compose.efbazaar.yml izohlariga qarang).
 **Qamrov:** ikkita repo — `ef-bazaar` (monorepo) va `Chempionat-X` (alohida repo)
 
 ---
