@@ -58,7 +58,7 @@ class ImapPoller:
     on_reset: Callable[[ResetHit], Awaitable[None]] | None
     on_2fa: Callable[[TwoFaHit], Awaitable[None]] | None
     on_email_change_code: Callable[[EmailChangeCodeHit], Awaitable[None]] | None = None
-    imap_host: str = "mailcow.efbazaar.uz"
+    imap_host: str = "mail.efbazaar.uz"
     imap_port: int = 993
 
     async def run(self, mailbox_email: str, password: str, purpose: PollPurpose) -> None:

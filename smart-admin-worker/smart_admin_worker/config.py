@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     )
 
     # IMAP
-    imap_host: str = Field(default="mailcow.efbazaar.uz", alias="IMAP_HOST")
+    imap_host: str = Field(default="mail.efbazaar.uz", alias="IMAP_HOST")
     imap_port: int = Field(default=993, alias="IMAP_PORT")
     imap_poll_interval_seconds: int = Field(default=5, alias="IMAP_POLL_INTERVAL_SECONDS")
     imap_poll_lock_ttl_seconds: int = Field(default=6, alias="IMAP_POLL_LOCK_TTL_SECONDS")

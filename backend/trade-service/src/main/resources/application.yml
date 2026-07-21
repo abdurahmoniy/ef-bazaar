@@ -79,10 +79,11 @@ trade:
     api-url: ${MAILCOW_API_URL:https://mailcow.efbazaar.uz/api/v1}
   mail:
     imap:
-      # Same defaults as smart-admin-worker so both services agree on the target
-      # dovecot host. In prod both point at dovecot-mailcow on the internal docker
-      # network; locally IMAP_HOST=mailcow.efbazaar.uz works from a dev machine.
-      host: ${IMAP_HOST:mailcow.efbazaar.uz}
+      # Mailcow'ning dovecot cert'i faqat MAILCOW_HOSTNAME (mail.efbazaar.uz)
+      # SAN'ini o'z ichiga oladi. HTTPS admin API mailcow.efbazaar.uz da
+      # (nginx orqali), lekin IMAPS to'g'ridan Mailcow konteynerga boradi va
+      # TLS hostname verification uchun mail.efbazaar.uz kerak.
+      host: ${IMAP_HOST:mail.efbazaar.uz}
       port: ${IMAP_PORT:993}
       connection-timeout-ms: 10000
       read-timeout-ms: 15000

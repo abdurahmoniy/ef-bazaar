@@ -251,6 +251,12 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       MAILCOW_API_URL: https://mailcow.efbazaar.uz/api/v1
+      # Mailcow'ning ichki IMAP/dovecot cert'i faqat mail.efbazaar.uz SAN'ni
+      # o'z ichiga oladi (SKIP_LETS_ENCRYPT=y + MAILCOW_HOSTNAME=mail.efbazaar.uz).
+      # HTTPS API bizning nginx orqali mailcow.efbazaar.uz da, ammo IMAPS
+      # to'g'ridan-to'g'ri Mailcow konteyneriga boradi — TLS hostname
+      # verification muvaffaqiyatli bo'lishi uchun mail.efbazaar.uz kerak.
+      IMAP_HOST: mail.efbazaar.uz
       MASTER_KEY_FILE: /run/secrets/master_key
     secrets:
       - master_key
@@ -296,7 +302,9 @@ services:
       MAILCOW_API_URL: https://mailcow.efbazaar.uz/api/v1
       MAILCOW_API_KEY_FILE: /run/secrets/mailcow_api_key
       MASTER_KEY_FILE: /run/secrets/master_key
-      IMAP_HOST: mailcow.efbazaar.uz
+      # See trade-service block: mail.efbazaar.uz is required for IMAPS TLS
+      # SAN validation, not mailcow.efbazaar.uz.
+      IMAP_HOST: mail.efbazaar.uz
       IMAP_PORT: "993"
       KONAMI_SENDER_ALLOWLIST: "noreply@konami.com,no-reply@konami.jp,noreply@konami.net,konami-info@konami.net"
       MAX_CONCURRENT_ROTATE: "1"
