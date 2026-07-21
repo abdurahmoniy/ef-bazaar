@@ -2,7 +2,6 @@ package uz.efbazaar.marketplace.trust;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -13,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import uz.efbazaar.marketplace.dto.PageResponse;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
 import uz.efbazaar.marketplace.trust.TrustDtos.AddIdentifiersRequest;
 import uz.efbazaar.marketplace.trust.TrustDtos.ComplaintResponse;
@@ -30,10 +30,10 @@ public class AdminTrustController {
     private final TrustService service;
 
     @GetMapping("/complaints")
-    public Page<ComplaintResponse> complaints(
+    public PageResponse<ComplaintResponse> complaints(
             @RequestParam(required = false) Complaint.Status status,
             @PageableDefault(size = 20) Pageable pageable) {
-        return service.adminComplaints(status, pageable).map(ComplaintResponse::from);
+        return PageResponse.from(service.adminComplaints(status, pageable), ComplaintResponse::from);
     }
 
     @PostMapping("/complaints/{id}/confirm")

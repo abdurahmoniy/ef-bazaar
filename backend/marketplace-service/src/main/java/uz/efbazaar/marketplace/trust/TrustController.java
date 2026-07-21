@@ -2,7 +2,6 @@ package uz.efbazaar.marketplace.trust;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -14,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import uz.efbazaar.marketplace.dto.PageResponse;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
 import uz.efbazaar.marketplace.trust.TrustDtos.BlacklistEntryResponse;
 import uz.efbazaar.marketplace.trust.TrustDtos.ComplaintResponse;
@@ -45,8 +45,8 @@ public class TrustController {
 
     /** Public qora ro'yxat — bozor "Qora ro'yxat" tab'i. */
     @GetMapping("/api/v1/blacklist")
-    public Page<BlacklistEntryResponse> blacklist(@PageableDefault(size = 20) Pageable pageable) {
-        return service.publicBlacklist(pageable);
+    public PageResponse<BlacklistEntryResponse> blacklist(@PageableDefault(size = 20) Pageable pageable) {
+        return PageResponse.from(service.publicBlacklist(pageable), entry -> entry);
     }
 
     /** Arzon boolean check — listing/chat sahifalaridagi ogohlantirish banneri uchun. */
