@@ -37,14 +37,14 @@ efBazaar'ga o'z-o'zidan yetib kelmaydi.
 **Model: bitta ishlab turgan instansiya, ikkita kirish nuqtasi.**
 
 ```
-chempionat-x.uz ──► Chempionat front ──┐
+chempox.uz ──► Chempionat front ──┐
                                        ├──► chempionat-api (bitta backend, bitta DB)
 efbazaar.uz/tournaments ──► efBazaar   │        │
   nginx (auth verify → X-User-Id) ─────┘        ├─► Kafka: efbazaar.tournament.*
                                                 └─► blacklist consumer (flag)
 ```
 
-- Ma'lumot bitta: chempionat-x.uz'da ochilgan turnir efbazaar.uz'da ham ko'rinadi.
+- Ma'lumot bitta: chempox.uz'da ochilgan turnir efbazaar.uz'da ham ko'rinadi.
 - Userbase bitta: ikkala tizim ham Telegram-first, umumiy kalit — `telegram_id`.
 - Integratsiya kodi **Chempionat-X repo ichida, env-flag ortida** yashaydi
   (`EFBAZAAR_INTEGRATION_ENABLED`). Flag o'chiq bo'lsa Chempionat avvalgidek 100%
@@ -249,14 +249,35 @@ blacklist_identifiers (            -- yangi akkaunt ochsa ham ushlash uchun
 - `ListingStatus`ga `BLOCKED` qo'shiladi; public querylar uni chiqarib tashlaydi.
 
 ### 5.5. Infra (config-only)
-- Shared external docker network (`efbazaar-net`) — Chempionat compose unga qo'shiladi,
-  Kafka va auth-service'ga shu orqali yetadi.
-- efBazaar nginx: `/api/tournaments/**` → auth verify subrequest → chempionat-api
-  (+ `X-Internal-Secret`). Routing container nomi orqali — host port ochilmaydi.
-- **Diqqat:** 8086 endi band (smart-admin-worker). Chempionat-api'ga host port kerak bo'lsa —
-  8087; lekin default holatda shart emas.
+
+**2026-07-21 rev. — 2-server split rejim (shared docker network EMAS).**
+Chempionat-X va efBazaar alohida serverlarda deploy bo'ladi; bir-biriga public
+HTTPS orqali yetadi.
+
+- **Public reads** (list/standings/fixtures/bracket) → browser'dan **to'g'ridan**
+  `https://chempox.uz` ga (RTK Query + CORS). efBazaar nginx bu yo'lda ishtirok
+  etmaydi. SSR metadata generation ham direct fetch qiladi (tournament-server.ts).
+- **Authed writes** (`POST /tournaments/{id}/teams`, `DELETE …/teams/me`,
+  `GET /tournaments/joined`) → efBazaar nginx orqali:
+  `location /api/tournaments/ { proxy_pass https://chempox.uz; }`
+  + `X-User-Id` (auth_request subrequest'dan) + `X-Internal-Secret` + Host/SNI
+  `chempox.uz`ga qat'iy sozlangan (aks holda TLS handshake yiqiladi).
 - Nginx'da `/api/tournaments/**` prefiksi trade-service'ning `/api/v1/trades/**` bloki bilan
   to'qnashmaydi — tekshirildi.
+
+### 5.5a. Chempionat-X tarafda talab qilinadigan o'zgarishlar (2-server uchun)
+
+- **CORS**: public endpoint'larga `Access-Control-Allow-Origin: https://efbazaar.uz`
+  (yoki `NEXT_PUBLIC_CHEMPIONAT_API_URL` env orqali override qilingan boshqa origin).
+  Preflight (`OPTIONS`) ham qaytarilishi kerak.
+- **IP allowlist** `/api/tournaments/**` va boshqa authed endpoint'larga —
+  faqat efBazaar server IP'sidan qabul qilinsin (X-Internal-Secret bilan birga
+  ikkinchi qatlam). Aks holda internetdan header spoof qilib kirish mumkin.
+- **Kafka**: 2-server split'da broker ikki tomonga ochiq bo'lishi kerak:
+  Chempionat serverdagi Kafka `advertised.listeners` public + `SASL_SSL`
+  authentication + credentials. Alternativ: Chempionat webhook orqali efBazaar
+  internal API'ga POST qiladi (event bus'siz — hozirgi hajmga kifoya).
+- **HTTPS majburiy** — `X-Internal-Secret` header plaintext internetdan ketmasin.
 
 ---
 

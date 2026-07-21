@@ -6,6 +6,7 @@ import './globals.css';
 import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
 import { TelegramViewportBootstrap } from '@/components/telegram/telegram-viewport-bootstrap';
 import { absoluteUrl, siteConfig } from '@/lib/site';
+import { StoreProvider } from '@/store/provider';
 
 const YANDEX_METRIKA_ID = 110535295;
 
@@ -101,7 +102,7 @@ export default function RootLayout({
         {/* Telegram Mini App context aniqlansa har qanday entry point'da auto-login */}
         <TelegramWebAppAutoLogin />
 
-        {children}
+        <StoreProvider>{children}</StoreProvider>
 
         <Script id="yandex-metrika" strategy="afterInteractive">
           {`
