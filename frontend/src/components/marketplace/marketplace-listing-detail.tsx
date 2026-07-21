@@ -31,6 +31,7 @@ interface MarketplaceListingDetailProps {
   listing: ListingResponse;
   viewer: User | null;
   seller: User | null;
+  sellerBlacklisted?: boolean;
   similarListings: ListingResponse[];
 }
 
@@ -38,6 +39,7 @@ export function MarketplaceListingDetail({
   listing,
   viewer,
   seller,
+  sellerBlacklisted,
   similarListings,
 }: MarketplaceListingDetailProps) {
   const title = listing.description.split('\n')[0]?.trim() || 'eFootball account';
@@ -224,7 +226,7 @@ export function MarketplaceListingDetail({
           </div>
 
           <div className="mt-4">
-            <SellerCard seller={seller} isViewerOwner={isOwner} />
+            <SellerCard seller={seller} isViewerOwner={isOwner} blacklisted={sellerBlacklisted} />
           </div>
         </aside>
       </div>

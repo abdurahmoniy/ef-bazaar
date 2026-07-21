@@ -50,6 +50,19 @@ public class MarketplaceEventPublisher {
                 new MarketplaceEvents.ChatExpired(chatId, listingId, buyerId, sellerId, reason, Instant.now()));
     }
 
+    public void userBlacklisted(UUID penaltyId, UUID userId, String penaltyType,
+                                String reason, Instant expiresAt) {
+        send(MarketplaceEvents.TOPIC_USER_BLACKLISTED, userId.toString(),
+                new MarketplaceEvents.UserBlacklisted("bl-" + penaltyId, userId, penaltyType,
+                        reason, expiresAt, Instant.now()));
+    }
+
+    public void userUnblacklisted(UUID penaltyId, UUID userId, String cause) {
+        send(MarketplaceEvents.TOPIC_USER_UNBLACKLISTED, userId.toString(),
+                new MarketplaceEvents.UserUnblacklisted("unbl-" + penaltyId, userId, cause,
+                        Instant.now()));
+    }
+
     private void send(String topic, String key, Object event) {
         kafkaTemplate.send(topic, key, event)
                 .whenComplete((r, ex) -> {

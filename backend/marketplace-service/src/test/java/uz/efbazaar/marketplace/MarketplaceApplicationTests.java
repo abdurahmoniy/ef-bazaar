@@ -51,6 +51,14 @@ class MarketplaceApplicationTests {
     @MockBean ListingReportRepository listingReportRepository;
     @MockBean NotificationRepository notificationRepository;
     @MockBean KafkaTemplate<String, Object> kafkaTemplate;
+    // gamer paketi (Gamer Card projection)
+    @MockBean uz.efbazaar.marketplace.gamer.GamerRepositories.GamerStatsRepository gamerStatsRepository;
+    @MockBean uz.efbazaar.marketplace.gamer.GamerRepositories.GamerStatsMatchRepository gamerStatsMatchRepository;
+    @MockBean uz.efbazaar.marketplace.gamer.GamerRepositories.GamerProfileRepository gamerProfileRepository;
+    // trust paketi (shikoyat + blacklist)
+    @MockBean uz.efbazaar.marketplace.trust.TrustRepositories.ComplaintRepository complaintRepository;
+    @MockBean uz.efbazaar.marketplace.trust.TrustRepositories.PenaltyRepository penaltyRepository;
+    @MockBean uz.efbazaar.marketplace.trust.TrustRepositories.BlacklistIdentifierRepository blacklistIdentifierRepository;
 
     @Test
     void contextLoads() {

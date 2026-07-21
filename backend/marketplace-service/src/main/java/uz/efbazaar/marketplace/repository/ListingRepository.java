@@ -21,6 +21,20 @@ public interface ListingRepository extends JpaRepository<Listing, UUID>,
 
     long countByStatus(ListingStatus status);
 
+    // Gamer Card trust counters — escrow history straight from listing rows
+    // (sold_at/sold_to_user_id are written by the listing-sold consumer).
+    long countBySellerIdAndStatus(UUID sellerId, ListingStatus status);
+
+    long countBySoldToUserId(UUID buyerId);
+
+    // Trust module: hide/restore a blacklisted seller's catalog. Both are
+    // status-transition idempotent, so replays are no-ops.
+    @Modifying
+    @Query("UPDATE Listing l SET l.status = :to WHERE l.sellerId = :sellerId AND l.status = :from")
+    int retagBySellerAndStatus(@Param("sellerId") UUID sellerId,
+                               @Param("from") ListingStatus from,
+                               @Param("to") ListingStatus to);
+
     /**
      * Listings currently liked by {@code userId}. Filters out non-ACTIVE listings
      * so the favourites view doesn't show SOLD/DELETED entries the user liked earlier.

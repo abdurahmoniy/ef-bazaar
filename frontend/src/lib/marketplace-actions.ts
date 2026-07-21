@@ -95,6 +95,24 @@ export function adminDismissReport(reportId: string): Promise<ActionResult<null>
   );
 }
 
+// ---------- admin trust (shikoyat → penalty engine) ----------
+
+export function adminConfirmTrustComplaint(complaintId: string): Promise<ActionResult<unknown>> {
+  return marketplaceRequest<unknown>(
+    ['v1', 'admin', 'trust', 'complaints', complaintId, 'confirm'],
+    { method: 'POST' },
+    'Shikoyat tasdiqlanmadi',
+  );
+}
+
+export function adminRejectTrustComplaint(complaintId: string): Promise<ActionResult<unknown>> {
+  return marketplaceRequest<unknown>(
+    ['v1', 'admin', 'trust', 'complaints', complaintId, 'reject'],
+    { method: 'POST' },
+    'Shikoyat rad etilmadi',
+  );
+}
+
 /**
  * Owner-side soft-delete: flips the listing to DELETED status via
  * DELETE /api/v1/listings/{id}. Backend rejects with 403 if the caller isn't

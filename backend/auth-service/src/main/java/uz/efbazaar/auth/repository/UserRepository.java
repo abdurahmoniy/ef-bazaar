@@ -7,12 +7,16 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import uz.efbazaar.auth.domain.User;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByTelegramId(Long telegramId);
+
+    List<User> findByTelegramIdIn(Collection<Long> telegramIds);
 
     Optional<User> findByGoogleId(String googleId);
 

@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import uz.efbazaar.marketplace.trust.BlacklistGuard;
 
 @Slf4j
 @Service
@@ -39,6 +40,7 @@ public class ListingService {
     private final ListingCaptionBuilder captionBuilder;
     private final MarketplaceEventPublisher events;
     private final AttributeDefinitionRepository attributeDefinitions;
+    private final BlacklistGuard blacklistGuard;
 
     /**
      * Atomic create — validates payload/attrs first (fail fast, no side effect),
@@ -48,6 +50,9 @@ public class ListingService {
      * the invariant that "response OK ⇒ both bot upload and DB write happened".
      */
     public Listing create(UUID sellerId, ListingCreateRequest request, List<MultipartFile> files) {
+        if (blacklistGuard.isBlacklisted(sellerId)) {
+            throw MarketplaceException.userBlacklisted();
+        }
         mediaService.validate(files);
         Map<String, Object> validated = attributeValidator.validate(request.attributes());
 
