@@ -12,6 +12,7 @@ import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfigurat
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.test.context.ActiveProfiles;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
 import uz.efbazaar.marketplace.repository.ChatParticipantRepository;
@@ -40,6 +41,7 @@ import uz.efbazaar.marketplace.repository.NotificationRepository;
         RedisRepositoriesAutoConfiguration.class,
         KafkaAutoConfiguration.class
 })
+@ActiveProfiles("test")
 class MarketplaceApplicationTests {
 
     @MockBean ListingRepository listingRepository;
