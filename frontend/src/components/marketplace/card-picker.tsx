@@ -281,7 +281,7 @@ function SelectedPill({
         'inline-flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2 text-xs shadow-sm',
         variant === 'primary'
           ? 'border-primary bg-primary/5'
-          : 'border-border bg-white',
+          : 'border-border bg-card',
       )}
     >
       <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-muted">

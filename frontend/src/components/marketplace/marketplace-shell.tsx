@@ -161,7 +161,7 @@ export function MarketplaceShell({
               <span className="flex-1 truncate">Akkount tasdiqlanmagan — Telegram va Google ulang</span>
               <Link
                 href="/profile?tab=account"
-                className="shrink-0 rounded-md bg-white/60 px-2 py-0.5 hover:bg-white"
+                className="shrink-0 rounded-md bg-white/60 px-2 py-0.5 hover:bg-card"
               >
                 Tasdiqlash
               </Link>

@@ -311,7 +311,7 @@ export function QuickChips({
 						'shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
 						filter.id === activeFilter
 							? 'border-primary bg-primary text-primary-foreground'
-							: 'border-border bg-white text-muted-foreground hover:border-primary/40 hover:text-foreground',
+							: 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
 					)}
 				>
 					{filter.label}

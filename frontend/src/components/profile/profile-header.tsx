@@ -57,7 +57,7 @@ export function ProfileHeader({ user, stats }: ProfileHeaderProps) {
           {isAdmin(user) && (
             <Link
               href="/admin"
-              className="mb-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-sm font-semibold text-foreground transition hover:border-primary/40 hover:bg-muted"
+              className="mb-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition hover:border-primary/40 hover:bg-muted"
             >
               <ShieldCheck className="h-4 w-4 text-primary" />
               Admin panel

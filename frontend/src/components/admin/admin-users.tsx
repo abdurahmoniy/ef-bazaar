@@ -91,7 +91,7 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
             return (
               <li
                 key={user.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-white p-4 shadow-card"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-card"
               >
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">

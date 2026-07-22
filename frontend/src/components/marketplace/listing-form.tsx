@@ -404,10 +404,10 @@ function StepIndicator({ current }: { current: StepId }) {
 							className={cn(
 								'grid h-7 w-7 place-items-center rounded-full border-2 text-[11px] font-black transition',
 								done && 'border-primary bg-primary text-primary-foreground',
-								active && !done && 'border-primary bg-white text-primary',
+								active && !done && 'border-primary bg-card text-primary',
 								!done &&
 									!active &&
-									'border-border bg-white text-muted-foreground',
+									'border-border bg-card text-muted-foreground',
 							)}
 						>
 							{done ? <Check className='h-3.5 w-3.5' /> : index + 1}

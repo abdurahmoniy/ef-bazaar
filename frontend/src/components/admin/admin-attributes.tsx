@@ -286,7 +286,7 @@ export function AdminAttributes({ definitions }: AdminAttributesProps) {
             <li key={def.id} className="space-y-3">
               <div
                 className={cn(
-                  'flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-white p-4 shadow-card',
+                  'flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-card',
                   !def.active && 'opacity-60',
                 )}
               >

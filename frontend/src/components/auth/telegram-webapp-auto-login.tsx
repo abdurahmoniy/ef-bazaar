@@ -106,7 +106,7 @@ export function TelegramWebAppAutoLogin() {
   if (state === 'authing') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur">
-        <div className="rounded-xl border border-border bg-white px-6 py-5 shadow-card-hover">
+        <div className="rounded-xl border border-border bg-card px-6 py-5 shadow-card-hover">
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
             <span className="text-sm text-foreground">Telegram orqali avtomatik kirilmoqda…</span>
@@ -118,7 +118,7 @@ export function TelegramWebAppAutoLogin() {
 
   return (
     <div className="fixed left-4 right-4 top-4 z-50">
-      <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-white px-4 py-3 text-sm text-destructive shadow-card-hover">
+      <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-card px-4 py-3 text-sm text-destructive shadow-card-hover">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <span>{error ?? 'Mini App auth muvaffaqiyatsiz'}</span>
       </div>
