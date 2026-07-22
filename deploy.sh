@@ -105,6 +105,15 @@ write_env() {
   # browser GIS init on frontend). Client secret is NOT needed for this flow.
   upsert_env .env GOOGLE_CLIENT_ID        "${GOOGLE_CLIENT_ID:-}"
 
+  # Server-to-server shared secret. nginx injects it as X-Internal-Secret on
+  # /api/tournaments/** (Chempionat-X header-auth), and auth/marketplace guard
+  # their /internal/** with it. Blank → header-auth fail-closed. Must equal
+  # Chempionat-X's EFBAZAAR_INTERNAL_SECRET.
+  if [[ -n "${INTERNAL_API_SECRET:-}" ]]; then
+    assert_safe_for_env INTERNAL_API_SECRET "$INTERNAL_API_SECRET"
+    upsert_env .env INTERNAL_API_SECRET "$INTERNAL_API_SECRET"
+  fi
+
   chmod 600 .env
   echo "==> .env written ($(wc -l < .env) lines)"
 }
