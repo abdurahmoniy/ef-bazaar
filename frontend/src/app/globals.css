@@ -96,6 +96,54 @@
     @apply bg-background text-foreground antialiased;
     min-height: 100vh;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    position: relative;
+    overflow-x: clip;
+  }
+
+  /* Huge eFootball-style diagonal capsules — full-viewport backdrop */
+  body::before,
+  body::after {
+    content: '';
+    position: fixed;
+    pointer-events: none;
+    z-index: 0;
+    border-radius: 9999px;
+    transform: rotate(-24deg);
+    background: linear-gradient(180deg, hsl(240 100% 35%), hsl(240 100% 18%));
+    opacity: 0.9;
+  }
+  body::before {
+    top: -14rem;
+    left: -22rem;
+    width: 70rem;
+    height: 11rem;
+  }
+  body::after {
+    bottom: -14rem;
+    right: -26rem;
+    width: 82rem;
+    height: 12rem;
+    background: linear-gradient(180deg, hsl(240 100% 28%), hsl(240 100% 12%));
+    opacity: 0.9;
+  }
+  html.dark body::before {
+    background: linear-gradient(180deg, hsl(240 100% 28%), hsl(240 100% 8%));
+    opacity: 1;
+  }
+  html.dark body::after {
+    background: linear-gradient(180deg, hsl(240 100% 32%), hsl(240 100% 10%));
+    opacity: 1;
+  }
+
+  /* Full-viewport shells stay transparent so the capsule backdrop shows through */
+  .min-h-app.bg-background {
+    background-color: transparent !important;
+  }
+
+  /* Content stacks over the capsule backdrop */
+  body > * {
+    position: relative;
+    z-index: 1;
   }
 
   ::selection {
@@ -129,46 +177,6 @@
   /* Solid glassy top-bar used across marketplace shell */
   .surface-nav {
     @apply bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80;
-  }
-
-  /* Stadium motion shapes — huge diagonal capsules echoing the eFootball key art */
-  .stadium-shapes {
-    position: relative;
-    isolation: isolate;
-  }
-  .stadium-shapes::before,
-  .stadium-shapes::after {
-    content: '';
-    position: absolute;
-    pointer-events: none;
-    z-index: -1;
-    border-radius: 9999px;
-    background: linear-gradient(180deg, hsl(240 100% 30%), hsl(240 100% 12%));
-    transform: rotate(-22deg);
-    opacity: 0.85;
-  }
-  .stadium-shapes::before {
-    top: -8rem;
-    left: -12rem;
-    width: 42rem;
-    height: 6rem;
-    filter: blur(0.5px);
-  }
-  .stadium-shapes::after {
-    bottom: -6rem;
-    right: -14rem;
-    width: 52rem;
-    height: 7rem;
-    background: linear-gradient(180deg, hsl(240 100% 22%), hsl(240 100% 8%));
-    opacity: 0.9;
-  }
-  .dark .stadium-shapes::before {
-    background: linear-gradient(180deg, hsl(240 100% 25%), hsl(240 100% 5%));
-    opacity: 1;
-  }
-  .dark .stadium-shapes::after {
-    background: linear-gradient(180deg, hsl(240 100% 30%), hsl(240 100% 6%));
-    opacity: 1;
   }
 
   /* Price pill — hero attribute on cards + detail page */

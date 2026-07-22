@@ -276,9 +276,7 @@ export default function HomePage() {
       />
       <main className="min-h-app overflow-hidden bg-background pt-[env(safe-area-inset-top)] text-foreground">
         <LandingHeader />
-        <div className="stadium-shapes">
-          <Hero />
-        </div>
+        <Hero />
         <StarPlayers />
         <PlatformSplit />
         <ExchangeModes />
