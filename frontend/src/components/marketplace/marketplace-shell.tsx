@@ -5,6 +5,7 @@ import { ChatsUnreadBadge } from '@/components/chat/chats-unread-badge';
 import { Logo } from '@/components/brand/logo';
 import { TopBackButton } from '@/components/navigation/top-back-button';
 import { NotificationBell } from '@/components/notifications/notification-bell';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -104,6 +105,7 @@ export function MarketplaceShell({
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
             {user && <NotificationBell />}
             {user && (
               <Button
