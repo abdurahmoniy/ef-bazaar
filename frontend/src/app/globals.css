@@ -4,80 +4,79 @@
 
 @layer base {
   :root {
-    /* Backdrop — warm white, denser than pure paper for marketplace feel */
-    --background: 40 25% 97%;
-    --foreground: 220 25% 12%;
+    /* eFootball palette — near-white surface, Konami red primary, pitch-green accent */
+    --background: 0 0% 98%;
+    --foreground: 220 20% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 25% 12%;
+    --card-foreground: 220 20% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 12%;
+    --popover-foreground: 220 20% 10%;
 
-    /* Teal — calm, premium marketplace primary */
-    --primary: 174 65% 33%;
+    /* Konami / eFootball red */
+    --primary: 353 88% 46%;
     --primary-foreground: 0 0% 100%;
 
-    /* Coral — used for price and secondary CTAs (price prominence) */
-    --secondary: 12 85% 52%;
-    --secondary-foreground: 12 70% 14%;
+    /* Pitch green — used on badges, divisional CTAs */
+    --secondary: 145 78% 38%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 40 12% 95%;
-    --muted-foreground: 30 8% 42%;
+    --muted: 220 12% 95%;
+    --muted-foreground: 220 8% 40%;
 
-    --accent: 174 45% 93%;
-    --accent-foreground: 174 65% 24%;
+    --accent: 353 85% 96%;
+    --accent-foreground: 353 80% 30%;
 
-    --destructive: 0 78% 52%;
+    --destructive: 0 82% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 35 15% 87%;
-    --input: 35 15% 87%;
-    --ring: 174 65% 33%;
+    --border: 220 12% 88%;
+    --input: 220 12% 88%;
+    --ring: 353 88% 46%;
 
-    /* Marketplace-specific tokens */
-    --price: 12 80% 42%;
+    /* Price uses the same brand red — hero attribute */
+    --price: 353 85% 44%;
     --price-foreground: 0 0% 100%;
-    --surface-alt: 40 30% 98%;
+    --surface-alt: 220 15% 97%;
 
     --radius: 0.625rem;
   }
 
   .dark {
-    /* Deep neutral surface — cool near-black, sits softer than pure #000 */
-    --background: 220 20% 8%;
-    --foreground: 40 15% 92%;
+    /* eFootball dark — cool near-black stadium backdrop, glowing red + green */
+    --background: 220 25% 6%;
+    --foreground: 0 0% 96%;
 
-    --card: 220 18% 12%;
-    --card-foreground: 40 15% 92%;
+    --card: 220 22% 10%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 220 18% 12%;
-    --popover-foreground: 40 15% 92%;
+    --popover: 220 22% 10%;
+    --popover-foreground: 0 0% 96%;
 
-    /* Teal — brighter for dark contrast */
-    --primary: 174 60% 48%;
-    --primary-foreground: 220 25% 8%;
+    /* Red — punched brighter for contrast on black */
+    --primary: 353 90% 55%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Coral — kept warm, slightly lighter */
-    --secondary: 12 80% 58%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 145 72% 48%;
+    --secondary-foreground: 220 25% 6%;
 
-    --muted: 220 15% 16%;
-    --muted-foreground: 40 8% 65%;
+    --muted: 220 18% 14%;
+    --muted-foreground: 220 8% 65%;
 
-    --accent: 174 40% 18%;
-    --accent-foreground: 174 60% 78%;
+    --accent: 353 60% 18%;
+    --accent-foreground: 353 90% 82%;
 
-    --destructive: 0 72% 55%;
+    --destructive: 0 78% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 12% 22%;
-    --input: 220 12% 22%;
-    --ring: 174 60% 48%;
+    --border: 220 15% 20%;
+    --input: 220 15% 20%;
+    --ring: 353 90% 55%;
 
-    --price: 12 80% 62%;
+    --price: 353 90% 62%;
     --price-foreground: 0 0% 100%;
-    --surface-alt: 220 18% 11%;
+    --surface-alt: 220 22% 9%;
   }
 
   * {
