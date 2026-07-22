@@ -23,6 +23,7 @@ import {
 import { AuthAwareLink } from '@/components/auth/auth-aware-link';
 import { Logo } from '@/components/brand/logo';
 import { SiteFooter } from '@/components/site-footer';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { MARKETPLACE_LANDINGS } from '@/lib/marketplace-landing';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 
@@ -294,28 +295,29 @@ export default function HomePage() {
 function LandingHeader() {
   return (
     <header className="container py-5">
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white px-3 py-3 shadow-card sm:px-4">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-3 shadow-card sm:px-4">
         <Logo size="sm" href="/" />
 
         <nav className="hidden items-center gap-1 rounded-lg bg-muted p-1 text-sm font-bold text-muted-foreground lg:flex">
-          <Link href="/marketplace" className="rounded-lg px-3 py-2 transition hover:bg-white hover:text-foreground">
+          <Link href="/marketplace" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
             Bozor
           </Link>
-          <Link href="#yulduzlar" className="rounded-lg px-3 py-2 transition hover:bg-white hover:text-foreground">
+          <Link href="#yulduzlar" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
             Kartalar
           </Link>
-          <Link href="#obmen" className="rounded-lg px-3 py-2 transition hover:bg-white hover:text-foreground">
+          <Link href="#obmen" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
             Obmen
           </Link>
-          <Link href="#qanday-ishlaydi" className="rounded-lg px-3 py-2 transition hover:bg-white hover:text-foreground">
+          <Link href="#qanday-ishlaydi" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
             Qanday ishlaydi
           </Link>
-          <Link href="#savollar" className="rounded-lg px-3 py-2 transition hover:bg-white hover:text-foreground">
+          <Link href="#savollar" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
             Savollar
           </Link>
         </nav>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <AuthAwareLink
             anonHref="/auth/login"
             anonLabel="Kirish"
@@ -340,7 +342,7 @@ function Hero() {
   return (
     <section className="container py-5 sm:py-8">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(20rem,0.56fr)]">
-        <div className="flex min-w-0 flex-col justify-between gap-8 rounded-xl border border-border bg-white p-4 shadow-card sm:p-7">
+        <div className="flex min-w-0 flex-col justify-between gap-8 rounded-xl border border-border bg-card p-4 shadow-card sm:p-7">
           <div>
             <div className="mb-5 flex flex-wrap items-center gap-2">
               <Pill icon={Bot}>Telegram-first bozor</Pill>
@@ -369,7 +371,7 @@ function Hero() {
               </Link>
               <Link
                 href="/marketplace/new"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border bg-white px-6 text-base font-semibold text-foreground transition hover:bg-muted"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border bg-card px-6 text-base font-semibold text-foreground transition hover:bg-muted"
               >
                 Akkount joylash
                 <UploadCloud className="h-4 w-4" />
@@ -389,7 +391,7 @@ function Hero() {
               {ACCOUNT_FILTERS.map((filter) => (
                 <span
                   key={filter}
-                  className="rounded-lg border border-border bg-white px-3 py-2 text-xs font-black text-muted-foreground shadow-card"
+                  className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-black text-muted-foreground shadow-card"
                 >
                   {filter}
                 </span>
@@ -406,7 +408,7 @@ function Hero() {
 
 function AccountShowcase() {
   return (
-    <aside className="relative overflow-hidden rounded-xl border border-border bg-white p-3 shadow-card">
+    <aside className="relative overflow-hidden rounded-xl border border-border bg-card p-3 shadow-card">
       <span className="absolute -right-14 top-4 z-10 w-36 rotate-45 bg-secondary py-1 text-center text-[9px] font-black uppercase tracking-wider text-secondary-foreground">
         Namuna
       </span>
@@ -496,7 +498,7 @@ function AccountShowcase() {
             <span
               key={`${item}-${index}`}
               aria-hidden={index >= TICKER_ITEMS.length}
-              className="shrink-0 whitespace-nowrap rounded-full border border-border bg-white px-3 py-1.5 text-xs font-bold text-muted-foreground"
+              className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-3 py-1.5 text-xs font-bold text-muted-foreground"
             >
               {item}
             </span>
@@ -515,7 +517,7 @@ function AccountShowcase() {
 function StarPlayers() {
   return (
     <section id="yulduzlar" className="container pb-5 sm:pb-8">
-      <div className="rounded-xl border border-border bg-white p-5 shadow-card sm:p-7">
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card sm:p-7">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="max-w-2xl">
             <p className="text-sm font-black uppercase text-primary">Yulduz o&apos;yinchilar</p>
@@ -531,7 +533,7 @@ function StarPlayers() {
           </div>
           <Link
             href="/marketplace"
-            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-white px-4 text-sm font-black text-foreground shadow-card transition hover:bg-muted sm:w-auto"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-black text-foreground shadow-card transition hover:bg-muted sm:w-auto"
           >
             Karta bo&apos;yicha filtrlash
             <ArrowRight className="h-4 w-4" />
@@ -542,7 +544,7 @@ function StarPlayers() {
           {CARD_TYPES.map(({ type, gist, example }) => (
             <div
               key={type}
-              className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-4 transition hover:border-primary/40 hover:bg-white"
+              className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-4 transition hover:border-primary/40 hover:bg-card"
             >
               <div className="flex items-center gap-2">
                 <span className="rounded-md bg-primary px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-primary-foreground">
@@ -551,7 +553,7 @@ function StarPlayers() {
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
               </div>
               <p className="text-sm leading-6 text-muted-foreground">{gist}</p>
-              <span className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-xs font-bold text-foreground">
+              <span className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-bold text-foreground">
                 <Search className="h-3 w-3 text-primary" />
                 {example}
               </span>
@@ -600,7 +602,7 @@ function PlatformCard({
   bullet3: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-white p-5 shadow-card">
+    <div className="rounded-xl border border-border bg-card p-5 shadow-card">
       <div className="flex items-center gap-3">
         <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-foreground">
           <Icon className="h-5 w-5" />
@@ -640,7 +642,7 @@ function ExchangeModes() {
         </p>
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           {EXCHANGE_MODES.map(({ key, icon: Icon, title, body }) => (
-            <div key={key} className="rounded-lg border border-border bg-white p-4 shadow-card">
+            <div key={key} className="rounded-lg border border-border bg-card p-4 shadow-card">
               <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-foreground">
                 <Icon className="h-5 w-5" />
               </span>
@@ -657,7 +659,7 @@ function ExchangeModes() {
 function DivisionLadder() {
   return (
     <section className="container pb-5 sm:pb-8">
-      <div className="rounded-xl border border-border bg-white p-5 shadow-card sm:p-7">
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card sm:p-7">
         <p className="text-sm font-black uppercase text-primary">Diviziyon darajalari</p>
         <h2 className="mt-2 max-w-2xl text-2xl font-black leading-tight text-foreground sm:text-3xl">
           D1&apos;dan D4+&apos;gacha — har biri uchun o&apos;z xaridori bor.
@@ -723,7 +725,7 @@ function StepTimeline({
   steps: Array<{ title: string; body: string }>;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-white p-5 shadow-card sm:p-6">
+    <div className="rounded-xl border border-border bg-card p-5 shadow-card sm:p-6">
       <h3 className="text-lg font-black text-foreground">{title}</h3>
       <ol className="mt-5 space-y-5">
         {steps.map((step, index) => (
@@ -756,7 +758,7 @@ function TrustGrid() {
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {TRUST_POINTS.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="rounded-lg border border-border bg-white p-4 shadow-card">
+            <div key={title} className="rounded-lg border border-border bg-card p-4 shadow-card">
               <span className="grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-foreground">
                 <Icon className="h-5 w-5" />
               </span>
@@ -773,7 +775,7 @@ function TrustGrid() {
 function PopularCategories() {
   return (
     <section className="container pb-10 sm:pb-14">
-      <div className="rounded-xl border border-border bg-white p-5 shadow-card sm:p-7">
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card sm:p-7">
         <p className="text-sm font-black uppercase text-primary">Kategoriyalar</p>
         <h2 className="mt-2 max-w-2xl text-2xl font-black leading-tight text-foreground sm:text-3xl">
           Qidirganingizni to&apos;g&apos;ridan-to&apos;g&apos;ri oching.
@@ -813,7 +815,7 @@ function Faq() {
           </p>
         </div>
 
-        <div className="divide-y divide-border rounded-xl border border-border bg-white shadow-card">
+        <div className="divide-y divide-border rounded-xl border border-border bg-card shadow-card">
           {FAQ_ITEMS.map((item) => (
             <details key={item.question} className="group px-4 py-4 sm:px-6">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-bold text-foreground">
@@ -832,7 +834,7 @@ function Faq() {
 function FinalCta() {
   return (
     <section className="container pb-12 sm:pb-16">
-      <div className="grid gap-5 rounded-xl border border-border bg-white p-5 shadow-card sm:p-7 lg:grid-cols-[1fr_auto] lg:items-center">
+      <div className="grid gap-5 rounded-xl border border-border bg-card p-5 shadow-card sm:p-7 lg:grid-cols-[1fr_auto] lg:items-center">
         <div>
           <p className="text-sm font-black uppercase text-primary">Boshlash</p>
           <h2 className="mt-2 text-2xl font-black text-foreground sm:text-4xl">
@@ -853,7 +855,7 @@ function FinalCta() {
           </Link>
           <Link
             href={siteConfig.links.telegram}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border bg-white px-6 text-base font-semibold text-foreground transition hover:bg-muted"
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border bg-card px-6 text-base font-semibold text-foreground transition hover:bg-muted"
           >
             Telegram botni ochish
             <Bot className="h-4 w-4" />
@@ -866,7 +868,7 @@ function FinalCta() {
 
 function TinyAction({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border bg-white p-3 shadow-card">
+    <div className="rounded-xl border border-border bg-card p-3 shadow-card">
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-xs font-black uppercase text-muted-foreground">{label}</p>
