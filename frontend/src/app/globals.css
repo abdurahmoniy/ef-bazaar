@@ -4,81 +4,78 @@
 
 @layer base {
   :root {
-    /* eFootball palette — electric blue primary, yellow secondary, deep-navy ink */
-    --background: 0 0% 98%;
-    --foreground: 213 74% 11%;
+    /* eFootball hero palette — ultra-deep blue #000099, aggressive yellow #FFFF00 */
+    --background: 0 0% 100%;
+    --foreground: 240 100% 8%;
 
     --card: 0 0% 100%;
-    --card-foreground: 213 74% 11%;
+    --card-foreground: 240 100% 8%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 213 74% 11%;
+    --popover-foreground: 240 100% 8%;
 
-    /* Electric blue #00AEEF */
-    --primary: 196 100% 47%;
-    --primary-foreground: 0 0% 100%;
+    /* Ultra-deep electric blue #000099 */
+    --primary: 240 100% 30%;
+    --primary-foreground: 60 100% 50%;
 
-    /* Bright yellow #FFD600 — dark ink on yellow for contrast */
-    --secondary: 50 100% 50%;
-    --secondary-foreground: 213 74% 11%;
+    /* Pure yellow #FFFF00 — deep-blue ink for contrast */
+    --secondary: 60 100% 50%;
+    --secondary-foreground: 240 100% 20%;
 
-    --muted: 210 30% 96%;
-    --muted-foreground: 210 15% 40%;
+    --muted: 240 20% 96%;
+    --muted-foreground: 240 15% 35%;
 
-    /* Soft blue tint + dark-blue ink */
-    --accent: 196 90% 94%;
-    --accent-foreground: 210 76% 19%;
+    --accent: 60 100% 90%;
+    --accent-foreground: 240 100% 25%;
 
-    --destructive: 0 78% 52%;
+    --destructive: 0 90% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 20% 88%;
-    --input: 210 20% 88%;
-    --ring: 196 100% 47%;
+    --border: 240 15% 88%;
+    --input: 240 15% 88%;
+    --ring: 240 100% 30%;
 
-    /* Price — brand blue on tinted pill */
-    --price: 199 100% 40%;
-    --price-foreground: 0 0% 100%;
-    --surface-alt: 210 30% 97%;
+    --price: 240 100% 30%;
+    --price-foreground: 60 100% 50%;
+    --surface-alt: 240 30% 98%;
 
-    --radius: 0.625rem;
+    --radius: 0.875rem;
   }
 
   .dark {
-    /* eFootball dark — near-black #080B10 backdrop, glowing blue + yellow */
-    --background: 217 33% 5%;
-    --foreground: 0 0% 96%;
+    /* Pitch-black stadium + neon-yellow accents, deep-blue geometric shapes */
+    --background: 0 0% 0%;
+    --foreground: 60 100% 96%;
 
-    --card: 213 74% 11%;
-    --card-foreground: 0 0% 96%;
+    --card: 240 100% 6%;
+    --card-foreground: 60 100% 96%;
 
-    --popover: 213 74% 11%;
-    --popover-foreground: 0 0% 96%;
+    --popover: 240 100% 6%;
+    --popover-foreground: 60 100% 96%;
 
-    /* Brighter blue for dark contrast */
-    --primary: 196 100% 55%;
-    --primary-foreground: 213 74% 8%;
+    /* Punched brighter but still ultra-blue */
+    --primary: 240 100% 40%;
+    --primary-foreground: 60 100% 50%;
 
-    --secondary: 50 100% 55%;
-    --secondary-foreground: 213 74% 8%;
+    --secondary: 60 100% 50%;
+    --secondary-foreground: 240 100% 20%;
 
-    --muted: 210 30% 14%;
-    --muted-foreground: 210 15% 65%;
+    --muted: 240 40% 10%;
+    --muted-foreground: 60 20% 75%;
 
-    /* Dark-blue chip + bright blue ink */
-    --accent: 210 76% 19%;
-    --accent-foreground: 196 100% 80%;
+    --accent: 240 100% 18%;
+    --accent-foreground: 60 100% 60%;
 
-    --destructive: 0 72% 55%;
+    --destructive: 0 90% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 25% 20%;
-    --input: 210 25% 20%;
-    --ring: 196 100% 55%;
+    --border: 240 40% 18%;
+    --input: 240 40% 18%;
+    --ring: 60 100% 50%;
 
-    --price: 196 100% 62%;
-    --price-foreground: 213 74% 8%;
-    --surface-alt: 213 74% 9%;
+    --price: 60 100% 50%;
+    --price-foreground: 240 100% 20%;
+    --surface-alt: 240 100% 4%;
   }
 
   * {
@@ -132,6 +129,46 @@
   /* Solid glassy top-bar used across marketplace shell */
   .surface-nav {
     @apply bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80;
+  }
+
+  /* Stadium motion shapes — huge diagonal capsules echoing the eFootball key art */
+  .stadium-shapes {
+    position: relative;
+    isolation: isolate;
+  }
+  .stadium-shapes::before,
+  .stadium-shapes::after {
+    content: '';
+    position: absolute;
+    pointer-events: none;
+    z-index: -1;
+    border-radius: 9999px;
+    background: linear-gradient(180deg, hsl(240 100% 30%), hsl(240 100% 12%));
+    transform: rotate(-22deg);
+    opacity: 0.85;
+  }
+  .stadium-shapes::before {
+    top: -8rem;
+    left: -12rem;
+    width: 42rem;
+    height: 6rem;
+    filter: blur(0.5px);
+  }
+  .stadium-shapes::after {
+    bottom: -6rem;
+    right: -14rem;
+    width: 52rem;
+    height: 7rem;
+    background: linear-gradient(180deg, hsl(240 100% 22%), hsl(240 100% 8%));
+    opacity: 0.9;
+  }
+  .dark .stadium-shapes::before {
+    background: linear-gradient(180deg, hsl(240 100% 25%), hsl(240 100% 5%));
+    opacity: 1;
+  }
+  .dark .stadium-shapes::after {
+    background: linear-gradient(180deg, hsl(240 100% 30%), hsl(240 100% 6%));
+    opacity: 1;
   }
 
   /* Price pill — hero attribute on cards + detail page */
