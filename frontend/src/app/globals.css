@@ -4,79 +4,81 @@
 
 @layer base {
   :root {
-    /* eFootball palette — near-white surface, Konami red primary, pitch-green accent */
+    /* eFootball palette — electric blue primary, yellow secondary, deep-navy ink */
     --background: 0 0% 98%;
-    --foreground: 220 20% 10%;
+    --foreground: 213 74% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 213 74% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 213 74% 11%;
 
-    /* Konami / eFootball red */
-    --primary: 353 88% 46%;
+    /* Electric blue #00AEEF */
+    --primary: 196 100% 47%;
     --primary-foreground: 0 0% 100%;
 
-    /* Pitch green — used on badges, divisional CTAs */
-    --secondary: 145 78% 38%;
-    --secondary-foreground: 0 0% 100%;
+    /* Bright yellow #FFD600 — dark ink on yellow for contrast */
+    --secondary: 50 100% 50%;
+    --secondary-foreground: 213 74% 11%;
 
-    --muted: 220 12% 95%;
-    --muted-foreground: 220 8% 40%;
+    --muted: 210 30% 96%;
+    --muted-foreground: 210 15% 40%;
 
-    --accent: 353 85% 96%;
-    --accent-foreground: 353 80% 30%;
+    /* Soft blue tint + dark-blue ink */
+    --accent: 196 90% 94%;
+    --accent-foreground: 210 76% 19%;
 
-    --destructive: 0 82% 50%;
+    --destructive: 0 78% 52%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 12% 88%;
-    --input: 220 12% 88%;
-    --ring: 353 88% 46%;
+    --border: 210 20% 88%;
+    --input: 210 20% 88%;
+    --ring: 196 100% 47%;
 
-    /* Price uses the same brand red — hero attribute */
-    --price: 353 85% 44%;
+    /* Price — brand blue on tinted pill */
+    --price: 199 100% 40%;
     --price-foreground: 0 0% 100%;
-    --surface-alt: 220 15% 97%;
+    --surface-alt: 210 30% 97%;
 
     --radius: 0.625rem;
   }
 
   .dark {
-    /* eFootball dark — cool near-black stadium backdrop, glowing red + green */
-    --background: 220 25% 6%;
+    /* eFootball dark — near-black #080B10 backdrop, glowing blue + yellow */
+    --background: 217 33% 5%;
     --foreground: 0 0% 96%;
 
-    --card: 220 22% 10%;
+    --card: 213 74% 11%;
     --card-foreground: 0 0% 96%;
 
-    --popover: 220 22% 10%;
+    --popover: 213 74% 11%;
     --popover-foreground: 0 0% 96%;
 
-    /* Red — punched brighter for contrast on black */
-    --primary: 353 90% 55%;
-    --primary-foreground: 0 0% 100%;
+    /* Brighter blue for dark contrast */
+    --primary: 196 100% 55%;
+    --primary-foreground: 213 74% 8%;
 
-    --secondary: 145 72% 48%;
-    --secondary-foreground: 220 25% 6%;
+    --secondary: 50 100% 55%;
+    --secondary-foreground: 213 74% 8%;
 
-    --muted: 220 18% 14%;
-    --muted-foreground: 220 8% 65%;
+    --muted: 210 30% 14%;
+    --muted-foreground: 210 15% 65%;
 
-    --accent: 353 60% 18%;
-    --accent-foreground: 353 90% 82%;
+    /* Dark-blue chip + bright blue ink */
+    --accent: 210 76% 19%;
+    --accent-foreground: 196 100% 80%;
 
-    --destructive: 0 78% 55%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
-    --ring: 353 90% 55%;
+    --border: 210 25% 20%;
+    --input: 210 25% 20%;
+    --ring: 196 100% 55%;
 
-    --price: 353 90% 62%;
-    --price-foreground: 0 0% 100%;
-    --surface-alt: 220 22% 9%;
+    --price: 196 100% 62%;
+    --price-foreground: 213 74% 8%;
+    --surface-alt: 213 74% 9%;
   }
 
   * {
