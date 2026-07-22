@@ -76,7 +76,7 @@ export function ListingMediaGallery({ title, urls }: ListingMediaGalleryProps) {
               type="button"
               onClick={goPrev}
               aria-label="Oldingi rasm"
-              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md backdrop-blur transition hover:bg-white"
+              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md backdrop-blur transition hover:bg-card"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -84,7 +84,7 @@ export function ListingMediaGallery({ title, urls }: ListingMediaGalleryProps) {
               type="button"
               onClick={goNext}
               aria-label="Keyingi rasm"
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md backdrop-blur transition hover:bg-white"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md backdrop-blur transition hover:bg-card"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

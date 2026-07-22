@@ -50,7 +50,7 @@ export function ApiErrorPanel({ title = "So'rov bajarilmadi", error }: ApiErrorP
             <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               Details
             </div>
-            <pre className="max-h-64 overflow-auto rounded-md border border-border bg-white p-3 text-[11px] leading-5 text-foreground/85">
+            <pre className="max-h-64 overflow-auto rounded-md border border-border bg-card p-3 text-[11px] leading-5 text-foreground/85">
               {formatDetails(error.details)}
             </pre>
           </div>
@@ -74,7 +74,7 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
       <div
         className={
           mono
-            ? 'break-all rounded-md border border-border bg-white px-3 py-2 font-mono text-xs text-foreground/90'
+            ? 'break-all rounded-md border border-border bg-card px-3 py-2 font-mono text-xs text-foreground/90'
             : 'text-foreground'
         }
       >
