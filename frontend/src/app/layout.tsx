@@ -5,6 +5,7 @@ import './globals.css';
 
 import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
 import { TelegramViewportBootstrap } from '@/components/telegram/telegram-viewport-bootstrap';
+import { ThemeScript } from '@/components/theme/theme-script';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 import { StoreProvider } from '@/store/provider';
 
@@ -97,6 +98,8 @@ export default function RootLayout({
   return (
     <html lang="uz" className={inter.variable} suppressHydrationWarning>
       <body className="font-sans">
+        {/* No-flash theme init — must run before hydration */}
+        <ThemeScript />
         {/* Mini App SDK bootstrap — ready/expand/theme/viewport, no auth */}
         <TelegramViewportBootstrap />
         {/* Telegram Mini App context aniqlansa har qanday entry point'da auto-login */}

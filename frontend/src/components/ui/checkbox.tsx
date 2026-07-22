@@ -17,12 +17,12 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
       <label
         htmlFor={inputId}
         className={cn(
-          'group flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-white p-3 text-sm transition hover:border-primary/40 hover:bg-accent/40',
-          props.disabled && 'cursor-not-allowed opacity-60 hover:bg-white',
+          'group flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-card p-3 text-sm transition hover:border-primary/40 hover:bg-accent/40',
+          props.disabled && 'cursor-not-allowed opacity-60 hover:bg-card',
           className,
         )}
       >
-        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-input bg-white transition group-has-[:checked]:border-primary group-has-[:checked]:bg-primary">
+        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-input bg-card transition group-has-[:checked]:border-primary group-has-[:checked]:bg-primary">
           <input
             ref={ref}
             id={inputId}

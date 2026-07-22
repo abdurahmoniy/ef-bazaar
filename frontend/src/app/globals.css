@@ -43,6 +43,43 @@
     --radius: 0.625rem;
   }
 
+  .dark {
+    /* Deep neutral surface — cool near-black, sits softer than pure #000 */
+    --background: 220 20% 8%;
+    --foreground: 40 15% 92%;
+
+    --card: 220 18% 12%;
+    --card-foreground: 40 15% 92%;
+
+    --popover: 220 18% 12%;
+    --popover-foreground: 40 15% 92%;
+
+    /* Teal — brighter for dark contrast */
+    --primary: 174 60% 48%;
+    --primary-foreground: 220 25% 8%;
+
+    /* Coral — kept warm, slightly lighter */
+    --secondary: 12 80% 58%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 220 15% 16%;
+    --muted-foreground: 40 8% 65%;
+
+    --accent: 174 40% 18%;
+    --accent-foreground: 174 60% 78%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 12% 22%;
+    --input: 220 12% 22%;
+    --ring: 174 60% 48%;
+
+    --price: 12 80% 62%;
+    --price-foreground: 0 0% 100%;
+    --surface-alt: 220 18% 11%;
+  }
+
   * {
     @apply border-border;
   }
@@ -51,6 +88,10 @@
     color-scheme: light;
     overscroll-behavior-y: none;
     touch-action: manipulation;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
@@ -89,7 +130,7 @@
 
   /* Solid glassy top-bar used across marketplace shell */
   .surface-nav {
-    @apply bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80;
+    @apply bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80;
   }
 
   /* Price pill — hero attribute on cards + detail page */
@@ -107,7 +148,7 @@
     @apply bg-transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-black/10 hover:bg-black/20;
+    @apply rounded-full bg-foreground/10 hover:bg-foreground/20;
   }
 
   .no-scrollbar {
@@ -129,7 +170,7 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(255, 255, 255, 0.65),
+      hsl(var(--card) / 0.65),
       transparent
     );
     animation: skeleton-shimmer 1.6s ease-in-out infinite;
