@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Heart, Mail, MessageCircle, Package, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 import { MyGamerCardSection } from '@/components/gamer/my-gamer-card-section';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
@@ -12,11 +12,7 @@ import { ProfileListings } from '@/components/profile/profile-listings';
 import { ProfileTabs, type ProfileTabId } from '@/components/profile/profile-tabs';
 import { isAdmin } from '@/lib/admin';
 import { getMe } from '@/lib/auth';
-import {
-  getMyChats,
-  getMyFavorites,
-  getMyListings,
-} from '@/lib/marketplace-server';
+import { getMyFavorites, getMyListings } from '@/lib/marketplace-server';
 import { getMyCards } from '@/lib/trade-server';
 
 export const dynamic = 'force-dynamic';
@@ -59,9 +55,8 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   // Fetch tab data server-side. Fetch counts even for inactive tabs so the badges render.
   // Cards are only fetched when the Kartalar tab is active — the list has no
   // count badge and the other tabs don't need it.
-  const [listings, chats, favorites, cards] = await Promise.all([
+  const [listings, favorites, cards] = await Promise.all([
     getMyListings(),
-    getMyChats(),
     getMyFavorites(),
     activeTab === 'kartalar' ? getMyCards() : Promise.resolve([]),
   ]);
@@ -72,6 +67,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     <MarketplaceShell user={user} activeTab="profile" hideSearch>
       <div className="space-y-4">
         <MyGamerCardSection
+          email={user.email ?? null}
           trailingAction={
             admin ? (
               <Link
@@ -84,33 +80,6 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
             ) : null
           }
         />
-
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-2 sm:grid-cols-4">
-          {user.email && (
-            <div className="col-span-2 flex min-w-0 items-center gap-2 px-2 py-2 text-sm text-muted-foreground sm:col-span-1">
-              <Mail className="h-4 w-4 shrink-0" />
-              <span className="truncate">{user.email}</span>
-            </div>
-          )}
-          <StatNav
-            href="/profile?tab=listings"
-            icon={<Package className="h-4 w-4" />}
-            value={listings.length}
-            label="E'lon"
-          />
-          <StatNav
-            href="/profile?tab=favorites"
-            icon={<Heart className="h-4 w-4" />}
-            value={favorites.length}
-            label="Sevimli"
-          />
-          <StatNav
-            href="/chats"
-            icon={<MessageCircle className="h-4 w-4" />}
-            value={chats.length}
-            label="Chat"
-          />
-        </div>
 
         <ProfileTabs
           active={activeTab}
@@ -136,28 +105,5 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
         )}
       </div>
     </MarketplaceShell>
-  );
-}
-
-function StatNav({
-  href,
-  icon,
-  value,
-  label,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  value: number;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 transition hover:bg-accent"
-    >
-      <span className="text-muted-foreground">{icon}</span>
-      <span className="text-base font-black text-foreground">{value}</span>
-      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
-    </Link>
   );
 }

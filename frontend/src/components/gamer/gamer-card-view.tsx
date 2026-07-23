@@ -15,6 +15,8 @@ interface GamerCardViewProps {
   card: GamerCardResponse;
   /** id used by the PNG share button to find the capture root. */
   captureId?: string;
+  /** Owner-only. Rendered under @username. Never pass on public /gamers/[id]. */
+  email?: string | null;
 }
 
 function initialOf(name: string | null) {
@@ -25,7 +27,7 @@ function initialOf(name: string | null) {
  * The Gamer Card — o'yinchining "raqamli pasporti". Server component: pure
  * markup, no state. PNG share captures the `captureId` element.
  */
-export function GamerCardView({ card, captureId }: GamerCardViewProps) {
+export function GamerCardView({ card, captureId, email }: GamerCardViewProps) {
   const tier = TIER_META[card.tier];
   const memberSince = card.memberSince ? new Date(card.memberSince) : null;
   const memberLabel =
@@ -61,6 +63,9 @@ export function GamerCardView({ card, captureId }: GamerCardViewProps) {
             <p className={cn('truncate text-xs opacity-80', tier.text)}>
               {card.telegramUsername ? `@${card.telegramUsername}` : ' '}
             </p>
+            {email && (
+              <p className={cn('truncate text-xs opacity-70', tier.text)}>{email}</p>
+            )}
           </div>
           <div className="text-right">
             <div
