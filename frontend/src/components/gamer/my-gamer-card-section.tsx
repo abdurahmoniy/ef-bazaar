@@ -23,10 +23,12 @@ const PLATFORMS: Array<{ value: GamerPlatform | ''; label: string }> = [
 interface MyGamerCardSectionProps {
   /** Extra actions rendered alongside Share/Edit/Open (e.g. admin panel link). */
   trailingAction?: ReactNode;
+  /** Owner's email — shown under @username in the tier banner. */
+  email?: string | null;
 }
 
 /** Profildagi "Gamer Card" bo'limi: ko'rish + tahrirlash + ulashish. */
-export function MyGamerCardSection({ trailingAction }: MyGamerCardSectionProps = {}) {
+export function MyGamerCardSection({ trailingAction, email }: MyGamerCardSectionProps = {}) {
   const [card, setCard] = useState<GamerCardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -95,7 +97,7 @@ export function MyGamerCardSection({ trailingAction }: MyGamerCardSectionProps =
 
   return (
     <div className="space-y-4">
-      <GamerCardView card={card} captureId={CAPTURE_ID} />
+      <GamerCardView card={card} captureId={CAPTURE_ID} email={email} />
 
       <div className="flex flex-wrap items-center gap-2">
         <ShareGamerCardButton captureId={CAPTURE_ID} username={card.telegramUsername} />
