@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ExternalLink, Loader2, Pencil } from 'lucide-react';
 
@@ -20,8 +20,13 @@ const PLATFORMS: Array<{ value: GamerPlatform | ''; label: string }> = [
   { value: 'BOTH', label: 'Android + iOS' },
 ];
 
+interface MyGamerCardSectionProps {
+  /** Extra actions rendered alongside Share/Edit/Open (e.g. admin panel link). */
+  trailingAction?: ReactNode;
+}
+
 /** Profildagi "Gamer Card" bo'limi: ko'rish + tahrirlash + ulashish. */
-export function MyGamerCardSection() {
+export function MyGamerCardSection({ trailingAction }: MyGamerCardSectionProps = {}) {
   const [card, setCard] = useState<GamerCardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -104,6 +109,7 @@ export function MyGamerCardSection() {
             Ochiq sahifa
           </Link>
         </Button>
+        {trailingAction && <div className="ml-auto">{trailingAction}</div>}
       </div>
 
       {editing && (

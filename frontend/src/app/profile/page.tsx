@@ -1,14 +1,16 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Heart, Mail, MessageCircle, Package, ShieldCheck } from 'lucide-react';
 
 import { MyGamerCardSection } from '@/components/gamer/my-gamer-card-section';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { LogoutButton } from '@/components/profile/logout-button';
 import { ProfileAccount } from '@/components/profile/profile-account';
 import { ProfileCards } from '@/components/profile/profile-cards';
-import { ProfileHeader } from '@/components/profile/profile-header';
 import { ProfileListings } from '@/components/profile/profile-listings';
 import { ProfileTabs, type ProfileTabId } from '@/components/profile/profile-tabs';
+import { isAdmin } from '@/lib/admin';
 import { getMe } from '@/lib/auth';
 import {
   getMyChats,
@@ -32,11 +34,11 @@ const VALID_TABS: ProfileTabId[] = [
   'listings',
   'favorites',
   'kartalar',
-  'gamer',
   // 'pochta' is a link-out to /mail, never rendered inside the profile shell —
   // omit it here so ?tab=pochta falls back to 'listings' rather than a blank
   // section. Same for legacy ?tab=chats links: chats live at /chats now, the
-  // profile no longer has a chats tab.
+  // profile no longer has a chats tab. Legacy ?tab=gamer also falls through
+  // to 'listings' — the gamer card now renders as the page header.
   'account',
 ];
 
@@ -64,17 +66,51 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     activeTab === 'kartalar' ? getMyCards() : Promise.resolve([]),
   ]);
 
+  const admin = isAdmin(user);
+
   return (
     <MarketplaceShell user={user} activeTab="profile" hideSearch>
       <div className="space-y-4">
-        <ProfileHeader
-          user={user}
-          stats={{
-            listings: listings.length,
-            favorites: favorites.length,
-            chats: chats.length,
-          }}
+        <MyGamerCardSection
+          trailingAction={
+            admin ? (
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition hover:border-primary/40 hover:bg-muted"
+              >
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                Admin panel
+              </Link>
+            ) : null
+          }
         />
+
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-2 sm:grid-cols-4">
+          {user.email && (
+            <div className="col-span-2 flex min-w-0 items-center gap-2 px-2 py-2 text-sm text-muted-foreground sm:col-span-1">
+              <Mail className="h-4 w-4 shrink-0" />
+              <span className="truncate">{user.email}</span>
+            </div>
+          )}
+          <StatNav
+            href="/profile?tab=listings"
+            icon={<Package className="h-4 w-4" />}
+            value={listings.length}
+            label="E'lon"
+          />
+          <StatNav
+            href="/profile?tab=favorites"
+            icon={<Heart className="h-4 w-4" />}
+            value={favorites.length}
+            label="Sevimli"
+          />
+          <StatNav
+            href="/chats"
+            icon={<MessageCircle className="h-4 w-4" />}
+            value={chats.length}
+            label="Chat"
+          />
+        </div>
 
         <ProfileTabs
           active={activeTab}
@@ -88,7 +124,6 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           {activeTab === 'listings' && <ProfileListings listings={listings} />}
           {activeTab === 'favorites' && <ProfileListings listings={favorites} favorites />}
           {activeTab === 'kartalar' && <ProfileCards cards={cards} />}
-          {activeTab === 'gamer' && <MyGamerCardSection />}
           {activeTab === 'account' && (
             <ProfileAccount user={user} googleClientId={googleClientId} botUsername={botUsername} />
           )}
@@ -101,5 +136,28 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
         )}
       </div>
     </MarketplaceShell>
+  );
+}
+
+function StatNav({
+  href,
+  icon,
+  value,
+  label,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  value: number;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 transition hover:bg-accent"
+    >
+      <span className="text-muted-foreground">{icon}</span>
+      <span className="text-base font-black text-foreground">{value}</span>
+      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+    </Link>
   );
 }
