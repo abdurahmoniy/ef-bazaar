@@ -198,7 +198,7 @@ export function MarketplaceListingDetail({
           />
         </div>
 
-        <aside className="min-w-0 lg:sticky lg:top-32 lg:self-start">
+        <aside className="order-first min-w-0 space-y-4 lg:order-none lg:sticky lg:top-32 lg:self-start lg:space-y-0">
           <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-5">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-2xl font-black text-[hsl(var(--price))] sm:text-3xl">
@@ -225,7 +225,7 @@ export function MarketplaceListingDetail({
             />
           </div>
 
-          <div className="mt-4">
+          <div className="lg:mt-4">
             <SellerCard seller={seller} isViewerOwner={isOwner} blacklisted={sellerBlacklisted} />
           </div>
         </aside>

@@ -476,17 +476,17 @@ function AccountShowcase() {
           </div>
         </div>
 
-        <div className="relative mt-5 grid grid-cols-3 gap-2 text-center text-[11px] font-bold">
+        <div className="relative mt-5 grid grid-cols-3 gap-2 text-center text-xs font-bold">
           <div className="rounded-lg bg-white/10 px-2 py-2">
-            <p className="text-[9px] uppercase text-primary-foreground/70">Android</p>
+            <p className="text-[10px] uppercase text-primary-foreground/70">Android</p>
             <p className="mt-0.5 text-sm font-black">{SHOWCASE_LISTING.androidCoins}</p>
           </div>
           <div className="rounded-lg bg-white/10 px-2 py-2">
-            <p className="text-[9px] uppercase text-primary-foreground/70">iOS</p>
+            <p className="text-[10px] uppercase text-primary-foreground/70">iOS</p>
             <p className="mt-0.5 text-sm font-black">{SHOWCASE_LISTING.iosCoins}</p>
           </div>
           <div className="rounded-lg bg-white/10 px-2 py-2">
-            <p className="text-[9px] uppercase text-primary-foreground/70">Shart</p>
+            <p className="text-[10px] uppercase text-primary-foreground/70">Shart</p>
             <p className="mt-0.5 text-sm font-black">Obmen ✓</p>
           </div>
         </div>
@@ -670,7 +670,7 @@ function DivisionLadder() {
           akkountdan tortib elite D1 jamoasigacha — hammasi bitta filtrda.
         </p>
 
-        <div className="mt-6 grid grid-cols-4 gap-3 sm:gap-5">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-5">
           {DIVISIONS.map(({ level, label, caption }) => (
             <div key={level} className="flex flex-col items-center gap-2">
               <div

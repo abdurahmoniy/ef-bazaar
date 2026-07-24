@@ -76,7 +76,7 @@ export function ListingMediaGallery({ title, urls }: ListingMediaGalleryProps) {
               type="button"
               onClick={goPrev}
               aria-label="Oldingi rasm"
-              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md backdrop-blur transition hover:bg-card"
+              className="absolute left-2 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/85 shadow-md backdrop-blur transition hover:bg-card"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -84,7 +84,7 @@ export function ListingMediaGallery({ title, urls }: ListingMediaGalleryProps) {
               type="button"
               onClick={goNext}
               aria-label="Keyingi rasm"
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/85 p-2 shadow-md backdrop-blur transition hover:bg-card"
+              className="absolute right-2 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/85 shadow-md backdrop-blur transition hover:bg-card"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -134,7 +134,7 @@ export function ListingMediaGallery({ title, urls }: ListingMediaGalleryProps) {
               setLightbox(false);
             }}
             aria-label="Yopish"
-            className="absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
+            className="absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
           >
             <X className="h-5 w-5" />
           </button>

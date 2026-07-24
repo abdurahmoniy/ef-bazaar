@@ -308,7 +308,7 @@ export function QuickChips({
 					key={filter.id}
 					href={filterHref(filter.id, query, view)}
 					className={cn(
-						'shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+						'inline-flex shrink-0 items-center min-h-10 rounded-full border px-4 py-2 text-sm font-semibold transition',
 						filter.id === activeFilter
 							? 'border-primary bg-primary text-primary-foreground'
 							: 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',

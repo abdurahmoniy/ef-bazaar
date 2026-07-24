@@ -175,7 +175,7 @@ function BrowseHeader({
         <Link
           href={viewHref('grid', activeFilter, query)}
           className={cn(
-            'grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition',
+            'grid h-10 w-10 place-items-center rounded-md text-muted-foreground transition',
             view === 'grid' && 'bg-accent text-accent-foreground',
           )}
           aria-label="Katak ko'rinishi"
@@ -185,7 +185,7 @@ function BrowseHeader({
         <Link
           href={viewHref('list', activeFilter, query)}
           className={cn(
-            'grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition',
+            'grid h-10 w-10 place-items-center rounded-md text-muted-foreground transition',
             view === 'list' && 'bg-accent text-accent-foreground',
           )}
           aria-label="Ro'yxat ko'rinishi"

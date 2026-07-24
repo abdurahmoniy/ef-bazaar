@@ -1486,18 +1486,18 @@ function ModalShell({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-4 shadow-card-hover">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-4 shadow-card-hover">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-black text-foreground">{title}</h2>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0"
+            className="h-11 w-11 p-0"
             onClick={onClose}
             aria-label="Yopish"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </Button>
         </div>
         {children}
