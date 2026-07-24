@@ -58,7 +58,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   if (variant === 'list') {
     return (
       <article className="group relative flex overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
-        <Link href={href} className="relative block h-32 w-32 shrink-0 overflow-hidden bg-muted sm:h-40 sm:w-52">
+        <Link href={href} className="relative block h-24 w-24 shrink-0 overflow-hidden bg-muted sm:h-40 sm:w-52">
           {coverUrl ? (
             <img
               src={coverUrl}

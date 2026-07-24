@@ -1,6 +1,6 @@
 import type { StandingsRow } from '@/lib/tournament-types';
 
-/** Klassik liga jadvali. Mobile'da gorizontal scroll. */
+/** Klassik liga jadvali. Mobile'da stacked card, sm+ jadval. */
 export function StandingsTable({ rows }: { rows: StandingsRow[] }) {
   if (rows.length === 0) {
     return (
@@ -10,8 +10,52 @@ export function StandingsTable({ rows }: { rows: StandingsRow[] }) {
     );
   }
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-card">
-      <table className="w-full min-w-[520px] text-left text-xs">
+    <>
+      <ul className="space-y-2 sm:hidden">
+        {rows.map((row) => {
+          const gd = row.goalDifference;
+          const gdColor =
+            gd > 0
+              ? 'text-emerald-600'
+              : gd < 0
+                ? 'text-rose-600'
+                : 'text-muted-foreground';
+          return (
+            <li
+              key={row.teamId}
+              className="rounded-xl border border-border bg-card p-3 shadow-card"
+            >
+              <div className="flex items-center gap-3">
+                <PositionBadge position={row.position} />
+                <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+                  {row.teamName}
+                </p>
+                <div className="text-right">
+                  <p className="text-lg font-black tabular-nums leading-none text-foreground">
+                    {row.points}
+                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    ochko
+                  </p>
+                </div>
+              </div>
+              <div className="mt-2 grid grid-cols-5 gap-1 text-center text-[11px]">
+                <MobileStat label="O" value={row.played} />
+                <MobileStat label="G" value={row.won} className="text-emerald-700" />
+                <MobileStat label="D" value={row.drawn} />
+                <MobileStat label="M" value={row.lost} className="text-rose-700" />
+                <MobileStat
+                  label="GF"
+                  value={gd > 0 ? `+${gd}` : gd}
+                  className={`font-semibold ${gdColor}`}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="hidden overflow-x-auto rounded-2xl border border-border bg-card shadow-card sm:block">
+        <table className="w-full min-w-[520px] text-left text-xs">
         <thead>
           <tr className="border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
             <th className="px-3 py-2.5 font-bold">#</th>
@@ -63,7 +107,27 @@ export function StandingsTable({ rows }: { rows: StandingsRow[] }) {
             );
           })}
         </tbody>
-      </table>
+        </table>
+      </div>
+    </>
+  );
+}
+
+function MobileStat({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: number | string;
+  className?: string;
+}) {
+  return (
+    <div className="rounded-md bg-muted/40 px-1 py-1.5">
+      <p className={`tabular-nums text-foreground ${className ?? ''}`}>{value}</p>
+      <p className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
     </div>
   );
 }

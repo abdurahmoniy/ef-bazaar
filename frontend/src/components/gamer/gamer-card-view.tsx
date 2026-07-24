@@ -90,7 +90,7 @@ export function GamerCardView({ card, captureId, email }: GamerCardViewProps) {
       )}
 
       {/* W/D/L + goals */}
-      <div className="grid grid-cols-4 divide-x divide-border border-b border-border text-center">
+      <div className="grid grid-cols-2 divide-x divide-border border-b border-border text-center sm:grid-cols-4 [&>*:nth-child(n+3)]:border-t sm:[&>*:nth-child(n+3)]:border-t-0">
         <Stat label="G'alaba" value={card.wins} className="text-emerald-600" />
         <Stat label="Durrang" value={card.draws} />
         <Stat label="Yutqazish" value={card.losses} className="text-red-500" />
