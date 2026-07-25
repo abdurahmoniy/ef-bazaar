@@ -183,7 +183,7 @@ public class ListingService {
 
     @Transactional(readOnly = true)
     public Page<Listing> findMine(UUID sellerId, Pageable pageable) {
-        return listings.findBySellerId(sellerId, pageable);
+        return listings.findBySellerIdAndStatusNot(sellerId, ListingStatus.DELETED, pageable);
     }
 
     @Transactional(readOnly = true)
