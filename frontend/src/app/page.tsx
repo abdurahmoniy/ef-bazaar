@@ -342,26 +342,30 @@ function Hero() {
   return (
     <section className="container py-5 sm:py-8">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(20rem,0.56fr)]">
-        <div className="flex min-w-0 flex-col justify-between gap-8 rounded-xl border border-border bg-card p-4 shadow-card sm:p-7">
+        <div className="flex min-w-0 flex-col justify-between gap-6 rounded-xl border border-border bg-card p-4 shadow-card sm:gap-8 sm:p-7">
           <div>
-            <div className="mb-5 flex flex-wrap items-center gap-2">
+            <div className="mb-4 flex flex-wrap items-center gap-2 sm:mb-5">
               <Pill icon={Bot}>Telegram-first bozor</Pill>
-              <Pill>eFootball uchun maxsus</Pill>
+              {/* Second pill wraps to its own line on a phone and pushes the
+                  headline below the fold — desktop only. */}
+              <span className="hidden sm:contents">
+                <Pill>eFootball uchun maxsus</Pill>
+              </span>
             </div>
 
-            <p className="text-sm font-black uppercase tracking-normal text-primary">
+            <p className="text-xs font-black uppercase tracking-normal text-primary sm:text-sm">
               eFootball akkount bozori · O&apos;zbekiston
             </p>
-            <h1 className="mt-4 max-w-3xl text-3xl font-black leading-[1.08] tracking-normal text-foreground sm:text-5xl sm:leading-[1.05] lg:text-6xl">
+            <h1 className="mt-2 max-w-3xl text-3xl font-black leading-[1.08] tracking-normal text-foreground sm:mt-4 sm:text-5xl sm:leading-[1.05] lg:text-6xl">
               Qaysi yulduzni izlayapsiz? Kartaga qarab akkountni toping.
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-8 text-muted-foreground sm:text-lg">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:mt-5 sm:text-lg sm:leading-8">
               Messi Epic, Mbappe Big Time, Ronaldo Show Time — har bir e&apos;longa yulduz kartalar
               biriktirilgan. Diviziyon, jamoa kuchi, Android/iOS tangalari va obmen shartlari filtrda
               ochiq. Sotuvchi bilan bevosita Telegram&apos;da gaplashasiz — oraliqda hech kim yo&apos;q.
             </p>
 
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-5 flex flex-col gap-3 sm:mt-7 sm:flex-row">
               <Link
                 href="/marketplace"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-6 text-base font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"

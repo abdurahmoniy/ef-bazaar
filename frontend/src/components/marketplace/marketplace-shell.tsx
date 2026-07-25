@@ -27,6 +27,12 @@ interface MarketplaceShellProps {
   backHref?: string;
   /** Accessible label for the back button — defaults to "Orqaga". */
   backLabel?: string;
+  /**
+   * Mobile-only sticky action bar. When provided it *replaces* the bottom tab
+   * bar on small screens — drill-down pages (listing detail) want one primary
+   * action within thumb reach, not two stacked bars eating the viewport.
+   */
+  mobileActionBar?: React.ReactNode;
 }
 
 export type MarketplaceTab = 'home' | 'favorites' | 'sell' | 'chats' | 'profile';
@@ -80,6 +86,7 @@ export function MarketplaceShell({
   initialQuery,
   backHref,
   backLabel,
+  mobileActionBar,
 }: MarketplaceShellProps) {
   const items = buildNavItems(user);
 
@@ -155,13 +162,15 @@ export function MarketplaceShell({
         )}
 
         {user && !user.verified && (
-          <div className="border-t border-border/70 bg-amber-50/70 text-amber-800">
+          <div className="border-t border-border/70 bg-amber-50/70 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
             <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-1.5 text-[11px] font-semibold">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              <span className="flex-1 truncate">Akkount tasdiqlanmagan — Telegram va Google ulang</span>
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">
+                Akkount tasdiqlanmagan — Telegram va Google ulang
+              </span>
               <Link
                 href="/profile?tab=account"
-                className="shrink-0 rounded-md bg-white/60 px-2 py-0.5 hover:bg-card"
+                className="tap-press shrink-0 rounded-md bg-amber-100/80 px-2 py-1 hover:bg-amber-200/80 dark:bg-amber-400/20 dark:hover:bg-amber-400/30"
               >
                 Tasdiqlash
               </Link>
@@ -174,13 +183,21 @@ export function MarketplaceShell({
         {children}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-5 px-1 pb-[env(safe-area-inset-bottom)]">
-          {items.map((item) => (
-            <MobileNavLink key={item.id} item={item} active={item.id === activeTab} />
-          ))}
+      {mobileActionBar ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden">
+          <div className="mx-auto w-full max-w-6xl px-4 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))]">
+            {mobileActionBar}
+          </div>
         </div>
-      </nav>
+      ) : (
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden">
+          <div className="mx-auto grid max-w-md grid-cols-5 px-1 pb-[env(safe-area-inset-bottom)]">
+            {items.map((item) => (
+              <MobileNavLink key={item.id} item={item} active={item.id === activeTab} />
+            ))}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
@@ -189,8 +206,9 @@ function MobileNavLink({ item, active }: { item: NavItem; active: boolean }) {
   return (
     <Link
       href={item.href}
+      aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex min-h-14 flex-col items-center justify-center gap-1 text-[10.5px] font-semibold transition',
+        'flex min-h-14 flex-col items-center justify-center gap-1 text-[10.5px] font-semibold transition active:scale-95',
         active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
       )}
     >

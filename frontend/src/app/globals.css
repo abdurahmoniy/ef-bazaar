@@ -88,6 +88,9 @@
     color-scheme: light;
     overscroll-behavior-y: none;
     touch-action: manipulation;
+    /* Grey flash on every tap reads as lag on Android — press states are
+       handled explicitly with `active:` utilities instead. */
+    -webkit-tap-highlight-color: transparent;
   }
 
   html.dark {
@@ -184,6 +187,23 @@
   /* Price pill — hero attribute on cards + detail page */
   .price-pill {
     @apply inline-flex items-baseline gap-1 rounded-md bg-[hsl(var(--price)/0.12)] px-2 py-1 text-[hsl(var(--price))];
+  }
+
+  /* Touch press feedback. Phones have no hover, so tappable surfaces need an
+     explicit pressed state or they feel unresponsive. */
+  .tap-press {
+    @apply transition-transform duration-100 active:scale-[0.98];
+  }
+
+  /* Horizontal chip/scroller rails — snap so a flick lands on a chip edge. */
+  .snap-rail {
+    @apply flex snap-x snap-mandatory overflow-x-auto no-scrollbar;
+    scroll-padding-left: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .snap-rail > * {
+    @apply snap-start;
   }
 }
 

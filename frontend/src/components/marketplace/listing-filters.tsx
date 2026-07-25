@@ -279,11 +279,14 @@ export function ListingFiltersForm({
 						</Select>
 					</div>
 
-					<div className='grid grid-cols-2 gap-2 pt-1'>
-						<Button type='submit' className='h-10 rounded-lg'>
+					{/* Sticks to the bottom of the mobile filter sheet's scroll area so
+					    "Qo'llash" stays reachable without scrolling the whole form.
+					    In the desktop sidebar the container doesn't scroll, so this is inert. */}
+					<div className='sticky bottom-0 -mx-4 grid grid-cols-2 gap-2 border-t border-border bg-card/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-1 lg:backdrop-blur-none'>
+						<Button type='submit' className='h-11 rounded-lg'>
 							Qo'llash
 						</Button>
-						<Button asChild variant='outline' className='h-10 rounded-lg'>
+						<Button asChild variant='outline' className='h-11 rounded-lg'>
 							<Link href='/marketplace'>Tozalash</Link>
 						</Button>
 					</div>
@@ -302,15 +305,16 @@ export function QuickChips({
 	view?: 'grid' | 'list'
 }) {
 	return (
-		<div className='flex gap-2 overflow-x-auto no-scrollbar pb-1'>
+		<div className='snap-rail gap-2 pb-1'>
 			{MARKETPLACE_FILTERS.map((filter) => (
 				<Link
 					key={filter.id}
 					href={filterHref(filter.id, query, view)}
+					aria-current={filter.id === activeFilter ? 'page' : undefined}
 					className={cn(
-						'inline-flex shrink-0 items-center min-h-10 rounded-full border px-4 py-2 text-sm font-semibold transition',
+						'tap-press inline-flex shrink-0 items-center min-h-10 rounded-full border px-4 py-2 text-sm font-semibold transition',
 						filter.id === activeFilter
-							? 'border-primary bg-primary text-primary-foreground'
+							? 'border-primary bg-primary text-primary-foreground shadow-sm'
 							: 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
 					)}
 				>
