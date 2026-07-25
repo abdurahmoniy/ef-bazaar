@@ -302,6 +302,9 @@ function LandingHeader() {
           <Link href="/marketplace" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
             Bozor
           </Link>
+          <Link href="/tournaments" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
+            Turnirlar
+          </Link>
           <Link href="#yulduzlar" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
             Kartalar
           </Link>

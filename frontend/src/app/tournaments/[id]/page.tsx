@@ -33,7 +33,7 @@ export default async function TournamentPage({ params }: TournamentPageProps) {
   const joined = joinedIds.has(tournament.id);
 
   return (
-    <MarketplaceShell user={viewer} hideSearch backHref="/tournaments">
+    <MarketplaceShell user={viewer} activeTab="tournaments" hideSearch backHref="/tournaments">
       <TournamentDetail tournament={tournament} viewer={viewer} joined={joined} />
     </MarketplaceShell>
   );
