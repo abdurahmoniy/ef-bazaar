@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useMemo } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   CalendarDays,
   CheckCircle2,
   Layers,
   ListOrdered,
+  Radio,
   ShieldCheck,
   Trophy,
   Users,
@@ -13,13 +15,21 @@ import {
 
 import { JoinTournamentButton } from '@/components/tournaments/join-tournament-button';
 import { MatchList } from '@/components/tournaments/match-list';
+import { ParticipantsList } from '@/components/tournaments/participants-list';
 import { StandingsTable } from '@/components/tournaments/standings-table';
 import { Badge } from '@/components/ui/badge';
 import type { User } from '@/lib/types';
 import {
+  deriveParticipants,
+  formatTournamentDate,
+  isLiveMatch,
+} from '@/lib/tournament-format';
+import {
   TOURNAMENT_STATUS_LABELS,
   TOURNAMENT_TYPE_LABELS,
+  type StandingsRow,
   type Tournament,
+  type TournamentTeam,
   canRegister,
 } from '@/lib/tournament-types';
 import {
@@ -29,7 +39,12 @@ import {
   useGetStandingsQuery,
 } from '@/store/tournament-api';
 
-type Tab = 'standings' | 'fixtures' | 'bracket';
+const TAB_IDS = ['standings', 'fixtures', 'bracket', 'participants'] as const;
+type Tab = (typeof TAB_IDS)[number];
+
+function isTab(value: string | null): value is Tab {
+  return value != null && (TAB_IDS as readonly string[]).includes(value);
+}
 
 interface Props {
   tournament: Tournament;
@@ -37,27 +52,8 @@ interface Props {
   joined: boolean;
 }
 
-const MONTHS_UZ = [
-  'yan',
-  'fev',
-  'mar',
-  'apr',
-  'may',
-  'iyn',
-  'iyl',
-  'avg',
-  'sen',
-  'okt',
-  'noy',
-  'dek',
-];
-
-function formatDate(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return `${date.getUTCDate()}-${MONTHS_UZ[date.getUTCMonth()]}, ${date.getUTCFullYear()}`;
-}
+/** Davom etayotgan turnirda natijalar o'zgaradi — sokin polling. */
+const LIVE_POLL_MS = 30_000;
 
 function statusBadgeVariant(status: Tournament['status']) {
   switch (status) {
@@ -91,34 +87,98 @@ function heroAccentBar(status: Tournament['status']) {
 
 export function TournamentDetail({ tournament, viewer, joined }: Props) {
   const id = String(tournament.id);
-  const hasBracket =
-    tournament.type === 'PLAYOFF' || tournament.type === 'GROUPS_PLAYOFF';
+  const hasBracket = tournament.type === 'PLAYOFF' || tournament.type === 'GROUPS_PLAYOFF';
   const hasGroups = tournament.type === 'GROUPS_PLAYOFF';
+  const isRunning = tournament.status === 'STARTED' || tournament.status === 'IN_PROGRESS';
 
-  const [tab, setTab] = useState<Tab>('standings');
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const standings = useGetStandingsQuery(id, { skip: tab !== 'standings' || hasGroups });
-  const groupStandings = useGetGroupStandingsQuery(id, {
-    skip: tab !== 'standings' || !hasGroups,
-  });
-  const fixtures = useGetFixturesQuery(id, { skip: tab !== 'fixtures' });
-  const bracket = useGetBracketQuery(id, { skip: tab !== 'bracket' || !hasBracket });
+  /**
+   * Tab holati URL'da — deep link ishlaydi, brauzer "orqaga" tugmasi tabni
+   * qaytaradi va refresh Jadval'ga tashlamaydi.
+   */
+  const tabParam = searchParams.get('tab');
+  const tab: Tab = isTab(tabParam) ? tabParam : 'standings';
 
-  const startLabel = formatDate(tournament.startDate);
-  const endLabel = formatDate(tournament.endDate);
-  const organizer =
-    tournament.createdBy?.firstName ?? tournament.createdBy?.username ?? null;
+  const setTab = useCallback(
+    (next: Tab) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === 'standings') params.delete('tab');
+      else params.set('tab', next);
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
-  const tabs: { id: Tab; label: string }[] = [
+  const pollingInterval = isRunning ? LIVE_POLL_MS : 0;
+
+  // Fixtures har doim yuklanadi — ishtirokchilar ro'yxati va jadvaldagi jamoa
+  // egalari shundan kelib chiqadi (public API'da `/teams` endpoint yo'q).
+  const fixtures = useGetFixturesQuery(id, { pollingInterval });
+  const standings = useGetStandingsQuery(id, { skip: hasGroups, pollingInterval });
+  const groupStandings = useGetGroupStandingsQuery(id, { skip: !hasGroups, pollingInterval });
+  const bracket = useGetBracketQuery(id, { skip: !hasBracket, pollingInterval });
+
+  const matches = fixtures.data ?? [];
+
+  const teamsById = useMemo(() => {
+    const map = new Map<number, TournamentTeam>();
+    for (const match of matches) {
+      for (const team of [match.homeTeam, match.awayTeam]) {
+        if (team && !map.has(team.id)) map.set(team.id, team);
+      }
+    }
+    return map;
+  }, [matches]);
+
+  const flatStandings: StandingsRow[] = useMemo(() => {
+    if (!hasGroups) return standings.data ?? [];
+    return Object.values(groupStandings.data ?? {}).flat();
+  }, [hasGroups, standings.data, groupStandings.data]);
+
+  const participants = useMemo(
+    () => deriveParticipants(matches, flatStandings),
+    [matches, flatStandings],
+  );
+
+  /**
+   * Viewer o'z jamoasini jadvalda/matchlarda darhol topsin.
+   *
+   * <p>VAQTINCHA: taqqoslash telegram username bo'yicha, chunki Chempionat
+   * `TournamentUser` payload'ida efBazaar UUID'si yo'q. Chempionat `users`ga
+   * `auth_user_id` qo'shilib API'da chiqarilgandan keyin shu yerda id
+   * taqqoslashga o'tiladi (plan: 2026-07-15, "Identity bridge").
+   */
+  const myTeamIds = useMemo(() => {
+    if (!viewer || !joined) return undefined;
+    const ids = new Set<number>();
+    for (const team of teamsById.values()) {
+      const username = team.user?.username?.toLowerCase();
+      if (username && username === viewer.telegramUsername?.toLowerCase()) ids.add(team.id);
+    }
+    return ids.size > 0 ? ids : undefined;
+  }, [viewer, joined, teamsById]);
+
+  const liveCount = matches.filter(isLiveMatch).length;
+
+  const startLabel = formatTournamentDate(tournament.startDate);
+  const endLabel = formatTournamentDate(tournament.endDate);
+  const organizer = tournament.createdBy?.firstName ?? tournament.createdBy?.username ?? null;
+
+  const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: 'standings', label: 'Jadval' },
-    { id: 'fixtures', label: 'Matchlar' },
+    { id: 'fixtures', label: 'Matchlar', badge: matches.length || undefined },
     ...(hasBracket ? [{ id: 'bracket' as Tab, label: 'Bracket' }] : []),
+    { id: 'participants', label: 'Ishtirokchilar', badge: participants.length || undefined },
   ];
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
-      {/* Hero */}
-      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start">
+      {/* Hero — desktopda yopishib turadigan chap ustun */}
+      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:sticky lg:top-20">
         <div className={`h-1.5 w-full ${heroAccentBar(tournament.status)}`} />
         <div className="p-5">
           <div className="flex items-start gap-4">
@@ -151,19 +211,24 @@ export function TournamentDetail({ tournament, viewer, joined }: Props) {
             </div>
           </div>
 
+          {liveCount > 0 && (
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+              <Radio className="h-3 w-3 animate-pulse" />
+              {liveCount} match ketmoqda
+            </p>
+          )}
+
           {tournament.description && (
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               {tournament.description}
             </p>
           )}
 
-          {/* Meta grid */}
-          <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {tournament.maxParticipants != null && (
-              <MetaTile icon={<Users className="h-3.5 w-3.5" />} label="Qatnashchi">
-                max {tournament.maxParticipants}
-              </MetaTile>
-            )}
+          <dl className="mt-4 grid grid-cols-2 gap-2">
+            <MetaTile icon={<Users className="h-3.5 w-3.5" />} label="Jamoa">
+              {participants.length}
+              {tournament.maxParticipants != null ? ` / ${tournament.maxParticipants}` : ''}
+            </MetaTile>
             {tournament.numberOfRounds != null && (
               <MetaTile icon={<ListOrdered className="h-3.5 w-3.5" />} label="Tur">
                 {tournament.numberOfRounds}
@@ -199,61 +264,90 @@ export function TournamentDetail({ tournament, viewer, joined }: Props) {
         </div>
       </section>
 
-      {/* Tabs — underline indicator */}
-      <nav
-        role="tablist"
-        aria-label="Turnir bo'limlari"
-        className="mt-5 flex gap-1 border-b border-border"
-      >
-        {tabs.map((item) => {
-          const active = item.id === tab;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setTab(item.id)}
-              className={
-                active
-                  ? 'relative px-4 py-2.5 text-sm font-bold text-foreground after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-t-full after:bg-primary'
-                  : 'px-4 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground'
-              }
-            >
-              {item.label}
-            </button>
-          );
-        })}
-      </nav>
+      {/* Kontent — o'ng ustun */}
+      <div className="min-w-0">
+        <nav
+          role="tablist"
+          aria-label="Turnir bo'limlari"
+          className="-mx-4 flex gap-1 overflow-x-auto border-b border-border px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+        >
+          {tabs.map((item) => {
+            const active = item.id === tab;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(item.id)}
+                className={
+                  active
+                    ? 'relative shrink-0 px-4 py-2.5 text-sm font-bold text-foreground after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-t-full after:bg-primary'
+                    : 'shrink-0 px-4 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground'
+                }
+              >
+                {item.label}
+                {item.badge != null && (
+                  <span className="ml-1.5 rounded-full bg-muted px-1.5 text-[10px] font-bold text-muted-foreground">
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
 
-      <div className="mt-4">
-        {tab === 'standings' && hasGroups && (
-          <GroupStandingsView data={groupStandings.data} isLoading={groupStandings.isLoading} />
-        )}
-        {tab === 'standings' && !hasGroups && (
-          standings.isLoading ? (
-            <div className="animate-pulse h-40 rounded-2xl border border-border bg-card" />
-          ) : (
-            <StandingsTable rows={standings.data ?? []} />
-          )
-        )}
-        {tab === 'fixtures' && (
-          fixtures.isLoading ? (
-            <div className="animate-pulse h-40 rounded-2xl border border-border bg-card" />
-          ) : (
-            <MatchList matches={fixtures.data ?? []} />
-          )
-        )}
-        {tab === 'bracket' && (
-          bracket.isLoading ? (
-            <div className="animate-pulse h-40 rounded-2xl border border-border bg-card" />
-          ) : (
-            <MatchList matches={bracket.data ?? []} />
-          )
-        )}
+        <div className="mt-4">
+          {tab === 'standings' &&
+            (hasGroups ? (
+              <GroupStandingsView
+                data={groupStandings.data}
+                isLoading={groupStandings.isLoading}
+                teamsById={teamsById}
+                highlightTeamIds={myTeamIds}
+              />
+            ) : standings.isLoading ? (
+              <PanelSkeleton />
+            ) : (
+              <StandingsTable
+                rows={standings.data ?? []}
+                teamsById={teamsById}
+                highlightTeamIds={myTeamIds}
+              />
+            ))}
+
+          {tab === 'fixtures' &&
+            (fixtures.isLoading ? (
+              <PanelSkeleton />
+            ) : (
+              <MatchList matches={matches} highlightTeamIds={myTeamIds} />
+            ))}
+
+          {tab === 'bracket' &&
+            (bracket.isLoading ? (
+              <PanelSkeleton />
+            ) : (
+              <MatchList matches={bracket.data ?? []} highlightTeamIds={myTeamIds} />
+            ))}
+
+          {tab === 'participants' &&
+            (fixtures.isLoading ? (
+              <PanelSkeleton />
+            ) : (
+              <ParticipantsList
+                participants={participants}
+                maxParticipants={tournament.maxParticipants}
+                highlightTeamIds={myTeamIds}
+              />
+            ))}
+        </div>
       </div>
     </div>
   );
+}
+
+function PanelSkeleton() {
+  return <div className="h-40 animate-pulse rounded-2xl border border-border bg-card" />;
 }
 
 function MetaTile({
@@ -279,13 +373,15 @@ function MetaTile({
 function GroupStandingsView({
   data,
   isLoading,
+  teamsById,
+  highlightTeamIds,
 }: {
-  data: Record<string, ReturnType<typeof useGetStandingsQuery>['data']> | undefined;
+  data: Record<string, StandingsRow[]> | undefined;
   isLoading: boolean;
+  teamsById: Map<number, TournamentTeam>;
+  highlightTeamIds?: Set<number>;
 }) {
-  if (isLoading) {
-    return <div className="animate-pulse h-32 rounded-2xl border border-border bg-card" />;
-  }
+  if (isLoading) return <PanelSkeleton />;
   if (!data || Object.keys(data).length === 0) {
     return <StandingsTable rows={[]} />;
   }
@@ -297,7 +393,11 @@ function GroupStandingsView({
             <Layers className="h-3 w-3 text-muted-foreground" />
             {group}-guruh
           </div>
-          <StandingsTable rows={rows ?? []} />
+          <StandingsTable
+            rows={rows ?? []}
+            teamsById={teamsById}
+            highlightTeamIds={highlightTeamIds}
+          />
         </section>
       ))}
     </div>

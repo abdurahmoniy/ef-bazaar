@@ -1,12 +1,7 @@
-import { Clock } from 'lucide-react';
+import { Clock, Radio } from 'lucide-react';
 
+import { MATCH_STATE_LABELS, formatMatchTime, isLiveMatch, teamOwnerLabel } from '@/lib/tournament-format';
 import type { TournamentMatch } from '@/lib/tournament-types';
-
-function teamLabel(match: TournamentMatch, side: 'home' | 'away') {
-  const team = side === 'home' ? match.homeTeam : match.awayTeam;
-  if (!team) return '—';
-  return team.name;
-}
 
 type Outcome = 'home' | 'away' | 'draw' | 'pending';
 
@@ -20,18 +15,14 @@ function outcome(match: TournamentMatch): Outcome {
   return 'draw';
 }
 
-function formatTime(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat('uz-UZ', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(date);
+interface MatchListProps {
+  matches: TournamentMatch[];
+  /** Joriy foydalanuvchining jamoalari — o'z matchlarini ajratib ko'rsatish uchun. */
+  highlightTeamIds?: Set<number>;
 }
 
 /** Matchlar ro'yxati — round bo'yicha guruhlangan. */
-export function MatchList({ matches }: { matches: TournamentMatch[] }) {
+export function MatchList({ matches, highlightTeamIds }: MatchListProps) {
   if (matches.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
@@ -64,9 +55,9 @@ export function MatchList({ matches }: { matches: TournamentMatch[] }) {
               </span>
             </div>
           )}
-          <div className="space-y-2">
+          <div className="grid gap-2 lg:grid-cols-2">
             {byRound.get(round)!.map((match) => (
-              <MatchRow key={match.id} match={match} />
+              <MatchRow key={match.id} match={match} highlightTeamIds={highlightTeamIds} />
             ))}
           </div>
         </section>
@@ -75,11 +66,51 @@ export function MatchList({ matches }: { matches: TournamentMatch[] }) {
   );
 }
 
-function MatchRow({ match }: { match: TournamentMatch }) {
+function MatchRow({
+  match,
+  highlightTeamIds,
+}: {
+  match: TournamentMatch;
+  highlightTeamIds?: Set<number>;
+}) {
+  const time = formatMatchTime(match.scheduledTime);
+  const live = isLiveMatch(match);
+  const mine =
+    (match.homeTeam && highlightTeamIds?.has(match.homeTeam.id)) ||
+    (match.awayTeam && highlightTeamIds?.has(match.awayTeam.id));
+  const stateLabel = match.state ? MATCH_STATE_LABELS[match.state] : null;
+
+  /**
+   * Bye — Chempionat home va away'ga bir xil jamoani qo'yib yuboradi, shuning
+   * uchun "X — BYE — X" chiqardi. Bitta jamoa avtomatik o'tgani ko'rsatiladi.
+   */
+  if (match.isBye) {
+    const team = match.homeTeam ?? match.awayTeam;
+    const owner = teamOwnerLabel(team);
+    return (
+      <div
+        className={`rounded-2xl border border-dashed bg-card/60 p-3 ${
+          mine ? 'border-primary/50' : 'border-border'
+        }`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-foreground">{team?.name ?? '—'}</p>
+            {owner && <p className="truncate text-[11px] text-muted-foreground">{owner}</p>}
+          </div>
+          <span className="shrink-0 rounded-md border border-border bg-muted px-2.5 py-1 text-[10px] font-bold uppercase text-muted-foreground">
+            Bye
+          </span>
+        </div>
+        <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Raqibsiz keyingi bosqichga o&apos;tdi
+        </p>
+      </div>
+    );
+  }
+
   const result = outcome(match);
   const played = result !== 'pending';
-  const time = formatTime(match.scheduledTime);
-  const isBye = Boolean(match.isBye);
 
   const homeClass =
     result === 'home'
@@ -95,19 +126,34 @@ function MatchRow({ match }: { match: TournamentMatch }) {
         : 'font-semibold text-foreground';
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-3 shadow-card transition-colors hover:border-primary/30">
+    <div
+      className={`rounded-2xl border bg-card p-3 shadow-card transition-colors hover:border-primary/30 ${
+        mine ? 'border-primary/60 ring-1 ring-primary/20' : 'border-border'
+      }`}
+    >
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-        <span className={`truncate text-right text-sm ${homeClass}`}>
-          {teamLabel(match, 'home')}
-        </span>
-        <ScoreCell match={match} isBye={isBye} played={played} />
-        <span className={`truncate text-sm ${awayClass}`}>
-          {teamLabel(match, 'away')}
-        </span>
+        <div className="min-w-0 text-right">
+          <p className={`truncate text-sm ${homeClass}`}>{match.homeTeam?.name ?? '—'}</p>
+          <TeamOwner match={match} side="home" align="right" />
+        </div>
+        <ScoreCell match={match} played={played} live={live} />
+        <div className="min-w-0">
+          <p className={`truncate text-sm ${awayClass}`}>{match.awayTeam?.name ?? '—'}</p>
+          <TeamOwner match={match} side="away" align="left" />
+        </div>
       </div>
-      {(time || match.stage) && (
-        <div className="mt-2 flex items-center justify-center gap-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+
+      {(time || match.stage || live || match.isThirdPlaceMatch || (stateLabel && !played)) && (
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {live && (
+            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+              <Radio className="h-3 w-3 animate-pulse" />
+              Ketmoqda
+            </span>
+          )}
+          {match.isThirdPlaceMatch && <span>3-o&apos;rin uchun</span>}
           {match.stage && <span>{match.stage}</span>}
+          {!live && !played && stateLabel && <span>{stateLabel}</span>}
           {time && (
             <span className="inline-flex items-center gap-1">
               <Clock className="h-3 w-3" />
@@ -120,22 +166,41 @@ function MatchRow({ match }: { match: TournamentMatch }) {
   );
 }
 
-function ScoreCell({
+function TeamOwner({
   match,
-  isBye,
-  played,
+  side,
+  align,
 }: {
   match: TournamentMatch;
-  isBye: boolean;
-  played: boolean;
+  side: 'home' | 'away';
+  align: 'left' | 'right';
 }) {
-  if (isBye) {
-    return (
-      <span className="rounded-md border border-border bg-muted px-2.5 py-1 text-[10px] font-bold uppercase text-muted-foreground">
-        BYE
-      </span>
-    );
-  }
+  const owner = teamOwnerLabel(side === 'home' ? match.homeTeam : match.awayTeam);
+  const withdrawn = (side === 'home' ? match.homeTeam : match.awayTeam)?.withdrawn;
+  if (!owner && !withdrawn) return null;
+  return (
+    <p
+      className={`truncate text-[11px] text-muted-foreground ${
+        align === 'right' ? 'text-right' : 'text-left'
+      }`}
+    >
+      {owner}
+      {withdrawn && (
+        <span className="ml-1 font-semibold text-rose-600 dark:text-rose-400">· chiqib ketdi</span>
+      )}
+    </p>
+  );
+}
+
+function ScoreCell({
+  match,
+  played,
+  live,
+}: {
+  match: TournamentMatch;
+  played: boolean;
+  live: boolean;
+}) {
   if (!played) {
     return (
       <span className="rounded-md border border-dashed border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
@@ -145,7 +210,13 @@ function ScoreCell({
   }
   return (
     <div className="flex flex-col items-center">
-      <span className="rounded-md bg-accent px-2.5 py-1 text-sm font-black tabular-nums text-foreground">
+      <span
+        className={`rounded-md px-2.5 py-1 text-sm font-black tabular-nums ${
+          live
+            ? 'bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/40 dark:text-emerald-300'
+            : 'bg-accent text-foreground'
+        }`}
+      >
         {match.homeScore} : {match.awayScore}
       </span>
       {match.decidedByPenalties &&

@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { CalendarDays, ChevronRight, Trophy, Users } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ChevronRight, Layers, Trophy, Users } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { formatTournamentDate, relativeStart } from '@/lib/tournament-format';
 import {
   TOURNAMENT_STATUS_LABELS,
   TOURNAMENT_TYPE_LABELS,
@@ -45,49 +46,14 @@ const ACCENT_BAR: Record<Accent, string> = {
   danger: 'bg-gradient-to-r from-rose-400 to-rose-600',
 };
 
-const MONTHS_UZ = [
-  'yan',
-  'fev',
-  'mar',
-  'apr',
-  'may',
-  'iyn',
-  'iyl',
-  'avg',
-  'sen',
-  'okt',
-  'noy',
-  'dek',
-];
-
-function formatDate(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return `${date.getUTCDate()}-${MONTHS_UZ[date.getUTCMonth()]}, ${date.getUTCFullYear()}`;
-}
-
-function relativeStart(value: string | null): string | null {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  const diffMs = date.getTime() - Date.now();
-  const absMin = Math.abs(diffMs) / 60000;
-  if (absMin < 60) {
-    const mins = Math.round(absMin);
-    return diffMs >= 0 ? `${mins} daq keyin` : `${mins} daq oldin`;
-  }
-  const hours = absMin / 60;
-  if (hours < 24) {
-    const h = Math.round(hours);
-    return diffMs >= 0 ? `${h} soat keyin` : `${h} soat oldin`;
-  }
-  const days = Math.round(hours / 24);
-  return diffMs >= 0 ? `${days} kun keyin` : `${days} kun oldin`;
-}
-
-export function TournamentCard({ tournament }: { tournament: Tournament }) {
-  const startLabel = formatDate(tournament.startDate);
+export function TournamentCard({
+  tournament,
+  joined = false,
+}: {
+  tournament: Tournament;
+  joined?: boolean;
+}) {
+  const startLabel = formatTournamentDate(tournament.startDate);
   const relLabel = relativeStart(tournament.startDate);
   const organizer =
     tournament.createdBy?.firstName ??
@@ -99,7 +65,9 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
   return (
     <Link
       href={`/tournaments/${tournament.id}`}
-      className="group block overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-card-hover"
+      className={`group flex h-full flex-col overflow-hidden rounded-2xl border bg-card shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-card-hover ${
+        joined ? 'border-primary/60 ring-1 ring-primary/20' : 'border-border'
+      }`}
     >
       <div className={`h-1 w-full ${ACCENT_BAR[accent]}`} />
       <div className="p-4">
@@ -115,7 +83,10 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
               )}
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-sm font-bold text-foreground group-hover:text-primary">
+              {/* Nom to'liq ko'rinishi ustuvor — status badge pastdagi meta
+                  qatorida, aks holda uzun label ("Ro'yxatdan o'tish ochiq")
+                  grid kartada nomni 12 belgiga qisqartirib qo'yadi. */}
+              <h2 className="line-clamp-2 text-sm font-bold leading-snug text-foreground group-hover:text-primary">
                 {tournament.name}
               </h2>
               <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
@@ -125,9 +96,15 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <Badge variant={statusBadgeVariant(accent)}>
-              {TOURNAMENT_STATUS_LABELS[tournament.status] ?? tournament.status}
-            </Badge>
+            {joined && (
+              <span
+                className="inline-flex items-center text-primary"
+                title="Siz qatnashyapsiz"
+                aria-label="Siz qatnashyapsiz"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+              </span>
+            )}
             <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
           </div>
         </div>
@@ -139,6 +116,9 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
+          <Badge variant={statusBadgeVariant(accent)}>
+            {TOURNAMENT_STATUS_LABELS[tournament.status] ?? tournament.status}
+          </Badge>
           {tournament.maxParticipants != null && (
             <span className="inline-flex items-center gap-1">
               <Users className="h-3 w-3" />
@@ -150,6 +130,13 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
             <span className="inline-flex items-center gap-1">
               <span className="font-semibold text-foreground">{tournament.numberOfRounds}</span>
               tur
+            </span>
+          )}
+          {tournament.numberOfGroups != null && (
+            <span className="inline-flex items-center gap-1">
+              <Layers className="h-3 w-3" />
+              <span className="font-semibold text-foreground">{tournament.numberOfGroups}</span>
+              guruh
             </span>
           )}
           {startLabel && (

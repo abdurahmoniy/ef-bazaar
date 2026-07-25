@@ -1,7 +1,29 @@
-import type { StandingsRow } from '@/lib/tournament-types';
+import { teamOwnerLabel } from '@/lib/tournament-format';
+import type { StandingsRow, TournamentTeam } from '@/lib/tournament-types';
 
-/** Klassik liga jadvali. Mobile'da stacked card, sm+ jadval. */
-export function StandingsTable({ rows }: { rows: StandingsRow[] }) {
+interface StandingsTableProps {
+  rows: StandingsRow[];
+  /**
+   * Fixtures'dan yig'ilgan jamoa ma'lumoti — jadvalda jamoa egasini ko'rsatish
+   * uchun. Chempionat standings payload'ida faqat `teamName` bor.
+   */
+  teamsById?: Map<number, TournamentTeam>;
+  /** Joriy foydalanuvchining jamoasi — jadvalda ajratib ko'rsatiladi. */
+  highlightTeamIds?: Set<number>;
+}
+
+function gdClass(gd: number) {
+  if (gd > 0) return 'text-emerald-600 dark:text-emerald-400';
+  if (gd < 0) return 'text-rose-600 dark:text-rose-400';
+  return 'text-muted-foreground';
+}
+
+function gdLabel(gd: number) {
+  return gd > 0 ? `+${gd}` : String(gd);
+}
+
+/** Klassik liga jadvali. Mobile'da stacked card, sm+ to'liq jadval. */
+export function StandingsTable({ rows, teamsById, highlightTeamIds }: StandingsTableProps) {
   if (rows.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
@@ -13,23 +35,23 @@ export function StandingsTable({ rows }: { rows: StandingsRow[] }) {
     <>
       <ul className="space-y-2 sm:hidden">
         {rows.map((row) => {
-          const gd = row.goalDifference;
-          const gdColor =
-            gd > 0
-              ? 'text-emerald-600'
-              : gd < 0
-                ? 'text-rose-600'
-                : 'text-muted-foreground';
+          const owner = teamOwnerLabel(teamsById?.get(row.teamId) ?? null);
+          const mine = highlightTeamIds?.has(row.teamId);
           return (
             <li
               key={row.teamId}
-              className="rounded-xl border border-border bg-card p-3 shadow-card"
+              className={`rounded-xl border bg-card p-3 shadow-card ${
+                mine ? 'border-primary ring-1 ring-primary/30' : 'border-border'
+              }`}
             >
               <div className="flex items-center gap-3">
                 <PositionBadge position={row.position} />
-                <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
-                  {row.teamName}
-                </p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{row.teamName}</p>
+                  {owner && (
+                    <p className="truncate text-[11px] text-muted-foreground">{owner}</p>
+                  )}
+                </div>
                 <div className="text-right">
                   <p className="text-lg font-black tabular-nums leading-none text-foreground">
                     {row.points}
@@ -39,74 +61,97 @@ export function StandingsTable({ rows }: { rows: StandingsRow[] }) {
                   </p>
                 </div>
               </div>
-              <div className="mt-2 grid grid-cols-5 gap-1 text-center text-[11px]">
+              <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[11px]">
                 <MobileStat label="O" value={row.played} />
-                <MobileStat label="G" value={row.won} className="text-emerald-700" />
+                <MobileStat label="G" value={row.won} className="text-emerald-700 dark:text-emerald-400" />
                 <MobileStat label="D" value={row.drawn} />
-                <MobileStat label="M" value={row.lost} className="text-rose-700" />
+                <MobileStat label="M" value={row.lost} className="text-rose-700 dark:text-rose-400" />
+                <MobileStat label="UG" value={row.goalsFor} />
+                <MobileStat label="OG" value={row.goalsAgainst} />
                 <MobileStat
-                  label="GF"
-                  value={gd > 0 ? `+${gd}` : gd}
-                  className={`font-semibold ${gdColor}`}
+                  label="±"
+                  value={gdLabel(row.goalDifference)}
+                  className={`font-semibold ${gdClass(row.goalDifference)}`}
                 />
               </div>
             </li>
           );
         })}
       </ul>
+
       <div className="hidden overflow-x-auto rounded-2xl border border-border bg-card shadow-card sm:block">
-        <table className="w-full min-w-[520px] text-left text-xs">
-        <thead>
-          <tr className="border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
-            <th className="px-3 py-2.5 font-bold">#</th>
-            <th className="px-3 py-2.5 font-bold">Jamoa</th>
-            <th className="px-2 py-2.5 text-center font-bold" title="O'yinlar">O</th>
-            <th className="px-2 py-2.5 text-center font-bold" title="G'alaba">G</th>
-            <th className="px-2 py-2.5 text-center font-bold" title="Durang">D</th>
-            <th className="px-2 py-2.5 text-center font-bold" title="Mag'lubiyat">M</th>
-            <th className="px-2 py-2.5 text-center font-bold" title="Gol farqi">GF</th>
-            <th className="px-3 py-2.5 text-center font-bold" title="Ochko">Ochko</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, idx) => {
-            const gd = row.goalDifference;
-            const gdColor =
-              gd > 0
-                ? 'text-emerald-600'
-                : gd < 0
-                  ? 'text-rose-600'
-                  : 'text-muted-foreground';
-            const zebra = idx % 2 === 1 ? 'bg-muted/20' : '';
-            return (
-              <tr
-                key={row.teamId}
-                className={`border-b border-border/50 last:border-0 ${zebra} transition-colors hover:bg-accent/40`}
-              >
-                <td className="px-3 py-2.5">
-                  <PositionBadge position={row.position} />
-                </td>
-                <td className="max-w-[180px] truncate px-3 py-2.5 font-semibold text-foreground">
-                  {row.teamName}
-                </td>
-                <td className="px-2 py-2.5 text-center tabular-nums text-muted-foreground">
-                  {row.played}
-                </td>
-                <td className="px-2 py-2.5 text-center tabular-nums text-emerald-700">{row.won}</td>
-                <td className="px-2 py-2.5 text-center tabular-nums text-muted-foreground">
-                  {row.drawn}
-                </td>
-                <td className="px-2 py-2.5 text-center tabular-nums text-rose-700">{row.lost}</td>
-                <td className={`px-2 py-2.5 text-center tabular-nums font-semibold ${gdColor}`}>
-                  {gd > 0 ? `+${gd}` : gd}
-                </td>
-                <td className="px-3 py-2.5 text-center tabular-nums font-black text-foreground">
-                  {row.points}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
+        <table className="w-full min-w-[620px] text-left text-xs">
+          <thead>
+            <tr className="border-b border-border bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
+              <th className="px-3 py-2.5 font-bold">#</th>
+              <th className="px-3 py-2.5 font-bold">Jamoa</th>
+              <th className="px-2 py-2.5 text-center font-bold" title="O'yinlar">O</th>
+              <th className="px-2 py-2.5 text-center font-bold" title="G'alaba">G</th>
+              <th className="px-2 py-2.5 text-center font-bold" title="Durang">D</th>
+              <th className="px-2 py-2.5 text-center font-bold" title="Mag'lubiyat">M</th>
+              <th className="px-2 py-2.5 text-center font-bold" title="Urilgan gol">UG</th>
+              <th className="px-2 py-2.5 text-center font-bold" title="O'tkazilgan gol">OG</th>
+              <th className="px-2 py-2.5 text-center font-bold" title="Gol farqi">±</th>
+              <th className="px-3 py-2.5 text-center font-bold" title="Ochko">Ochko</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, idx) => {
+              const owner = teamOwnerLabel(teamsById?.get(row.teamId) ?? null);
+              const mine = highlightTeamIds?.has(row.teamId);
+              const zebra = idx % 2 === 1 ? 'bg-muted/20' : '';
+              return (
+                <tr
+                  key={row.teamId}
+                  className={`border-b border-border/50 last:border-0 transition-colors hover:bg-accent/40 ${
+                    mine ? 'bg-primary/5' : zebra
+                  }`}
+                >
+                  <td className="px-3 py-2.5">
+                    <PositionBadge position={row.position} />
+                  </td>
+                  <td className="max-w-[220px] px-3 py-2.5">
+                    <span className="block truncate font-semibold text-foreground">
+                      {row.teamName}
+                    </span>
+                    {owner && (
+                      <span className="block truncate text-[10px] text-muted-foreground">
+                        {owner}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-2 py-2.5 text-center tabular-nums text-muted-foreground">
+                    {row.played}
+                  </td>
+                  <td className="px-2 py-2.5 text-center tabular-nums text-emerald-700 dark:text-emerald-400">
+                    {row.won}
+                  </td>
+                  <td className="px-2 py-2.5 text-center tabular-nums text-muted-foreground">
+                    {row.drawn}
+                  </td>
+                  <td className="px-2 py-2.5 text-center tabular-nums text-rose-700 dark:text-rose-400">
+                    {row.lost}
+                  </td>
+                  <td className="px-2 py-2.5 text-center tabular-nums text-muted-foreground">
+                    {row.goalsFor}
+                  </td>
+                  <td className="px-2 py-2.5 text-center tabular-nums text-muted-foreground">
+                    {row.goalsAgainst}
+                  </td>
+                  <td
+                    className={`px-2 py-2.5 text-center tabular-nums font-semibold ${gdClass(
+                      row.goalDifference,
+                    )}`}
+                  >
+                    {gdLabel(row.goalDifference)}
+                  </td>
+                  <td className="px-3 py-2.5 text-center tabular-nums font-black text-foreground">
+                    {row.points}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
         </table>
       </div>
     </>

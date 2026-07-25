@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Flame, Trophy, UserPlus } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Flame, Trophy, UserPlus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { TournamentCard } from '@/components/tournaments/tournament-card';
@@ -11,7 +11,18 @@ import {
   useGetJoinableTournamentsQuery,
 } from '@/store/tournament-api';
 
-type Filter = 'all' | 'active' | 'joinable';
+type Filter = 'all' | 'active' | 'joinable' | 'mine';
+
+/** Ro'yxatda ham natijalar o'zgaradi (status/live) — sokin polling. */
+const LIST_POLL_MS = 60_000;
+
+interface TournamentsListProps {
+  /**
+   * Viewer qatnashayotgan turnir id'lari — serverda `getJoinedTournamentIds()`
+   * bilan olinadi, anonimda bo'sh.
+   */
+  joinedIds?: number[];
+}
 
 function TournamentSkeleton() {
   return (
@@ -75,17 +86,28 @@ function FilterChip({
   );
 }
 
-export function TournamentsList() {
-  const joinable = useGetJoinableTournamentsQuery();
-  const active = useGetActiveTournamentsQuery();
+export function TournamentsList({ joinedIds }: TournamentsListProps) {
+  const joinable = useGetJoinableTournamentsQuery(undefined, { pollingInterval: LIST_POLL_MS });
+  const active = useGetActiveTournamentsQuery(undefined, { pollingInterval: LIST_POLL_MS });
   const [filter, setFilter] = useState<Filter>('all');
+
+  const joinedSet = useMemo(() => new Set(joinedIds ?? []), [joinedIds]);
 
   const isLoading = joinable.isLoading || active.isLoading;
   const isError = joinable.isError && active.isError;
 
   const activeList = active.data ?? [];
   const activeIds = useMemo(() => new Set(activeList.map((t) => t.id)), [activeList]);
-  const joinableOnly = (joinable.data ?? []).filter((t) => !activeIds.has(t.id));
+  const joinableOnly = useMemo(
+    () => (joinable.data ?? []).filter((t) => !activeIds.has(t.id)),
+    [joinable.data, activeIds],
+  );
+
+  const mineList = useMemo(
+    () => [...activeList, ...joinableOnly].filter((t) => joinedSet.has(t.id)),
+    [activeList, joinableOnly, joinedSet],
+  );
+
   const totalCount = activeList.length + joinableOnly.length;
   const empty = !isLoading && totalCount === 0;
 
@@ -98,7 +120,7 @@ export function TournamentsList() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6">
+    <div>
       <header className="overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-accent via-card to-card p-5 shadow-card">
         <div className="flex items-start gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
@@ -114,7 +136,7 @@ export function TournamentsList() {
       </header>
 
       {!isLoading && !isError && totalCount > 0 && (
-        <div className="mt-4 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="mt-4 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
           <FilterChip
             active={filter === 'all'}
             onClick={() => setFilter('all')}
@@ -136,11 +158,20 @@ export function TournamentsList() {
             label="Ochiq"
             count={joinableOnly.length}
           />
+          {mineList.length > 0 && (
+            <FilterChip
+              active={filter === 'mine'}
+              onClick={() => setFilter('mine')}
+              icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+              label="Mening turnirlarim"
+              count={mineList.length}
+            />
+          )}
         </div>
       )}
 
       {isLoading && (
-        <div className="mt-5 space-y-3">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <TournamentSkeleton />
           <TournamentSkeleton />
           <TournamentSkeleton />
@@ -154,7 +185,9 @@ export function TournamentsList() {
           </div>
           <div>
             <p className="text-sm font-bold text-foreground">Turnirlarni yuklab bo&apos;lmadi</p>
-            <p className="mt-1 text-xs text-muted-foreground">Ulanishni tekshirib qayta urinib ko&apos;ring.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ulanishni tekshirib qayta urinib ko&apos;ring.
+            </p>
           </div>
           <Button size="sm" variant="outline" onClick={retry}>
             Qayta urinish
@@ -176,12 +209,17 @@ export function TournamentsList() {
         </div>
       )}
 
+      {filter === 'mine' && (
+        <Section label="Mening turnirlarim" count={mineList.length} items={mineList} accent="active" joinedIds={joinedSet} />
+      )}
+
       {showActive && activeList.length > 0 && (
         <Section
           label="Davom etayotgan"
           count={activeList.length}
           items={activeList}
           accent="active"
+          joinedIds={joinedSet}
         />
       )}
 
@@ -191,6 +229,7 @@ export function TournamentsList() {
           count={joinableOnly.length}
           items={joinableOnly}
           accent="joinable"
+          joinedIds={joinedSet}
         />
       )}
     </div>
@@ -202,11 +241,13 @@ function Section({
   count,
   items,
   accent,
+  joinedIds,
 }: {
   label: string;
   count: number;
   items: Tournament[];
   accent: 'active' | 'joinable';
+  joinedIds: Set<number>;
 }) {
   const dotColor = accent === 'active' ? 'bg-emerald-500' : 'bg-sky-500';
   return (
@@ -220,9 +261,9 @@ function Section({
         </div>
         <span className="text-[11px] font-semibold text-muted-foreground">{count}</span>
       </div>
-      <div className="mt-2 space-y-3">
+      <div className="mt-2 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((t) => (
-          <TournamentCard key={t.id} tournament={t} />
+          <TournamentCard key={t.id} tournament={t} joined={joinedIds.has(t.id)} />
         ))}
       </div>
     </section>
