@@ -28,6 +28,13 @@ interface ListingActionsProps {
   isOwner?: boolean;
   initialLiked?: boolean | null;
   initialLikeCount: number;
+  /**
+   * `panel` — the full stacked block used in the desktop sidebar.
+   * `bar` — one-line price + primary CTA for the sticky mobile action bar.
+   */
+  variant?: 'panel' | 'bar';
+  /** Pre-formatted price, shown only by the `bar` variant. */
+  priceLabel?: string;
 }
 
 export function ListingActions({
@@ -36,6 +43,8 @@ export function ListingActions({
   isOwner = false,
   initialLiked,
   initialLikeCount,
+  variant = 'panel',
+  priceLabel,
 }: ListingActionsProps) {
   const router = useRouter();
   const [liked, setLiked] = useState(Boolean(initialLiked));
@@ -80,7 +89,85 @@ export function ListingActions({
       handleContact();
     },
     disabled: isPending,
+    // The sticky bar is a responsive duplicate of the sidebar panel; only one
+    // of the two may drive Telegram's single native MainButton.
+    enabled: variant === 'panel',
   });
+
+  function handleLike() {
+    if (!authenticated) return router.push(`/auth/login?from=/marketplace/${listingId}`);
+    startTransition(async () => {
+      const result = await toggleListingLike(listingId);
+      if (!result.ok) {
+        setMessage({ tone: 'error', text: result.message });
+        return;
+      }
+      setLiked(result.data.liked);
+      setLikeCount(result.data.totalLikes);
+    });
+  }
+
+  if (variant === 'bar') {
+    return (
+      <div className="space-y-1.5">
+        {message && (
+          <p
+            className={cn(
+              'text-center text-xs font-semibold',
+              message.tone === 'ok' ? 'text-primary' : 'text-destructive',
+            )}
+          >
+            {message.text}
+          </p>
+        )}
+        <div className="flex items-center gap-2.5">
+        <div className="min-w-0">
+          {priceLabel && (
+            <div className="truncate text-lg font-black leading-tight text-[hsl(var(--price))]">
+              {priceLabel}
+            </div>
+          )}
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {isOwner ? "Sizning e'loningiz" : 'Narx'}
+          </div>
+        </div>
+
+        {isOwner ? (
+          <Button asChild size="lg" className="ml-auto flex-1 rounded-lg">
+            <Link href={`/marketplace/${listingId}/edit`}>Tahrirlash</Link>
+          </Button>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant={liked ? 'secondary' : 'outline'}
+              size="icon"
+              aria-pressed={liked}
+              aria-label={liked ? 'Sevimlilardan olib tashlash' : "Sevimlilarga qo'shish"}
+              className="ml-auto h-11 w-11 shrink-0 rounded-lg"
+              disabled={isPending}
+              onClick={handleLike}
+            >
+              <Heart className={cn('h-5 w-5', liked && 'fill-current')} />
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              className="min-w-0 flex-1 rounded-lg"
+              onClick={handleContact}
+              disabled={isPending}
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span className="truncate">
+                {authenticated ? "Bog'lanish" : "Kirib bog'lanish"}
+              </span>
+            </Button>
+          </>
+        )}
+        </div>
+      </div>
+    );
+  }
 
   if (isOwner) {
     return (
@@ -115,18 +202,7 @@ export function ListingActions({
           size="sm"
           className={cn('rounded-lg', liked && 'shadow-inner')}
           disabled={isPending}
-          onClick={() => {
-            if (!authenticated) return router.push(`/auth/login?from=/marketplace/${listingId}`);
-            startTransition(async () => {
-              const result = await toggleListingLike(listingId);
-              if (!result.ok) {
-                setMessage({ tone: 'error', text: result.message });
-                return;
-              }
-              setLiked(result.data.liked);
-              setLikeCount(result.data.totalLikes);
-            });
-          }}
+          onClick={handleLike}
         >
           <Heart className={cn('h-4 w-4', liked && 'fill-current')} />
           {formatCompactNumber(likeCount)}

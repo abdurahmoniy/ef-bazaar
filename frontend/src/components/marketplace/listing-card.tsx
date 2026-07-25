@@ -57,8 +57,8 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
 
   if (variant === 'list') {
     return (
-      <article className="group relative flex overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
-        <Link href={href} className="relative block h-24 w-24 shrink-0 overflow-hidden bg-muted sm:h-40 sm:w-52">
+      <article className="tap-press group relative flex overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
+        <Link href={href} className="relative block h-28 w-28 shrink-0 overflow-hidden bg-muted sm:h-40 sm:w-52">
           {coverUrl ? (
             <img
               src={coverUrl}
@@ -143,7 +143,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   }
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
+    <article className="tap-press group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
       <Link href={href} className="relative block overflow-hidden bg-muted">
         {coverUrl ? (
           <img
@@ -179,19 +179,21 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
         />
       )}
 
-      <div className="flex flex-1 flex-col gap-2 p-3">
+      {/* Padding and type step down at the 2-column phone width — the card is
+          ~165px wide there, so desktop sizing would wrap the price. */}
+      <div className="flex flex-1 flex-col gap-1.5 p-2.5 sm:gap-2 sm:p-3">
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-          <span className="whitespace-nowrap text-lg font-black leading-none text-[hsl(var(--price))]">
+          <span className="whitespace-nowrap text-base font-black leading-none text-[hsl(var(--price))] sm:text-lg">
             {formatPriceUZS(listing.price)}
           </span>
           <DealTags negotiable={listing.priceNegotiable} exchange={acceptsExchange} />
         </div>
         <Link href={href}>
-          <h2 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+          <h2 className="line-clamp-2 text-[13px] font-semibold leading-snug text-foreground sm:text-sm">
             {title}
           </h2>
         </Link>
-        <div className="mt-auto flex flex-wrap gap-1.5 pt-1 text-[11px]">
+        <div className="mt-auto flex flex-wrap gap-1 pt-1 text-[11px] sm:gap-1.5">
           {teamStrength !== undefined && (
             <Metric icon={<Gamepad2 className="h-3 w-3" />} value={formatCompactNumber(teamStrength)} />
           )}
@@ -208,7 +210,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
         <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
           <span>{formatListingDate(listing.createdAt)}</span>
           {(hasGooglePlayLink || hasGameCenterLink) && (
-            <span className="ml-auto inline-flex items-center gap-1 font-semibold text-amber-700">
+            <span className="ml-auto inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-300">
               <TriangleAlert className="h-3 w-3" />
               {[hasGooglePlayLink && 'Google Play', hasGameCenterLink && 'Game Center']
                 .filter(Boolean)

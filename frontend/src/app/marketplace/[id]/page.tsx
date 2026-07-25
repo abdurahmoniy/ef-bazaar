@@ -2,9 +2,11 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
+import { ListingActions } from '@/components/marketplace/listing-actions';
 import { MarketplaceListingDetail } from '@/components/marketplace/marketplace-listing-detail';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
+import { formatPriceUZS } from '@/lib/marketplace-format';
 import { listingMediaUrls } from '@/lib/marketplace-media';
 import {
   getListing,
@@ -169,7 +171,23 @@ export default async function ListingPage({ params }: ListingPageProps) {
   const jsonLd = JSON.stringify(buildListingJsonLd(listing)).replace(/</g, '\\u003c');
 
   return (
-    <MarketplaceShell user={viewer} activeTab="home" backHref="/marketplace" backLabel="Bozor">
+    <MarketplaceShell
+      user={viewer}
+      activeTab="home"
+      backHref="/marketplace"
+      backLabel="Bozor"
+      mobileActionBar={
+        <ListingActions
+          variant="bar"
+          listingId={listing.id}
+          priceLabel={formatPriceUZS(listing.price)}
+          authenticated={viewer !== null}
+          isOwner={viewer?.id === listing.sellerId}
+          initialLiked={listing.likedByMe}
+          initialLikeCount={listing.likeCount}
+        />
+      }
+    >
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd }}

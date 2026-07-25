@@ -9,6 +9,12 @@ interface UseTelegramMainButtonOptions {
   onClick: () => void;
   disabled?: boolean;
   loading?: boolean;
+  /**
+   * Opt out when a second instance of the same component is mounted (e.g. the
+   * responsive duplicate of a CTA) — two registrations would fight over the
+   * single native MainButton. Defaults to true.
+   */
+  enabled?: boolean;
 }
 
 /**
@@ -22,11 +28,13 @@ export function useTelegramMainButton({
   onClick,
   disabled,
   loading,
+  enabled = true,
 }: UseTelegramMainButtonOptions) {
   const onClickRef = React.useRef(onClick);
   onClickRef.current = onClick;
 
   React.useEffect(() => {
+    if (!enabled) return;
     const mainButton = getTelegramWebApp()?.MainButton;
     if (!mainButton) return;
 
@@ -42,9 +50,10 @@ export function useTelegramMainButton({
       mainButton.offClick(handleClick);
       mainButton.hide();
     };
-  }, []);
+  }, [enabled]);
 
   React.useEffect(() => {
+    if (!enabled) return;
     const mainButton = getTelegramWebApp()?.MainButton;
     if (!mainButton) return;
 
@@ -53,5 +62,5 @@ export function useTelegramMainButton({
     else mainButton.enable();
     if (loading) mainButton.showProgress(false);
     else mainButton.hideProgress();
-  }, [text, disabled, loading]);
+  }, [text, disabled, loading, enabled]);
 }

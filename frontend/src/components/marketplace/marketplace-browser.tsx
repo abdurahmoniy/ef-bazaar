@@ -114,7 +114,9 @@ export function MarketplaceBrowser({
               className={cn(
                 view === 'list'
                   ? 'flex flex-col gap-2'
-                  : 'grid gap-3 sm:grid-cols-2 xl:grid-cols-3',
+                  // Two columns on phones — one card per row wastes half the
+                  // screen and doubles the scroll to the same listing.
+                  : 'grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3',
               )}
             >
               {page.content.map((listing) => (
@@ -139,9 +141,9 @@ export function MarketplaceBrowserSkeleton() {
       <Skeleton className="hidden h-96 rounded-xl lg:block" />
       <div className="space-y-3">
         <Skeleton className="h-8 w-64 rounded-lg" />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-72 rounded-xl" />
+            <Skeleton key={index} className="h-60 rounded-xl sm:h-72" />
           ))}
         </div>
       </div>
@@ -161,21 +163,24 @@ function BrowseHeader({
   totalElements: number;
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-wide text-primary">Marketplace</p>
-        <h1 className="mt-1 text-2xl font-black leading-tight text-foreground">
+    <div className="flex items-end justify-between gap-3">
+      <div className="min-w-0">
+        {/* Eyebrow is redundant on a phone — the tab bar already says where you are. */}
+        <p className="hidden text-xs font-bold uppercase tracking-wide text-primary sm:block">
+          Marketplace
+        </p>
+        <h1 className="line-clamp-2 text-lg font-black leading-tight text-foreground sm:mt-1 sm:text-2xl">
           {query ? `"${query}" bo'yicha natijalar` : 'eFootball akkountlar'}
         </h1>
-        <p className="mt-1 text-xs font-semibold text-muted-foreground">
+        <p className="mt-0.5 text-xs font-semibold text-muted-foreground sm:mt-1">
           {formatCompactNumber(totalElements)} ta e'lon
         </p>
       </div>
-      <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-card">
+      <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-card">
         <Link
           href={viewHref('grid', activeFilter, query)}
           className={cn(
-            'grid h-10 w-10 place-items-center rounded-md text-muted-foreground transition',
+            'tap-press grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition sm:h-10 sm:w-10',
             view === 'grid' && 'bg-accent text-accent-foreground',
           )}
           aria-label="Katak ko'rinishi"
@@ -185,7 +190,7 @@ function BrowseHeader({
         <Link
           href={viewHref('list', activeFilter, query)}
           className={cn(
-            'grid h-10 w-10 place-items-center rounded-md text-muted-foreground transition',
+            'tap-press grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition sm:h-10 sm:w-10',
             view === 'list' && 'bg-accent text-accent-foreground',
           )}
           aria-label="Ro'yxat ko'rinishi"

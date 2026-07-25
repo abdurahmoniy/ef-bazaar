@@ -81,11 +81,21 @@ const config: Config = {
           '0%': { transform: 'translateX(0)' },
           '100%': { transform: 'translateX(-50%)' },
         },
+        'sheet-up': {
+          from: { transform: 'translateY(100%)' },
+          to: { transform: 'translateY(0)' },
+        },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         marquee: 'marquee 32s linear infinite',
+        'sheet-up': 'sheet-up 0.24s cubic-bezier(0.32, 0.72, 0, 1)',
+        'fade-in': 'fade-in 0.18s ease-out',
       },
     },
   },
