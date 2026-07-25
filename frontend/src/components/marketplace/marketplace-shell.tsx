@@ -1,5 +1,13 @@
 import Link from 'next/link';
-import { Heart, Home, MessageCircle, Plus, Search, ShieldCheck, UserRound } from 'lucide-react';
+import {
+  Home,
+  MessageCircle,
+  Plus,
+  Search,
+  ShieldCheck,
+  Trophy,
+  UserRound,
+} from 'lucide-react';
 
 import { ChatsUnreadBadge } from '@/components/chat/chats-unread-badge';
 import { Logo } from '@/components/brand/logo';
@@ -14,6 +22,11 @@ import type { User } from '@/lib/types';
 interface MarketplaceShellProps {
   user: User | null;
   children: React.ReactNode;
+  /**
+   * Highlights the matching entry in the bottom tab bar and the desktop header
+   * nav. Deliberately has no default — pages that live outside the tab set
+   * (/blacklist, /gamers/[id]) must not light up an unrelated tab.
+   */
   activeTab?: MarketplaceTab;
   /** Hides top-bar search — useful on the create form / profile edit flows. */
   hideSearch?: boolean;
@@ -35,7 +48,7 @@ interface MarketplaceShellProps {
   mobileActionBar?: React.ReactNode;
 }
 
-export type MarketplaceTab = 'home' | 'favorites' | 'sell' | 'chats' | 'profile';
+export type MarketplaceTab = 'home' | 'tournaments' | 'favorites' | 'sell' | 'chats' | 'profile';
 
 interface NavItem {
   id: MarketplaceTab;
@@ -45,15 +58,25 @@ interface NavItem {
   requiresAuth: boolean;
 }
 
+/** Favorites live inside the profile tab set — /favorites only redirects there. */
+function favoritesHref(user: User | null) {
+  return user ? '/profile?tab=favorites' : '/auth/login?from=/favorites';
+}
+
+/**
+ * Bottom tab bar (mobile). Five slots, no more — a sixth truncates labels on a
+ * 360px phone. Sevimli is intentionally absent: it is a profile tab, and the
+ * desktop header nav carries it.
+ */
 function buildNavItems(user: User | null): NavItem[] {
   return [
     { id: 'home', href: '/marketplace', label: 'Bozor', icon: <Home className="h-5 w-5" />, requiresAuth: false },
     {
-      id: 'favorites',
-      href: user ? '/favorites' : '/auth/login?from=/favorites',
-      label: 'Sevimli',
-      icon: <Heart className="h-5 w-5" />,
-      requiresAuth: true,
+      id: 'tournaments',
+      href: '/tournaments',
+      label: 'Turnirlar',
+      icon: <Trophy className="h-5 w-5" />,
+      requiresAuth: false,
     },
     { id: 'sell', href: '/marketplace/new', label: 'Sotish', icon: <Plus className="h-5 w-5" />, requiresAuth: true },
     {
@@ -78,10 +101,23 @@ function buildNavItems(user: User | null): NavItem[] {
   ];
 }
 
+/**
+ * Desktop (md+) header nav. Before this existed the bottom bar was the only
+ * navigation in the shell and it is {@code md:hidden} — desktop users had no
+ * route to Sevimli or Turnirlar at all.
+ */
+function buildDesktopLinks(user: User | null): Array<{ id: MarketplaceTab; href: string; label: string }> {
+  return [
+    { id: 'home', href: '/marketplace', label: 'Bozor' },
+    { id: 'tournaments', href: '/tournaments', label: 'Turnirlar' },
+    { id: 'favorites', href: favoritesHref(user), label: 'Sevimli' },
+  ];
+}
+
 export function MarketplaceShell({
   user,
   children,
-  activeTab = 'home',
+  activeTab,
   hideSearch = false,
   initialQuery,
   backHref,
@@ -89,6 +125,7 @@ export function MarketplaceShell({
   mobileActionBar,
 }: MarketplaceShellProps) {
   const items = buildNavItems(user);
+  const desktopLinks = buildDesktopLinks(user);
 
   return (
     <div className="min-h-app bg-background pb-24 md:pb-0">
@@ -97,8 +134,29 @@ export function MarketplaceShell({
           {backHref && <TopBackButton href={backHref} label={backLabel} className="-ml-2" />}
           <Logo size="sm" href="/marketplace" />
 
+          <nav
+            aria-label="Asosiy navigatsiya"
+            className="hidden shrink-0 items-center gap-1 rounded-lg bg-muted p-1 text-sm font-bold text-muted-foreground md:flex"
+          >
+            {desktopLinks.map((link) => (
+              <Link
+                key={link.id}
+                href={link.href}
+                aria-current={link.id === activeTab ? 'page' : undefined}
+                className={cn(
+                  'rounded-lg px-3 py-1.5 transition',
+                  link.id === activeTab
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'hover:bg-card/70 hover:text-foreground',
+                )}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
           {!hideSearch && (
-            <form action="/marketplace" method="get" className="ml-2 hidden flex-1 items-center sm:flex">
+            <form action="/marketplace" method="get" className="ml-2 hidden min-w-0 flex-1 items-center sm:flex">
               <div className="relative w-full">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -111,7 +169,7 @@ export function MarketplaceShell({
             </form>
           )}
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <ThemeToggle />
             {user && <NotificationBell />}
             {user && (
@@ -126,20 +184,24 @@ export function MarketplaceShell({
                     <MessageCircle className="h-4 w-4" />
                     <ChatsUnreadBadge />
                   </span>
-                  <span>Chatlar</span>
+                  {/* Label folds away between md and lg — the nav row above
+                      already eats the width the full button needs. */}
+                  <span className="hidden lg:inline">Chatlar</span>
                 </Link>
               </Button>
             )}
-            <Button asChild size="sm" className="hidden h-10 rounded-lg px-4 sm:inline-flex">
+            <Button asChild size="sm" className="hidden h-10 rounded-lg px-3 sm:inline-flex lg:px-4">
               <Link href={user ? '/marketplace/new' : '/auth/login?from=/marketplace/new'}>
                 <Plus className="h-4 w-4" />
-                <span>Sotish</span>
+                <span className="hidden lg:inline">Sotish</span>
               </Link>
             </Button>
             <Button asChild variant="outline" size="sm" className="hidden h-10 rounded-lg px-3 sm:inline-flex">
               <Link href={user ? '/profile' : '/auth/login'}>
                 <UserRound className="h-4 w-4" />
-                <span className="max-w-32 truncate">{user ? user.displayName : 'Kirish'}</span>
+                <span className="max-w-32 truncate md:hidden lg:inline">
+                  {user ? user.displayName : 'Kirish'}
+                </span>
               </Link>
             </Button>
           </div>

@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default async function TournamentsPage() {
   const viewer = await resolveOptionalUser(getMe);
   return (
-    <MarketplaceShell user={viewer} hideSearch backHref="/marketplace">
+    <MarketplaceShell user={viewer} activeTab="tournaments" hideSearch backHref="/marketplace">
       <TournamentsList />
     </MarketplaceShell>
   );
