@@ -101,6 +101,9 @@ export function TelegramWebAppAutoLogin() {
       };
       addField('initData', initData);
       addField('from', resolvePostLoginTarget());
+      // Kontekst: iframe (Telegram Web) → cookie `SameSite=None` bo'lishi kerak;
+      // native webview (Desktop/mobil, top-level) → `Lax` (WebKitGTK ITP uchun).
+      addField('framed', window.self !== window.top ? '1' : '0');
 
       document.body.appendChild(form);
       form.submit();
