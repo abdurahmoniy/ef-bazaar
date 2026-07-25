@@ -137,14 +137,16 @@ export function mailAvatarInitial(email: string): string {
 
 /** Saturated-but-readable palette for avatar circles. First entry is the
     brand teal so single-mailbox users see the brand color. */
+// Harmonized with the eFootball deep-blue + gold palette: every entry keeps a
+// dark enough lightness for white initials in both themes.
 const AVATAR_COLORS = [
-  'hsl(174 65% 33%)', // brand teal
-  'hsl(262 45% 45%)', // violet
-  'hsl(12 70% 45%)',  // orange-red
-  'hsl(210 60% 42%)', // blue
-  'hsl(330 55% 42%)', // magenta
-  'hsl(150 45% 34%)', // green
-  'hsl(32 75% 40%)',  // amber
+  'hsl(240 100% 34%)', // brand deep blue
+  'hsl(262 55% 42%)',  // violet
+  'hsl(210 70% 38%)',  // steel blue
+  'hsl(38 80% 35%)',   // dark gold
+  'hsl(330 50% 40%)',  // magenta
+  'hsl(190 65% 30%)',  // teal
+  'hsl(12 65% 42%)',   // clay
 ];
 
 /**
