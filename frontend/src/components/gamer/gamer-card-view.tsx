@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import {
   BadgeCheck,
   Gamepad2,
@@ -102,7 +103,12 @@ export function GamerCardView({ card, captureId, email }: GamerCardViewProps) {
 
       {/* Trust row */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-4 text-sm sm:grid-cols-4">
-        <TrustItem icon={<Trophy className="h-4 w-4" />} label="Turnirlar" value={card.tournaments} />
+        <TrustItem
+          icon={<Trophy className="h-4 w-4" />}
+          label="Turnirlar"
+          value={card.tournaments}
+          href="/tournaments"
+        />
         <TrustItem
           icon={<Swords className="h-4 w-4" />}
           label="O'yinlar"
@@ -160,13 +166,15 @@ function TrustItem({
   icon,
   label,
   value,
+  href,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number | string;
+  href?: string;
 }) {
-  return (
-    <div className="flex items-center gap-2">
+  const body = (
+    <>
       <span className="text-muted-foreground">{icon}</span>
       <div className="min-w-0">
         <p className="truncate text-sm font-bold text-foreground">{value}</p>
@@ -174,6 +182,17 @@ function TrustItem({
           {label}
         </p>
       </div>
-    </div>
+    </>
   );
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="flex items-center gap-2 rounded-md transition-colors hover:text-primary"
+      >
+        {body}
+      </Link>
+    );
+  }
+  return <div className="flex items-center gap-2">{body}</div>;
 }
