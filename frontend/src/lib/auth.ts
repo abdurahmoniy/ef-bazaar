@@ -60,7 +60,7 @@ export async function telegramAuth(data: TelegramAuthData): Promise<User> {
  * Backend HMAC-SHA256 bilan tekshiradi (Login Widget'dan algoritmi farqli) va
  * xuddi shu register-or-login pipeline'iga uzatadi.
  *
- * <p>Cookie'lar bu yerda emas, route handler'da ({@code /api/auth/telegram-webapp})
+ * <p>Cookie'lar bu yerda emas, route handler'da ({@code /api/telegram-webapp})
  * 303-redirect javobiga {@link applyAuthCookies} orqali yoziladi. Sabab: Telegram
  * Desktop'ning WebKitGTK webview'i fon `fetch` javobidagi `Set-Cookie`'ni ishonchli
  * saqlamaydi — cookie top-level navigatsiya (redirect) javobida kelishi shart.
