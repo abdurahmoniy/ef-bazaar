@@ -492,11 +492,194 @@
   color: var(--gc-ink-mid);
 }
 
-@media (max-width: 380px) {
+/* ── compact variant (profil sahifasi) ───────────────────── */
+.gc-card.gc-compact {
+  gap: 11px;
+  max-width: none;
+  padding: 14px;
+  border-radius: 20px;
+}
+.gc-c-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gc-compact .gc-ava {
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  font-size: 23px;
+}
+.gc-compact .gc-name {
+  font-size: 18px;
+}
+.gc-compact .gc-vfy {
+  width: 15px;
+  height: 15px;
+}
+.gc-compact .gc-handle {
+  margin-top: 2px;
+  font-size: 12px;
+}
+.gc-c-crest {
+  position: relative;
+  width: 68px;
+  height: 78px;
+  flex: none;
+  margin-left: auto;
+}
+.gc-c-crest .gc-crest-face {
+  gap: 1px;
+}
+.gc-c-crest .gc-crest-tier {
+  margin-bottom: 2px;
+  font-size: 7px;
+  letter-spacing: 0.14em;
+}
+.gc-c-crest .gc-crest-elo {
+  font-size: 22px;
+  letter-spacing: -0.04em;
+}
+.gc-compact .gc-ladder {
+  padding: 11px 12px;
+  border-radius: 14px;
+}
+.gc-compact .gc-rail {
+  height: 7px;
+}
+.gc-c-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--gc-line);
+  border-radius: 14px;
+  background-color: var(--gc-line);
+}
+.gc-c-strip > div {
+  padding: 9px 4px;
+  text-align: center;
+  background-color: var(--gc-tile);
+}
+.gc-c-strip b {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1;
+}
+.gc-c-strip .gc-c-w {
+  color: var(--gc-green);
+}
+.gc-c-strip .gc-c-l {
+  color: var(--gc-red);
+}
+.gc-c-strip span {
+  display: block;
+  margin-top: 5px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--gc-ink-dim);
+}
+
+/* ── small phones ─────────────────────────────────────────── */
+@media (max-width: 390px) {
+  .gc-card {
+    padding: 16px 13px 13px;
+    gap: 10px;
+  }
   .gc-name {
-    font-size: 21px;
+    font-size: 20px;
+  }
+  .gc-ava {
+    width: 60px;
+    height: 60px;
+    font-size: 27px;
+  }
+  .gc-crest {
+    width: 130px;
+    height: 148px;
+  }
+  .gc-crest-elo {
+    font-size: 38px;
+  }
+  .gc-tile-num {
+    font-size: 22px;
   }
   .gc-bar-tag {
     display: none;
   }
+  .gc-c-strip b {
+    font-size: 15px;
+  }
+  .gc-c-strip span {
+    font-size: 7.5px;
+    letter-spacing: 0.06em;
+  }
+  .gc-lad-l {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+}
+
+@media (max-width: 330px) {
+  .gc-c-crest {
+    width: 58px;
+    height: 66px;
+  }
+  .gc-c-crest .gc-crest-elo {
+    font-size: 19px;
+  }
+  .gc-compact .gc-ava {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+}
+
+/* ── fullscreen viewer ────────────────────────────────────── */
+.gc-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px 12px calc(24px + env(safe-area-inset-bottom));
+  background-color: rgba(5, 4, 10, 0.92);
+}
+.gc-viewer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+}
+.gc-viewer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.gc-viewer-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid rgba(139, 109, 255, 0.3);
+  border-radius: 12px;
+  background-color: rgba(18, 14, 36, 0.9);
+  font-size: 13px;
+  font-weight: 600;
+  color: #f2efff;
+  cursor: pointer;
+}
+/* PNG capture host: in the DOM (html2canvas cannot rasterize display:none)
+   but out of sight and out of the a11y tree. */
+.gc-capture-host {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  width: 430px;
+  pointer-events: none;
 }

@@ -31,6 +31,122 @@ function initialOf(name: string | null) {
   return (name?.trim()[0] || '?').toUpperCase();
 }
 
+/**
+ * Profil sahifasidagi qisqa ko'rinish — bir qarashda ELO, daraja va
+ * ko'tarilishgacha qolgan masofa. To'liq poster uchun GamerCardFullscreen.
+ */
+export function GamerCardCompact({ card }: { card: GamerCardResponse }) {
+  const tier = TIER_META[card.tier];
+  const progress = tierProgress(card.tier, card.elo);
+  const played = card.wins + card.draws + card.losses;
+
+  return (
+    <div
+      className="gc-card gc-compact"
+      style={{ '--m1': tier.m1, '--m2': tier.m2, '--m3': tier.m3 } as React.CSSProperties}
+    >
+      <div className="gc-c-top">
+        <div className="gc-ava">{initialOf(card.displayName)}</div>
+        <div className="gc-id">
+          <div className="gc-name">
+            <span>{card.displayName ?? "Noma'lum o'yinchi"}</span>
+            {card.verified && <BadgeCheck className="gc-vfy" />}
+          </div>
+          {card.telegramUsername && <div className="gc-handle">@{card.telegramUsername}</div>}
+        </div>
+        <div className="gc-c-crest">
+          <div className="gc-crest-layer gc-crest-outer" />
+          <div className="gc-crest-layer gc-crest-inner" />
+          <div className="gc-crest-layer gc-crest-face">
+            <div className="gc-crest-tier">{tier.label.toUpperCase()}</div>
+            <div className="gc-crest-elo">{card.elo}</div>
+          </div>
+          <div className="gc-crest-layer gc-crest-gloss" />
+        </div>
+      </div>
+
+      <Ladder card={card} progress={progress} tier={tier} compact />
+
+      <div className="gc-c-strip">
+        <div>
+          <b className="gc-c-w">{card.wins}</b>
+          <span>G&apos;ALABA</span>
+        </div>
+        <div>
+          <b>{card.draws}</b>
+          <span>DURRANG</span>
+        </div>
+        <div>
+          <b className="gc-c-l">{card.losses}</b>
+          <span>YUTQAZISH</span>
+        </div>
+        <div>
+          <b>{played === 0 || card.winRatePercent == null ? '—' : `${card.winRatePercent}%`}</b>
+          <span>WIN RATE</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Ko'tarilish shkalasi — ikkala variantda ham bir xil mantiq. */
+function Ladder({
+  card,
+  progress,
+  tier,
+  compact,
+}: {
+  card: GamerCardResponse;
+  progress: ReturnType<typeof tierProgress>;
+  tier: (typeof TIER_META)[GamerTier];
+  compact?: boolean;
+}) {
+  return (
+    <div className="gc-ladder">
+      <div className="gc-lad-top">
+        <div className="gc-lad-l">
+          {progress.nextTier
+            ? `KEYINGI: ${progress.nextTier.label.toUpperCase()} · ${progress.nextTier.min}`
+            : 'ENG YUQORI DARAJA'}
+        </div>
+        <div className="gc-lad-r">
+          {progress.eloToNext != null ? (
+            <>
+              <b>{progress.eloToNext}</b> ELO qoldi
+            </>
+          ) : (
+            <b>TOP</b>
+          )}
+        </div>
+      </div>
+      <div className="gc-rail" role="img" aria-label={`Daraja: ${tier.label}, ${card.elo} ELO`}>
+        {TIER_ORDER.map((key: GamerTier, i) => {
+          const seg = TIER_META[key];
+          const width = i < progress.index ? 100 : i === progress.index ? progress.percent : 0;
+          return (
+            <div
+              key={key}
+              className="gc-seg"
+              style={{ '--c1': seg.m1, '--c2': seg.m2 } as React.CSSProperties}
+            >
+              <i style={{ width: `${width}%` }} />
+            </div>
+          );
+        })}
+      </div>
+      {!compact && (
+        <div className="gc-ticks">
+          {TIER_ORDER.map((key: GamerTier, i) => (
+            <span key={key} className={i <= progress.index ? 'gc-on' : undefined}>
+              {TIER_META[key].short}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function platformLabel(platform: GamerCardResponse['platform']) {
   if (platform === 'BOTH') return 'Android + iOS';
   if (platform === 'ANDROID') return 'Android';
@@ -110,47 +226,7 @@ export function GamerCardView({ card, captureId, email }: GamerCardViewProps) {
       </div>
 
       {/* promotion ladder */}
-      <div className="gc-ladder">
-        <div className="gc-lad-top">
-          <div className="gc-lad-l">
-            {progress.nextTier
-              ? `KEYINGI: ${progress.nextTier.label.toUpperCase()} · ${progress.nextTier.min}`
-              : 'ENG YUQORI DARAJA'}
-          </div>
-          <div className="gc-lad-r">
-            {progress.eloToNext != null ? (
-              <>
-                <b>{progress.eloToNext}</b> ELO qoldi
-              </>
-            ) : (
-              <b>TOP</b>
-            )}
-          </div>
-        </div>
-        <div className="gc-rail" role="img" aria-label={`Daraja: ${tier.label}, ${card.elo} ELO`}>
-          {TIER_ORDER.map((key: GamerTier, i) => {
-            const seg = TIER_META[key];
-            const width =
-              i < progress.index ? 100 : i === progress.index ? progress.percent : 0;
-            return (
-              <div
-                key={key}
-                className="gc-seg"
-                style={{ '--c1': seg.m1, '--c2': seg.m2 } as React.CSSProperties}
-              >
-                <i style={{ width: `${width}%` }} />
-              </div>
-            );
-          })}
-        </div>
-        <div className="gc-ticks">
-          {TIER_ORDER.map((key: GamerTier, i) => (
-            <span key={key} className={i <= progress.index ? 'gc-on' : undefined}>
-              {TIER_META[key].short}
-            </span>
-          ))}
-        </div>
-      </div>
+      <Ladder card={card} progress={progress} tier={tier} />
 
       {card.blacklisted && (
         <div className="gc-warn">
