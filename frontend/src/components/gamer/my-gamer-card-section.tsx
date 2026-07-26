@@ -4,7 +4,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ExternalLink, Loader2, Pencil } from 'lucide-react';
 
-import { GamerCardView } from '@/components/gamer/gamer-card-view';
+import { GamerCardFullscreen } from '@/components/gamer/gamer-card-fullscreen';
+import { GamerCardCompact, GamerCardView } from '@/components/gamer/gamer-card-view';
 import { ShareGamerCardButton } from '@/components/gamer/share-gamer-card-button';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -97,9 +98,15 @@ export function MyGamerCardSection({ trailingAction, email }: MyGamerCardSection
 
   return (
     <div className="space-y-4">
-      <GamerCardView card={card} captureId={CAPTURE_ID} email={email} />
+      <GamerCardCompact card={card} />
+
+      {/* Off-screen full poster — PNG ulashish shu nusxani suratga oladi. */}
+      <div className="gc-capture-host" aria-hidden>
+        <GamerCardView card={card} captureId={CAPTURE_ID} email={email} />
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <GamerCardFullscreen card={card} email={email} captureId={CAPTURE_ID} />
         <ShareGamerCardButton captureId={CAPTURE_ID} username={card.telegramUsername} />
         <Button variant="outline" onClick={() => setEditing((v) => !v)} className="gap-2">
           <Pencil className="h-4 w-4" />
