@@ -32,6 +32,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const form = await request.formData();
   const initData = form.get('initData');
   const from = form.get('from');
+  // `framed=1` — efbazaar Telegram Web iframe'ida ochilgan (third-party) →
+  // cookie cross-site yuborilishi kerak, `SameSite=None`. Aks holda native
+  // webview (Desktop/mobil, top-level) → `SameSite=Lax`, chunki WebKitGTK ITP
+  // `None`'ni saqlamaydi.
+  const framed = form.get('framed') === '1';
 
   if (typeof initData !== 'string' || initData.length === 0) {
     return seeOther('/auth/login?error=telegram');
@@ -42,7 +47,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const auth = await telegramWebAppAuthTokens(initData);
     const res = seeOther(target);
-    applyAuthCookies(res, auth);
+    applyAuthCookies(res, auth, framed ? undefined : 'lax');
     return res;
   } catch (e) {
     const code = e instanceof ApiException ? (e.code ?? 'telegram') : 'telegram';

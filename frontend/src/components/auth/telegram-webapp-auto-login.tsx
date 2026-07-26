@@ -77,7 +77,7 @@ export function TelegramWebAppAutoLogin() {
     setState('authing');
 
     // initData'ni fon `fetch` (server action) o'rniga TOP-LEVEL form POST bilan
-    // yuboramiz. Route handler ({@code /api/auth/telegram-webapp}) auth cookie'ni
+    // yuboramiz. Route handler ({@code /api/telegram-webapp}) auth cookie'ni
     // 303-redirect javobining o'ziga yozadi va target'ga yo'naltiradi. Sabab:
     // Telegram Desktop'ning WebKitGTK webview'i fon-fetch javobidagi `Set-Cookie`'ni
     // ishonchli saqlamaydi (server auth muvaffaqiyatli bo'lsa ham user guest mode'da
@@ -88,7 +88,7 @@ export function TelegramWebAppAutoLogin() {
     try {
       const form = document.createElement('form');
       form.method = 'POST';
-      form.action = '/api/auth/telegram-webapp';
+      form.action = '/api/telegram-webapp';
       form.acceptCharset = 'utf-8';
       form.style.display = 'none';
 
@@ -101,6 +101,9 @@ export function TelegramWebAppAutoLogin() {
       };
       addField('initData', initData);
       addField('from', resolvePostLoginTarget());
+      // Kontekst: iframe (Telegram Web) → cookie `SameSite=None` bo'lishi kerak;
+      // native webview (Desktop/mobil, top-level) → `Lax` (WebKitGTK ITP uchun).
+      addField('framed', window.self !== window.top ? '1' : '0');
 
       document.body.appendChild(form);
       form.submit();

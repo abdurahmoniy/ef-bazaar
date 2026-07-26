@@ -60,7 +60,7 @@ export async function telegramAuth(data: TelegramAuthData): Promise<User> {
  * Backend HMAC-SHA256 bilan tekshiradi (Login Widget'dan algoritmi farqli) va
  * xuddi shu register-or-login pipeline'iga uzatadi.
  *
- * <p>Cookie'lar bu yerda emas, route handler'da ({@code /api/auth/telegram-webapp})
+ * <p>Cookie'lar bu yerda emas, route handler'da ({@code /api/telegram-webapp})
  * 303-redirect javobiga {@link applyAuthCookies} orqali yoziladi. Sabab: Telegram
  * Desktop'ning WebKitGTK webview'i fon `fetch` javobidagi `Set-Cookie`'ni ishonchli
  * saqlamaydi — cookie top-level navigatsiya (redirect) javobida kelishi shart.
@@ -78,15 +78,29 @@ export async function telegramWebAppAuthTokens(initData: string): Promise<AuthRe
  * sifatida yozadi. Route handler'ning 303-redirect'ida ishlatiladi — top-level
  * navigatsiya cookie'si har bir webview'da (WebKitGTK ham) ishonchli saqlanadi,
  * `next/headers` cookies() esa fon-fetch kontekstiga bog'liq bo'lib chiqadi.
+ *
+ * <p>{@code sameSiteOverride} — Telegram Mini App kontekstiga qarab: **native
+ * webview** (Telegram Desktop/mobil, top-level first-party) uchun `'lax'` beriladi,
+ * chunki WebKitGTK'ning ITP'si `SameSite=None`'ni top-level navigatsiyada ham
+ * tashlab yuboradi (server auth muvaffaqiyatli bo'lsa ham user guest mode'da
+ * qolardi). **Telegram Web** iframe'ida (efbazaar third-party) esa cookie
+ * cross-site yuborilishi kerak — override berilmaydi, default `'none'` ishlaydi.
  */
-export function applyAuthCookies(res: NextResponse, auth: AuthResponse): void {
+export function applyAuthCookies(
+  res: NextResponse,
+  auth: AuthResponse,
+  sameSiteOverride?: 'lax' | 'none',
+): void {
   const cookieOpts = getAuthCookieOptions();
+  const opts = sameSiteOverride
+    ? { ...cookieOpts, sameSite: sameSiteOverride }
+    : cookieOpts;
   res.cookies.set(ACCESS_COOKIE_NAME, auth.accessToken, {
-    ...cookieOpts,
+    ...opts,
     maxAge: ACCESS_TTL_SECONDS,
   });
   res.cookies.set(REFRESH_COOKIE_NAME, auth.refreshToken, {
-    ...cookieOpts,
+    ...opts,
     maxAge: REFRESH_TTL_SECONDS,
   });
 }
