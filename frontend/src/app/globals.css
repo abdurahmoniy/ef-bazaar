@@ -169,6 +169,50 @@
     @apply mx-auto w-full max-w-6xl px-4;
   }
 
+  /* Email markup rendered in the admin panel's message view. Arbitrary
+     third-party HTML (already Jsoup-sanitised server-side), so every rule is
+     scoped under .mail-html-body and wide content scrolls inside the card
+     instead of stretching the page. Mirrors the webmail's own styles. */
+  .mail-html-body {
+    overflow-wrap: anywhere; /* Konami reset URLs are very long */
+    @apply text-sm leading-relaxed text-foreground;
+  }
+  .mail-html-body p,
+  .mail-html-body ul,
+  .mail-html-body ol,
+  .mail-html-body table,
+  .mail-html-body blockquote,
+  .mail-html-body pre {
+    @apply my-3;
+  }
+  .mail-html-body a {
+    @apply font-semibold text-primary underline underline-offset-2;
+  }
+  .mail-html-body ul {
+    @apply list-disc pl-5;
+  }
+  .mail-html-body ol {
+    @apply list-decimal pl-5;
+  }
+  .mail-html-body h1,
+  .mail-html-body h2,
+  .mail-html-body h3 {
+    @apply mb-2 mt-4 font-bold text-foreground;
+  }
+  .mail-html-body blockquote {
+    @apply border-l-2 border-border pl-3 text-muted-foreground;
+  }
+  .mail-html-body pre {
+    @apply overflow-x-auto rounded-lg bg-muted p-3 text-xs;
+  }
+  .mail-html-body table {
+    @apply block max-w-full overflow-x-auto text-xs;
+  }
+  .mail-html-body th,
+  .mail-html-body td {
+    @apply border border-border px-2 py-1 text-left align-top;
+  }
+
   .container-wide {
     @apply mx-auto w-full max-w-7xl px-4;
   }

@@ -49,4 +49,18 @@ public class Mailbox {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
+
+    /** How the row was born — see {@link MailboxSource}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 16)
+    @Builder.Default
+    private MailboxSource source = MailboxSource.TRADE;
+
+    /** Admin who registered the mailbox from the panel; null for TRADE rows. */
+    @Column(name = "created_by_admin_id")
+    private UUID createdByAdminId;
+
+    /** Set when the worker confirms Mailcow created the box. Null = still pending. */
+    @Column(name = "provisioned_at")
+    private Instant provisionedAt;
 }

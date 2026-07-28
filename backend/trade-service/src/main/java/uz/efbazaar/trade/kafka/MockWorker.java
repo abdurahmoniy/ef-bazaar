@@ -37,6 +37,9 @@ public class MockWorker {
     private final TradeCrypto crypto;
     private final SecureRandom rng = new SecureRandom();
 
+    @org.springframework.beans.factory.annotation.Value("${trade.mailbox.domain:efbazaar.uz}")
+    private String mailboxDomain;
+
     @KafkaListener(
             topics = TradeEvents.TOPIC_EMAIL_PROVISION_REQ,
             groupId = "mock-worker-provision",
@@ -56,6 +59,24 @@ public class MockWorker {
                         enc.ciphertext(), enc.iv(), enc.tag()));
         log.info("MockWorker provisioned {} for trade {} as mailbox {}",
                 email, req.tradeId(), mailboxId);
+    }
+
+    @KafkaListener(
+            topics = TradeEvents.TOPIC_MAILBOX_PROVISION_REQ,
+            groupId = "mock-worker-mailbox-provision",
+            properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$MailboxProvisionRequest"}
+    )
+    public void onMailboxProvisionRequest(TradeEvents.MailboxProvisionRequest req) {
+        String email = req.localPart() + "@" + mailboxDomain;
+        String pw = randomPassword();
+        // Admin-created rows have no trade, so the mailbox-id context is the
+        // only one MailboxPasswordResolver can try — use it verbatim (no
+        // `mock-` prefix) or the row would be undecryptable in local dev.
+        EncryptedField enc = crypto.encrypt("mbox-" + req.mailboxId(), pw.getBytes());
+        kafka.send(TradeEvents.TOPIC_MAILBOX_PROVISIONED, req.mailboxId().toString(),
+                new TradeEvents.MailboxProvisioned(req.mailboxId(), email,
+                        enc.ciphertext(), enc.iv(), enc.tag()));
+        log.info("MockWorker provisioned admin mailbox {} as {}", req.mailboxId(), email);
     }
 
     @KafkaListener(

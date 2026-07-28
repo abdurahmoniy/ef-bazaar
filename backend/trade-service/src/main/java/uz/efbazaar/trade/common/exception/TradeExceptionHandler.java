@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import uz.efbazaar.trade.card.exception.CardValidationException;
 import uz.efbazaar.trade.mail.service.MessageNotFoundException;
 import uz.efbazaar.trade.mail.service.RateLimitExceededException;
+import uz.efbazaar.trade.mailbox.exception.MailboxAlreadyExistsException;
 import uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException;
 import uz.efbazaar.trade.trade.exception.PasswordAlreadyRevealedException;
 import uz.efbazaar.trade.trade.exception.ProposalNotFoundException;
@@ -68,6 +69,11 @@ public class TradeExceptionHandler {
     @ExceptionHandler(RateLimitExceededException.class)
     ResponseEntity<Map<String, Object>> onMailRateLimit(RateLimitExceededException e) {
         return status(HttpStatus.TOO_MANY_REQUESTS, e.getMessage());
+    }
+
+    @ExceptionHandler(MailboxAlreadyExistsException.class)
+    ResponseEntity<Map<String, Object>> onMailboxExists(MailboxAlreadyExistsException e) {
+        return status(HttpStatus.CONFLICT, e.getMessage());
     }
 
     private Map<String, Object> body(HttpStatus status, String code) {

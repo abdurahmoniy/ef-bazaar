@@ -5,6 +5,10 @@ lifecycle request topics, provisions Mailcow mailboxes, drives Konami's
 forgot-password via `rotate.py`, polls IMAP for reset/2FA emails, and rotates
 mailbox passwords when trades close.
 
+It also serves the admin panel: `efbazaar.trade.mailbox-provision-request`
+creates a standalone (trade-less) mailbox with an admin-chosen local part and
+answers on `efbazaar.trade.mailbox-provisioned`.
+
 See `docs/superpowers/specs/2026-07-15-plan-c-smart-admin-worker-design.md`.
 
 ## Local dev
