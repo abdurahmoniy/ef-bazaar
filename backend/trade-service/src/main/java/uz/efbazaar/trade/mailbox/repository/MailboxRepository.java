@@ -1,16 +1,23 @@
 package uz.efbazaar.trade.mailbox.repository;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
+import uz.efbazaar.trade.mailbox.domain.MailboxSource;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface MailboxRepository extends JpaRepository<Mailbox, UUID> {
+/**
+ * Admin listing goes through {@link JpaSpecificationExecutor} rather than
+ * derived queries: the panel combines up to three optional filters (address,
+ * owner, source) and a JPQL with nullable parameters isn't an option — Postgres
+ * can't infer the type of a bound NULL in `:param IS NULL OR ...`.
+ */
+public interface MailboxRepository
+        extends JpaRepository<Mailbox, UUID>, JpaSpecificationExecutor<Mailbox> {
 
     Optional<Mailbox> findByEmail(String email);
 
@@ -26,19 +33,15 @@ public interface MailboxRepository extends JpaRepository<Mailbox, UUID> {
             """)
     List<Mailbox> findOrphaned();
 
-    /*
-     * Admin panel listing. Four derived queries rather than one JPQL with
-     * nullable parameters: Postgres can't infer the type of a bound NULL in
-     * `:param IS NULL OR ...`, and the UUID case fails outright. Soft-deleted
-     * rows stay visible in all of them — an admin auditing history needs them.
-     */
-
-    Page<Mailbox> findByEmailContainingIgnoreCase(String search, Pageable pageable);
-
-    Page<Mailbox> findByOwnerUserId(UUID ownerUserId, Pageable pageable);
-
-    Page<Mailbox> findByOwnerUserIdAndEmailContainingIgnoreCase(
-            UUID ownerUserId, String search, Pageable pageable);
-
     boolean existsByEmail(String email);
+
+    // ---------- admin panel counters ----------
+
+    long countBySource(MailboxSource source);
+
+    /** Registered but not yet confirmed by Mailcow. */
+    long countByProvisionedAtIsNull();
+
+    /** No owner attached — either an in-flight trade or a leftover. */
+    long countByOwnerUserIdIsNull();
 }

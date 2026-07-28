@@ -2,8 +2,11 @@ package uz.efbazaar.trade.mailbox;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import uz.efbazaar.trade.crypto.TradeCrypto;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.domain.MailboxSource;
@@ -19,8 +22,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -89,19 +94,30 @@ class MailboxAdminServiceTest {
     }
 
     @Test
-    void searchForAdminPicksQueryMatchingTheSuppliedFilters() {
-        UUID owner = UUID.randomUUID();
+    void searchForAdminAlwaysGoesThroughASpecification() {
+        when(repo.findAll(ArgumentMatchers.<Specification<Mailbox>>any(), eq(page)))
+                .thenReturn(Page.empty());
 
-        svc.searchForAdmin(null, null, page);
-        verify(repo).findAll(page);
+        svc.searchForAdmin(null, null, null, false, false, page);
+        svc.searchForAdmin("kona", UUID.randomUUID(), MailboxSource.ADMIN, true, true, page);
 
-        svc.searchForAdmin("  ", owner, page);
-        verify(repo).findByOwnerUserId(owner, page);
+        verify(repo, times(2)).findAll(ArgumentMatchers.<Specification<Mailbox>>any(), eq(page));
+    }
 
-        svc.searchForAdmin("kona", null, page);
-        verify(repo).findByEmailContainingIgnoreCase("kona", page);
+    @Test
+    void statsForAdminReportsEveryCounter() {
+        when(repo.count()).thenReturn(7L);
+        when(repo.countBySource(MailboxSource.TRADE)).thenReturn(5L);
+        when(repo.countBySource(MailboxSource.ADMIN)).thenReturn(2L);
+        when(repo.countByProvisionedAtIsNull()).thenReturn(1L);
+        when(repo.countByOwnerUserIdIsNull()).thenReturn(3L);
 
-        svc.searchForAdmin("kona", owner, page);
-        verify(repo).findByOwnerUserIdAndEmailContainingIgnoreCase(owner, "kona", page);
+        var stats = svc.statsForAdmin();
+
+        assertThat(stats.total()).isEqualTo(7);
+        assertThat(stats.trade()).isEqualTo(5);
+        assertThat(stats.admin()).isEqualTo(2);
+        assertThat(stats.pending()).isEqualTo(1);
+        assertThat(stats.unassigned()).isEqualTo(3);
     }
 }

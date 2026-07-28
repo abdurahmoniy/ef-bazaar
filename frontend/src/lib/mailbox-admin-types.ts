@@ -73,3 +73,15 @@ export interface CreateMailboxInput {
   localPart: string;
   ownerUserId: string;
 }
+
+/** Counters behind the filter chips. */
+export interface MailboxStats {
+  total: number;
+  trade: number;
+  admin: number;
+  pending: number;
+  unassigned: number;
+}
+
+/** Chip the admin currently has active — mirrors the list query params. */
+export type MailboxFilter = 'all' | 'trade' | 'admin' | 'pending' | 'unassigned';

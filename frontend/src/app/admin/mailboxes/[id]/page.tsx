@@ -1,9 +1,21 @@
 import Link from 'next/link';
-import { ArrowLeft, Inbox, Paperclip } from 'lucide-react';
+import {
+  ArrowLeft,
+  CalendarClock,
+  CheckCircle2,
+  Fingerprint,
+  Handshake,
+  Inbox,
+  MailCheck,
+  Paperclip,
+  ShoppingBag,
+  UserRound,
+} from 'lucide-react';
 
 import { MailboxStatusBadge } from '@/components/admin/mailbox-status-badge';
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
+import { avatarTone, partnerInitial } from '@/lib/chat-format';
 import {
   getAdminMailbox,
   getAdminMailboxInbox,
@@ -48,7 +60,7 @@ export default async function AdminMailboxPage({ params, searchParams }: AdminMa
   const summary = summaryResult.ok ? summaryResult.data : null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <Link
         href={
           mailbox.ownerUserId
@@ -61,108 +73,162 @@ export default async function AdminMailboxPage({ params, searchParams }: AdminMa
         Pochtalar
       </Link>
 
-      <section className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-card">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-lg font-black">{mailbox.email}</h1>
-          <MailboxStatusBadge mailbox={mailbox} />
-        </div>
+      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-5 py-4">
+          <div className="min-w-0 space-y-1.5">
+            <h1 className="truncate font-mono text-lg font-black">{mailbox.email}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <MailboxStatusBadge mailbox={mailbox} />
+              {summary?.unreadCount != null && summary.unreadCount > 0 && (
+                <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-black text-primary">
+                  {summary.unreadCount} o&apos;qilmagan
+                </span>
+              )}
+            </div>
+          </div>
 
-        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-          <Row label="Egasi">
-            {mailbox.ownerUserId ? (
-              <Link
-                href={`/admin/mailboxes?ownerUserId=${mailbox.ownerUserId}`}
-                className="font-semibold text-primary hover:underline"
+          {mailbox.ownerUserId && (
+            <Link
+              href={`/admin/mailboxes?ownerUserId=${mailbox.ownerUserId}`}
+              className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 transition hover:border-primary/40"
+            >
+              <span
+                className={cn(
+                  'flex h-8 w-8 items-center justify-center rounded-full text-xs font-black',
+                  avatarTone(mailbox.ownerUserId),
+                )}
               >
-                {owner?.displayName ?? "o'chirilgan foydalanuvchi"}
-              </Link>
-            ) : (
-              <span className="text-muted-foreground">biriktirilmagan</span>
-            )}
-          </Row>
-          <Row label="Manba">
-            {mailbox.source === 'ADMIN' ? 'Admin panel' : 'Savdo (escrow)'}
-            {createdByAdmin ? ` · ${createdByAdmin.displayName}` : ''}
-          </Row>
-          <Row label="Yaratilgan">{formatListingDate(mailbox.createdAt)}</Row>
-          <Row label="Mailcow tasdiqlagan">
-            {mailbox.provisionedAt ? formatListingDate(mailbox.provisionedAt) : 'kutilmoqda'}
-          </Row>
-          <Row label="Egasiga o'tgan">
-            {mailbox.handedOffAt ? formatListingDate(mailbox.handedOffAt) : '—'}
-          </Row>
-          <Row label="Savdo">
-            {mailbox.tradeId ? (
-              <code className="text-xs">{mailbox.tradeId}</code>
-            ) : (
-              <span className="text-muted-foreground">—</span>
-            )}
-          </Row>
-          <Row label="O'qilmagan">
-            {summary?.unreadCount ?? '—'}
-            {summary?.lastActivityAt
-              ? ` · oxirgi xat ${formatListingDate(summary.lastActivityAt)}`
-              : ''}
-          </Row>
-          <Row label="ID">
-            <code className="text-xs">{mailbox.id}</code>
-          </Row>
+                {partnerInitial(owner?.displayName ?? '?')}
+              </span>
+              <span className="space-y-0.5">
+                <span className="block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Egasi
+                </span>
+                <span className="block text-sm font-black">
+                  {owner?.displayName ?? "o'chirilgan foydalanuvchi"}
+                </span>
+              </span>
+            </Link>
+          )}
+        </header>
+
+        <dl className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
+          <Fact
+            icon={<ShoppingBag className="h-4 w-4" />}
+            label="Manba"
+            value={
+              mailbox.source === 'ADMIN'
+                ? `Admin panel${createdByAdmin ? ` · ${createdByAdmin.displayName}` : ''}`
+                : 'Savdo (escrow)'
+            }
+          />
+          <Fact
+            icon={<CalendarClock className="h-4 w-4" />}
+            label="Yaratilgan"
+            value={formatListingDate(mailbox.createdAt)}
+          />
+          <Fact
+            icon={<MailCheck className="h-4 w-4" />}
+            label="Mailcow tasdiqlagan"
+            value={
+              mailbox.provisionedAt ? formatListingDate(mailbox.provisionedAt) : 'kutilmoqda'
+            }
+            muted={!mailbox.provisionedAt}
+          />
+          <Fact
+            icon={<Handshake className="h-4 w-4" />}
+            label="Egasiga o'tgan"
+            value={mailbox.handedOffAt ? formatListingDate(mailbox.handedOffAt) : '—'}
+            muted={!mailbox.handedOffAt}
+          />
+          <Fact
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            label="Oxirgi xat"
+            value={
+              summary?.lastActivityAt ? formatListingDate(summary.lastActivityAt) : '—'
+            }
+            muted={!summary?.lastActivityAt}
+          />
+          <Fact
+            icon={<Fingerprint className="h-4 w-4" />}
+            label={mailbox.tradeId ? 'Savdo ID' : 'Mailbox ID'}
+            value={
+              <code className="text-xs">{mailbox.tradeId ?? mailbox.id}</code>
+            }
+          />
         </dl>
       </section>
 
       <section className="space-y-3">
-        <h2 className="flex items-center gap-2 text-sm font-black">
-          <Inbox className="h-4 w-4" />
-          Kelgan xatlar
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-black">
+            <Inbox className="h-4 w-4" />
+            Kelgan xatlar
+          </h2>
           {inboxResult.ok && (
-            <span className="font-semibold text-muted-foreground">
-              ({inboxResult.data.total})
+            <span className="text-sm font-semibold text-muted-foreground">
+              {inboxResult.data.total} ta
             </span>
           )}
-        </h2>
+        </div>
 
         {!inboxResult.ok ? (
           <ApiErrorPanel title="Xatlar yuklanmadi" error={inboxResult.error} />
         ) : inboxResult.data.messages.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border py-12 text-center text-sm font-semibold text-muted-foreground">
-            {mailbox.provisionedAt
-              ? 'Xat yo‘q'
-              : 'Pochta hali Mailcow tomonidan tasdiqlanmagan'}
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-card/40 py-16 text-center">
+            <div className="rounded-full bg-muted p-3">
+              <Inbox className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-semibold text-muted-foreground">
+              {mailbox.provisionedAt
+                ? 'Bu qutiga hali xat kelmagan'
+                : 'Pochta hali Mailcow tomonidan tasdiqlanmagan'}
+            </p>
           </div>
         ) : (
           <>
-            <ul className="space-y-2">
-              {inboxResult.data.messages.map((message) => (
-                <li key={message.messageId}>
-                  <Link
-                    href={`/admin/mailboxes/${mailbox.id}/messages/${message.messageId}`}
-                    className={cn(
-                      'flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 shadow-card transition hover:border-primary/50',
-                      !message.seen && 'border-primary/40',
-                    )}
-                  >
-                    <div className="min-w-0 flex-1 space-y-0.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={cn('text-sm', message.seen ? 'font-semibold' : 'font-black')}
-                        >
-                          {message.subject || '(mavzusiz)'}
-                        </span>
-                        {message.hasAttachments && (
-                          <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+            <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+              <ul className="divide-y divide-border">
+                {inboxResult.data.messages.map((message) => (
+                  <li key={message.messageId}>
+                    <Link
+                      href={`/admin/mailboxes/${mailbox.id}/messages/${message.messageId}`}
+                      className="group flex items-start gap-3 px-4 py-3 transition hover:bg-accent/40"
+                    >
+                      <span
+                        className={cn(
+                          'mt-1.5 h-2 w-2 shrink-0 rounded-full',
+                          message.seen ? 'bg-transparent' : 'bg-primary',
                         )}
+                        aria-hidden
+                      />
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={cn(
+                              'truncate text-sm',
+                              message.seen ? 'font-semibold' : 'font-black',
+                            )}
+                          >
+                            {message.subject || '(mavzusiz)'}
+                          </span>
+                          {message.hasAttachments && (
+                            <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                        </div>
+                        <p className="truncate text-xs font-semibold text-muted-foreground">
+                          {message.fromName || message.fromAddress}
+                          {message.snippet ? ` — ${message.snippet}` : ''}
+                        </p>
                       </div>
-                      <p className="truncate text-xs font-semibold text-muted-foreground">
-                        {message.fromName || message.fromAddress} · {message.snippet}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-xs font-semibold text-muted-foreground">
-                      {formatListingDate(message.receivedAt)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+                      <span className="shrink-0 whitespace-nowrap text-xs font-semibold text-muted-foreground">
+                        {formatListingDate(message.receivedAt)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
             <ListingsPagination
               page={page}
               totalPages={Math.ceil(inboxResult.data.total / PAGE_SIZE)}
@@ -175,11 +241,33 @@ export default async function AdminMailboxPage({ params, searchParams }: AdminMa
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Fact({
+  icon,
+  label,
+  value,
+  muted,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  muted?: boolean;
+}) {
   return (
-    <div className="flex flex-wrap items-baseline gap-2">
-      <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="font-semibold">{children}</dd>
+    <div className="flex items-start gap-3 bg-card px-5 py-3.5">
+      <span className="mt-0.5 text-muted-foreground">{icon}</span>
+      <div className="min-w-0 space-y-0.5">
+        <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </dt>
+        <dd
+          className={cn(
+            'truncate text-sm font-semibold',
+            muted && 'text-muted-foreground',
+          )}
+        >
+          {value}
+        </dd>
+      </div>
     </div>
   );
 }
