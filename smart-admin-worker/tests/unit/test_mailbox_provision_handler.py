@@ -83,7 +83,7 @@ async def test_populates_caches_on_fresh_create(encryptor):
 
 async def test_replay_of_existing_mailbox_still_publishes_but_skips_caches(encryptor):
     mailcow = AsyncMock()
-    mailcow.create_mailbox.side_effect = MailboxAlreadyExists("object_exists")
+    mailcow.create_mailbox.side_effect = MailboxAlreadyExists(200, "object_exists")
     producer = AsyncMock()
     password_cache: dict[str, str] = {}
 
