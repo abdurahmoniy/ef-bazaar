@@ -5,14 +5,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.trade.crypto.EncryptedField;
 import uz.efbazaar.trade.crypto.TradeCrypto;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.domain.MailboxSource;
+import uz.efbazaar.trade.mailbox.dto.MailboxStats;
 import uz.efbazaar.trade.mailbox.exception.MailboxAlreadyExistsException;
 import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
+import uz.efbazaar.trade.mailbox.repository.MailboxSpecs;
 import uz.efbazaar.trade.trade.domain.Trade;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
 
@@ -201,19 +204,29 @@ public class MailboxService {
 
     // ---------- admin panel ----------
 
+    /** Every filter is optional; unset ones drop out of the WHERE clause. */
     @Transactional(readOnly = true)
-    public Page<Mailbox> searchForAdmin(String search, UUID ownerUserId, Pageable pageable) {
-        String needle = (search == null || search.isBlank()) ? null : search.trim();
-        if (needle == null && ownerUserId == null) {
-            return mailboxes.findAll(pageable);
-        }
-        if (needle == null) {
-            return mailboxes.findByOwnerUserId(ownerUserId, pageable);
-        }
-        if (ownerUserId == null) {
-            return mailboxes.findByEmailContainingIgnoreCase(needle, pageable);
-        }
-        return mailboxes.findByOwnerUserIdAndEmailContainingIgnoreCase(ownerUserId, needle, pageable);
+    public Page<Mailbox> searchForAdmin(String search, UUID ownerUserId, MailboxSource source,
+                                        boolean pendingOnly, boolean unassignedOnly,
+                                        Pageable pageable) {
+        Specification<Mailbox> spec = Specification.allOf(
+                MailboxSpecs.emailContains(search),
+                MailboxSpecs.ownedBy(ownerUserId),
+                MailboxSpecs.hasSource(source),
+                MailboxSpecs.pendingOnly(pendingOnly),
+                MailboxSpecs.unassignedOnly(unassignedOnly));
+        return mailboxes.findAll(spec, pageable);
+    }
+
+    /** Counters for the admin panel's filter chips. */
+    @Transactional(readOnly = true)
+    public MailboxStats statsForAdmin() {
+        return new MailboxStats(
+                mailboxes.count(),
+                mailboxes.countBySource(MailboxSource.TRADE),
+                mailboxes.countBySource(MailboxSource.ADMIN),
+                mailboxes.countByProvisionedAtIsNull(),
+                mailboxes.countByOwnerUserIdIsNull());
     }
 
     /**

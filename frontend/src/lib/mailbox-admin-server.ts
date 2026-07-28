@@ -5,6 +5,8 @@ import type { FetchResult } from './marketplace-server';
 import type {
   AdminMailbox,
   InboxPage,
+  MailboxFilter,
+  MailboxStats,
   MailboxSummary,
   MessageDetail,
 } from './mailbox-admin-types';
@@ -47,7 +49,13 @@ async function safeFetch<T>(path: string): Promise<FetchResult<T>> {
 }
 
 export async function getAdminMailboxes(
-  options: { search?: string; ownerUserId?: string; page?: number; size?: number } = {},
+  options: {
+    search?: string;
+    ownerUserId?: string;
+    filter?: MailboxFilter;
+    page?: number;
+    size?: number;
+  } = {},
 ): Promise<FetchResult<PageResponse<AdminMailbox>>> {
   const params = new URLSearchParams({
     page: String(options.page ?? 0),
@@ -55,7 +63,17 @@ export async function getAdminMailboxes(
   });
   if (options.search) params.set('search', options.search);
   if (options.ownerUserId) params.set('ownerUserId', options.ownerUserId);
+  if (options.filter === 'trade') params.set('source', 'TRADE');
+  if (options.filter === 'admin') params.set('source', 'ADMIN');
+  if (options.filter === 'pending') params.set('pending', 'true');
+  if (options.filter === 'unassigned') params.set('unassigned', 'true');
   return safeFetch<PageResponse<AdminMailbox>>(`${ADMIN_MAILBOX_PREFIX}?${params.toString()}`);
+}
+
+/** Chip counters. Failure degrades to no chips rather than an error page. */
+export async function getAdminMailboxStats(): Promise<MailboxStats | null> {
+  const result = await safeFetch<MailboxStats>(`${ADMIN_MAILBOX_PREFIX}/stats`);
+  return result.ok ? result.data : null;
 }
 
 export async function getAdminMailbox(id: string): Promise<FetchResult<AdminMailbox>> {

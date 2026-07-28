@@ -20,9 +20,11 @@ import uz.efbazaar.trade.mail.dto.MailboxSummary;
 import uz.efbazaar.trade.mail.dto.MessageDetail;
 import uz.efbazaar.trade.mail.service.MailService;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
+import uz.efbazaar.trade.mailbox.domain.MailboxSource;
 import uz.efbazaar.trade.mailbox.dto.AdminMailboxResponse;
 import uz.efbazaar.trade.mailbox.dto.CreateMailboxRequest;
 import uz.efbazaar.trade.mailbox.dto.MailboxResponse;
+import uz.efbazaar.trade.mailbox.dto.MailboxStats;
 import uz.efbazaar.trade.mailbox.mapper.MailboxMapper;
 import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
@@ -55,15 +57,28 @@ public class AdminMailboxController {
     @Value("${trade.mailbox.domain:efbazaar.uz}")
     private String mailboxDomain;
 
-    /** Every mailbox, newest first. Optional filters: address substring, owner. */
+    /**
+     * Every mailbox, newest first. All filters optional: address substring,
+     * owner, provenance, "not yet provisioned", "no owner".
+     */
     @GetMapping
     public PageResponse<AdminMailboxResponse> list(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) UUID ownerUserId,
+            @RequestParam(required = false) MailboxSource source,
+            @RequestParam(defaultValue = "false") boolean pending,
+            @RequestParam(defaultValue = "false") boolean unassigned,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
-        return PageResponse.of(service.searchForAdmin(search, ownerUserId, pageable),
+        return PageResponse.of(
+                service.searchForAdmin(search, ownerUserId, source, pending, unassigned, pageable),
                 mapper::toAdminResponse);
+    }
+
+    /** Counters for the filter chips. */
+    @GetMapping("/stats")
+    public MailboxStats stats() {
+        return service.statsForAdmin();
     }
 
     @GetMapping("/orphaned")
