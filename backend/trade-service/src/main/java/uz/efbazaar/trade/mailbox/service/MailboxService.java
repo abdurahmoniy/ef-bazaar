@@ -3,11 +3,15 @@ package uz.efbazaar.trade.mailbox.service;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.trade.crypto.EncryptedField;
 import uz.efbazaar.trade.crypto.TradeCrypto;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
+import uz.efbazaar.trade.mailbox.domain.MailboxSource;
+import uz.efbazaar.trade.mailbox.exception.MailboxAlreadyExistsException;
 import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
 import uz.efbazaar.trade.trade.domain.Trade;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
@@ -84,6 +88,10 @@ public class MailboxService {
      * worker responds to an email-provision-request or mailbox-rotate-request. A
      * {@code null} email keeps the current address (used by the rotate response,
      * which only changes the password).
+     *
+     * <p>Also stamps {@code provisioned_at}: real credentials just landed, so
+     * the row is usable from here on. The admin panel keys "pending" off that
+     * column and would otherwise show every live trade mailbox as pending.
      */
     @Transactional
     public void overwriteAddressAndPassword(UUID mailboxId, String email,
@@ -96,6 +104,9 @@ public class MailboxService {
         m.setEncryptedPassword(encPass);
         m.setPasswordIv(iv);
         m.setPasswordTag(tag);
+        if (m.getProvisionedAt() == null) {
+            m.setProvisionedAt(Instant.now());
+        }
         mailboxes.save(m);
     }
 
@@ -138,6 +149,7 @@ public class MailboxService {
                     .passwordIv(iv)
                     .passwordTag(tag)
                     .createdAt(Instant.now())
+                    .provisionedAt(Instant.now())
                     .build();
             mailboxes.save(fresh);
             return workerMailboxId;
@@ -145,21 +157,13 @@ public class MailboxService {
         if (placeholder == null) {
             // Worker row already exists (Kafka replay after a successful swap).
             // Refresh the password fields defensively; email should already match.
-            existingWorker.setEmail(email);
-            existingWorker.setEncryptedPassword(encPass);
-            existingWorker.setPasswordIv(iv);
-            existingWorker.setPasswordTag(tag);
-            mailboxes.save(existingWorker);
+            applyCredentials(existingWorker, email, encPass, iv, tag);
             return workerMailboxId;
         }
         if (workerMailboxId.equals(placeholderId)) {
             // Happens when a caller (e.g. MockWorker) chose to echo the
             // placeholder id back — no swap needed, just overwrite the fields.
-            placeholder.setEmail(email);
-            placeholder.setEncryptedPassword(encPass);
-            placeholder.setPasswordIv(iv);
-            placeholder.setPasswordTag(tag);
-            mailboxes.save(placeholder);
+            applyCredentials(placeholder, email, encPass, iv, tag);
             return placeholderId;
         }
 
@@ -174,12 +178,97 @@ public class MailboxService {
                 + "worker MUST echo back the placeholder id. Row NOT swapped; "
                 + "overwriting placeholder fields to keep the trade usable.",
                 workerMailboxId, placeholderId);
-        placeholder.setEmail(email);
-        placeholder.setEncryptedPassword(encPass);
-        placeholder.setPasswordIv(iv);
-        placeholder.setPasswordTag(tag);
-        mailboxes.save(placeholder);
+        applyCredentials(placeholder, email, encPass, iv, tag);
         return placeholderId;
+    }
+
+    /**
+     * Writes worker-supplied credentials onto a row and marks it provisioned.
+     * {@code provisioned_at} is only stamped once — a later rotate refreshes
+     * the password but must not rewrite when the box first came to life.
+     */
+    private void applyCredentials(Mailbox m, String email,
+                                  byte[] encPass, byte[] iv, byte[] tag) {
+        m.setEmail(email);
+        m.setEncryptedPassword(encPass);
+        m.setPasswordIv(iv);
+        m.setPasswordTag(tag);
+        if (m.getProvisionedAt() == null) {
+            m.setProvisionedAt(Instant.now());
+        }
+        mailboxes.save(m);
+    }
+
+    // ---------- admin panel ----------
+
+    @Transactional(readOnly = true)
+    public Page<Mailbox> searchForAdmin(String search, UUID ownerUserId, Pageable pageable) {
+        String needle = (search == null || search.isBlank()) ? null : search.trim();
+        if (needle == null && ownerUserId == null) {
+            return mailboxes.findAll(pageable);
+        }
+        if (needle == null) {
+            return mailboxes.findByOwnerUserId(ownerUserId, pageable);
+        }
+        if (ownerUserId == null) {
+            return mailboxes.findByEmailContainingIgnoreCase(needle, pageable);
+        }
+        return mailboxes.findByOwnerUserIdAndEmailContainingIgnoreCase(ownerUserId, needle, pageable);
+    }
+
+    /**
+     * Reserves a row for an admin-registered mailbox and links it to a user
+     * immediately. The address is claimed here (unique index) rather than after
+     * the worker replies, so two admins racing on the same local part get a
+     * clean 409 instead of a duplicate Mailcow box.
+     *
+     * <p>The row is "pending" until
+     * {@link #markProvisioned} lands: the password bytes are placeholders and
+     * {@code provisionedAt} is null, so nothing can log into IMAP with it yet.
+     */
+    @Transactional
+    public Mailbox createPendingForAdmin(String email, UUID ownerUserId, UUID adminId) {
+        if (mailboxes.existsByEmail(email)) {
+            throw new MailboxAlreadyExistsException(email);
+        }
+        Instant now = Instant.now();
+        Mailbox m = Mailbox.builder()
+                .id(UUID.randomUUID())
+                .email(email)
+                .ownerUserId(ownerUserId)
+                .source(MailboxSource.ADMIN)
+                .createdByAdminId(adminId)
+                .encryptedPassword(new byte[]{0})
+                .passwordIv(new byte[12])
+                .passwordTag(new byte[16])
+                .createdAt(now)
+                // The owner is attached at creation time, so "owned since" is now —
+                // MailboxSummary.ownedSince falls back to createdAt anyway, but being
+                // explicit keeps admin rows and handed-off trade rows shaped alike.
+                .handedOffAt(now)
+                .build();
+        return mailboxes.save(m);
+    }
+
+    /**
+     * Confirms an admin-registered mailbox after the worker created it in
+     * Mailcow: stores the real encrypted password and stamps
+     * {@code provisioned_at}. Idempotent — a Kafka redelivery just rewrites the
+     * same fields.
+     */
+    @Transactional
+    public void markProvisioned(UUID mailboxId, String email,
+                                byte[] encPass, byte[] iv, byte[] tag) {
+        Mailbox m = mailboxes.findById(mailboxId)
+                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
+        if (email != null && !email.isBlank()) {
+            m.setEmail(email);
+        }
+        m.setEncryptedPassword(encPass);
+        m.setPasswordIv(iv);
+        m.setPasswordTag(tag);
+        m.setProvisionedAt(Instant.now());
+        mailboxes.save(m);
     }
 
     @Transactional

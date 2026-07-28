@@ -6,6 +6,8 @@ TOPIC_FORGOT_PW_REQ = "efbazaar.trade.forgot-password-request"
 TOPIC_IMAP_POLL_REQ = "efbazaar.trade.imap-poll-request"
 TOPIC_KONAMI_EMAIL = "efbazaar.trade.konami-email-received"
 TOPIC_IMAP_2FA = "efbazaar.trade.imap-2fa-code"
+TOPIC_MAILBOX_PROVISION_REQ = "efbazaar.trade.mailbox-provision-request"
+TOPIC_MAILBOX_PROVISIONED = "efbazaar.trade.mailbox-provisioned"
 TOPIC_MAILBOX_ROTATE_REQ = "efbazaar.trade.mailbox-rotate-request"
 TOPIC_MAILBOX_ROTATED = "efbazaar.trade.mailbox-rotated"
 
@@ -21,6 +23,7 @@ TOPIC_KONAMI_EMAIL_CHANGE_CODE = "efbazaar.trade.konami-email-change-code-receiv
 
 REQUEST_TOPICS = (
     TOPIC_EMAIL_PROVISION_REQ,
+    TOPIC_MAILBOX_PROVISION_REQ,
     TOPIC_FORGOT_PW_REQ,
     TOPIC_IMAP_POLL_REQ,
     TOPIC_MAILBOX_ROTATE_REQ,

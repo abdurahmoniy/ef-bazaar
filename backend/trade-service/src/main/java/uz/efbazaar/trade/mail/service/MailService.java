@@ -63,7 +63,15 @@ public class MailService {
     // ---------- sidebar / mailbox switcher ----------
 
     public List<MailboxSummary> listMyMailboxes(UUID userId) {
-        List<Mailbox> owned = mailboxes.listOwnedBy(userId);
+        return summarize(mailboxes.listOwnedBy(userId));
+    }
+
+    /**
+     * Same sidebar shape for an arbitrary set of mailboxes — used by the admin
+     * panel, which resolves the rows itself instead of going through the
+     * ownership filter.
+     */
+    public List<MailboxSummary> summarize(List<Mailbox> owned) {
         List<MailboxSummary> out = new ArrayList<>(owned.size());
         for (Mailbox mb : owned) {
             Integer unread = null;
@@ -101,10 +109,19 @@ public class MailService {
     // ---------- inbox listing ----------
 
     public InboxPage listInbox(UUID userId, UUID mailboxId, int limit, int offset) {
+        return listInbox(mailboxes.getOwned(userId, mailboxId), limit, offset);
+    }
+
+    /**
+     * Ownership-free variant. Only call it from a caller that has already
+     * decided the requester may see this mailbox — today that is the
+     * {@code ROLE_ADMIN}-gated admin panel.
+     */
+    public InboxPage listInbox(Mailbox mb, int limit, int offset) {
         int cappedLimit = Math.max(1, Math.min(MAX_PAGE_SIZE, limit));
         int cappedOffset = Math.max(0, offset);
 
-        Mailbox mb = mailboxes.getOwned(userId, mailboxId);
+        UUID mailboxId = mb.getId();
         try {
             Store store = pool.acquire(mb);
             Folder inbox = store.getFolder("INBOX");
@@ -174,7 +191,12 @@ public class MailService {
     // ---------- message detail ----------
 
     public MessageDetail getMessage(UUID userId, UUID mailboxId, String messageId) {
-        Mailbox mb = mailboxes.getOwned(userId, mailboxId);
+        return getMessage(mailboxes.getOwned(userId, mailboxId), messageId);
+    }
+
+    /** Ownership-free variant — see {@link #listInbox(Mailbox, int, int)}. */
+    public MessageDetail getMessage(Mailbox mb, String messageId) {
+        UUID mailboxId = mb.getId();
         long uid = parseUid(messageId);
         try {
             Store store = pool.acquire(mb);
@@ -264,7 +286,12 @@ public class MailService {
 
     public AttachmentPayload getAttachment(UUID userId, UUID mailboxId, String messageId,
                                            String attachmentId) {
-        Mailbox mb = mailboxes.getOwned(userId, mailboxId);
+        return getAttachment(mailboxes.getOwned(userId, mailboxId), messageId, attachmentId);
+    }
+
+    /** Ownership-free variant — see {@link #listInbox(Mailbox, int, int)}. */
+    public AttachmentPayload getAttachment(Mailbox mb, String messageId, String attachmentId) {
+        UUID mailboxId = mb.getId();
         long uid = parseUid(messageId);
         try {
             Store store = pool.acquire(mb);

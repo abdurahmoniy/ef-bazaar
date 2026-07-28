@@ -94,7 +94,15 @@ public class MailController {
             @PathVariable String attachmentId) {
         enforceRateLimit(me.userId());
         var payload = mail.getAttachment(me.userId(), mailboxId, messageId, attachmentId);
+        return download(payload);
+    }
 
+    /**
+     * Shared response builder so the admin panel's attachment endpoint serves
+     * bytes with exactly the same headers (always {@code attachment}, never
+     * inline) as the user-facing one.
+     */
+    public static ResponseEntity<Resource> download(MailService.AttachmentPayload payload) {
         String filename = payload.filename() != null && !payload.filename().isBlank()
                 ? payload.filename()
                 : "attachment";
