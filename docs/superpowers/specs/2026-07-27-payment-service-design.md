@@ -27,8 +27,8 @@ This spec introduces `payment-service`: a new microservice that owns every UZS t
 5. **Cards.** Moved out of trade-service, validated against the provider, and readable by an admin
    only when fulfilling a withdrawal ticket.
 
-The provider boundary is an interface from day one so Uzum, ATMOS, Click and Payme are
-interchangeable.
+The provider boundary is an interface from day one. inPAY is the first implementation; Click, Payme
+and others drop in behind the same contract.
 
 ## 2. Non-goals
 
@@ -43,7 +43,10 @@ interchangeable.
 - **No multi-currency.** UZS only, stored as tiyin in `BIGINT`.
 - **No admin UI framework.** Admin endpoints are plain REST guarded by `ROLE_ADMIN`; the UI is a
   follow-up.
-- **No fiscalisation (OFD receipts).** Deferred until the provider contract is signed — see §14.
+- **No refund API.** inPAY exposes no refund endpoint. A deposit made in error is returned by the
+  same manual bank transfer that fulfils a withdrawal ticket.
+- **No card binding / auto-charge.** inPAY's `/api/v1/cards/*` (tokenised one-click top-up) requires a
+  separate application and per-cashbox admin approval. Declared in the interface, not implemented.
 
 ## 3. Decisions and rationale
 
@@ -134,9 +137,9 @@ Three layers, with a hard rule at each boundary:
 
 ```
 ┌─ Provider layer ─────────  knows the bank API and nothing else.
-│  UzumPaymentProvider        Does not know what a trade, a wallet or a
-│  AtmosPaymentProvider       commission is. Only: create invoice, read
-│  MockPaymentProvider        state, verify callback.
+│  InpayPaymentProvider       Does not know what a trade, a wallet or a
+│  ClickPaymentProvider       commission is. Only: create invoice, read
+│  MockPaymentProvider        state, answer an inbound provider request.
 │
 ├─ Ledger layer ───────────  knows money and nothing else.
 │  LedgerService              Does not know what a bank is. Only: move
@@ -170,18 +173,19 @@ Two edits to the existing config:
 
 1. Remove `cards` from the trade-service regex at `api.conf:139`.
 2. The callback location must not carry `auth_request` — the provider does not present a JWT.
-   Authenticity is established by `PaymentProvider.parseCallback()` verifying the signature, plus an
-   nginx `allow`/`deny` IP allowlist. This location is deliberately given a path prefix distinct from
-   every authenticated route so it cannot be confused with one during future edits.
+   inPAY's notification carries no signature at all, so authenticity is established by re-querying
+   inPAY rather than by inspecting the request (§10.1), backed by an nginx `allow`/`deny` IP
+   allowlist. This location is deliberately given a path prefix distinct from every authenticated
+   route so it cannot be confused with one during future edits.
 
 ### 4.2 Provider interfaces
 
 ```java
 public interface PaymentProvider {
-    ProviderId    id();                                 // UZUM | ATMOS | CLICK | PAYME | MOCK
-    InvoiceResult createInvoice(InvoiceRequest r);      // amount, orderId, returnUrl
-    InvoiceState  getInvoiceState(String providerRef);  // reconciliation
-    ProviderEvent parseCallback(CallbackEnvelope raw);  // throws on bad signature
+    ProviderId       id();                                    // INPAY | CLICK | PAYME | MOCK
+    InvoiceResult    createInvoice(InvoiceRequest r);         // amount, orderRef, callbackUrl, payerIp
+    InvoiceState     getInvoiceState(String providerRef);     // authoritative status — see §10.1
+    ProviderResponse handleProviderRequest(ProviderRequest r);// inbound webhook / RPC dialogue
 }
 
 /** Declared for the card-validation flow. Optional per provider. */
@@ -198,9 +202,37 @@ public interface PayoutProvider {
 }
 ```
 
+`handleProviderRequest` rather than `parseCallback`: inPAY sends a single unsigned notification, but
+Click (SHOP API `Prepare`/`Complete`) and Payme (JSON-RPC, six methods) expect a **shaped reply** to
+each inbound call, not a fire-and-forget acknowledgement. A method that only parses cannot answer
+them. Returning a `ProviderResponse` covers all three shapes.
+
 `ProviderRegistry` resolves by `ProviderId` and returns `Optional<CardBindingProvider>` /
 `Optional<PayoutProvider>`, so "can this provider do X" is answered by the type system rather than at
 runtime.
+
+### 4.3 inPAY specifics
+
+inPAY (`https://inpay.uz/api/v1/`) is an **aggregator** in front of Click, Payme and its own
+card system. One integration reaches every method, which is why it is the first provider: no separate
+merchant contract per payment system, no per-system secret keys.
+
+| Concern | Detail |
+|---|---|
+| Auth | `GET /authorization/?merchant_id=&merchant_token=` → `bearer_token`, valid 24 h. **Cached**, refreshed on expiry — not fetched per call |
+| Create | `POST /create/` → `order_id`, `pay_url` |
+| Status | `GET /transactions/?order_id=` → `pending` \| `success` \| `failed` \| `cancelled` |
+| Fiscal | `GET /fiscal/?order_id=&merchant_id=` → `ofd.soliq.uz` receipt URL |
+| Amounts | **UZS (so'm), not tiyin.** Converted at the provider boundary only; the ledger is always tiyin |
+| Minimum | 1 000 UZS (`AMOUNT_TOO_LOW`) |
+| Rate limit | **100 requests/hour per IP** (`RATE_LIMIT_EXCEEDED`) — shapes the reconciliation design, §10.3 |
+| Trailing slash | Required on every endpoint (`/create/`, not `/create`) |
+| `client_ip` | The buyer's real IP is passed through. Without it every payment appears to originate from the payment-service host, which degrades inPAY's anti-fraud signal. It does not affect IP whitelisting |
+| Whitelisting | `callback_url` domain and merchant website must be whitelisted or match the merchant's own domain. `api.efbazaar.uz` is a subdomain of `efbazaar.uz` — confirm it is accepted, otherwise whitelist it explicitly |
+
+Fiscalisation, which the payment-agent model obliges us to provide (§3.3), comes free: after a
+successful deposit we fetch and store `fiscal_url` on the invoice and surface it in the user's
+transaction history.
 
 `MockPaymentProvider` is `@Profile({"local","docker","test"})`, mirroring the existing
 `MockPaymentAdapter` convention. The real provider is `@Profile("!mock")` and takes over
@@ -318,8 +350,10 @@ CREATE TABLE invoices (
     fee_tiyin     BIGINT      NOT NULL DEFAULT 0,                 -- acquiring, added on top
     charge_tiyin  BIGINT      NOT NULL,                           -- amount + fee, charged to card
     provider      VARCHAR(16) NOT NULL,
-    provider_ref  VARCHAR(128),
-    checkout_url  TEXT,
+    provider_ref  VARCHAR(128),                                 -- inPAY order_id
+    checkout_url  TEXT,                                         -- inPAY pay_url
+    fiscal_url    TEXT,                                         -- ofd.soliq.uz receipt
+    payer_ip      VARCHAR(45),                                  -- forwarded as client_ip
     status        VARCHAR(16) NOT NULL,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     paid_at       TIMESTAMPTZ,
@@ -378,10 +412,10 @@ Migrated from trade-service `V2__create_card_table.sql`, with two changes:
 - **`encrypted_cvv`, `cvv_iv`, `cvv_tag` are dropped.** They are not needed for a manual bank
   transfer, and storing CVV after authorisation is prohibited under PCI DSS 3.2 in any form,
   including encrypted.
-- **`provider_card_token`, `provider`, `holder_name` added.** The card is validated against the
-  provider when added; the returned cardholder name is stored so an admin can compare it against the
-  `full_name` on a withdrawal ticket. A mismatch is the clearest signal that someone is withdrawing
-  to a card that is not theirs.
+- **`provider_card_token`, `provider`, `holder_name` added.** Populated once provider card binding is
+  enabled, so that migration is a backfill of new columns rather than a schema change. Until then they
+  stay null and card creation validates by Luhn only — see the card-validation entry in §14 for what
+  that does and does not buy us.
 
 `encrypted_pan` stays. The admin needs a readable card number to make the transfer, so PAN
 tokenisation alone is not sufficient while payouts are manual. Every decryption is written to
@@ -398,22 +432,28 @@ Worked through with the owner's own example: buyer holds 100 000, seller holds 0
 ### 6.1 Deposit
 
 ```
-1. User requests a top-up of amount A
+1. User requests a top-up of amount A          (A >= 1 000 UZS)
 2. fee    = commission_policy(DEPOSIT).apply(A)
    charge = A + fee                        <- shown before confirming
 3. invoice(status=PENDING) created; no ledger movement yet
-4. PaymentProvider.createInvoice() -> checkout_url
-5. User pays; money arrives in the platform bank account
-6. Provider callback -> signature verified -> idempotency key checked
+4. PaymentProvider.createInvoice() -> pay_url, provider_ref
+   payerIp = the buyer's real IP, forwarded from nginx
+5. User pays on pay_url; money arrives at inPAY
+6. Webhook arrives -> treated ONLY as a trigger, never as proof (§10.1)
+7. getInvoiceState(provider_ref) -> inPAY's authoritative answer
+   assert status == success AND amount == invoice.amount_tiyin
+8. Idempotency key checked, then:
       PLATFORM_BANK      D A
       user.USER_AVAILABLE  C A
    invoice.status = PAID; lifetime_deposited_tiyin += A
+9. GET /fiscal/ -> store fiscal_url on the invoice (best effort, non-blocking)
 ```
 
-A callback may arrive twice, or never. Both are handled by the same code path: the
-`wallet_transactions.idempotency_key` unique constraint makes a repeat a no-op, and a reconciliation
-job polls `PENDING` invoices via `getInvoiceState()` every 30 seconds. Whichever arrives first wins;
-the second is a no-op.
+Steps 6–7 are the whole security model of the deposit leg and are explained in §10.1.
+
+A webhook may arrive twice, or never. Both converge on the same code path: the
+`wallet_transactions.idempotency_key` unique constraint makes a repeat a no-op, and the
+reconciliation job (§10.3) resolves invoices whose webhook never came.
 
 ### 6.2 Trade escrow
 
@@ -551,12 +591,21 @@ instead of the action.
 
 ```yaml
 payment:
+  deposit-provider: ${PAYMENT_DEPOSIT_PROVIDER:MOCK}   # INPAY in staging/prod
+  deposit:
+    minimum-uzs: 1000                               # inPAY AMOUNT_TOO_LOW below this
   commission:
     deposit:  { percent-bp: 0,   flat-uzs: 0 }      # acquiring, added on top
     trade:    { percent-bp: 0,   flat-uzs: 5000 }   # deducted from seller proceeds
   withdraw:
     minimum-uzs: 10000
     estimated-fee-percent-bp: 100                   # 1%, UI warning only
+  inpay:
+    base-url: https://inpay.uz/api/v1/
+    merchant-id: ${INPAY_MERCHANT_ID:}
+    merchant-token: ${INPAY_MERCHANT_TOKEN:}
+    callback-url: https://api.efbazaar.uz/api/v1/payments/callbacks/inpay
+    rate-limit-per-hour: 80                         # of inPAY's 100, leaving headroom
 ```
 
 Deposit and trade legs live in a `commission_policy` table keyed by leg, read through a cached
@@ -577,8 +626,9 @@ Mitigations that are in scope for this iteration:
 - PAN is decrypted only when an admin opens a `PENDING` withdrawal ticket, never in a list view, and
   never returned to a non-admin caller.
 - Every decryption writes a `card_reveal_audit` row: admin id, card id, ticket id, timestamp.
-- Card creation calls `CardBindingProvider.beginBind()` for real validation. Luhn stays as a
-  client-side pre-check only — `4111 1111 1111 1111` passes Luhn and must not pass card creation.
+- Card creation validates by Luhn. This is weaker than intended — `4111 1111 1111 1111` passes Luhn
+  and does not exist — but provider binding is unavailable this iteration, and the card is only ever
+  used by an admin making a manual transfer, who sees the bank reject a bad number. Tracked in §14.
 
 When automated payouts land, the PAN can be replaced by `provider_card_token` and this section
 becomes obsolete. The `provider_card_token` column is populated from day one so that migration is a
@@ -586,14 +636,44 @@ delete, not a backfill.
 
 ## 10. Security, invariants and failure paths
 
-### 10.1 Callback handling
+### 10.1 The webhook is a trigger, not proof
 
-`parseCallback()` verifies the provider signature and throws on mismatch; nginx additionally
-restricts the location to the provider IP range. A callback for an unknown or already-terminal
-invoice is acknowledged with 200 and ignored — providers retry on non-2xx, and a stuck retry loop is
-worse than a dropped duplicate.
+**inPAY's webhook carries no signature, no HMAC and no token.** The documented payload is:
 
-Callback bodies are persisted raw before processing, so a signature-scheme change can be replayed.
+```json
+{"amount":"15000.00","status":"success","order_id":"1ff2f5a6d66f6e9c",
+ "transaction_id":149,"created_at":"2025-12-10 05:14:52"}
+```
+
+Nothing in it distinguishes inPAY from anyone else who can reach the URL. For an ordinary shop that
+is a tolerable risk. For a wallet it is not: a forged webhook converts directly into spendable
+balance, and the attacker withdraws it through a ticket.
+
+The rule, therefore:
+
+> Never credit a wallet from webhook content. On receipt, look the invoice up locally, call
+> `getInvoiceState(provider_ref)` against inPAY with our bearer token, and act only on **inPAY's own
+> answer**. Require both `status == success` and an exact amount match against the stored invoice.
+
+The webhook body is used for exactly one thing: extracting `order_id` to know which invoice to
+re-check. Everything else in it is discarded.
+
+Cost: one extra outbound request per deposit, made after the user has already finished paying, so it
+is invisible to them.
+
+Defence in depth, none of which replaces the re-check:
+
+- nginx restricts the callback location to inPAY's source IPs (list to be obtained — §14).
+- Raw callback bodies are persisted before processing, so any dispute can be replayed.
+- A callback for an unknown or already-terminal invoice is answered 200 and ignored; inPAY retries on
+  non-2xx, and a stuck retry loop is worse than a dropped duplicate.
+- An amount mismatch is never silently corrected: the invoice is left `PENDING` and an ERROR is
+  logged with both amounts.
+
+**Status regression.** If a webhook or poll reports `failed` / `cancelled` for an invoice already
+`PAID`, the credit is **not** automatically reversed — the funds may already be spent, and
+`CHECK (available_tiyin >= 0)` would reject the reversal anyway. The invoice is flagged and raised to
+the admin queue as a chargeback candidate. Reversal is an `ADJUSTMENT` decided by a human.
 
 ### 10.2 Authorisation
 
@@ -601,12 +681,46 @@ Every wallet, deposit and withdrawal endpoint scopes by `X-User-Id`; no endpoint
 the request body. Admin endpoints require `ROLE_ADMIN` from `X-User-Roles` and record `admin_id` on
 every mutation.
 
-### 10.3 Reconciliation
+### 10.3 Reconciliation, under a 100/hour budget
 
-A nightly job asserts, for every wallet, that `available_tiyin` and `held_tiyin` equal the signed sum
-of that user's `ledger_entries`, and that the global identity `assets = liabilities + equity` holds.
-Any drift is logged at ERROR with the affected user ids and does not self-heal — a corrective
-`ADJUSTMENT` is a human decision.
+inPAY allows **100 requests per hour per IP**. Every deposit already costs two (`createInvoice` +
+the mandatory re-check), so the ceiling is roughly **50 deposits/hour** before polling is considered
+at all. A naive "poll every PENDING invoice every 30 seconds" sweep would exhaust the budget on its
+own and start returning `RATE_LIMIT_EXCEEDED` on real payments.
+
+The poll is therefore a **fallback for missing webhooks**, not the primary path:
+
+- Only invoices older than 2 minutes and still `PENDING` are candidates — a webhook normally arrives
+  well inside that window.
+- The sweep runs every 60 seconds and takes at most 5 invoices per run, oldest first.
+- Invoices past `expires_at` are marked `EXPIRED` locally without asking inPAY.
+- A shared token-bucket limiter caps all outbound inPAY traffic at 80 requests/hour, leaving headroom;
+  when the bucket is empty the sweep skips this run rather than burning the allowance a real deposit
+  needs.
+
+Ledger reconciliation is separate and local: a nightly job asserts, for every wallet, that
+`available_tiyin` and `held_tiyin` equal the signed sum of that user's `ledger_entries`, and that the
+global identity `assets = liabilities + equity` holds. Any drift is logged at ERROR with the affected
+user ids and does not self-heal — a corrective `ADJUSTMENT` is a human decision.
+
+### 10.4 Settlement lag (T+7)
+
+inPAY holds a new cashbox's funds for **7 days** as a chargeback window before releasing them to the
+platform bank account. Wallet numbers therefore run ahead of real money by up to a week: a seller can
+hold a withdrawable balance the platform cannot yet pay from.
+
+MVP handling is operational rather than modelled, because fulfilment is manual anyway:
+
+- The admin checks the real inPAY balance before paying a ticket and defers it if uncovered.
+- The withdrawal UI states that payment is made within 7 days, so a seller does not expect instant
+  settlement.
+- The ticket view already shows `lifetime_deposited_tiyin` and `lifetime_earned_tiyin` (§5.1). Money
+  *earned through trades* is safe to front immediately; a large recent deposit being withdrawn without
+  any trading is the classic chargeback-fraud shape and should wait out the window.
+
+If the platform later fronts payouts from working capital at volume, `PLATFORM_BANK` splits into
+`PLATFORM_BANK_PENDING` and `PLATFORM_BANK_AVAILABLE` with a settlement transaction between them.
+That is an additive change — one account kind — and does not disturb existing entries.
 
 ### 10.4 Concurrency
 
@@ -618,8 +732,13 @@ are the backstop if a code path forgets.
 
 | Failure | Behaviour |
 |---|---|
-| Callback never arrives | 30-second poll of `PENDING` invoices reaches the same end state |
-| Callback arrives twice | Unique `idempotency_key` makes the second a no-op |
+| Webhook never arrives | Fallback sweep (§10.3) re-checks the invoice and reaches the same end state |
+| Webhook arrives twice | Unique `idempotency_key` makes the second a no-op |
+| Forged webhook | Re-check against inPAY returns `pending`/not-found; nothing is credited |
+| Webhook amount ≠ invoice amount | Invoice left `PENDING`, ERROR logged with both amounts, admin alerted |
+| `RATE_LIMIT_EXCEEDED` from inPAY | Token bucket should prevent it; if hit, the invoice stays `PENDING` and the sweep retries later |
+| Bearer token expired mid-call | Single transparent refresh and one retry; a second failure surfaces the error |
+| Status regresses after `PAID` | No automatic reversal — flagged to the admin as a chargeback candidate (§10.1) |
 | `SETTLE` call fails | Outbox retries with backoff; escalates to admin after 10 attempts |
 | Admin pays but crashes before recording | Ticket stays `PENDING`; admin re-checks the bank statement. Double payment is possible and is accepted — manual fulfilment implies manual care |
 | Provider returns an unknown status | Invoice stays `PENDING` until poll resolves it or it expires |
@@ -635,8 +754,12 @@ Following the existing trade-service pattern — Testcontainers, `AbstractPostgr
   after every step that assets equal liabilities plus equity and no balance is negative. This is the
   single highest-value test in the service.
 - **`EscrowServiceIT`** — hold with insufficient funds, settle, release, and each replayed twice.
-- **`DepositFlowIT`** — invoice creation, callback with a valid signature, callback with an invalid
-  signature (rejected), duplicate callback, poll-resolves-before-callback.
+- **`DepositFlowIT`** — invoice creation; webhook whose re-check confirms success (credited); webhook
+  whose re-check returns `pending` (**not** credited — the forged-webhook case); webhook whose amount
+  disagrees with the invoice (not credited, alert raised); duplicate webhook; sweep resolving an
+  invoice whose webhook never arrived; status regression after `PAID`.
+- **`InpayRateLimiterTest`** — the bucket refuses the sweep when the hourly allowance is committed to
+  real deposits, and never exceeds the configured ceiling.
 - **`WithdrawFlowIT`** — below minimum, above balance, reserve, admin pays partial, admin pays full,
   admin rejects.
 - **`CardControllerIT`** — migrated from trade-service; adds a case asserting CVV is not accepted and
@@ -651,8 +774,19 @@ suite.
 
 ## 12. Configuration and deployment
 
-New `.env` keys: `PAYMENT_DB_NAME`, `PAYMENT_INTERNAL_TOKEN`, `PAYMENT_DEPOSIT_PROVIDER`, and the
-provider credential pair once the contract is signed.
+New `.env` keys:
+
+```bash
+PAYMENT_DB_NAME=payment_db
+PAYMENT_INTERNAL_TOKEN=          # trade-service -> payment-service shared secret
+PAYMENT_DEPOSIT_PROVIDER=MOCK    # INPAY in staging/prod
+INPAY_MERCHANT_ID=
+INPAY_MERCHANT_TOKEN=
+```
+
+Credentials live only in `.env`, which is already gitignored. They are never written as configuration
+defaults — a provider token committed as an `application.yml` fallback is how the Chempionat-X test
+token ended up in git, and a `LIVE` token would leak the same way.
 
 `docker-compose.yml` gains a `payment-service` block modelled on `trade-service`: same memory
 discipline (`mem_limit: 384m`, `-Xmx280m`, SerialGC), same `depends_on` health conditions, and the
@@ -671,9 +805,12 @@ discipline (`mem_limit: 384m`, `-Xmx280m`, SerialGC), same `depends_on` health c
 6. Cards: migration from trade-service, CVV removal, provider validation, reveal audit.
 7. Deposit: invoices, `MockPaymentProvider`, callback endpoint, reconciliation poll.
 8. Withdrawal: tickets, reserve, admin queue, fulfilment.
-9. Real provider implementation once the contract and credentials land.
+9. `InpayPaymentProvider`: bearer-token cache, `createInvoice`, `getInvoiceState`, the webhook
+   endpoint with mandatory re-check, the rate limiter, and the fiscal-receipt fetch.
 
-Steps 1–8 need no provider contract. Only step 9 does.
+Steps 1–8 need no provider credentials — `MockPaymentProvider` carries them end to end. Step 9 needs
+`merchant_id` and `merchant_token`, and can be written against the documented contract before they
+arrive: only the values differ, not the code.
 
 ## 14. Open questions and deferred risks
 
@@ -687,18 +824,36 @@ the account and the payment. The proposed remedy was `TIMEOUT -> SUCCESS` (silen
 recorded here so it is not lost. Until it is addressed, released funds should be treated as a
 fraud-loss channel and monitored.
 
-**Provider selection.** Uzum and ATMOS are both viable. Uzum has the cheapest published acquiring
-(0.8–1.5%) and a contract path already open; ATMOS has publicly readable documentation, a sandbox,
-and native UZCARD/HUMO with OTP. Because the required surface is now only invoice + callback, this
-choice does not block steps 1–8.
+**Provider selection — settled.** inPAY is the first provider. As an aggregator it reaches Click,
+Payme and its own card system through one contract, which removes the per-system merchant onboarding
+that blocked progress (a direct Click cashbox was obtained — service `98432` — but its secret key was
+never issued, and without it SHOP API signatures cannot be verified). Direct Click and Payme
+implementations remain possible later behind the same interface if aggregator margin becomes material.
 
-**Fiscalisation.** The payment-agent model obliges us to give the customer a document confirming the
-service. ATMOS returns an OFD receipt URL on capture; Uzum sells fiscalisation as a separate product.
-To be settled during contract negotiation.
+**inPAY credentials outstanding.** `merchant_id` and `merchant_token`. Also required in the inPAY
+dashboard: whitelist the callback URL and the merchant website, and confirm whether
+`api.efbazaar.uz` is auto-trusted as a subdomain of `efbazaar.uz` or needs an explicit entry.
 
-**Tariffs.** Acquiring percentage, per-transfer cost, and any monthly minimum are contract-specific
-and unpublished. `commission_policy` is configurable precisely so these can be set without a
-deployment.
+**inPAY source IPs.** Needed to restrict the callback location at nginx. Defence in depth only — the
+mandatory re-check in §10.1 does not depend on it.
+
+**Rate-limit headroom.** 100 requests/hour/IP caps throughput near 50 deposits/hour. Adequate for
+launch; a raise must be negotiated before that ceiling is approached. Worth confirming whether the
+limit is per source IP or per merchant, since the former is shared by every deposit we make.
+
+**Settlement window.** T+7 applies to a *new* cashbox. How long the platform is treated as new, and
+what the window becomes afterwards, should be confirmed with inPAY — it determines whether the
+working-capital float in §10.4 is a temporary or permanent requirement.
+
+**Tariffs.** inPAY's commission is not published. `commission_policy` is configurable so the deposit
+leg can be set without a deployment.
 
 **Withdrawal fee percentage.** Set to 1% as a placeholder for the UI warning. The real figure follows
 from what the admin's transfer actually costs.
+
+**Card validation.** §9 assumed the provider would validate a card when it is added. inPAY's card
+binding is not implemented in this iteration, so card creation falls back to a Luhn check, which
+proves nothing about the card existing. The exposure is limited because a withdrawal card is used
+only by an admin performing a manual transfer: a wrong number fails visibly at the bank, and the
+holder-name cross-check in §9 is unavailable until binding is added. Revisit when
+`/api/v1/cards/bind` is enabled.
