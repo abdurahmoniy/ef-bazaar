@@ -116,6 +116,18 @@ export const SEEDED_LISTING_ATTRIBUTE_DEFINITIONS: FormAttributeDefinition[] = [
     legacyFieldName: 'hasGooglePlayLink',
   },
   {
+    key: 'device_transfer_limit',
+    labelUz: 'Qurilma almashtirish limiti',
+    type: 'INT',
+    required: true,
+    position: 75,
+    groupKey: 'platform',
+    // eFootball allows 10 "transfer data to new device" sign-ins per month.
+    // A trade eats at least two (moderator check + buyer's sign-in), so below
+    // that the account cannot be handed over at all this month.
+    constraints: { min: 0, max: 10, min_sellable: 2 },
+  },
+  {
     key: 'exchange_mode',
     labelUz: 'Obmen shartlari',
     type: 'ENUM',
@@ -253,6 +265,9 @@ function parseIntegerAttribute(
 
   const rangeError = validateNumberRange(definition, value)
   if (rangeError) return { ok: false, error: rangeError }
+
+  const sellableError = validateSellableMinimum(definition, value)
+  if (sellableError) return { ok: false, error: sellableError }
   return { ok: true, value }
 }
 
@@ -386,6 +401,25 @@ function validateNumberRange(definition: ListingAttributeDefinition, value: numb
     return `${definition.labelUz} ${max} dan katta bo'lmasligi kerak`
   }
   return null
+}
+
+/**
+ * `min_sellable` is a floor for *listing* the account, not for the value
+ * itself: 0 remaining device transfers is a truthful answer, it just means the
+ * account cannot be handed over this month. Kept separate from `min` so the
+ * message can explain why instead of reading as a range error.
+ */
+function validateSellableMinimum(
+  definition: ListingAttributeDefinition,
+  value: number,
+) {
+  const minSellable = numberConstraint(definition, 'min_sellable')
+  if (minSellable === undefined || value >= minSellable) return null
+
+  if (definition.key === 'device_transfer_limit') {
+    return `Qurilma almashtirish limiti ${value} ta qolgan. Sotuv uchun kamida ${minSellable} ta kerak: bittasi moderator tekshiruvi, bittasi xaridorning o'z qurilmasiga kirishi uchun. Limit har oy yangilanadi.`
+  }
+  return `${definition.labelUz} sotuvga qo'yish uchun kamida ${minSellable} bo'lishi kerak`
 }
 
 function numberConstraint(definition: ListingAttributeDefinition, key: string) {

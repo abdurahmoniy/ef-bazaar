@@ -208,6 +208,26 @@ export function ListingFiltersForm({
 
 					<div>
 						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
+							Qurilma almashtirish limiti (kamida)
+						</div>
+						{/* Handover burns two sign-ins; buyers who want headroom
+						    filter for accounts with more left this month. */}
+						<Input
+							name='attr.device_transfer_limit.min'
+							type='number'
+							inputMode='numeric'
+							min={2}
+							max={10}
+							step={1}
+							placeholder='masalan 4'
+							aria-label='Qurilma almashtirish limiti (kamida)'
+							defaultValue={attr('device_transfer_limit.min')}
+							className='h-10 rounded-lg'
+						/>
+					</div>
+
+					<div>
+						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
 							Obmen shartlari
 						</div>
 						<Select

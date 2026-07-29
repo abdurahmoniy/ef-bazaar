@@ -51,6 +51,11 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   const hasGameCenterLink = attributeBoolean(listing, 'has_game_center_link');
   const androidCoins = attributeNumber(listing, 'android_coins');
   const iosCoins = attributeNumber(listing, 'ios_coins');
+  // Monthly device-transfer sign-ins left. A handover eats two, so anything
+  // near the floor is a risk the buyer should see before opening the listing.
+  const deviceTransferLimit = attributeNumber(listing, 'device_transfer_limit');
+  const transferLimitTight =
+    deviceTransferLimit !== undefined && deviceTransferLimit <= 3;
   const acceptsExchange = listingAcceptsExchange(listing);
   const coverUrl = listingMediaUrls(listing, 1)[0];
   const href = `/marketplace/${listing.id}`;
@@ -121,6 +126,11 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
             {iosCoins !== undefined && (
               <Badge variant="outline">
                 <Apple className="h-3 w-3" /> {formatCompactNumber(iosCoins)}
+              </Badge>
+            )}
+            {transferLimitTight && (
+              <Badge variant="warn">
+                <TriangleAlert className="h-3 w-3" /> {deviceTransferLimit} qurilma limiti
               </Badge>
             )}
             {hasGooglePlayLink && (
@@ -209,10 +219,14 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
         </div>
         <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
           <span>{formatListingDate(listing.createdAt)}</span>
-          {(hasGooglePlayLink || hasGameCenterLink) && (
+          {(transferLimitTight || hasGooglePlayLink || hasGameCenterLink) && (
             <span className="ml-auto inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-300">
               <TriangleAlert className="h-3 w-3" />
-              {[hasGooglePlayLink && 'Google Play', hasGameCenterLink && 'Game Center']
+              {[
+                transferLimitTight && `${deviceTransferLimit} qurilma limiti`,
+                hasGooglePlayLink && 'Google Play',
+                hasGameCenterLink && 'Game Center',
+              ]
                 .filter(Boolean)
                 .join(' + ')}
             </span>
