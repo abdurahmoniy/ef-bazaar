@@ -1,4 +1,13 @@
-import { ArrowLeftRight, Coins, Gamepad2, MapPin, ShieldCheck, Sparkles, TriangleAlert } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Coins,
+  Gamepad2,
+  MapPin,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  TriangleAlert,
+} from 'lucide-react';
 
 import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { ListingActions } from '@/components/marketplace/listing-actions';
@@ -62,6 +71,12 @@ export function MarketplaceListingDetail({
   ]
     .filter(Boolean)
     .join(' va ');
+  // eFootball caps "transfer data to new device" at 10 sign-ins per month and
+  // a handover burns at least two (moderator check + buyer). A listing sitting
+  // near the floor can stall mid-trade, so the count is buyer-facing.
+  const deviceTransferLimit = attributeNumber(listing, 'device_transfer_limit');
+  const transferLimitTight =
+    deviceTransferLimit !== undefined && deviceTransferLimit <= 3;
   const androidCoins = attributeNumber(listing, 'android_coins');
   const iosCoins = attributeNumber(listing, 'ios_coins');
   const exchangeMode = attributeString(listing, 'exchange_mode');
@@ -113,6 +128,12 @@ export function MarketplaceListingDetail({
                     <ArrowLeftRight className="h-3 w-3" /> Obmen
                   </Badge>
                 )}
+                {deviceTransferLimit !== undefined && (
+                  <Badge variant={transferLimitTight ? 'warn' : 'outline'}>
+                    <Smartphone className="h-3 w-3" /> Qurilma limiti:{' '}
+                    {deviceTransferLimit}/10
+                  </Badge>
+                )}
                 {hasGooglePlayLink && (
                   <Badge variant="warn">
                     <TriangleAlert className="h-3 w-3" /> Google Play ulangan
@@ -133,6 +154,18 @@ export function MarketplaceListingDetail({
                   Bu akkount {linkedStores} bilan ulangan. Bu ulanishni uzib
                   bo'lmaydi — akkount faqat Konami ID orqali o'tkaziladi va
                   avvalgi egasida kirish imkoni saqlanib qolishi mumkin.
+                </span>
+              </p>
+            )}
+
+            {transferLimitTight && (
+              <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
+                <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Bu akkountda shu oy uchun {deviceTransferLimit} ta qurilma
+                  almashtirish limiti qolgan. Savdo kamida 2 tasini oladi:
+                  moderator tekshiruvi va sizning qurilmangizga kirish. Limit
+                  keyingi oy yangilanadi.
                 </span>
               </p>
             )}

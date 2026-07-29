@@ -104,6 +104,13 @@ public class AttributeValidator {
         if (max != null && n > max) {
             throw MarketplaceException.invalidAttributeValue(def.getKey(), "max=" + max);
         }
+        // Separate floor from `min`: the value itself is legal (a seller may
+        // genuinely have 0 device transfers left this month) but the account
+        // cannot be traded, so it earns its own error code + message.
+        Long minSellable = readLongConstraint(def, "min_sellable");
+        if (minSellable != null && n < minSellable) {
+            throw MarketplaceException.attributeBelowSellableMinimum(def.getLabelUz(), minSellable, n);
+        }
         return n;
     }
 

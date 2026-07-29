@@ -79,6 +79,16 @@ public class MarketplaceException extends RuntimeException {
                 "Attribute qiymati noto'g'ri (" + key + "): " + reason);
     }
 
+    /**
+     * The value is valid in itself but too low for the account to be tradeable
+     * — currently only {@code device_transfer_limit}, where a trade consumes a
+     * moderator sign-in plus the buyer's own sign-in.
+     */
+    public static MarketplaceException attributeBelowSellableMinimum(String label, long min, long actual) {
+        return new MarketplaceException(HttpStatus.BAD_REQUEST, "attribute_below_sellable_minimum",
+                label + ": " + actual + " — sotuvga qo'yish uchun kamida " + min + " bo'lishi kerak");
+    }
+
     public static MarketplaceException cannotReportOwnListing() {
         return new MarketplaceException(HttpStatus.BAD_REQUEST, "cannot_report_own_listing",
                 "O'zingizning e'loningizni shikoyat qila olmaysiz");

@@ -810,6 +810,11 @@ const STORE_LINK_HINTS: Record<string, string> = {
 		"Game Center ulanishini uzib bo'lmaydi — akkount faqat Konami ID orqali o'tkaziladi.",
 }
 
+const ATTRIBUTE_HINTS: Record<string, string> = {
+	device_transfer_limit:
+		"eFootball'da bir akkount oyiga 10 marta yangi qurilmaga o'tkaziladi. Shu oyda nechtasi qolganini yozing — savdo kamida 2 tasini oladi (moderator tekshiruvi va xaridorning kirishi). Limit har oy yangilanadi.",
+}
+
 function GameplayStep({
 	state,
 	setState,
@@ -983,6 +988,11 @@ function AttributeInput({
 						className={cn('h-11', icon && 'pl-9')}
 					/>
 				</div>
+				{ATTRIBUTE_HINTS[definition.key] && (
+					<p className='text-xs leading-5 text-muted-foreground'>
+						{ATTRIBUTE_HINTS[definition.key]}
+					</p>
+				)}
 			</div>
 		)
 	}
@@ -1394,10 +1404,18 @@ function validateStep(
 				else {
 					const min = numberConstraint(def, 'min')
 					const max = numberConstraint(def, 'max')
+					const minSellable = numberConstraint(def, 'min_sellable')
 					if (min !== undefined && num < min)
 						errors.push(`${def.labelUz} ${min} dan kichik bo'lmasin.`)
 					if (max !== undefined && num > max)
 						errors.push(`${def.labelUz} ${max} dan katta bo'lmasin.`)
+					// Truthful value, untradeable account — say why, not "min".
+					if (minSellable !== undefined && num >= (min ?? num) && num < minSellable)
+						errors.push(
+							def.key === 'device_transfer_limit'
+								? `Qurilma almashtirish limiti ${num} ta qolgan. Sotuv uchun kamida ${minSellable} ta kerak: moderator tekshiruvi va xaridorning kirishi uchun. Limit har oy yangilanadi.`
+								: `${def.labelUz} sotuvga qo'yish uchun kamida ${minSellable} bo'lsin.`,
+						)
 				}
 			}
 			if (def.type === 'DECIMAL') {

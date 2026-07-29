@@ -52,7 +52,8 @@ public class AttributeDefinition {
 
     /**
      * Free-form validation hints — {@code min}, {@code max}, {@code regex},
-     * {@code options[]}, {@code item_max_length}. Interpreted per {@link #type}.
+     * {@code options[]}, {@code item_max_length}, {@code min_sellable}.
+     * Interpreted per {@link #type}.
      */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")

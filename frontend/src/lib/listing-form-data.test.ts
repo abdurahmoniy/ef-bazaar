@@ -96,6 +96,7 @@ describe('createListingRequestFromForm', () => {
     formData.set('androidCoins', '100');
     formData.set('iosCoins', '50');
     formData.set('attr.platform', 'MOBILE');
+    formData.set('attr.device_transfer_limit', '6');
     formData.set('price', '450000');
     formData.set('hasGooglePlayLink', 'on');
     formData.set('priceNegotiable', 'on');
@@ -113,6 +114,7 @@ describe('createListingRequestFromForm', () => {
         platform: 'MOBILE',
         has_google_play_link: true,
         has_game_center_link: false,
+        device_transfer_limit: 6,
         valuable_players: ['Messi', 'Neymar', 'Mbappe'],
       },
     });
@@ -126,12 +128,55 @@ describe('createListingRequestFromForm', () => {
     formData.set('androidCoins', '0');
     formData.set('iosCoins', '0');
     formData.set('attr.platform', 'MOBILE');
+    formData.set('attr.device_transfer_limit', '10');
     formData.set('price', '100000');
 
     const result = createListingRequestFromForm(formData);
     expect(typeof result).not.toBe('string');
     if (typeof result === 'string') return;
     expect(result.attributes).not.toHaveProperty('valuable_players');
+  });
+
+  it('blocks listings whose device transfer limit is below the sellable floor', () => {
+    const formData = new FormData();
+    formData.set('description', 'Strong account with rare players');
+    formData.set('highestDivisionLevel', '3');
+    formData.set('teamStrength', '2800');
+    formData.set('attr.platform', 'MOBILE');
+    formData.set('attr.device_transfer_limit', '1');
+    formData.set('price', '100000');
+
+    const result = createListingRequestFromForm(formData);
+    expect(result).toContain('Sotuv uchun kamida 2 ta kerak');
+  });
+
+  it('accepts a device transfer limit exactly at the floor', () => {
+    const formData = new FormData();
+    formData.set('description', 'Strong account with rare players');
+    formData.set('highestDivisionLevel', '3');
+    formData.set('teamStrength', '2800');
+    formData.set('attr.platform', 'MOBILE');
+    formData.set('attr.device_transfer_limit', '2');
+    formData.set('price', '100000');
+
+    const result = createListingRequestFromForm(formData);
+    expect(typeof result).not.toBe('string');
+    if (typeof result === 'string') return;
+    expect(result.attributes.device_transfer_limit).toBe(2);
+  });
+
+  it('rejects a device transfer limit above the monthly cap', () => {
+    const formData = new FormData();
+    formData.set('description', 'Strong account with rare players');
+    formData.set('highestDivisionLevel', '3');
+    formData.set('teamStrength', '2800');
+    formData.set('attr.platform', 'MOBILE');
+    formData.set('attr.device_transfer_limit', '11');
+    formData.set('price', '100000');
+
+    expect(createListingRequestFromForm(formData)).toBe(
+      "Qurilma almashtirish limiti 10 dan katta bo'lmasligi kerak",
+    );
   });
 
   it('returns validation messages for invalid listing fields', () => {
