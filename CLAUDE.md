@@ -171,7 +171,11 @@ status                ACTIVE | SOLD | DELETED
 - Java 21 — Record, Pattern matching, Sealed classes ishlatiladi
 - Package: `uz.efbazaar.<service>.<layer>` (masalan `uz.efbazaar.auth.service`)
 - Controller → Service → Repository pattern
-- DTO ↔ Entity: MapStruct
+- DTO ↔ Entity: MapStruct — to'g'ridan-to'g'ri mapping uchun. Hisoblanadigan
+  maydon (masalan o'rtacha, foiz, hisoblangan bayroq) yoki boshqa servisdan
+  keladigan qiymat bo'lsa, DTO ichida `static of(...)` factory ishlatiladi
+  (masalan `TradeAdminCardResponse.of`) — MapStruct'ga `@AfterMapping`
+  qo'shishdan ko'ra o'qilishi oson va bitta joyda turadi
 - Validatsiya: Jakarta Validation (`@Valid`, `@NotNull` va h.k.)
 - Exception handling: `@ControllerAdvice` — markazlashtirilgan
 - API versioning: `/api/v1/...`
