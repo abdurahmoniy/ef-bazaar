@@ -14,6 +14,7 @@ public final class AuthEvents {
     public static final String TOPIC_USER_DELETED      = "efbazaar.auth.user-deleted";
     public static final String TOPIC_GOOGLE_LINKED     = "efbazaar.auth.google-linked";
     public static final String TOPIC_USER_PHOTO_NEEDED = "efbazaar.auth.user-photo-needed";
+    public static final String TOPIC_USER_ROLE_CHANGED = "efbazaar.auth.user-role-changed";
 
     private AuthEvents() {}
 
@@ -65,5 +66,19 @@ public final class AuthEvents {
             UUID userId,
             Long telegramId,
             String email,
+            Instant occurredAt) {}
+
+    /**
+     * A platform admin changed a user's role. trade-service consumes this to
+     * deactivate the admin catalogue profile of a user who lost
+     * {@code TRADE_ADMIN} — otherwise a revoked admin stays hireable.
+     *
+     * <p>Roles travel as plain strings, not the enum, so a consumer that does
+     * not share auth-service's enum can still read the payload.
+     */
+    public record UserRoleChanged(
+            UUID userId,
+            String oldRole,
+            String newRole,
             Instant occurredAt) {}
 }

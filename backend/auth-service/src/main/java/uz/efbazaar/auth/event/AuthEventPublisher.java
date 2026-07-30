@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import uz.efbazaar.auth.domain.Role;
 import uz.efbazaar.auth.domain.User;
 
 import java.time.Instant;
@@ -57,6 +58,15 @@ public class AuthEventPublisher {
     public void userDeleted(UUID userId, Long telegramId, String email) {
         var event = new AuthEvents.UserDeleted(userId, telegramId, email, Instant.now());
         send(AuthEvents.TOPIC_USER_DELETED, userId.toString(), event);
+    }
+
+    public void userRoleChanged(UUID userId, Role oldRole, Role newRole) {
+        var event = new AuthEvents.UserRoleChanged(
+                userId,
+                oldRole == null ? null : oldRole.name(),
+                newRole == null ? null : newRole.name(),
+                Instant.now());
+        send(AuthEvents.TOPIC_USER_ROLE_CHANGED, userId.toString(), event);
     }
 
     private void send(String topic, String key, Object event) {
