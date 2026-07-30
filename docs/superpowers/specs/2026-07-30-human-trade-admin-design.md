@@ -385,9 +385,14 @@ Ma'no jihatidan haq sotuvchi ulushidan chiqadi: xaridor adminga 80 000 beradi, a
 o'ziga 15 000 olib sotuvchiga 65 000 o'tkazadi. Bu platformadan tashqarida sodir
 bo'ladi va biz uni faqat qayd qilamiz.
 
-**payment-service spec'iga qo'shilishi kerak:** `TradeStateHandler` `payment_outbox`
-qatorini yozishdan oldin `mode == SMART` tekshiradi. Busiz human savdo yopilganda
-mavjud bo'lmagan hold'ni settle qilishga urinadi.
+**payment-service hozir to'xtatilgan** (2026-07-30 qarori). Uning spec'i
+`2026-07-27-payment-service-design.md` da yozilgan holda qoladi, lekin qurilmaydi.
+Bu spec'dagi hech bir bosqich unga tayanmaydi: human savdoda pul adminning qo'lidan
+o'tadi, smart savdoda esa mavjud `MockPaymentAdapter` ishlashda davom etadi.
+
+**payment-service qurilganda unga qo'shilishi kerak:** `TradeStateHandler`
+`payment_outbox` qatorini yozishdan oldin `mode == SMART` tekshiradi. Busiz human
+savdo yopilganda mavjud bo'lmagan hold'ni settle qilishga urinadi.
 
 ---
 
