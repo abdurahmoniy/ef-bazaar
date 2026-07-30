@@ -12,7 +12,6 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
-import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -49,7 +48,7 @@ public class JwtService {
                 .subject(user.getId().toString())
                 .id(UUID.randomUUID().toString())
                 .claim(CLAIM_TYPE, TYPE_ACCESS)
-                .claim(CLAIM_ROLES, List.of("ROLE_" + user.getRole().name()))
+                .claim(CLAIM_ROLES, user.getRole().authorities())
                 // Display name rides in the token so downstream services get it
                 // from verify headers with zero DB lookups. Refreshes re-issue
                 // the claim, so renames propagate within the 15-min TTL.
