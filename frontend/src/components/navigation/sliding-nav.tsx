@@ -56,6 +56,15 @@ interface SlidingNavProps {
    * out of the cross-navigation slide.
    */
   markerName?: string;
+  /**
+   * Below sm, show the label only for the active item and leave the rest as
+   * icons. Five Uzbek labels need ~340px of track; a 360px phone then scrolls
+   * the strip, which hides half the tabs behind a gesture nobody is prompted
+   * to make. Collapsing the inactive ones fits the whole set on screen while
+   * the one you are on still says what it is. Needs every item to have an
+   * icon — without one a collapsed tab is a blank pill.
+   */
+  collapseInactiveLabels?: boolean;
 }
 
 interface Indicator {
@@ -83,6 +92,7 @@ export function SlidingNav({
   className,
   ariaLabel,
   markerName,
+  collapseInactiveLabels = false,
 }: SlidingNavProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<HTMLSpanElement>(null);
@@ -179,14 +189,20 @@ export function SlidingNav({
 
         {items.map((item) => {
           const isActive = item.id === activeId;
+          const collapsed = collapseInactiveLabels && !isActive;
           return (
             <Link
               key={item.id}
               href={item.href}
               data-active={isActive}
               aria-current={isActive ? 'page' : undefined}
+              // Collapsed items are icon-only, so the accessible name has to
+              // come from the attribute rather than the (hidden) text.
+              aria-label={collapsed ? item.label : undefined}
+              title={collapsed ? item.label : undefined}
               className={cn(
-                'relative z-10 inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold transition-colors',
+                'relative z-10 inline-flex h-8 items-center gap-1.5 rounded-full text-[13px] font-semibold transition-colors',
+                collapsed ? 'w-10 justify-center px-0 sm:w-auto sm:px-3' : 'px-3',
                 isActive
                   ? isPill
                     ? 'text-primary-foreground'
@@ -195,11 +211,12 @@ export function SlidingNav({
               )}
             >
               {item.icon}
-              {item.label}
+              <span className={cn(collapsed && 'hidden sm:inline')}>{item.label}</span>
               {typeof item.count === 'number' && item.count > 0 && (
                 <span
                   className={cn(
                     'text-[11px] font-bold tabular-nums',
+                    collapsed && 'hidden sm:inline',
                     isActive && isPill ? 'text-primary-foreground/70' : 'text-muted-foreground/70',
                   )}
                 >

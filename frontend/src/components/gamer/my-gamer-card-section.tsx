@@ -111,9 +111,15 @@ export function MyGamerCardSection({ navSlot, email }: MyGamerCardSectionProps =
         <GamerCardView card={card} captureId={CAPTURE_ID} email={email} />
       </div>
 
-      <div className="flex items-center gap-2">
-        {navSlot}
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+      {/* One row only where there is room for one. Sharing a line, the tab
+          strip got whatever width the buttons left over and clipped mid-item
+          with no scroll affordance. Measured: five expanded tabs need ~555px
+          and the buttons ~180px, so they only both fit from lg up — at sm the
+          strip was still scrolling. Below that they stack, actions first so
+          the tabs sit directly above the section they switch. */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div className="order-2 min-w-0 flex-1 lg:order-1">{navSlot}</div>
+        <div className="order-1 flex shrink-0 items-center justify-end gap-2 lg:order-2">
           <ShareGamerCardButton
             captureId={CAPTURE_ID}
             username={card.telegramUsername}
