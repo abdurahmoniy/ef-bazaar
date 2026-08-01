@@ -6,6 +6,9 @@
 -- Buyers read the maxed value, so that is what the UI shows and what sorting
 -- keys on; the base rating stays for reference and diffing.
 --
+-- Also applied at boot by marketplace-service's CardSchemaBootstrap (see the
+-- note in V2) — keep the two in sync.
+--
 -- Nullable on purpose — cards scraped before the parser learned this field
 -- have no value, and the readers fall back to overall_rating rather than
 -- rendering a hole.
