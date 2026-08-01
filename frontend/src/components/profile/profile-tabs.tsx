@@ -33,6 +33,7 @@ export function ProfileTabs({ active, counts = {} }: ProfileTabsProps) {
       items={items}
       activeId={active}
       markerName="profile-tabs-marker"
+      collapseInactiveLabels
       ariaLabel="Profil bo'limlari"
     />
   );
