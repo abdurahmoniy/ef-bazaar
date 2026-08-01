@@ -2,11 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { Check, Search, Sparkles, Users } from 'lucide-react';
+import { Check, RefreshCw, Search, Sparkles, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { adminSetCardMetaTier } from '@/lib/marketplace-actions';
+import { adminRefreshMaxOvr, adminSetCardMetaTier } from '@/lib/marketplace-actions';
 import { cardRating } from '@/lib/marketplace-types';
 import type { CardSearchResult, CardType, MetaTier } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
@@ -93,6 +93,22 @@ export function AdminPlayers({ cards, total, query, activeType, activeTier }: Ad
     });
   }
 
+  function refreshMaxOvr() {
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const result = await adminRefreshMaxOvr();
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setNotice(
+        `MAX OVR: ${result.data.changed} ta karta yangilandi (${result.data.matched} tasi tekshirildi)`,
+      );
+      router.refresh();
+    });
+  }
+
   const selectedIds = [...selected];
   const metaCount = cards.filter((card) => card.metaTier === 'META').length;
 
@@ -102,6 +118,10 @@ export function AdminPlayers({ cards, total, query, activeType, activeTier }: Ad
         <p className="text-sm font-semibold text-muted-foreground">
           Jami: {total} ta karta · shu sahifada {metaCount} ta META
         </p>
+        <Button size="sm" variant="outline" disabled={isPending} onClick={refreshMaxOvr}>
+          <RefreshCw className="mr-1.5 h-4 w-4" />
+          MAX OVR yangilash
+        </Button>
       </div>
 
       <form

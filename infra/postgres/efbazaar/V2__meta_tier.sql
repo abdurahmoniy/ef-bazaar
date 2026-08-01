@@ -10,6 +10,11 @@
 -- scoring ever lands, move to a `card_meta` side table instead of growing
 -- meta_source / meta_score / meta_updated_at columns on all three tables.
 --
+-- Also applied at boot by marketplace-service's CardSchemaBootstrap — this DB
+-- has no Flyway, so a code deploy can outrun setup-db.sh. Keep the two in
+-- sync; this file additionally covers fresh DBs, where the tables don't exist
+-- yet and only V1 can create them.
+--
 -- Safe across re-scrapes: infra/scrapers/efhub/load.py lists its columns
 -- explicitly in ON CONFLICT DO UPDATE and meta_tier is not among them, so a
 -- fresh scrape never resets curated tiers.

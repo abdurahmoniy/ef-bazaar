@@ -167,6 +167,12 @@ export interface CardMetaTierUpdateResponse {
   requested: number;
 }
 
+export interface MaxOvrRefreshResponse {
+  indexEntries: number;
+  matched: number;
+  changed: number;
+}
+
 /**
  * Public-facing shape for a valuable_players entry after CARD_LIST migration.
  * Backend stores snake_case; helpers below normalize to something the display

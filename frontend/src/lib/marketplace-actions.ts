@@ -7,6 +7,7 @@ import type {
   AttributeDefinitionUpdatePayload,
   CardMetaTierUpdateResponse,
   LikeToggleResponse,
+  MaxOvrRefreshResponse,
   MetaTier,
 } from './marketplace-types';
 
@@ -179,6 +180,18 @@ export function adminSetCardMetaTier(
     ['v1', 'admin', 'cards', 'meta-tier'],
     { method: 'PUT', body: JSON.stringify({ efhubIds, metaTier }) },
     "O'yinchi darajasi yangilanmadi",
+  );
+}
+
+/**
+ * Backfill max OVR from the efhub player index. One index fetch plus a batched
+ * UPDATE server-side — no page scraping, safe to repeat.
+ */
+export function adminRefreshMaxOvr(): Promise<ActionResult<MaxOvrRefreshResponse>> {
+  return marketplaceRequest<MaxOvrRefreshResponse>(
+    ['v1', 'admin', 'cards', 'max-ovr-refresh'],
+    { method: 'POST' },
+    'MAX OVR yangilanmadi',
   );
 }
 
