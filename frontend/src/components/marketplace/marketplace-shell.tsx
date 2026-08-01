@@ -11,7 +11,9 @@ import {
 
 import { ChatsUnreadBadge } from '@/components/chat/chats-unread-badge';
 import { Logo } from '@/components/brand/logo';
+import { SlidingNav, type SlidingNavItem } from '@/components/navigation/sliding-nav';
 import { TopBackButton } from '@/components/navigation/top-back-button';
+import { UserMenu } from '@/components/navigation/user-menu';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { Button } from '@/components/ui/button';
@@ -48,7 +50,7 @@ interface MarketplaceShellProps {
   mobileActionBar?: React.ReactNode;
 }
 
-export type MarketplaceTab = 'home' | 'tournaments' | 'favorites' | 'sell' | 'chats' | 'profile';
+export type MarketplaceTab = 'home' | 'tournaments' | 'safety' | 'sell' | 'chats' | 'profile';
 
 interface NavItem {
   id: MarketplaceTab;
@@ -56,11 +58,8 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   requiresAuth: boolean;
-}
-
-/** Favorites live inside the profile tab set — /favorites only redirects there. */
-function favoritesHref(user: User | null) {
-  return user ? '/profile?tab=favorites' : '/auth/login?from=/favorites';
+  /** Renders as a raised circular FAB in the bottom bar instead of a flat tab. */
+  primary?: boolean;
 }
 
 /**
@@ -78,7 +77,14 @@ function buildNavItems(user: User | null): NavItem[] {
       icon: <Trophy className="h-5 w-5" />,
       requiresAuth: false,
     },
-    { id: 'sell', href: '/marketplace/new', label: 'Sotish', icon: <Plus className="h-5 w-5" />, requiresAuth: true },
+    {
+      id: 'sell',
+      href: '/marketplace/new',
+      label: 'Sotish',
+      icon: <Plus className="h-5 w-5" />,
+      requiresAuth: true,
+      primary: true,
+    },
     {
       id: 'chats',
       href: user ? '/chats' : '/auth/login?from=/chats',
@@ -104,13 +110,20 @@ function buildNavItems(user: User | null): NavItem[] {
 /**
  * Desktop (md+) header nav. Before this existed the bottom bar was the only
  * navigation in the shell and it is {@code md:hidden} — desktop users had no
- * route to Sevimli or Turnirlar at all.
+ * route to Turnirlar at all.
+ *
+ * Sevimli used to hold the third slot and could never highlight: it points at
+ * /profile?tab=favorites, and that page passes activeTab="profile". It is a
+ * profile tab and now lives in the user menu. The slot went to /blacklist,
+ * whose only inbound link was a footnote on the seller card — on a P2P account
+ * market the scam list is the answer to the buyer's first objection, so it
+ * belongs in the top row rather than three clicks down.
  */
-function buildDesktopLinks(user: User | null): Array<{ id: MarketplaceTab; href: string; label: string }> {
+function buildDesktopLinks(): SlidingNavItem[] {
   return [
     { id: 'home', href: '/marketplace', label: 'Bozor' },
     { id: 'tournaments', href: '/tournaments', label: 'Turnirlar' },
-    { id: 'favorites', href: favoritesHref(user), label: 'Sevimli' },
+    { id: 'safety', href: '/blacklist', label: 'Xavfsizlik' },
   ];
 }
 
@@ -125,7 +138,7 @@ export function MarketplaceShell({
   mobileActionBar,
 }: MarketplaceShellProps) {
   const items = buildNavItems(user);
-  const desktopLinks = buildDesktopLinks(user);
+  const desktopLinks = buildDesktopLinks();
 
   return (
     <div className="min-h-app bg-background pb-24 md:pb-0">
@@ -134,26 +147,14 @@ export function MarketplaceShell({
           {backHref && <TopBackButton href={backHref} label={backLabel} className="-ml-2" />}
           <Logo size="sm" href="/marketplace" />
 
-          <nav
-            aria-label="Asosiy navigatsiya"
-            className="hidden shrink-0 items-center gap-1 rounded-lg bg-muted p-1 text-sm font-bold text-muted-foreground md:flex"
-          >
-            {desktopLinks.map((link) => (
-              <Link
-                key={link.id}
-                href={link.href}
-                aria-current={link.id === activeTab ? 'page' : undefined}
-                className={cn(
-                  'rounded-lg px-3 py-1.5 transition',
-                  link.id === activeTab
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'hover:bg-card/70 hover:text-foreground',
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+          <SlidingNav
+            items={desktopLinks}
+            activeId={activeTab}
+            variant="underline"
+            markerName="header-nav-marker"
+            ariaLabel="Asosiy navigatsiya"
+            className="ml-1 hidden shrink-0 overflow-visible md:block"
+          />
 
           {!hideSearch && (
             <form action="/marketplace" method="get" className="ml-2 hidden min-w-0 flex-1 items-center sm:flex">
@@ -169,41 +170,52 @@ export function MarketplaceShell({
             </form>
           )}
 
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <ThemeToggle />
-            {user && <NotificationBell />}
-            {user && (
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="hidden h-10 rounded-lg px-3 sm:inline-flex"
-              >
-                <Link href="/chats" title="Chatlar">
-                  <span className="relative">
-                    <MessageCircle className="h-4 w-4" />
-                    <ChatsUnreadBadge />
-                  </span>
-                  {/* Label folds away between md and lg — the nav row above
-                      already eats the width the full button needs. */}
-                  <span className="hidden lg:inline">Chatlar</span>
-                </Link>
-              </Button>
+          {/*
+            Three zones, one primary. Chats and the bell are borderless icons
+            packed at gap-0 so they read as a single utility cluster; a hairline
+            separates that cluster from Sotish, which is the only filled control
+            in the row. Everything else a signed-in user needs (theme, Sevimli,
+            Pochta, admin, logout) hangs off the avatar. Previously all five
+            controls were equal-weight bordered pills with nothing marking the
+            primary action.
+          */}
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            {user ? (
+              <>
+                <div className="hidden items-center sm:flex">
+                  <Button asChild variant="ghost" size="sm" className="h-9 w-9 p-0" title="Chatlar">
+                    <Link href="/chats" aria-label="Chatlar">
+                      <span className="relative">
+                        <MessageCircle className="h-5 w-5" />
+                        <ChatsUnreadBadge />
+                      </span>
+                    </Link>
+                  </Button>
+                  <NotificationBell />
+                </div>
+
+                <span aria-hidden className="hidden h-5 w-px bg-border sm:block" />
+
+                <Button asChild size="sm" className="hidden h-9 rounded-full px-3 sm:inline-flex lg:px-4">
+                  <Link href="/marketplace/new">
+                    <Plus className="h-4 w-4" />
+                    <span className="hidden lg:inline">Sotish</span>
+                  </Link>
+                </Button>
+
+                <UserMenu user={user} />
+              </>
+            ) : (
+              <>
+                <ThemeToggle className="h-9 w-9 rounded-full" />
+                <Button asChild size="sm" className="h-9 rounded-full px-3 lg:px-4">
+                  <Link href="/auth/login">
+                    <UserRound className="h-4 w-4" />
+                    <span className="hidden sm:inline">Kirish</span>
+                  </Link>
+                </Button>
+              </>
             )}
-            <Button asChild size="sm" className="hidden h-10 rounded-lg px-3 sm:inline-flex lg:px-4">
-              <Link href={user ? '/marketplace/new' : '/auth/login?from=/marketplace/new'}>
-                <Plus className="h-4 w-4" />
-                <span className="hidden lg:inline">Sotish</span>
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm" className="hidden h-10 rounded-lg px-3 sm:inline-flex">
-              <Link href={user ? '/profile' : '/auth/login'}>
-                <UserRound className="h-4 w-4" />
-                <span className="max-w-32 truncate md:hidden lg:inline">
-                  {user ? user.displayName : 'Kirish'}
-                </span>
-              </Link>
-            </Button>
           </div>
         </div>
 
@@ -265,6 +277,24 @@ export function MarketplaceShell({
 }
 
 function MobileNavLink({ item, active }: { item: NavItem; active: boolean }) {
+  // The primary slot is a filled circle, not a fourth identical icon+label.
+  // Five equal tabs left nothing marking the one action the marketplace exists
+  // for; the raised puck is the standard tell and costs no extra bar height.
+  if (item.primary) {
+    return (
+      <Link
+        href={item.href}
+        aria-current={active ? 'page' : undefined}
+        aria-label={item.label}
+        className="flex min-h-14 flex-col items-center justify-center gap-1 transition active:scale-95"
+      >
+        <span className="grid h-11 w-11 place-items-center rounded-full bg-primary text-primary-foreground shadow-card-hover transition hover:brightness-110">
+          {item.icon}
+        </span>
+      </Link>
+    );
+  }
+
   return (
     <Link
       href={item.href}

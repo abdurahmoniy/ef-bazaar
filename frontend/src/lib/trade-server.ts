@@ -1,7 +1,12 @@
 import 'server-only';
 
 import { apiFetch, ApiException } from './api';
-import type { CardResponse, PendingProposalResponse, TradeResponse } from './trade-types';
+import type {
+  CardResponse,
+  PendingProposalResponse,
+  TradePage,
+  TradeResponse,
+} from './trade-types';
 
 /**
  * trade-service is exposed at `/api/v1/...` in nginx (no service prefix like
@@ -38,6 +43,19 @@ export async function getTradesByChat(chatId: string): Promise<TradeResponse[]> 
   const encoded = encodeURIComponent(chatId);
   const data = await safeGet<TradeResponse[]>(`${TRADE_PREFIX}/trades?chatId=${encoded}`);
   return data ?? [];
+}
+
+/**
+ * Every trade the caller is a party to, newest first. Backs the profile's
+ * "Savdolarim" tab — until this existed a trade was only reachable through the
+ * chat it started in, so an escrow deal with a running deadline could only be
+ * found by remembering which thread it belonged to.
+ */
+export async function getMyTrades(limit = 20, offset = 0): Promise<TradePage> {
+  const data = await safeGet<TradePage>(
+    `${TRADE_PREFIX}/trades?limit=${limit}&offset=${offset}`,
+  );
+  return data ?? { items: [], total: 0, limit, offset };
 }
 
 /** Cards saved to the caller's profile — used to pre-fill the trade card picker. */

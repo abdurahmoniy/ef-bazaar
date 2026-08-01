@@ -3,6 +3,9 @@ package uz.efbazaar.trade.trade.service;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
@@ -15,6 +18,7 @@ import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.domain.TradeMessage;
 import uz.efbazaar.trade.trade.domain.TradeMessageType;
 import uz.efbazaar.trade.trade.domain.TradeState;
+import uz.efbazaar.trade.trade.dto.TradePage;
 import uz.efbazaar.trade.trade.dto.TradeResponse;
 import uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException;
 import uz.efbazaar.trade.trade.repository.TradeChatRepository;
@@ -182,6 +186,24 @@ public class TradeService {
         return trades.findByChatIdAndParticipantOrderByCreatedAtDesc(chatId, viewerUserId).stream()
                 .map(t -> toResponse(t, t.roleFor(viewerUserId)))
                 .toList();
+    }
+
+    /**
+     * Every trade the caller is a party to, newest first, paged. Each entry
+     * carries the caller's own {@link ParticipantRole} — the same trade is a
+     * sale for one side and a purchase for the other.
+     */
+    @Transactional(readOnly = true)
+    public TradePage listMine(UUID viewerUserId, int limit, int offset) {
+        Pageable pageable = PageRequest.of(offset / limit, limit);
+        Page<Trade> page = trades.findByParticipant(viewerUserId, pageable);
+        return new TradePage(
+                page.getContent().stream()
+                        .map(t -> toResponse(t, t.roleFor(viewerUserId)))
+                        .toList(),
+                page.getTotalElements(),
+                limit,
+                offset);
     }
 
     private UUID allocatePlaceholderMailbox() {

@@ -1,4 +1,4 @@
-import { SlidersHorizontal, TrendingUp } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 
 import { CardPickerField } from '@/components/marketplace/card-picker-field'
@@ -280,24 +280,17 @@ export function ListingFiltersForm({
 						/>
 					</div>
 
-					<div>
-						<div className='mb-1.5 flex items-center gap-1 text-xs font-semibold text-muted-foreground'>
-							<TrendingUp className='h-3.5 w-3.5' /> Saralash
-						</div>
-						<Select
-							name='sort'
-							defaultValue={
-								LISTING_SORT_OPTIONS.find((o) => o.id === currentSortId)?.param
-							}
-							className='h-10'
-						>
-							{LISTING_SORT_OPTIONS.map((option) => (
-								<option key={option.id} value={option.param}>
-									{option.label}
-								</option>
-							))}
-						</Select>
-					</div>
+					{/* Sorting moved to the results header, next to the count — buried at
+					    the bottom of this panel (and below the fold of the mobile sheet)
+					    it was effectively undiscoverable. Carried through as a hidden
+					    field so applying a filter doesn't silently reset the order. */}
+					<input
+						type='hidden'
+						name='sort'
+						value={
+							LISTING_SORT_OPTIONS.find((o) => o.id === currentSortId)?.param ?? ''
+						}
+					/>
 
 					{/* Sticks to the bottom of the mobile filter sheet's scroll area so
 					    "Qo'llash" stays reachable without scrolling the whole form.
