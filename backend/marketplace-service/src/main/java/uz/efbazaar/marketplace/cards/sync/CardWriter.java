@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import uz.efbazaar.marketplace.cards.CardColumns;
 import uz.efbazaar.marketplace.cards.CardType;
 
 import java.sql.Array;
@@ -53,15 +54,25 @@ public class CardWriter {
             "preferred_foot", "weak_foot_usage", "weak_foot_accuracy", "image_url"
     );
 
+    /** Optional column — absent until the efbazaar schema is brought up to date. */
+    private static final String MAX_OVR_COL = "max_overall_rating";
+
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
+    private final CardColumns columns;
     private final Map<CardType, String> upsertSqlByType = new EnumMap<>(CardType.class);
+    /** Same statement minus max_overall_rating, for a schema that predates it. */
+    private final Map<CardType, String> upsertSqlLegacyByType = new EnumMap<>(CardType.class);
 
-    public CardWriter(@Qualifier("efbazaarJdbcTemplate") JdbcTemplate jdbc, ObjectMapper mapper) {
+    public CardWriter(@Qualifier("efbazaarJdbcTemplate") JdbcTemplate jdbc,
+                      ObjectMapper mapper,
+                      CardColumns columns) {
         this.jdbc = jdbc;
         this.mapper = mapper;
+        this.columns = columns;
         for (CardType t : CardType.values()) {
-            upsertSqlByType.put(t, buildUpsertSql(t.tableName()));
+            upsertSqlByType.put(t, buildUpsertSql(t.tableName(), true));
+            upsertSqlLegacyByType.put(t, buildUpsertSql(t.tableName(), false));
         }
     }
 
@@ -96,6 +107,11 @@ public class CardWriter {
 
         int changed = 0;
         for (Map.Entry<CardType, List<Object[]>> entry : batches.entrySet()) {
+            if (!columns.has(entry.getKey().tableName(), MAX_OVR_COL)) {
+                log.warn("skipping max OVR refresh for {} — column absent",
+                        entry.getKey().tableName());
+                continue;
+            }
             String sql = "UPDATE " + entry.getKey().tableName()
                     + " SET max_overall_rating = ?, updated_at = NOW()"
                     + " WHERE efhub_id = ? AND max_overall_rating IS DISTINCT FROM ?";
@@ -107,11 +123,13 @@ public class CardWriter {
     }
 
     public void upsert(ScrapedCard card, CardType type) {
-        String sql = upsertSqlByType.get(type);
-        jdbc.update(con -> bind(con.prepareStatement(sql), card));
+        boolean withMaxOvr = columns.has(type.tableName(), MAX_OVR_COL);
+        String sql = (withMaxOvr ? upsertSqlByType : upsertSqlLegacyByType).get(type);
+        jdbc.update(con -> bind(con.prepareStatement(sql), card, withMaxOvr));
     }
 
-    private PreparedStatement bind(PreparedStatement ps, ScrapedCard c) throws SQLException {
+    private PreparedStatement bind(PreparedStatement ps, ScrapedCard c, boolean withMaxOvr)
+            throws SQLException {
         int i = 1;
         ps.setLong(i++, c.efhubId());
         setString(ps, i++, c.name());
@@ -124,7 +142,9 @@ public class CardWriter {
         setString(ps, i++, c.position());
         setString(ps, i++, c.playingStyle());
         setNullableInt(ps, i++, c.overallRating());
-        setNullableInt(ps, i++, c.maxOverallRating());
+        if (withMaxOvr) {
+            setNullableInt(ps, i++, c.maxOverallRating());
+        }
         ps.setInt(i++, c.playerType());
         setNullableInt(ps, i++, c.age());
         setNullableInt(ps, i++, c.height());
@@ -179,17 +199,21 @@ public class CardWriter {
         }
     }
 
-    private static String buildUpsertSql(String table) {
+    private static String buildUpsertSql(String table, boolean withMaxOvr) {
         // Build column list: base (20) + stats (25) + tail (2 arrays + 2 jsonb)
+        List<String> baseCols = withMaxOvr
+                ? BASE_COLS
+                : BASE_COLS.stream().filter(c -> !MAX_OVR_COL.equals(c)).toList();
+
         StringBuilder cols = new StringBuilder();
         StringBuilder vals = new StringBuilder();
-        appendCsv(cols, BASE_COLS);
+        appendCsv(cols, baseCols);
         for (String s : STAT_COLS) {
             cols.append(", ").append(s);
         }
         cols.append(", skills, com_skills, additional_positions, raw_data");
 
-        int n = BASE_COLS.size() + STAT_COLS.length + 2; // base + stats + 2 arrays
+        int n = baseCols.size() + STAT_COLS.length + 2; // base + stats + 2 arrays
         for (int i = 0; i < n; i++) {
             if (i > 0) vals.append(", ");
             vals.append("?");
@@ -198,7 +222,7 @@ public class CardWriter {
         vals.append(", ?::jsonb, ?::jsonb");
 
         StringBuilder updates = new StringBuilder();
-        appendUpdateCsv(updates, BASE_COLS, /*skipFirst*/ true); // skip efhub_id
+        appendUpdateCsv(updates, baseCols, /*skipFirst*/ true); // skip efhub_id
         for (String s : STAT_COLS) {
             updates.append(", ").append(s).append("=EXCLUDED.").append(s);
         }
