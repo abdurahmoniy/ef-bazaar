@@ -69,7 +69,7 @@ export function ShareGamerCardButton({
   return (
     <Button onClick={share} disabled={busy} className={cn('gap-2', className)}>
       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-      Kartani ulash
+      Kartani ulashish
       {!busy && <Download className="h-3.5 w-3.5 opacity-60" />}
     </Button>
   );

@@ -10,6 +10,7 @@ import { ShareGamerCardButton } from '@/components/gamer/share-gamer-card-button
 import { OverflowMenu, overflowItemClass } from '@/components/navigation/overflow-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { fetchMyGamerCard, updateMyGamerProfile } from '@/lib/gamer-client';
 import type { GamerCardResponse, GamerPlatform } from '@/lib/gamer-types';
 
@@ -36,6 +37,7 @@ interface MyGamerCardSectionProps {
 
 /** Profildagi "Gamer Card" bo'limi: ko'rish + tahrirlash + ulashish. */
 export function MyGamerCardSection({ navSlot, email }: MyGamerCardSectionProps = {}) {
+  const wide = useMediaQuery('(min-width: 1024px)');
   const [card, setCard] = useState<GamerCardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -102,76 +104,83 @@ export function MyGamerCardSection({ navSlot, email }: MyGamerCardSectionProps =
     );
   }
 
+  const actions = (
+    <>
+      <ShareGamerCardButton
+        captureId={CAPTURE_ID}
+        username={card.telegramUsername}
+        className="h-9 rounded-full px-3.5 text-[13px]"
+      />
+      <OverflowMenu>
+        {(close) => (
+          <>
+            <GamerCardFullscreen
+              card={card}
+              email={email}
+              captureId={CAPTURE_ID}
+              renderTrigger={(open) => (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    close();
+                    open();
+                  }}
+                  className={overflowItemClass}
+                >
+                  <Maximize2 className="h-4 w-4 text-muted-foreground" />
+                  To&apos;liq ko&apos;rish
+                </button>
+              )}
+            />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                close();
+                setEditing((v) => !v);
+              }}
+              className={overflowItemClass}
+            >
+              <Pencil className="h-4 w-4 text-muted-foreground" />
+              {editing ? 'Bekor qilish' : 'Tahrirlash'}
+            </button>
+            <Link
+              href={`/gamers/${card.userId}`}
+              role="menuitem"
+              onClick={close}
+              className={overflowItemClass}
+            >
+              <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              Ochiq sahifa
+            </Link>
+          </>
+        )}
+      </OverflowMenu>
+    </>
+  );
+
   return (
     <div className="space-y-4">
-      <GamerCardCompact card={card} />
+      {/* Below lg the actions ride inside the card as its footer — they all act
+          on the card, and as a separate strip above the tab rail they read as
+          page chrome and stole the width the tabs needed. From lg there is room
+          to put them opposite the nav on one line.
+
+          A media query rather than two CSS-hidden copies: two copies would mean
+          two overflow menus and two fullscreen dialogs mounted at once. Safe to
+          branch on here because nothing renders until the card has loaded
+          client-side, so there is no server/client mismatch to flash. */}
+      <GamerCardCompact card={card} actionsSlot={wide ? undefined : actions} />
 
       {/* Off-screen full poster — PNG ulashish shu nusxani suratga oladi. */}
       <div className="gc-capture-host" aria-hidden>
         <GamerCardView card={card} captureId={CAPTURE_ID} email={email} />
       </div>
 
-      {/* One row only where there is room for one. Sharing a line, the tab
-          strip got whatever width the buttons left over and clipped mid-item
-          with no scroll affordance. Measured: five expanded tabs need ~555px
-          and the buttons ~180px, so they only both fit from lg up — at sm the
-          strip was still scrolling. Below that they stack, actions first so
-          the tabs sit directly above the section they switch. */}
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-        <div className="order-2 min-w-0 flex-1 lg:order-1">{navSlot}</div>
-        <div className="order-1 flex shrink-0 items-center justify-end gap-2 lg:order-2">
-          <ShareGamerCardButton
-            captureId={CAPTURE_ID}
-            username={card.telegramUsername}
-            className="h-9 rounded-full px-3.5 text-[13px]"
-          />
-          <OverflowMenu>
-            {(close) => (
-              <>
-                <GamerCardFullscreen
-                  card={card}
-                  email={email}
-                  captureId={CAPTURE_ID}
-                  renderTrigger={(open) => (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        close();
-                        open();
-                      }}
-                      className={overflowItemClass}
-                    >
-                      <Maximize2 className="h-4 w-4 text-muted-foreground" />
-                      To&apos;liq ko&apos;rish
-                    </button>
-                  )}
-                />
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    close();
-                    setEditing((v) => !v);
-                  }}
-                  className={overflowItemClass}
-                >
-                  <Pencil className="h-4 w-4 text-muted-foreground" />
-                  {editing ? 'Bekor qilish' : 'Tahrirlash'}
-                </button>
-                <Link
-                  href={`/gamers/${card.userId}`}
-                  role="menuitem"
-                  onClick={close}
-                  className={overflowItemClass}
-                >
-                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                  Ochiq sahifa
-                </Link>
-              </>
-            )}
-          </OverflowMenu>
-        </div>
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">{navSlot}</div>
+        {wide && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
 
       {editing && (

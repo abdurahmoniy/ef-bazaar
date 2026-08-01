@@ -582,6 +582,18 @@
   color: var(--gc-ink-dim);
 }
 
+/* Card-owned action footer — share + overflow. Sits inside the card because
+   every action in it acts on the card, not on the page. */
+.gc-c-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gc-c-actions > *:first-child {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
 /* ── small phones ─────────────────────────────────────────── */
 @media (max-width: 390px) {
   .gc-card {
