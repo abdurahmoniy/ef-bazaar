@@ -6,6 +6,8 @@ import type {
   AttributeDefinitionResponse,
   AttributeDefinitionUpdatePayload,
   CardMetaTierUpdateResponse,
+  DreamTeam,
+  DreamTeamPayload,
   LikeToggleResponse,
   MaxOvrRefreshResponse,
   MetaTier,
@@ -180,6 +182,33 @@ export function adminSetCardMetaTier(
     ['v1', 'admin', 'cards', 'meta-tier'],
     { method: 'PUT', body: JSON.stringify({ efhubIds, metaTier }) },
     "O'yinchi darajasi yangilanmadi",
+  );
+}
+
+export function createDreamTeam(payload: DreamTeamPayload): Promise<ActionResult<DreamTeam>> {
+  return marketplaceRequest<DreamTeam>(
+    ['v1', 'dream-teams'],
+    { method: 'POST', body: JSON.stringify(payload) },
+    'Jamoa saqlanmadi',
+  );
+}
+
+export function updateDreamTeam(
+  id: string,
+  payload: DreamTeamPayload,
+): Promise<ActionResult<DreamTeam>> {
+  return marketplaceRequest<DreamTeam>(
+    ['v1', 'dream-teams', id],
+    { method: 'PUT', body: JSON.stringify(payload) },
+    'Jamoa yangilanmadi',
+  );
+}
+
+export function deleteDreamTeam(id: string): Promise<ActionResult<null>> {
+  return marketplaceRequest<null>(
+    ['v1', 'dream-teams', id],
+    { method: 'DELETE' },
+    "Jamoa o'chirilmadi",
   );
 }
 

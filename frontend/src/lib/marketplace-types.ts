@@ -64,6 +64,8 @@ export interface ListingResponse {
   forwardCount: number;
   likeCount: number;
   likedByMe?: boolean | null;
+  /** 0..100 squad coverage — present only when the request carried a dream team. */
+  matchPercent?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -171,6 +173,52 @@ export interface MaxOvrRefreshResponse {
   indexEntries: number;
   matched: number;
   changed: number;
+}
+
+/** One position on the pitch. `card` is absent while the slot is empty. */
+export interface DreamTeamSlot {
+  index: number;
+  position: string;
+  /** Slot weight — 3 = must have, 1 = nice to have. Drives the match score. */
+  w?: number;
+  card?: AttachedPlayerCard;
+}
+
+export interface DreamTeam {
+  id: string;
+  name: string;
+  formation: string;
+  slots: DreamTeamSlot[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DreamTeamPayload {
+  name: string;
+  formation: string;
+  slots: DreamTeamSlot[];
+}
+
+/**
+ * The squad payload the backend scores against — see `card_match_score` in
+ * V27. Only filled slots count; empty ones would drag every score down.
+ */
+export function dreamTeamFilterValue(slots: DreamTeamSlot[]): string | undefined {
+  const wanted = slots
+    .filter((slot) => slot.card?.efhubId)
+    .map((slot) => ({
+      id: String(slot.card!.efhubId),
+      name: slot.card!.name,
+      w: slot.w ?? 1,
+    }));
+  return wanted.length === 0 ? undefined : JSON.stringify(wanted);
+}
+
+/** Same shape from a flat card list (the quick "filter by these players" path). */
+export function cardsFilterValue(cards: AttachedPlayerCard[]): string | undefined {
+  return dreamTeamFilterValue(
+    cards.map((card, index) => ({ index, position: '', card })),
+  );
 }
 
 /**

@@ -26,6 +26,7 @@ import {
   listingAcceptsExchange,
   type ListingResponse,
 } from '@/lib/marketplace-types';
+import { cn } from '@/lib/utils';
 
 interface ListingCardProps {
   listing: ListingResponse;
@@ -76,6 +77,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
             <PlaceholderImage />
           )}
           {isSold && <SoldOverlay />}
+          <MatchBadge percent={listing.matchPercent} />
         </Link>
         {!isSold && (
           <ListingLikeButton
@@ -262,6 +264,29 @@ function Metric({ icon, value }: { icon: React.ReactNode; value: string }) {
       <span className="text-muted-foreground">{icon}</span>
       <span className="truncate font-bold text-foreground">{value}</span>
     </div>
+  );
+}
+
+/**
+ * Squad coverage against the dream team in the current filter. Absent unless
+ * the browse request carried one, so ordinary browsing is unchanged.
+ *
+ * Colour is the honest signal: green only for a genuinely strong cover, amber
+ * for partial. Everything shown already passed the user's own threshold.
+ */
+function MatchBadge({ percent }: { percent?: number | null }) {
+  if (typeof percent !== 'number') return null;
+  const strong = percent >= 70;
+  return (
+    <span
+      className={cn(
+        'absolute left-2 top-2 z-10 rounded-lg px-2 py-1 text-[11px] font-black shadow-card backdrop-blur-sm',
+        strong ? 'bg-emerald-500/90 text-white' : 'bg-amber-400/90 text-amber-950',
+      )}
+      title="Tanlangan o'yinchilarga mos kelish darajasi"
+    >
+      {percent}% mos
+    </span>
   );
 }
 

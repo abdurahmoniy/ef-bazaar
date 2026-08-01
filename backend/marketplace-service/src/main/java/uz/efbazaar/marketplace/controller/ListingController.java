@@ -13,10 +13,13 @@ import org.springframework.web.multipart.MultipartFile;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.dto.*;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
+import uz.efbazaar.marketplace.service.CardMatchScorer;
 import uz.efbazaar.marketplace.service.ListingService;
+import uz.efbazaar.marketplace.service.ListingSpecifications;
 import uz.efbazaar.marketplace.service.ListingViewAssembler;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +34,7 @@ public class ListingController {
 
     private final ListingService listingService;
     private final ListingViewAssembler assembler;
+    private final CardMatchScorer matchScorer;
 
     // ---------- Public: browse ----------
 
@@ -55,8 +59,23 @@ public class ListingController {
         Page<Listing> page = listingService.browse(filter, pageable);
         UUID viewerId = viewer == null ? null : viewer.userId();
 
-        return new PageResponse<>(
-                assembler.assembleAll(page.getContent(), viewerId),
+        // Attach the squad-coverage percentage the SQL ordering used but never
+        // returns. No-op unless the caller sent a dream team.
+        String wanted = attributeFilters.get(ListingSpecifications.DREAM_TEAM_KEY) == null
+                ? null
+                : String.valueOf(attributeFilters.get(ListingSpecifications.DREAM_TEAM_KEY));
+        List<ListingResponse> content = assembler.assembleAll(page.getContent(), viewerId);
+        if (wanted != null) {
+            List<Listing> listings = page.getContent();
+            List<ListingResponse> scored = new ArrayList<>(content.size());
+            for (int i = 0; i < content.size(); i++) {
+                scored.add(content.get(i).withMatchPercent(
+                        matchScorer.percent(listings.get(i).getAttributes(), wanted)));
+            }
+            content = scored;
+        }
+
+        return new PageResponse<>(content,
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
