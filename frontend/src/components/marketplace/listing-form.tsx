@@ -39,6 +39,7 @@ import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data'
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api'
 import { formatPriceUZS, normalizePlayerList } from '@/lib/marketplace-format'
 import { listingMediaUrls } from '@/lib/marketplace-media'
+import { cardRating } from '@/lib/marketplace-types'
 import type {
 	ListingAttributeDefinition,
 	ListingCreateRequest,
@@ -1212,7 +1213,7 @@ function renderAttributeValue(
 		return cards
 			.map(
 				(c) =>
-					`${c.name}${c.overallRating ? ` ${c.overallRating}` : ''}${c.cardType ? ` ${c.cardType}` : ''}`,
+					`${c.name}${cardRating(c) ? ` ${cardRating(c)}` : ''}${c.cardType ? ` ${c.cardType}` : ''}`,
 			)
 			.join(', ')
 	}
@@ -1323,6 +1324,10 @@ function normalizeCardListPayload(value: unknown): PlayerCard[] {
 				typeof (item.overallRating ?? item.overall_rating) === 'number'
 					? Number(item.overallRating ?? item.overall_rating)
 					: undefined,
+			maxOverallRating:
+				typeof (item.maxOverallRating ?? item.max_overall_rating) === 'number'
+					? Number(item.maxOverallRating ?? item.max_overall_rating)
+					: undefined,
 			cardType:
 				typeof (item.cardType ?? item.card_type) === 'string'
 					? String(item.cardType ?? item.card_type)
@@ -1350,6 +1355,10 @@ function cardToApiPayload(card: PlayerCard): Record<string, unknown> {
 	if (card.playingStyle !== undefined) payload.playing_style = card.playingStyle
 	if (card.overallRating !== undefined)
 		payload.overall_rating = card.overallRating
+	// Snapshot the maxed OVR too — the listing must keep showing the number the
+	// seller saw, even if a later scrape changes the card.
+	if (card.maxOverallRating !== undefined)
+		payload.max_overall_rating = card.maxOverallRating
 	if (card.cardType !== undefined) payload.card_type = card.cardType
 	if (card.imageUrl !== undefined) payload.image_url = card.imageUrl
 	if (card.skills !== undefined) payload.skills = card.skills

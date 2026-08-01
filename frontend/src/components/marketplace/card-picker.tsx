@@ -6,6 +6,7 @@ import { Loader2, Search, X } from 'lucide-react';
 import { PlayerCardTile } from '@/components/marketplace/player-card-tile';
 import { Input } from '@/components/ui/input';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+import { cardRating, type MetaTier } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
 
 export interface PlayerCard {
@@ -14,8 +15,13 @@ export interface PlayerCard {
   team?: string;
   position?: string;
   playingStyle?: string;
+  /** Level-1 rating. Display via {@link cardRating}, never directly. */
   overallRating?: number;
+  /** OVR at max level — what players actually mean by "Messi 106". */
+  maxOverallRating?: number;
   cardType?: string;
+  /** 'META' — currently in demand. Curated by admins at /admin/players. */
+  metaTier?: MetaTier;
   imageUrl?: string;
   skills?: string[];
 }
@@ -306,9 +312,9 @@ function SelectedPill({
         >
           {card.name}
         </span>
-        {typeof card.overallRating === 'number' && (
+        {typeof cardRating(card) === 'number' && (
           <span className="rounded bg-primary px-1 py-0.5 text-[10px] font-black leading-none text-primary-foreground">
-            {card.overallRating}
+            {cardRating(card)}
           </span>
         )}
         {card.cardType && (
@@ -392,9 +398,9 @@ function CardOption({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="min-w-0 truncate text-sm font-bold text-foreground">{card.name}</span>
-          {typeof card.overallRating === 'number' && (
+          {typeof cardRating(card) === 'number' && (
             <span className="ml-auto shrink-0 rounded bg-primary px-1.5 py-0.5 text-[10px] font-black text-primary-foreground">
-              {card.overallRating}
+              {cardRating(card)}
             </span>
           )}
         </div>

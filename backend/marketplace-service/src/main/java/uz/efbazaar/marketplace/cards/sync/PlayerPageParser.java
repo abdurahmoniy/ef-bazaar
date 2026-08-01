@@ -40,6 +40,16 @@ public class PlayerPageParser {
     }
 
     public ScrapedCard parse(String html, long pidHint) {
+        return parse(html, pidHint, null);
+    }
+
+    /**
+     * @param maxOvr max-level OVR taken from the player index entry ("o"). The
+     *               player page only carries the level-1 rating — efhub derives
+     *               the maxed one in the browser from the progression curve —
+     *               so the caller has to supply it.
+     */
+    public ScrapedCard parse(String html, long pidHint, Integer maxOvr) {
         int from = 0;
         int idx;
         while ((idx = html.indexOf(PUSH_PREFIX, from)) >= 0) {
@@ -57,7 +67,7 @@ public class PlayerPageParser {
             if (!decoded.contains("\"playerType\":") || !decoded.contains("\"baseStats\":")) {
                 continue;
             }
-            ScrapedCard card = build(decoded, pidHint);
+            ScrapedCard card = build(decoded, pidHint, maxOvr);
             if (card != null) {
                 return card;
             }
@@ -126,7 +136,7 @@ public class PlayerPageParser {
         return null;
     }
 
-    private ScrapedCard build(String decoded, long pidHint) {
+    private ScrapedCard build(String decoded, long pidHint, Integer maxOvr) {
         String block = extractPlayerBlock(decoded);
         String playerBlob = block != null ? block : decoded;
 
@@ -164,6 +174,7 @@ public class PlayerPageParser {
                 matchStr(playerBlob, "position"),
                 matchStr(playerBlob, "playingStyle"),
                 matchInt(playerBlob, "overallRating"),
+                maxOvr,
                 playerType,
                 matchInt(playerBlob, "age"),
                 matchInt(playerBlob, "height"),

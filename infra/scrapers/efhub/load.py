@@ -33,7 +33,7 @@ STAT_MAP = {
 
 COLUMNS = [
     'efhub_id','name','name_ja','name_zh','team','league','nationality','nationality_code',
-    'position','playing_style','overall_rating','player_type','age','height','weight',
+    'position','playing_style','overall_rating','max_overall_rating','player_type','age','height','weight',
     'preferred_foot','weak_foot_usage','weak_foot_accuracy','image_url',
 ] + list(STAT_MAP.values()) + ['skills','com_skills','additional_positions','raw_data']
 
@@ -46,7 +46,7 @@ def row_to_tuple(row):
         row.get('team'), row.get('league'),
         row.get('nationality'), row.get('nationalityCode'),
         row.get('position'), row.get('playingStyle'),
-        row.get('overallRating'), row.get('playerType'),
+        row.get('overallRating'), row.get('maxOverallRating'), row.get('playerType'),
         row.get('age'), row.get('height'), row.get('weight'),
         row.get('preferredFoot'), row.get('weakFootUsage'), row.get('weakFootAccuracy'),
         row.get('imageUrl'),

@@ -5,7 +5,9 @@ import type {
   AttributeDefinitionCreatePayload,
   AttributeDefinitionResponse,
   AttributeDefinitionUpdatePayload,
+  CardMetaTierUpdateResponse,
   LikeToggleResponse,
+  MetaTier,
 } from './marketplace-types';
 
 export type ActionResult<T = void> =
@@ -161,6 +163,22 @@ export function adminUpdateAttribute(
     ['v1', 'admin', 'attributes', id],
     { method: 'PUT', body: JSON.stringify(payload) },
     'Atribut yangilanmadi',
+  );
+}
+
+/**
+ * Bulk meta tier assignment. One call sets the same tier on every id, so
+ * toggling a whole squad is a single request. Response reports how many rows
+ * actually changed — ids already at that tier don't count.
+ */
+export function adminSetCardMetaTier(
+  efhubIds: number[],
+  metaTier: MetaTier,
+): Promise<ActionResult<CardMetaTierUpdateResponse>> {
+  return marketplaceRequest<CardMetaTierUpdateResponse>(
+    ['v1', 'admin', 'cards', 'meta-tier'],
+    { method: 'PUT', body: JSON.stringify({ efhubIds, metaTier }) },
+    "O'yinchi darajasi yangilanmadi",
   );
 }
 

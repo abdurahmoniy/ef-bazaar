@@ -9,8 +9,10 @@ import uz.efbazaar.marketplace.observability.NotifyMarker;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -71,10 +73,22 @@ public class EfhubSyncService {
         log.info("efhub index loaded: {} entries", index.size());
 
         Set<Long> ourPrefixed = new HashSet<>();
+        Map<Long, Integer> maxOvrById = new HashMap<>();
         for (EfhubClient.IndexEntry e : index) {
             if (CardType.fromEfhubId(e.id()) != null) {
                 ourPrefixed.add(e.id());
+                if (e.maxOvr() != null) {
+                    maxOvrById.put(e.id(), e.maxOvr());
+                }
             }
+        }
+
+        // Refresh maxed OVR on cards we already hold. It lives only in the
+        // index, so cards scraped before the column existed would otherwise
+        // stay null forever — no page fetch can fill it.
+        int ovrChanged = writer.updateMaxOverallRatings(maxOvrById);
+        if (ovrChanged > 0) {
+            log.info("efhub: refreshed max_overall_rating on {} cards", ovrChanged);
         }
 
         Set<Long> known = writer.findAllEfhubIds();
@@ -102,7 +116,7 @@ public class EfhubSyncService {
         for (int i = 0; i < toScrape.size(); i++) {
             Long id = toScrape.get(i);
             try {
-                if (scrapeOne(id, added)) {
+                if (scrapeOne(id, maxOvrById.get(id), added)) {
                     // ok
                 } else {
                     failures++;
@@ -158,9 +172,9 @@ public class EfhubSyncService {
         log.info(NotifyMarker.NOTIFY, sb.toString());
     }
 
-    private boolean scrapeOne(long id, List<CardsAddedEvent.Added> added) {
+    private boolean scrapeOne(long id, Integer maxOvr, List<CardsAddedEvent.Added> added) {
         String html = client.fetchPlayerPage(id);
-        ScrapedCard card = parser.parse(html, id);
+        ScrapedCard card = parser.parse(html, id, maxOvr);
         if (card == null) {
             log.warn("efhub: no-data for id={}", id);
             return false;
