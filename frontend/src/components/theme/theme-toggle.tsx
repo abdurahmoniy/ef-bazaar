@@ -1,47 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-import { THEME_STORAGE_KEY } from './theme-script';
-
-type Theme = 'light' | 'dark';
-
-function readTheme(): Theme {
-  if (typeof document === 'undefined') return 'light';
-  return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-}
-
-function applyTheme(t: Theme) {
-  document.documentElement.classList.toggle('dark', t === 'dark');
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, t);
-  } catch {}
-}
+import { useTheme } from './use-theme';
 
 interface ThemeToggleProps {
   className?: string;
 }
 
+/**
+ * Standalone toggle. The marketplace header no longer renders one — theme is a
+ * preference, not a peer of the primary CTA, so there it lives inside the user
+ * menu. Kept for surfaces that have no user menu (auth, signed-out header).
+ */
 export function ThemeToggle({ className }: ThemeToggleProps) {
-  const [theme, setTheme] = useState<Theme>('light');
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setTheme(readTheme());
-    setMounted(true);
-  }, []);
-
-  const toggle = () => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    applyTheme(next);
-    setTheme(next);
-  };
-
-  const isDark = theme === 'dark';
+  const { isDark, mounted, toggle } = useTheme();
 
   return (
     <Button

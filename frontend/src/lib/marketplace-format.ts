@@ -30,16 +30,11 @@ export const MARKETPLACE_FILTERS = [
       attributes: { has_google_play_link: 'false', has_game_center_link: 'false' },
     },
   },
-  {
-    id: 'division1',
-    label: 'Division 1',
-    params: { attributes: { highest_division_level: '1' } },
-  },
-  {
-    id: 'strong',
-    label: '3000+ kuch',
-    params: { attributes: { 'team_strength.min': '3000' } },
-  },
+  // 'division1' and 'strong' used to live here. Both pinned one arbitrary value
+  // of a range the sidebar already exposes ("Eng yuqori Division", "Team
+  // Strength"), so they duplicated a filter while answering nobody's actual
+  // question. The chips that remain are booleans — genuinely awkward to reach
+  // in the sidebar, and each one maps to a real buying decision.
   {
     id: 'exchange',
     label: 'Faqat obmen',

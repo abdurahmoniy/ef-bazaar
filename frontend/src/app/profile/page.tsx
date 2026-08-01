@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ShieldCheck } from 'lucide-react';
 
 import { MyGamerCardSection } from '@/components/gamer/my-gamer-card-section';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
@@ -10,10 +8,10 @@ import { ProfileAccount } from '@/components/profile/profile-account';
 import { ProfileCards } from '@/components/profile/profile-cards';
 import { ProfileListings } from '@/components/profile/profile-listings';
 import { ProfileTabs, type ProfileTabId } from '@/components/profile/profile-tabs';
-import { isAdmin } from '@/lib/admin';
+import { ProfileTrades } from '@/components/profile/profile-trades';
 import { getMe } from '@/lib/auth';
 import { getMyFavorites, getMyListings } from '@/lib/marketplace-server';
-import { getMyCards } from '@/lib/trade-server';
+import { getMyCards, getMyTrades } from '@/lib/trade-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +26,7 @@ interface ProfilePageProps {
 
 const VALID_TABS: ProfileTabId[] = [
   'listings',
+  'trades',
   'favorites',
   'kartalar',
   // 'pochta' is a link-out to /mail, never rendered inside the profile shell —
@@ -53,44 +52,37 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
 
   // Fetch tab data server-side. Fetch counts even for inactive tabs so the badges render.
-  // Cards are only fetched when the Kartalar tab is active — the list has no
-  // count badge and the other tabs don't need it.
-  const [listings, favorites, cards] = await Promise.all([
+  // Cards and trades are only fetched when their own tab is active — neither
+  // carries a count badge, so the other tabs don't need them.
+  const [listings, favorites, cards, tradePage] = await Promise.all([
     getMyListings(),
     getMyFavorites(),
     activeTab === 'kartalar' ? getMyCards() : Promise.resolve([]),
+    activeTab === 'trades' ? getMyTrades() : Promise.resolve(null),
   ]);
-
-  const admin = isAdmin(user);
 
   return (
     <MarketplaceShell user={user} activeTab="profile" hideSearch>
       <div className="space-y-4">
+        {/* Admin panel used to be a trailing button here; it lives in the header
+            user menu now, alongside the other account-level entries. */}
         <MyGamerCardSection
           email={user.email ?? null}
-          trailingAction={
-            admin ? (
-              <Link
-                href="/admin"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition hover:border-primary/40 hover:bg-muted"
-              >
-                <ShieldCheck className="h-4 w-4 text-primary" />
-                Admin panel
-              </Link>
-            ) : null
+          navSlot={
+            <ProfileTabs
+              active={activeTab}
+              counts={{
+                listings: listings.length,
+                favorites: favorites.length,
+              }}
+            />
           }
         />
 
-        <ProfileTabs
-          active={activeTab}
-          counts={{
-            listings: listings.length,
-            favorites: favorites.length,
-          }}
-        />
-
-        <section>
+        {/* Keyed on the tab so each switch remounts and replays panel-in. */}
+        <section key={activeTab} className="animate-panel-in">
           {activeTab === 'listings' && <ProfileListings listings={listings} />}
+          {activeTab === 'trades' && <ProfileTrades trades={tradePage?.items ?? []} />}
           {activeTab === 'favorites' && <ProfileListings listings={favorites} favorites />}
           {activeTab === 'kartalar' && <ProfileCards cards={cards} />}
           {activeTab === 'account' && (

@@ -16,6 +16,11 @@ interface GamerCardFullscreenProps {
   email?: string | null;
   /** Capture root id of the off-screen full card the share button rasterizes. */
   captureId: string;
+  /**
+   * Replaces the default outline button — lets callers surface the action as
+   * an overflow-menu row instead of a top-level button.
+   */
+  renderTrigger?: (open: () => void) => React.ReactNode;
 }
 
 /**
@@ -25,7 +30,12 @@ interface GamerCardFullscreenProps {
  * off-screen capture host'ni suratga oladi, shuning uchun overlay ochiq
  * bo'lishi shart emas.
  */
-export function GamerCardFullscreen({ card, email, captureId }: GamerCardFullscreenProps) {
+export function GamerCardFullscreen({
+  card,
+  email,
+  captureId,
+  renderTrigger,
+}: GamerCardFullscreenProps) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -44,10 +54,14 @@ export function GamerCardFullscreen({ card, email, captureId }: GamerCardFullscr
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)} className="gap-2">
-        <Maximize2 className="h-4 w-4" />
-        To&apos;liq ko&apos;rish
-      </Button>
+      {renderTrigger ? (
+        renderTrigger(() => setOpen(true))
+      ) : (
+        <Button variant="outline" onClick={() => setOpen(true)} className="gap-2">
+          <Maximize2 className="h-4 w-4" />
+          To&apos;liq ko&apos;rish
+        </Button>
+      )}
 
       {open && (
         <div

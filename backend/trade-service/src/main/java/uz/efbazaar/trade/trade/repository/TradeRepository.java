@@ -1,5 +1,7 @@
 package uz.efbazaar.trade.trade.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -30,6 +32,19 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
             """)
     List<Trade> findByChatIdAndParticipantOrderByCreatedAtDesc(@Param("chatId") UUID chatId,
                                                                @Param("userId") UUID userId);
+
+    /**
+     * Every trade the caller takes part in, either side, newest first. Backs
+     * the profile's "Savdolarim" tab — before it, a trade could only be
+     * reached through the chat it started in, so an escrow deal with a running
+     * deadline was only findable by remembering which thread it belonged to.
+     */
+    @Query("""
+            SELECT t FROM Trade t
+             WHERE t.sellerId = :userId OR t.buyerId = :userId
+             ORDER BY t.createdAt DESC
+            """)
+    Page<Trade> findByParticipant(@Param("userId") UUID userId, Pageable pageable);
 
     List<Trade> findByStateInAndStateDeadlineBefore(Set<TradeState> states,
                                                     Instant cutoff);

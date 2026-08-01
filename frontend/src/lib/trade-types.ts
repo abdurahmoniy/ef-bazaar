@@ -50,6 +50,14 @@ export interface TradeResponse {
   emailChangeVerificationCode: string | null;
 }
 
+/** Mirrors uz.efbazaar.trade.trade.dto.TradePage. */
+export interface TradePage {
+  items: TradeResponse[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface ProposalResponse {
   proposalId: string;
   expiresAt: string;

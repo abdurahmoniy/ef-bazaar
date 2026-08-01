@@ -89,6 +89,14 @@ const config: Config = {
           from: { opacity: '0' },
           to: { opacity: '1' },
         },
+        'menu-in': {
+          from: { opacity: '0', transform: 'translateY(-6px) scale(0.97)' },
+          to: { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'panel-in': {
+          from: { opacity: '0', transform: 'translateY(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -96,6 +104,8 @@ const config: Config = {
         marquee: 'marquee 32s linear infinite',
         'sheet-up': 'sheet-up 0.24s cubic-bezier(0.32, 0.72, 0, 1)',
         'fade-in': 'fade-in 0.18s ease-out',
+        'menu-in': 'menu-in 0.16s cubic-bezier(0.32, 0.72, 0, 1)',
+        'panel-in': 'panel-in 0.22s cubic-bezier(0.32, 0.72, 0, 1)',
       },
     },
   },

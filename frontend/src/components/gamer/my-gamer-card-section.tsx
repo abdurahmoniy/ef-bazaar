@@ -2,11 +2,12 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ExternalLink, Loader2, Pencil } from 'lucide-react';
+import { ExternalLink, Loader2, Maximize2, Pencil } from 'lucide-react';
 
 import { GamerCardFullscreen } from '@/components/gamer/gamer-card-fullscreen';
 import { GamerCardCompact, GamerCardView } from '@/components/gamer/gamer-card-view';
 import { ShareGamerCardButton } from '@/components/gamer/share-gamer-card-button';
+import { OverflowMenu, overflowItemClass } from '@/components/navigation/overflow-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { fetchMyGamerCard, updateMyGamerProfile } from '@/lib/gamer-client';
@@ -22,14 +23,19 @@ const PLATFORMS: Array<{ value: GamerPlatform | ''; label: string }> = [
 ];
 
 interface MyGamerCardSectionProps {
-  /** Extra actions rendered alongside Share/Edit/Open (e.g. admin panel link). */
-  trailingAction?: ReactNode;
+  /**
+   * Section nav rendered on the left of the action row. The profile used to
+   * stack a five-button action row on top of a five-tab row — two strips of
+   * identical weight, ~110px of chrome before any content. They share one row
+   * now: nav left, one primary action and an overflow menu right.
+   */
+  navSlot?: ReactNode;
   /** Owner's email — shown under @username in the tier banner. */
   email?: string | null;
 }
 
 /** Profildagi "Gamer Card" bo'limi: ko'rish + tahrirlash + ulashish. */
-export function MyGamerCardSection({ trailingAction, email }: MyGamerCardSectionProps = {}) {
+export function MyGamerCardSection({ navSlot, email }: MyGamerCardSectionProps = {}) {
   const [card, setCard] = useState<GamerCardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -105,20 +111,61 @@ export function MyGamerCardSection({ trailingAction, email }: MyGamerCardSection
         <GamerCardView card={card} captureId={CAPTURE_ID} email={email} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <GamerCardFullscreen card={card} email={email} captureId={CAPTURE_ID} />
-        <ShareGamerCardButton captureId={CAPTURE_ID} username={card.telegramUsername} />
-        <Button variant="outline" onClick={() => setEditing((v) => !v)} className="gap-2">
-          <Pencil className="h-4 w-4" />
-          {editing ? 'Bekor qilish' : 'Tahrirlash'}
-        </Button>
-        <Button asChild variant="ghost" className="gap-2">
-          <Link href={`/gamers/${card.userId}`}>
-            <ExternalLink className="h-4 w-4" />
-            Ochiq sahifa
-          </Link>
-        </Button>
-        {trailingAction && <div className="ml-auto">{trailingAction}</div>}
+      <div className="flex items-center gap-2">
+        {navSlot}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <ShareGamerCardButton
+            captureId={CAPTURE_ID}
+            username={card.telegramUsername}
+            className="h-9 rounded-full px-3.5 text-[13px]"
+          />
+          <OverflowMenu>
+            {(close) => (
+              <>
+                <GamerCardFullscreen
+                  card={card}
+                  email={email}
+                  captureId={CAPTURE_ID}
+                  renderTrigger={(open) => (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        close();
+                        open();
+                      }}
+                      className={overflowItemClass}
+                    >
+                      <Maximize2 className="h-4 w-4 text-muted-foreground" />
+                      To&apos;liq ko&apos;rish
+                    </button>
+                  )}
+                />
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    close();
+                    setEditing((v) => !v);
+                  }}
+                  className={overflowItemClass}
+                >
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                  {editing ? 'Bekor qilish' : 'Tahrirlash'}
+                </button>
+                <Link
+                  href={`/gamers/${card.userId}`}
+                  role="menuitem"
+                  onClick={close}
+                  className={overflowItemClass}
+                >
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                  Ochiq sahifa
+                </Link>
+              </>
+            )}
+          </OverflowMenu>
+        </div>
       </div>
 
       {editing && (

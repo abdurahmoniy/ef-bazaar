@@ -10,6 +10,7 @@ import {
 } from '@/components/marketplace/listing-filters';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
 import { MobileFilterSheet } from '@/components/marketplace/mobile-filter-sheet';
+import { SortMenu, type SortMenuOption } from '@/components/marketplace/sort-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +19,7 @@ import {
   DEFAULT_PLATFORM,
   type MarketplaceFilterId,
 } from '@/lib/marketplace-format';
+import { LISTING_SORT_OPTIONS, paramToSortId } from '@/lib/marketplace-sort';
 import type { FetchResult } from '@/lib/marketplace-server';
 import type {
   ListingBrowseParams,
@@ -81,6 +83,14 @@ export function MarketplaceBrowser({
     Boolean(attrs.platform) && attrs.platform !== DEFAULT_PLATFORM,
   ].filter(Boolean).length;
 
+  // Precomputed here rather than in SortMenu: the client component can't be
+  // handed browseHref, and every ordering has to keep the active filters.
+  const sortOptions: SortMenuOption[] = LISTING_SORT_OPTIONS.map((option) => ({
+    id: option.id,
+    label: option.label,
+    href: browseHref({ ...filters, sort: option.param }, activeFilter, query, view, 0),
+  }));
+
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:gap-6">
       <ListingFilters {...filterProps} />
@@ -91,6 +101,8 @@ export function MarketplaceBrowser({
           query={query}
           view={view}
           totalElements={page?.totalElements ?? 0}
+          sortOptions={sortOptions}
+          activeSortId={paramToSortId(filters.sort)}
         />
 
         <div className="flex items-center gap-2">
@@ -156,11 +168,15 @@ function BrowseHeader({
   query,
   view,
   totalElements,
+  sortOptions,
+  activeSortId,
 }: {
   activeFilter: MarketplaceFilterId;
   query?: string;
   view: 'grid' | 'list';
   totalElements: number;
+  sortOptions: SortMenuOption[];
+  activeSortId: string;
 }) {
   return (
     <div className="flex items-end justify-between gap-3">
@@ -176,7 +192,10 @@ function BrowseHeader({
           {formatCompactNumber(totalElements)} ta e'lon
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-card">
+      <div className="flex shrink-0 items-center gap-2">
+        <SortMenu options={sortOptions} activeId={activeSortId} />
+
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-card">
         <Link
           href={viewHref('grid', activeFilter, query)}
           className={cn(
@@ -197,6 +216,7 @@ function BrowseHeader({
         >
           <List className="h-4 w-4" />
         </Link>
+        </div>
       </div>
     </div>
   );
