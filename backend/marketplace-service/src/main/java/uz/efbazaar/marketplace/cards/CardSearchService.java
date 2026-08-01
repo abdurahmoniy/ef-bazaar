@@ -1,9 +1,11 @@
 package uz.efbazaar.marketplace.cards;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
+import uz.efbazaar.marketplace.exception.MarketplaceException;
 
 import java.sql.Array;
 import java.util.ArrayList;
@@ -58,9 +60,12 @@ public class CardSearchService {
     };
 
     private final JdbcTemplate jdbc;
+    private final CardColumns columns;
 
-    public CardSearchService(@Qualifier("efbazaarJdbcTemplate") JdbcTemplate jdbc) {
+    public CardSearchService(@Qualifier("efbazaarJdbcTemplate") JdbcTemplate jdbc,
+                             CardColumns columns) {
         this.jdbc = jdbc;
+        this.columns = columns;
     }
 
     public List<CardSearchResult> search(String query, Collection<CardType> types, Integer limit) {
@@ -83,8 +88,7 @@ public class CardSearchService {
         EnumSet<CardType> activeTypes = resolveTypes(types);
         int actualLimit = clampSize(limit);
 
-        String where = whereClause(trimmed, tier);
-        String sql = unionSql(activeTypes, where) + ORDER_BY + " LIMIT " + actualLimit;
+        String sql = unionSql(activeTypes, trimmed, tier) + ORDER_BY + " LIMIT " + actualLimit;
 
         List<Object> args = new ArrayList<>();
         activeTypes.forEach(t -> appendArgs(args, trimmed, tier));
@@ -111,16 +115,17 @@ public class CardSearchService {
 
         String trimmed = query == null ? "" : query.trim();
         String effectiveQuery = trimmed.length() < 2 ? null : trimmed;
-        String where = whereClause(effectiveQuery, tier);
 
         String countSql = activeTypes.stream()
-                .map(t -> "(SELECT count(*) FROM " + t.tableName() + where + ")")
+                .map(t -> "(SELECT count(*) FROM " + t.tableName()
+                        + whereClause(t.tableName(), effectiveQuery, tier) + ")")
                 .collect(Collectors.joining(" + ", "SELECT ", ""));
         List<Object> countArgs = new ArrayList<>();
         activeTypes.forEach(t -> appendArgs(countArgs, effectiveQuery, tier));
         long total = jdbc.queryForObject(countSql, Long.class, countArgs.toArray());
 
-        String pageSql = unionSql(activeTypes, where) + ORDER_BY + ", efhub_id LIMIT ? OFFSET ?";
+        String pageSql = unionSql(activeTypes, effectiveQuery, tier)
+                + ORDER_BY + ", efhub_id LIMIT ? OFFSET ?";
         List<Object> pageArgs = new ArrayList<>();
         activeTypes.forEach(t -> appendArgs(pageArgs, effectiveQuery, tier));
         pageArgs.add(pageSize);
@@ -149,6 +154,11 @@ public class CardSearchService {
 
         int updated = 0;
         for (Map.Entry<CardType, Set<Long>> entry : byTable.entrySet()) {
+            String table = entry.getKey().tableName();
+            if (!columns.has(table, CardColumns.META_TIER)) {
+                throw new MarketplaceException(HttpStatus.SERVICE_UNAVAILABLE, "meta_tier_column_missing",
+                        "Karta jadvalida meta_tier ustuni yo'q — schema hali qo'llanmagan");
+            }
             Set<Long> ids = entry.getValue();
             String placeholders = ids.stream().map(id -> "?").collect(Collectors.joining(", "));
             // Table name comes from the enum, ids are bound — nothing from the
@@ -178,11 +188,19 @@ public class CardSearchService {
     /**
      * WHERE fragment shared by the row and count queries. Every predicate is
      * parameterised; {@link #appendArgs} must stay in the same order.
+     *
+     * <p>When the table has no {@code meta_tier} column the tier predicate
+     * compares against the literal default instead, so the placeholder count
+     * stays identical and a {@code tier=META} filter correctly matches nothing.
      */
-    private static String whereClause(String query, MetaTier tier) {
+    private String whereClause(String table, String query, MetaTier tier) {
         List<String> conditions = new ArrayList<>(2);
         if (query != null) conditions.add("(name ILIKE ? OR name % ?)");
-        if (tier != null) conditions.add("meta_tier = ?");
+        if (tier != null) {
+            conditions.add(columns.has(table, CardColumns.META_TIER)
+                    ? "meta_tier = ?"
+                    : "'" + MetaTier.NORMAL.name() + "' = ?");
+        }
         return conditions.isEmpty() ? "" : " WHERE " + String.join(" AND ", conditions);
     }
 
@@ -200,18 +218,29 @@ public class CardSearchService {
      * caller can ORDER BY an expression (a bare UNION only allows output
      * column names).
      */
-    private static String unionSql(EnumSet<CardType> types, String where) {
+    private String unionSql(EnumSet<CardType> types, String query, MetaTier tier) {
         return types.stream()
-                .map(t -> rowSql(t.tableName(), t.name(), where))
+                .map(t -> rowSql(t.tableName(), t.name(), whereClause(t.tableName(), query, tier)))
                 .collect(Collectors.joining(" UNION ALL ", "SELECT * FROM (", ") c"));
     }
 
-    private static String rowSql(String table, String typeLabel, String where) {
+    /**
+     * Optional columns are emitted as literals when the table lacks them, so
+     * every branch of the UNION keeps the same shape and the reader keeps
+     * working on a schema that predates them.
+     */
+    private String rowSql(String table, String typeLabel, String where) {
+        String metaTier = columns.has(table, CardColumns.META_TIER)
+                ? "meta_tier"
+                : "'" + MetaTier.NORMAL.name() + "' AS meta_tier";
+        String maxOvr = columns.has(table, CardColumns.MAX_OVERALL_RATING)
+                ? "max_overall_rating"
+                : "NULL::smallint AS max_overall_rating";
         return """
                 (SELECT efhub_id, name, team, position, playing_style,
-                        overall_rating, max_overall_rating,
-                        '%s' AS card_type, meta_tier, image_url, skills
+                        overall_rating, %s,
+                        '%s' AS card_type, %s, image_url, skills
                  FROM %s%s)
-                """.formatted(typeLabel, table, where);
+                """.formatted(maxOvr, typeLabel, metaTier, table, where);
     }
 }
