@@ -49,7 +49,7 @@ public class ListingViewAssembler {
                 r.id(), r.sellerId(), r.description(),
                 r.price(), r.priceNegotiable(), r.attributes(), r.mediaMessageIds(),
                 r.status(), r.soldAt(), r.forwardCount(), likeCount, likedByMe,
-                r.createdAt(), r.updatedAt()
+                r.matchPercent(), r.createdAt(), r.updatedAt()
         );
     }
 }

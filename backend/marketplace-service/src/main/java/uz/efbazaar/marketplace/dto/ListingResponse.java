@@ -24,6 +24,20 @@ public record ListingResponse(
         int forwardCount,
         long likeCount,
         Boolean likedByMe,
+        /**
+         * Squad coverage 0..100 against the dream team in the request, or null
+         * when the caller didn't send one. Recomputed from
+         * {@code valuable_players} for display — the SQL that filtered and
+         * ordered the page never surfaces its score to the entity.
+         */
+        Integer matchPercent,
         Instant createdAt,
         Instant updatedAt
-) {}
+) {
+    /** Same listing with a match percentage attached. */
+    public ListingResponse withMatchPercent(Integer percent) {
+        return new ListingResponse(id, sellerId, description, price, priceNegotiable,
+                attributes, mediaMessageIds, status, soldAt, forwardCount, likeCount,
+                likedByMe, percent, createdAt, updatedAt);
+    }
+}

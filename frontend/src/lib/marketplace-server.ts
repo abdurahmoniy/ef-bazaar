@@ -9,6 +9,7 @@ import type {
   CardPage,
   CardType,
   ChatResponse,
+  DreamTeam,
   MetaTier,
   ListingBrowseParams,
   ListingResponse,
@@ -156,6 +157,11 @@ export async function getAdminUsers(
   const params = new URLSearchParams({ page: String(page), size: String(size), sort: 'createdAt,desc' });
   if (search) params.set('search', search);
   return safeFetch<PageResponse<User>>(`/auth/v1/admin/users?${params.toString()}`);
+}
+
+/** The caller's saved squads. Returns [] rather than an error when signed out. */
+export async function getDreamTeams(): Promise<FetchResult<DreamTeam[]>> {
+  return safeFetch<DreamTeam[]>(`${MARKETPLACE_PREFIX}/dream-teams`);
 }
 
 /**
