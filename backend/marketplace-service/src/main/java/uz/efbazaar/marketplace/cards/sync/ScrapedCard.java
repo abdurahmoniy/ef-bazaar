@@ -9,7 +9,7 @@ public record ScrapedCard(
         String team, String league,
         String nationality, String nationalityCode,
         String position, String playingStyle,
-        Integer overallRating, int playerType,
+        Integer overallRating, Integer maxOverallRating, int playerType,
         Integer age, Integer height, Integer weight,
         String preferredFoot,
         Integer weakFootUsage, Integer weakFootAccuracy,

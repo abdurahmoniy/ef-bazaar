@@ -21,19 +21,33 @@ public class CardController {
     public List<CardSearchResult> search(
             @RequestParam("q") String query,
             @RequestParam(value = "types", required = false) Set<CardType> types,
+            @RequestParam(value = "tier", required = false) MetaTier tier,
             @RequestParam(value = "limit", required = false) Integer limit) {
-        return searchService.search(query, types == null ? EnumSet.allOf(CardType.class) : types, limit);
+        return searchService.search(
+                query,
+                types == null ? EnumSet.allOf(CardType.class) : types,
+                tier,
+                limit);
     }
 
     /**
-     * Paginated catalog browse by type (no name query).
-     * e.g. GET /api/v1/cards?types=BIGTIME&page=0&size=30
+     * Paginated catalog browse. All filters optional:
+     * e.g. {@code GET /api/v1/cards?types=BIGTIME&tier=META&q=ronaldo&page=0&size=30}.
+     * {@code q} is ignored below 2 characters so an empty search box still
+     * browses the whole catalogue.
      */
     @GetMapping
     public CardPage browse(
+            @RequestParam(value = "q", required = false) String query,
             @RequestParam(value = "types", required = false) Set<CardType> types,
+            @RequestParam(value = "tier", required = false) MetaTier tier,
             @RequestParam(value = "page", required = false) Integer page,
             @RequestParam(value = "size", required = false) Integer size) {
-        return searchService.browse(types == null ? EnumSet.allOf(CardType.class) : types, page, size);
+        return searchService.browse(
+                query,
+                types == null ? EnumSet.allOf(CardType.class) : types,
+                tier,
+                page,
+                size);
     }
 }

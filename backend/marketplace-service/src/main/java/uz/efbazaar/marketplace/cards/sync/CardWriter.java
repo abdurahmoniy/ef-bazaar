@@ -13,6 +13,7 @@ import java.sql.Array;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
@@ -47,7 +48,7 @@ public class CardWriter {
     private static final List<String> BASE_COLS = List.of(
             "efhub_id", "name", "name_ja", "name_zh",
             "team", "league", "nationality", "nationality_code",
-            "position", "playing_style", "overall_rating", "player_type",
+            "position", "playing_style", "overall_rating", "max_overall_rating", "player_type",
             "age", "height", "weight",
             "preferred_foot", "weak_foot_usage", "weak_foot_accuracy", "image_url"
     );
@@ -72,6 +73,39 @@ public class CardWriter {
         return all;
     }
 
+    /**
+     * Refresh {@code max_overall_rating} for cards we already hold, straight
+     * from the player index. The value exists only in the index entry ("o") —
+     * the player page has the level-1 rating and derives the maxed one in the
+     * browser — so a card scraped before this field existed can never learn it
+     * from a re-scrape. The daily sync already fetches the whole index, so
+     * this costs no extra HTTP.
+     *
+     * @param byEfhubId efhub_id → max OVR; ids outside our card tables are skipped
+     * @return rows whose value actually changed
+     */
+    public int updateMaxOverallRatings(Map<Long, Integer> byEfhubId) {
+        Map<CardType, List<Object[]>> batches = new EnumMap<>(CardType.class);
+        for (Map.Entry<Long, Integer> e : byEfhubId.entrySet()) {
+            if (e.getValue() == null) continue;
+            CardType type = CardType.fromEfhubId(e.getKey());
+            if (type == null) continue;
+            batches.computeIfAbsent(type, t -> new ArrayList<>())
+                    .add(new Object[]{e.getValue(), e.getKey(), e.getValue()});
+        }
+
+        int changed = 0;
+        for (Map.Entry<CardType, List<Object[]>> entry : batches.entrySet()) {
+            String sql = "UPDATE " + entry.getKey().tableName()
+                    + " SET max_overall_rating = ?, updated_at = NOW()"
+                    + " WHERE efhub_id = ? AND max_overall_rating IS DISTINCT FROM ?";
+            for (int count : jdbc.batchUpdate(sql, entry.getValue())) {
+                if (count > 0) changed += count;
+            }
+        }
+        return changed;
+    }
+
     public void upsert(ScrapedCard card, CardType type) {
         String sql = upsertSqlByType.get(type);
         jdbc.update(con -> bind(con.prepareStatement(sql), card));
@@ -90,6 +124,7 @@ public class CardWriter {
         setString(ps, i++, c.position());
         setString(ps, i++, c.playingStyle());
         setNullableInt(ps, i++, c.overallRating());
+        setNullableInt(ps, i++, c.maxOverallRating());
         ps.setInt(i++, c.playerType());
         setNullableInt(ps, i++, c.age());
         setNullableInt(ps, i++, c.height());
@@ -145,7 +180,7 @@ public class CardWriter {
     }
 
     private static String buildUpsertSql(String table) {
-        // Build column list: base (19) + stats (25) + tail (2 arrays + 2 jsonb)
+        // Build column list: base (20) + stats (25) + tail (2 arrays + 2 jsonb)
         StringBuilder cols = new StringBuilder();
         StringBuilder vals = new StringBuilder();
         appendCsv(cols, BASE_COLS);

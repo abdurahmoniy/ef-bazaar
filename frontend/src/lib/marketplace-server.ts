@@ -6,7 +6,10 @@ import type {
   AdminReportResponse,
   AdminStatsResponse,
   AttributeDefinitionResponse,
+  CardPage,
+  CardType,
   ChatResponse,
+  MetaTier,
   ListingBrowseParams,
   ListingResponse,
   ListingStatus,
@@ -153,6 +156,28 @@ export async function getAdminUsers(
   const params = new URLSearchParams({ page: String(page), size: String(size), sort: 'createdAt,desc' });
   if (search) params.set('search', search);
   return safeFetch<PageResponse<User>>(`/auth/v1/admin/users?${params.toString()}`);
+}
+
+/**
+ * Player card catalogue for the admin players page. The read endpoint itself
+ * is public (same one the card picker uses) — only the meta_tier write is
+ * admin-gated.
+ */
+export async function getCards(params: {
+  q?: string;
+  types?: CardType[];
+  tier?: MetaTier;
+  page?: number;
+  size?: number;
+}): Promise<FetchResult<CardPage>> {
+  const search = new URLSearchParams({
+    page: String(params.page ?? 0),
+    size: String(params.size ?? 30),
+  });
+  if (params.q) search.set('q', params.q);
+  if (params.types?.length) search.set('types', params.types.join(','));
+  if (params.tier) search.set('tier', params.tier);
+  return safeFetch<CardPage>(`${MARKETPLACE_PREFIX}/cards?${search.toString()}`);
 }
 
 /** All definitions including inactive — the admin table shows the `active` flag. */
