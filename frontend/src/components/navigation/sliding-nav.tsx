@@ -65,6 +65,13 @@ interface SlidingNavProps {
    * icon — without one a collapsed tab is a blank pill.
    */
   collapseInactiveLabels?: boolean;
+  /**
+   * Below sm, stretch the strip edge to edge and split it evenly between the
+   * items instead of sizing it to its content. A content-width rail left dead
+   * space to its right on a phone and read as a floating chip rather than the
+   * section switcher for everything under it.
+   */
+  fullWidthOnMobile?: boolean;
 }
 
 interface Indicator {
@@ -93,6 +100,7 @@ export function SlidingNav({
   ariaLabel,
   markerName,
   collapseInactiveLabels = false,
+  fullWidthOnMobile = false,
 }: SlidingNavProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<HTMLSpanElement>(null);
@@ -165,11 +173,19 @@ export function SlidingNav({
   const isPill = variant === 'pill';
 
   return (
-    <nav aria-label={ariaLabel} className={cn('-mx-4 overflow-x-auto px-4 no-scrollbar sm:mx-0 sm:px-0', className)}>
+    <nav
+      aria-label={ariaLabel}
+      className={cn(
+        'overflow-x-auto no-scrollbar',
+        fullWidthOnMobile ? 'sm:-mx-0' : '-mx-4 px-4 sm:mx-0 sm:px-0',
+        className,
+      )}
+    >
       <div
         ref={trackRef}
         className={cn(
-          'relative inline-flex min-w-max items-center',
+          'relative items-center',
+          fullWidthOnMobile ? 'flex w-full sm:inline-flex sm:w-auto sm:min-w-max' : 'inline-flex min-w-max',
           isPill ? 'gap-0.5 rounded-full border border-border bg-card p-1' : 'gap-0.5',
         )}
       >
@@ -203,6 +219,8 @@ export function SlidingNav({
               className={cn(
                 'relative z-10 inline-flex h-8 items-center gap-1.5 rounded-full text-[13px] font-semibold transition-colors',
                 collapsed ? 'w-10 justify-center px-0 sm:w-auto sm:px-3' : 'px-3',
+                // Equal shares of the rail on a phone; content width from sm up.
+                fullWidthOnMobile && 'min-w-0 flex-1 justify-center sm:flex-none sm:justify-start',
                 isActive
                   ? isPill
                     ? 'text-primary-foreground'

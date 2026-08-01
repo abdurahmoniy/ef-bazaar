@@ -35,7 +35,18 @@ function initialOf(name: string | null) {
  * Profil sahifasidagi qisqa ko'rinish — bir qarashda ELO, daraja va
  * ko'tarilishgacha qolgan masofa. To'liq poster uchun GamerCardFullscreen.
  */
-export function GamerCardCompact({ card }: { card: GamerCardResponse }) {
+export function GamerCardCompact({
+  card,
+  actionsSlot,
+}: {
+  card: GamerCardResponse;
+  /**
+   * Card-scoped actions (share, overflow) rendered as the card's own footer.
+   * On a phone these used to sit in a separate strip above the tab rail, which
+   * read as page chrome even though every one of them acts on this card.
+   */
+  actionsSlot?: React.ReactNode;
+}) {
   const tier = TIER_META[card.tier];
   const progress = tierProgress(card.tier, card.elo);
   const played = card.wins + card.draws + card.losses;
@@ -85,6 +96,8 @@ export function GamerCardCompact({ card }: { card: GamerCardResponse }) {
           <span>WIN RATE</span>
         </div>
       </div>
+
+      {actionsSlot && <div className="gc-c-actions">{actionsSlot}</div>}
     </div>
   );
 }
