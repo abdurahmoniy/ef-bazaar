@@ -23,7 +23,7 @@ INSERT INTO attribute_definitions (key, label_uz, type, required, position, grou
     ('highest_division_level', 'Eng yuqori division',    'ENUM',      TRUE,  10, 'gameplay',     '{"options":["1","2","3","4"],"option_labels_uz":{"1":"Division 1","2":"Division 2","3":"Division 3","4":"Division 4+"}}'::jsonb, TRUE,  TRUE),
     ('team_strength',          'Team Strength',          'INT',       TRUE,  20, 'squad',        '{"min":1000,"max":5000}'::jsonb,       TRUE,  TRUE),
     ('players_count',          'Jami o''yinchilar',      'INT',       FALSE, 25, 'squad',        '{"min":11,"max":80}'::jsonb,           TRUE,  TRUE),
-    ('valuable_players',       'Yulduz o''yinchilar',    'CARD_LIST', FALSE, 30, 'squad',        '{"max_items":12}'::jsonb,              TRUE,  TRUE),
+    ('valuable_players',       'Qidiriladigan qimmatli kartalar', 'CARD_LIST', FALSE, 30, 'squad', '{"max_items":30}'::jsonb,              TRUE,  TRUE),
     ('android_coins',          'Android coin',           'INT',       TRUE,  40, 'monetization', '{}'::jsonb,                            TRUE,  TRUE),
     ('ios_coins',              'iOS coin',               'INT',       TRUE,  50, 'monetization', '{}'::jsonb,                            TRUE,  TRUE),
     ('platform',               'Platforma',              'ENUM',      TRUE,  60, 'platform',     '{"options":["MOBILE","STEAM","PLAYSTATION"],"option_labels_uz":{"MOBILE":"Mobile","STEAM":"Steam","PLAYSTATION":"PlayStation"},"default":"MOBILE"}'::jsonb, TRUE, TRUE),

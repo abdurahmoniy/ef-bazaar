@@ -48,6 +48,7 @@ class ListingServiceTest {
     @Mock MediaService mediaService;
     @Mock ListingCaptionBuilder captionBuilder;
     @Mock AttributeDefinitionRepository attributeDefinitions;
+    @Mock ListingPersistence persistence;
     @Spy  ListingMapper mapper = Mappers.getMapper(ListingMapper.class);
 
     @Mock uz.efbazaar.marketplace.trust.BlacklistGuard blacklistGuard;
@@ -82,7 +83,8 @@ class ListingServiceTest {
         when(attributeValidator.validate(anyMap())).thenAnswer(inv -> inv.getArgument(0));
         when(captionBuilder.build(any(Listing.class))).thenReturn("Rich caption");
         when(mediaService.uploadToBot(anyList(), anyString(), any(UUID.class))).thenReturn(List.of("file_1"));
-        when(repository.save(any(Listing.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(persistence.saveWithCardInventory(any(Listing.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
 
         Listing saved = service.create(sellerId, createReq, files);
 
@@ -95,6 +97,7 @@ class ListingServiceTest {
         assertThat(saved.getAttributes())
                 .containsEntry("highest_division_level", 5)
                 .containsEntry("valuable_players", List.of("Messi", "Ronaldo"));
+        verify(persistence).saveWithCardInventory(saved);
         verify(events).listingCreated(saved);
     }
 

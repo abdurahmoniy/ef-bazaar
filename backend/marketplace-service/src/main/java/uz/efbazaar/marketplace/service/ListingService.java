@@ -41,6 +41,7 @@ public class ListingService {
     private final MarketplaceEventPublisher events;
     private final AttributeDefinitionRepository attributeDefinitions;
     private final BlacklistGuard blacklistGuard;
+    private final ListingPersistence persistence;
 
     /**
      * Atomic create — validates payload/attrs first (fail fast, no side effect),
@@ -68,7 +69,7 @@ public class ListingService {
 
         // save() opens its own short tx via Spring Data — no long-running DB lock
         // is held across the bot upload above.
-        Listing saved = listings.save(listing);
+        Listing saved = persistence.saveWithCardInventory(listing);
         events.listingCreated(saved);
         log.info("Listing created: id={} sellerId={} attributes={} media={}",
                 saved.getId(), sellerId, validated.keySet(), fileIds.size());
@@ -104,7 +105,7 @@ public class ListingService {
             listing.setMediaMessageIds(fileIds);
         }
 
-        Listing saved = listings.save(listing);
+        Listing saved = persistence.saveWithCardInventory(listing);
         events.listingUpdated(saved);
         log.info("Listing updated: id={} sellerId={} mediaReplaced={} media={}",
                 id, sellerId, replacingMedia, listing.getMediaMessageIds().size());

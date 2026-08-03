@@ -45,19 +45,18 @@
 
 **Files:**
 - Create: `backend/marketplace-service/src/main/resources/db/migration/V28__listing_cards.sql`
-- Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/domain/ListingCard.java`
-- Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/repository/ListingCardRepository.java`
 - Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/service/ListingCardInventory.java`
+- Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/service/ListingPersistence.java`
 - Modify: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/service/ListingService.java`
 - Test: `backend/marketplace-service/src/test/java/uz/efbazaar/marketplace/service/ListingCardInventoryTest.java`
 - Test: `backend/marketplace-service/src/test/java/uz/efbazaar/marketplace/service/ListingServiceTest.java`
 
-- [ ] Add failing inventory tests for ordered replacement, removal of stale rows, a missing `valuable_players` attribute, and rollback when inventory sync fails.
-- [ ] Run the two focused tests and confirm the transaction/sync assertions fail.
-- [ ] Add `listing_cards(listing_id uuid, efhub_id bigint, player_id uuid, ordinal smallint, snapshot jsonb, primary key(listing_id, efhub_id))`, a unique `(listing_id, player_id)` constraint, and player/listing indexes.
-- [ ] Implement `replace(UUID listingId, Object valuablePlayers)` using delete-then-batch-insert inside the caller transaction; take `efhub_id`, `player_id`, ordinal, and the complete JSON snapshot from each validated entry.
-- [ ] Refactor `create`/`update` so media upload remains outside the database transaction but a separate Spring bean performs `listings.save(...)` and inventory replacement in one short `@Transactional` method.
-- [ ] Run the focused tests and commit with `feat(listings): persist normalized card inventory`.
+- [x] Add failing inventory tests for ordered replacement, removal of stale rows, and legacy/missing `valuable_players` data.
+- [x] Add a failing transactional-boundary test and confirm the missing behavior.
+- [x] Add `listing_cards(listing_id uuid, efhub_id bigint, player_id uuid, ordinal smallint, snapshot jsonb, primary key(listing_id, efhub_id))`, a unique `(listing_id, player_id)` constraint, and player/listing indexes.
+- [x] Implement `replace(UUID listingId, Object valuablePlayers)` using delete-then-batch-insert inside the caller transaction; take `efhub_id`, `player_id`, ordinal, and the complete JSON snapshot from each validated entry.
+- [x] Refactor `create`/`update` so media upload remains outside the database transaction but a separate Spring bean performs `listings.save(...)` and inventory replacement in one short `@Transactional` method.
+- [x] Run all focused inventory and listing-service tests successfully; include this task in the inventory-slice commit.
 
 ## Task 4: Validate canonical selections and backfill existing listings
 
