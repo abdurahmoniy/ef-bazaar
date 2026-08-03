@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +25,7 @@ public class ListingCardInventory {
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
 
+    @Transactional
     public void replace(UUID listingId, Object rawCards) {
         jdbc.update("DELETE FROM listing_cards WHERE listing_id = ?", listingId);
         List<Object[]> rows = rows(listingId, rawCards);
