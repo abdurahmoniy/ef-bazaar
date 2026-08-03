@@ -116,8 +116,9 @@ app:
     enabled: ${LISTING_CARD_BACKFILL_ENABLED:false}
     batch-size: ${LISTING_CARD_BACKFILL_BATCH_SIZE:200}
   card-interest:
-    # Rotatable secret used only to pseudonymize user/anonymous dedupe identities.
-    hmac-secret: ${CARD_INTEREST_HMAC_SECRET:local-card-interest-secret}
+    # Required rotatable secret used only to pseudonymize user/network dedupe identities.
+    # No checked-in fallback: a missing production secret must fail startup.
+    hmac-secret: ${CARD_INTEREST_HMAC_SECRET:}
 
 springdoc:
   api-docs:

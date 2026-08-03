@@ -76,7 +76,7 @@
 - Test: `backend/marketplace-service/src/test/java/uz/efbazaar/marketplace/cards/CardInterestServiceTest.java`
 - Test: `frontend/src/components/marketplace/player-filter-dialog.test.tsx`
 
-- [ ] Add failing service tests for one event per anonymous token/card/day, authenticated-user HMAC keys, duplicate requests, 90-day expiry, invalid cards, and 7/30-day totals.
+- [ ] Add failing service tests for one event per trusted network identity/card/day, authenticated-user HMAC keys, duplicate requests, 90-day expiry, invalid cards, and 7/30-day totals.
 - [ ] Add a failing UI test proving interest is sent only after Apply and never blocks marketplace navigation.
 - [ ] Implement `POST /api/v1/card-interest/apply` with a bounded card list, server-side HMAC identity key, Redis `SET NX` dedupe keys, daily sorted/count keys, and 90-day TTL.
 - [ ] Do not store raw IP addresses, raw user IDs, or the whole query; emit only aggregate counts from admin endpoints.

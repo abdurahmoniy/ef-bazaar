@@ -166,6 +166,8 @@ services:
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Required HMAC key for privacy-preserving card-interest dedupe.
+      CARD_INTEREST_HMAC_SECRET: ${CARD_INTEREST_HMAC_SECRET}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       # Media yuklash
       MEDIA_MIN_FILES: ${MEDIA_MIN_FILES}

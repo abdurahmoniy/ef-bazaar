@@ -35,5 +35,12 @@ describe('PlayerFilterDialog accessibility contract', () => {
       .toBeGreaterThan(launcher.indexOf('function apply('));
     expect(launcher.indexOf('router.push('))
       .toBeGreaterThan(launcher.indexOf("['v1', 'card-interest', 'apply']"));
+    expect(launcher).not.toContain('anonymousToken');
+  });
+
+  it('enforces and explains the eleven-player match limit before serialization', () => {
+    expect(source).toContain('MAX_MATCH_PLAYERS = 11');
+    expect(source).toContain('prev.length >= MAX_MATCH_PLAYERS');
+    expect(source).toContain('Ko&apos;pi bilan 11 ta o&apos;yinchi');
   });
 });

@@ -195,6 +195,19 @@ class ListingServiceTest {
     }
 
     @Test
+    void sanitizeRangeFilters_rejectsMalformedNumericBoundsWithMarketplaceError() {
+        when(attributeDefinitions.findAllByActiveTrueOrderByPositionAsc()).thenReturn(List.of(
+                definition("team_strength", AttributeType.INT)));
+        ListingFilter filter = new ListingFilter(null, null, null, null,
+                Map.of("team_strength.min", "abc"));
+
+        assertThatThrownBy(() -> service.sanitizeRangeFilters(filter))
+                .isInstanceOf(MarketplaceException.class)
+                .satisfies(error -> assertThat(((MarketplaceException) error).getCode())
+                        .isEqualTo("invalid_attribute_value"));
+    }
+
+    @Test
     void matched_browse_preserves_database_relevance_order_and_explanations() {
         UUID firstId = UUID.randomUUID();
         UUID secondId = UUID.randomUUID();

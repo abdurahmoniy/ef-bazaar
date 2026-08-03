@@ -3,6 +3,17 @@ import { parsePlayerMatchValues } from './player-match-query';
 
 export type SearchParamInput = Record<string, string | string[] | undefined>;
 
+export function searchParamInputToSearchParams(input: SearchParamInput = {}) {
+  const params = new URLSearchParams();
+  for (const [key, rawValue] of Object.entries(input)) {
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    for (const value of values) {
+      if (value !== undefined) params.append(key, value);
+    }
+  }
+  return params;
+}
+
 const UZ_MONTHS = [
   'yanvar',
   'fevral',

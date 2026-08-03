@@ -33,14 +33,18 @@ import java.util.UUID;
 public class CardInterestService {
 
     private static final int RETENTION_DAYS = 90;
+    private static final int MAX_ACCEPTED_PER_IDENTITY_DAY = 100;
     private static final long TTL_SECONDS = Duration.ofDays(RETENTION_DAYS).toSeconds();
     private static final DefaultRedisScript<Long> RECORD_SCRIPT = new DefaultRedisScript<>("""
-            if redis.call('SET', KEYS[1], '1', 'NX', 'EX', ARGV[1]) then
-              redis.call('HINCRBY', KEYS[2], ARGV[2], 1)
-              redis.call('EXPIRE', KEYS[2], ARGV[1])
-              return 1
-            end
-            return 0
+            if redis.call('EXISTS', KEYS[1]) == 1 then return 0 end
+            local used = tonumber(redis.call('GET', KEYS[3]) or '0')
+            if used >= tonumber(ARGV[3]) then return -1 end
+            redis.call('SET', KEYS[1], '1', 'EX', ARGV[1])
+            redis.call('INCR', KEYS[3])
+            redis.call('EXPIRE', KEYS[3], ARGV[1])
+            redis.call('HINCRBY', KEYS[2], ARGV[2], 1)
+            redis.call('EXPIRE', KEYS[2], ARGV[1])
+            return 1
             """, Long.class);
 
     private final StringRedisTemplate redis;
@@ -52,12 +56,15 @@ public class CardInterestService {
     public CardInterestService(
             StringRedisTemplate redis,
             CardIdentityVerifier identities,
-            @Value("${app.card-interest.hmac-secret:local-card-interest-secret}") String hmacSecret) {
+            @Value("${app.card-interest.hmac-secret}") String hmacSecret) {
         this(redis, identities, hmacSecret, Clock.systemUTC());
     }
 
     CardInterestService(StringRedisTemplate redis, CardIdentityVerifier identities,
                         String hmacSecret, Clock clock) {
+        if (hmacSecret == null || hmacSecret.isBlank()) {
+            throw new IllegalStateException("CARD_INTEREST_HMAC_SECRET must be configured");
+        }
         this.redis = redis;
         this.identities = identities;
         this.hmacSecret = hmacSecret.getBytes(StandardCharsets.UTF_8);
@@ -65,7 +72,7 @@ public class CardInterestService {
     }
 
     public CardInterestResponse recordApply(Collection<Long> rawIds, UUID userId,
-                                            String anonymousToken) {
+                                            String trustedNetworkIdentity) {
         Set<Long> ids = new LinkedHashSet<>();
         for (Long id : rawIds) if (id != null && id > 0) ids.add(id);
         if (ids.isEmpty() || ids.size() > 11) throw invalid("1 dan 11 tagacha card kerak");
@@ -74,17 +81,19 @@ public class CardInterestService {
 
         String identity = userId != null
                 ? "user:" + userId
-                : anonymousToken == null || anonymousToken.isBlank()
+                : trustedNetworkIdentity == null || trustedNetworkIdentity.isBlank()
                     ? null
-                    : "anon:" + anonymousToken;
-        if (identity == null) throw invalid("anonymousToken kerak");
+                    : "network:" + trustedNetworkIdentity.strip();
+        if (identity == null) throw invalid("anonymous identity mavjud emas");
         String identityHash = hmac(identity);
         String date = LocalDate.now(clock).toString();
         int accepted = 0;
         for (Long id : ids) {
             Long result = redis.execute(RECORD_SCRIPT,
-                    List.of(dedupeKey(date, identityHash, id), dayKey(date)),
-                    String.valueOf(TTL_SECONDS), String.valueOf(id));
+                    List.of(dedupeKey(date, identityHash, id), dayKey(date),
+                            budgetKey(date, identityHash)),
+                    String.valueOf(TTL_SECONDS), String.valueOf(id),
+                    String.valueOf(MAX_ACCEPTED_PER_IDENTITY_DAY));
             if (Long.valueOf(1).equals(result)) accepted++;
         }
         return new CardInterestResponse(accepted, ids.size() - accepted);
@@ -146,6 +155,10 @@ public class CardInterestService {
 
     static String dayKey(String date) {
         return "card-interest:day:" + date;
+    }
+
+    static String budgetKey(String date, String identityHash) {
+        return "card-interest:budget:" + date + ":" + identityHash;
     }
 
     private static long longValue(Object raw) {

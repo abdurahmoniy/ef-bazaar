@@ -43,9 +43,9 @@ Requests are aborted when query or tab changes. Loading state is request-scoped 
 
 ## Buyer-interest aggregation
 
-Interest measures deliberate use, not every search keystroke. When a buyer applies player criteria, the frontend sends a best-effort `POST /api/v1/card-interest/apply` request containing selected card IDs and source (`META`, `SEARCH`, or `SAVED_TEAM`). The database event carries card ID, UTC day, source, and count only. It stores no raw query, account criteria, user ID, IP address, or browser token.
+Interest measures deliberate use, not every search keystroke. When a buyer applies player criteria, the frontend sends a best-effort `POST /api/v1/card-interest/apply` request containing only the selected card IDs. Redis aggregates card ID, UTC day, and count only. It stores no raw query, account criteria, user ID, IP address, or browser token.
 
-To limit refresh spam, the endpoint issues a random first-party anonymous token and keeps only its HMAC in Redis for a 48-hour per-card deduplication window. The token and HMAC never enter PostgreSQL or analytics output. Nginx applies the existing public-API rate limit. Interest remains a directional curation signal rather than a security-sensitive metric.
+To limit refresh spam, trusted Nginx supplies the request network identity and the service immediately HMAC-pseudonymizes it before building a per-card, per-day dedupe key. Raw network identities never enter Redis, PostgreSQL, application logs, or analytics output; normal Nginx access logging remains governed by operations retention. Dedupe and daily count keys expire after 90 days, each identity is capped at 100 accepted cards per day, and Nginx applies a dedicated per-network write limit. Interest remains a directional curation signal rather than a security-sensitive metric.
 
 The marketplace database keeps `card_interest_daily` with primary key `(day, efhub_id, source)` and an atomic counter. Rows older than 90 days are deleted by a scheduled maintenance job. The admin cards API returns 7-day and 30-day totals alongside catalogue cards.
 

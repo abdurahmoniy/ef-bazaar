@@ -7,9 +7,9 @@ import { MarketplaceListingDetail } from '@/components/marketplace/marketplace-l
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
 import {
-  buildListingSearchParams,
   formatPriceUZS,
   parseListingSearchParams,
+  searchParamInputToSearchParams,
   type SearchParamInput,
 } from '@/lib/marketplace-format';
 import { listingMediaUrls } from '@/lib/marketplace-media';
@@ -151,8 +151,9 @@ function buildListingJsonLd(listing: ListingResponse) {
 
 export default async function ListingPage({ params, searchParams }: ListingPageProps) {
   const { id } = await params;
-  const matchFilters = parseListingSearchParams(searchParams ? await searchParams : {});
-  const backQuery = buildListingSearchParams(matchFilters).toString();
+  const originatingParams = searchParams ? await searchParams : {};
+  const matchFilters = parseListingSearchParams(originatingParams);
+  const backQuery = searchParamInputToSearchParams(originatingParams).toString();
   const backHref = backQuery ? `/marketplace?${backQuery}` : '/marketplace';
   const [viewer, result] = await Promise.all([
     resolveOptionalUser(getMe),

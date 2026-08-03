@@ -79,7 +79,13 @@ export function MarketplaceBrowser({
   );
   // The dialog rewrites this query string in place, so every unrelated filter
   // survives applying a squad.
-  const currentQuery = browseHref(filters, activeFilter, query, view, 0).split('?')[1] ?? '';
+  const currentQuery = browseHref(
+    filters,
+    activeFilter,
+    query,
+    view,
+    filters.page ?? 0,
+  ).split('?')[1] ?? '';
   const activeFilterCount = [
     filters.minPrice !== undefined || filters.maxPrice !== undefined,
     filters.priceNegotiable === true,

@@ -24,6 +24,7 @@ import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
 import uz.efbazaar.marketplace.repository.ListingMatchRepository;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -225,7 +226,15 @@ public class ListingService {
         Map<String, Object> cleaned = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : attrs.entrySet()) {
             String base = ListingSpecifications.rangeBaseKey(entry.getKey());
-            if (base == null || numericKeys.contains(base)) {
+            if (base == null) {
+                cleaned.put(entry.getKey(), entry.getValue());
+            } else if (numericKeys.contains(base)) {
+                try {
+                    new BigDecimal(String.valueOf(entry.getValue()));
+                } catch (NumberFormatException exception) {
+                    throw MarketplaceException.invalidAttributeValue(
+                            base, "range qiymati son bo'lishi kerak");
+                }
                 cleaned.put(entry.getKey(), entry.getValue());
             }
         }

@@ -34,7 +34,7 @@ class CardInterestServiceTest {
         CardIdentityVerifier identities = mock(CardIdentityVerifier.class);
         long cardId = 89138556575063L;
         when(identities.resolvePlayerIds(List.of(cardId))).thenReturn(Map.of(cardId, UUID.randomUUID()));
-        when(redis.execute(any(RedisScript.class), anyList(), any(), any()))
+        when(redis.execute(any(RedisScript.class), anyList(), any(), any(), any()))
                 .thenReturn(1L)
                 .thenReturn(0L);
         CardInterestService service = new CardInterestService(redis, identities, "secret", CLOCK);
@@ -46,7 +46,7 @@ class CardInterestServiceTest {
         org.mockito.ArgumentCaptor<List<String>> keys = org.mockito.ArgumentCaptor.forClass(List.class);
         org.mockito.ArgumentCaptor<Object> ttl = org.mockito.ArgumentCaptor.forClass(Object.class);
         verify(redis, org.mockito.Mockito.atLeastOnce()).execute(
-                any(RedisScript.class), keys.capture(), ttl.capture(), any());
+                any(RedisScript.class), keys.capture(), ttl.capture(), any(), any());
         assertThat(keys.getValue().getFirst())
                 .contains("2026-08-03")
                 .doesNotContain(userId.toString())
@@ -55,17 +55,47 @@ class CardInterestServiceTest {
     }
 
     @Test
-    void rejectsUnknownCardsAndAnonymousRequestsWithoutAToken() {
+    void rejectsUnknownCardsAndAnonymousRequestsWithoutTrustedNetworkIdentity() {
         StringRedisTemplate redis = mock(StringRedisTemplate.class);
         CardIdentityVerifier identities = mock(CardIdentityVerifier.class);
         when(identities.resolvePlayerIds(List.of(99L))).thenReturn(Map.of());
         CardInterestService service = new CardInterestService(redis, identities, "secret", CLOCK);
 
-        assertThatThrownBy(() -> service.recordApply(List.of(99L), null, UUID.randomUUID().toString()))
+        assertThatThrownBy(() -> service.recordApply(List.of(99L), null, "203.0.113.10"))
                 .isInstanceOf(MarketplaceException.class);
         when(identities.resolvePlayerIds(List.of(10L))).thenReturn(Map.of(10L, UUID.randomUUID()));
         assertThatThrownBy(() -> service.recordApply(List.of(10L), null, null))
                 .isInstanceOf(MarketplaceException.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void anonymousDedupeUsesTrustedNetworkIdentityInsteadOfCallerMintedToken() {
+        StringRedisTemplate redis = mock(StringRedisTemplate.class);
+        CardIdentityVerifier identities = mock(CardIdentityVerifier.class);
+        long cardId = 89138556575063L;
+        when(identities.resolvePlayerIds(List.of(cardId))).thenReturn(Map.of(cardId, UUID.randomUUID()));
+        when(redis.execute(any(RedisScript.class), anyList(), any(), any(), any())).thenReturn(1L);
+        CardInterestService service = new CardInterestService(redis, identities, "secret", CLOCK);
+
+        service.recordApply(List.of(cardId), null, "203.0.113.10");
+
+        org.mockito.ArgumentCaptor<List<String>> keys = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(redis).execute(any(RedisScript.class), keys.capture(), any(), any(), any());
+        assertThat(keys.getValue().getFirst())
+                .contains(service.hmac("network:203.0.113.10"))
+                .doesNotContain("203.0.113.10");
+        assertThat(keys.getValue().get(2))
+                .contains("budget")
+                .contains(service.hmac("network:203.0.113.10"));
+    }
+
+    @Test
+    void refusesToStartWithoutAConfiguredHmacSecret() {
+        assertThatThrownBy(() -> new CardInterestService(
+                mock(StringRedisTemplate.class), mock(CardIdentityVerifier.class), " ", CLOCK))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CARD_INTEREST_HMAC_SECRET");
     }
 
     @SuppressWarnings("unchecked")

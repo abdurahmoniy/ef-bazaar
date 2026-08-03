@@ -70,7 +70,6 @@ export function PlayerFilterLauncher({
         keepalive: true,
         body: JSON.stringify({
           efhubIds: criteria.map((criterion) => criterion.efhubId),
-          anonymousToken: interestToken(),
         }),
       }).catch(() => undefined);
     }
@@ -91,18 +90,4 @@ export function PlayerFilterLauncher({
       activeCount={active.criteria.length}
     />
   );
-}
-
-const INTEREST_TOKEN_KEY = 'efbazaar:card-interest-token:v1';
-
-function interestToken(): string {
-  try {
-    const existing = window.localStorage.getItem(INTEREST_TOKEN_KEY);
-    if (existing) return existing;
-    const created = window.crypto.randomUUID();
-    window.localStorage.setItem(INTEREST_TOKEN_KEY, created);
-    return created;
-  } catch {
-    return window.crypto.randomUUID();
-  }
 }

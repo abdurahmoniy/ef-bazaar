@@ -37,6 +37,7 @@ export interface PlayerMatchSelection extends AttachedPlayerCard {
 
 const META_PAGE_SIZE = 24;
 const DEBOUNCE_MS = 250;
+const MAX_MATCH_PLAYERS = 11;
 
 /**
  * "META o'yinchilar" — the entry point for filtering accounts by who is in them.
@@ -76,11 +77,12 @@ export function PlayerFilterDialog({
 
   function toggle(card: PlayerMatchSelection) {
     setActiveTeamId(null);
-    setPicked((prev) =>
-      prev.some((c) => c.playerId === card.playerId)
-        ? prev.filter((c) => c.playerId !== card.playerId)
-        : [...prev, card],
-    );
+    setPicked((prev) => {
+      if (prev.some((c) => c.playerId === card.playerId)) {
+        return prev.filter((c) => c.playerId !== card.playerId);
+      }
+      return prev.length >= MAX_MATCH_PLAYERS ? prev : [...prev, card];
+    });
   }
 
   function togglePriority(playerId: string | undefined) {
@@ -158,10 +160,18 @@ export function PlayerFilterDialog({
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
               <Tabs.Content value="meta" className="outline-none">
-                <MetaTab pickedIds={picked.map((c) => c.efhubId)} onToggle={toggle} />
+                <MetaTab
+                  pickedIds={picked.map((c) => c.efhubId)}
+                  selectionFull={picked.length >= MAX_MATCH_PLAYERS}
+                  onToggle={toggle}
+                />
               </Tabs.Content>
               <Tabs.Content value="search" className="outline-none">
-                <SearchTab pickedIds={picked.map((c) => c.efhubId)} onToggle={toggle} />
+                <SearchTab
+                  pickedIds={picked.map((c) => c.efhubId)}
+                  selectionFull={picked.length >= MAX_MATCH_PLAYERS}
+                  onToggle={toggle}
+                />
               </Tabs.Content>
               <Tabs.Content value="team" className="outline-none">
                 <TeamTab
@@ -235,9 +245,11 @@ function DialogHeader() {
 
 function MetaTab({
   pickedIds,
+  selectionFull,
   onToggle,
 }: {
   pickedIds: number[];
+  selectionFull: boolean;
   onToggle: (card: PlayerMatchSelection) => void;
 }) {
   const { cards, loading, error, hasMore, total, loadMore, retry } = useCards({
@@ -268,7 +280,12 @@ function MetaTab({
         />
       ) : (
         <>
-          <CardGrid cards={cards} pickedIds={pickedIds} onToggle={onToggle} />
+          <CardGrid
+            cards={cards}
+            pickedIds={pickedIds}
+            selectionFull={selectionFull}
+            onToggle={onToggle}
+          />
           <CatalogControls
             loading={loading}
             error={error}
@@ -286,9 +303,11 @@ function MetaTab({
 
 function SearchTab({
   pickedIds,
+  selectionFull,
   onToggle,
 }: {
   pickedIds: number[];
+  selectionFull: boolean;
   onToggle: (card: PlayerMatchSelection) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -340,7 +359,12 @@ function SearchTab({
         />
       ) : (
         <>
-          <CardGrid cards={cards} pickedIds={pickedIds} onToggle={onToggle} />
+          <CardGrid
+            cards={cards}
+            pickedIds={pickedIds}
+            selectionFull={selectionFull}
+            onToggle={onToggle}
+          />
           <CatalogControls
             loading={loading}
             error={error}
@@ -419,22 +443,27 @@ function TeamTab({
 function CardGrid({
   cards,
   pickedIds,
+  selectionFull,
   onToggle,
 }: {
   cards: CardSearchResult[];
   pickedIds: number[];
+  selectionFull: boolean;
   onToggle: (card: PlayerMatchSelection) => void;
 }) {
   return (
     <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6">
       {cards.map((card) => {
         const isPicked = pickedIds.includes(card.efhubId);
+        const disabled = selectionFull && !isPicked;
         const rating = cardRating(card);
         return (
           <li key={card.efhubId}>
             <button
               type="button"
               aria-pressed={isPicked}
+              disabled={disabled}
+              title={disabled ? "Ko'pi bilan 11 ta o'yinchi tanlash mumkin" : card.name}
               onClick={() =>
                 onToggle({
                   efhubId: card.efhubId,
@@ -449,7 +478,7 @@ function CardGrid({
                 })
               }
               className={cn(
-                'min-h-11 w-full rounded-xl border bg-card p-1.5 text-left transition',
+                'min-h-11 w-full rounded-xl border bg-card p-1.5 text-left transition disabled:cursor-not-allowed disabled:opacity-45',
                 isPicked
                   ? 'border-primary ring-2 ring-primary/30'
                   : 'border-border hover:border-primary/40',
@@ -539,6 +568,11 @@ function DialogFooter({
             </button>
           ))}
         </div>
+      )}
+      {chosenCount >= MAX_MATCH_PLAYERS && (
+        <p className="text-xs font-bold text-amber-700 dark:text-amber-300" role="status">
+          Ko&apos;pi bilan 11 ta o&apos;yinchi tanlash mumkin. Boshqasini tanlash uchun bittasini olib tashlang.
+        </p>
       )}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs font-bold">

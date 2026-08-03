@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const configPath = join(process.cwd(), '..', 'nginx', 'conf.d', 'efbazaar.conf');
 const apiConfigPath = join(process.cwd(), '..', 'nginx', 'conf.d', 'api.conf');
+const rootConfigPath = join(process.cwd(), '..', 'nginx', 'nginx.conf');
 
 function extractBlocks(config: string, directive: RegExp) {
   const blocks: string[] = [];
@@ -37,6 +38,18 @@ function extractBlocks(config: string, directive: RegExp) {
 }
 
 describe('nginx marketplace routing', () => {
+  it('rate-limits public card-interest writes by network identity', () => {
+    const rootConfig = readFileSync(rootConfigPath, 'utf8');
+    const siteConfig = readFileSync(configPath, 'utf8');
+    const apiConfig = readFileSync(apiConfigPath, 'utf8');
+
+    expect(rootConfig).toContain('zone=card_interest');
+    expect(siteConfig).toContain('limit_req zone=card_interest');
+    expect(siteConfig).toContain('proxy_set_header X-Interest-Network $remote_addr;');
+    expect(apiConfig).toContain('limit_req zone=card_interest');
+    expect(apiConfig).toContain('proxy_set_header X-Interest-Network $remote_addr;');
+  });
+
   it('authenticates marketplace requests in the internal SSR server block', () => {
     const config = readFileSync(configPath, 'utf8');
     const internalServer = extractBlocks(config, /\bserver\s*\{/g).find((block) =>

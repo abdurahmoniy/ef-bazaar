@@ -33,7 +33,8 @@ import uz.efbazaar.marketplace.repository.DreamTeamRepository;
         "app.cards.datasource.url=jdbc:postgresql://localhost/test",
         "app.cards.datasource.username=test",
         "app.cards.datasource.password=test",
-        "app.cards.schema-bootstrap.enabled=false"
+        "app.cards.schema-bootstrap.enabled=false",
+        "app.card-interest.hmac-secret=test-card-interest-secret"
 })
 @EnableAutoConfiguration(exclude = {
         DataSourceAutoConfiguration.class,
