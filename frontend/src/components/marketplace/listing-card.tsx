@@ -32,9 +32,11 @@ interface ListingCardProps {
   listing: ListingResponse;
   /** When true, renders a compact horizontal layout used by list view / small containers. */
   variant?: 'grid' | 'list';
+  /** Originating marketplace query so detail and Back preserve match context. */
+  detailQuery?: string;
 }
 
-export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
+export function ListingCard({ listing, variant = 'grid', detailQuery }: ListingCardProps) {
   // `likedByMe` is omitted (undefined) by the backend when the viewer is anonymous;
   // presence of the field is a reliable authentication signal.
   const authenticated = listing.likedByMe !== undefined && listing.likedByMe !== null;
@@ -59,7 +61,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
     deviceTransferLimit !== undefined && deviceTransferLimit <= 3;
   const acceptsExchange = listingAcceptsExchange(listing);
   const coverUrl = listingMediaUrls(listing, 1)[0];
-  const href = `/marketplace/${listing.id}`;
+  const href = `/marketplace/${listing.id}${detailQuery ? `?${detailQuery}` : ''}`;
 
   if (variant === 'list') {
     return (
@@ -171,6 +173,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
           </div>
         )}
         {isSold && <SoldOverlay />}
+        <MatchBadge percent={listing.matchPercent} />
         {divisionBadgeLevel ? (
           <div className="absolute left-2 top-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
             <DivisionBadge level={divisionBadgeLevel} size={40} />
@@ -280,7 +283,7 @@ function MatchBadge({ percent }: { percent?: number | null }) {
   return (
     <span
       className={cn(
-        'absolute left-2 top-2 z-10 rounded-lg px-2 py-1 text-[11px] font-black shadow-card backdrop-blur-sm',
+        'absolute bottom-2 left-2 z-10 rounded-lg px-2 py-1 text-[11px] font-black shadow-card backdrop-blur-sm',
         strong ? 'bg-emerald-500/90 text-white' : 'bg-amber-400/90 text-amber-950',
       )}
       title="Tanlangan o'yinchilarga mos kelish darajasi"

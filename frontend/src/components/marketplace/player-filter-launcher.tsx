@@ -3,20 +3,20 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { PlayerFilterDialog } from '@/components/marketplace/player-filter-dialog';
+import {
+  PlayerFilterDialog,
+  type PlayerMatchSelection,
+} from '@/components/marketplace/player-filter-dialog';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
-import type { AttachedPlayerCard, DreamTeam } from '@/lib/marketplace-types';
+import type { DreamTeam } from '@/lib/marketplace-types';
+import { parsePlayerMatchValues, writePlayerMatch } from '@/lib/player-match-query';
 
 interface PlayerFilterLauncherProps {
   /** Current browse query string, so applying a squad keeps every other filter. */
   currentQuery: string;
-  /** Serialized dream team already applied, if any. */
-  activeDreamTeam?: string;
+  activeMatchCards?: string[];
   activeMinMatch?: number;
 }
-
-const DREAM_TEAM_PARAM = 'attr.dream_team';
-const MIN_MATCH_PARAM = 'attr.dream_team_min_match';
 
 /**
  * Client shell for {@link PlayerFilterDialog}: owns the URL rewrite and lazily
@@ -28,8 +28,8 @@ const MIN_MATCH_PARAM = 'attr.dream_team_min_match';
  */
 export function PlayerFilterLauncher({
   currentQuery,
-  activeDreamTeam,
-  activeMinMatch = 40,
+  activeMatchCards = [],
+  activeMinMatch = 4,
 }: PlayerFilterLauncherProps) {
   const router = useRouter();
   const [teams, setTeams] = useState<DreamTeam[]>([]);
@@ -47,17 +47,18 @@ export function PlayerFilterLauncher({
     return () => controller.abort();
   }, []);
 
-  function apply(dreamTeam: string | undefined, minMatch: number) {
-    const params = new URLSearchParams(currentQuery);
-    if (dreamTeam) {
-      params.set(DREAM_TEAM_PARAM, dreamTeam);
-      params.set(MIN_MATCH_PARAM, String(minMatch));
-    } else {
-      params.delete(DREAM_TEAM_PARAM);
-      params.delete(MIN_MATCH_PARAM);
-    }
-    // A new squad reorders everything — page 3 of the old result set is meaningless.
-    params.delete('page');
+  const active = parsePlayerMatchValues(activeMatchCards, String(activeMinMatch));
+
+  function apply(cards: PlayerMatchSelection[] | undefined, strictness: number) {
+    const criteria = cards?.flatMap((card) => card.playerId ? [{
+      efhubId: card.efhubId,
+      playerId: card.playerId,
+      importance: card.priority ? 'P' as const : 'N' as const,
+      name: card.name,
+    }] : []);
+    const params = writePlayerMatch(new URLSearchParams(currentQuery), criteria?.length
+      ? { criteria, strictness }
+      : undefined);
     const qs = params.toString();
     router.push(qs ? `/marketplace?${qs}` : '/marketplace');
   }
@@ -65,28 +66,15 @@ export function PlayerFilterLauncher({
   return (
     <PlayerFilterDialog
       teams={teams}
-      selected={parseSelected(activeDreamTeam)}
+      selected={active.criteria.map((criterion) => ({
+        efhubId: criterion.efhubId,
+        playerId: criterion.playerId,
+        name: `Karta #${criterion.efhubId}`,
+        priority: criterion.importance === 'P',
+      }))}
       activeMinMatch={activeMinMatch}
       onApply={apply}
-      activeCount={parseSelected(activeDreamTeam).length}
+      activeCount={active.criteria.length}
     />
   );
-}
-
-/**
- * Rebuild the picked cards from the filter payload so reopening the dialog
- * shows what is actually applied. Only id and name survive in the URL — enough
- * to keep selection state honest, images reload from the catalogue.
- */
-function parseSelected(dreamTeam?: string): AttachedPlayerCard[] {
-  if (!dreamTeam) return [];
-  try {
-    const parsed = JSON.parse(dreamTeam) as Array<{ id?: string; name?: string }>;
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((slot) => slot?.id && slot?.name)
-      .map((slot) => ({ efhubId: Number(slot.id), name: String(slot.name) }));
-  } catch {
-    return [];
-  }
 }

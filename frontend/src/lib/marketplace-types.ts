@@ -66,6 +66,14 @@ export interface ListingResponse {
   likedByMe?: boolean | null;
   /** 0..100 squad coverage — present only when the request carried a dream team. */
   matchPercent?: number | null;
+  matchDetails?: {
+    percent: number;
+    exactCount: number;
+    alternateCount: number;
+    missingCount: number;
+    selectedCount: number;
+    strictness: number;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,6 +86,9 @@ export interface ListingBrowseParams {
   maxPrice?: number;
   priceNegotiable?: boolean;
   search?: string;
+  /** Repeatable typed matcher criteria: efhubId:playerId:N|P. */
+  matchCards?: string[];
+  matchStrictness?: number;
   /** Equality filters on JSONB attributes — sent as {@code ?attr.<key>=<value>}. */
   attributes?: Record<string, string>;
 }

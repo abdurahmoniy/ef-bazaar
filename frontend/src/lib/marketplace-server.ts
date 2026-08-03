@@ -89,8 +89,18 @@ export async function browseListings(
   return safeFetch<PageResponse<ListingResponse>>(`${MARKETPLACE_PREFIX}/listings${suffix}`);
 }
 
-export async function getListing(id: string): Promise<FetchResult<ListingResponse>> {
-  return safeFetch<ListingResponse>(`${MARKETPLACE_PREFIX}/listings/${encodeURIComponent(id)}`);
+export async function getListing(
+  id: string,
+  matchCards?: string[],
+  matchStrictness?: number,
+): Promise<FetchResult<ListingResponse>> {
+  const params = new URLSearchParams();
+  for (const criterion of matchCards ?? []) params.append('matchCard', criterion);
+  if (matchCards?.length) params.set('matchStrictness', String(matchStrictness ?? 4));
+  const query = params.toString();
+  return safeFetch<ListingResponse>(
+    `${MARKETPLACE_PREFIX}/listings/${encodeURIComponent(id)}${query ? `?${query}` : ''}`,
+  );
 }
 
 export async function getAttributeDefinitions(): Promise<AttributeDefinitionResponse[]> {

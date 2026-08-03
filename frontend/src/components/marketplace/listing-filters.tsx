@@ -27,6 +27,8 @@ interface ListingFiltersProps {
 	sortParam?: string
 	/** Raw attr.* filters from the URL — source of defaultValues for attribute fields. */
 	attributes?: Record<string, string>
+	matchCards?: string[]
+	matchStrictness?: number
 }
 
 const DIVISION_CHOICES = [1, 2, 3, 4] as const
@@ -67,6 +69,8 @@ export function ListingFiltersForm({
 	valuablePlayerName,
 	sortParam,
 	attributes,
+	matchCards,
+	matchStrictness,
 	className,
 	showHeading = false,
 }: ListingFiltersProps & { className?: string; showHeading?: boolean }) {
@@ -76,6 +80,12 @@ export function ListingFiltersForm({
 	return (
 		<form action='/marketplace' method='get' className={className}>
 			{query && <input type='hidden' name='q' value={query} />}
+			{matchCards?.map((criterion) => (
+				<input key={criterion} type='hidden' name='matchCard' value={criterion} />
+			))}
+			{matchCards?.length ? (
+				<input type='hidden' name='matchStrictness' value={matchStrictness ?? 4} />
+			) : null}
 
 			{showHeading && (
 				<div className='flex items-center gap-2 pb-3 text-sm font-bold text-foreground'>
@@ -312,17 +322,19 @@ export function QuickChips({
 	activeFilter,
 	query,
 	view,
+	currentQuery,
 }: {
 	activeFilter: MarketplaceFilterId
 	query?: string
 	view?: 'grid' | 'list'
+	currentQuery?: string
 }) {
 	return (
 		<div className='snap-rail gap-2 pb-1'>
 			{MARKETPLACE_FILTERS.map((filter) => (
 				<Link
 					key={filter.id}
-					href={filterHref(filter.id, query, view)}
+					href={filterHref(filter.id, query, view, currentQuery)}
 					aria-current={filter.id === activeFilter ? 'page' : undefined}
 					className={cn(
 						'tap-press inline-flex shrink-0 items-center min-h-10 rounded-full border px-4 py-2 text-sm font-semibold transition',
@@ -338,8 +350,15 @@ export function QuickChips({
 	)
 }
 
-function filterHref(filterId: MarketplaceFilterId, query?: string, view?: 'grid' | 'list') {
-	const params = new URLSearchParams()
+function filterHref(
+	filterId: MarketplaceFilterId,
+	query?: string,
+	view?: 'grid' | 'list',
+	currentQuery?: string,
+) {
+	const params = new URLSearchParams(currentQuery)
+	params.delete('filter')
+	params.delete('page')
 	if (filterId !== 'all') params.set('filter', filterId)
 	if (query?.trim()) params.set('q', query.trim())
 	if (view === 'list') params.set('view', 'list')

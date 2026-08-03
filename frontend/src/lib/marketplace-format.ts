@@ -1,4 +1,5 @@
 import type { ListingBrowseParams } from './marketplace-types';
+import { parsePlayerMatchValues } from './player-match-query';
 
 export type SearchParamInput = Record<string, string | string[] | undefined>;
 
@@ -176,6 +177,10 @@ export function parseListingSearchParams(input: SearchParamInput = {}): ListingB
   const priceNegotiable = booleanParam(input.priceNegotiable);
   const search = textParam(input.q) ?? textParam(input.search);
   const sort = textParam(input.sort);
+  const rawMatchCards = Array.isArray(input.matchCard)
+    ? input.matchCard
+    : input.matchCard ? [input.matchCard] : [];
+  const match = parsePlayerMatchValues(rawMatchCards, textParam(input.matchStrictness));
 
   if (page !== undefined) params.page = page;
   if (size !== undefined) params.size = size;
@@ -184,6 +189,11 @@ export function parseListingSearchParams(input: SearchParamInput = {}): ListingB
   if (priceNegotiable !== undefined) params.priceNegotiable = priceNegotiable;
   if (search) params.search = search;
   if (sort) params.sort = sort;
+  if (match.criteria.length) {
+    params.matchCards = match.criteria.map((criterion) =>
+      `${criterion.efhubId}:${criterion.playerId}:${criterion.importance}`);
+    params.matchStrictness = match.strictness;
+  }
 
   // Any `attr.<key>` query param is treated as a JSONB equality filter.
   for (const [rawKey, rawValue] of Object.entries(input)) {
@@ -211,6 +221,12 @@ export function buildListingSearchParams(input: ListingBrowseParams = {}) {
   appendDefined(params, 'maxPrice', input.maxPrice);
   appendDefined(params, 'priceNegotiable', input.priceNegotiable);
   appendDefined(params, 'search', input.search);
+  for (const criterion of input.matchCards ?? []) {
+    params.append('matchCard', criterion);
+  }
+  if (input.matchCards?.length) {
+    appendDefined(params, 'matchStrictness', input.matchStrictness ?? 4);
+  }
 
   if (input.attributes) {
     for (const [key, value] of Object.entries(input.attributes)) {

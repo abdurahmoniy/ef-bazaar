@@ -42,6 +42,7 @@ interface MarketplaceListingDetailProps {
   seller: User | null;
   sellerBlacklisted?: boolean;
   similarListings: ListingResponse[];
+  backHref?: string;
 }
 
 export function MarketplaceListingDetail({
@@ -50,6 +51,7 @@ export function MarketplaceListingDetail({
   seller,
   sellerBlacklisted,
   similarListings,
+  backHref = '/marketplace',
 }: MarketplaceListingDetailProps) {
   const title = listing.description.split('\n')[0]?.trim() || 'eFootball account';
   const restDescription = listing.description
@@ -89,13 +91,41 @@ export function MarketplaceListingDetail({
   return (
     <article className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <BackLink href="/marketplace" label="Bozor" />
+        <BackLink href={backHref} label="Bozor" />
         <ShareListingButton listingId={listing.id} title={title} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-6">
         <div className="min-w-0 space-y-4">
           <ListingMediaGallery title={title} urls={mediaUrls} />
+
+          {listing.matchDetails && (
+            <section className="rounded-xl border border-primary/25 bg-primary/5 p-4 shadow-card">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-primary">Tarkib mosligi</p>
+                  <h2 className="mt-1 text-2xl font-black">{listing.matchDetails.percent}% mos</h2>
+                </div>
+                <span className="rounded-full bg-primary px-3 py-1 text-sm font-black text-primary-foreground">
+                  {listing.matchDetails.exactCount + listing.matchDetails.alternateCount}/{listing.matchDetails.selectedCount}
+                </span>
+              </div>
+              <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="rounded-lg bg-card p-2">
+                  <dt className="text-muted-foreground">Aniq karta</dt>
+                  <dd className="mt-1 font-black text-emerald-600">{listing.matchDetails.exactCount}</dd>
+                </div>
+                <div className="rounded-lg bg-card p-2">
+                  <dt className="text-muted-foreground">Boshqa nashr</dt>
+                  <dd className="mt-1 font-black text-amber-600">{listing.matchDetails.alternateCount}</dd>
+                </div>
+                <div className="rounded-lg bg-card p-2">
+                  <dt className="text-muted-foreground">Yetishmaydi</dt>
+                  <dd className="mt-1 font-black text-destructive">{listing.matchDetails.missingCount}</dd>
+                </div>
+              </dl>
+            </section>
+          )}
 
           <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
