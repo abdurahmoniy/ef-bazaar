@@ -79,7 +79,7 @@ export function ListingCard({ listing, variant = 'grid', detailQuery }: ListingC
             <PlaceholderImage />
           )}
           {isSold && <SoldOverlay />}
-          <MatchBadge percent={listing.matchPercent} />
+          <MatchBadge percent={listing.matchPercent} details={listing.matchDetails} />
         </Link>
         {!isSold && (
           <ListingLikeButton
@@ -173,7 +173,7 @@ export function ListingCard({ listing, variant = 'grid', detailQuery }: ListingC
           </div>
         )}
         {isSold && <SoldOverlay />}
-        <MatchBadge percent={listing.matchPercent} />
+        <MatchBadge percent={listing.matchPercent} details={listing.matchDetails} />
         {divisionBadgeLevel ? (
           <div className="absolute left-2 top-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
             <DivisionBadge level={divisionBadgeLevel} size={40} />
@@ -277,7 +277,13 @@ function Metric({ icon, value }: { icon: React.ReactNode; value: string }) {
  * Colour is the honest signal: green only for a genuinely strong cover, amber
  * for partial. Everything shown already passed the user's own threshold.
  */
-function MatchBadge({ percent }: { percent?: number | null }) {
+function MatchBadge({
+  percent,
+  details,
+}: {
+  percent?: number | null;
+  details?: ListingResponse['matchDetails'];
+}) {
   if (typeof percent !== 'number') return null;
   const strong = percent >= 70;
   return (
@@ -286,7 +292,9 @@ function MatchBadge({ percent }: { percent?: number | null }) {
         'absolute bottom-2 left-2 z-10 rounded-lg px-2 py-1 text-[11px] font-black shadow-card backdrop-blur-sm',
         strong ? 'bg-emerald-500/90 text-white' : 'bg-amber-400/90 text-amber-950',
       )}
-      title="Tanlangan o'yinchilarga mos kelish darajasi"
+      title={details
+        ? `Aniq ${details.exactCount}, boshqa nashr ${details.alternateCount}, yetishmaydi ${details.missingCount}`
+        : "Tanlangan o'yinchilarga mos kelish darajasi"}
     >
       {percent}% mos
     </span>

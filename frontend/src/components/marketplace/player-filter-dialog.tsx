@@ -240,7 +240,7 @@ function MetaTab({
   pickedIds: number[];
   onToggle: (card: PlayerMatchSelection) => void;
 }) {
-  const { cards, loading, error, hasMore, loadMore, retry } = useCards({
+  const { cards, loading, error, hasMore, total, loadMore, retry } = useCards({
     tier: 'META',
     size: META_PAGE_SIZE,
   });
@@ -274,6 +274,7 @@ function MetaTab({
             error={error}
             hasMore={hasMore}
             count={cards.length}
+            total={total}
             onLoadMore={loadMore}
             onRetry={retry}
           />
@@ -298,7 +299,7 @@ function SearchTab({
     return () => window.clearTimeout(handle);
   }, [query]);
 
-  const { cards, loading, error, hasMore, loadMore, retry } = useCards({
+  const { cards, loading, error, hasMore, total, loadMore, retry } = useCards({
     q: debounced,
     size: 30,
     skip: debounced.length < 2,
@@ -345,6 +346,7 @@ function SearchTab({
             error={error}
             hasMore={hasMore}
             count={cards.length}
+            total={total}
             onLoadMore={loadMore}
             onRetry={retry}
           />
@@ -585,6 +587,7 @@ function CatalogControls({
   error,
   hasMore,
   count,
+  total,
   onLoadMore,
   onRetry,
 }: {
@@ -592,6 +595,7 @@ function CatalogControls({
   error: string | null;
   hasMore: boolean;
   count: number;
+  total: number;
   onLoadMore: () => void;
   onRetry: () => void;
 }) {
@@ -608,7 +612,7 @@ function CatalogControls({
     <div className="mt-3 text-center">
       <Button variant="outline" onClick={onLoadMore} disabled={loading} className="min-h-11">
         {loading ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
-        Yana yuklash ({count})
+        Yana yuklash ({count} / {total})
       </Button>
     </div>
   );
@@ -719,6 +723,7 @@ function useCards({
     cards,
     loading,
     error,
+    total,
     hasMore: cards.length < total,
     loadMore: () => {
       if (!loading && cards.length < total) setPage((current) => current + 1);

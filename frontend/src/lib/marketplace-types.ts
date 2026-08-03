@@ -73,6 +73,12 @@ export interface ListingResponse {
     missingCount: number;
     selectedCount: number;
     strictness: number;
+    exactEfhubIds: number[];
+    alternateEfhubIds: number[];
+    missingEfhubIds: number[];
+    priorityEfhubIds: number[];
+    earnedWeight: number;
+    possibleWeight: number;
   } | null;
   createdAt: string;
   updatedAt: string;
@@ -165,6 +171,8 @@ export interface CardSearchResult {
   maxOverallRating?: number;
   cardType: CardType;
   metaTier: MetaTier;
+  /** Ranking within currently active META cards (0..100). */
+  metaPriority: number;
   imageUrl?: string;
   skills?: string[];
 }
@@ -172,6 +180,25 @@ export interface CardSearchResult {
 /** Card catalogue page — same shape family as PageResponse but backend-specific. */
 export interface CardPage {
   items: CardSearchResult[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+export interface AdminCardSearchResult extends CardSearchResult {
+  configuredMetaTier: MetaTier;
+  configuredMetaPriority: number;
+  metaActiveFrom?: string | null;
+  metaActiveUntil?: string | null;
+  metaReason?: string | null;
+  metaUpdatedBy?: string | null;
+  metaUpdatedAt?: string | null;
+  interest7d?: number;
+  interest30d?: number;
+}
+
+export interface AdminCardPage {
+  items: AdminCardSearchResult[];
   page: number;
   size: number;
   total: number;

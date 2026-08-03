@@ -7,6 +7,7 @@ import type {
   AdminStatsResponse,
   AttributeDefinitionResponse,
   CardPage,
+  AdminCardPage,
   CardType,
   ChatResponse,
   DreamTeam,
@@ -194,6 +195,25 @@ export async function getCards(params: {
   if (params.types?.length) search.set('types', params.types.join(','));
   if (params.tier) search.set('tier', params.tier);
   return safeFetch<CardPage>(`${MARKETPLACE_PREFIX}/cards?${search.toString()}`);
+}
+
+export async function getAdminCards(params: {
+  q?: string;
+  types?: CardType[];
+  tier?: MetaTier;
+  page?: number;
+  size?: number;
+}): Promise<FetchResult<AdminCardPage>> {
+  const search = new URLSearchParams({
+    page: String(params.page ?? 0),
+    size: String(params.size ?? 30),
+  });
+  if (params.q) search.set('q', params.q);
+  if (params.types?.length) search.set('types', params.types.join(','));
+  if (params.tier) search.set('tier', params.tier);
+  return safeFetch<AdminCardPage>(
+    `${MARKETPLACE_PREFIX}/admin/cards?${search.toString()}`,
+  );
 }
 
 /** All definitions including inactive — the admin table shows the `active` flag. */

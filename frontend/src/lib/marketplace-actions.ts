@@ -177,11 +177,28 @@ export function adminUpdateAttribute(
 export function adminSetCardMetaTier(
   efhubIds: number[],
   metaTier: MetaTier,
+  lifecycle?: {
+    priority?: number;
+    activeFrom?: string;
+    activeUntil?: string;
+    reason?: string;
+  },
 ): Promise<ActionResult<CardMetaTierUpdateResponse>> {
   return marketplaceRequest<CardMetaTierUpdateResponse>(
     ['v1', 'admin', 'cards', 'meta-tier'],
-    { method: 'PUT', body: JSON.stringify({ efhubIds, metaTier }) },
+    { method: 'PUT', body: JSON.stringify({ efhubIds, metaTier, ...lifecycle }) },
     "O'yinchi darajasi yangilanmadi",
+  );
+}
+
+export function adminExpireCardMeta(
+  efhubIds: number[],
+  reason?: string,
+): Promise<ActionResult<CardMetaTierUpdateResponse>> {
+  return marketplaceRequest<CardMetaTierUpdateResponse>(
+    ['v1', 'admin', 'cards', 'meta-tier', 'expire'],
+    { method: 'POST', body: JSON.stringify({ efhubIds, reason }) },
+    "META muddati tugatilmadi",
   );
 }
 

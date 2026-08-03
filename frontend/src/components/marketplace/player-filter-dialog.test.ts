@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(new URL('./player-filter-dialog.tsx', import.meta.url), 'utf8');
+const launcher = readFileSync(new URL('./player-filter-launcher.tsx', import.meta.url), 'utf8');
 
 describe('PlayerFilterDialog accessibility contract', () => {
   it('uses focus-managed dialog and keyboard-aware tabs primitives', () => {
@@ -24,5 +25,15 @@ describe('PlayerFilterDialog accessibility contract', () => {
     expect(source).toContain('Qayta urinish');
     expect(source).toContain('page: String(page)');
     expect(source).toContain('controller.abort()');
+  });
+
+  it('records interest only after Apply and never blocks navigation', () => {
+    expect(launcher).toContain("['v1', 'card-interest', 'apply']");
+    expect(launcher).toContain('keepalive: true');
+    expect(launcher).toContain('.catch(() => undefined)');
+    expect(launcher.indexOf("['v1', 'card-interest', 'apply']"))
+      .toBeGreaterThan(launcher.indexOf('function apply('));
+    expect(launcher.indexOf('router.push('))
+      .toBeGreaterThan(launcher.indexOf("['v1', 'card-interest', 'apply']"));
   });
 });

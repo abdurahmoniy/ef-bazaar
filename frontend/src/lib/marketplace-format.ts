@@ -154,7 +154,7 @@ export function normalizePlayerList(value: string) {
     .split(/[,\n]/)
     .map((item) => item.trim())
     .filter(Boolean)
-    .slice(0, 12);
+    .slice(0, 30);
 }
 
 export function getSelectedMarketplaceFilter(input: SearchParamInput = {}): MarketplaceFilterId {

@@ -60,6 +60,20 @@ export function PlayerFilterLauncher({
       ? { criteria, strictness }
       : undefined);
     const qs = params.toString();
+    if (criteria?.length) {
+      // Buyer intent is informational only. Fire-and-forget so Redis/network
+      // issues can never delay applying the marketplace filter.
+      void fetch(buildMarketplaceApiPath(['v1', 'card-interest', 'apply']), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'include',
+        keepalive: true,
+        body: JSON.stringify({
+          efhubIds: criteria.map((criterion) => criterion.efhubId),
+          anonymousToken: interestToken(),
+        }),
+      }).catch(() => undefined);
+    }
     router.push(qs ? `/marketplace?${qs}` : '/marketplace');
   }
 
@@ -77,4 +91,18 @@ export function PlayerFilterLauncher({
       activeCount={active.criteria.length}
     />
   );
+}
+
+const INTEREST_TOKEN_KEY = 'efbazaar:card-interest-token:v1';
+
+function interestToken(): string {
+  try {
+    const existing = window.localStorage.getItem(INTEREST_TOKEN_KEY);
+    if (existing) return existing;
+    const created = window.crypto.randomUUID();
+    window.localStorage.setItem(INTEREST_TOKEN_KEY, created);
+    return created;
+  } catch {
+    return window.crypto.randomUUID();
+  }
 }

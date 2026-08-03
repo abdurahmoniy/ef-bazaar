@@ -13,6 +13,7 @@ import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/divisio
 import { ListingActions } from '@/components/marketplace/listing-actions';
 import { ListingCard } from '@/components/marketplace/listing-card';
 import { ListingMediaGallery } from '@/components/marketplace/listing-media-gallery';
+import { MatchBreakdown } from '@/components/marketplace/match-breakdown';
 import { PlayerCardTile } from '@/components/marketplace/player-card-tile';
 import { SellerCard } from '@/components/marketplace/seller-card';
 import { ShareListingButton } from '@/components/marketplace/share-listing-button';
@@ -99,33 +100,7 @@ export function MarketplaceListingDetail({
         <div className="min-w-0 space-y-4">
           <ListingMediaGallery title={title} urls={mediaUrls} />
 
-          {listing.matchDetails && (
-            <section className="rounded-xl border border-primary/25 bg-primary/5 p-4 shadow-card">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-primary">Tarkib mosligi</p>
-                  <h2 className="mt-1 text-2xl font-black">{listing.matchDetails.percent}% mos</h2>
-                </div>
-                <span className="rounded-full bg-primary px-3 py-1 text-sm font-black text-primary-foreground">
-                  {listing.matchDetails.exactCount + listing.matchDetails.alternateCount}/{listing.matchDetails.selectedCount}
-                </span>
-              </div>
-              <dl className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="rounded-lg bg-card p-2">
-                  <dt className="text-muted-foreground">Aniq karta</dt>
-                  <dd className="mt-1 font-black text-emerald-600">{listing.matchDetails.exactCount}</dd>
-                </div>
-                <div className="rounded-lg bg-card p-2">
-                  <dt className="text-muted-foreground">Boshqa nashr</dt>
-                  <dd className="mt-1 font-black text-amber-600">{listing.matchDetails.alternateCount}</dd>
-                </div>
-                <div className="rounded-lg bg-card p-2">
-                  <dt className="text-muted-foreground">Yetishmaydi</dt>
-                  <dd className="mt-1 font-black text-destructive">{listing.matchDetails.missingCount}</dd>
-                </div>
-              </dl>
-            </section>
-          )}
+          <MatchBreakdown listing={listing} />
 
           <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
