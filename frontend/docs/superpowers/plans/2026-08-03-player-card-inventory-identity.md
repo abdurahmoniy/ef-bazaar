@@ -18,12 +18,12 @@
 - Modify: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/cards/CardColumns.java`
 - Test: `backend/marketplace-service/src/test/java/uz/efbazaar/marketplace/cards/CardSchemaBootstrapTest.java`
 
-- [ ] Add a failing bootstrap test asserting creation of `player_identities` and `card_player_identities` and their indexes.
-- [ ] Run `JAVA_HOME=/Users/abdurahmoniy/Library/Java/JavaVirtualMachines/ms-21.0.10/Contents/Home mvn -pl marketplace-service -Dtest=CardSchemaBootstrapTest test` from `backend`; confirm the new assertions fail.
-- [ ] Add the immutable SQL migration with `player_identities(id uuid primary key, normalized_name text not null, display_name text not null, created_at timestamptz not null default now())` and `card_player_identities(card_type text not null, efhub_id bigint not null, player_id uuid not null references player_identities(id), primary key(card_type, efhub_id))`.
-- [ ] Extend bootstrap SQL with the same `CREATE TABLE IF NOT EXISTS` and indexes so environments where the card DB is bootstrapped by the service converge safely.
-- [ ] Backfill deterministic identity IDs with `uuid_generate_v5(uuid_ns_url(), 'ef-player:' || lower(regexp_replace(trim(name), '\\s+', ' ', 'g')))` and use the normalized name as the initial identity boundary.
-- [ ] Re-run the focused test and commit with `feat(cards): add canonical player identities`.
+- [x] Add a failing bootstrap test asserting creation of `player_identities` and `card_player_identities` and their indexes.
+- [x] Run the focused Java 21 bootstrap/normalizer tests and confirm the missing behavior fails.
+- [x] Add the immutable SQL migration with canonical identity and persisted card-mapping tables.
+- [x] Extend bootstrap SQL with the same `CREATE TABLE IF NOT EXISTS` and indexes so environments where the card DB is bootstrapped by the service converge safely.
+- [x] Backfill deterministic normalized-name groups, assign UUIDs once, and preserve mappings on subsequent runs.
+- [x] Re-run the focused tests successfully; include this task in the release-slice commit.
 
 ## Task 2: Expose `playerId` through card reads and writes
 
@@ -34,12 +34,12 @@
 - Test: `backend/marketplace-service/src/test/java/uz/efbazaar/marketplace/cards/CardSearchServiceTest.java`
 - Test: `backend/marketplace-service/src/test/java/uz/efbazaar/marketplace/cards/CardWriterTest.java`
 
-- [ ] Add failing row-mapping/query tests requiring `CardSearchResult(UUID playerId, long efhubId, ...)` and a left join from every card branch to `card_player_identities`.
-- [ ] Add a failing writer test showing a newly scraped card receives the deterministic identity mapping after its card row is upserted.
-- [ ] Run both focused tests and verify failures are limited to the missing identity behavior.
-- [ ] Add the `playerId` record field, select `cpi.player_id`, map it with `rs.getObject("player_id", UUID.class)`, and qualify card columns to avoid ambiguous identifiers.
-- [ ] Add an idempotent writer step that inserts the normalized identity and then `card_player_identities`, preserving an existing mapping on conflict.
-- [ ] Run the focused tests and commit with `feat(cards): expose canonical player id`.
+- [x] Add failing query tests requiring a player ID and a left join from every card branch to `card_player_identities`.
+- [x] Add a failing writer test showing a newly scraped card receives the deterministic identity mapping after its card row is upserted.
+- [x] Run both focused tests and verify failures are limited to the missing identity behavior.
+- [x] Add the `playerId` record field, select `identity.player_id`, map it as UUID, and qualify card columns to avoid ambiguous identifiers.
+- [x] Add an idempotent writer step that inserts the normalized identity and then `card_player_identities`, preserving an existing mapping on conflict.
+- [x] Run all focused identity tests successfully and commit the card identity slice.
 
 ## Task 3: Normalize seller-declared listing cards transactionally
 

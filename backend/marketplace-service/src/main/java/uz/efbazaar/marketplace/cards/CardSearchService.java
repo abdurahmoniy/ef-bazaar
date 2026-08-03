@@ -17,6 +17,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,6 +47,7 @@ public class CardSearchService {
         String tier = rs.getString("meta_tier");
         return new CardSearchResult(
                 rs.getLong("efhub_id"),
+                rs.getObject("player_id", UUID.class),
                 rs.getString("name"),
                 rs.getString("team"),
                 rs.getString("position"),
@@ -237,10 +239,19 @@ public class CardSearchService {
                 ? "max_overall_rating"
                 : "NULL::smallint AS max_overall_rating";
         return """
-                (SELECT efhub_id, name, team, position, playing_style,
-                        overall_rating, %s,
-                        '%s' AS card_type, %s, image_url, skills
-                 FROM %s%s)
-                """.formatted(maxOvr, typeLabel, metaTier, table, where);
+                (SELECT card.efhub_id, identity.player_id,
+                        card.name, card.team, card.position, card.playing_style,
+                        card.overall_rating, %s,
+                        '%s' AS card_type, %s, card.image_url, card.skills
+                 FROM %s card
+                 LEFT JOIN card_player_identities identity ON identity.efhub_id = card.efhub_id%s)
+                """.formatted(qualify(maxOvr), typeLabel, qualify(metaTier), table, where);
+    }
+
+    private static String qualify(String expression) {
+        if (expression.startsWith("NULL") || expression.startsWith("'")) {
+            return expression;
+        }
+        return "card." + expression;
     }
 }
