@@ -87,4 +87,3 @@ Bulk updates report requested, changed, skipped, and invalid counts. Permission 
 - META status can expire without manual cleanup.
 - Admins can explain and order curated META cards.
 - Buyer interest assists curation without identifying buyers or automatically changing editorial state.
-

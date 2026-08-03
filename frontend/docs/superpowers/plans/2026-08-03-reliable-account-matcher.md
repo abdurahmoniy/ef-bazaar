@@ -87,4 +87,3 @@
 - [ ] Run matcher parser, repository, controller, service, and Dream Team tests with Java 21.
 - [ ] Run the marketplace-service suite and separate any known baseline context-load error from regressions.
 - [ ] Run `git diff --check` and inspect generated SQL with EXPLAIN on representative fixture sizes.
-

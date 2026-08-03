@@ -104,4 +104,3 @@ These boundaries keep URL behavior, network behavior, and presentation independe
 - Dialog use is complete by keyboard and screen reader.
 - Empty results always provide a recovery path.
 - Signed-out team work is not lost at login.
-

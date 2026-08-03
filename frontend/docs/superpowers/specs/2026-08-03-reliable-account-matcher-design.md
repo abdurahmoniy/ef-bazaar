@@ -106,4 +106,3 @@ The existing ten-teams-per-user limit remains.
 - Match percentage and counts originate from one database calculation.
 - All invalid public inputs are rejected before SQL expansion.
 - Shared and listing-detail URLs reproduce the same match explanation.
-

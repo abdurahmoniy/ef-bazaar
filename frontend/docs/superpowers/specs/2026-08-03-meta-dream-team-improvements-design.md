@@ -65,4 +65,3 @@ Rank name search by textual relevance, expand the META model with priority and v
 - Requiring every seller to enter the account’s complete roster.
 
 These exclusions keep this initiative focused on a reliable, explainable marketplace filter rather than an account-ingestion platform.
-

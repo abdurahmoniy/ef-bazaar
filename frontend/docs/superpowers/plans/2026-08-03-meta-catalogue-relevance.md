@@ -100,4 +100,3 @@
 - [ ] Run all touched card-service/controller tests with Java 21 and all touched frontend tests.
 - [ ] Run the marketplace-service suite, `npm test`, and `npm run typecheck`, separating known baseline failures from regressions.
 - [ ] Run `git diff --check`; inspect query plans, Redis cardinality bounds, TTLs, audit fields, and anonymous-data handling.
-

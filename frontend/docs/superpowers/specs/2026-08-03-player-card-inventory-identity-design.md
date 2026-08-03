@@ -81,4 +81,3 @@ The field stays optional. Accounts without notable cards must still be listable,
 - Existing listings remain readable after the migration.
 - Seller copy accurately states what matching can and cannot see.
 - Matching no longer needs to scan `attributes.valuable_players` for new data.
-

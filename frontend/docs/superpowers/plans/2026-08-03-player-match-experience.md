@@ -103,4 +103,3 @@
 - [ ] Run all touched frontend tests, then `npm test`, `npm run typecheck`, and `npm run lint` if configured.
 - [ ] Use keyboard-only smoke tests at mobile and desktop widths; verify focus return and reduced-motion behavior.
 - [ ] Record the known baseline homepage-copy test separately if it remains and run `git diff --check`.
-
