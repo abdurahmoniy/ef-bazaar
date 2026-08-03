@@ -22,6 +22,21 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
     Optional<Trade> findByIdAndParticipant(@Param("id") UUID id,
                                            @Param("userId") UUID userId);
 
+    /**
+     * Like {@link #findByIdAndParticipant} but also matches the assigned human
+     * admin. Used by every admin endpoint; returning empty (→ 404) for a
+     * stranger avoids confirming the trade exists.
+     */
+    @Query("""
+            SELECT t FROM Trade t
+             WHERE t.id = :id
+               AND (t.sellerId = :userId
+                 OR t.buyerId = :userId
+                 OR t.assignedAdminId = :userId)
+            """)
+    Optional<Trade> findByIdAndViewer(@Param("id") UUID id,
+                                      @Param("userId") UUID userId);
+
     @Query("""
             SELECT t FROM Trade t
              WHERE t.chatId = :chatId

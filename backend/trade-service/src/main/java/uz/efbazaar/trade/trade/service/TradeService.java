@@ -104,6 +104,17 @@ public class TradeService {
                 .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
     }
 
+    /**
+     * Look up a trade for anyone entitled to see it — either party or the
+     * assigned human admin. Prefer {@link #get} where the caller must be a
+     * party (e.g. confirming the close).
+     */
+    @Transactional(readOnly = true)
+    public Trade getForViewer(UUID tradeId, UUID viewerUserId) {
+        return trades.findByIdAndViewer(tradeId, viewerUserId)
+                .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
+    }
+
     /** Canonical mutation. Every action goes through here. */
     @Transactional
     public Trade transition(UUID tradeId, TradeEvent event, ActorType actor, UUID actorId) {

@@ -140,6 +140,22 @@ public class Trade {
         return userId.equals(sellerId) || userId.equals(buyerId);
     }
 
+    /**
+     * Which of the three roles this user holds on this trade. Unlike
+     * {@link #roleFor(UUID)} this also recognises the assigned human admin.
+     */
+    public TradeViewer viewerFor(UUID userId) {
+        if (userId.equals(sellerId)) return TradeViewer.SELLER;
+        if (userId.equals(buyerId))  return TradeViewer.BUYER;
+        if (assignedAdminId != null && userId.equals(assignedAdminId)) return TradeViewer.ADMIN;
+        throw new IllegalArgumentException("User " + userId + " cannot view trade " + id);
+    }
+
+    public boolean isViewer(UUID userId) {
+        return isParticipant(userId)
+                || (assignedAdminId != null && userId.equals(assignedAdminId));
+    }
+
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();
