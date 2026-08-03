@@ -1,6 +1,7 @@
 package uz.efbazaar.marketplace.cards;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -47,6 +48,7 @@ public class CardInterestService {
     private final byte[] hmacSecret;
     private final Clock clock;
 
+    @Autowired
     public CardInterestService(
             StringRedisTemplate redis,
             CardIdentityVerifier identities,
