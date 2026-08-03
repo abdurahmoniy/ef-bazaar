@@ -70,6 +70,14 @@ trade:
     verifying-konami-link-seconds: 1800
     waiting-password-seconds: 1800
     waiting-buyer-verify-seconds: 86400
+    # ----- human trade-admin mode -----
+    # Nobody accepted the invitation → ORPHANED. Nothing has happened yet.
+    human-waiting-admin-seconds: 86400
+    # Admin closed, parties silent → SUCCESS (spec §3.8).
+    human-close-confirm-seconds: 86400
+    # Admin's last action was this long ago → escalate to a platform admin.
+    # NOT a state_deadline: see TradeStateHandler.onEnter(IN_PROGRESS).
+    human-admin-idle-seconds: 43200
   recheck:
     max-per-trade: 5
     min-interval-seconds: 300

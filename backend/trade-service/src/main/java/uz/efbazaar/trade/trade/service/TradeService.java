@@ -128,7 +128,7 @@ public class TradeService {
         if (event == TradeEvent.MAILBOX_PROVISIONED && actor != ActorType.WORKER) {
             throw new InvalidTradeTransitionException(from, event);
         }
-        TradeState to = sm.transition(from, event);
+        TradeState to = sm.transition(t.getMode(), from, event);
         t.setState(to);
         handler.onEnter(t, to, actor, actorId, event);
         trades.save(t);
