@@ -42,6 +42,11 @@ spring:
       properties:
         spring.json.trusted.packages: "uz.efbazaar.*"
 
+app:
+  auth:
+    internal-base-url: ${AUTH_INTERNAL_BASE_URL:http://auth-service:8081}
+    internal-secret: ${AUTH_INTERNAL_SECRET:}
+
 server:
   port: 8085
   forward-headers-strategy: framework
