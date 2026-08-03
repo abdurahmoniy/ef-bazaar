@@ -16,8 +16,9 @@ import java.util.UUID;
  * The admin's own settings plus the public profile page.
  *
  * <p>Both {@code /me} and {@code /{userId}} live in this one class on purpose:
- * Spring resolves the literal segment before the template only when they are
- * mapped together, and {@code /me} would otherwise fail UUID conversion.
+ * they describe the same resource (own settings vs. public view), and Spring
+ * always prefers the literal {@code /me} segment over the {@code /{userId}}
+ * template regardless of how the mappings are grouped.
  *
  * <p>Update is {@code POST}, not {@code PUT}: the nginx location that routes
  * this path carries {@code limit_except GET POST DELETE OPTIONS}, so PUT and

@@ -45,7 +45,7 @@ spring:
 app:
   auth:
     internal-base-url: ${AUTH_INTERNAL_BASE_URL:http://auth-service:8081}
-    internal-secret: ${AUTH_INTERNAL_SECRET:}
+    internal-secret: ${INTERNAL_API_SECRET:}
 
 server:
   port: 8085
