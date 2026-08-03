@@ -21,6 +21,7 @@ public record CardSearchResult(
         Integer maxOverallRating,
         CardType cardType,
         MetaTier metaTier,
+        int metaPriority,
         String imageUrl,
         List<String> skills
 ) {}

@@ -193,7 +193,14 @@ public class ListingService {
         int percent = hit.score().multiply(java.math.BigDecimal.valueOf(100))
                 .setScale(0, java.math.RoundingMode.HALF_UP).intValue();
         return new MatchDetails(percent, hit.exactCount(), hit.alternateCount(),
-                hit.missingCount(), selected, match.strictness());
+                hit.missingCount(), selected, match.strictness(),
+                hit.exactEfhubIds(), hit.alternateEfhubIds(), hit.missingEfhubIds(),
+                match.criteria().stream()
+                        .filter(criterion -> criterion.importance()
+                                == uz.efbazaar.marketplace.dto.MatchCardCriterion.Importance.PRIORITY)
+                        .map(uz.efbazaar.marketplace.dto.MatchCardCriterion::efhubId)
+                        .toList(),
+                hit.earnedWeight(), hit.possibleWeight());
     }
 
     /**

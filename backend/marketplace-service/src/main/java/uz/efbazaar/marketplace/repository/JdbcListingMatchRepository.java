@@ -54,7 +54,9 @@ public class JdbcListingMatchRepository implements ListingMatchRepository {
         pageArgs.add(pageable.getOffset());
         String sql = cte + """
                 SELECT scored.listing_id, scored.score, scored.exact_count,
-                       scored.alternate_count, scored.missing_count
+                       scored.alternate_count, scored.missing_count,
+                       scored.exact_ids, scored.alternate_ids, scored.missing_ids,
+                       scored.earned_weight, scored.possible_weight
                 FROM scored
                 JOIN listings listing ON listing.id = scored.listing_id
                 WHERE %s
@@ -62,12 +64,8 @@ public class JdbcListingMatchRepository implements ListingMatchRepository {
                          score DESC, %s, listing_id ASC
                 LIMIT ? OFFSET ?
                 """.formatted(scorePredicate, sort(pageable));
-        List<ListingMatchHit> hits = jdbc.query(sql, (rs, rowNum) -> new ListingMatchHit(
-                rs.getObject("listing_id", UUID.class),
-                rs.getBigDecimal("score"),
-                rs.getInt("exact_count"),
-                rs.getInt("alternate_count"),
-                rs.getInt("missing_count")), pageArgs.toArray());
+        List<ListingMatchHit> hits = jdbc.query(sql,
+                JdbcListingMatchRepository::mapHit, pageArgs.toArray());
         return new PageImpl<>(hits, pageable, total);
     }
 
@@ -87,7 +85,7 @@ public class JdbcListingMatchRepository implements ListingMatchRepository {
         String sql = """
                 WITH wanted(efhub_id, player_id, weight) AS (VALUES %s),
                 per_player AS (
-                    SELECT wanted.weight,
+                    SELECT wanted.efhub_id, wanted.player_id, wanted.weight,
                            MAX(CASE
                                WHEN inventory.efhub_id = wanted.efhub_id THEN 1.0
                                WHEN inventory.player_id IS NOT NULL THEN 0.75
@@ -103,7 +101,12 @@ public class JdbcListingMatchRepository implements ListingMatchRepository {
                        SUM(weight * credit) / NULLIF(SUM(weight), 0) AS score,
                        COUNT(*) FILTER (WHERE credit = 1.0) AS exact_count,
                        COUNT(*) FILTER (WHERE credit = 0.75) AS alternate_count,
-                       COUNT(*) FILTER (WHERE credit = 0.0) AS missing_count
+                       COUNT(*) FILTER (WHERE credit = 0.0) AS missing_count,
+                       COALESCE(array_agg(efhub_id ORDER BY efhub_id) FILTER (WHERE credit = 1.0), '{}') AS exact_ids,
+                       COALESCE(array_agg(efhub_id ORDER BY efhub_id) FILTER (WHERE credit = 0.75), '{}') AS alternate_ids,
+                       COALESCE(array_agg(efhub_id ORDER BY efhub_id) FILTER (WHERE credit = 0.0), '{}') AS missing_ids,
+                       SUM(weight * credit) AS earned_weight,
+                       SUM(weight) AS possible_weight
                 FROM per_player
                 """.formatted(wantedRows);
         return jdbc.query(sql, JdbcListingMatchRepository::mapHit, args.toArray())
@@ -117,7 +120,12 @@ public class JdbcListingMatchRepository implements ListingMatchRepository {
                 rs.getBigDecimal("score"),
                 rs.getInt("exact_count"),
                 rs.getInt("alternate_count"),
-                rs.getInt("missing_count"));
+                rs.getInt("missing_count"),
+                longArray(rs.getArray("exact_ids")),
+                longArray(rs.getArray("alternate_ids")),
+                longArray(rs.getArray("missing_ids")),
+                rs.getBigDecimal("earned_weight"),
+                rs.getBigDecimal("possible_weight"));
     }
 
     private static String cte(ListingFilter filter, MatchRequest request, List<Object> args) {
@@ -155,7 +163,12 @@ public class JdbcListingMatchRepository implements ListingMatchRepository {
                            SUM(weight * credit) / NULLIF(SUM(weight), 0) AS score,
                            COUNT(*) FILTER (WHERE credit = 1.0) AS exact_count,
                            COUNT(*) FILTER (WHERE credit = 0.75) AS alternate_count,
-                           COUNT(*) FILTER (WHERE credit = 0.0) AS missing_count
+                           COUNT(*) FILTER (WHERE credit = 0.0) AS missing_count,
+                           COALESCE(array_agg(efhub_id ORDER BY efhub_id) FILTER (WHERE credit = 1.0), '{}') AS exact_ids,
+                           COALESCE(array_agg(efhub_id ORDER BY efhub_id) FILTER (WHERE credit = 0.75), '{}') AS alternate_ids,
+                           COALESCE(array_agg(efhub_id ORDER BY efhub_id) FILTER (WHERE credit = 0.0), '{}') AS missing_ids,
+                           SUM(weight * credit) AS earned_weight,
+                           SUM(weight) AS possible_weight
                     FROM per_player
                     GROUP BY listing_id
                 )
@@ -211,5 +224,15 @@ public class JdbcListingMatchRepository implements ListingMatchRepository {
                 .findFirst()
                 .orElse(Sort.Order.desc("createdAt"));
         return SORT_COLUMNS.get(order.getProperty()) + (order.isAscending() ? " ASC" : " DESC");
+    }
+
+    private static List<Long> longArray(java.sql.Array array) throws java.sql.SQLException {
+        if (array == null) return List.of();
+        Object raw = array.getArray();
+        if (raw instanceof Long[] values) return List.of(values);
+        if (raw instanceof Number[] values) {
+            return java.util.Arrays.stream(values).map(Number::longValue).toList();
+        }
+        return List.of();
     }
 }

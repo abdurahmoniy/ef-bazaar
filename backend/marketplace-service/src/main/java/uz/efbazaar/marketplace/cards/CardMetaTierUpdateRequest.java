@@ -2,8 +2,11 @@ package uz.efbazaar.marketplace.cards;
 
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -16,5 +19,15 @@ public record CardMetaTierUpdateRequest(
         List<Long> efhubIds,
 
         @NotNull(message = "metaTier majburiy")
-        MetaTier metaTier
+        MetaTier metaTier,
+
+        @Min(value = 0, message = "priority 0 dan kam bo'lmasin")
+        @Max(value = 100, message = "priority 100 dan oshmasin")
+        Integer priority,
+
+        Instant activeFrom,
+        Instant activeUntil,
+
+        @Size(max = 240, message = "Sabab 240 belgidan oshmasin")
+        String reason
 ) {}

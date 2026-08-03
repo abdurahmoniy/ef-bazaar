@@ -35,6 +35,16 @@ public class CardColumns {
 
     static final String META_TIER = "meta_tier";
     static final String MAX_OVERALL_RATING = "max_overall_rating";
+    static final String META_PRIORITY = "meta_priority";
+    static final String META_ACTIVE_FROM = "meta_active_from";
+    static final String META_ACTIVE_UNTIL = "meta_active_until";
+    static final String META_REASON = "meta_reason";
+    static final String META_UPDATED_BY = "meta_updated_by";
+    static final String META_UPDATED_AT = "meta_updated_at";
+
+    private static final List<String> OPTIONAL_COLUMNS = List.of(
+            META_TIER, MAX_OVERALL_RATING, META_PRIORITY, META_ACTIVE_FROM,
+            META_ACTIVE_UNTIL, META_REASON, META_UPDATED_BY, META_UPDATED_AT);
 
     private static final long TTL_MS = 60_000;
 
@@ -69,18 +79,22 @@ public class CardColumns {
                 .toList();
         try {
             String placeholders = String.join(", ", tables.stream().map(t -> "?").toList());
-            Object[] args = new Object[tables.size() + 2];
+            Object[] args = new Object[tables.size() + OPTIONAL_COLUMNS.size()];
             for (int i = 0; i < tables.size(); i++) {
                 args[i] = tables.get(i);
             }
-            args[tables.size()] = META_TIER;
-            args[tables.size() + 1] = MAX_OVERALL_RATING;
+            for (int i = 0; i < OPTIONAL_COLUMNS.size(); i++) {
+                args[tables.size() + i] = OPTIONAL_COLUMNS.get(i);
+            }
+
+            String columnPlaceholders = String.join(", ",
+                    OPTIONAL_COLUMNS.stream().map(column -> "?").toList());
 
             jdbc.query(
                     "SELECT table_name, column_name FROM information_schema.columns"
                             + " WHERE table_schema = current_schema()"
                             + " AND table_name IN (" + placeholders + ")"
-                            + " AND column_name IN (?, ?)",
+                            + " AND column_name IN (" + columnPlaceholders + ")",
                     rs -> {
                         present.add(key(rs.getString("table_name"), rs.getString("column_name")));
                     },
@@ -89,10 +103,10 @@ public class CardColumns {
             // Treat as "absent" — the degraded query still works.
             log.warn("card column probe failed, assuming optional columns absent: {}", e.toString());
         }
-        if (present.size() < tables.size() * 2) {
+        if (present.size() < tables.size() * OPTIONAL_COLUMNS.size()) {
             log.warn("card tables missing optional columns (have {} of {}) —"
                             + " serving degraded results; run infra/scrapers/efhub/setup-db.sh",
-                    present.size(), tables.size() * 2);
+                    present.size(), tables.size() * OPTIONAL_COLUMNS.size());
         }
         return present;
     }

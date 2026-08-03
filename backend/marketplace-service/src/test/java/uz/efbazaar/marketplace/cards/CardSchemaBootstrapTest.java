@@ -30,6 +30,13 @@ class CardSchemaBootstrapTest {
         assertThat(statements).anyMatch(value -> value.contains("CREATE TABLE IF NOT EXISTS player_identities"));
         assertThat(statements).anyMatch(value -> value.contains("CREATE TABLE IF NOT EXISTS card_player_identities"));
         assertThat(statements).anyMatch(value -> value.contains("idx_card_player_identities_player"));
+        for (String column : List.of("meta_priority", "meta_active_from", "meta_active_until",
+                "meta_reason", "meta_updated_by", "meta_updated_at")) {
+            assertThat(statements).anyMatch(value -> value.contains("ALTER TABLE bigtime")
+                    && value.contains(column));
+        }
+        assertThat(statements).anyMatch(value -> value.contains("chk_bigtime_meta_window"));
+        assertThat(statements).anyMatch(value -> value.contains("idx_bigtime_meta_active"));
         assertThat(statements.indexOf(statements.stream()
                         .filter(value -> value.contains("CREATE TABLE IF NOT EXISTS player_identities"))
                         .findFirst().orElseThrow()))

@@ -126,7 +126,23 @@ public class CardSchemaBootstrap {
                         + " WHERE meta_tier <> 'NORMAL'",
                 "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS max_overall_rating SMALLINT",
                 "CREATE INDEX IF NOT EXISTS idx_" + t + "_max_overall_rating"
-                        + " ON " + t + " (COALESCE(max_overall_rating, overall_rating) DESC)");
+                        + " ON " + t + " (COALESCE(max_overall_rating, overall_rating) DESC)",
+                "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS meta_priority SMALLINT NOT NULL DEFAULT 0",
+                "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS meta_active_from TIMESTAMPTZ",
+                "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS meta_active_until TIMESTAMPTZ",
+                "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS meta_reason VARCHAR(240)",
+                "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS meta_updated_by UUID",
+                "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS meta_updated_at TIMESTAMPTZ",
+                "ALTER TABLE " + t + " DROP CONSTRAINT IF EXISTS chk_" + t + "_meta_priority",
+                "ALTER TABLE " + t + " ADD CONSTRAINT chk_" + t + "_meta_priority"
+                        + " CHECK (meta_priority BETWEEN 0 AND 100)",
+                "ALTER TABLE " + t + " DROP CONSTRAINT IF EXISTS chk_" + t + "_meta_window",
+                "ALTER TABLE " + t + " ADD CONSTRAINT chk_" + t + "_meta_window"
+                        + " CHECK (meta_active_until IS NULL OR meta_active_from IS NULL"
+                        + " OR meta_active_until > meta_active_from)",
+                "CREATE INDEX IF NOT EXISTS idx_" + t + "_meta_active ON " + t
+                        + " (meta_priority DESC, meta_active_from, meta_active_until)"
+                        + " WHERE meta_tier = 'META'");
     }
 
     private void execute(String ddl) {

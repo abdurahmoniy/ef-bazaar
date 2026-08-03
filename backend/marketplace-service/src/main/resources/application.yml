@@ -115,6 +115,9 @@ app:
     # Safe to enable again: it keyset-pages listings and replaces rows idempotently.
     enabled: ${LISTING_CARD_BACKFILL_ENABLED:false}
     batch-size: ${LISTING_CARD_BACKFILL_BATCH_SIZE:200}
+  card-interest:
+    # Rotatable secret used only to pseudonymize user/anonymous dedupe identities.
+    hmac-secret: ${CARD_INTEREST_HMAC_SECRET:local-card-interest-secret}
 
 springdoc:
   api-docs:
