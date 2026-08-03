@@ -78,5 +78,3 @@ temp/
 # ===== Python (scrapers) =====
 __pycache__/
 *.pyc
- 
-# ==== Rust (scrapers) =====
