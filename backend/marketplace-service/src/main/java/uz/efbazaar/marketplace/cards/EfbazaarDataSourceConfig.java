@@ -40,6 +40,13 @@ public class EfbazaarDataSourceConfig {
                 .build();
     }
 
+    @Bean("marketplaceJdbcTemplate")
+    @Primary
+    public JdbcTemplate marketplaceJdbcTemplate(
+            @Qualifier("dataSource") DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
+    }
+
     // ---------- Secondary (efbazaar — cards) ----------
 
     @Bean("efbazaarDataSourceProperties")

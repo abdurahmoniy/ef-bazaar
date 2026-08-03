@@ -1,6 +1,8 @@
 package uz.efbazaar.marketplace;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
@@ -13,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
@@ -23,6 +26,10 @@ import uz.efbazaar.marketplace.repository.ListingReportRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
 import uz.efbazaar.marketplace.repository.NotificationRepository;
 import uz.efbazaar.marketplace.repository.DreamTeamRepository;
+
+import javax.sql.DataSource;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(properties = {
         // EfbazaarDataSourceConfig'da @ConfigurationProperties bind bo'lishi uchun fake URL'lar.
@@ -48,6 +55,10 @@ import uz.efbazaar.marketplace.repository.DreamTeamRepository;
 @ActiveProfiles("test")
 class MarketplaceApplicationTests {
 
+    @Autowired JdbcTemplate jdbcTemplate;
+    @Autowired @Qualifier("efbazaarJdbcTemplate") JdbcTemplate efbazaarJdbcTemplate;
+    @Autowired @Qualifier("dataSource") DataSource marketplaceDataSource;
+
     @MockBean ListingRepository listingRepository;
     @MockBean LikeRepository likeRepository;
     @MockBean ChatRepository chatRepository;
@@ -70,5 +81,11 @@ class MarketplaceApplicationTests {
 
     @Test
     void contextLoads() {
+    }
+
+    @Test
+    void defaultJdbcTemplateUsesMarketplaceDataSource() {
+        assertThat(jdbcTemplate).isNotSameAs(efbazaarJdbcTemplate);
+        assertThat(jdbcTemplate.getDataSource()).isSameAs(marketplaceDataSource);
     }
 }
