@@ -12,6 +12,7 @@ import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfigurat
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
@@ -21,6 +22,7 @@ import uz.efbazaar.marketplace.repository.LikeRepository;
 import uz.efbazaar.marketplace.repository.ListingReportRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
 import uz.efbazaar.marketplace.repository.NotificationRepository;
+import uz.efbazaar.marketplace.repository.DreamTeamRepository;
 
 @SpringBootTest(properties = {
         // EfbazaarDataSourceConfig'da @ConfigurationProperties bind bo'lishi uchun fake URL'lar.
@@ -30,7 +32,9 @@ import uz.efbazaar.marketplace.repository.NotificationRepository;
         "spring.datasource.password=test",
         "app.cards.datasource.url=jdbc:postgresql://localhost/test",
         "app.cards.datasource.username=test",
-        "app.cards.datasource.password=test"
+        "app.cards.datasource.password=test",
+        "app.cards.schema-bootstrap.enabled=false",
+        "app.card-interest.hmac-secret=test-card-interest-secret"
 })
 @EnableAutoConfiguration(exclude = {
         DataSourceAutoConfiguration.class,
@@ -52,7 +56,9 @@ class MarketplaceApplicationTests {
     @MockBean AttributeDefinitionRepository attributeDefinitionRepository;
     @MockBean ListingReportRepository listingReportRepository;
     @MockBean NotificationRepository notificationRepository;
+    @MockBean DreamTeamRepository dreamTeamRepository;
     @MockBean KafkaTemplate<String, Object> kafkaTemplate;
+    @MockBean StringRedisTemplate stringRedisTemplate;
     // gamer paketi (Gamer Card projection)
     @MockBean uz.efbazaar.marketplace.gamer.GamerRepositories.GamerStatsRepository gamerStatsRepository;
     @MockBean uz.efbazaar.marketplace.gamer.GamerRepositories.GamerStatsMatchRepository gamerStatsMatchRepository;

@@ -58,17 +58,12 @@ public final class ListingSpecifications {
      * {@code attr.dream_team=[{"id":…,"name":…,"w":…}]}.
      */
     public static final String DREAM_TEAM_KEY = "dream_team";
-    /** Minimum coverage percent 0..100 a listing must reach to be returned. */
-    static final String MIN_MATCH_KEY = "dream_team_min_match";
+    /** Minimum coverage percent 0..100 accepted only by the legacy compatibility adapter. */
+    public static final String MIN_MATCH_KEY = "dream_team_min_match";
     private static final String VALUABLE_PLAYERS = "valuable_players";
-    private static final String MATCH_FN = "card_match_score";
 
     static final String RANGE_MIN_SUFFIX = ".min";
     static final String RANGE_MAX_SUFFIX = ".max";
-
-    private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
-    /** 40% — roughly "has a few of the players you care about". */
-    static final BigDecimal DEFAULT_MIN_MATCH = BigDecimal.valueOf(40);
 
     private ListingSpecifications() {}
 
@@ -156,8 +151,6 @@ public final class ListingSpecifications {
             }
         }
 
-        applyDreamTeam(cb, query, root, ps, attributes);
-
         for (Map.Entry<String, Object> entry : attributes.entrySet()) {
             String key = entry.getKey();
             if (CARD_ID_KEY.equals(key) || CARD_NAME_KEY.equals(key)
@@ -174,50 +167,6 @@ public final class ListingSpecifications {
             }
             Expression<String> extracted = extractText(cb, root, key);
             ps.add(cb.equal(extracted, String.valueOf(entry.getValue())));
-        }
-    }
-
-    /**
-     * Dream-team filter: keep listings whose squad coverage reaches
-     * {@code dream_team_min_match} percent, best match first.
-     *
-     * <p>Scoring runs in Postgres ({@code card_match_score}) rather than Java
-     * because the result drives both the WHERE and the ORDER BY — scoring in
-     * the service would mean loading every ACTIVE listing to rank them, and
-     * pagination would be meaningless.
-     *
-     * <p>Threshold defaults deliberately low. {@code valuable_players} caps at
-     * 12 and sellers list only their stars, so an 11-slot squad almost never
-     * scores near 100 — a 70% default would render the feature empty.
-     */
-    private static void applyDreamTeam(CriteriaBuilder cb,
-                                       jakarta.persistence.criteria.CommonAbstractCriteria query,
-                                       Root<Listing> root,
-                                       List<Predicate> ps,
-                                       Map<String, Object> attributes) {
-        String wanted = readString(attributes.get(DREAM_TEAM_KEY));
-        if (wanted == null) return;
-
-        Expression<BigDecimal> score = cb.function(
-                MATCH_FN, BigDecimal.class,
-                root.get("attributes"),
-                cb.literal(wanted));
-
-        BigDecimal minPercent = readDecimal(attributes.get(MIN_MATCH_KEY));
-        // 0 would admit listings with no overlap at all, which is just "browse".
-        BigDecimal threshold = minPercent == null
-                ? DEFAULT_MIN_MATCH
-                : minPercent.max(BigDecimal.ZERO).min(HUNDRED);
-        if (threshold.signum() > 0) {
-            ps.add(cb.greaterThanOrEqualTo(
-                    score, threshold.divide(HUNDRED, 4, java.math.RoundingMode.HALF_UP)));
-        }
-
-        if (query instanceof jakarta.persistence.criteria.CriteriaQuery<?> cq) {
-            List<Order> orders = new ArrayList<>();
-            orders.add(cb.desc(score));
-            orders.addAll(cq.getOrderList());
-            cq.orderBy(orders);
         }
     }
 

@@ -51,6 +51,9 @@ public class CardSchemaBootstrap {
             log.info("card schema bootstrap disabled");
             return;
         }
+        for (String ddl : identityStatements()) {
+            execute(ddl);
+        }
         for (CardType type : CardType.values()) {
             String table = type.tableName();
             if (!tableExists(table)) {
@@ -63,6 +66,44 @@ public class CardSchemaBootstrap {
                 execute(ddl);
             }
         }
+        for (String ddl : identityBackfillStatements()) {
+            execute(ddl);
+        }
+    }
+
+    private static List<String> identityStatements() {
+        return List.of(
+                "CREATE EXTENSION IF NOT EXISTS pgcrypto",
+                "CREATE TABLE IF NOT EXISTS player_identities ("
+                        + "id UUID PRIMARY KEY DEFAULT gen_random_uuid(),"
+                        + "canonical_name VARCHAR(120) NOT NULL,"
+                        + "normalized_name VARCHAR(120) NOT NULL UNIQUE,"
+                        + "created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),"
+                        + "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+                "CREATE TABLE IF NOT EXISTS card_player_identities ("
+                        + "efhub_id BIGINT PRIMARY KEY,"
+                        + "player_id UUID NOT NULL REFERENCES player_identities(id),"
+                        + "assignment_source VARCHAR(10) NOT NULL DEFAULT 'AUTO' "
+                        + "CHECK (assignment_source IN ('AUTO', 'ADMIN')),"
+                        + "assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+                "CREATE INDEX IF NOT EXISTS idx_card_player_identities_player "
+                        + "ON card_player_identities (player_id, efhub_id)");
+    }
+
+    private static List<String> identityBackfillStatements() {
+        String allCards = "(SELECT efhub_id, name FROM bigtime UNION ALL "
+                + "SELECT efhub_id, name FROM epic UNION ALL "
+                + "SELECT efhub_id, name FROM showtime)";
+        String normalized = "lower(regexp_replace(trim(name), '\\s+', ' ', 'g'))";
+        return List.of(
+                "INSERT INTO player_identities (canonical_name, normalized_name) "
+                        + "SELECT min(name), " + normalized + " FROM " + allCards + " cards "
+                        + "WHERE name IS NOT NULL AND trim(name) <> '' GROUP BY " + normalized + " "
+                        + "ON CONFLICT (normalized_name) DO NOTHING",
+                "INSERT INTO card_player_identities (efhub_id, player_id, assignment_source) "
+                        + "SELECT cards.efhub_id, identities.id, 'AUTO' FROM " + allCards + " cards "
+                        + "JOIN player_identities identities ON identities.normalized_name = " + normalized + " "
+                        + "ON CONFLICT (efhub_id) DO NOTHING");
     }
 
     private boolean tableExists(String table) {
@@ -85,7 +126,23 @@ public class CardSchemaBootstrap {
                         + " WHERE meta_tier <> 'NORMAL'",
                 "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS max_overall_rating SMALLINT",
                 "CREATE INDEX IF NOT EXISTS idx_" + t + "_max_overall_rating"
-                        + " ON " + t + " (COALESCE(max_overall_rating, overall_rating) DESC)");
+                        + " ON " + t + " (COALESCE(max_overall_rating, overall_rating) DESC)",
+                "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS meta_priority SMALLINT NOT NULL DEFAULT 0",
+                "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS meta_active_from TIMESTAMPTZ",
+                "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS meta_active_until TIMESTAMPTZ",
+                "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS meta_reason VARCHAR(240)",
+                "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS meta_updated_by UUID",
+                "ALTER TABLE " + t + " ADD COLUMN IF NOT EXISTS meta_updated_at TIMESTAMPTZ",
+                "ALTER TABLE " + t + " DROP CONSTRAINT IF EXISTS chk_" + t + "_meta_priority",
+                "ALTER TABLE " + t + " ADD CONSTRAINT chk_" + t + "_meta_priority"
+                        + " CHECK (meta_priority BETWEEN 0 AND 100)",
+                "ALTER TABLE " + t + " DROP CONSTRAINT IF EXISTS chk_" + t + "_meta_window",
+                "ALTER TABLE " + t + " ADD CONSTRAINT chk_" + t + "_meta_window"
+                        + " CHECK (meta_active_until IS NULL OR meta_active_from IS NULL"
+                        + " OR meta_active_until > meta_active_from)",
+                "CREATE INDEX IF NOT EXISTS idx_" + t + "_meta_active ON " + t
+                        + " (meta_priority DESC, meta_active_from, meta_active_until)"
+                        + " WHERE meta_tier = 'META'");
     }
 
     private void execute(String ddl) {

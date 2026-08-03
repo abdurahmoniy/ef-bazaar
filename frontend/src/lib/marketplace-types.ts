@@ -66,6 +66,20 @@ export interface ListingResponse {
   likedByMe?: boolean | null;
   /** 0..100 squad coverage — present only when the request carried a dream team. */
   matchPercent?: number | null;
+  matchDetails?: {
+    percent: number;
+    exactCount: number;
+    alternateCount: number;
+    missingCount: number;
+    selectedCount: number;
+    strictness: number;
+    exactEfhubIds: number[];
+    alternateEfhubIds: number[];
+    missingEfhubIds: number[];
+    priorityEfhubIds: number[];
+    earnedWeight: number;
+    possibleWeight: number;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,6 +92,9 @@ export interface ListingBrowseParams {
   maxPrice?: number;
   priceNegotiable?: boolean;
   search?: string;
+  /** Repeatable typed matcher criteria: efhubId:playerId:N|P. */
+  matchCards?: string[];
+  matchStrictness?: number;
   /** Equality filters on JSONB attributes — sent as {@code ?attr.<key>=<value>}. */
   attributes?: Record<string, string>;
 }
@@ -142,6 +159,8 @@ export type MetaTier = 'NORMAL' | 'META';
 /** One row of GET /marketplace/v1/cards — the card catalogue, not a listing. */
 export interface CardSearchResult {
   efhubId: number;
+  /** Stable real-player identity shared by alternate card editions. */
+  playerId: string;
   name: string;
   team?: string;
   position?: string;
@@ -152,6 +171,8 @@ export interface CardSearchResult {
   maxOverallRating?: number;
   cardType: CardType;
   metaTier: MetaTier;
+  /** Ranking within currently active META cards (0..100). */
+  metaPriority: number;
   imageUrl?: string;
   skills?: string[];
 }
@@ -159,6 +180,25 @@ export interface CardSearchResult {
 /** Card catalogue page — same shape family as PageResponse but backend-specific. */
 export interface CardPage {
   items: CardSearchResult[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+export interface AdminCardSearchResult extends CardSearchResult {
+  configuredMetaTier: MetaTier;
+  configuredMetaPriority: number;
+  metaActiveFrom?: string | null;
+  metaActiveUntil?: string | null;
+  metaReason?: string | null;
+  metaUpdatedBy?: string | null;
+  metaUpdatedAt?: string | null;
+  interest7d?: number;
+  interest30d?: number;
+}
+
+export interface AdminCardPage {
+  items: AdminCardSearchResult[];
   page: number;
   size: number;
   total: number;
@@ -228,6 +268,8 @@ export function cardsFilterValue(cards: AttachedPlayerCard[]): string | undefine
  */
 export interface AttachedPlayerCard {
   efhubId: number;
+  /** Missing only on legacy snapshots created before canonical identities. */
+  playerId?: string;
   name: string;
   overallRating?: number;
   maxOverallRating?: number;
@@ -268,10 +310,12 @@ export function attributeCardList(listing: ListingResponse, key: string): Attach
     if (!entry || typeof entry !== 'object') continue;
     const item = entry as Record<string, unknown>;
     const efhubIdRaw = (item.efhubId ?? item.efhub_id);
+    const playerIdRaw = (item.playerId ?? item.player_id);
     const name = item.name;
     if (typeof name !== 'string') continue;
     out.push({
       efhubId: typeof efhubIdRaw === 'number' ? efhubIdRaw : 0,
+      playerId: typeof playerIdRaw === 'string' ? playerIdRaw : undefined,
       name,
       overallRating: typeof (item.overallRating ?? item.overall_rating) === 'number'
         ? Number(item.overallRating ?? item.overall_rating)

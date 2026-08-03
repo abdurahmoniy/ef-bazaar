@@ -1,8 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Flame, Loader2, Search, Sparkles, Users, X } from 'lucide-react';
+import { Check, Flame, Loader2, Search, Sparkles, Star, Users, X } from 'lucide-react';
+import * as Dialog from '@radix-ui/react-dialog';
+import * as Tabs from '@radix-ui/react-tabs';
 
 import { DreamTeamPitch } from '@/components/marketplace/dream-team-pitch';
 import { Button } from '@/components/ui/button';
@@ -10,12 +11,11 @@ import { Input } from '@/components/ui/input';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import {
   cardRating,
-  cardsFilterValue,
-  dreamTeamFilterValue,
   type AttachedPlayerCard,
   type CardSearchResult,
   type DreamTeam,
 } from '@/lib/marketplace-types';
+import { strictnessLabel, strictnessMinimumPercent } from '@/lib/player-match-query';
 import { cn } from '@/lib/utils';
 
 type Tab = 'meta' | 'search' | 'team';
@@ -24,15 +24,20 @@ interface PlayerFilterDialogProps {
   /** The user's saved squads — empty when signed out. */
   teams: DreamTeam[];
   /** Cards already applied to the current browse, so the dialog opens in sync. */
-  selected?: AttachedPlayerCard[];
+  selected?: PlayerMatchSelection[];
   activeMinMatch?: number;
   /** Applies the chosen filter to the URL, preserving other filters. */
-  onApply: (dreamTeam: string | undefined, minMatch: number) => void;
+  onApply: (cards: PlayerMatchSelection[] | undefined, strictness: number) => void;
   activeCount: number;
+}
+
+export interface PlayerMatchSelection extends AttachedPlayerCard {
+  priority?: boolean;
 }
 
 const META_PAGE_SIZE = 24;
 const DEBOUNCE_MS = 250;
+const MAX_MATCH_PLAYERS = 11;
 
 /**
  * "META o'yinchilar" — the entry point for filtering accounts by who is in them.
@@ -42,35 +47,21 @@ const DEBOUNCE_MS = 250;
  *   search — has a name in mind
  *   team   — has a saved squad and wants accounts that cover it
  *
- * Matching is fuzzy on purpose (see card_match_score, V27): valuable_players
- * caps at 12 and sellers list only their stars, so demanding an exact squad
- * returns nothing. The threshold slider makes that tradeoff the user's.
+ * Matching uses canonical player identity and weighted fuzzy credit: exact
+ * edition 100%, another edition 75%, and a priority player counts 3×.
  */
 export function PlayerFilterDialog({
   teams,
   selected = [],
-  activeMinMatch = 40,
+  activeMinMatch = 4,
   onApply,
   activeCount,
 }: PlayerFilterDialogProps) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('meta');
-  const [picked, setPicked] = useState<AttachedPlayerCard[]>(selected);
+  const [picked, setPicked] = useState<PlayerMatchSelection[]>(selected);
   const [minMatch, setMinMatch] = useState(activeMinMatch);
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = '';
-    };
-  }, [open]);
 
   // Reopening should reflect what is actually filtering right now, not the
   // leftovers of an abandoned edit.
@@ -84,20 +75,31 @@ export function PlayerFilterDialog({
 
   const activeTeam = teams.find((team) => team.id === activeTeamId) ?? null;
 
-  function toggle(card: AttachedPlayerCard) {
+  function toggle(card: PlayerMatchSelection) {
     setActiveTeamId(null);
-    setPicked((prev) =>
-      prev.some((c) => c.efhubId === card.efhubId)
-        ? prev.filter((c) => c.efhubId !== card.efhubId)
-        : [...prev, card],
-    );
+    setPicked((prev) => {
+      if (prev.some((c) => c.playerId === card.playerId)) {
+        return prev.filter((c) => c.playerId !== card.playerId);
+      }
+      return prev.length >= MAX_MATCH_PLAYERS ? prev : [...prev, card];
+    });
+  }
+
+  function togglePriority(playerId: string | undefined) {
+    if (!playerId) return;
+    setPicked((prev) => prev.map((card) => card.playerId === playerId
+      ? { ...card, priority: !card.priority }
+      : card));
   }
 
   function apply() {
-    const value = activeTeam
-      ? dreamTeamFilterValue(activeTeam.slots)
-      : cardsFilterValue(picked);
-    onApply(value, minMatch);
+    const value: PlayerMatchSelection[] = activeTeam
+      ? activeTeam.slots.flatMap((slot) => slot.card?.playerId ? [{
+          ...slot.card,
+          priority: (slot.w ?? 1) >= 3,
+        }] : [])
+      : picked;
+    onApply(value.length ? value : undefined, minMatch);
     setOpen(false);
   }
 
@@ -113,61 +115,65 @@ export function PlayerFilterDialog({
     : picked.length;
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        className={cn(
-          'tap-press relative flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold sm:h-10 sm:px-3',
-          'border border-amber-400/60 bg-gradient-to-br from-amber-400/20 via-amber-300/10 to-transparent',
-          'text-amber-600 dark:text-amber-300',
-          'shadow-[0_0_16px_-3px_rgba(251,191,36,0.65)] transition',
-          'hover:border-amber-400 hover:shadow-[0_0_22px_-2px_rgba(251,191,36,0.85)]',
-        )}
-      >
-        {/* Slow pulse ring — draws the eye without animating the label itself. */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 animate-pulse rounded-lg ring-1 ring-amber-400/40"
-        />
-        <Flame className="h-4 w-4" />
-        <span className="hidden sm:inline">META</span>
-        {activeCount > 0 && (
-          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-amber-400 px-1 text-[11px] font-black text-amber-950">
-            {activeCount}
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 z-50">
-          <button
-            type="button"
-            aria-label="Yopish"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 animate-fade-in cursor-default bg-black/60 backdrop-blur-sm"
+    <Dialog.Root open={open} onOpenChange={setOpen}>
+      <Dialog.Trigger asChild>
+        <button
+          type="button"
+          className={cn(
+            'tap-press relative flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold sm:px-3',
+            'border border-amber-400/60 bg-gradient-to-br from-amber-400/20 via-amber-300/10 to-transparent',
+            'text-amber-600 dark:text-amber-300',
+            'shadow-[0_0_16px_-3px_rgba(251,191,36,0.65)] transition',
+            'hover:border-amber-400 hover:shadow-[0_0_22px_-2px_rgba(251,191,36,0.85)]',
+          )}
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 animate-pulse rounded-lg ring-1 ring-amber-400/40 motion-reduce:animate-none"
           />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="O'yinchi bo'yicha filtr"
-            className={cn(
-              'absolute inset-x-0 bottom-0 flex max-h-[92dvh] animate-sheet-up flex-col rounded-t-2xl bg-card shadow-2xl',
-              'sm:inset-0 sm:m-auto sm:h-[86vh] sm:max-w-4xl sm:rounded-2xl',
-            )}
+          <Flame className="h-4 w-4" />
+          <span className="hidden sm:inline">META</span>
+          {activeCount > 0 && (
+            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-amber-400 px-1 text-[11px] font-black text-amber-950">
+              {activeCount}
+            </span>
+          )}
+        </button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 animate-fade-in bg-black/60 backdrop-blur-sm motion-reduce:animate-none" />
+        <Dialog.Content
+          className={cn(
+            'fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] animate-sheet-up flex-col rounded-t-2xl bg-card shadow-2xl outline-none motion-reduce:animate-none',
+            'sm:inset-0 sm:m-auto sm:h-[86vh] sm:max-w-4xl sm:rounded-2xl',
+          )}
+        >
+          <Dialog.Description className="sr-only">
+            META kartalarni tanlang, o‘yinchi qidiring yoki saqlangan Dream Team tarkibini qo‘llang.
+          </Dialog.Description>
+          <Tabs.Root
+            value={tab}
+            onValueChange={(value) => setTab(value as Tab)}
+            className="contents"
           >
-            <DialogHeader tab={tab} setTab={setTab} onClose={() => setOpen(false)} />
+            <DialogHeader />
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
-              {tab === 'meta' && (
-                <MetaTab pickedIds={picked.map((c) => c.efhubId)} onToggle={toggle} />
-              )}
-              {tab === 'search' && (
-                <SearchTab pickedIds={picked.map((c) => c.efhubId)} onToggle={toggle} />
-              )}
-              {tab === 'team' && (
+              <Tabs.Content value="meta" className="outline-none">
+                <MetaTab
+                  pickedIds={picked.map((c) => c.efhubId)}
+                  selectionFull={picked.length >= MAX_MATCH_PLAYERS}
+                  onToggle={toggle}
+                />
+              </Tabs.Content>
+              <Tabs.Content value="search" className="outline-none">
+                <SearchTab
+                  pickedIds={picked.map((c) => c.efhubId)}
+                  selectionFull={picked.length >= MAX_MATCH_PLAYERS}
+                  onToggle={toggle}
+                />
+              </Tabs.Content>
+              <Tabs.Content value="team" className="outline-none">
                 <TeamTab
                   teams={teams}
                   activeTeamId={activeTeamId}
@@ -176,32 +182,26 @@ export function PlayerFilterDialog({
                     setPicked([]);
                   }}
                 />
-              )}
+              </Tabs.Content>
             </div>
 
             <DialogFooter
               chosenCount={chosenCount}
+              selected={activeTeam ? [] : picked}
               minMatch={minMatch}
               setMinMatch={setMinMatch}
+              onTogglePriority={togglePriority}
               onApply={apply}
               onClear={clearAll}
             />
-          </div>
-        </div>
-      )}
-    </>
+          </Tabs.Root>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 
-function DialogHeader({
-  tab,
-  setTab,
-  onClose,
-}: {
-  tab: Tab;
-  setTab: (tab: Tab) => void;
-  onClose: () => void;
-}) {
+function DialogHeader() {
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: 'meta', label: 'META', icon: <Flame className="h-4 w-4" /> },
     { id: 'search', label: 'Qidiruv', icon: <Search className="h-4 w-4" /> },
@@ -210,49 +210,52 @@ function DialogHeader({
   return (
     <div className="shrink-0 border-b border-border">
       <div className="flex items-center justify-between px-4 pb-2 pt-3">
-        <span className="flex items-center gap-2 text-sm font-black">
+        <Dialog.Title className="flex items-center gap-2 text-sm font-black">
           <Sparkles className="h-4 w-4 text-amber-500" />
           O&apos;yinchi bo&apos;yicha filtr
-        </span>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Yopish"
-          className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-      <div className="flex gap-1 overflow-x-auto px-3 no-scrollbar">
-        {tabs.map((item) => (
+        </Dialog.Title>
+        <Dialog.Close asChild>
           <button
-            key={item.id}
             type="button"
-            onClick={() => setTab(item.id)}
+            aria-label="Yopish"
+            className="grid min-h-11 min-w-11 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </Dialog.Close>
+      </div>
+      <Tabs.List className="flex gap-1 overflow-x-auto px-3 no-scrollbar" aria-label="O‘yinchi filtri bo‘limlari">
+        {tabs.map((item) => (
+          <Tabs.Trigger
+            key={item.id}
             className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-bold transition',
-              tab === item.id
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground',
+              'inline-flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 py-2 text-sm font-bold text-muted-foreground transition',
+              'data-[state=active]:border-primary data-[state=active]:text-primary hover:text-foreground',
             )}
+            value={item.id}
           >
             {item.icon}
             {item.label}
-          </button>
+          </Tabs.Trigger>
         ))}
-      </div>
+      </Tabs.List>
     </div>
   );
 }
 
 function MetaTab({
   pickedIds,
+  selectionFull,
   onToggle,
 }: {
   pickedIds: number[];
-  onToggle: (card: AttachedPlayerCard) => void;
+  selectionFull: boolean;
+  onToggle: (card: PlayerMatchSelection) => void;
 }) {
-  const { cards, loading } = useCards({ tier: 'META', size: META_PAGE_SIZE });
+  const { cards, loading, error, hasMore, total, loadMore, retry } = useCards({
+    tier: 'META',
+    size: META_PAGE_SIZE,
+  });
 
   return (
     <div className="space-y-3">
@@ -260,8 +263,15 @@ function MetaTab({
         Hozir eng ko&apos;p qidirilayotgan kartalar. Tanlang — shu o&apos;yinchilar bor
         akkountlar yuqorida chiqadi.
       </p>
-      {loading ? (
+      {loading && cards.length === 0 ? (
         <CardGridSkeleton />
+      ) : error && cards.length === 0 ? (
+        <EmptyState
+          icon={<Flame className="h-8 w-8" />}
+          title="META kartalar yuklanmadi"
+          hint="Aloqani tekshirib, qayta urinib ko‘ring."
+          action={<Button size="sm" variant="outline" onClick={retry}>Qayta urinish</Button>}
+        />
       ) : cards.length === 0 ? (
         <EmptyState
           icon={<Flame className="h-8 w-8" />}
@@ -269,7 +279,23 @@ function MetaTab({
           hint="Admin panelda /admin/players sahifasidan belgilang."
         />
       ) : (
-        <CardGrid cards={cards} pickedIds={pickedIds} onToggle={onToggle} />
+        <>
+          <CardGrid
+            cards={cards}
+            pickedIds={pickedIds}
+            selectionFull={selectionFull}
+            onToggle={onToggle}
+          />
+          <CatalogControls
+            loading={loading}
+            error={error}
+            hasMore={hasMore}
+            count={cards.length}
+            total={total}
+            onLoadMore={loadMore}
+            onRetry={retry}
+          />
+        </>
       )}
     </div>
   );
@@ -277,10 +303,12 @@ function MetaTab({
 
 function SearchTab({
   pickedIds,
+  selectionFull,
   onToggle,
 }: {
   pickedIds: number[];
-  onToggle: (card: AttachedPlayerCard) => void;
+  selectionFull: boolean;
+  onToggle: (card: PlayerMatchSelection) => void;
 }) {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -290,7 +318,11 @@ function SearchTab({
     return () => window.clearTimeout(handle);
   }, [query]);
 
-  const { cards, loading } = useCards({ q: debounced, size: 30, skip: debounced.length < 2 });
+  const { cards, loading, error, hasMore, total, loadMore, retry } = useCards({
+    q: debounced,
+    size: 30,
+    skip: debounced.length < 2,
+  });
 
   return (
     <div className="space-y-3">
@@ -310,8 +342,15 @@ function SearchTab({
           title="Ism yozing"
           hint="Kamida 2 harf."
         />
-      ) : loading ? (
+      ) : loading && cards.length === 0 ? (
         <CardGridSkeleton />
+      ) : error && cards.length === 0 ? (
+        <EmptyState
+          icon={<Search className="h-8 w-8" />}
+          title="Qidiruv yuklanmadi"
+          hint="Aloqani tekshirib, qayta urinib ko‘ring."
+          action={<Button size="sm" variant="outline" onClick={retry}>Qayta urinish</Button>}
+        />
       ) : cards.length === 0 ? (
         <EmptyState
           icon={<Search className="h-8 w-8" />}
@@ -319,7 +358,23 @@ function SearchTab({
           hint="Boshqa yozuvni sinab ko'ring."
         />
       ) : (
-        <CardGrid cards={cards} pickedIds={pickedIds} onToggle={onToggle} />
+        <>
+          <CardGrid
+            cards={cards}
+            pickedIds={pickedIds}
+            selectionFull={selectionFull}
+            onToggle={onToggle}
+          />
+          <CatalogControls
+            loading={loading}
+            error={error}
+            hasMore={hasMore}
+            count={cards.length}
+            total={total}
+            onLoadMore={loadMore}
+            onRetry={retry}
+          />
+        </>
       )}
     </div>
   );
@@ -388,24 +443,31 @@ function TeamTab({
 function CardGrid({
   cards,
   pickedIds,
+  selectionFull,
   onToggle,
 }: {
   cards: CardSearchResult[];
   pickedIds: number[];
-  onToggle: (card: AttachedPlayerCard) => void;
+  selectionFull: boolean;
+  onToggle: (card: PlayerMatchSelection) => void;
 }) {
   return (
     <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6">
       {cards.map((card) => {
         const isPicked = pickedIds.includes(card.efhubId);
+        const disabled = selectionFull && !isPicked;
         const rating = cardRating(card);
         return (
           <li key={card.efhubId}>
             <button
               type="button"
+              aria-pressed={isPicked}
+              disabled={disabled}
+              title={disabled ? "Ko'pi bilan 11 ta o'yinchi tanlash mumkin" : card.name}
               onClick={() =>
                 onToggle({
                   efhubId: card.efhubId,
+                  playerId: card.playerId,
                   name: card.name,
                   overallRating: card.overallRating,
                   maxOverallRating: card.maxOverallRating,
@@ -416,7 +478,7 @@ function CardGrid({
                 })
               }
               className={cn(
-                'w-full rounded-xl border bg-card p-1.5 text-left transition',
+                'min-h-11 w-full rounded-xl border bg-card p-1.5 text-left transition disabled:cursor-not-allowed disabled:opacity-45',
                 isPicked
                   ? 'border-primary ring-2 ring-primary/30'
                   : 'border-border hover:border-primary/40',
@@ -467,37 +529,69 @@ function CardGrid({
 
 function DialogFooter({
   chosenCount,
+  selected,
   minMatch,
   setMinMatch,
+  onTogglePriority,
   onApply,
   onClear,
 }: {
   chosenCount: number;
+  selected: PlayerMatchSelection[];
   minMatch: number;
   setMinMatch: (value: number) => void;
+  onTogglePriority: (playerId: string | undefined) => void;
   onApply: () => void;
   onClear: () => void;
 }) {
   return (
     <div className="shrink-0 space-y-3 border-t border-border bg-card px-4 py-3">
+      {selected.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar" aria-label="Tanlangan o‘yinchilar ustuvorligi">
+          {selected.map((card) => (
+            <button
+              key={card.efhubId}
+              type="button"
+              onClick={() => onTogglePriority(card.playerId)}
+              aria-pressed={card.priority === true}
+              aria-label={`${card.name}: ustuvor, 3 karra hisoblanadi`}
+              className={cn(
+                'inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border px-2 text-xs font-bold',
+                card.priority
+                  ? 'border-amber-400 bg-amber-400/15 text-amber-700 dark:text-amber-300'
+                  : 'border-border text-muted-foreground',
+              )}
+            >
+              <Star className={cn('h-3.5 w-3.5', card.priority && 'fill-current')} />
+              {card.name}
+              <span className="text-[10px]">{card.priority ? '3×' : '1×'}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {chosenCount >= MAX_MATCH_PLAYERS && (
+        <p className="text-xs font-bold text-amber-700 dark:text-amber-300" role="status">
+          Ko&apos;pi bilan 11 ta o&apos;yinchi tanlash mumkin. Boshqasini tanlash uchun bittasini olib tashlang.
+        </p>
+      )}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs font-bold">
-          <span>Minimal moslik</span>
-          <span className="text-primary">{minMatch}%</span>
+          <span>Qidiruv qat’iyligi</span>
+          <span className="text-primary">{strictnessLabel(minMatch)}</span>
         </div>
         <input
           type="range"
-          min={0}
-          max={100}
-          step={10}
+          min={1}
+          max={10}
+          step={1}
           value={minMatch}
           onChange={(event) => setMinMatch(Number(event.target.value))}
           className="w-full accent-primary"
-          aria-label="Minimal moslik foizi"
+          aria-label="Qidiruv qat’iyligi 1 dan 10 gacha"
         />
         <p className="text-[11px] font-semibold text-muted-foreground">
-          Akkountda tanlangan o&apos;yinchilarning kamida shuncha qismi bo&apos;lsin.
-          Bir xil o&apos;yinchining boshqa kartasi ham hisobga olinadi.
+          Kamida {strictnessMinimumPercent(minMatch)}% weighted moslik. Ustuvor
+          o&apos;yinchilar 3× hisoblanadi; ular majburiy emas. Boshqa karta nashri 75% kredit oladi.
         </p>
       </div>
       <div className="flex gap-2">
@@ -518,6 +612,42 @@ function CardGridSkeleton() {
       {Array.from({ length: 12 }).map((_, index) => (
         <div key={index} className="aspect-[12/17] animate-pulse rounded-xl bg-muted" />
       ))}
+    </div>
+  );
+}
+
+function CatalogControls({
+  loading,
+  error,
+  hasMore,
+  count,
+  total,
+  onLoadMore,
+  onRetry,
+}: {
+  loading: boolean;
+  error: string | null;
+  hasMore: boolean;
+  count: number;
+  total: number;
+  onLoadMore: () => void;
+  onRetry: () => void;
+}) {
+  if (error) {
+    return (
+      <div className="mt-3 flex items-center justify-center gap-2 text-xs text-destructive">
+        <span>Keyingi kartalar yuklanmadi.</span>
+        <Button size="sm" variant="outline" onClick={onRetry}>Qayta urinish</Button>
+      </div>
+    );
+  }
+  if (!hasMore) return null;
+  return (
+    <div className="mt-3 text-center">
+      <Button variant="outline" onClick={onLoadMore} disabled={loading} className="min-h-11">
+        {loading ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
+        Yana yuklash ({count} / {total})
+      </Button>
     </div>
   );
 }
@@ -557,11 +687,22 @@ function useCards({
 }) {
   const [cards, setCards] = useState<CardSearchResult[]>([]);
   const [loading, setLoading] = useState(!skip);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [retryVersion, setRetryVersion] = useState(0);
 
   const key = useMemo(() => `${q ?? ''}|${tier ?? ''}|${size}`, [q, tier, size]);
 
+  useEffect(() => {
+    setPage(0);
+    setCards([]);
+    setTotal(0);
+    setError(null);
+  }, [key, skip]);
+
   const load = useCallback(async (signal: AbortSignal) => {
-    const params = new URLSearchParams({ size: String(size) });
+    const params = new URLSearchParams({ size: String(size), page: String(page) });
     if (q) params.set('q', q);
     if (tier) params.set('tier', tier);
     const response = await fetch(buildMarketplaceApiPath('v1/cards', params), {
@@ -569,28 +710,58 @@ function useCards({
       credentials: 'include',
       signal,
     });
-    if (!response.ok) return [];
-    const payload = (await response.json()) as { items?: CardSearchResult[] };
-    return Array.isArray(payload.items) ? payload.items : [];
+    if (!response.ok) throw new Error(`cards_${response.status}`);
+    const payload = (await response.json()) as { items?: CardSearchResult[]; total?: number };
+    return {
+      items: Array.isArray(payload.items) ? payload.items : [],
+      total: typeof payload.total === 'number' ? payload.total : 0,
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, page]);
 
   useEffect(() => {
     if (skip) {
       setCards([]);
       setLoading(false);
+      setError(null);
       return;
     }
     const controller = new AbortController();
+    let cancelled = false;
     setLoading(true);
+    setError(null);
     load(controller.signal)
-      .then(setCards)
-      .catch((error) => {
-        if ((error as Error).name !== 'AbortError') setCards([]);
+      .then((payload) => {
+        if (cancelled) return;
+        setTotal(payload.total);
+        setCards((current) => {
+          const combined = page === 0 ? payload.items : [...current, ...payload.items];
+          return Array.from(new Map(combined.map((card) => [card.efhubId, card])).values());
+        });
       })
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [load, skip]);
+      .catch((error) => {
+        if (!cancelled && (error as Error).name !== 'AbortError') {
+          setError('Kartalar yuklanmadi');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [load, skip, page, retryVersion]);
 
-  return { cards, loading };
+  return {
+    cards,
+    loading,
+    error,
+    total,
+    hasMore: cards.length < total,
+    loadMore: () => {
+      if (!loading && cards.length < total) setPage((current) => current + 1);
+    },
+    retry: () => setRetryVersion((current) => current + 1),
+  };
 }

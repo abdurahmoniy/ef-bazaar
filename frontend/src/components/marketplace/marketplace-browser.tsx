@@ -28,6 +28,7 @@ import type {
   PageResponse,
 } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
+import { parsePlayerMatchValues, strictnessLabel } from '@/lib/player-match-query';
 
 interface MarketplaceBrowserProps {
   filters: ListingBrowseParams;
@@ -67,14 +68,24 @@ export function MarketplaceBrowser({
     valuablePlayerName,
     sortParam: filters.sort,
     attributes: filters.attributes,
+    matchCards: filters.matchCards,
+    matchStrictness: filters.matchStrictness,
   };
 
   const attrs = filters.attributes ?? {};
-  const activeDreamTeam = typeof attrs.dream_team === 'string' ? attrs.dream_team : undefined;
-  const activeMinMatch = Number.parseInt(String(attrs.dream_team_min_match ?? '40'), 10) || 40;
+  const activeMatch = parsePlayerMatchValues(
+    filters.matchCards,
+    String(filters.matchStrictness ?? 4),
+  );
   // The dialog rewrites this query string in place, so every unrelated filter
   // survives applying a squad.
-  const currentQuery = browseHref(filters, activeFilter, query, view, 0).split('?')[1] ?? '';
+  const currentQuery = browseHref(
+    filters,
+    activeFilter,
+    query,
+    view,
+    filters.page ?? 0,
+  ).split('?')[1] ?? '';
   const activeFilterCount = [
     filters.minPrice !== undefined || filters.maxPrice !== undefined,
     filters.priceNegotiable === true,
@@ -86,6 +97,7 @@ export function MarketplaceBrowser({
     Boolean(attrs.has_google_play_link),
     Boolean(attrs.has_game_center_link),
     filterProps.valuablePlayerId !== undefined,
+    activeMatch.criteria.length > 0,
     Boolean(attrs.platform) && attrs.platform !== DEFAULT_PLATFORM,
   ].filter(Boolean).length;
 
@@ -110,9 +122,19 @@ export function MarketplaceBrowser({
           sortOptions={sortOptions}
           activeSortId={paramToSortId(filters.sort)}
           currentQuery={currentQuery}
-          activeDreamTeam={activeDreamTeam}
-          activeMinMatch={activeMinMatch}
+          activeMatchCards={filters.matchCards}
+          activeMinMatch={activeMatch.strictness}
         />
+
+        {activeMatch.criteria.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-semibold">
+            <span>{activeMatch.criteria.length} o‘yinchi</span>
+            <span>•</span>
+            <span>{activeMatch.criteria.filter((criterion) => criterion.importance === 'P').length} ustuvor</span>
+            <span>•</span>
+            <span>{strictnessLabel(activeMatch.strictness)}</span>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <div className="shrink-0 lg:hidden">
@@ -121,14 +143,14 @@ export function MarketplaceBrowser({
             </MobileFilterSheet>
           </div>
           <div className="min-w-0 flex-1">
-            <QuickChips activeFilter={activeFilter} query={query} view={view} />
+            <QuickChips activeFilter={activeFilter} query={query} view={view} currentQuery={currentQuery} />
           </div>
         </div>
 
         {!result.ok ? (
           <ApiErrorPanel title="E'lonlar yuklanmadi" error={result.error} />
         ) : page === null || page.content.length === 0 ? (
-          <BrowseEmpty query={query} />
+          <BrowseEmpty query={query} hasPlayerMatch={activeMatch.criteria.length > 0} currentQuery={currentQuery} />
         ) : (
           <>
             <div
@@ -141,7 +163,12 @@ export function MarketplaceBrowser({
               )}
             >
               {page.content.map((listing) => (
-                <ListingCard key={listing.id} listing={listing} variant={view} />
+                <ListingCard
+                  key={listing.id}
+                  listing={listing}
+                  variant={view}
+                  detailQuery={currentQuery}
+                />
               ))}
             </div>
             <ListingsPagination
@@ -180,7 +207,7 @@ function BrowseHeader({
   sortOptions,
   activeSortId,
   currentQuery,
-  activeDreamTeam,
+  activeMatchCards,
   activeMinMatch,
 }: {
   activeFilter: MarketplaceFilterId;
@@ -190,7 +217,7 @@ function BrowseHeader({
   sortOptions: SortMenuOption[];
   activeSortId: string;
   currentQuery: string;
-  activeDreamTeam?: string;
+  activeMatchCards?: string[];
   activeMinMatch: number;
 }) {
   return (
@@ -210,14 +237,14 @@ function BrowseHeader({
       <div className="flex shrink-0 items-center gap-2">
         <PlayerFilterLauncher
           currentQuery={currentQuery}
-          activeDreamTeam={activeDreamTeam}
+          activeMatchCards={activeMatchCards}
           activeMinMatch={activeMinMatch}
         />
         <SortMenu options={sortOptions} activeId={activeSortId} />
 
         <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-card">
         <Link
-          href={viewHref('grid', activeFilter, query)}
+          href={viewHref('grid', currentQuery)}
           className={cn(
             'tap-press grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition sm:h-10 sm:w-10',
             view === 'grid' && 'bg-accent text-accent-foreground',
@@ -227,7 +254,7 @@ function BrowseHeader({
           <LayoutGrid className="h-4 w-4" />
         </Link>
         <Link
-          href={viewHref('list', activeFilter, query)}
+          href={viewHref('list', currentQuery)}
           className={cn(
             'tap-press grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition sm:h-10 sm:w-10',
             view === 'list' && 'bg-accent text-accent-foreground',
@@ -242,23 +269,43 @@ function BrowseHeader({
   );
 }
 
-function BrowseEmpty({ query }: { query?: string }) {
+function BrowseEmpty({
+  query,
+  hasPlayerMatch,
+  currentQuery,
+}: {
+  query?: string;
+  hasPlayerMatch: boolean;
+  currentQuery: string;
+}) {
+  const loosen = new URLSearchParams(currentQuery);
+  const currentStrictness = Number.parseInt(loosen.get('matchStrictness') ?? '4', 10);
+  loosen.set('matchStrictness', String(Math.max(1, currentStrictness - 1)));
+  loosen.delete('page');
   return (
     <div className="rounded-xl border border-dashed border-border bg-card px-4 py-16 text-center shadow-card">
       <Package2 className="mx-auto h-10 w-10 text-muted-foreground/50" />
       <h2 className="mt-3 text-base font-bold text-foreground">
-        {query ? 'Hech narsa topilmadi' : "Hozircha e'lonlar yo'q"}
+        {hasPlayerMatch ? 'Bu tarkibga mos akkount topilmadi' : query ? 'Hech narsa topilmadi' : "Hozircha e'lonlar yo'q"}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        {query
+        {hasPlayerMatch
+          ? 'Qat’iylikni pasaytiring yoki tanlangan o‘yinchilarni tahrirlang.'
+          : query
           ? "Boshqa kalit so'z yoki filtrni sinab ko'ring."
           : "Birinchi bo'lib akkountingizni sotishga qo'ying."}
       </p>
-      <Button asChild className="mt-4">
-        <Link href="/marketplace/new">
-          <Plus className="h-4 w-4" /> Akkount joylash
-        </Link>
-      </Button>
+      {hasPlayerMatch ? (
+        <Button asChild className="mt-4">
+          <Link href={`/marketplace?${loosen.toString()}`}>Qat’iylikni pasaytirish</Link>
+        </Button>
+      ) : (
+        <Button asChild className="mt-4">
+          <Link href="/marketplace/new">
+            <Plus className="h-4 w-4" /> Akkount joylash
+          </Link>
+        </Button>
+      )}
     </div>
   );
 }
@@ -277,10 +324,10 @@ function browseHref(
   return `/marketplace?${search.toString()}`;
 }
 
-function viewHref(view: 'grid' | 'list', activeFilter: MarketplaceFilterId, query?: string) {
-  const params = new URLSearchParams();
-  if (activeFilter !== 'all') params.set('filter', activeFilter);
-  if (query) params.set('q', query);
+function viewHref(view: 'grid' | 'list', currentQuery: string) {
+  const params = new URLSearchParams(currentQuery);
+  params.delete('page');
   if (view === 'list') params.set('view', 'list');
+  else params.delete('view');
   return params.toString() ? `/marketplace?${params.toString()}` : '/marketplace';
 }

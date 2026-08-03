@@ -14,13 +14,19 @@ import uz.efbazaar.marketplace.domain.ListingStatus;
 import uz.efbazaar.marketplace.dto.ListingCreateRequest;
 import uz.efbazaar.marketplace.dto.ListingFilter;
 import uz.efbazaar.marketplace.dto.ListingUpdateRequest;
+import uz.efbazaar.marketplace.dto.ListingMatchHit;
+import uz.efbazaar.marketplace.dto.MatchDetails;
+import uz.efbazaar.marketplace.dto.MatchRequest;
 import uz.efbazaar.marketplace.event.MarketplaceEventPublisher;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.mapper.ListingMapper;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
+import uz.efbazaar.marketplace.repository.ListingMatchRepository;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,6 +47,8 @@ public class ListingService {
     private final MarketplaceEventPublisher events;
     private final AttributeDefinitionRepository attributeDefinitions;
     private final BlacklistGuard blacklistGuard;
+    private final ListingPersistence persistence;
+    private final ListingMatchRepository listingMatches;
 
     /**
      * Atomic create — validates payload/attrs first (fail fast, no side effect),
@@ -68,7 +76,7 @@ public class ListingService {
 
         // save() opens its own short tx via Spring Data — no long-running DB lock
         // is held across the bot upload above.
-        Listing saved = listings.save(listing);
+        Listing saved = persistence.saveWithCardInventory(listing);
         events.listingCreated(saved);
         log.info("Listing created: id={} sellerId={} attributes={} media={}",
                 saved.getId(), sellerId, validated.keySet(), fileIds.size());
@@ -104,7 +112,7 @@ public class ListingService {
             listing.setMediaMessageIds(fileIds);
         }
 
-        Listing saved = listings.save(listing);
+        Listing saved = persistence.saveWithCardInventory(listing);
         events.listingUpdated(saved);
         log.info("Listing updated: id={} sellerId={} mediaReplaced={} media={}",
                 id, sellerId, replacingMedia, listing.getMediaMessageIds().size());
@@ -151,6 +159,51 @@ public class ListingService {
                 ListingSpecifications.withFilter(sanitizeRangeFilters(filter)), ranked);
     }
 
+    @Transactional(readOnly = true)
+    public MatchedListingPage browseMatched(ListingFilter filter,
+                                            MatchRequest match,
+                                            Pageable pageable) {
+        Page<ListingMatchHit> hits = listingMatches.findMatches(
+                sanitizeRangeFilters(filter), match, pageable);
+        List<UUID> ids = hits.getContent().stream().map(ListingMatchHit::listingId).toList();
+        Map<UUID, Listing> byId = listings.findAllById(ids).stream()
+                .collect(Collectors.toMap(Listing::getId, listing -> listing));
+        List<Listing> ordered = new ArrayList<>(ids.size());
+        Map<UUID, MatchDetails> details = new LinkedHashMap<>();
+        for (ListingMatchHit hit : hits) {
+            Listing listing = byId.get(hit.listingId());
+            if (listing == null) {
+                continue;
+            }
+            ordered.add(listing);
+            details.put(hit.listingId(), toDetails(hit, match));
+        }
+        return new MatchedListingPage(ordered, details,
+                hits.getNumber(), hits.getSize(), hits.getTotalElements(), hits.getTotalPages());
+    }
+
+    @Transactional(readOnly = true)
+    public MatchDetails matchDetails(UUID listingId, MatchRequest match) {
+        return listingMatches.findMatch(listingId, match)
+                .map(hit -> toDetails(hit, match))
+                .orElse(null);
+    }
+
+    private static MatchDetails toDetails(ListingMatchHit hit, MatchRequest match) {
+        int selected = hit.exactCount() + hit.alternateCount() + hit.missingCount();
+        int percent = hit.score().multiply(java.math.BigDecimal.valueOf(100))
+                .setScale(0, java.math.RoundingMode.HALF_UP).intValue();
+        return new MatchDetails(percent, hit.exactCount(), hit.alternateCount(),
+                hit.missingCount(), selected, match.strictness(),
+                hit.exactEfhubIds(), hit.alternateEfhubIds(), hit.missingEfhubIds(),
+                match.criteria().stream()
+                        .filter(criterion -> criterion.importance()
+                                == uz.efbazaar.marketplace.dto.MatchCardCriterion.Importance.PRIORITY)
+                        .map(uz.efbazaar.marketplace.dto.MatchCardCriterion::efhubId)
+                        .toList(),
+                hit.earnedWeight(), hit.possibleWeight());
+    }
+
     /**
      * Range keys ({@code <key>.min}/{@code <key>.max}) are only honored for
      * active INT/DECIMAL attribute definitions — the Specification casts the
@@ -173,7 +226,15 @@ public class ListingService {
         Map<String, Object> cleaned = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : attrs.entrySet()) {
             String base = ListingSpecifications.rangeBaseKey(entry.getKey());
-            if (base == null || numericKeys.contains(base)) {
+            if (base == null) {
+                cleaned.put(entry.getKey(), entry.getValue());
+            } else if (numericKeys.contains(base)) {
+                try {
+                    new BigDecimal(String.valueOf(entry.getValue()));
+                } catch (NumberFormatException exception) {
+                    throw MarketplaceException.invalidAttributeValue(
+                            base, "range qiymati son bo'lishi kerak");
+                }
                 cleaned.put(entry.getKey(), entry.getValue());
             }
         }

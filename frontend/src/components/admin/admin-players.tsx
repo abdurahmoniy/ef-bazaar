@@ -1,18 +1,22 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
-import { Check, RefreshCw, Search, Sparkles, Users } from 'lucide-react';
+import { useMemo, useState, useTransition } from 'react';
+import { CalendarClock, Check, RefreshCw, Search, Sparkles, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { adminRefreshMaxOvr, adminSetCardMetaTier } from '@/lib/marketplace-actions';
+import {
+  adminExpireCardMeta,
+  adminRefreshMaxOvr,
+  adminSetCardMetaTier,
+} from '@/lib/marketplace-actions';
 import { cardRating } from '@/lib/marketplace-types';
-import type { CardSearchResult, CardType, MetaTier } from '@/lib/marketplace-types';
+import type { AdminCardSearchResult, CardType, MetaTier } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
 
 interface AdminPlayersProps {
-  cards: CardSearchResult[];
+  cards: AdminCardSearchResult[];
   total: number;
   query?: string;
   activeType?: CardType;
@@ -48,6 +52,11 @@ export function AdminPlayers({ cards, total, query, activeType, activeTier }: Ad
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [priority, setPriority] = useState(50);
+  const [activeFrom, setActiveFrom] = useState('');
+  const [activeUntil, setActiveUntil] = useState('');
+  const [reason, setReason] = useState('');
+  const [demandSort, setDemandSort] = useState<'catalogue' | '7d' | '30d'>('catalogue');
 
   function navigate(next: { q?: string; type?: CardType; tier?: MetaTier }) {
     const params = new URLSearchParams();
@@ -73,12 +82,18 @@ export function AdminPlayers({ cards, total, query, activeType, activeTier }: Ad
     });
   }
 
-  function applyTier(efhubIds: number[], tier: MetaTier) {
+  function applyTier(efhubIds: number[], tier: MetaTier, useEditor = false) {
     if (efhubIds.length === 0) return;
     setError(null);
     setNotice(null);
     startTransition(async () => {
-      const result = await adminSetCardMetaTier(efhubIds, tier);
+      const result = await adminSetCardMetaTier(efhubIds, tier,
+        tier === 'META' ? {
+          priority: useEditor ? priority : 50,
+          activeFrom: useEditor ? localToIso(activeFrom) : undefined,
+          activeUntil: useEditor ? localToIso(activeUntil) : undefined,
+          reason: useEditor ? reason.trim() || undefined : undefined,
+        } : { reason: useEditor ? reason.trim() || undefined : undefined });
       if (!result.ok) {
         setError(result.message);
         return;
@@ -89,6 +104,22 @@ export function AdminPlayers({ cards, total, query, activeType, activeTier }: Ad
           ? "Hech narsa o'zgarmadi — kartalar allaqachon shu darajada edi"
           : `${result.data.updated} ta karta ${tier === 'META' ? 'META' : 'oddiy'} qilindi`,
       );
+      router.refresh();
+    });
+  }
+
+  function expireMeta(efhubIds: number[]) {
+    if (efhubIds.length === 0) return;
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const result = await adminExpireCardMeta(efhubIds, reason.trim() || undefined);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setSelected(new Set());
+      setNotice(`${result.data.updated} ta kartaning META muddati tugatildi`);
       router.refresh();
     });
   }
@@ -111,6 +142,12 @@ export function AdminPlayers({ cards, total, query, activeType, activeTier }: Ad
 
   const selectedIds = [...selected];
   const metaCount = cards.filter((card) => card.metaTier === 'META').length;
+  const visibleCards = useMemo(() => {
+    if (demandSort === 'catalogue') return cards;
+    const field = demandSort === '7d' ? 'interest7d' : 'interest30d';
+    return [...cards].sort((left, right) =>
+      (right[field] ?? 0) - (left[field] ?? 0) || left.name.localeCompare(right.name));
+  }, [cards, demandSort]);
 
   return (
     <div className="space-y-4">
@@ -165,6 +202,18 @@ export function AdminPlayers({ cards, total, query, activeType, activeTier }: Ad
         ))}
       </div>
 
+      <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+        <span>Shu sahifani talab bo&apos;yicha:</span>
+        {(['catalogue', '7d', '30d'] as const).map((value) => (
+          <FilterChip
+            key={value}
+            label={value === 'catalogue' ? 'Katalog tartibi' : value === '7d' ? '7 kun' : '30 kun'}
+            active={demandSort === value}
+            onClick={() => setDemandSort(value)}
+          />
+        ))}
+      </div>
+
       {error && (
         <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm font-semibold text-destructive">
           {error}
@@ -177,28 +226,61 @@ export function AdminPlayers({ cards, total, query, activeType, activeTier }: Ad
       )}
 
       {selectedIds.length > 0 && (
-        <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 backdrop-blur">
-          <span className="text-sm font-bold">{selectedIds.length} ta tanlandi</span>
-          <Button size="sm" disabled={isPending} onClick={() => applyTier(selectedIds, 'META')}>
-            <Sparkles className="mr-1.5 h-4 w-4" />
-            META qilish
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={isPending}
-            onClick={() => applyTier(selectedIds, 'NORMAL')}
-          >
-            META&apos;dan olib tashlash
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={isPending}
-            onClick={() => setSelected(new Set())}
-          >
-            Bekor qilish
-          </Button>
+        <div className="sticky top-2 z-20 space-y-3 rounded-xl border border-primary/30 bg-background/95 p-3 shadow-lg backdrop-blur">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-bold">{selectedIds.length} ta tanlandi</span>
+            <label className="flex items-center gap-1 text-xs font-bold">
+              Priority
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={priority}
+                onChange={(event) => setPriority(Math.max(0, Math.min(100, Number(event.target.value))))}
+                className="h-8 w-20"
+              />
+            </label>
+            <Input
+              type="datetime-local"
+              value={activeFrom}
+              onChange={(event) => setActiveFrom(event.target.value)}
+              aria-label="META boshlanish vaqti"
+              className="h-8 w-auto"
+            />
+            <Input
+              type="datetime-local"
+              value={activeUntil}
+              onChange={(event) => setActiveUntil(event.target.value)}
+              aria-label="META tugash vaqti"
+              className="h-8 w-auto"
+            />
+            <Input
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              maxLength={240}
+              placeholder="Sabab (masalan: turnir metasi)"
+              className="h-8 min-w-[14rem] flex-1"
+            />
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground">
+            Vaqtlar bo&apos;sh qolsa META hozir boshlanadi va muddatsiz davom etadi.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" disabled={isPending} onClick={() => applyTier(selectedIds, 'META', true)}>
+              <Sparkles className="mr-1.5 h-4 w-4" />
+              Faollashtirish / rejalash
+            </Button>
+            <Button size="sm" variant="outline" disabled={isPending} onClick={() => expireMeta(selectedIds)}>
+              <CalendarClock className="mr-1.5 h-4 w-4" />
+              Hozir tugatish
+            </Button>
+            <Button size="sm" variant="outline" disabled={isPending} onClick={() => applyTier(selectedIds, 'NORMAL', true)}>
+              Lifecycle tozalash
+            </Button>
+            <Button size="sm" variant="ghost" disabled={isPending} onClick={() => setSelected(new Set())}>
+              Bekor qilish
+            </Button>
+          </div>
         </div>
       )}
 
@@ -209,7 +291,7 @@ export function AdminPlayers({ cards, total, query, activeType, activeTier }: Ad
         </div>
       ) : (
         <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {cards.map((card) => (
+          {visibleCards.map((card) => (
             <PlayerRow
               key={card.efhubId}
               card={card}
@@ -259,13 +341,16 @@ function PlayerRow({
   onToggleSelected,
   onToggleTier,
 }: {
-  card: CardSearchResult;
+  card: AdminCardSearchResult;
   selected: boolean;
   disabled: boolean;
   onToggleSelected: () => void;
   onToggleTier: () => void;
 }) {
   const isMeta = card.metaTier === 'META';
+  const scheduled = card.configuredMetaTier === 'META' && !isMeta
+    && card.metaActiveFrom && new Date(card.metaActiveFrom).getTime() > Date.now();
+  const expired = card.configuredMetaTier === 'META' && !isMeta && !scheduled;
   return (
     <li
       className={cn(
@@ -311,6 +396,26 @@ function PlayerRow({
         <span className="block truncate text-[11px] font-semibold text-muted-foreground">
           {cardRating(card) ?? '—'} · {card.position ?? '—'} · {card.cardType}
         </span>
+        <span className="mt-0.5 block text-[10px] font-semibold text-muted-foreground">
+          {isMeta
+            ? `Faol META · P${card.configuredMetaPriority}`
+            : scheduled
+              ? `Rejalangan · P${card.configuredMetaPriority}`
+              : expired
+                ? 'Muddati tugagan'
+                : 'Oddiy'}
+        </span>
+        <span
+          className="block text-[10px] font-semibold text-primary"
+          title="Filtrni Qo'llash bosilganda deduplikatsiya qilingan qiziqish"
+        >
+          Talab: {card.interest7d ?? 0} / 7 kun · {card.interest30d ?? 0} / 30 kun
+        </span>
+        {card.metaReason && (
+          <span className="block truncate text-[10px] text-muted-foreground" title={card.metaReason}>
+            {card.metaReason}
+          </span>
+        )}
       </button>
       <Button
         size="sm"
@@ -323,4 +428,10 @@ function PlayerRow({
       </Button>
     </li>
   );
+}
+
+function localToIso(value: string): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }

@@ -1,6 +1,7 @@
 package uz.efbazaar.marketplace.cards;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * @param overallRating    level-1 rating as efhub reports it
@@ -11,6 +12,7 @@ import java.util.List;
  */
 public record CardSearchResult(
         long efhubId,
+        UUID playerId,
         String name,
         String team,
         String position,
@@ -19,6 +21,7 @@ public record CardSearchResult(
         Integer maxOverallRating,
         CardType cardType,
         MetaTier metaTier,
+        int metaPriority,
         String imageUrl,
         List<String> skills
 ) {}

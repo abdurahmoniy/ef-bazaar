@@ -31,7 +31,10 @@ export default async function DreamTeamPage() {
       {!result.ok && result.error.status >= 500 ? (
         <ApiErrorPanel title="Jamoalar yuklanmadi" error={result.error} />
       ) : (
-        <DreamTeamEditor initialTeams={result.ok ? result.data : []} />
+        <DreamTeamEditor
+          initialTeams={result.ok ? result.data : []}
+          authenticated={result.ok}
+        />
       )}
     </main>
   );

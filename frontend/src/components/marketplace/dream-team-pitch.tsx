@@ -73,8 +73,8 @@ export function emptySlots(formation: string): DreamTeamSlot[] {
 export function reshape(slots: DreamTeamSlot[], formation: string): DreamTeamSlot[] {
   return emptySlots(formation).map((slot, index) => ({
     ...slot,
-    card: slots[index]?.card,
-    w: slots[index]?.w ?? 1,
+    card: slots.find((candidate) => candidate.index === index)?.card,
+    w: slots.find((candidate) => candidate.index === index)?.w ?? 1,
   }));
 }
 

@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import uz.efbazaar.marketplace.cards.CardColumns;
 import uz.efbazaar.marketplace.cards.CardType;
+import uz.efbazaar.marketplace.cards.PlayerIdentityNormalizer;
 
 import java.sql.Array;
 import java.sql.PreparedStatement;
@@ -126,6 +127,30 @@ public class CardWriter {
         boolean withMaxOvr = columns.has(type.tableName(), MAX_OVR_COL);
         String sql = (withMaxOvr ? upsertSqlByType : upsertSqlLegacyByType).get(type);
         jdbc.update(con -> bind(con.prepareStatement(sql), card, withMaxOvr));
+        persistIdentity(card);
+    }
+
+    private void persistIdentity(ScrapedCard card) {
+        String canonicalName = card.name() == null
+                ? ""
+                : card.name().strip().replaceAll("\\s+", " ");
+        String normalizedName = PlayerIdentityNormalizer.normalize(card.name());
+        if (normalizedName.isEmpty()) {
+            log.warn("identity mapping skipped for nameless card efhubId={}", card.efhubId());
+            return;
+        }
+        jdbc.update("""
+                WITH identity AS (
+                    INSERT INTO player_identities (canonical_name, normalized_name)
+                    VALUES (?, ?)
+                    ON CONFLICT (normalized_name) DO UPDATE
+                    SET updated_at = player_identities.updated_at
+                    RETURNING id
+                )
+                INSERT INTO card_player_identities (efhub_id, player_id, assignment_source)
+                SELECT ?, id, 'AUTO' FROM identity
+                ON CONFLICT (efhub_id) DO NOTHING
+                """, canonicalName, normalizedName, card.efhubId());
     }
 
     private PreparedStatement bind(PreparedStatement ps, ScrapedCard c, boolean withMaxOvr)

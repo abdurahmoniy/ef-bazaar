@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { Plus, Save, Search, Sparkles, Trash2, Users, X } from 'lucide-react';
 
 import {
@@ -21,10 +21,17 @@ import {
   updateDreamTeam,
 } from '@/lib/marketplace-actions';
 import {
-  dreamTeamFilterValue,
   type DreamTeam,
   type DreamTeamSlot,
 } from '@/lib/marketplace-types';
+import {
+  createDreamTeamDraft,
+  DREAM_TEAM_DRAFT_KEY,
+  dreamTeamDraftFingerprint,
+  parseDreamTeamDraft,
+  type DreamTeamDraft,
+} from '@/lib/dream-team-draft';
+import { writePlayerMatch } from '@/lib/player-match-query';
 import { cn } from '@/lib/utils';
 
 const MUST_HAVE_WEIGHT = 3;
@@ -37,7 +44,13 @@ const MUST_HAVE_WEIGHT = 3;
  * store {@code valuable_players} — the saved squad stays readable even if the
  * catalogue moves under it.
  */
-export function DreamTeamEditor({ initialTeams }: { initialTeams: DreamTeam[] }) {
+export function DreamTeamEditor({
+  initialTeams,
+  authenticated,
+}: {
+  initialTeams: DreamTeam[];
+  authenticated: boolean;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -51,8 +64,56 @@ export function DreamTeamEditor({ initialTeams }: { initialTeams: DreamTeam[] })
   const [editingSlot, setEditingSlot] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<DreamTeamDraft | null>(null);
+  const initialDraft = createDreamTeamDraft(
+    first?.name ?? 'Mening jamoam',
+    first?.formation ?? DEFAULT_FORMATION,
+    first?.slots ?? [],
+  );
+  const [savedFingerprint, setSavedFingerprint] = useState(
+    dreamTeamDraftFingerprint(initialDraft),
+  );
+
+  const currentDraft = useMemo(
+    () => createDreamTeamDraft(name, formation, slots),
+    [name, formation, slots],
+  );
+  const currentFingerprint = dreamTeamDraftFingerprint(currentDraft);
+  const dirty = currentFingerprint !== savedFingerprint;
+
+  useEffect(() => {
+    const restored = parseDreamTeamDraft(window.localStorage.getItem(DREAM_TEAM_DRAFT_KEY));
+    if (!restored) return;
+    if (new URLSearchParams(window.location.search).get('restore') === 'draft') {
+      setName(restored.name);
+      setFormation(restored.formation);
+      setSlots(reshape(restored.slots, restored.formation));
+      setNotice('Kirishdan oldingi jamoangiz tiklandi');
+    } else {
+      setPendingDraft(restored);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pendingDraft) return;
+    if (dirty && currentDraft.slots.length > 0) {
+      window.localStorage.setItem(DREAM_TEAM_DRAFT_KEY, JSON.stringify(currentDraft));
+    } else if (!dirty) {
+      window.localStorage.removeItem(DREAM_TEAM_DRAFT_KEY);
+    }
+  }, [currentDraft, dirty, pendingDraft]);
+
+  useEffect(() => {
+    function warnBeforeLeaving(event: BeforeUnloadEvent) {
+      if (!dirty) return;
+      event.preventDefault();
+    }
+    window.addEventListener('beforeunload', warnBeforeLeaving);
+    return () => window.removeEventListener('beforeunload', warnBeforeLeaving);
+  }, [dirty]);
 
   function loadTeam(team: DreamTeam | null) {
+    if (dirty && !window.confirm("Saqlanmagan o'zgarishlar bekor qilinsinmi?")) return;
     setError(null);
     setNotice(null);
     setEditingSlot(null);
@@ -62,6 +123,11 @@ export function DreamTeamEditor({ initialTeams }: { initialTeams: DreamTeam[] })
     setSlots(
       team ? reshape(team.slots, team.formation) : emptySlots(DEFAULT_FORMATION),
     );
+    setSavedFingerprint(dreamTeamDraftFingerprint(createDreamTeamDraft(
+      team?.name ?? 'Yangi jamoa',
+      team?.formation ?? DEFAULT_FORMATION,
+      team?.slots ?? [],
+    )));
   }
 
   function changeFormation(next: string) {
@@ -72,6 +138,17 @@ export function DreamTeamEditor({ initialTeams }: { initialTeams: DreamTeam[] })
   }
 
   function assign(index: number, card: PlayerCard) {
+    if (!card.playerId) {
+      setError("Bu kartada o'yinchi identifikatori yo'q. Boshqa kartani tanlang.");
+      return;
+    }
+    const duplicate = slots.find((slot, slotIndex) => slotIndex !== index
+      && slot.card?.playerId === card.playerId);
+    if (duplicate) {
+      setError(`${card.name} jamoada allaqachon bor`);
+      return;
+    }
+    setError(null);
     setSlots((prev) =>
       prev.map((slot, i) =>
         i === index
@@ -79,6 +156,7 @@ export function DreamTeamEditor({ initialTeams }: { initialTeams: DreamTeam[] })
               ...slot,
               card: {
                 efhubId: card.efhubId,
+                playerId: card.playerId,
                 name: card.name,
                 overallRating: card.overallRating,
                 maxOverallRating: card.maxOverallRating,
@@ -115,6 +193,11 @@ export function DreamTeamEditor({ initialTeams }: { initialTeams: DreamTeam[] })
       // Empty slots carry no information and would only bloat the row.
       slots: slots.filter((slot) => slot.card),
     };
+    if (!authenticated) {
+      window.localStorage.setItem(DREAM_TEAM_DRAFT_KEY, JSON.stringify(currentDraft));
+      window.location.assign('/auth/login?from=%2Fdream-team%3Frestore%3Ddraft');
+      return;
+    }
     startTransition(async () => {
       const result = teamId
         ? await updateDreamTeam(teamId, payload)
@@ -125,6 +208,8 @@ export function DreamTeamEditor({ initialTeams }: { initialTeams: DreamTeam[] })
       }
       setTeamId(result.data.id);
       setNotice('Jamoa saqlandi');
+      setSavedFingerprint(currentFingerprint);
+      window.localStorage.removeItem(DREAM_TEAM_DRAFT_KEY);
       router.refresh();
     });
   }
@@ -145,10 +230,34 @@ export function DreamTeamEditor({ initialTeams }: { initialTeams: DreamTeam[] })
   }
 
   const filled = slots.filter((slot) => slot.card).length;
-  const filterValue = dreamTeamFilterValue(slots);
-  const browseHref = filterValue
-    ? `/marketplace?attr.dream_team=${encodeURIComponent(filterValue)}&attr.dream_team_min_match=40`
-    : '/marketplace';
+  const browseHref = useMemo(() => {
+    const criteria = slots.flatMap((slot) => slot.card?.playerId ? [{
+      efhubId: slot.card.efhubId,
+      playerId: slot.card.playerId,
+      importance: slot.w === MUST_HAVE_WEIGHT ? 'P' as const : 'N' as const,
+      name: slot.card.name,
+    }] : []);
+    const params = writePlayerMatch(new URLSearchParams(), criteria.length
+      ? { criteria, strictness: 4 }
+      : undefined);
+    const query = params.toString();
+    return query ? `/marketplace?${query}` : '/marketplace';
+  }, [slots]);
+
+  function restorePendingDraft() {
+    if (!pendingDraft) return;
+    setTeamId(null);
+    setName(pendingDraft.name);
+    setFormation(pendingDraft.formation);
+    setSlots(reshape(pendingDraft.slots, pendingDraft.formation));
+    setPendingDraft(null);
+    setNotice('Saqlanmagan jamoa tiklandi');
+  }
+
+  function discardPendingDraft() {
+    window.localStorage.removeItem(DREAM_TEAM_DRAFT_KEY);
+    setPendingDraft(null);
+  }
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
@@ -167,6 +276,20 @@ export function DreamTeamEditor({ initialTeams }: { initialTeams: DreamTeam[] })
       </div>
 
       <div className="space-y-4">
+        {pendingDraft && (
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm">
+            <p className="font-black">Saqlanmagan “{pendingDraft.name}” jamoasi topildi</p>
+            <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
+              Formatsiya va muhim o&apos;yinchilar bilan davom etishingiz mumkin.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Button type="button" size="sm" onClick={restorePendingDraft}>Tiklash</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={discardPendingDraft}>
+                Bekor qilish
+              </Button>
+            </div>
+          </div>
+        )}
         {initialTeams.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {initialTeams.map((team) => (
@@ -252,7 +375,7 @@ export function DreamTeamEditor({ initialTeams }: { initialTeams: DreamTeam[] })
         <div className="flex flex-wrap gap-2">
           <Button onClick={save} disabled={isPending || filled === 0}>
             <Save className="mr-1.5 h-4 w-4" />
-            {teamId ? 'Saqlash' : 'Yaratish'}
+            {!authenticated ? 'Kirish va saqlash' : teamId ? 'Saqlash' : 'Yaratish'}
           </Button>
           <Button asChild variant="outline" disabled={filled === 0}>
             <a href={browseHref}>

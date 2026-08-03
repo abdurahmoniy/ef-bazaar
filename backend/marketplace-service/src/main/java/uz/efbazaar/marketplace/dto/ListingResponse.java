@@ -31,6 +31,8 @@ public record ListingResponse(
          * ordered the page never surfaces its score to the entity.
          */
         Integer matchPercent,
+        /** One database-derived explanation; null for ordinary browse. */
+        MatchDetails matchDetails,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -38,6 +40,14 @@ public record ListingResponse(
     public ListingResponse withMatchPercent(Integer percent) {
         return new ListingResponse(id, sellerId, description, price, priceNegotiable,
                 attributes, mediaMessageIds, status, soldAt, forwardCount, likeCount,
-                likedByMe, percent, createdAt, updatedAt);
+                likedByMe, percent, matchDetails, createdAt, updatedAt);
+    }
+
+    /** Attach the canonical explanation and mirror its percent for old clients. */
+    public ListingResponse withMatchDetails(MatchDetails details) {
+        return new ListingResponse(id, sellerId, description, price, priceNegotiable,
+                attributes, mediaMessageIds, status, soldAt, forwardCount, likeCount,
+                likedByMe, details == null ? null : details.percent(), details,
+                createdAt, updatedAt);
     }
 }

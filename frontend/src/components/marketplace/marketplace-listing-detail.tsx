@@ -13,6 +13,7 @@ import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/divisio
 import { ListingActions } from '@/components/marketplace/listing-actions';
 import { ListingCard } from '@/components/marketplace/listing-card';
 import { ListingMediaGallery } from '@/components/marketplace/listing-media-gallery';
+import { MatchBreakdown } from '@/components/marketplace/match-breakdown';
 import { PlayerCardTile } from '@/components/marketplace/player-card-tile';
 import { SellerCard } from '@/components/marketplace/seller-card';
 import { ShareListingButton } from '@/components/marketplace/share-listing-button';
@@ -42,6 +43,7 @@ interface MarketplaceListingDetailProps {
   seller: User | null;
   sellerBlacklisted?: boolean;
   similarListings: ListingResponse[];
+  backHref?: string;
 }
 
 export function MarketplaceListingDetail({
@@ -50,6 +52,7 @@ export function MarketplaceListingDetail({
   seller,
   sellerBlacklisted,
   similarListings,
+  backHref = '/marketplace',
 }: MarketplaceListingDetailProps) {
   const title = listing.description.split('\n')[0]?.trim() || 'eFootball account';
   const restDescription = listing.description
@@ -89,13 +92,15 @@ export function MarketplaceListingDetail({
   return (
     <article className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <BackLink href="/marketplace" label="Bozor" />
+        <BackLink href={backHref} label="Bozor" />
         <ShareListingButton listingId={listing.id} title={title} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-6">
         <div className="min-w-0 space-y-4">
           <ListingMediaGallery title={title} urls={mediaUrls} />
+
+          <MatchBreakdown listing={listing} />
 
           <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">

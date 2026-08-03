@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -35,6 +36,7 @@ import java.util.stream.Collectors;
 public class AttributeValidator {
 
     private final AttributeDefinitionRepository repository;
+    private final CardIdentityVerifier cardIdentities;
 
     public Map<String, Object> validate(Map<String, Object> input) {
         Map<String, Object> values = input == null ? Map.of() : input;
@@ -192,7 +194,7 @@ public class AttributeValidator {
      * Array of card objects. Enforces the minimum contract every consumer
      * relies on (efhub_id + name), preserves every other field the frontend
      * sends so we can search by skill / rating / type later without a schema
-     * change. Duplicates by efhub_id are collapsed.
+     * change. Card-edition and canonical-player duplicates are rejected.
      */
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> validateCardList(AttributeDefinition def, Object raw) {
@@ -206,6 +208,8 @@ public class AttributeValidator {
         }
         List<Map<String, Object>> normalized = new ArrayList<>(list.size());
         Set<Long> seenIds = new HashSet<>();
+        Set<UUID> seenPlayers = new HashSet<>();
+        List<CardIdentityVerifier.Claim> claims = new ArrayList<>(list.size());
         for (Object item : list) {
             if (!(item instanceof Map<?, ?> rawMap)) {
                 throw MarketplaceException.invalidAttributeValue(def.getKey(),
@@ -213,6 +217,7 @@ public class AttributeValidator {
             }
             Map<String, Object> card = (Map<String, Object>) rawMap;
             Object efhubIdRaw = card.get("efhub_id");
+            Object playerIdRaw = card.get("player_id");
             Object nameRaw = card.get("name");
             if (!(efhubIdRaw instanceof Number efhubNum)) {
                 throw MarketplaceException.invalidAttributeValue(def.getKey(),
@@ -223,13 +228,32 @@ public class AttributeValidator {
                         "har bir card'da name (string) bo'lishi shart");
             }
             long efhubId = efhubNum.longValue();
-            if (!seenIds.add(efhubId)) continue;
+            UUID playerId;
+            try {
+                playerId = playerIdRaw instanceof UUID uuid
+                        ? uuid
+                        : UUID.fromString(String.valueOf(playerIdRaw));
+            } catch (IllegalArgumentException e) {
+                throw MarketplaceException.invalidAttributeValue(def.getKey(),
+                        "har bir card'da player_id (UUID) bo'lishi shart");
+            }
+            if (!seenIds.add(efhubId)) {
+                throw MarketplaceException.invalidAttributeValue(def.getKey(),
+                        "takrorlangan efhub_id: " + efhubId);
+            }
+            if (!seenPlayers.add(playerId)) {
+                throw MarketplaceException.invalidAttributeValue(def.getKey(),
+                        "takrorlangan player_id: " + playerId);
+            }
             // Deep-copy so upstream mutations don't leak into persisted state.
             Map<String, Object> copy = new HashMap<>(card);
             copy.put("efhub_id", efhubId);
+            copy.put("player_id", playerId.toString());
             copy.put("name", nameStr.trim());
             normalized.add(copy);
+            claims.add(new CardIdentityVerifier.Claim(efhubId, playerId));
         }
+        cardIdentities.verify(claims);
         return normalized;
     }
 

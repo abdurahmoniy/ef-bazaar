@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { collectListingFiles, createListingRequestFromForm } from './listing-form-data';
+import {
+  collectListingFiles,
+  createListingRequestFromForm,
+  SEEDED_LISTING_ATTRIBUTE_DEFINITIONS,
+} from './listing-form-data';
 import type { ListingAttributeDefinition } from './marketplace-types';
 
 describe('createListingRequestFromForm', () => {
+  it('allows up to thirty searchable valuable cards', () => {
+    expect(SEEDED_LISTING_ATTRIBUTE_DEFINITIONS.find((definition) =>
+      definition.key === 'valuable_players')?.constraints?.max_items).toBe(30);
+  });
+
   const definitions = [
     {
       key: 'highest_division_level',

@@ -9,6 +9,8 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.multipart.MultipartFile;
 import uz.efbazaar.marketplace.domain.AttributeDefinition;
 import uz.efbazaar.marketplace.domain.AttributeType;
@@ -17,11 +19,15 @@ import uz.efbazaar.marketplace.domain.ListingStatus;
 import uz.efbazaar.marketplace.dto.ListingCreateRequest;
 import uz.efbazaar.marketplace.dto.ListingFilter;
 import uz.efbazaar.marketplace.dto.ListingUpdateRequest;
+import uz.efbazaar.marketplace.dto.ListingMatchHit;
+import uz.efbazaar.marketplace.dto.MatchCardCriterion;
+import uz.efbazaar.marketplace.dto.MatchRequest;
 import uz.efbazaar.marketplace.event.MarketplaceEventPublisher;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.mapper.ListingMapper;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
+import uz.efbazaar.marketplace.repository.ListingMatchRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -48,6 +54,8 @@ class ListingServiceTest {
     @Mock MediaService mediaService;
     @Mock ListingCaptionBuilder captionBuilder;
     @Mock AttributeDefinitionRepository attributeDefinitions;
+    @Mock ListingPersistence persistence;
+    @Mock ListingMatchRepository listingMatches;
     @Spy  ListingMapper mapper = Mappers.getMapper(ListingMapper.class);
 
     @Mock uz.efbazaar.marketplace.trust.BlacklistGuard blacklistGuard;
@@ -82,7 +90,8 @@ class ListingServiceTest {
         when(attributeValidator.validate(anyMap())).thenAnswer(inv -> inv.getArgument(0));
         when(captionBuilder.build(any(Listing.class))).thenReturn("Rich caption");
         when(mediaService.uploadToBot(anyList(), anyString(), any(UUID.class))).thenReturn(List.of("file_1"));
-        when(repository.save(any(Listing.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(persistence.saveWithCardInventory(any(Listing.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
 
         Listing saved = service.create(sellerId, createReq, files);
 
@@ -95,6 +104,7 @@ class ListingServiceTest {
         assertThat(saved.getAttributes())
                 .containsEntry("highest_division_level", 5)
                 .containsEntry("valuable_players", List.of("Messi", "Ronaldo"));
+        verify(persistence).saveWithCardInventory(saved);
         verify(events).listingCreated(saved);
     }
 
@@ -182,6 +192,43 @@ class ListingServiceTest {
 
         assertThat(service.sanitizeRangeFilters(filter)).isSameAs(filter);
         verifyNoInteractions(attributeDefinitions);
+    }
+
+    @Test
+    void sanitizeRangeFilters_rejectsMalformedNumericBoundsWithMarketplaceError() {
+        when(attributeDefinitions.findAllByActiveTrueOrderByPositionAsc()).thenReturn(List.of(
+                definition("team_strength", AttributeType.INT)));
+        ListingFilter filter = new ListingFilter(null, null, null, null,
+                Map.of("team_strength.min", "abc"));
+
+        assertThatThrownBy(() -> service.sanitizeRangeFilters(filter))
+                .isInstanceOf(MarketplaceException.class)
+                .satisfies(error -> assertThat(((MarketplaceException) error).getCode())
+                        .isEqualTo("invalid_attribute_value"));
+    }
+
+    @Test
+    void matched_browse_preserves_database_relevance_order_and_explanations() {
+        UUID firstId = UUID.randomUUID();
+        UUID secondId = UUID.randomUUID();
+        MatchRequest match = new MatchRequest(List.of(new MatchCardCriterion(
+                101L, UUID.randomUUID(), MatchCardCriterion.Importance.NORMAL)), 4);
+        ListingFilter filter = new ListingFilter(null, null, null, null, Map.of());
+        PageRequest pageable = PageRequest.of(0, 2);
+        when(listingMatches.findMatches(filter, match, pageable)).thenReturn(new PageImpl<>(List.of(
+                new ListingMatchHit(firstId, new BigDecimal("0.75"), 0, 1, 0),
+                new ListingMatchHit(secondId, new BigDecimal("0.50"), 0, 1, 1)),
+                pageable, 7));
+        Listing first = Listing.builder().id(firstId).build();
+        Listing second = Listing.builder().id(secondId).build();
+        when(repository.findAllById(List.of(firstId, secondId))).thenReturn(List.of(second, first));
+
+        MatchedListingPage result = service.browseMatched(filter, match, pageable);
+
+        assertThat(result.listings()).extracting(Listing::getId)
+                .containsExactly(firstId, secondId);
+        assertThat(result.details().get(firstId).percent()).isEqualTo(75);
+        assertThat(result.totalElements()).isEqualTo(7);
     }
 
     private static AttributeDefinition definition(String key, AttributeType type) {

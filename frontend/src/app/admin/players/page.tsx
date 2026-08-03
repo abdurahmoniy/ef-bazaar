@@ -1,7 +1,7 @@
 import { AdminPlayers } from '@/components/admin/admin-players';
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
-import { getCards } from '@/lib/marketplace-server';
+import { getAdminCards } from '@/lib/marketplace-server';
 import type { CardType, MetaTier } from '@/lib/marketplace-types';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +21,7 @@ export default async function AdminPlayersPage({ searchParams }: AdminPlayersPag
   const tier = TIERS.includes(params.tier as MetaTier) ? (params.tier as MetaTier) : undefined;
   const page = Math.max(0, Number.parseInt(params.page ?? '0', 10) || 0);
 
-  const result = await getCards({
+  const result = await getAdminCards({
     q: query,
     types: type ? [type] : undefined,
     tier,
