@@ -50,10 +50,10 @@ public class Trade {
     @Column(name = "mailbox_id", nullable = false, updatable = false)
     private UUID mailboxId;
 
-    @Column(name = "seller_card_id", nullable = false, updatable = false)
+    @Column(name = "seller_card_id", updatable = false)
     private UUID sellerCardId;
 
-    @Column(name = "buyer_card_id", nullable = false, updatable = false)
+    @Column(name = "buyer_card_id", updatable = false)
     private UUID buyerCardId;
 
     @Column(name = "payment_intent_id", length = 128)
@@ -82,6 +82,52 @@ public class Trade {
 
     @Column(name = "email_change_verification_code_at")
     private Instant emailChangeVerificationCodeAt;
+
+    // ----- human trade-admin mode -----
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mode", nullable = false, length = 8)
+    @Builder.Default
+    private TradeMode mode = TradeMode.SMART;
+
+    @Column(name = "assigned_admin_id")
+    private UUID assignedAdminId;
+
+    /**
+     * Fee agreed with the admin, in UZS. Informational only — the money is
+     * handed over off-platform and no ledger entry corresponds to it. Kept so
+     * both chats can show what was agreed and so stats can average it.
+     */
+    @Column(name = "admin_fee_uzs")
+    private Long adminFeeUzs;
+
+    /** Start of the admin's work timer. */
+    @Column(name = "admin_accepted_at")
+    private Instant adminAcceptedAt;
+
+    /** End of the admin's work timer — set when they press close. */
+    @Column(name = "admin_closed_at")
+    private Instant adminClosedAt;
+
+    @Column(name = "seller_confirmed_at")
+    private Instant sellerConfirmedAt;
+
+    @Column(name = "buyer_confirmed_at")
+    private Instant buyerConfirmedAt;
+
+    /**
+     * Idle watchdog for IN_PROGRESS. Separate from {@code stateDeadline} on
+     * purpose: TradeTimeoutScheduler fires TIMEOUT for any non-terminal state
+     * with a due stateDeadline, and IN_PROGRESS has no TIMEOUT transition.
+     */
+    @Column(name = "escalation_deadline_at")
+    private Instant escalationDeadlineAt;
+
+    @Column(name = "escalated_at")
+    private Instant escalatedAt;
+
+    @Column(name = "escalation_reason", length = 32)
+    private String escalationReason;
 
     /** Convenience for controllers: which side is this user? Throws if neither. */
     public ParticipantRole roleFor(UUID userId) {

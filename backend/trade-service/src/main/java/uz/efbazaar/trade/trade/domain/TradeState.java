@@ -10,6 +10,12 @@ public enum TradeState {
     VERIFYING_KONAMI_LINK,
     WAITING_PASSWORD,
     WAITING_BUYER_VERIFY,
+    /** HUMAN only — waiting for the invited admin to accept. */
+    WAITING_ADMIN,
+    /** HUMAN only — admin is working the six-step checklist. */
+    IN_PROGRESS,
+    /** HUMAN only — admin closed; waiting for both parties to confirm. */
+    WAITING_CLOSE_CONFIRM,
     SUCCESS,
     REJECTED,
     ORPHANED;

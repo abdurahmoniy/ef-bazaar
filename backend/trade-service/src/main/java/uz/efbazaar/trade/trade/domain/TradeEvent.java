@@ -23,5 +23,15 @@ public enum TradeEvent {
     /** Per-state deadline elapsed. → ORPHANED (or REJECTED for state 6). */
     TIMEOUT,
     /** Seller clicked "QAYTA TEKSHIR" (state 4). Does not change state; used for audit only. */
-    RECHECK
+    RECHECK,
+    /** Invited admin accepted the job. WAITING_ADMIN → IN_PROGRESS. */
+    ADMIN_ACCEPTED,
+    /** Invited admin refused. WAITING_ADMIN → WAITING_ADMIN (self-loop). */
+    ADMIN_DECLINED,
+    /** Admin marked all six steps and pressed close. IN_PROGRESS → WAITING_CLOSE_CONFIRM. */
+    ADMIN_CLOSED,
+    /** Both parties confirmed, or the 24h window elapsed. → SUCCESS. */
+    CLOSE_CONFIRMED,
+    /** Admin (or a platform admin) aborted — e.g. the account is fake. → REJECTED. */
+    ADMIN_CANCELLED
 }
