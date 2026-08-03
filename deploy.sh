@@ -44,8 +44,18 @@ assert_safe_for_env() {
   fi
 }
 
+require_env() {
+  local key="$1" val="$2"
+  if [[ -z "$val" ]]; then
+    echo "!! $key must be configured" >&2
+    return 1
+  fi
+}
+
 # ─── Sync .env from CI secrets ──────────────────────────────────────────────
 write_env() {
+  require_env CARD_INTEREST_HMAC_SECRET "${CARD_INTEREST_HMAC_SECRET:-}"
+  assert_safe_for_env CARD_INTEREST_HMAC_SECRET "$CARD_INTEREST_HMAC_SECRET"
   echo "==> Writing .env from CI secrets"
   : > .env
 
@@ -80,6 +90,7 @@ write_env() {
   fi
   upsert_env .env JWT_ACCESS_TOKEN_TTL_MINUTES   15
   upsert_env .env JWT_REFRESH_TOKEN_TTL_DAYS     30
+  upsert_env .env CARD_INTEREST_HMAC_SECRET "$CARD_INTEREST_HMAC_SECRET"
 
   upsert_env .env TELEGRAM_BOT_TOKEN          "${TELEGRAM_BOT_TOKEN:-}"
   upsert_env .env TELEGRAM_BOT_USERNAME       "${TELEGRAM_BOT_USERNAME:-}"
