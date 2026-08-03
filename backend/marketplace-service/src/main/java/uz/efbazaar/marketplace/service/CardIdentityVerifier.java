@@ -6,7 +6,9 @@ import org.springframework.stereotype.Component;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -46,5 +48,25 @@ public class CardIdentityVerifier {
             throw MarketplaceException.invalidAttributeValue("valuable_players",
                     "noma'lum yoki player_id mos kelmagan card: " + invalid.getFirst());
         }
+    }
+
+    /** Resolve legacy card-only selections to the canonical player they represent. */
+    public Map<Long, UUID> resolvePlayerIds(List<Long> efhubIds) {
+        if (efhubIds.isEmpty()) {
+            return Map.of();
+        }
+        String placeholders = efhubIds.stream().map(ignored -> "?")
+                .collect(Collectors.joining(", "));
+        Map<Long, UUID> resolved = new LinkedHashMap<>();
+        jdbc.query("""
+                        SELECT efhub_id, player_id
+                        FROM card_player_identities
+                        WHERE efhub_id IN (%s)
+                        """.formatted(placeholders),
+                (resultSet, rowNumber) -> Map.entry(
+                        resultSet.getLong("efhub_id"),
+                        resultSet.getObject("player_id", UUID.class)),
+                efhubIds.toArray()).forEach(entry -> resolved.put(entry.getKey(), entry.getValue()));
+        return resolved;
     }
 }

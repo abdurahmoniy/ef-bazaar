@@ -14,13 +14,18 @@ import uz.efbazaar.marketplace.domain.ListingStatus;
 import uz.efbazaar.marketplace.dto.ListingCreateRequest;
 import uz.efbazaar.marketplace.dto.ListingFilter;
 import uz.efbazaar.marketplace.dto.ListingUpdateRequest;
+import uz.efbazaar.marketplace.dto.ListingMatchHit;
+import uz.efbazaar.marketplace.dto.MatchDetails;
+import uz.efbazaar.marketplace.dto.MatchRequest;
 import uz.efbazaar.marketplace.event.MarketplaceEventPublisher;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.mapper.ListingMapper;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
+import uz.efbazaar.marketplace.repository.ListingMatchRepository;
 
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,6 +47,7 @@ public class ListingService {
     private final AttributeDefinitionRepository attributeDefinitions;
     private final BlacklistGuard blacklistGuard;
     private final ListingPersistence persistence;
+    private final ListingMatchRepository listingMatches;
 
     /**
      * Atomic create — validates payload/attrs first (fail fast, no side effect),
@@ -150,6 +156,44 @@ public class ListingService {
                         pageable.getPageNumber(), pageable.getPageSize(), combined);
         return listings.findAll(
                 ListingSpecifications.withFilter(sanitizeRangeFilters(filter)), ranked);
+    }
+
+    @Transactional(readOnly = true)
+    public MatchedListingPage browseMatched(ListingFilter filter,
+                                            MatchRequest match,
+                                            Pageable pageable) {
+        Page<ListingMatchHit> hits = listingMatches.findMatches(
+                sanitizeRangeFilters(filter), match, pageable);
+        List<UUID> ids = hits.getContent().stream().map(ListingMatchHit::listingId).toList();
+        Map<UUID, Listing> byId = listings.findAllById(ids).stream()
+                .collect(Collectors.toMap(Listing::getId, listing -> listing));
+        List<Listing> ordered = new ArrayList<>(ids.size());
+        Map<UUID, MatchDetails> details = new LinkedHashMap<>();
+        for (ListingMatchHit hit : hits) {
+            Listing listing = byId.get(hit.listingId());
+            if (listing == null) {
+                continue;
+            }
+            ordered.add(listing);
+            details.put(hit.listingId(), toDetails(hit, match));
+        }
+        return new MatchedListingPage(ordered, details,
+                hits.getNumber(), hits.getSize(), hits.getTotalElements(), hits.getTotalPages());
+    }
+
+    @Transactional(readOnly = true)
+    public MatchDetails matchDetails(UUID listingId, MatchRequest match) {
+        return listingMatches.findMatch(listingId, match)
+                .map(hit -> toDetails(hit, match))
+                .orElse(null);
+    }
+
+    private static MatchDetails toDetails(ListingMatchHit hit, MatchRequest match) {
+        int selected = hit.exactCount() + hit.alternateCount() + hit.missingCount();
+        int percent = hit.score().multiply(java.math.BigDecimal.valueOf(100))
+                .setScale(0, java.math.RoundingMode.HALF_UP).intValue();
+        return new MatchDetails(percent, hit.exactCount(), hit.alternateCount(),
+                hit.missingCount(), selected, match.strictness());
     }
 
     /**
