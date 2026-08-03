@@ -50,4 +50,17 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
                                                     Instant cutoff);
 
     Optional<Trade> findByMailboxId(UUID mailboxId);
+
+    /**
+     * How many non-terminal trades this admin is currently running. Feeds the
+     * catalogue's busy flag and the capacity check when an admin accepts.
+     */
+    @Query("""
+            SELECT COUNT(t) FROM Trade t
+             WHERE t.assignedAdminId = :adminId
+               AND t.state NOT IN (uz.efbazaar.trade.trade.domain.TradeState.SUCCESS,
+                                   uz.efbazaar.trade.trade.domain.TradeState.REJECTED,
+                                   uz.efbazaar.trade.trade.domain.TradeState.ORPHANED)
+            """)
+    int countActiveByAdmin(@Param("adminId") UUID adminId);
 }

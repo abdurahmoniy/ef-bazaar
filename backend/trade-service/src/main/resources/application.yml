@@ -88,6 +88,12 @@ trade:
     min-interval-seconds: 300
   proposal:
     ttl-seconds: 600
+  presence:
+    # A user is "online" if they hit trade-service within this window.
+    # Replaced wholesale by the global presence spec.
+    online-ttl-seconds: 120
+  admin-catalog:
+    name-cache-ttl-seconds: 60
   mailcow:
     api-url: ${MAILCOW_API_URL:https://mailcow.efbazaar.uz/api/v1}
   mail:
