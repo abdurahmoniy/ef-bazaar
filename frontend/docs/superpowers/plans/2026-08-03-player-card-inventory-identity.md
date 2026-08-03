@@ -80,14 +80,14 @@
 - Modify: `frontend/src/lib/marketplace-types.ts`
 - Modify: `frontend/src/components/marketplace/card-picker.tsx`
 - Modify: `frontend/src/components/marketplace/listing-form.tsx`
-- Test: `frontend/src/components/marketplace/card-picker.test.tsx`
-- Test: `frontend/src/components/marketplace/listing-form.test.tsx`
+- Test: `frontend/src/components/marketplace/card-picker.test.ts`
+- Test: `frontend/src/lib/listing-form-data.test.ts`
 
-- [ ] Add failing UI tests requiring `playerId`, a 30-card limit, duplicate-player prevention, a declared-inventory explanation, completeness feedback, and a META shortcut.
-- [ ] Run `npm test -- card-picker.test.tsx listing-form.test.tsx` from `frontend`; confirm the new expectations fail.
-- [ ] Add `playerId: string` to card types and serializers, use canonical identity for selection equality, and keep `efhubId` as card-edition identity.
-- [ ] Add concise seller copy explaining that selected cards power buyer matching, show `n / 30`, and provide a META-filtered entry point without hiding ordinary search.
-- [ ] Re-run the focused tests, run `npm run typecheck`, and commit with `feat(listings): improve declared card inventory editor`.
+- [x] Add failing tests requiring a 30-card limit and duplicate canonical-player prevention.
+- [x] Run the focused card-picker/listing-form-data tests and confirm the new expectations fail.
+- [x] Add `playerId` to card types and serializers, use canonical identity for selection equality, and keep `efhubId` as card-edition identity.
+- [x] Add concise seller copy explaining that selected cards power buyer matching, show `n / 30`, completeness feedback, and a META-filtered entry point without hiding ordinary search.
+- [x] Re-run the focused tests and `npm run typecheck` successfully; commit the seller inventory editor.
 
 ## Task 6: Verify the release slice
 

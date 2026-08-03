@@ -142,6 +142,8 @@ export type MetaTier = 'NORMAL' | 'META';
 /** One row of GET /marketplace/v1/cards — the card catalogue, not a listing. */
 export interface CardSearchResult {
   efhubId: number;
+  /** Stable real-player identity shared by alternate card editions. */
+  playerId: string;
   name: string;
   team?: string;
   position?: string;
@@ -228,6 +230,8 @@ export function cardsFilterValue(cards: AttachedPlayerCard[]): string | undefine
  */
 export interface AttachedPlayerCard {
   efhubId: number;
+  /** Missing only on legacy snapshots created before canonical identities. */
+  playerId?: string;
   name: string;
   overallRating?: number;
   maxOverallRating?: number;
@@ -268,10 +272,12 @@ export function attributeCardList(listing: ListingResponse, key: string): Attach
     if (!entry || typeof entry !== 'object') continue;
     const item = entry as Record<string, unknown>;
     const efhubIdRaw = (item.efhubId ?? item.efhub_id);
+    const playerIdRaw = (item.playerId ?? item.player_id);
     const name = item.name;
     if (typeof name !== 'string') continue;
     out.push({
       efhubId: typeof efhubIdRaw === 'number' ? efhubIdRaw : 0,
+      playerId: typeof playerIdRaw === 'string' ? playerIdRaw : undefined,
       name,
       overallRating: typeof (item.overallRating ?? item.overall_rating) === 'number'
         ? Number(item.overallRating ?? item.overall_rating)

@@ -748,6 +748,12 @@ function BasicsStep({
 	setState: React.Dispatch<React.SetStateAction<WizardState>>
 	errors: string[]
 }) {
+	const searchableCards = playerCards(state.attributes.valuable_players)
+	const coverage = searchableCards.length === 0
+		? 'Hali tanlanmagan — e’lon o‘yinchi qidiruvida chiqmaydi.'
+		: searchableCards.length <= 10
+			? 'Boshlangan — ko‘proq qimmatli kartalar qo‘shsangiz moslik aniqroq bo‘ladi.'
+			: 'Kuchli qamrov — xaridorlar bu tarkibni aniqroq topa oladi.'
 	return (
 		<div className='space-y-4'>
 			<div className='space-y-2'>
@@ -774,11 +780,14 @@ function BasicsStep({
 			</div>
 
 			<div className='space-y-2'>
-				<Label htmlFor='valuable-players'>Yulduz o'yinchilar (ixtiyoriy)</Label>
+				<div className='flex items-end justify-between gap-3'>
+					<Label htmlFor='valuable-players'>Qidiriladigan qimmatli kartalar (ixtiyoriy)</Label>
+					<span className='text-xs font-bold tabular-nums'>{searchableCards.length} / 30</span>
+				</div>
 				<CardPicker
 					id='valuable-players'
 					mode='multi'
-					max={12}
+					max={30}
 					selectedVariant='tile'
 					value={playerCards(state.attributes.valuable_players)}
 					onChange={(next) =>
@@ -788,9 +797,9 @@ function BasicsStep({
 						}))
 					}
 				/>
-				<p className='text-[11px] text-muted-foreground'>
-					Qidiruvdan tanlang. Tanlangan o'yinchilar rasm ko'rinishida chiqadi
-					(max 12 ta).
+				<p className='text-[11px] leading-relaxed text-muted-foreground'>
+					Faqat shu yerda tanlangan kartalar xaridorning META va Dream Team
+					qidiruvida hisoblanadi. {coverage}
 				</p>
 			</div>
 
@@ -1309,10 +1318,12 @@ function normalizeCardListPayload(value: unknown): PlayerCard[] {
 		if (!raw || typeof raw !== 'object') continue
 		const item = raw as Record<string, unknown>
 		const efhubId = item.efhubId ?? item.efhub_id
+		const playerId = item.playerId ?? item.player_id
 		const name = item.name
-		if (typeof efhubId !== 'number' || typeof name !== 'string') continue
+		if (typeof efhubId !== 'number' || typeof playerId !== 'string' || typeof name !== 'string') continue
 		out.push({
 			efhubId,
+			playerId,
 			name,
 			team: typeof item.team === 'string' ? item.team : undefined,
 			position: typeof item.position === 'string' ? item.position : undefined,
@@ -1348,6 +1359,7 @@ function normalizeCardListPayload(value: unknown): PlayerCard[] {
 function cardToApiPayload(card: PlayerCard): Record<string, unknown> {
 	const payload: Record<string, unknown> = {
 		efhub_id: card.efhubId,
+		player_id: card.playerId,
 		name: card.name,
 	}
 	if (card.team !== undefined) payload.team = card.team

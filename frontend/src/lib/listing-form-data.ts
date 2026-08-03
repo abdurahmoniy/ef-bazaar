@@ -51,12 +51,12 @@ export const SEEDED_LISTING_ATTRIBUTE_DEFINITIONS: FormAttributeDefinition[] = [
   },
   {
     key: 'valuable_players',
-    labelUz: "Yulduz o'yinchilar",
+    labelUz: 'Qidiriladigan qimmatli kartalar',
     type: 'CARD_LIST',
     required: false,
     position: 30,
     groupKey: 'squad',
-    constraints: { max_items: 12 },
+    constraints: { max_items: 30 },
     legacyFieldName: 'valuablePlayers',
   },
   {
