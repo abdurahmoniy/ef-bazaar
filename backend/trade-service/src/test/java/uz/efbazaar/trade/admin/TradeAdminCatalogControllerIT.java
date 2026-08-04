@@ -2,12 +2,15 @@ package uz.efbazaar.trade.admin;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import uz.efbazaar.trade.admin.domain.TradeAdminProfile;
 import uz.efbazaar.trade.admin.repository.TradeAdminProfileRepository;
+import uz.efbazaar.trade.security.AuthSummaryClient;
 import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
 import uz.efbazaar.trade.trade.domain.Trade;
 import uz.efbazaar.trade.trade.domain.TradeMode;
@@ -16,6 +19,7 @@ import uz.efbazaar.trade.trade.repository.TradeRepository;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -30,6 +34,17 @@ class TradeAdminCatalogControllerIT extends AbstractIntegrationIT {
     @Autowired MockMvc mvc;
     @Autowired TradeAdminProfileRepository profiles;
     @Autowired TradeRepository trades;
+
+    /**
+     * A spy, not a full mock: unstubbed calls fall through to the real
+     * {@link AuthSummaryClient}, which in this test environment short-circuits
+     * to an empty map because {@code INTERNAL_API_SECRET} is unset (see
+     * {@code blankOrAbsentQueryKeepsAdminsWithUnresolvedNames}, which pins that
+     * behaviour). That keeps the six pre-existing tests below — none of which
+     * stub this bean — working exactly as before; only the two name-filter
+     * tests override {@code resolveAll} to supply a resolvable name.
+     */
+    @SpyBean AuthSummaryClient authSummaries;
 
     /**
      * The catalogue sort tests assert on absolute position ($[0]) and on ties
@@ -152,5 +167,43 @@ class TradeAdminCatalogControllerIT extends AbstractIntegrationIT {
         mvc.perform(get("/api/v1/trade-admins?sort=CHEAPEST")
                         .with(asUser(UUID.randomUUID())))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void nameFilterMatchesResolvedNameCaseInsensitivelyAndDropsUnresolved() throws Exception {
+        UUID resolvable = admin(true, true, 3, 20, 4);
+        UUID unresolvable = admin(true, true, 3, 20, 4);
+
+        // Only "resolvable" gets a name back from auth-service; "unresolvable"
+        // is simply absent from the map, exactly like a real auth-service miss.
+        Mockito.when(authSummaries.resolveAll(Mockito.anyCollection()))
+                .thenReturn(Map.of(resolvable, new AuthSummaryClient.UserSummary(
+                        resolvable, "Johnny Cash", null, null, true, Instant.now(), false)));
+
+        // Mixed case and surrounding whitespace: matches() lowercases and
+        // trims, so this pins that rather than leaving it to chance.
+        mvc.perform(get("/api/v1/trade-admins")
+                        .param("q", "  JOHNNY  ")
+                        .with(asUser(UUID.randomUUID())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.userId=='" + resolvable + "')]").exists())
+                .andExpect(jsonPath("$[?(@.userId=='" + unresolvable + "')]").doesNotExist());
+    }
+
+    @Test
+    void blankOrAbsentQueryKeepsAdminsWithUnresolvedNames() throws Exception {
+        UUID unresolvable = admin(true, true, 3, 20, 4);
+        // authSummaries is not stubbed here: the real client short-circuits
+        // to Map.of() because INTERNAL_API_SECRET is unset in the test
+        // environment, so this admin's displayName is unresolved (null). A
+        // blank or absent q must not drop it.
+
+        mvc.perform(get("/api/v1/trade-admins").with(asUser(UUID.randomUUID())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.userId=='" + unresolvable + "')]").exists());
+
+        mvc.perform(get("/api/v1/trade-admins?q=").with(asUser(UUID.randomUUID())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.userId=='" + unresolvable + "')]").exists());
     }
 }
