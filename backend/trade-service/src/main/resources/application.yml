@@ -86,6 +86,10 @@ trade:
   recheck:
     max-per-trade: 5
     min-interval-seconds: 300
+  human:
+    # A hand-run trade legitimately takes days; the smart path stays at 24h.
+    expires-after-hours: 168
+    rating-window-days: 7
   proposal:
     ttl-seconds: 600
   presence:

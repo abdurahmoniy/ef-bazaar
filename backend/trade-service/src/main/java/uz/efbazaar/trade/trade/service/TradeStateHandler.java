@@ -95,13 +95,15 @@ public class TradeStateHandler {
 
             case WAITING_ADMIN -> {
                 trade.setStateDeadline(now(thwaS));
-                // Re-entry via ADMIN_DECLINED clears the assignment so the
-                // seller can invite somebody else.
+                trade.setEscalationDeadlineAt(null);
                 if (event == TradeEvent.ADMIN_DECLINED) {
+                    // Clear the assignment so the seller can invite somebody
+                    // else. No invitation event — there is nobody to invite yet.
                     trade.setAssignedAdminId(null);
                     trade.setAdminFeeUzs(null);
+                } else if (trade.getAssignedAdminId() != null) {
+                    events.adminInvited(trade);
                 }
-                trade.setEscalationDeadlineAt(null);
             }
             case IN_PROGRESS -> {
                 // MUST be null: TradeTimeoutScheduler fires TIMEOUT for every

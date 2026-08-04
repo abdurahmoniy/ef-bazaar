@@ -6,6 +6,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import uz.efbazaar.trade.trade.domain.Trade;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -54,6 +55,18 @@ public class TradeEventPublisher {
     public void listingSold(UUID listingId, UUID buyerId, UUID sellerId, long priceUzs) {
         send(TradeEvents.TOPIC_LISTING_SOLD, listingId.toString(),
                 new TradeEvents.ListingSold(listingId, buyerId, sellerId, priceUzs, Instant.now()));
+    }
+
+    public void adminInvited(Trade trade) {
+        var event = new TradeEvents.AdminInvited(
+                trade.getId(),
+                trade.getAssignedAdminId(),
+                trade.getSellerId(),
+                trade.getBuyerId(),
+                trade.getPriceUzs(),
+                trade.getAdminFeeUzs(),
+                Instant.now());
+        send(TradeEvents.TOPIC_ADMIN_INVITED, trade.getId().toString(), event);
     }
 
     /**

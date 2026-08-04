@@ -12,6 +12,7 @@ import uz.efbazaar.trade.card.domain.CardBrand;
 import uz.efbazaar.trade.card.repository.CardRepository;
 import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
 import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
+import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.dto.PasswordRevealResponse;
 import uz.efbazaar.trade.trade.dto.ProposalCreateRequest;
@@ -85,7 +86,8 @@ class TradeE2EIT extends AbstractIntegrationIT {
                 .build());
 
         // Step 2: Seller creates a proposal.
-        var createReq = new ProposalCreateRequest(chatId, buyer, seller, buyer, 500_000L, sellerCardId, null);
+        var createReq = new ProposalCreateRequest(chatId, buyer, seller, buyer, 500_000L, sellerCardId, null,
+                TradeMode.SMART, null, null);
         var createResult = mvc.perform(post("/api/v1/trades/proposals")
                         .with(asUser(seller))
                         .contentType(MediaType.APPLICATION_JSON)
