@@ -124,7 +124,7 @@ class TradeStepServiceIT extends AbstractIntegrationIT {
     @Test
     void unmarkingCorrectsAMistake() {
         givenAcceptedTrade();
-        stepService.mark(trade.getId(), adminId, TradeStep.SELLER_PAID, null);
+        stepService.mark(trade.getId(), adminId, TradeStep.SELLER_PAID, "eslatma");
 
         stepService.unmark(trade.getId(), adminId, TradeStep.SELLER_PAID);
 
@@ -134,6 +134,9 @@ class TradeStepServiceIT extends AbstractIntegrationIT {
                 .satisfies(s -> {
                     assertThat(s.completed()).isFalse();
                     assertThat(s.completedAt()).isNull();
+                    // A completion note on an incomplete step would mislead
+                    // both parties reading the checklist — it must go too.
+                    assertThat(s.note()).isNull();
                 });
         assertThat(stepService.allComplete(trade.getId())).isFalse();
     }
@@ -155,6 +158,22 @@ class TradeStepServiceIT extends AbstractIntegrationIT {
     }
 
     @Test
+    void markingTwiceDoesNotDuplicateTheChatMessage() {
+        givenAcceptedTrade();
+
+        // A double-clicked checkbox or a retried POST must not put the same
+        // status note in front of a party twice.
+        stepService.mark(trade.getId(), adminId, TradeStep.SELLER_BRIEFED, null);
+        stepService.mark(trade.getId(), adminId, TradeStep.SELLER_BRIEFED, null);
+
+        long statusMessages = chatService.list(trade.getId(), trade.getBuyerId()).stream()
+                .filter(m -> m.metadata() != null
+                        && TradeStep.SELLER_BRIEFED.name().equals(m.metadata().get("step")))
+                .count();
+        assertThat(statusMessages).isEqualTo(1);
+    }
+
+    @Test
     void allCompleteOnlyWhenAllSixAreMarked() {
         givenAcceptedTrade();
         for (TradeStep s : TradeStep.values()) {
@@ -166,6 +185,19 @@ class TradeStepServiceIT extends AbstractIntegrationIT {
         stepService.mark(trade.getId(), adminId, TradeStep.SELLER_PAID, null);
 
         assertThat(stepService.allComplete(trade.getId())).isTrue();
+    }
+
+    @Test
+    void completedCountTracksHowManyStepsAreMarked() {
+        givenAcceptedTrade();
+        assertThat(stepService.completedCount(trade.getId())).isEqualTo(0);
+
+        stepService.mark(trade.getId(), adminId, TradeStep.SELLER_BRIEFED, null);
+        stepService.mark(trade.getId(), adminId, TradeStep.PAYMENT_RECEIVED, null);
+        assertThat(stepService.completedCount(trade.getId())).isEqualTo(2);
+
+        stepService.unmark(trade.getId(), adminId, TradeStep.SELLER_BRIEFED);
+        assertThat(stepService.completedCount(trade.getId())).isEqualTo(1);
     }
 
     @Test

@@ -173,7 +173,7 @@ public class TradeAdminAssignmentService {
     }
 
     private void createChecklist(UUID tradeId) {
-        if (!steps.findByTradeIdOrderByStep(tradeId).isEmpty()) {
+        if (!steps.findByTradeId(tradeId).isEmpty()) {
             return;   // idempotent: a reassignment keeps the existing ticks
         }
         for (TradeStep step : TradeStep.values()) {

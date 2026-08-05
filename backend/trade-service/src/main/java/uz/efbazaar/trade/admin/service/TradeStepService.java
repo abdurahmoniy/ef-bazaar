@@ -1,7 +1,6 @@
 package uz.efbazaar.trade.admin.service;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +32,6 @@ import java.util.UUID;
  * <p>Every write re-arms {@code escalation_deadline_at}: an admin who is
  * visibly working must never surface in the escalation queue.
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TradeStepService {
@@ -58,7 +56,11 @@ public class TradeStepService {
         Trade t = requireWorkingAdmin(tradeId, adminId);
         TradeStepMark m = requireStep(tradeId, step);
 
-        if (!m.isComplete()) {
+        // Only a genuine incomplete-to-complete transition is news to the
+        // parties; a repeated mark of an already-complete step must not
+        // duplicate the chat message they already saw.
+        boolean wasIncomplete = !m.isComplete();
+        if (wasIncomplete) {
             m.setCompletedAt(Instant.now());
             m.setCompletedBy(adminId);
         }
@@ -71,9 +73,11 @@ public class TradeStepService {
         idleWatchdog.touch(t);
         audit.record(tradeId, ActorType.TRADE_ADMIN, adminId, "STEP_MARKED",
                 Map.of("step", step.name()));
-        chatService.postStatusToBoth(tradeId, "STEP_MARKED", Map.of(
-                "step", step.name(),
-                "label", step.labelUz()));
+        if (wasIncomplete) {
+            chatService.postStatusToBoth(tradeId, "STEP_MARKED", Map.of(
+                    "step", step.name(),
+                    "label", step.labelUz()));
+        }
 
         return listRaw(tradeId);
     }
@@ -85,6 +89,7 @@ public class TradeStepService {
 
         m.setCompletedAt(null);
         m.setCompletedBy(null);
+        m.setNote(null);
         steps.save(m);
 
         idleWatchdog.touch(t);
@@ -109,15 +114,12 @@ public class TradeStepService {
     }
 
     /**
-     * {@link TradeStepMarkRepository#findByTradeIdOrderByStep} orders by the
-     * {@code step} column, which is stored {@code @Enumerated(STRING)} — that
-     * sorts alphabetically ("ACCOUNT_TRANSFERRED" before "SELLER_BRIEFED"),
-     * not in the declaration order the checklist UI renders. Re-sorting here
-     * on the enum's natural (ordinal) order restores declaration order
-     * without touching the repository's SQL-level sort.
+     * {@link TradeStepMarkRepository#findByTradeId} makes no ordering
+     * promise, so the checklist's declaration order — the order the UI
+     * renders — is imposed here, on the enum's natural (ordinal) order.
      */
     private List<TradeStepResponse> listRaw(UUID tradeId) {
-        return steps.findByTradeIdOrderByStep(tradeId).stream()
+        return steps.findByTradeId(tradeId).stream()
                 .sorted(Comparator.comparing(TradeStepMark::getStep))
                 .map(TradeStepResponse::of)
                 .toList();

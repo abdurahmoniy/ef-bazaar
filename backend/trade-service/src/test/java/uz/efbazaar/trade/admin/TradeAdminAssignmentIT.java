@@ -75,7 +75,7 @@ class TradeAdminAssignmentIT extends AbstractIntegrationIT {
 
         Trade after = trades.findById(t.getId()).orElseThrow();
         assertThat(after.getState()).isEqualTo(TradeState.IN_PROGRESS);
-        assertThat(steps.findByTradeIdOrderByStep(t.getId()))
+        assertThat(steps.findByTradeId(t.getId()))
                 .hasSize(6)
                 .allSatisfy(s -> assertThat(s.isComplete()).isFalse());
     }
@@ -167,7 +167,7 @@ class TradeAdminAssignmentIT extends AbstractIntegrationIT {
         Trade after = trades.findById(t.getId()).orElseThrow();
         assertThat(after.getState()).isEqualTo(TradeState.WAITING_ADMIN);
         assertThat(after.getAssignedAdminId()).isNull();
-        assertThat(steps.findByTradeIdOrderByStep(t.getId())).isEmpty();
+        assertThat(steps.findByTradeId(t.getId())).isEmpty();
     }
 
     @Test

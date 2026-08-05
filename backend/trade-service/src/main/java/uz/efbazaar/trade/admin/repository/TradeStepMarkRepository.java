@@ -10,8 +10,15 @@ import java.util.UUID;
 
 public interface TradeStepMarkRepository extends JpaRepository<TradeStepMark, UUID> {
 
-    /** Checklist in declaration order — the order the UI renders. */
-    List<TradeStepMark> findByTradeIdOrderByStep(UUID tradeId);
+    /**
+     * All six rows for a trade, in no guaranteed order. {@code step} is
+     * {@code @Enumerated(STRING)}, so a naive {@code findByTradeIdOrderByStep}
+     * derived query would sort alphabetically, not by declaration order — a
+     * trap for anyone who needs declaration order. Callers that care about
+     * order (the checklist UI) must sort themselves; see
+     * {@code TradeStepService.listRaw}.
+     */
+    List<TradeStepMark> findByTradeId(UUID tradeId);
 
     Optional<TradeStepMark> findByTradeIdAndStep(UUID tradeId, TradeStep step);
 
