@@ -15,9 +15,11 @@ import uz.efbazaar.trade.trade.repository.TradeRepository;
 import uz.efbazaar.trade.trade.service.TradeProposalService;
 
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 
 @SpringBootTest
 class HumanProposalIT extends AbstractIntegrationIT {
@@ -53,12 +55,12 @@ class HumanProposalIT extends AbstractIntegrationIT {
         assertThat(row.getAdminFeeUzs()).isEqualTo(20_000L);
         assertThat(row.getSellerCardId()).isNull();
         assertThat(row.getBuyerCardId()).isNull();
-        // MockWorker + EmailProvisionedConsumer race INITIATED -> WAITING_ADMIN
-        // asynchronously against this DB re-read (same race TradeE2EIT awaits
-        // for the SMART path's INITIATED -> WAITING_PAYMENT). Either value here
-        // proves the HUMAN transition table applied — a mode mix-up would have
-        // landed on WAITING_PAYMENT instead.
-        assertThat(row.getState()).isIn(TradeState.INITIATED, TradeState.WAITING_ADMIN);
+
+        // MockWorker + EmailProvisionedConsumer race to drive
+        // INITIATED -> WAITING_ADMIN asynchronously (same race TradeE2EIT
+        // awaits for the SMART path's INITIATED -> WAITING_PAYMENT).
+        await().atMost(10, TimeUnit.SECONDS).until(() ->
+                trades.findById(trade.id()).orElseThrow().getState() == TradeState.WAITING_ADMIN);
     }
 
     @Test
