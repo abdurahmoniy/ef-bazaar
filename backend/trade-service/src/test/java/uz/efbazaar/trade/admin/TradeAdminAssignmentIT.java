@@ -16,8 +16,10 @@ import uz.efbazaar.trade.trade.service.TradeChatService;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -127,24 +129,32 @@ class TradeAdminAssignmentIT extends AbstractIntegrationIT {
         ExecutorService pool = Executors.newFixedThreadPool(2);
         CountDownLatch go = new CountDownLatch(1);
 
-        Future<Boolean> f1 = pool.submit(() -> {
+        Future<Exception> f1 = pool.submit(() -> {
             go.await();
-            try { assignments.accept(adminId, a.getId()); return true; }
-            catch (Exception e) { return false; }
+            try { assignments.accept(adminId, a.getId()); return null; }
+            catch (Exception e) { return e; }
         });
-        Future<Boolean> f2 = pool.submit(() -> {
+        Future<Exception> f2 = pool.submit(() -> {
             go.await();
-            try { assignments.accept(adminId, b.getId()); return true; }
-            catch (Exception e) { return false; }
+            try { assignments.accept(adminId, b.getId()); return null; }
+            catch (Exception e) { return e; }
         });
         go.countDown();
 
-        int winners = (f1.get() ? 1 : 0) + (f2.get() ? 1 : 0);
+        Exception e1 = f1.get();
+        Exception e2 = f2.get();
         pool.shutdown();
 
-        assertThat(winners)
+        List<Exception> failures = Stream.of(e1, e2).filter(java.util.Objects::nonNull).toList();
+        assertThat(failures)
                 .as("maxConcurrentTrades=1 must admit exactly one")
-                .isEqualTo(1);
+                .hasSize(1);
+        // The loser must have lost to the capacity check specifically — not a
+        // deadlock, a lock timeout, or some unrelated NPE that would have
+        // made this test pass for the wrong reason.
+        assertThat(failures.get(0))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("409");
     }
 
     @Test
@@ -173,6 +183,34 @@ class TradeAdminAssignmentIT extends AbstractIntegrationIT {
         assertThat(after.getAssignedAdminId()).isEqualTo(second);
         assertThat(after.getAdminFeeUzs()).isEqualTo(25_000L);
         assertThat(after.getState()).isEqualTo(TradeState.WAITING_ADMIN);
+    }
+
+    /**
+     * A re-invite must not inherit whatever was left on the previous admin's
+     * clock: TradeStateHandler re-arms a full window on the decline
+     * self-loop, but a *second* re-invite (this admin declines too, seller
+     * invites a third) does not go through the state machine at all — assign()
+     * has to re-arm it itself, or the third admin gets whatever time was left
+     * over from the first invitation instead of a fair response window.
+     */
+    @Test
+    void assigningAnAdminReArmsTheDeadlineToAFullWindow() {
+        UUID first = admin(3);
+        Trade t = waitingAdminTrade(first);
+        assignments.decline(first, t.getId());
+
+        // Simulate the clock nearly run out on this waiting window.
+        Trade nearlyExpired = trades.findById(t.getId()).orElseThrow();
+        nearlyExpired.setStateDeadline(Instant.now().plus(Duration.ofMinutes(1)));
+        trades.save(nearlyExpired);
+
+        UUID second = admin(3);
+        assignments.assign(t.getSellerId(), t.getId(), second, 25_000L);
+
+        Trade after = trades.findById(t.getId()).orElseThrow();
+        assertThat(after.getStateDeadline())
+                .as("assign() must re-arm a full response window, not leave the old near-expiry deadline")
+                .isAfter(Instant.now().plus(Duration.ofHours(23)));
     }
 
     @Test

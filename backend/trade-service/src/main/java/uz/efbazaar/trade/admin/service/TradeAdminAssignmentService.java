@@ -2,6 +2,7 @@ package uz.efbazaar.trade.admin.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import uz.efbazaar.trade.trade.repository.TradeRepository;
 import uz.efbazaar.trade.trade.service.TradeChatService;
 import uz.efbazaar.trade.trade.service.TradeService;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,6 +41,16 @@ public class TradeAdminAssignmentService {
     private final TradeStepMarkRepository steps;
     private final TradeChatService chatService;
     private final TradeEventPublisher events;
+
+    /**
+     * Same knob {@code TradeStateHandler} uses to arm {@code WAITING_ADMIN} on
+     * a fresh entry or a decline self-loop. {@code assign()} is not a state
+     * transition, so it has to re-arm the deadline itself using the identical
+     * window — otherwise a re-invite inherits whatever was left on the clock
+     * from the previous admin's decline instead of a full response window.
+     */
+    @Value("${trade.timeouts.human-waiting-admin-seconds}")
+    private long humanWaitingAdminSeconds;
 
     @Transactional
     public void accept(UUID adminId, UUID tradeId) {
@@ -119,6 +131,7 @@ public class TradeAdminAssignmentService {
 
         t.setAssignedAdminId(adminId);
         t.setAdminFeeUzs(feeUzs);
+        t.setStateDeadline(Instant.now().plusSeconds(humanWaitingAdminSeconds));
         trades.save(t);
 
         events.adminInvited(t);
@@ -143,6 +156,12 @@ public class TradeAdminAssignmentService {
         Trade t = trades.findByIdAndViewer(tradeId, adminId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Savdo topilmadi"));
+        if (t.getMode() != TradeMode.HUMAN) {
+            // Not reachable today — the SMART transition table has no
+            // WAITING_ADMIN row — but asserted explicitly so this method's
+            // contract doesn't silently depend on that staying true.
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Savdo topilmadi");
+        }
         if (t.getState() != TradeState.WAITING_ADMIN) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Bu savdo admin javobini kutmayapti");
