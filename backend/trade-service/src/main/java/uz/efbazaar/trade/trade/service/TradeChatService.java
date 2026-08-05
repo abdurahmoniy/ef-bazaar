@@ -15,7 +15,9 @@ import uz.efbazaar.trade.trade.repository.TradeMessageRepository;
 import uz.efbazaar.trade.trade.ws.TradeBroadcaster;
 
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -89,5 +91,42 @@ public class TradeChatService {
 
     private static String context(UUID tradeId, UUID messageId) {
         return "msg-" + tradeId + "-" + messageId;
+    }
+
+    /**
+     * System status note in one party's chat. STATUS rows carry no encrypted
+     * body — V5's body-shape CHECK permits all-null — so the code and metadata
+     * carry the meaning and the client renders the label.
+     */
+    @Transactional
+    public TradeMessage postStatus(UUID tradeId, ParticipantRole target,
+                                   String code, Map<String, Object> metadata) {
+        var chat = chats.findByTradeIdAndParticipant(tradeId, target)
+                .orElseThrow(() -> new EntityNotFoundException("chat for " + target));
+
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("code", code);
+        if (metadata != null) meta.putAll(metadata);
+
+        TradeMessage msg = TradeMessage.builder()
+                .id(UUID.randomUUID())
+                .tradeChatId(chat.getId())
+                .senderType(TradeSenderType.SYSTEM)
+                .messageType(TradeMessageType.STATUS)
+                .metadata(meta)
+                .build();
+        messages.save(msg);
+
+        broadcaster.publishMessage(tradeId, target, new TradeMessageResponse(
+                msg.getId(), msg.getSenderType(), msg.getMessageType(),
+                null, msg.getMetadata(), msg.getCreatedAt()));
+        return msg;
+    }
+
+    /** Same note in both party chats — the usual case for admin progress. */
+    @Transactional
+    public void postStatusToBoth(UUID tradeId, String code, Map<String, Object> metadata) {
+        postStatus(tradeId, ParticipantRole.SELLER, code, metadata);
+        postStatus(tradeId, ParticipantRole.BUYER, code, metadata);
     }
 }

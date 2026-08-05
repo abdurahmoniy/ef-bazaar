@@ -52,15 +52,24 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
     Optional<Trade> findByMailboxId(UUID mailboxId);
 
     /**
-     * How many non-terminal trades this admin is currently running. Feeds the
+     * How many trades this admin has ACCEPTED and not yet finished. Feeds the
      * catalogue's busy flag and the capacity check when an admin accepts.
+     *
+     * <p>Deliberately excludes {@code WAITING_ADMIN}: an invitation is not a
+     * reservation (spec §9.5), so a pending invite — including the very trade
+     * an {@code accept()} call is currently resolving, which is still
+     * {@code WAITING_ADMIN} at the moment the check runs — must not count
+     * against {@code maxConcurrentTrades}.
      */
     @Query("""
             SELECT COUNT(t) FROM Trade t
              WHERE t.assignedAdminId = :adminId
-               AND t.state NOT IN (uz.efbazaar.trade.trade.domain.TradeState.SUCCESS,
-                                   uz.efbazaar.trade.trade.domain.TradeState.REJECTED,
-                                   uz.efbazaar.trade.trade.domain.TradeState.ORPHANED)
+               AND t.state IN (uz.efbazaar.trade.trade.domain.TradeState.IN_PROGRESS,
+                               uz.efbazaar.trade.trade.domain.TradeState.WAITING_CLOSE_CONFIRM)
             """)
     int countActiveByAdmin(@Param("adminId") UUID adminId);
+
+    List<Trade> findByAssignedAdminIdAndState(UUID assignedAdminId, TradeState state);
+
+    List<Trade> findByAssignedAdminIdOrderByCreatedAtDesc(UUID assignedAdminId);
 }
