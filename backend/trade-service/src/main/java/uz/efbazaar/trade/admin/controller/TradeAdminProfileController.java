@@ -7,9 +7,12 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uz.efbazaar.trade.admin.dto.TradeAdminProfileResponse;
 import uz.efbazaar.trade.admin.dto.TradeAdminProfileUpsertRequest;
+import uz.efbazaar.trade.admin.dto.TradeAdminRatingResponse;
 import uz.efbazaar.trade.admin.service.TradeAdminProfileService;
+import uz.efbazaar.trade.admin.service.TradeAdminRatingService;
 import uz.efbazaar.trade.security.AuthenticatedUser;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -30,6 +33,7 @@ import java.util.UUID;
 public class TradeAdminProfileController {
 
     private final TradeAdminProfileService profiles;
+    private final TradeAdminRatingService ratings;
 
     @GetMapping("/me")
     @PreAuthorize("hasAuthority('ROLE_TRADE_ADMIN')")
@@ -47,5 +51,10 @@ public class TradeAdminProfileController {
     @GetMapping("/{userId}")
     public TradeAdminProfileResponse getPublic(@PathVariable UUID userId) {
         return profiles.getPublic(userId);
+    }
+
+    @GetMapping("/{userId}/ratings")
+    public List<TradeAdminRatingResponse> ratings(@PathVariable UUID userId) {
+        return ratings.listPublic(userId);
     }
 }
