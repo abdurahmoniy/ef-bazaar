@@ -1,7 +1,6 @@
 package uz.efbazaar.trade.admin.service;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -31,7 +30,6 @@ import java.util.UUID;
  * <p>Not a chat message, so it works after the chat has closed. Optional — a
  * party who never rates blocks nothing.
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TradeAdminRatingService {
@@ -57,7 +55,23 @@ public class TradeAdminRatingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Baholash savdo muvaffaqiyatli yakunlangach ochiladi");
         }
-        Instant closedAt = t.getUpdatedAt() == null ? Instant.now() : t.getUpdatedAt();
+        // The window is measured from Trade.updatedAt, which stands in for "when
+        // the trade reached SUCCESS": TradeService.transition() saves the row on
+        // every state change and @PreUpdate stamps updatedAt at that instant, and
+        // nothing writes the Trade row again once it is terminal (TradeDeadlineExtender
+        // and TradeCloseService both gate on non-terminal state; TradeAdminAssignmentService
+        // only touches WAITING_ADMIN rows). This is safe only as long as that holds.
+        // If a future change starts writing to a SUCCESS trade — a correction flow, an
+        // admin note, anything — this anchor silently drifts and the window resets.
+        // Add an explicit closed_at column (stamped once, on the SUCCESS transition)
+        // instead of widening this assumption.
+        Instant closedAt = t.getUpdatedAt();
+        if (closedAt == null) {
+            // @PrePersist/@PreUpdate always set this, so this should be unreachable.
+            // Fail closed — refuse the rating rather than silently granting a fresh window.
+            throw new IllegalStateException(
+                    "Trade " + tradeId + " has no updatedAt; refusing to open a rating window");
+        }
         if (closedAt.plus(Duration.ofDays(windowDays)).isBefore(Instant.now())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Baholash muddati tugagan (%d kun)".formatted(windowDays));

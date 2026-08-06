@@ -83,6 +83,19 @@ class TradeAdminRatingIT extends AbstractIntegrationIT {
         assertThatThrownBy(() -> ratings.rate(adminId, trade.getId(),
                 new RateAdminRequest(5, "o'zimni maqtayman")))
                 .isInstanceOf(RuntimeException.class);
+
+        assertThat(profiles.findById(adminId).orElseThrow().getRatingCount()).isEqualTo(0);
+    }
+
+    @Test
+    void aStrangerCannotRate() {
+        givenSuccessfulTrade(Instant.now());
+
+        assertThatThrownBy(() -> ratings.rate(UUID.randomUUID(), trade.getId(),
+                new RateAdminRequest(5, "men bu savdoda yo'q edim")))
+                .isInstanceOf(RuntimeException.class);
+
+        assertThat(profiles.findById(adminId).orElseThrow().getRatingCount()).isEqualTo(0);
     }
 
     @Test
@@ -94,7 +107,8 @@ class TradeAdminRatingIT extends AbstractIntegrationIT {
 
         assertThatThrownBy(() -> ratings.rate(trade.getSellerId(), trade.getId(),
                 new RateAdminRequest(5, null)))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("409");
     }
 
     @Test
@@ -105,6 +119,25 @@ class TradeAdminRatingIT extends AbstractIntegrationIT {
                 new RateAdminRequest(5, null)))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("409");
+    }
+
+    @Test
+    void theWindowStillAcceptsWellWithinSevenDays() {
+        givenSuccessfulTrade(Instant.now().minus(Duration.ofDays(6)));
+
+        ratings.rate(trade.getSellerId(), trade.getId(), new RateAdminRequest(5, null));
+
+        assertThat(profiles.findById(adminId).orElseThrow().getRatingCount()).isEqualTo(1);
+    }
+
+    @Test
+    void theWindowStillAcceptsAtExactlySevenDays() {
+        // updatedAt + 7 days lands a few seconds in the future of "now" — inside the window.
+        givenSuccessfulTrade(Instant.now().minus(Duration.ofDays(7)).plus(Duration.ofSeconds(30)));
+
+        ratings.rate(trade.getSellerId(), trade.getId(), new RateAdminRequest(5, null));
+
+        assertThat(profiles.findById(adminId).orElseThrow().getRatingCount()).isEqualTo(1);
     }
 
     @Test
@@ -124,7 +157,8 @@ class TradeAdminRatingIT extends AbstractIntegrationIT {
 
         assertThatThrownBy(() -> ratings.rate(smart.getSellerId(), smart.getId(),
                 new RateAdminRequest(5, null)))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
     }
 
     @Test
