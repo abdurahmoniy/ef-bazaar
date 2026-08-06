@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import uz.efbazaar.trade.kafka.TradeEventPublisher;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.domain.ActorType;
@@ -44,6 +45,7 @@ public class TradeService {
     private final TradeAuditService audit;
     private final MailboxService mailboxes;
     private final TradeBroadcaster broadcaster;
+    private final TradeEventPublisher events;
 
     @Value("${trade.human.expires-after-hours:168}")
     private long humanExpiresAfterHours;
@@ -121,6 +123,10 @@ public class TradeService {
                 "mode", mode.name()
         ));
         broadcaster.publishStateChange(t.getId(), toResponse(t, null));
+        // Hold the marketplace chat open for as long as the trade lives.
+        if (chatId != null) {
+            events.tradeOpened(t);
+        }
         return toResponse(t, null);
     }
 

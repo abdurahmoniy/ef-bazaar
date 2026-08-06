@@ -131,6 +131,10 @@ efbazaar.marketplace.chat-created
 efbazaar.marketplace.chat-expired
 efbazaar.marketplace.cards-added     # { occurredAt, totalAdded, cards: [{efhubId, type, name, overallRating}] }
 efbazaar.bot.media-uploaded          # { listingId, telegramMessageId, mediaType }
+efbazaar.auth.user-role-changed      # auth → trade-service (deactivate trade-admin profile on role revoke)
+efbazaar.trade.admin-invited         # trade-service → marketplace-service (TRADE_ADMIN_INVITED notification)
+efbazaar.trade.trade-opened          # trade-service → marketplace-service (pin the trade's chat)
+efbazaar.trade.trade-closed          # trade-service → marketplace-service (unpin the trade's chat)
 ```
 
 ---

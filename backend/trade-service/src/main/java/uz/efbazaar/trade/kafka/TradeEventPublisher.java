@@ -69,6 +69,16 @@ public class TradeEventPublisher {
         send(TradeEvents.TOPIC_ADMIN_INVITED, trade.getId().toString(), event);
     }
 
+    public void tradeOpened(Trade trade) {
+        send(TradeEvents.TOPIC_TRADE_OPENED, trade.getId().toString(),
+                new TradeEvents.TradeChatPin(trade.getId(), trade.getChatId(), Instant.now()));
+    }
+
+    public void tradeClosed(Trade trade) {
+        send(TradeEvents.TOPIC_TRADE_CLOSED, trade.getId().toString(),
+                new TradeEvents.TradeChatPin(trade.getId(), trade.getChatId(), Instant.now()));
+    }
+
     /**
      * Publishes are deferred to run after the enclosing transaction commits
      * when one is active. Several of these events (e.g. email-provision-request

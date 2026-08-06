@@ -163,6 +163,9 @@ public class TradeStateHandler {
                             ? Duration.between(accepted, Instant.now()).getSeconds() : 0;
                     adminStats.recordCompleted(trade.getAssignedAdminId(), work, total);
                 }
+                if (trade.getChatId() != null) {
+                    events.tradeClosed(trade);
+                }
             }
             case REJECTED -> {
                 trade.setStateDeadline(null);
@@ -190,6 +193,9 @@ public class TradeStateHandler {
                         && actor == ActorType.TRADE_ADMIN) {
                     adminStats.recordCancelled(trade.getAssignedAdminId());
                 }
+                if (trade.getChatId() != null) {
+                    events.tradeClosed(trade);
+                }
             }
             case ORPHANED -> {
                 trade.setStateDeadline(null);
@@ -198,6 +204,9 @@ public class TradeStateHandler {
                 mailboxes.stripFromTrade(trade.getMailboxId());
                 audit.record(trade.getId(), actor, actorId, "TRADE_ORPHANED",
                         Map.of("actor", actor.name()));
+                if (trade.getChatId() != null) {
+                    events.tradeClosed(trade);
+                }
             }
         }
     }

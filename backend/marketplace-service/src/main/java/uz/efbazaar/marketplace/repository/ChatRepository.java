@@ -31,12 +31,14 @@ public interface ChatRepository extends JpaRepository<Chat, UUID> {
     Page<Chat> findByParticipant(@Param("userId") UUID userId, Pageable pageable);
 
     /**
-     * Aktiv, important emas va 24 soat oldingi xabarli chatlarni qaytaradi.
+     * Aktiv, important emas, tizim ushlab turmagan va 24 soat oldingi xabarli
+     * chatlarni qaytaradi.
      */
     @Query("""
             SELECT c FROM Chat c
             WHERE c.status = uz.efbazaar.marketplace.domain.ChatStatus.ACTIVE
               AND c.important = false
+              AND c.systemImportant = false
               AND c.lastMessageAt < :cutoff
             """)
     List<Chat> findExpired(@Param("cutoff") Instant cutoff);
@@ -44,6 +46,10 @@ public interface ChatRepository extends JpaRepository<Chat, UUID> {
     @Modifying
     @Query("UPDATE Chat c SET c.lastMessageAt = :ts WHERE c.id = :id")
     void touchLastMessageAt(@Param("id") UUID id, @Param("ts") Instant ts);
+
+    @Modifying
+    @Query("UPDATE Chat c SET c.systemImportant = :pinned WHERE c.id = :id")
+    int setSystemImportant(@Param("id") UUID id, @Param("pinned") boolean pinned);
 
     /**
      * Close every ACTIVE chat the user participates in as buyer or seller.
