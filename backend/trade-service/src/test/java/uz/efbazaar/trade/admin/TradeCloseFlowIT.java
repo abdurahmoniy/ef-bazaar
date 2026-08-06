@@ -1,5 +1,6 @@
 package uz.efbazaar.trade.admin;
 
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -198,8 +199,12 @@ class TradeCloseFlowIT extends AbstractIntegrationIT {
         markAllSteps();
         closeService.adminClose(adminId, trade.getId());
 
+        // Pinned to the concrete type, not just RuntimeException: this is the
+        // 404 contract TradeExceptionHandler maps EntityNotFoundException to —
+        // an NPE or an IllegalArgumentException would satisfy a looser
+        // assertion just as well while actually being a different bug.
         assertThatThrownBy(() -> closeService.confirm(adminId, trade.getId()))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(EntityNotFoundException.class);
     }
 
     @Test
@@ -216,6 +221,9 @@ class TradeCloseFlowIT extends AbstractIntegrationIT {
 
         assertThat(trades.findById(trade.getId()).orElseThrow().getState())
                 .isEqualTo(TradeState.SUCCESS);
+        assertThat(profiles.findById(adminId).orElseThrow().getCompletedCount())
+                .as("the timeout route must credit the admin the same as an explicit confirm")
+                .isEqualTo(1);
     }
 
     @Test

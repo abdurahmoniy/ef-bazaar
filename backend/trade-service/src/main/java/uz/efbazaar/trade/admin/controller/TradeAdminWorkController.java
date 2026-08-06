@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import uz.efbazaar.trade.admin.dto.AdminCancelRequest;
 import uz.efbazaar.trade.admin.dto.MarkStepRequest;
 import uz.efbazaar.trade.admin.dto.TradeStepResponse;
 import uz.efbazaar.trade.admin.service.TradeAdminAssignmentService;
@@ -89,8 +90,8 @@ public class TradeAdminWorkController {
     @PostMapping("/api/v1/trades/{id}/actions/admin-cancel")
     public TradeResponse cancel(@AuthenticationPrincipal AuthenticatedUser me,
                                 @PathVariable UUID id,
-                                @RequestParam(required = false) String reason) {
-        closeService.adminCancel(me.userId(), id, reason);
+                                @Valid @RequestBody(required = false) AdminCancelRequest req) {
+        closeService.adminCancel(me.userId(), id, req == null ? null : req.reason());
         return trades.toResponse(trades.getForViewer(id, me.userId()), null);
     }
 }

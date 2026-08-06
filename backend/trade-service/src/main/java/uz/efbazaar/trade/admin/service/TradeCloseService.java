@@ -2,7 +2,6 @@ package uz.efbazaar.trade.admin.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +25,6 @@ import java.util.UUID;
  * a state, so there is no "half-confirmed" state to reason about; the
  * transition fires when the second one lands.
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TradeCloseService {
