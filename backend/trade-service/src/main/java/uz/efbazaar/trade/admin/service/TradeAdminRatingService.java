@@ -109,12 +109,23 @@ public class TradeAdminRatingService {
     /**
      * Platform moderation. Blanks the comment text and nothing else — the star
      * stays in the average, so hiding cannot be used to raise a score.
+     *
+     * <p>{@code expectedAdminId} is the admin named in the URL
+     * ({@code /trade-admins/{userId}/ratings/{ratingId}/hide}). Verifying it
+     * against the rating's actual admin catches a UI bug that names the wrong
+     * admin in the path — the same {@code ratingId} could otherwise be hidden
+     * through anybody's URL. 404 rather than a more specific status, matching
+     * this codebase's habit of not confirming a resource's existence/shape to
+     * a caller whose path doesn't match it.
      */
     @Transactional
-    public void hide(UUID ratingId, UUID platformAdminId) {
+    public void hide(UUID ratingId, UUID expectedAdminId, UUID platformAdminId) {
         TradeAdminRating r = ratings.findById(ratingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Baho topilmadi"));
+        if (!r.getAdminId().equals(expectedAdminId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Baho topilmadi");
+        }
         if (r.isHidden()) return;
         r.setHiddenAt(Instant.now());
         r.setHiddenBy(platformAdminId);

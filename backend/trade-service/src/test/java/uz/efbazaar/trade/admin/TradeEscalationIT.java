@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.trade.admin.domain.TradeAdminProfile;
 import uz.efbazaar.trade.admin.repository.TradeAdminProfileRepository;
@@ -176,6 +177,17 @@ class TradeEscalationIT extends AbstractIntegrationIT {
         assertThat(after.getState()).isEqualTo(TradeState.REJECTED);
         assertThat(mailboxes.getRaw(t.getMailboxId()).getOwnerUserId())
                 .isEqualTo(after.getSellerId());
+        // The brief itself flagged that this test "passes either way, but
+        // cancelledCount would be wrong" if TradeStateHandler's actor guard
+        // (recordCancelled only on actor == TRADE_ADMIN) regressed — pin both
+        // counters so a regression there actually fails this test.
+        TradeAdminProfile p = profiles.findById(oldAdmin).orElseThrow();
+        assertThat(p.getAbandonedCount())
+                .as("the admin went missing — that's abandonment, not a judgement call")
+                .isEqualTo(1);
+        assertThat(p.getCancelledCount())
+                .as("a platform-initiated cancel must not double-count as the admin's own cancel")
+                .isEqualTo(0);
     }
 
     @Test
@@ -189,7 +201,78 @@ class TradeEscalationIT extends AbstractIntegrationIT {
                 .acceptingOrders(false).build());
 
         assertThatThrownBy(() -> escalations.reassign(UUID.randomUUID(), t.getId(), paused, 20_000L))
-                .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
+    void reassigningANonEscalatedTradeIsRefused() {
+        Trade t = acceptedTrade(adminWithProfile());
+        // Never made idle, never swept — still plain IN_PROGRESS.
+
+        assertThatThrownBy(() -> escalations.reassign(
+                UUID.randomUUID(), t.getId(), adminWithProfile(), 20_000L))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void reassigningASmartTradeIsRefused() {
+        UUID mailboxId = mailboxes.createPlaceholder(
+                "pending-" + UUID.randomUUID() + "@efbazaar.uz");
+        Trade smart = trades.save(Trade.builder()
+                .id(UUID.randomUUID())
+                .sellerId(UUID.randomUUID())
+                .buyerId(UUID.randomUUID())
+                .priceUzs(50_000)
+                .state(TradeState.WAITING_PAYMENT)
+                .mailboxId(mailboxId)
+                .sellerCardId(UUID.randomUUID())
+                .buyerCardId(UUID.randomUUID())
+                .mode(TradeMode.SMART)
+                .expiresAt(Instant.now().plus(Duration.ofHours(24)))
+                .build());
+
+        assertThatThrownBy(() -> escalations.reassign(
+                UUID.randomUUID(), smart.getId(), adminWithProfile(), 20_000L))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    /**
+     * Directly exercises the defense-in-depth {@code state != IN_PROGRESS}
+     * guard added to {@code requireEscalated} alongside the TradeStateHandler
+     * fix (see {@code adminClosingAfterEscalationClearsItFromTheQueue}). This
+     * row is synthetic — TradeStateHandler now always clears {@code
+     * escalatedAt} on exit from IN_PROGRESS, so production code cannot
+     * construct it — but {@code reassign()} writes with a raw {@code
+     * setState()} that bypasses TradeStateMachine, so this guard is what
+     * stands between a resurrected stale flag and reviving a finished trade.
+     */
+    @Test
+    void reassigningATradeNoLongerInProgressIsRefused() {
+        UUID admin = adminWithProfile();
+        UUID mailboxId = mailboxes.createPlaceholder(
+                "pending-" + UUID.randomUUID() + "@efbazaar.uz");
+        Trade stale = trades.save(Trade.builder()
+                .id(UUID.randomUUID())
+                .sellerId(UUID.randomUUID())
+                .buyerId(UUID.randomUUID())
+                .priceUzs(50_000)
+                .state(TradeState.WAITING_CLOSE_CONFIRM)
+                .mailboxId(mailboxId)
+                .mode(TradeMode.HUMAN)
+                .assignedAdminId(admin)
+                .adminFeeUzs(15_000L)
+                .escalatedAt(Instant.now().minusSeconds(30))
+                .escalationReason("ADMIN_IDLE")
+                .expiresAt(Instant.now().plus(Duration.ofDays(7)))
+                .build());
+
+        assertThatThrownBy(() -> escalations.reassign(
+                UUID.randomUUID(), stale.getId(), adminWithProfile(), 20_000L))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
     }
 
     @Test

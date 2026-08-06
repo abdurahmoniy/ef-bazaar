@@ -168,7 +168,7 @@ class TradeAdminRatingIT extends AbstractIntegrationIT {
         UUID ratingId = ratings.listPublic(adminId).get(0).id();
         UUID platformAdmin = UUID.randomUUID();
 
-        ratings.hide(ratingId, platformAdmin);
+        ratings.hide(ratingId, adminId, platformAdmin);
 
         var visible = ratings.listPublic(adminId);
         assertThat(visible).hasSize(1);
@@ -180,6 +180,31 @@ class TradeAdminRatingIT extends AbstractIntegrationIT {
                 .as("moderation must not be a way to raise a score")
                 .isEqualTo(1);
         assertThat(p.getRatingSum()).isEqualTo(1);
+    }
+
+    /**
+     * {@code AdminTradeEscalationController.hideRating} (Task 15) names the
+     * admin in the URL path ({@code /trade-admins/{userId}/ratings/{ratingId}/hide})
+     * but the rating row is looked up by {@code ratingId} alone. Without this
+     * check any {@code ratingId} could be hidden through any {@code userId}'s
+     * URL — the path implies an ownership relation the code must actually
+     * verify.
+     */
+    @Test
+    void hidingWithTheWrongAdminInThePathIsRefused() {
+        givenSuccessfulTrade(Instant.now());
+        ratings.rate(trade.getSellerId(), trade.getId(), new RateAdminRequest(3, "izoh"));
+        UUID ratingId = ratings.listPublic(adminId).get(0).id();
+        UUID wrongAdmin = UUID.randomUUID();
+
+        assertThatThrownBy(() -> ratings.hide(ratingId, wrongAdmin, UUID.randomUUID()))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        ex -> assertThat(ex.getStatusCode())
+                                .isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND));
+
+        assertThat(ratings.listPublic(adminId).get(0).comment())
+                .as("the mismatched call must not have hidden anything")
+                .isEqualTo("izoh");
     }
 
     @Test

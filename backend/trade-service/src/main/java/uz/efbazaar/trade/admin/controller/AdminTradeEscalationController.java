@@ -7,11 +7,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uz.efbazaar.trade.admin.dto.AdminCancelRequest;
 import uz.efbazaar.trade.admin.dto.AssignAdminRequest;
+import uz.efbazaar.trade.admin.dto.EscalatedTradeResponse;
 import uz.efbazaar.trade.admin.service.TradeAdminRatingService;
 import uz.efbazaar.trade.admin.service.TradeEscalationService;
 import uz.efbazaar.trade.security.AuthenticatedUser;
-import uz.efbazaar.trade.trade.dto.TradeResponse;
-import uz.efbazaar.trade.trade.service.TradeService;
 
 import java.util.List;
 import java.util.UUID;
@@ -29,12 +28,11 @@ public class AdminTradeEscalationController {
 
     private final TradeEscalationService escalations;
     private final TradeAdminRatingService ratings;
-    private final TradeService trades;
 
     @GetMapping("/trades/escalated")
-    public List<TradeResponse> escalated() {
+    public List<EscalatedTradeResponse> escalated() {
         return escalations.listEscalated().stream()
-                .map(t -> trades.toResponse(t, null))
+                .map(EscalatedTradeResponse::of)
                 .toList();
     }
 
@@ -59,6 +57,6 @@ public class AdminTradeEscalationController {
     public void hideRating(@AuthenticationPrincipal AuthenticatedUser me,
                            @PathVariable UUID userId,
                            @PathVariable UUID ratingId) {
-        ratings.hide(ratingId, me.userId());
+        ratings.hide(ratingId, userId, me.userId());
     }
 }

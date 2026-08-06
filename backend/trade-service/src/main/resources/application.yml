@@ -71,6 +71,7 @@ trade:
     sweep-interval-ms: 10000
     # Separate from the timeout sweep — see TradeEscalationSweeper's javadoc.
     escalation-sweep-interval-ms: 60000
+    escalation-sweep-batch-size: 200
   crypto:
     master-key-file: ${MASTER_KEY_FILE:}
   timeouts:

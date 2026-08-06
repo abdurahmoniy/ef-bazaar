@@ -43,7 +43,7 @@ public class TradeEscalationService {
 
     @Transactional(readOnly = true)
     public List<Trade> listEscalated() {
-        return trades.findByEscalatedAtIsNotNullOrderByEscalatedAtAsc();
+        return trades.findByStateAndEscalatedAtIsNotNullOrderByEscalatedAtAsc(TradeState.IN_PROGRESS);
     }
 
     /**

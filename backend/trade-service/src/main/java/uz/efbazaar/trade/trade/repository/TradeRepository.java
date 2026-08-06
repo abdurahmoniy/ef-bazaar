@@ -1,6 +1,7 @@
 package uz.efbazaar.trade.trade.repository;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -86,7 +87,11 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
 
     /**
      * Human trades whose admin has gone quiet and which have not been escalated
-     * yet. Backed by ix_trades_escalation_due.
+     * yet. Backed by ix_trades_escalation_due. Bounded by {@code pageable} so a
+     * large backlog cannot make a single sweep tick unboundedly slow — oldest
+     * overdue first, so a persistently poisoned row (see
+     * {@code TradeEscalationSweeper}) doesn't starve the rest of the backlog
+     * behind it forever.
      */
     @Query("""
             SELECT t FROM Trade t
@@ -95,8 +100,18 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
                AND t.escalatedAt IS NULL
                AND t.escalationDeadlineAt IS NOT NULL
                AND t.escalationDeadlineAt < :now
+             ORDER BY t.escalationDeadlineAt ASC
             """)
-    List<Trade> findIdleHumanTrades(@Param("now") Instant now);
+    List<Trade> findIdleHumanTrades(@Param("now") Instant now, Pageable pageable);
 
-    List<Trade> findByEscalatedAtIsNotNullOrderByEscalatedAtAsc();
+    /**
+     * The platform-admin queue. Filters on {@code state = IN_PROGRESS} rather
+     * than trusting {@code escalatedAt IS NOT NULL} alone — TradeStateHandler
+     * clears {@code escalatedAt} on every exit from {@code IN_PROGRESS}, so
+     * this predicate should always be redundant with that invariant, but a
+     * self-defending query costs nothing and doesn't depend on a handler two
+     * packages away staying correct forever. ix_trades_escalated still covers
+     * the {@code escalatedAt IS NOT NULL} half of the filter.
+     */
+    List<Trade> findByStateAndEscalatedAtIsNotNullOrderByEscalatedAtAsc(TradeState state);
 }
