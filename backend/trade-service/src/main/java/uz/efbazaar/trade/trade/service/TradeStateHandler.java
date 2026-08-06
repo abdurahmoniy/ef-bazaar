@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import uz.efbazaar.trade.admin.service.TradeAdminStats;
 import uz.efbazaar.trade.kafka.TradeEventPublisher;
 import uz.efbazaar.trade.kafka.TradeEvents;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
@@ -32,6 +33,7 @@ public class TradeStateHandler {
     private final TradeEventPublisher events;
     private final MailboxService mailboxes;
     private final TradeAuditService audit;
+    private final TradeAdminStats adminStats;
 
     @Value("${trade.timeouts.waiting-payment-seconds}")        private long twpS;
     @Value("${trade.timeouts.waiting-email-change-seconds}")   private long twecS;
@@ -145,6 +147,16 @@ public class TradeStateHandler {
                 }
                 audit.record(trade.getId(), actor, actorId, "TRADE_SUCCESS",
                         Map.of("mailboxHandedTo", trade.getBuyerId().toString()));
+
+                if (trade.getMode() == TradeMode.HUMAN && trade.getAssignedAdminId() != null) {
+                    Instant accepted = trade.getAdminAcceptedAt();
+                    Instant closed = trade.getAdminClosedAt();
+                    long work = (accepted != null && closed != null)
+                            ? Duration.between(accepted, closed).getSeconds() : 0;
+                    long total = accepted != null
+                            ? Duration.between(accepted, Instant.now()).getSeconds() : 0;
+                    adminStats.recordCompleted(trade.getAssignedAdminId(), work, total);
+                }
             }
             case REJECTED -> {
                 trade.setStateDeadline(null);
@@ -155,6 +167,17 @@ public class TradeStateHandler {
                 mailboxes.assignOwner(trade.getMailboxId(), trade.getSellerId());
                 audit.record(trade.getId(), actor, actorId, "TRADE_REJECTED",
                         Map.of("mailboxHandedTo", trade.getSellerId().toString()));
+
+                // Only a cancellation the admin chose counts as "cancelled".
+                // A platform admin cancelling an escalated trade is recorded as
+                // abandonment instead, by TradeEscalationService (Task 15) —
+                // hence the actor check, so it is not counted twice.
+                if (trade.getMode() == TradeMode.HUMAN
+                        && trade.getAssignedAdminId() != null
+                        && event == TradeEvent.ADMIN_CANCELLED
+                        && actor == ActorType.TRADE_ADMIN) {
+                    adminStats.recordCancelled(trade.getAssignedAdminId());
+                }
             }
             case ORPHANED -> {
                 trade.setStateDeadline(null);

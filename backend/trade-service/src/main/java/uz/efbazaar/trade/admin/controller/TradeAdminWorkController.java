@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import uz.efbazaar.trade.admin.dto.MarkStepRequest;
 import uz.efbazaar.trade.admin.dto.TradeStepResponse;
 import uz.efbazaar.trade.admin.service.TradeAdminAssignmentService;
+import uz.efbazaar.trade.admin.service.TradeCloseService;
 import uz.efbazaar.trade.admin.service.TradeStepService;
 import uz.efbazaar.trade.security.AuthenticatedUser;
 import uz.efbazaar.trade.trade.domain.TradeStep;
@@ -26,6 +27,7 @@ public class TradeAdminWorkController {
     private final TradeAdminAssignmentService assignments;
     private final TradeService trades;
     private final TradeStepService stepService;
+    private final TradeCloseService closeService;
 
     @GetMapping("/api/v1/trade-admins/me/invitations")
     public List<TradeResponse> invitations(@AuthenticationPrincipal AuthenticatedUser me) {
@@ -75,5 +77,20 @@ public class TradeAdminWorkController {
                                               @PathVariable UUID id,
                                               @PathVariable TradeStep step) {
         return stepService.unmark(id, me.userId(), step);
+    }
+
+    @PostMapping("/api/v1/trades/{id}/actions/admin-close")
+    public TradeResponse close(@AuthenticationPrincipal AuthenticatedUser me,
+                               @PathVariable UUID id) {
+        closeService.adminClose(me.userId(), id);
+        return trades.toResponse(trades.getForViewer(id, me.userId()), null);
+    }
+
+    @PostMapping("/api/v1/trades/{id}/actions/admin-cancel")
+    public TradeResponse cancel(@AuthenticationPrincipal AuthenticatedUser me,
+                                @PathVariable UUID id,
+                                @RequestParam(required = false) String reason) {
+        closeService.adminCancel(me.userId(), id, reason);
+        return trades.toResponse(trades.getForViewer(id, me.userId()), null);
     }
 }

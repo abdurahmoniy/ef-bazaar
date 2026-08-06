@@ -1,6 +1,8 @@
 package uz.efbazaar.trade.trade.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import uz.efbazaar.trade.trade.domain.Trade;
@@ -72,4 +74,13 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
     List<Trade> findByAssignedAdminIdAndState(UUID assignedAdminId, TradeState state);
 
     List<Trade> findByAssignedAdminIdOrderByCreatedAtDesc(UUID assignedAdminId);
+
+    /**
+     * Row lock for the dual-confirmation write: two parties confirming at once
+     * must serialise so the second sees the first one's timestamp and fires
+     * CLOSE_CONFIRMED exactly once.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM Trade t WHERE t.id = :id")
+    Optional<Trade> findByIdForUpdate(@Param("id") UUID id);
 }
