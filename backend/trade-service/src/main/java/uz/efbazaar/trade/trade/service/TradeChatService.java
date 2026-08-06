@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import uz.efbazaar.trade.admin.service.TradeIdleWatchdog;
 import uz.efbazaar.trade.crypto.EncryptedField;
 import uz.efbazaar.trade.crypto.TradeCrypto;
 import uz.efbazaar.trade.trade.domain.*;
@@ -29,17 +30,44 @@ public class TradeChatService {
     private final TradeMessageRepository messages;
     private final TradeCrypto crypto;
     private final TradeBroadcaster broadcaster;
+    private final TradeIdleWatchdog idleWatchdog;
 
+    /** Party form — writes into the caller's own chat. */
     @Transactional
     public TradeMessage postText(UUID tradeId, UUID viewerUserId, String text) {
-        Trade t = trades.get(tradeId, viewerUserId);
+        return postTextAs(tradeId, viewerUserId, null, text);
+    }
+
+    /**
+     * Viewer-aware post. A party always writes to their own chat and
+     * {@code target} is ignored; the assigned admin must name a target.
+     */
+    @Transactional
+    public TradeMessage postTextAs(UUID tradeId, UUID senderUserId,
+                                   ParticipantRole target, String text) {
+        Trade t = trades.getForViewer(tradeId, senderUserId);
         if (t.getState().isTerminal()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Trade is closed — no new messages allowed");
         }
-        ParticipantRole role = t.roleFor(viewerUserId);
-        var chat = chats.findByTradeIdAndParticipant(tradeId, role)
-                .orElseThrow(() -> new EntityNotFoundException("chat for " + role));
+        TradeViewer viewer = t.viewerFor(senderUserId);
+
+        ParticipantRole chatRole;
+        TradeSenderType senderType;
+        if (viewer == TradeViewer.ADMIN) {
+            if (target == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Qaysi chatga yozilayotganini ko'rsating: SELLER yoki BUYER");
+            }
+            chatRole = target;
+            senderType = TradeSenderType.HUMAN_ADMIN;
+        } else {
+            chatRole = viewer.asParticipantRole();
+            senderType = TradeSenderType.USER;
+        }
+
+        var chat = chats.findByTradeIdAndParticipant(tradeId, chatRole)
+                .orElseThrow(() -> new EntityNotFoundException("chat for " + chatRole));
 
         UUID messageId = UUID.randomUUID();
         EncryptedField enc = crypto.encrypt(
@@ -49,7 +77,7 @@ public class TradeChatService {
         TradeMessage msg = TradeMessage.builder()
                 .id(messageId)
                 .tradeChatId(chat.getId())
-                .senderType(TradeSenderType.USER)
+                .senderType(senderType)
                 .messageType(TradeMessageType.TEXT)
                 .encryptedBody(enc.ciphertext())
                 .iv(enc.iv())
@@ -59,16 +87,42 @@ public class TradeChatService {
 
         TradeMessageResponse resp = new TradeMessageResponse(msg.getId(), msg.getSenderType(),
                 msg.getMessageType(), text, msg.getMetadata(), msg.getCreatedAt());
-        broadcaster.publishMessage(tradeId, role, resp);
+        broadcaster.publishMessage(tradeId, chatRole, resp);
+
+        if (viewer == TradeViewer.ADMIN) {
+            // Talking to a party is work even before any step is ticked (§7.2).
+            idleWatchdog.touch(t);
+        }
+
         return msg;
     }
 
+    /** Party form — reads the caller's own chat. */
     @Transactional(readOnly = true)
     public List<TradeMessageResponse> list(UUID tradeId, UUID viewerUserId) {
-        Trade t = trades.get(tradeId, viewerUserId);
-        ParticipantRole role = t.roleFor(viewerUserId);
-        var chat = chats.findByTradeIdAndParticipant(tradeId, role)
-                .orElseThrow(() -> new EntityNotFoundException("chat for " + role));
+        return listFor(tradeId, viewerUserId, null);
+    }
+
+    /** Viewer-aware read. The admin may name either chat; a party may not. */
+    @Transactional(readOnly = true)
+    public List<TradeMessageResponse> listFor(UUID tradeId, UUID viewerUserId,
+                                             ParticipantRole target) {
+        Trade t = trades.getForViewer(tradeId, viewerUserId);
+        TradeViewer viewer = t.viewerFor(viewerUserId);
+
+        ParticipantRole chatRole;
+        if (viewer == TradeViewer.ADMIN) {
+            if (target == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Qaysi chat o'qilayotganini ko'rsating: SELLER yoki BUYER");
+            }
+            chatRole = target;
+        } else {
+            chatRole = viewer.asParticipantRole();
+        }
+
+        var chat = chats.findByTradeIdAndParticipant(tradeId, chatRole)
+                .orElseThrow(() -> new EntityNotFoundException("chat for " + chatRole));
 
         return messages.findByTradeChatIdOrderByCreatedAtAsc(chat.getId()).stream()
                 .map(m -> new TradeMessageResponse(

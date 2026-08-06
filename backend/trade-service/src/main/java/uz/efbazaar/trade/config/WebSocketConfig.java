@@ -25,7 +25,7 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 import uz.efbazaar.trade.security.AuthenticatedUser;
-import uz.efbazaar.trade.trade.domain.ParticipantRole;
+import uz.efbazaar.trade.trade.domain.TradeViewer;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
 
 import java.util.Arrays;
@@ -168,19 +168,26 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             }
             String subscribedRole = m.group(2);
 
-            var trade = trades.findByIdAndParticipant(tradeId, principal.userId())
+            var trade = trades.findByIdAndViewer(tradeId, principal.userId())
                     .orElseThrow(() -> {
-                        log.warn("SUBSCRIBE to {} rejected — user {} is not a participant",
+                        log.warn("SUBSCRIBE to {} rejected — user {} may not view this trade",
                                 destination, principal.userId());
-                        return new MessagingException("Not a participant of this trade");
+                        return new MessagingException("Not a viewer of this trade");
                     });
 
-            ParticipantRole callerRole = trade.roleFor(principal.userId());
-            boolean roleMatches = (callerRole == ParticipantRole.SELLER && "seller".equals(subscribedRole))
-                    || (callerRole == ParticipantRole.BUYER && "buyer".equals(subscribedRole));
+            TradeViewer viewer = trade.viewerFor(principal.userId());
+            // The assigned admin legitimately follows BOTH party chats — that is
+            // the whole shape of a human trade, not a leak.
+            if (viewer == TradeViewer.ADMIN) {
+                return message;
+            }
+
+            boolean roleMatches =
+                    (viewer == TradeViewer.SELLER && "seller".equals(subscribedRole))
+                 || (viewer == TradeViewer.BUYER  && "buyer".equals(subscribedRole));
             if (!roleMatches) {
-                log.warn("SUBSCRIBE to {} rejected — user {} has role {} but requested {} topic",
-                        destination, principal.userId(), callerRole, subscribedRole);
+                log.warn("SUBSCRIBE to {} rejected — user {} is {} but asked for {}",
+                        destination, principal.userId(), viewer, subscribedRole);
                 throw new MessagingException("Subscribed role does not match caller's role in trade");
             }
 

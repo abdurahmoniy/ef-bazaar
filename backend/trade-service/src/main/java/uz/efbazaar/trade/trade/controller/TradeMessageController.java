@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uz.efbazaar.trade.security.AuthenticatedUser;
+import uz.efbazaar.trade.trade.domain.ParticipantRole;
 import uz.efbazaar.trade.trade.dto.PasswordRevealResponse;
 import uz.efbazaar.trade.trade.dto.PostTextRequest;
 import uz.efbazaar.trade.trade.dto.SendPasswordRequest;
@@ -26,15 +27,17 @@ public class TradeMessageController {
 
     @GetMapping
     public List<TradeMessageResponse> list(@AuthenticationPrincipal AuthenticatedUser me,
-                                           @PathVariable UUID id) {
-        return chat.list(id, me.userId());
+                                           @PathVariable UUID id,
+                                           @RequestParam(required = false) ParticipantRole target) {
+        return chat.listFor(id, me.userId(), target);
     }
 
     @PostMapping
     public TradeMessageResponse postText(@AuthenticationPrincipal AuthenticatedUser me,
                                          @PathVariable UUID id,
+                                         @RequestParam(required = false) ParticipantRole target,
                                          @Valid @RequestBody PostTextRequest req) {
-        var m = chat.postText(id, me.userId(), req.text());
+        var m = chat.postTextAs(id, me.userId(), target, req.text());
         return new TradeMessageResponse(m.getId(), m.getSenderType(), m.getMessageType(),
                 req.text(), m.getMetadata(), m.getCreatedAt());
     }

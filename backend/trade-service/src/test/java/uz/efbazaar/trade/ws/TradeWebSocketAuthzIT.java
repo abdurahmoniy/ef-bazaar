@@ -16,6 +16,7 @@ import org.springframework.web.socket.messaging.WebSocketStompClient;
 import org.springframework.web.socket.sockjs.client.SockJsClient;
 import org.springframework.web.socket.sockjs.client.WebSocketTransport;
 import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
+import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.dto.TradeResponse;
 import uz.efbazaar.trade.trade.service.TradeService;
 
@@ -80,6 +81,77 @@ class TradeWebSocketAuthzIT extends AbstractIntegrationIT {
 
         StompHeaders errorFrame = errors.poll(5, TimeUnit.SECONDS);
         assertThat(errorFrame).as("expected an ERROR frame for a role-mismatched SUBSCRIBE").isNotNull();
+    }
+
+    @Test
+    void assignedAdminMaySubscribeToBothPartyTopics() throws Exception {
+        UUID seller = UUID.randomUUID();
+        UUID buyer  = UUID.randomUUID();
+        UUID admin  = UUID.randomUUID();
+
+        // HUMAN trade, no cards, this admin assigned.
+        TradeResponse t = trades.openTrade(seller, buyer, 80_000L,
+                null, null, null, null, TradeMode.HUMAN, admin, 20_000L);
+
+        BlockingQueue<StompHeaders> errors = new ArrayBlockingQueue<>(4);
+        StompSession session = connect(admin, errors);
+
+        session.subscribe("/topic/trades/" + t.id() + "/seller", new StompFrameHandler() {
+            @Override public Type getPayloadType(StompHeaders headers) { return java.util.Map.class; }
+            @Override public void handleFrame(StompHeaders headers, Object payload) { }
+        });
+        session.subscribe("/topic/trades/" + t.id() + "/buyer", new StompFrameHandler() {
+            @Override public Type getPayloadType(StompHeaders headers) { return java.util.Map.class; }
+            @Override public void handleFrame(StompHeaders headers, Object payload) { }
+        });
+
+        // Following both party chats is the whole shape of a human trade.
+        assertThat(errors.poll(2, TimeUnit.SECONDS))
+                .as("assigned admin must be allowed on both party topics")
+                .isNull();
+    }
+
+    @Test
+    void unassignedTradeAdminSubscribeIsRejected() throws Exception {
+        UUID seller = UUID.randomUUID();
+        UUID buyer  = UUID.randomUUID();
+        UUID assigned = UUID.randomUUID();
+        UUID otherAdmin = UUID.randomUUID();
+
+        TradeResponse t = trades.openTrade(seller, buyer, 80_000L,
+                null, null, null, null, TradeMode.HUMAN, assigned, 20_000L);
+
+        BlockingQueue<StompHeaders> errors = new ArrayBlockingQueue<>(4);
+        StompSession session = connect(otherAdmin, errors);
+
+        session.subscribe("/topic/trades/" + t.id() + "/seller", new StompFrameHandler() {
+            @Override public Type getPayloadType(StompHeaders headers) { return java.util.Map.class; }
+            @Override public void handleFrame(StompHeaders headers, Object payload) { }
+        });
+
+        assertThat(errors.poll(5, TimeUnit.SECONDS))
+                .as("a trade admin not assigned to this trade is just a stranger")
+                .isNotNull();
+    }
+
+    @Test
+    void smartTradeStillRejectsAWrongRoleSubscribe() throws Exception {
+        // Guards that widening the check for admins did not loosen it for parties.
+        UUID seller = UUID.randomUUID();
+        UUID buyer  = UUID.randomUUID();
+
+        TradeResponse t = trades.openTrade(seller, buyer, 500_000L,
+                UUID.randomUUID(), UUID.randomUUID(), null);
+
+        BlockingQueue<StompHeaders> errors = new ArrayBlockingQueue<>(4);
+        StompSession session = connect(buyer, errors);
+
+        session.subscribe("/topic/trades/" + t.id() + "/seller", new StompFrameHandler() {
+            @Override public Type getPayloadType(StompHeaders headers) { return java.util.Map.class; }
+            @Override public void handleFrame(StompHeaders headers, Object payload) { }
+        });
+
+        assertThat(errors.poll(5, TimeUnit.SECONDS)).isNotNull();
     }
 
     private StompSession connect(UUID userId, BlockingQueue<StompHeaders> errors) throws Exception {
