@@ -87,7 +87,10 @@ class UserDeletedConsumerIT {
         int chatsClosed = chats.closeAllForParticipant(victimUserId, Instant.now());
         int likesRemoved = likes.deleteAllByUserId(victimUserId);
 
-        assertThat(listingsClosed).isEqualTo(3); // 2 originals + the extra one seeded for chats
+        // Victim owns 3 listings total (2 ACTIVE, 1 SOLD); softDeleteAllBySeller
+        // filters to ACTIVE only (matches its own javadoc and the SOLD one's
+        // "should stay SOLD" intent above), so only 2 are closed.
+        assertThat(listingsClosed).isEqualTo(2);
         assertThat(chatsClosed).isEqualTo(2);
         assertThat(likesRemoved).isEqualTo(2);
 
