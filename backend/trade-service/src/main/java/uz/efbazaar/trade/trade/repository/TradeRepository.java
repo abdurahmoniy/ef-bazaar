@@ -83,4 +83,20 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM Trade t WHERE t.id = :id")
     Optional<Trade> findByIdForUpdate(@Param("id") UUID id);
+
+    /**
+     * Human trades whose admin has gone quiet and which have not been escalated
+     * yet. Backed by ix_trades_escalation_due.
+     */
+    @Query("""
+            SELECT t FROM Trade t
+             WHERE t.mode = uz.efbazaar.trade.trade.domain.TradeMode.HUMAN
+               AND t.state = uz.efbazaar.trade.trade.domain.TradeState.IN_PROGRESS
+               AND t.escalatedAt IS NULL
+               AND t.escalationDeadlineAt IS NOT NULL
+               AND t.escalationDeadlineAt < :now
+            """)
+    List<Trade> findIdleHumanTrades(@Param("now") Instant now);
+
+    List<Trade> findByEscalatedAtIsNotNullOrderByEscalatedAtAsc();
 }

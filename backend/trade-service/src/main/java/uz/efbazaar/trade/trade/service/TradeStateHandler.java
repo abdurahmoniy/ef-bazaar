@@ -126,6 +126,12 @@ public class TradeStateHandler {
                 trade.setStateDeadline(now(thccS));
                 trade.setEscalationDeadlineAt(null);
                 trade.setAdminClosedAt(Instant.now());
+                // The admin finished the job — even if they were escalated
+                // for being idle first. Without this the platform queue
+                // (TradeEscalationService.listEscalated, Task 15) would keep
+                // showing a trade that is already on its way to SUCCESS.
+                trade.setEscalatedAt(null);
+                trade.setEscalationReason(null);
             }
 
             case SUCCESS -> {
@@ -161,6 +167,12 @@ public class TradeStateHandler {
             case REJECTED -> {
                 trade.setStateDeadline(null);
                 trade.setEscalationDeadlineAt(null);
+                // Same reasoning as WAITING_CLOSE_CONFIRM above: the admin
+                // (or a platform admin acting on ADMIN_CANCELLED) resolved
+                // the trade, so a stale escalated flag must not linger into
+                // a terminal state.
+                trade.setEscalatedAt(null);
+                trade.setEscalationReason(null);
                 trade.setTerminalReason(event == TradeEvent.ADMIN_CANCELLED
                         ? "ADMIN_CANCELLED" : "BUYER_REJECTED_OR_TIMEOUT");
                 events.mailboxRotateRequest(trade.getMailboxId());
