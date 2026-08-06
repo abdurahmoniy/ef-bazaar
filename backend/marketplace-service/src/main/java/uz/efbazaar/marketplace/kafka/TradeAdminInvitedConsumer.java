@@ -28,10 +28,14 @@ public class TradeAdminInvitedConsumer {
     )
     @Transactional
     public void onInvited(TradeAdminInvitedDto e) {
-        if (e == null || e.adminId() == null) {
-            log.warn("admin-invited with no adminId, skipping");
+        if (e == null) {
+            log.warn("admin-invited event was null, skipping");
             return;
         }
-        notifications.tradeAdminInvited(e.adminId(), e.tradeId(), e.priceUzs());
+        if (e.adminId() == null) {
+            log.warn("admin-invited for trade {} with no adminId, skipping", e.tradeId());
+            return;
+        }
+        notifications.tradeAdminInvited(e.adminId(), e.tradeId());
     }
 }

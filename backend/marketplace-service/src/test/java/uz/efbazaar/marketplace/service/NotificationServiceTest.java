@@ -107,7 +107,7 @@ class NotificationServiceTest {
                 adminId, NotificationType.TRADE_ADMIN_INVITED, tradeId))
                 .thenReturn(false);
 
-        service.tradeAdminInvited(adminId, tradeId, 80_000L);
+        service.tradeAdminInvited(adminId, tradeId);
 
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notifications).save(captor.capture());
@@ -125,7 +125,7 @@ class NotificationServiceTest {
                 adminId, NotificationType.TRADE_ADMIN_INVITED, tradeId))
                 .thenReturn(true);
 
-        service.tradeAdminInvited(adminId, tradeId, 80_000L);
+        service.tradeAdminInvited(adminId, tradeId);
 
         verify(notifications, never()).save(any());
     }

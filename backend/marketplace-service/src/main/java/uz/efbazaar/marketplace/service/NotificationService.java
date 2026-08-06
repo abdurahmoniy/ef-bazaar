@@ -82,7 +82,7 @@ public class NotificationService {
      * existing row first.
      */
     @Transactional
-    public void tradeAdminInvited(UUID adminId, UUID tradeId, long priceUzs) {
+    public void tradeAdminInvited(UUID adminId, UUID tradeId) {
         if (notifications.existsByUserIdAndTypeAndTradeId(
                 adminId, NotificationType.TRADE_ADMIN_INVITED, tradeId)) {
             log.debug("admin-invited replay for admin={} trade={}, skipping", adminId, tradeId);

@@ -8,7 +8,6 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -27,7 +26,7 @@ class TradeAdminInvitedConsumerTest {
         consumer.onInvited(new TradeAdminInvitedDto(tradeId, adminId,
                 UUID.randomUUID(), UUID.randomUUID(), 80_000L, 20_000L, Instant.now()));
 
-        verify(notifications).tradeAdminInvited(eq(adminId), eq(tradeId), anyLong());
+        verify(notifications).tradeAdminInvited(eq(adminId), eq(tradeId));
     }
 
     @Test
