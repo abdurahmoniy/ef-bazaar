@@ -93,13 +93,32 @@ class AdminChatAccessIT extends AbstractIntegrationIT {
     @Test
     void theOtherPartyDoesNotSeeIt() throws Exception {
         givenAcceptedTrade();
+
+        // Seed the buyer's own chat first so the doesNotExist assertions
+        // below discriminate within a non-empty array, not against an
+        // empty one.
+        mvc.perform(post("/api/v1/trades/" + trade.getId() + "/messages")
+                        .with(asUser(trade.getBuyerId()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(text("xaridor xabari")))
+                .andExpect(status().isOk());
+
         mvc.perform(post("/api/v1/trades/" + trade.getId() + "/messages?target=SELLER")
                         .with(asUser(adminId, "ROLE_USER", TA))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(text("faqat sotuvchiga")))
                 .andExpect(status().isOk());
 
+        // Default read — the buyer's own chat.
         mvc.perform(get("/api/v1/trades/" + trade.getId() + "/messages")
+                        .with(asUser(trade.getBuyerId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.text=='xaridor xabari')]").exists())
+                .andExpect(jsonPath("$[?(@.text=='faqat sotuvchiga')]").doesNotExist());
+
+        // A party's read is not steerable by target either — the buyer
+        // naming SELLER still gets their own chat back, never the seller's.
+        mvc.perform(get("/api/v1/trades/" + trade.getId() + "/messages?target=SELLER")
                         .with(asUser(trade.getBuyerId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.text=='faqat sotuvchiga')]").doesNotExist());
@@ -109,12 +128,30 @@ class AdminChatAccessIT extends AbstractIntegrationIT {
     void adminCanReadEitherChat() throws Exception {
         givenAcceptedTrade();
 
+        mvc.perform(post("/api/v1/trades/" + trade.getId() + "/messages?target=SELLER")
+                        .with(asUser(adminId, "ROLE_USER", TA))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(text("sotuvchiga xabar")))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/trades/" + trade.getId() + "/messages?target=BUYER")
+                        .with(asUser(adminId, "ROLE_USER", TA))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(text("xaridorga xabar")))
+                .andExpect(status().isOk());
+
+        // Each read returns its own chat's message and not the other one's —
+        // status 200 alone can't tell "read the named chat" from "read the
+        // same chat twice."
         mvc.perform(get("/api/v1/trades/" + trade.getId() + "/messages?target=SELLER")
                         .with(asUser(adminId, "ROLE_USER", TA)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.text=='sotuvchiga xabar')]").exists())
+                .andExpect(jsonPath("$[?(@.text=='xaridorga xabar')]").doesNotExist());
         mvc.perform(get("/api/v1/trades/" + trade.getId() + "/messages?target=BUYER")
                         .with(asUser(adminId, "ROLE_USER", TA)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.text=='xaridorga xabar')]").exists())
+                .andExpect(jsonPath("$[?(@.text=='sotuvchiga xabar')]").doesNotExist());
     }
 
     @Test
@@ -126,11 +163,23 @@ class AdminChatAccessIT extends AbstractIntegrationIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(text("qaysi chatga?")))
                 .andExpect(status().isBadRequest());
+
+        mvc.perform(get("/api/v1/trades/" + trade.getId() + "/messages")
+                        .with(asUser(adminId, "ROLE_USER", TA)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
     void partyTargetParameterIsIgnored() throws Exception {
         givenAcceptedTrade();
+
+        // Seed the buyer chat so the doesNotExist assertion below
+        // discriminates within a non-empty array.
+        mvc.perform(post("/api/v1/trades/" + trade.getId() + "/messages")
+                        .with(asUser(trade.getBuyerId()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(text("xaridor salom")))
+                .andExpect(status().isOk());
 
         // The seller aiming at BUYER still lands in their own chat.
         mvc.perform(post("/api/v1/trades/" + trade.getId() + "/messages?target=BUYER")
@@ -143,6 +192,7 @@ class AdminChatAccessIT extends AbstractIntegrationIT {
         mvc.perform(get("/api/v1/trades/" + trade.getId() + "/messages")
                         .with(asUser(trade.getBuyerId())))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.text=='xaridor salom')]").exists())
                 .andExpect(jsonPath("$[?(@.text=='men sotuvchiman')]").doesNotExist());
     }
 

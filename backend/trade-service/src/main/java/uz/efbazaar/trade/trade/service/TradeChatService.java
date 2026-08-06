@@ -32,7 +32,15 @@ public class TradeChatService {
     private final TradeBroadcaster broadcaster;
     private final TradeIdleWatchdog idleWatchdog;
 
-    /** Party form — writes into the caller's own chat. */
+    /**
+     * Party form — always writes into the caller's own chat; {@code target}
+     * is never consulted here. Lookup routes through {@link TradeService#getForViewer},
+     * so a caller need not be a party to reach this method — an admin who calls
+     * this delegate simply gets 400 (no target named), not 404. It is chat
+     * *selection* that stays party-restricted here, not the trade lookup itself;
+     * party-only lookup lives in {@link TradeService#get}, used elsewhere for
+     * callers that must remain party-restricted (Tasks 13/14).
+     */
     @Transactional
     public TradeMessage postText(UUID tradeId, UUID viewerUserId, String text) {
         return postTextAs(tradeId, viewerUserId, null, text);
@@ -51,20 +59,11 @@ public class TradeChatService {
                     "Trade is closed — no new messages allowed");
         }
         TradeViewer viewer = t.viewerFor(senderUserId);
-
-        ParticipantRole chatRole;
-        TradeSenderType senderType;
-        if (viewer == TradeViewer.ADMIN) {
-            if (target == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Qaysi chatga yozilayotganini ko'rsating: SELLER yoki BUYER");
-            }
-            chatRole = target;
-            senderType = TradeSenderType.HUMAN_ADMIN;
-        } else {
-            chatRole = viewer.asParticipantRole();
-            senderType = TradeSenderType.USER;
-        }
+        ParticipantRole chatRole = resolveChatRole(viewer, target,
+                "Qaysi chatga yozilayotganini ko'rsating: SELLER yoki BUYER");
+        TradeSenderType senderType = viewer == TradeViewer.ADMIN
+                ? TradeSenderType.HUMAN_ADMIN
+                : TradeSenderType.USER;
 
         var chat = chats.findByTradeIdAndParticipant(tradeId, chatRole)
                 .orElseThrow(() -> new EntityNotFoundException("chat for " + chatRole));
@@ -97,7 +96,15 @@ public class TradeChatService {
         return msg;
     }
 
-    /** Party form — reads the caller's own chat. */
+    /**
+     * Party form — always reads the caller's own chat; {@code target} is
+     * never consulted here. Lookup routes through {@link TradeService#getForViewer},
+     * so a caller need not be a party to reach this method — an admin who calls
+     * this delegate simply gets 400 (no target named), not 404. It is chat
+     * *selection* that stays party-restricted here, not the trade lookup itself;
+     * party-only lookup lives in {@link TradeService#get}, used elsewhere for
+     * callers that must remain party-restricted (Tasks 13/14).
+     */
     @Transactional(readOnly = true)
     public List<TradeMessageResponse> list(UUID tradeId, UUID viewerUserId) {
         return listFor(tradeId, viewerUserId, null);
@@ -109,17 +116,8 @@ public class TradeChatService {
                                              ParticipantRole target) {
         Trade t = trades.getForViewer(tradeId, viewerUserId);
         TradeViewer viewer = t.viewerFor(viewerUserId);
-
-        ParticipantRole chatRole;
-        if (viewer == TradeViewer.ADMIN) {
-            if (target == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Qaysi chat o'qilayotganini ko'rsating: SELLER yoki BUYER");
-            }
-            chatRole = target;
-        } else {
-            chatRole = viewer.asParticipantRole();
-        }
+        ParticipantRole chatRole = resolveChatRole(viewer, target,
+                "Qaysi chat o'qilayotganini ko'rsating: SELLER yoki BUYER");
 
         var chat = chats.findByTradeIdAndParticipant(tradeId, chatRole)
                 .orElseThrow(() -> new EntityNotFoundException("chat for " + chatRole));
@@ -135,6 +133,25 @@ public class TradeChatService {
                         m.getMetadata(),
                         m.getCreatedAt()))
                 .toList();
+    }
+
+    /**
+     * The one place that decides which chat a caller reaches. A party's
+     * {@code target} is never read — {@link TradeViewer#asParticipantRole()}
+     * always wins for them — and only the assigned admin's request can name
+     * either chat, and must. Kept as a single branch because this is the
+     * authorisation decision the whole task turns on: two copies of it is
+     * exactly where a future edit could let a party's target slip through.
+     */
+    private ParticipantRole resolveChatRole(TradeViewer viewer, ParticipantRole target,
+                                            String targetRequiredMessage) {
+        if (viewer == TradeViewer.ADMIN) {
+            if (target == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, targetRequiredMessage);
+            }
+            return target;
+        }
+        return viewer.asParticipantRole();
     }
 
     private String decryptText(UUID tradeId, TradeMessage m) {

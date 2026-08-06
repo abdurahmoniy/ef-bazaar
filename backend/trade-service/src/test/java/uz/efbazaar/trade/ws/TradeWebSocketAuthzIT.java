@@ -106,7 +106,10 @@ class TradeWebSocketAuthzIT extends AbstractIntegrationIT {
         });
 
         // Following both party chats is the whole shape of a human trade.
-        assertThat(errors.poll(2, TimeUnit.SECONDS))
+        // An absence assertion wants the longer window — the isNotNull cases
+        // below get 5 s, so this one should too, or it risks a false pass on
+        // a loaded CI runner.
+        assertThat(errors.poll(5, TimeUnit.SECONDS))
                 .as("assigned admin must be allowed on both party topics")
                 .isNull();
     }
