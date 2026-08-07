@@ -199,13 +199,19 @@ public class MailboxService {
      * is written by the {@code IN_PROGRESS} on-enter handler when the new admin
      * accepts.
      *
-     * <p>Deliberately NOT {@code assignOwner(id, null)}: that method also nulls
-     * {@code trade_id} and stamps {@code handed_off_at}, which are the marks of
-     * a finished trade handing the inbox to a party. A reassignment is not a
-     * handoff — the FK must stay so {@link
-     * uz.efbazaar.trade.mail.service.MailboxPasswordResolver} keeps resolving
-     * the provisioning context, and {@code MailboxRepository.findOrphaned}
-     * must not sweep up a live trade's mailbox.
+     * <p>Deliberately NOT {@code assignOwner(id, null)}: that method also stamps
+     * {@code handed_off_at}, which is the mark of a finished trade handing the
+     * inbox to a party. A reassignment is not a handoff, and re-stamping it
+     * would misdate the eventual real one.
+     *
+     * <p>Note {@code trade_id} is already null by the time this runs — the
+     * {@code IN_PROGRESS} on-enter handler clears it when the first admin
+     * accepts — so after this call the mailbox matches
+     * {@code MailboxRepository.findOrphaned} and shows up in the platform
+     * admin's orphan list until the replacement accepts. That is cosmetic:
+     * the list is read-only and {@code ROLE_ADMIN}-gated, and
+     * {@link uz.efbazaar.trade.mail.service.MailboxPasswordResolver} recovers
+     * the provisioning context through its {@code findByMailboxId} fallback.
      */
     @Transactional
     public void revokeOwner(UUID mailboxId) {
