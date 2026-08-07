@@ -19,7 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
-import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -82,12 +82,18 @@ class AdminTradeEscalationControllerIT extends AbstractIntegrationIT {
         trades.save(accepted);
         sweeper.sweep();
 
+        // Select by id, not by position. The queue is global and ordered by
+        // escalatedAt ASC, so any other IT that escalates a trade against the
+        // shared container lands ahead of this one — $[0] made the assertion
+        // depend on test execution order, which is what broke it on CI.
+        String mine = "$[?(@.id=='" + t.getId() + "')]";
+
         mvc.perform(get("/api/v1/admin/trades/escalated").with(asAdmin()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(t.getId().toString()))
-                .andExpect(jsonPath("$[0].assignedAdminId").value(adminId.toString()))
-                .andExpect(jsonPath("$[0].adminFeeUzs").value(20000))
-                .andExpect(jsonPath("$[0].escalationReason").value("ADMIN_IDLE"))
-                .andExpect(jsonPath("$[0].escalatedAt", notNullValue()));
+                .andExpect(jsonPath(mine).exists())
+                .andExpect(jsonPath(mine + ".assignedAdminId").value(hasItem(adminId.toString())))
+                .andExpect(jsonPath(mine + ".adminFeeUzs").value(hasItem(20000)))
+                .andExpect(jsonPath(mine + ".escalationReason").value(hasItem("ADMIN_IDLE")))
+                .andExpect(jsonPath(mine + ".escalatedAt").exists());
     }
 }
