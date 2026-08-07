@@ -199,6 +199,18 @@ public class TradeProposalService {
             // No platform payment, so no cards at all.
             sellerCardId = null;
             buyerCardId  = null;
+            if (adminId == null || adminFee == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Inson admin savdosida admin va haq ko'rsatilishi shart");
+            }
+            // Re-check, not just at create(): the proposal lives 10 minutes and
+            // in that window the admin can lose the ROLE_TRADE_ADMIN role,
+            // pause new orders, or move their fee band. This accept is what
+            // writes assigned_admin_id, so a stale check opens a trade bound to
+            // somebody whose own accept() throws 403 and who — once their token
+            // drops ROLE_TRADE_ADMIN — cannot reach the decline endpoint
+            // either, leaving 24h to ORPHANED as the only exit.
+            adminProfiles.requireHireable(adminId, adminFee);
         } else {
             if (accepterCardId == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,

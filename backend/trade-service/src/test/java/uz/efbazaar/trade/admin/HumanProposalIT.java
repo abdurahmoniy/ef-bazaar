@@ -114,6 +114,49 @@ class HumanProposalIT extends AbstractIntegrationIT {
                 .isInstanceOf(ResponseStatusException.class);
     }
 
+    /**
+     * The check at create() covers a moment; accept() is what actually writes
+     * assigned_admin_id, and the proposal lives 10 minutes in between. An admin
+     * who pauses orders (or loses the role, or moves their fee band) in that
+     * window would otherwise get a trade pinned on them that their own accept()
+     * throws 403 on — and, once ROLE_TRADE_ADMIN drops off their token, that
+     * they cannot even decline, since that endpoint requires the role. The only
+     * exit left would be 24h to ORPHANED.
+     */
+    @Test
+    void anAdminWhoStopsAcceptingOrdersDuringTheTtlFailsTheAccept() {
+        UUID seller = UUID.randomUUID(), buyer = UUID.randomUUID();
+        UUID admin = hireableAdmin();
+        var created = proposals.create(seller, human(seller, buyer, admin, 20_000L));
+
+        var p = profiles.findById(admin).orElseThrow();
+        p.setAcceptingOrders(false);
+        profiles.save(p);
+
+        assertThatThrownBy(() -> proposals.accept(buyer, created.proposalId(), null))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+        assertThat(trades.findByAssignedAdminIdOrderByCreatedAtDesc(admin))
+                .as("no trade may be opened bound to an admin who cannot work it")
+                .isEmpty();
+    }
+
+    @Test
+    void anAdminWhoLosesTheRoleDuringTheTtlFailsTheAccept() {
+        UUID seller = UUID.randomUUID(), buyer = UUID.randomUUID();
+        UUID admin = hireableAdmin();
+        var created = proposals.create(seller, human(seller, buyer, admin, 20_000L));
+
+        var p = profiles.findById(admin).orElseThrow();
+        p.setActive(false);   // what UserRoleChangedConsumer does on revocation
+        profiles.save(p);
+
+        assertThatThrownBy(() -> proposals.accept(buyer, created.proposalId(), null))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+        assertThat(trades.findByAssignedAdminIdOrderByCreatedAtDesc(admin)).isEmpty();
+    }
+
     @Test
     void smartProposalStillRequiresBothCards() {
         UUID seller = UUID.randomUUID(), buyer = UUID.randomUUID();
