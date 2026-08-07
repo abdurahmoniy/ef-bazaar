@@ -119,10 +119,13 @@ public class TradeAdminAssignmentService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Admin faqat kutish holatida tanlanadi");
         }
-        if (t.getAssignedAdminId() != null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Bu savdoda allaqachon admin bor");
-        }
+        // No "already assigned" guard on purpose. WAITING_ADMIN means exactly
+        // "nobody has taken this job yet", and spec §13.2 is that the seller
+        // may work down a list of admins, each getting their own window. An
+        // admin who never opens the app declines nothing, so requiring an
+        // explicit decline to free the slot would freeze the trade for the
+        // full 24h with no seller-side recovery — and the escalation sweeper
+        // cannot help, it only ever looks at IN_PROGRESS.
         if (adminId.equals(t.getSellerId()) || adminId.equals(t.getBuyerId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Admin o'z savdosining tarafi bo'lolmaydi");
@@ -131,6 +134,10 @@ public class TradeAdminAssignmentService {
 
         t.setAssignedAdminId(adminId);
         t.setAdminFeeUzs(feeUzs);
+        // Belt-and-braces for the chat gate (spec §6.1): an invitation must
+        // never carry an accepted-at stamp into WAITING_ADMIN, or the newly
+        // invited admin would inherit chat access they have not earned.
+        t.setAdminAcceptedAt(null);
         t.setStateDeadline(Instant.now().plusSeconds(humanWaitingAdminSeconds));
         trades.save(t);
 

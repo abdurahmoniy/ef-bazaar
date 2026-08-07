@@ -224,14 +224,55 @@ class TradeAdminAssignmentIT extends AbstractIntegrationIT {
                 .isInstanceOf(ResponseStatusException.class);
     }
 
+    /**
+     * Replaces the plan's {@code cannotInviteWhileAnAdminIsAlreadyAssigned}.
+     * That restriction was a plan defect: spec §13.2 makes {@code assign-admin}
+     * the mechanism by which a seller works down a list of admins, each getting
+     * their own window. An admin who simply never opens the app declines
+     * nothing, so gating the slot on an explicit decline froze the trade for
+     * the full 24h with no seller-side recovery — and the escalation sweeper
+     * cannot help, it only ever looks at IN_PROGRESS. WAITING_ADMIN means
+     * precisely "nobody has taken this job", so a re-invite is what the state
+     * is for.
+     */
     @Test
-    void cannotInviteWhileAnAdminIsAlreadyAssigned() {
-        UUID first = admin(3);
-        Trade t = waitingAdminTrade(first);
+    void sellerCanReplaceASilentAdminWhileTheTradeIsStillWaiting() {
+        UUID silent = admin(3);
+        Trade t = waitingAdminTrade(silent);
         UUID second = admin(3);
 
-        assertThatThrownBy(() -> assignments.assign(t.getSellerId(), t.getId(), second, 25_000L))
+        assignments.assign(t.getSellerId(), t.getId(), second, 25_000L);
+
+        Trade after = trades.findById(t.getId()).orElseThrow();
+        assertThat(after.getAssignedAdminId()).isEqualTo(second);
+        assertThat(after.getAdminFeeUzs()).isEqualTo(25_000L);
+        assertThat(after.getState()).isEqualTo(TradeState.WAITING_ADMIN);
+        assertThat(after.getStateDeadline())
+                .as("the replacement gets a full window, not the leftovers of the first invite")
+                .isAfter(Instant.now().plus(Duration.ofHours(23)));
+        // The replaced admin's invitation is gone and they can no longer take it.
+        assertThat(assignments.listInvitations(silent)).isEmpty();
+        assertThat(assignments.listInvitations(second)).extracting("id").containsExactly(t.getId());
+        assertThatThrownBy(() -> assignments.accept(silent, t.getId()))
                 .isInstanceOf(ResponseStatusException.class);
+    }
+
+    /**
+     * The boundary the removed guard must not have taken with it: re-invites
+     * are a WAITING_ADMIN affair only. Once an admin has accepted, swapping
+     * them out is a platform-admin reassignment, not a seller action.
+     */
+    @Test
+    void sellerCannotSwapTheAdminOnceTheTradeIsInProgress() {
+        UUID working = admin(3);
+        Trade t = waitingAdminTrade(working);
+        assignments.accept(working, t.getId());
+
+        assertThatThrownBy(() -> assignments.assign(t.getSellerId(), t.getId(), admin(3), 25_000L))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("409");
+        assertThat(trades.findById(t.getId()).orElseThrow().getAssignedAdminId())
+                .isEqualTo(working);
     }
 
     @Test
