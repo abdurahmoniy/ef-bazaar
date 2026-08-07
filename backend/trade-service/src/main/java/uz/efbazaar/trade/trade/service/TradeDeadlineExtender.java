@@ -7,6 +7,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.trade.trade.domain.Trade;
+import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
 
 import java.time.Duration;
@@ -25,7 +26,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TradeDeadlineExtender {
 
-    public enum ExtensionOutcome { EXTENDED, CAPPED, TRADE_NOT_FOUND, TRADE_TERMINAL }
+    public enum ExtensionOutcome { EXTENDED, CAPPED, TRADE_NOT_FOUND, TRADE_TERMINAL, TRADE_NOT_SMART }
 
     private final TradeRepository trades;
     private final StringRedisTemplate redis;
@@ -40,6 +41,17 @@ public class TradeDeadlineExtender {
             return ExtensionOutcome.TRADE_NOT_FOUND;
         }
         Trade t = loaded.get();
+        // Worker backpressure is a smart-path concept: only the Python worker
+        // emits worker-queued, and it only serves SMART trades. Enforcing that
+        // here rather than trusting the producer matters because the one state
+        // this could land on, IN_PROGRESS, MUST keep state_deadline NULL — it
+        // has no TIMEOUT transition, so TradeTimeoutScheduler would throw
+        // InvalidTradeTransitionException on that row every 10 seconds forever
+        // with nothing able to clear it. The invariant belongs in the code that
+        // owns the column, not in a different repository.
+        if (t.getMode() != TradeMode.SMART) {
+            return ExtensionOutcome.TRADE_NOT_SMART;
+        }
         if (t.getState().isTerminal()) {
             return ExtensionOutcome.TRADE_TERMINAL;
         }

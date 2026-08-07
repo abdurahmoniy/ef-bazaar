@@ -28,6 +28,9 @@ public final class TradeEvents {
     public static final String TOPIC_WORKER_STARTED       = "efbazaar.trade.worker-started";
     public static final String TOPIC_LISTING_SOLD         = "efbazaar.trade.listing-sold";
     public static final String TOPIC_KONAMI_EMAIL_CHANGE_CODE = "efbazaar.trade.konami-email-change-code-received";
+    public static final String TOPIC_ADMIN_INVITED         = "efbazaar.trade.admin-invited";
+    public static final String TOPIC_TRADE_OPENED          = "efbazaar.trade.trade-opened";
+    public static final String TOPIC_TRADE_CLOSED          = "efbazaar.trade.trade-closed";
 
     public enum ProposalOutcome { ACCEPTED, REJECTED, EXPIRED }
     public enum ImapPurpose      { VERIFY_LINK, WAIT_2FA_CODE, WAIT_EMAIL_CHANGE_CODE }
@@ -154,4 +157,28 @@ public final class TradeEvents {
             String verificationCode,
             Instant receivedAt,
             String sender) {}
+
+    /**
+     * A seller invited this admin to run a trade. marketplace-service turns it
+     * into a TRADE_ADMIN_INVITED notification so the invitation reaches the
+     * admin's existing bell rather than a second one.
+     *
+     * <p>Delivery is best-effort: the admin also sees pending invitations at
+     * {@code GET /api/v1/trade-admins/me/invitations}.
+     */
+    public record AdminInvited(
+            UUID tradeId,
+            UUID adminId,
+            UUID sellerId,
+            UUID buyerId,
+            long priceUzs,
+            Long feeUzs,
+            Instant occurredAt) {}
+
+    /**
+     * Asks marketplace-service to hold this trade's chat open (opened) or
+     * release it (closed). {@code chatId} may be null for trades opened without
+     * a chat context, in which case the consumer no-ops.
+     */
+    public record TradeChatPin(UUID tradeId, UUID chatId, Instant occurredAt) {}
 }

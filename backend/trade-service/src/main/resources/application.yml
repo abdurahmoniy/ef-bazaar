@@ -42,6 +42,11 @@ spring:
       properties:
         spring.json.trusted.packages: "uz.efbazaar.*"
 
+app:
+  auth:
+    internal-base-url: ${AUTH_INTERNAL_BASE_URL:http://auth-service:8081}
+    internal-secret: ${INTERNAL_API_SECRET:}
+
 server:
   port: 8085
   forward-headers-strategy: framework
@@ -62,6 +67,11 @@ management:
       enabled: false
 
 trade:
+  scheduler:
+    sweep-interval-ms: 10000
+    # Separate from the timeout sweep — see TradeEscalationSweeper's javadoc.
+    escalation-sweep-interval-ms: 60000
+    escalation-sweep-batch-size: 200
   crypto:
     master-key-file: ${MASTER_KEY_FILE:}
   timeouts:
@@ -70,11 +80,29 @@ trade:
     verifying-konami-link-seconds: 1800
     waiting-password-seconds: 1800
     waiting-buyer-verify-seconds: 86400
+    # ----- human trade-admin mode -----
+    # Nobody accepted the invitation → ORPHANED. Nothing has happened yet.
+    human-waiting-admin-seconds: 86400
+    # Admin closed, parties silent → SUCCESS (spec §3.8).
+    human-close-confirm-seconds: 86400
+    # Admin's last action was this long ago → escalate to a platform admin.
+    # NOT a state_deadline: see TradeStateHandler.onEnter(IN_PROGRESS).
+    human-admin-idle-seconds: 43200
   recheck:
     max-per-trade: 5
     min-interval-seconds: 300
+  human:
+    # A hand-run trade legitimately takes days; the smart path stays at 24h.
+    expires-after-hours: 168
+    rating-window-days: 7
   proposal:
     ttl-seconds: 600
+  presence:
+    # A user is "online" if they hit trade-service within this window.
+    # Replaced wholesale by the global presence spec.
+    online-ttl-seconds: 120
+  admin-catalog:
+    name-cache-ttl-seconds: 60
   mailcow:
     api-url: ${MAILCOW_API_URL:https://mailcow.efbazaar.uz/api/v1}
   mailbox:

@@ -8,9 +8,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import uz.efbazaar.trade.admin.service.TradeAdminProfileService;
 import uz.efbazaar.trade.kafka.TradeEventPublisher;
 import uz.efbazaar.trade.kafka.TradeEvents;
 import uz.efbazaar.trade.trade.domain.ActorType;
+import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.dto.ProposalCreateRequest;
 import uz.efbazaar.trade.trade.dto.ProposalDetailsResponse;
 import uz.efbazaar.trade.trade.dto.ProposalResponse;
@@ -19,6 +21,7 @@ import uz.efbazaar.trade.trade.exception.ProposalNotFoundException;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,7 +40,10 @@ import java.util.concurrent.TimeUnit;
  *   buyerId
  *   amountUzs
  *   listingId          (may be blank)
- *   proposerCardId
+ *   proposerCardId     (may be blank — HUMAN trades carry no card)
+ *   mode
+ *   adminId            (may be blank)
+ *   adminFeeUzs        (may be blank)
  * </pre>
  * TTL 600s. A secondary index {@code trade:proposal:by-chat:{chatId} -> proposalId}
  * is written with the same TTL so both parties can look up the active proposal
@@ -58,23 +64,53 @@ public class TradeProposalService {
     private final TradeEventPublisher events;
     private final TradeService trades;
     private final TradeAuditService audit;
+    private final TradeAdminProfileService adminProfiles;
 
     @Value("${trade.proposal.ttl-seconds:600}")
     private long ttlSeconds;
 
     public ProposalResponse create(UUID proposerUserId, ProposalCreateRequest req) {
+        TradeMode mode = req.modeOrDefault();
+
+        if (mode == TradeMode.HUMAN) {
+            // Only the seller may hire — the fee comes out of their share.
+            if (!proposerUserId.equals(req.sellerId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Inson adminni faqat sotuvchi tanlashi mumkin");
+            }
+            if (req.adminId() == null || req.adminFeeUzs() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Inson admin savdosida admin va haq ko'rsatilishi shart");
+            }
+            if (req.adminId().equals(req.sellerId()) || req.adminId().equals(req.buyerId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Admin o'z savdosining tarafi bo'lolmaydi");
+            }
+            // Throws 400 when the admin is unknown, inactive, paused, or the
+            // fee sits outside their advertised band.
+            adminProfiles.requireHireable(req.adminId(), req.adminFeeUzs());
+        } else if (req.cardId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Smart savdo uchun karta tanlanishi kerak");
+        }
+
         UUID proposalId = UUID.randomUUID();
         String key = redisKey(proposalId);
 
-        Map<String, String> hash = Map.of(
-                "marketplaceChatId", req.marketplaceChatId().toString(),
-                "proposerUserId",    proposerUserId.toString(),
-                "sellerId",          req.sellerId().toString(),
-                "buyerId",           req.buyerId().toString(),
-                "amountUzs",         req.amountUzs().toString(),
-                "listingId",         req.listingId() != null ? req.listingId().toString() : "",
-                "proposerCardId",    req.cardId().toString()
-        );
+        // LinkedHashMap, not Map.of: ten pairs is Map.of's ceiling and this
+        // hash is already there.
+        Map<String, String> hash = new LinkedHashMap<>();
+        hash.put("marketplaceChatId", req.marketplaceChatId().toString());
+        hash.put("proposerUserId",    proposerUserId.toString());
+        hash.put("sellerId",          req.sellerId().toString());
+        hash.put("buyerId",           req.buyerId().toString());
+        hash.put("amountUzs",         req.amountUzs().toString());
+        hash.put("listingId",         req.listingId() != null ? req.listingId().toString() : "");
+        hash.put("proposerCardId",    req.cardId() != null ? req.cardId().toString() : "");
+        hash.put("mode",              mode.name());
+        hash.put("adminId",           req.adminId() != null ? req.adminId().toString() : "");
+        hash.put("adminFeeUzs",       req.adminFeeUzs() != null ? req.adminFeeUzs().toString() : "");
+
         redis.opsForHash().putAll(key, hash);
         redis.expire(key, Duration.ofSeconds(ttlSeconds));
 
@@ -117,6 +153,10 @@ public class TradeProposalService {
         UUID marketplaceChatId = UUID.fromString((String) raw.get("marketplaceChatId"));
         long amountUzs      = Long.parseLong((String) raw.get("amountUzs"));
         UUID listingId      = optionalUuid(raw.get("listingId"));
+        TradeMode mode      = TradeMode.valueOf(
+                orDefault((String) raw.get("mode"), TradeMode.SMART.name()));
+        UUID adminId        = optionalUuid(raw.get("adminId"));
+        Long adminFeeUzs    = optionalLong(raw.get("adminFeeUzs"));
 
         Long ttl = redis.getExpire(mainKey, TimeUnit.SECONDS);
         Instant expiresAt = (ttl != null && ttl > 0)
@@ -125,7 +165,8 @@ public class TradeProposalService {
 
         return Optional.of(new ProposalDetailsResponse(
                 proposalId, marketplaceChatId, sellerId, buyerId,
-                proposerUserId, amountUzs, listingId, expiresAt));
+                proposerUserId, amountUzs, listingId, expiresAt,
+                mode, adminId, adminFeeUzs));
     }
 
     @Transactional
@@ -140,22 +181,50 @@ public class TradeProposalService {
         UUID sellerId       = UUID.fromString((String) raw.get("sellerId"));
         UUID buyerId        = UUID.fromString((String) raw.get("buyerId"));
         long amountUzs      = Long.parseLong((String) raw.get("amountUzs"));
-        UUID proposerCard   = UUID.fromString((String) raw.get("proposerCardId"));
+        UUID proposerCard   = optionalUuid(raw.get("proposerCardId"));
 
         // The accepter must be the OTHER party — a proposer accepting their own proposal is nonsense.
         if (accepterUserId.equals(proposerUserId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Proposer cannot accept own proposal");
         }
 
-        // Which card belongs to which side?
-        UUID sellerCardId = sellerId.equals(proposerUserId) ? proposerCard : accepterCardId;
-        UUID buyerCardId  = buyerId.equals(proposerUserId)  ? proposerCard : accepterCardId;
+        TradeMode mode = TradeMode.valueOf(
+                orDefault((String) raw.get("mode"), TradeMode.SMART.name()));
+        UUID adminId  = optionalUuid(raw.get("adminId"));
+        Long adminFee = optionalLong(raw.get("adminFeeUzs"));
+
+        UUID sellerCardId;
+        UUID buyerCardId;
+        if (mode == TradeMode.HUMAN) {
+            // No platform payment, so no cards at all.
+            sellerCardId = null;
+            buyerCardId  = null;
+            if (adminId == null || adminFee == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Inson admin savdosida admin va haq ko'rsatilishi shart");
+            }
+            // Re-check, not just at create(): the proposal lives 10 minutes and
+            // in that window the admin can lose the ROLE_TRADE_ADMIN role,
+            // pause new orders, or move their fee band. This accept is what
+            // writes assigned_admin_id, so a stale check opens a trade bound to
+            // somebody whose own accept() throws 403 and who — once their token
+            // drops ROLE_TRADE_ADMIN — cannot reach the decline endpoint
+            // either, leaving 24h to ORPHANED as the only exit.
+            adminProfiles.requireHireable(adminId, adminFee);
+        } else {
+            if (accepterCardId == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Smart savdo uchun kartangizni tanlang");
+            }
+            sellerCardId = sellerId.equals(proposerUserId) ? proposerCard : accepterCardId;
+            buyerCardId  = buyerId.equals(proposerUserId)  ? proposerCard : accepterCardId;
+        }
 
         UUID listingId = optionalUuid(raw.get("listingId"));
         UUID chatId    = optionalUuid(raw.get("marketplaceChatId"));
 
         var trade = trades.openTrade(sellerId, buyerId, amountUzs,
-                sellerCardId, buyerCardId, listingId, chatId);
+                sellerCardId, buyerCardId, listingId, chatId, mode, adminId, adminFee);
 
         redis.delete(mainKey);
         if (chatId != null) redis.delete(chatIndexKey(chatId));
@@ -181,6 +250,16 @@ public class TradeProposalService {
         if (v == null) return null;
         String s = v.toString();
         return s.isBlank() ? null : UUID.fromString(s);
+    }
+
+    private static Long optionalLong(Object v) {
+        if (v == null) return null;
+        String s = v.toString();
+        return s.isBlank() ? null : Long.valueOf(s);
+    }
+
+    private static String orDefault(String v, String fallback) {
+        return v == null || v.isBlank() ? fallback : v;
     }
 
     private static String redisKey(UUID proposalId) {

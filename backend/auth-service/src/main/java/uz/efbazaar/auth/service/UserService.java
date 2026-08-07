@@ -67,6 +67,10 @@ public class UserService {
      * Change a user's role. Self-targeting is rejected so an admin cannot demote
      * themselves and lock everyone out of the panel by accident. Existing access
      * tokens keep their old roles claim until they expire (max 15 min).
+     *
+     * <p>A no-op (requested role equals current role) saves nothing and publishes
+     * nothing — a spurious {@code user-role-changed} event would make trade-service
+     * deactivate an admin catalogue profile for no reason.
      */
     @Transactional
     public User changeRole(UUID adminId, UUID targetId, Role role) {
@@ -74,8 +78,13 @@ public class UserService {
             throw AuthException.cannotModifySelf();
         }
         User user = userRepository.findById(targetId).orElseThrow(AuthException::userNotFound);
+        Role oldRole = user.getRole();
+        if (oldRole == role) {
+            return user;
+        }
         user.setRole(role);
         User saved = userRepository.save(user);
+        events.userRoleChanged(targetId, oldRole, role);
         log.info("User role changed: id={} role={} adminId={}", targetId, role, adminId);
         return saved;
     }

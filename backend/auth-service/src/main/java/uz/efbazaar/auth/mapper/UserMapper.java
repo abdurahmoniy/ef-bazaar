@@ -23,7 +23,7 @@ public interface UserMapper {
     @Mapping(target = "telegramLinked", expression = "java(user.getTelegramId() != null)")
     @Mapping(target = "googleLinked", expression = "java(user.getGoogleId() != null)")
     @Mapping(target = "verified", expression = "java(user.verified())")
-    @Mapping(target = "roles", expression = "java(java.util.List.of(\"ROLE_\" + user.getRole().name()))")
+    @Mapping(target = "roles", expression = "java(user.getRole().authorities())")
     @Mapping(target = "telegramPhotoUrl", expression = "java(hasReliablePhoto(user) ? \"/api/auth/v1/users/me/photo\" : null)")
     UserResponse toResponse(User user);
 

@@ -72,6 +72,29 @@ public class NotificationService {
                 .build());
     }
 
+    /**
+     * A seller invited this admin to run a trade. Best-effort delivery — the
+     * admin also sees pending invitations in their workspace — so a failure
+     * here must not be treated as fatal.
+     *
+     * <p>Kafka redelivers at-least-once: a duplicate {@code admin-invited} for
+     * the same (admin, trade) must not double the bell, so this checks for an
+     * existing row first.
+     */
+    @Transactional
+    public void tradeAdminInvited(UUID adminId, UUID tradeId) {
+        if (notifications.existsByUserIdAndTypeAndTradeId(
+                adminId, NotificationType.TRADE_ADMIN_INVITED, tradeId)) {
+            log.debug("admin-invited replay for admin={} trade={}, skipping", adminId, tradeId);
+            return;
+        }
+        notifications.save(Notification.builder()
+                .userId(adminId)
+                .type(NotificationType.TRADE_ADMIN_INVITED)
+                .tradeId(tradeId)
+                .build());
+    }
+
     @Transactional(readOnly = true)
     public Page<Notification> list(UUID userId, Pageable pageable) {
         return notifications.findByUserIdOrderByCreatedAtDesc(userId, pageable);

@@ -10,5 +10,7 @@ public enum NotificationType {
     /** Trust: account blocked (temporary or permanent). */
     TRUST_BLOCKED,
     /** Trust: block lifted (expired or revoked). */
-    TRUST_UNBLOCKED
+    TRUST_UNBLOCKED,
+    /** A seller invited me to run their trade as a human trade admin. */
+    TRADE_ADMIN_INVITED
 }

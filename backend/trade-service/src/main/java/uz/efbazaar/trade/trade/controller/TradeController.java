@@ -21,11 +21,20 @@ public class TradeController {
 
     private final TradeService trades;
 
+    /**
+     * Viewer-scoped on purpose: the assigned human admin has to be able to
+     * fetch the one trade their whole workspace is about, not only find it in
+     * the {@code /trade-admins/me/trades} list. {@code role} stays a
+     * party-only concept — the admin is neither side, so they get {@code null},
+     * exactly as the other admin-facing responses in
+     * {@code TradeAdminWorkController} do.
+     */
     @GetMapping("/{id}")
     public TradeResponse get(@AuthenticationPrincipal AuthenticatedUser me,
                              @PathVariable UUID id) {
-        Trade t = trades.get(id, me.userId());
-        return trades.toResponse(t, t.roleFor(me.userId()));
+        Trade t = trades.getForViewer(id, me.userId());
+        return trades.toResponse(t,
+                t.isParticipant(me.userId()) ? t.roleFor(me.userId()) : null);
     }
 
     /**

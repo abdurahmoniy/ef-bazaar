@@ -131,6 +131,10 @@ efbazaar.marketplace.chat-created
 efbazaar.marketplace.chat-expired
 efbazaar.marketplace.cards-added     # { occurredAt, totalAdded, cards: [{efhubId, type, name, overallRating}] }
 efbazaar.bot.media-uploaded          # { listingId, telegramMessageId, mediaType }
+efbazaar.auth.user-role-changed      # auth → trade-service (deactivate trade-admin profile on role revoke)
+efbazaar.trade.admin-invited         # trade-service → marketplace-service (TRADE_ADMIN_INVITED notification)
+efbazaar.trade.trade-opened          # trade-service → marketplace-service (pin the trade's chat)
+efbazaar.trade.trade-closed          # trade-service → marketplace-service (unpin the trade's chat)
 ```
 
 ---
@@ -171,7 +175,11 @@ status                ACTIVE | SOLD | DELETED
 - Java 21 — Record, Pattern matching, Sealed classes ishlatiladi
 - Package: `uz.efbazaar.<service>.<layer>` (masalan `uz.efbazaar.auth.service`)
 - Controller → Service → Repository pattern
-- DTO ↔ Entity: MapStruct
+- DTO ↔ Entity: MapStruct — to'g'ridan-to'g'ri mapping uchun. Hisoblanadigan
+  maydon (masalan o'rtacha, foiz, hisoblangan bayroq) yoki boshqa servisdan
+  keladigan qiymat bo'lsa, DTO ichida `static of(...)` factory ishlatiladi
+  (masalan `TradeAdminCardResponse.of`) — MapStruct'ga `@AfterMapping`
+  qo'shishdan ko'ra o'qilishi oson va bitta joyda turadi
 - Validatsiya: Jakarta Validation (`@Valid`, `@NotNull` va h.k.)
 - Exception handling: `@ControllerAdvice` — markazlashtirilgan
 - API versioning: `/api/v1/...`

@@ -3,11 +3,15 @@ package uz.efbazaar.trade.trade.service;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import uz.efbazaar.trade.kafka.TradeEventPublisher;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.domain.ActorType;
@@ -17,6 +21,7 @@ import uz.efbazaar.trade.trade.domain.TradeChat;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.domain.TradeMessage;
 import uz.efbazaar.trade.trade.domain.TradeMessageType;
+import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.dto.TradePage;
 import uz.efbazaar.trade.trade.dto.TradeResponse;
@@ -44,17 +49,40 @@ public class TradeService {
     private final TradeAuditService audit;
     private final MailboxService mailboxes;
     private final TradeBroadcaster broadcaster;
+    private final TradeEventPublisher events;
+
+    @Value("${trade.human.expires-after-hours:168}")
+    private long humanExpiresAfterHours;
 
     @Transactional
     public TradeResponse openTrade(UUID sellerId, UUID buyerId, long priceUzs,
                                    UUID sellerCardId, UUID buyerCardId, UUID listingId) {
-        return openTrade(sellerId, buyerId, priceUzs, sellerCardId, buyerCardId, listingId, null);
+        return openTrade(sellerId, buyerId, priceUzs, sellerCardId, buyerCardId,
+                listingId, null, TradeMode.SMART, null, null);
     }
 
     @Transactional
     public TradeResponse openTrade(UUID sellerId, UUID buyerId, long priceUzs,
                                    UUID sellerCardId, UUID buyerCardId, UUID listingId,
                                    UUID chatId) {
+        return openTrade(sellerId, buyerId, priceUzs, sellerCardId, buyerCardId,
+                listingId, chatId, TradeMode.SMART, null, null);
+    }
+
+    @Transactional
+    public TradeResponse openTrade(UUID sellerId, UUID buyerId, long priceUzs,
+                                   UUID sellerCardId, UUID buyerCardId, UUID listingId,
+                                   UUID chatId, TradeMode mode,
+                                   UUID assignedAdminId, Long adminFeeUzs) {
+        if (mode == TradeMode.SMART && (sellerCardId == null || buyerCardId == null)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Smart savdo uchun ikki tarafning kartasi ham kerak");
+        }
+        if (mode == TradeMode.HUMAN && assignedAdminId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Inson admin savdosi uchun admin tanlanishi kerak");
+        }
+
         // The mailbox row is created up-front with a synthetic email; the worker
         // (Task 14) overwrites the email + password once it "provisions" Mailcow
         // in response to the email-provision-request event.
@@ -71,7 +99,11 @@ public class TradeService {
                 .mailboxId(mailboxId)
                 .sellerCardId(sellerCardId)
                 .buyerCardId(buyerCardId)
-                .expiresAt(Instant.now().plus(Duration.ofHours(24)))
+                .mode(mode)
+                .assignedAdminId(assignedAdminId)
+                .adminFeeUzs(adminFeeUzs)
+                .expiresAt(Instant.now().plus(Duration.ofHours(
+                        mode == TradeMode.HUMAN ? humanExpiresAfterHours : 24)))
                 .build();
 
         handler.onEnter(t, TradeState.INITIATED, ActorType.SYSTEM, null, null);
@@ -91,9 +123,14 @@ public class TradeService {
         audit.record(t.getId(), ActorType.SYSTEM, null, "TRADE_OPENED", Map.of(
                 "sellerId", sellerId.toString(),
                 "buyerId", buyerId.toString(),
-                "priceUzs", String.valueOf(priceUzs)
+                "priceUzs", String.valueOf(priceUzs),
+                "mode", mode.name()
         ));
         broadcaster.publishStateChange(t.getId(), toResponse(t, null));
+        // Hold the marketplace chat open for as long as the trade lives.
+        if (chatId != null) {
+            events.tradeOpened(t);
+        }
         return toResponse(t, null);
     }
 
@@ -105,6 +142,17 @@ public class TradeService {
     @Transactional(readOnly = true)
     public Trade get(UUID tradeId, UUID viewerUserId) {
         return trades.findByIdAndParticipant(tradeId, viewerUserId)
+                .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
+    }
+
+    /**
+     * Look up a trade for anyone entitled to see it — either party or the
+     * assigned human admin. Prefer {@link #get} where the caller must be a
+     * party (e.g. confirming the close).
+     */
+    @Transactional(readOnly = true)
+    public Trade getForViewer(UUID tradeId, UUID viewerUserId) {
+        return trades.findByIdAndViewer(tradeId, viewerUserId)
                 .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
     }
 
@@ -121,7 +169,7 @@ public class TradeService {
         if (event == TradeEvent.MAILBOX_PROVISIONED && actor != ActorType.WORKER) {
             throw new InvalidTradeTransitionException(from, event);
         }
-        TradeState to = sm.transition(from, event);
+        TradeState to = sm.transition(t.getMode(), from, event);
         t.setState(to);
         handler.onEnter(t, to, actor, actorId, event);
         trades.save(t);

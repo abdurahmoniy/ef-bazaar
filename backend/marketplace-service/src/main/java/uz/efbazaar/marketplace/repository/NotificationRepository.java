@@ -22,6 +22,9 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     Optional<Notification> findFirstByUserIdAndChatIdAndTypeAndReadAtIsNull(
             UUID userId, UUID chatId, NotificationType type);
 
+    /** Redelivery guard for trade-service events — one invite notice per (admin, trade). */
+    boolean existsByUserIdAndTypeAndTradeId(UUID userId, NotificationType type, UUID tradeId);
+
     @Modifying
     @Query("""
             UPDATE Notification n

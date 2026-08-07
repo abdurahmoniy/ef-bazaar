@@ -3,6 +3,8 @@ package uz.efbazaar.trade.trade.dto;
 import java.time.Instant;
 import java.util.UUID;
 
+import uz.efbazaar.trade.trade.domain.TradeMode;
+
 /**
  * Snapshot of a pending proposal returned by
  * {@code GET /api/v1/trades/proposals?chatId=...}. Includes both party ids so
@@ -21,5 +23,9 @@ public record ProposalDetailsResponse(
         UUID proposerUserId,
         long amountUzs,
         UUID listingId,
-        Instant expiresAt
+        Instant expiresAt,
+        /** SMART unless the seller hired a human admin. */
+        TradeMode mode,
+        UUID adminId,
+        Long adminFeeUzs
 ) {}

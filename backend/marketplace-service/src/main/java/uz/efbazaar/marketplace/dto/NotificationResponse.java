@@ -13,12 +13,13 @@ public record NotificationResponse(
         NotificationType type,
         UUID chatId,
         UUID listingId,
+        UUID tradeId,
         String actorDisplayName,
         Instant readAt,
         Instant createdAt
 ) {
     public static NotificationResponse from(Notification n) {
         return new NotificationResponse(n.getId(), n.getType(), n.getChatId(),
-                n.getListingId(), n.getActorDisplayName(), n.getReadAt(), n.getCreatedAt());
+                n.getListingId(), n.getTradeId(), n.getActorDisplayName(), n.getReadAt(), n.getCreatedAt());
     }
 }

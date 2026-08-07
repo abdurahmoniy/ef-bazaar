@@ -1,10 +1,15 @@
 package uz.efbazaar.trade.trade.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import uz.efbazaar.trade.admin.dto.AssignAdminRequest;
+import uz.efbazaar.trade.admin.dto.CloseConfirmResponse;
+import uz.efbazaar.trade.admin.service.TradeAdminAssignmentService;
+import uz.efbazaar.trade.admin.service.TradeCloseService;
 import uz.efbazaar.trade.kafka.TradeEventPublisher;
 import uz.efbazaar.trade.kafka.TradeEvents;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
@@ -30,6 +35,8 @@ public class TradeActionController {
     private final MailboxService mailboxes;
     private final RecheckRateLimiter recheckLimiter;
     private final TradeEventPublisher events;
+    private final TradeAdminAssignmentService assignments;
+    private final TradeCloseService closeService;
 
     @PostMapping("/payment-confirmed")
     public TradeResponse paymentConfirmed(@AuthenticationPrincipal AuthenticatedUser me,
@@ -85,6 +92,21 @@ public class TradeActionController {
         Trade after = trades.transition(id, TradeEvent.BUYER_REJECT,
                 ActorType.USER, me.userId());
         return trades.toResponse(after, ParticipantRole.BUYER);
+    }
+
+    @PostMapping("/assign-admin")
+    public TradeResponse assignAdmin(@AuthenticationPrincipal AuthenticatedUser me,
+                                     @PathVariable UUID id,
+                                     @Valid @RequestBody AssignAdminRequest req) {
+        assignments.assign(me.userId(), id, req.adminId(), req.feeUzs());
+        Trade after = trades.get(id, me.userId());
+        return trades.toResponse(after, ParticipantRole.SELLER);
+    }
+
+    @PostMapping("/close-confirm")
+    public CloseConfirmResponse closeConfirm(@AuthenticationPrincipal AuthenticatedUser me,
+                                             @PathVariable UUID id) {
+        return closeService.confirm(me.userId(), id);
     }
 
     private static void requireRole(Trade t, UUID userId, ParticipantRole required) {

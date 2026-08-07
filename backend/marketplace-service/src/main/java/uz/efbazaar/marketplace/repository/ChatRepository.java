@@ -31,12 +31,14 @@ public interface ChatRepository extends JpaRepository<Chat, UUID> {
     Page<Chat> findByParticipant(@Param("userId") UUID userId, Pageable pageable);
 
     /**
-     * Aktiv, important emas va 24 soat oldingi xabarli chatlarni qaytaradi.
+     * Aktiv, important emas, tizim ushlab turmagan va 24 soat oldingi xabarli
+     * chatlarni qaytaradi.
      */
     @Query("""
             SELECT c FROM Chat c
             WHERE c.status = uz.efbazaar.marketplace.domain.ChatStatus.ACTIVE
               AND c.important = false
+              AND c.systemImportant = false
               AND c.lastMessageAt < :cutoff
             """)
     List<Chat> findExpired(@Param("cutoff") Instant cutoff);
@@ -44,6 +46,28 @@ public interface ChatRepository extends JpaRepository<Chat, UUID> {
     @Modifying
     @Query("UPDATE Chat c SET c.lastMessageAt = :ts WHERE c.id = :id")
     void touchLastMessageAt(@Param("id") UUID id, @Param("ts") Instant ts);
+
+    /**
+     * Recomputes {@code system_important} from {@code chat_trade_pins} —
+     * "does any trade still pinning this chat" — rather than setting it
+     * absolutely. A chat can host more than one trade over its life, so a
+     * direct setter would let one trade's close unpin a chat another trade
+     * still needs open. Returns 0 if the chat id is unknown.
+     *
+     * <p>{@code clearAutomatically} because this is a native SQL write that
+     * bypasses the persistence context — without it, a {@code Chat} already
+     * loaded in the same transaction (e.g. the caller's own {@code existsById}
+     * check, or a test reading the entity back) would keep serving the
+     * pre-update in-memory value instead of what this statement just wrote.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query(value = """
+            UPDATE chats SET system_important = EXISTS (
+                SELECT 1 FROM chat_trade_pins ctp
+                WHERE ctp.chat_id = chats.id AND ctp.pinned = TRUE
+            ) WHERE id = :id
+            """, nativeQuery = true)
+    int recomputeSystemImportant(@Param("id") UUID id);
 
     /**
      * Close every ACTIVE chat the user participates in as buyer or seller.

@@ -147,6 +147,22 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <!-- *IT.java classes (UserDeletedConsumerIT, TradeChatPinConsumerIT, ...) are
+                 Testcontainers-backed integration tests. Surefire's default include/
+                 exclude patterns skip anything named *IT by convention — without this
+                 failsafe binding, `mvn verify` silently never runs them. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

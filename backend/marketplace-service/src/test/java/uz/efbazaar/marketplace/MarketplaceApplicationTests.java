@@ -21,6 +21,7 @@ import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
 import uz.efbazaar.marketplace.repository.ChatParticipantRepository;
 import uz.efbazaar.marketplace.repository.ChatRepository;
+import uz.efbazaar.marketplace.repository.ChatTradePinRepository;
 import uz.efbazaar.marketplace.repository.LikeRepository;
 import uz.efbazaar.marketplace.repository.ListingReportRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
@@ -62,6 +63,7 @@ class MarketplaceApplicationTests {
     @MockBean ListingRepository listingRepository;
     @MockBean LikeRepository likeRepository;
     @MockBean ChatRepository chatRepository;
+    @MockBean ChatTradePinRepository chatTradePinRepository;
     @MockBean ChatMessageRepository chatMessageRepository;
     @MockBean ChatParticipantRepository chatParticipantRepository;
     @MockBean AttributeDefinitionRepository attributeDefinitionRepository;

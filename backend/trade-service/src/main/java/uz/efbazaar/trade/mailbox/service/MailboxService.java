@@ -294,11 +294,48 @@ public class MailboxService {
         mailboxes.save(m);
     }
 
+    /**
+     * Takes the escrow mailbox away from whoever holds it while the trade
+     * itself lives on. Used when a human trade is reassigned: the departing
+     * admin must lose mail.efbazaar.uz access immediately, and the next owner
+     * is written by the {@code IN_PROGRESS} on-enter handler when the new admin
+     * accepts.
+     *
+     * <p>Deliberately NOT {@code assignOwner(id, null)}: that method also stamps
+     * {@code handed_off_at}, which is the mark of a finished trade handing the
+     * inbox to a party. A reassignment is not a handoff, and re-stamping it
+     * would misdate the eventual real one.
+     *
+     * <p>Note {@code trade_id} is already null by the time this runs — the
+     * {@code IN_PROGRESS} on-enter handler clears it when the first admin
+     * accepts — so after this call the mailbox matches
+     * {@code MailboxRepository.findOrphaned} and shows up in the platform
+     * admin's orphan list until the replacement accepts. That is cosmetic:
+     * the list is read-only and {@code ROLE_ADMIN}-gated, and
+     * {@link uz.efbazaar.trade.mail.service.MailboxPasswordResolver} recovers
+     * the provisioning context through its {@code findByMailboxId} fallback.
+     */
+    @Transactional
+    public void revokeOwner(UUID mailboxId) {
+        Mailbox m = mailboxes.findById(mailboxId)
+                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
+        m.setOwnerUserId(null);
+        mailboxes.save(m);
+    }
+
+    /**
+     * The orphan path: nobody gets the inbox. Both the owner and the trade FK
+     * are cleared — leaving {@code owner_user_id} on the last admin would hand
+     * them permanent read access to an escrow inbox full of Konami
+     * password-reset mail, since {@link uz.efbazaar.trade.mail.service.MailService}
+     * authorises on ownership alone.
+     */
     @Transactional
     public void stripFromTrade(UUID mailboxId) {
         Mailbox m = mailboxes.findById(mailboxId)
                 .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
         m.setTradeId(null);
+        m.setOwnerUserId(null);
         mailboxes.save(m);
     }
 }

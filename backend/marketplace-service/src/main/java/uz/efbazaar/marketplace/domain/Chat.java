@@ -38,6 +38,14 @@ public class Chat {
     @Builder.Default
     private boolean important = false;
 
+    /**
+     * Held open by a live trade. Distinct from {@code important}, which is the
+     * OR of both participants' own stars — clearing this must never clear that.
+     */
+    @Column(name = "system_important", nullable = false)
+    @Builder.Default
+    private boolean systemImportant = false;
+
     @Column(name = "last_message_at", nullable = false)
     private Instant lastMessageAt;
 

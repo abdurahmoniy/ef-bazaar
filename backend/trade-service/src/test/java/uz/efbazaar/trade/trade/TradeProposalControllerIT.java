@@ -8,6 +8,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
+import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.dto.ProposalCreateRequest;
 import uz.efbazaar.trade.trade.dto.ProposalResponse;
 
@@ -31,7 +32,8 @@ class TradeProposalControllerIT extends AbstractIntegrationIT {
         UUID proposer = UUID.randomUUID();
         UUID other = UUID.randomUUID();
         ProposalCreateRequest req = new ProposalCreateRequest(
-                UUID.randomUUID(), other, proposer, other, 500_000L, UUID.randomUUID(), null);
+                UUID.randomUUID(), other, proposer, other, 500_000L, UUID.randomUUID(), null,
+                TradeMode.SMART, null, null);
 
         mvc.perform(post("/api/v1/trades/proposals")
                         .contentType(APPLICATION_JSON)
@@ -59,7 +61,8 @@ class TradeProposalControllerIT extends AbstractIntegrationIT {
         UUID proposer = UUID.randomUUID();
         UUID other = UUID.randomUUID();
         ProposalCreateRequest req = new ProposalCreateRequest(
-                UUID.randomUUID(), other, proposer, other, 500_000L, UUID.randomUUID(), null);
+                UUID.randomUUID(), other, proposer, other, 500_000L, UUID.randomUUID(), null,
+                TradeMode.SMART, null, null);
 
         var createResult = mvc.perform(post("/api/v1/trades/proposals")
                         .contentType(APPLICATION_JSON)

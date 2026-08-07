@@ -100,6 +100,37 @@ class NotificationServiceTest {
     }
 
     @Test
+    void tradeAdminInvited_savesNotification() {
+        UUID adminId = UUID.randomUUID();
+        UUID tradeId = UUID.randomUUID();
+        when(notifications.existsByUserIdAndTypeAndTradeId(
+                adminId, NotificationType.TRADE_ADMIN_INVITED, tradeId))
+                .thenReturn(false);
+
+        service.tradeAdminInvited(adminId, tradeId);
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notifications).save(captor.capture());
+        Notification n = captor.getValue();
+        assertThat(n.getUserId()).isEqualTo(adminId);
+        assertThat(n.getType()).isEqualTo(NotificationType.TRADE_ADMIN_INVITED);
+        assertThat(n.getTradeId()).isEqualTo(tradeId);
+    }
+
+    @Test
+    void tradeAdminInvited_skipsDuplicateForSameAdminAndTrade() {
+        UUID adminId = UUID.randomUUID();
+        UUID tradeId = UUID.randomUUID();
+        when(notifications.existsByUserIdAndTypeAndTradeId(
+                adminId, NotificationType.TRADE_ADMIN_INVITED, tradeId))
+                .thenReturn(true);
+
+        service.tradeAdminInvited(adminId, tradeId);
+
+        verify(notifications, never()).save(any());
+    }
+
+    @Test
     void markRead_rejectsForeignNotification() {
         UUID id = UUID.randomUUID();
         Notification other = Notification.builder()

@@ -38,6 +38,10 @@ public class Notification {
     @Column(name = "listing_id")
     private UUID listingId;
 
+    /** Set for TRADE_ADMIN_INVITED so the bell can deep-link to the trade. */
+    @Column(name = "trade_id")
+    private UUID tradeId;
+
     @Column(name = "actor_display_name", length = 64)
     private String actorDisplayName;
 
