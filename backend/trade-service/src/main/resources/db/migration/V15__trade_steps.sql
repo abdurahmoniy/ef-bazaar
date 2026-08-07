@@ -1,5 +1,5 @@
 -- ==============================================================
--- trade-service V11 — the six manual steps of a human trade.
+-- trade-service V15 — the six manual steps of a human trade.
 --
 -- Six rows are created when the admin accepts; the admin ticks them in
 -- ANY order, and may untick to correct a mistake. 6/6 unlocks close.

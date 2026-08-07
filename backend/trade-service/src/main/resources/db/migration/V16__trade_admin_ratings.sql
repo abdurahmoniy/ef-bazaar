@@ -1,5 +1,5 @@
 -- ==============================================================
--- trade-service V12 — 1–5 star ratings of a human admin.
+-- trade-service V16 — 1–5 star ratings of a human admin.
 --
 -- Both parties may rate, optionally, within a configured window after
 -- SUCCESS. Not a chat message, so it still works after the chat closes.

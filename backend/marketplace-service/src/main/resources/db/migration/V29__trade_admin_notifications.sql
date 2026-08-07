@@ -1,5 +1,5 @@
 -- ==============================================================
--- marketplace-service V27 — human trade-admin support.
+-- marketplace-service V29 — human trade-admin support.
 --
 -- 1) TRADE_ADMIN_INVITED notification type, so an invitation lands in
 --    the bell the admin already has instead of a second one.

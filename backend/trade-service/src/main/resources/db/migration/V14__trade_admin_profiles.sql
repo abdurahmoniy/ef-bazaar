@@ -1,5 +1,5 @@
 -- ==============================================================
--- trade-service V10 — trade admin profiles.
+-- trade-service V14 — trade admin profiles.
 --
 -- Row exists  ⇔  "I work as a trade admin". Holding ROLE_TRADE_ADMIN
 -- without a profile row keeps you out of the catalogue.

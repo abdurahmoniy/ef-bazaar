@@ -1,5 +1,5 @@
 -- ==============================================================
--- trade-service V9 — human trade-admin mode.
+-- trade-service V13 — human trade-admin mode.
 --
 -- One state machine serves both modes; `mode` decides which side
 -- effects fire (see TradeStateHandler). Smart transitions are

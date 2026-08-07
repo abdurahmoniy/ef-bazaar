@@ -1,7 +1,7 @@
 -- ==============================================================
--- marketplace-service V28 — per-trade chat pin ledger.
+-- marketplace-service V30 — per-trade chat pin ledger.
 --
--- Fixes a bug in V27's chats.system_important design: that column was set
+-- Fixes a bug in V29's chats.system_important design: that column was set
 -- absolutely by TradeChatPinConsumer, but a chat can host more than one
 -- trade over its life (idx_trades_chat_id in trade-service is non-unique).
 -- Two trades opened against the same chat, with the first closing while the
