@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.trade.kafka.TradeEventPublisher;
+import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.domain.*;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
 import uz.efbazaar.trade.trade.service.TradeAuditService;
@@ -40,6 +41,7 @@ public class TradeEscalationService {
     private final TradeChatService chatService;
     private final TradeAuditService audit;
     private final TradeEventPublisher events;
+    private final MailboxService mailboxes;
 
     @Transactional(readOnly = true)
     public List<Trade> listEscalated() {
@@ -62,7 +64,13 @@ public class TradeEscalationService {
         profiles.requireHireable(newAdminId, feeUzs);
 
         // The previous admin already knows the escrow mailbox password, so
-        // revoking ownership is not enough — rotate it.
+        // revoking ownership is not enough — rotate it. Both halves are
+        // required: MailService authorises purely on mailboxes.getOwned(...),
+        // and MailboxRotatedConsumer writes the NEW password into that same
+        // row, so rotating without revoking would hand the departing admin the
+        // fresh password instead of locking them out. The next owner is written
+        // by the IN_PROGRESS on-enter handler when the new admin accepts.
+        mailboxes.revokeOwner(t.getMailboxId());
         events.mailboxRotateRequest(t.getMailboxId());
 
         t.setAssignedAdminId(newAdminId);

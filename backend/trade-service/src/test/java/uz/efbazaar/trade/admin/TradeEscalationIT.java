@@ -41,6 +41,7 @@ class TradeEscalationIT extends AbstractIntegrationIT {
     @Autowired TradeChatRepository chats;
     @Autowired TradeAdminProfileRepository profiles;
     @Autowired MailboxService mailboxes;
+    @Autowired uz.efbazaar.trade.trade.service.TradeService tradeService;
     @SpyBean TradeEventPublisher events;
 
     private UUID adminWithProfile() {
@@ -146,6 +147,102 @@ class TradeEscalationIT extends AbstractIntegrationIT {
                 .isNull();
         verify(events).mailboxRotateRequest(eq(t.getMailboxId()));
         assertThat(profiles.findById(oldAdmin).orElseThrow().getAbandonedCount()).isEqualTo(1);
+        // The rotate alone achieves nothing: MailboxRotatedConsumer writes the
+        // NEW password into the same mailbox row, and MailService authorises
+        // purely on mailboxes.getOwned(userId, mailboxId). Leaving ownership on
+        // the departed admin would hand them the freshly rotated credentials to
+        // an inbox full of Konami password-reset mail.
+        assertThat(mailboxes.getRaw(t.getMailboxId()).getOwnerUserId())
+                .as("the departed admin must lose mail.efbazaar.uz access immediately")
+                .isNull();
+    }
+
+    /**
+     * The other half of the reassignment handover: ownership is not merely
+     * revoked, it lands on the admin who actually took the job.
+     */
+    @Test
+    void theNewAdminOwnsTheMailboxOnlyOnceTheyAccept() {
+        UUID oldAdmin = adminWithProfile();
+        Trade t = acceptedTrade(oldAdmin);
+        assertThat(mailboxes.getRaw(t.getMailboxId()).getOwnerUserId()).isEqualTo(oldAdmin);
+        makeIdle(t.getId());
+        sweeper.sweep();
+        UUID newAdmin = adminWithProfile();
+
+        escalations.reassign(UUID.randomUUID(), t.getId(), newAdmin, 25_000L);
+        assertThat(mailboxes.getRaw(t.getMailboxId()).getOwnerUserId())
+                .as("an invited admin owns nothing until they accept")
+                .isNull();
+
+        assignments.accept(newAdmin, t.getId());
+
+        assertThat(mailboxes.getRaw(t.getMailboxId()).getOwnerUserId()).isEqualTo(newAdmin);
+    }
+
+    /**
+     * The exit nobody covered: the reassigned-to admin never answers, the
+     * WAITING_ADMIN deadline lapses, and the trade orphans. Before the fix
+     * {@code stripFromTrade} only nulled {@code trade_id}, so
+     * {@code owner_user_id} stayed on the departed admin — permanently, with no
+     * later code path that would ever clear it.
+     */
+    @Test
+    void orphaningLeavesNobodyOwningTheEscrowMailbox() {
+        UUID oldAdmin = adminWithProfile();
+        Trade t = acceptedTrade(oldAdmin);
+        makeIdle(t.getId());
+        sweeper.sweep();
+        escalations.reassign(UUID.randomUUID(), t.getId(), adminWithProfile(), 25_000L);
+
+        // Nobody accepts; the waiting window lapses.
+        tradeService.transition(t.getId(), TradeEvent.TIMEOUT, ActorType.SYSTEM, null);
+
+        assertThat(trades.findById(t.getId()).orElseThrow().getState())
+                .isEqualTo(TradeState.ORPHANED);
+        var mb = mailboxes.getRaw(t.getMailboxId());
+        assertThat(mb.getOwnerUserId())
+                .as("an orphaned escrow inbox must belong to nobody, least of all the old admin")
+                .isNull();
+        assertThat(mb.getTradeId()).isNull();
+    }
+
+    /**
+     * {@code findIdleHumanTrades} runs in its own read-only transaction, so the
+     * rows the sweep batches are detached snapshots and each is written back in
+     * its own later transaction. The old {@code trades.save(t)} was therefore a
+     * merge that rewrote <em>every</em> column from that stale snapshot: an
+     * admin who pressed close in the gap had {@code state} pushed from
+     * WAITING_CLOSE_CONFIRM back to IN_PROGRESS and {@code admin_closed_at}
+     * wiped — a finished trade resurrected into the platform queue after both
+     * parties had already seen ADMIN_CLOSED in chat.
+     */
+    @Test
+    void escalationSkipsATradeThatMovedSinceTheBatchWasRead() {
+        Trade t = acceptedTrade(adminWithProfile());
+        UUID adminId = t.getAssignedAdminId();
+        makeIdle(t.getId());
+        // Exactly what sweep() would hand escalateOne: a detached IN_PROGRESS row.
+        Trade staleSnapshot = trades.findById(t.getId()).orElseThrow();
+
+        // Meanwhile the admin turns up and finishes the job.
+        for (TradeStep s : TradeStep.values()) {
+            stepService.mark(t.getId(), adminId, s, null);
+        }
+        closeService.adminClose(adminId, t.getId());
+
+        boolean escalated = sweeper.escalateOne(staleSnapshot);
+
+        assertThat(escalated).isFalse();
+        Trade after = trades.findById(t.getId()).orElseThrow();
+        assertThat(after.getState())
+                .as("a finished trade must not be dragged back into IN_PROGRESS")
+                .isEqualTo(TradeState.WAITING_CLOSE_CONFIRM);
+        assertThat(after.getAdminClosedAt()).isNotNull();
+        assertThat(after.getStateDeadline()).isNotNull();
+        assertThat(after.getEscalatedAt()).isNull();
+        assertThat(after.getEscalationReason()).isNull();
+        assertThat(escalations.listEscalated()).extracting("id").doesNotContain(t.getId());
     }
 
     @Test

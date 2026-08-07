@@ -192,11 +192,42 @@ public class MailboxService {
         mailboxes.save(m);
     }
 
+    /**
+     * Takes the escrow mailbox away from whoever holds it while the trade
+     * itself lives on. Used when a human trade is reassigned: the departing
+     * admin must lose mail.efbazaar.uz access immediately, and the next owner
+     * is written by the {@code IN_PROGRESS} on-enter handler when the new admin
+     * accepts.
+     *
+     * <p>Deliberately NOT {@code assignOwner(id, null)}: that method also nulls
+     * {@code trade_id} and stamps {@code handed_off_at}, which are the marks of
+     * a finished trade handing the inbox to a party. A reassignment is not a
+     * handoff — the FK must stay so {@link
+     * uz.efbazaar.trade.mail.service.MailboxPasswordResolver} keeps resolving
+     * the provisioning context, and {@code MailboxRepository.findOrphaned}
+     * must not sweep up a live trade's mailbox.
+     */
+    @Transactional
+    public void revokeOwner(UUID mailboxId) {
+        Mailbox m = mailboxes.findById(mailboxId)
+                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
+        m.setOwnerUserId(null);
+        mailboxes.save(m);
+    }
+
+    /**
+     * The orphan path: nobody gets the inbox. Both the owner and the trade FK
+     * are cleared — leaving {@code owner_user_id} on the last admin would hand
+     * them permanent read access to an escrow inbox full of Konami
+     * password-reset mail, since {@link uz.efbazaar.trade.mail.service.MailService}
+     * authorises on ownership alone.
+     */
     @Transactional
     public void stripFromTrade(UUID mailboxId) {
         Mailbox m = mailboxes.findById(mailboxId)
                 .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
         m.setTradeId(null);
+        m.setOwnerUserId(null);
         mailboxes.save(m);
     }
 }

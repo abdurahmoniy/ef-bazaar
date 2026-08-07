@@ -4,6 +4,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import uz.efbazaar.trade.trade.domain.Trade;
@@ -114,4 +115,46 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
      * the {@code escalatedAt IS NOT NULL} half of the filter.
      */
     List<Trade> findByStateAndEscalatedAtIsNotNullOrderByEscalatedAtAsc(TradeState state);
+
+    /**
+     * Flags one idle trade as escalated, touching only the two escalation
+     * columns and only while every precondition still holds.
+     *
+     * <p>Why a conditional UPDATE rather than {@code save(entity)}: {@link
+     * #findIdleHumanTrades} runs in its own read-only transaction, so the rows
+     * the sweeper batches are <b>detached</b>. Saving one back is a JPA merge,
+     * which rewrites every column from that stale snapshot — an admin who
+     * marked a step meanwhile would have their re-armed
+     * {@code escalation_deadline_at} reverted, and an admin who pressed close
+     * would have {@code state} rewritten from {@code WAITING_CLOSE_CONFIRM}
+     * back to {@code IN_PROGRESS} with {@code admin_closed_at} wiped —
+     * resurrecting a finished trade into the platform queue after both parties
+     * already saw {@code ADMIN_CLOSED} in chat. The window is real: the batch
+     * is up to {@code escalation-sweep-batch-size} rows and each is saved in
+     * its own transaction.
+     *
+     * <p>The predicate repeats {@link #findIdleHumanTrades}' filter so a row
+     * that moved between the read and this write simply affects 0 rows. That
+     * also makes the write idempotent, which is what lets the sweeper roll the
+     * audit row back with it and retry on the next tick.
+     *
+     * <p>Bulk JPQL bypasses {@code @PreUpdate}, so {@code updatedAt} is set
+     * explicitly.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Trade t
+               SET t.escalatedAt = :now,
+                   t.escalationReason = :reason,
+                   t.updatedAt = :now
+             WHERE t.id = :id
+               AND t.mode = uz.efbazaar.trade.trade.domain.TradeMode.HUMAN
+               AND t.state = uz.efbazaar.trade.trade.domain.TradeState.IN_PROGRESS
+               AND t.escalatedAt IS NULL
+               AND t.escalationDeadlineAt IS NOT NULL
+               AND t.escalationDeadlineAt < :now
+            """)
+    int markEscalated(@Param("id") UUID id,
+                      @Param("now") Instant now,
+                      @Param("reason") String reason);
 }

@@ -128,6 +128,11 @@ class TradeCloseFlowIT extends AbstractIntegrationIT {
         assertThat(result.state()).isEqualTo(TradeState.SUCCESS);
         assertThat(trades.findById(trade.getId()).orElseThrow().getTerminalReason())
                 .isEqualTo("ADMIN_CLOSED_CONFIRMED");
+        // The SUCCESS half of the mailbox handover: the admin held the escrow
+        // inbox all through IN_PROGRESS and must not still hold it afterwards.
+        assertThat(mailboxes.getRaw(trade.getMailboxId()).getOwnerUserId())
+                .as("the buyer takes the escrow inbox on success; the admin loses it")
+                .isEqualTo(trade.getBuyerId());
     }
 
     /**
