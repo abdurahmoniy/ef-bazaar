@@ -59,6 +59,7 @@ public class TradeChatService {
                     "Trade is closed — no new messages allowed");
         }
         TradeViewer viewer = t.viewerFor(senderUserId);
+        requireAcceptedIfAdmin(t, viewer);
         ParticipantRole chatRole = resolveChatRole(viewer, target,
                 "Qaysi chatga yozilayotganini ko'rsating: SELLER yoki BUYER");
         TradeSenderType senderType = viewer == TradeViewer.ADMIN
@@ -116,6 +117,7 @@ public class TradeChatService {
                                              ParticipantRole target) {
         Trade t = trades.getForViewer(tradeId, viewerUserId);
         TradeViewer viewer = t.viewerFor(viewerUserId);
+        requireAcceptedIfAdmin(t, viewer);
         ParticipantRole chatRole = resolveChatRole(viewer, target,
                 "Qaysi chat o'qilayotganini ko'rsating: SELLER yoki BUYER");
 
@@ -133,6 +135,25 @@ public class TradeChatService {
                         m.getMetadata(),
                         m.getCreatedAt()))
                 .toList();
+    }
+
+    /**
+     * Spec §6.1: an invited admin's access to the two party chats begins when
+     * they <em>accept</em>, not when they are invited. {@code findByIdAndViewer}
+     * matches on {@code assignedAdminId} regardless of state — deliberately, so
+     * the invitation endpoints and the accept/decline actions keep working —
+     * which means the chats need this gate of their own. Without it a candidate
+     * could be invited, read both parties' conversations, and then decline.
+     *
+     * <p>403 rather than 404: the invitation already told this admin the trade
+     * exists, so there is nothing left to conceal, and a "not yet" is more
+     * useful to the client than "no such trade".
+     */
+    private static void requireAcceptedIfAdmin(Trade t, TradeViewer viewer) {
+        if (viewer == TradeViewer.ADMIN && !t.isAdminAccepted()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Chatlar taklifni qabul qilganingizdan keyin ochiladi");
+        }
     }
 
     /**

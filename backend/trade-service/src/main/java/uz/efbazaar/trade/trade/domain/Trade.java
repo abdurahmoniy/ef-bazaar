@@ -156,6 +156,23 @@ public class Trade {
                 || (assignedAdminId != null && userId.equals(assignedAdminId));
     }
 
+    /**
+     * Has the assigned admin taken the job? Spec §6.1 grants admin access to
+     * the two party chats at <b>accept</b> (step 5), not at invite (step 4) —
+     * a candidate who is still deciding, and who may yet decline, is not
+     * entitled to read what the parties have written to each other.
+     *
+     * <p>{@code adminAcceptedAt} rather than {@code state}: it is stamped once
+     * on entry to {@code IN_PROGRESS} and survives into
+     * {@code WAITING_CLOSE_CONFIRM} and the terminal states, where the admin
+     * legitimately still reads the history — and it is cleared again by a
+     * reassignment, which drops the trade back to {@code WAITING_ADMIN}
+     * awaiting a fresh acceptance.
+     */
+    public boolean isAdminAccepted() {
+        return adminAcceptedAt != null;
+    }
+
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();

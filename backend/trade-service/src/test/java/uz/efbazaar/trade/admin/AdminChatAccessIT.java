@@ -44,7 +44,8 @@ class AdminChatAccessIT extends AbstractIntegrationIT {
     private UUID adminId;
     private Trade trade;
 
-    private void givenAcceptedTrade() {
+    /** Invited but undecided — the state an admin sits in at spec §6.1 step 4. */
+    private void givenInvitedTrade() {
         adminId = UUID.randomUUID();
         profiles.save(TradeAdminProfile.builder()
                 .userId(adminId).minFeeUzs(15_000).maxFeeUzs(40_000).build());
@@ -66,6 +67,10 @@ class AdminChatAccessIT extends AbstractIntegrationIT {
                 .tradeId(trade.getId()).participant(ParticipantRole.SELLER).build());
         chats.save(TradeChat.builder().id(UUID.randomUUID())
                 .tradeId(trade.getId()).participant(ParticipantRole.BUYER).build());
+    }
+
+    private void givenAcceptedTrade() {
+        givenInvitedTrade();
         assignments.accept(adminId, trade.getId());
     }
 
@@ -206,6 +211,52 @@ class AdminChatAccessIT extends AbstractIntegrationIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(text("men ham adminman")))
                 .andExpect(status().isNotFound());
+    }
+
+    /**
+     * Spec §6.1 grants the admin the two party chats at <b>accept</b> (step 5),
+     * not at invite (step 4). {@code findByIdAndViewer} matches on
+     * {@code assignedAdminId} regardless of state — deliberately, because the
+     * invitation and accept/decline endpoints need it — so without a gate of
+     * its own a candidate could be invited, read both parties' chats, and then
+     * decline. The invitation itself must keep working: that is the whole
+     * reason the row matches in the first place.
+     */
+    @Test
+    void invitedAdminIsRefusedTheChatsButStillSeesTheInvitation() throws Exception {
+        givenInvitedTrade();
+
+        mvc.perform(get("/api/v1/trades/" + trade.getId() + "/messages?target=SELLER")
+                        .with(asUser(adminId, "ROLE_USER", TA)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/trades/" + trade.getId() + "/messages?target=BUYER")
+                        .with(asUser(adminId, "ROLE_USER", TA)))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/trades/" + trade.getId() + "/messages?target=SELLER")
+                        .with(asUser(adminId, "ROLE_USER", TA))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(text("hali qabul qilmadim")))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/v1/trade-admins/me/invitations")
+                        .with(asUser(adminId, "ROLE_USER", TA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id=='" + trade.getId() + "')]").exists());
+    }
+
+    /** ...and the same admin gets in as soon as they take the job. */
+    @Test
+    void acceptingOpensTheChats() throws Exception {
+        givenInvitedTrade();
+        mvc.perform(get("/api/v1/trades/" + trade.getId() + "/messages?target=SELLER")
+                        .with(asUser(adminId, "ROLE_USER", TA)))
+                .andExpect(status().isForbidden());
+
+        assignments.accept(adminId, trade.getId());
+
+        mvc.perform(get("/api/v1/trades/" + trade.getId() + "/messages?target=SELLER")
+                        .with(asUser(adminId, "ROLE_USER", TA)))
+                .andExpect(status().isOk());
     }
 
     @Test

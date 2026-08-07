@@ -177,8 +177,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
             TradeViewer viewer = trade.viewerFor(principal.userId());
             // The assigned admin legitimately follows BOTH party chats — that is
-            // the whole shape of a human trade, not a leak.
+            // the whole shape of a human trade, not a leak. But only once they
+            // have accepted (spec §6.1): live push is a chat read, so an admin
+            // still deciding on the invitation is refused here for the same
+            // reason TradeChatService refuses their REST read.
             if (viewer == TradeViewer.ADMIN) {
+                if (!trade.isAdminAccepted()) {
+                    log.warn("SUBSCRIBE to {} rejected — admin {} has not accepted the invitation yet",
+                            destination, principal.userId());
+                    throw new MessagingException("Admin has not accepted this trade yet");
+                }
                 return message;
             }
 
