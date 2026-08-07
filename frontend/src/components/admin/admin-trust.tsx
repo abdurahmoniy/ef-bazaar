@@ -79,7 +79,7 @@ export function AdminTrust({ complaints, activeStatus }: AdminTrustProps) {
                 'rounded-full border px-3 py-1.5 text-sm font-semibold transition',
                 isActive
                   ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-white text-muted-foreground hover:border-primary/40 hover:text-foreground',
+                  : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
               )}
             >
               {filter.label}
@@ -108,7 +108,7 @@ export function AdminTrust({ complaints, activeStatus }: AdminTrustProps) {
             return (
               <li
                 key={c.id}
-                className="space-y-3 rounded-xl border border-border bg-white p-4 shadow-card"
+                className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-card"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">

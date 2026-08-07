@@ -1,6 +1,18 @@
 import type { ListingBrowseParams } from './marketplace-types';
+import { parsePlayerMatchValues } from './player-match-query';
 
 export type SearchParamInput = Record<string, string | string[] | undefined>;
+
+export function searchParamInputToSearchParams(input: SearchParamInput = {}) {
+  const params = new URLSearchParams();
+  for (const [key, rawValue] of Object.entries(input)) {
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    for (const value of values) {
+      if (value !== undefined) params.append(key, value);
+    }
+  }
+  return params;
+}
 
 const UZ_MONTHS = [
   'yanvar',
@@ -30,16 +42,11 @@ export const MARKETPLACE_FILTERS = [
       attributes: { has_google_play_link: 'false', has_game_center_link: 'false' },
     },
   },
-  {
-    id: 'division1',
-    label: 'Division 1',
-    params: { attributes: { highest_division_level: '1' } },
-  },
-  {
-    id: 'strong',
-    label: '3000+ kuch',
-    params: { attributes: { 'team_strength.min': '3000' } },
-  },
+  // 'division1' and 'strong' used to live here. Both pinned one arbitrary value
+  // of a range the sidebar already exposes ("Eng yuqori Division", "Team
+  // Strength"), so they duplicated a filter while answering nobody's actual
+  // question. The chips that remain are booleans — genuinely awkward to reach
+  // in the sidebar, and each one maps to a real buying decision.
   {
     id: 'exchange',
     label: 'Faqat obmen',
@@ -158,7 +165,7 @@ export function normalizePlayerList(value: string) {
     .split(/[,\n]/)
     .map((item) => item.trim())
     .filter(Boolean)
-    .slice(0, 12);
+    .slice(0, 30);
 }
 
 export function getSelectedMarketplaceFilter(input: SearchParamInput = {}): MarketplaceFilterId {
@@ -181,6 +188,10 @@ export function parseListingSearchParams(input: SearchParamInput = {}): ListingB
   const priceNegotiable = booleanParam(input.priceNegotiable);
   const search = textParam(input.q) ?? textParam(input.search);
   const sort = textParam(input.sort);
+  const rawMatchCards = Array.isArray(input.matchCard)
+    ? input.matchCard
+    : input.matchCard ? [input.matchCard] : [];
+  const match = parsePlayerMatchValues(rawMatchCards, textParam(input.matchStrictness));
 
   if (page !== undefined) params.page = page;
   if (size !== undefined) params.size = size;
@@ -189,6 +200,11 @@ export function parseListingSearchParams(input: SearchParamInput = {}): ListingB
   if (priceNegotiable !== undefined) params.priceNegotiable = priceNegotiable;
   if (search) params.search = search;
   if (sort) params.sort = sort;
+  if (match.criteria.length) {
+    params.matchCards = match.criteria.map((criterion) =>
+      `${criterion.efhubId}:${criterion.playerId}:${criterion.importance}`);
+    params.matchStrictness = match.strictness;
+  }
 
   // Any `attr.<key>` query param is treated as a JSONB equality filter.
   for (const [rawKey, rawValue] of Object.entries(input)) {
@@ -216,6 +232,12 @@ export function buildListingSearchParams(input: ListingBrowseParams = {}) {
   appendDefined(params, 'maxPrice', input.maxPrice);
   appendDefined(params, 'priceNegotiable', input.priceNegotiable);
   appendDefined(params, 'search', input.search);
+  for (const criterion of input.matchCards ?? []) {
+    params.append('matchCard', criterion);
+  }
+  if (input.matchCards?.length) {
+    appendDefined(params, 'matchStrictness', input.matchStrictness ?? 4);
+  }
 
   if (input.attributes) {
     for (const [key, value] of Object.entries(input.attributes)) {

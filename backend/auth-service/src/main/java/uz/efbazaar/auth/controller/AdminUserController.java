@@ -24,6 +24,7 @@ import uz.efbazaar.auth.mapper.UserMapper;
 import uz.efbazaar.auth.security.AuthenticatedUser;
 import uz.efbazaar.auth.service.UserService;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -47,6 +48,23 @@ public class AdminUserController {
         return new PageResponse<>(
                 page.getContent().stream().map(userMapper::toResponse).toList(),
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+    }
+
+    /**
+     * Bulk lookup by id. The admin panel joins rows owned by other services
+     * (e.g. trade-service mailboxes, which store only {@code owner_user_id})
+     * back to a display name — without this it would have to fetch the whole
+     * user page and hope the owners are on it.
+     *
+     * <p>Unknown ids are skipped, not errors: a mailbox can outlive the user
+     * that owned it, and the panel renders those as "deleted user".
+     */
+    @GetMapping("/by-ids")
+    public List<UserResponse> byIds(@RequestParam List<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return userService.findAllByIds(ids).stream().map(userMapper::toResponse).toList();
     }
 
     @PutMapping("/{id}/role")

@@ -5,7 +5,12 @@ import type {
   AttributeDefinitionCreatePayload,
   AttributeDefinitionResponse,
   AttributeDefinitionUpdatePayload,
+  CardMetaTierUpdateResponse,
+  DreamTeam,
+  DreamTeamPayload,
   LikeToggleResponse,
+  MaxOvrRefreshResponse,
+  MetaTier,
 } from './marketplace-types';
 
 export type ActionResult<T = void> =
@@ -161,6 +166,78 @@ export function adminUpdateAttribute(
     ['v1', 'admin', 'attributes', id],
     { method: 'PUT', body: JSON.stringify(payload) },
     'Atribut yangilanmadi',
+  );
+}
+
+/**
+ * Bulk meta tier assignment. One call sets the same tier on every id, so
+ * toggling a whole squad is a single request. Response reports how many rows
+ * actually changed — ids already at that tier don't count.
+ */
+export function adminSetCardMetaTier(
+  efhubIds: number[],
+  metaTier: MetaTier,
+  lifecycle?: {
+    priority?: number;
+    activeFrom?: string;
+    activeUntil?: string;
+    reason?: string;
+  },
+): Promise<ActionResult<CardMetaTierUpdateResponse>> {
+  return marketplaceRequest<CardMetaTierUpdateResponse>(
+    ['v1', 'admin', 'cards', 'meta-tier'],
+    { method: 'PUT', body: JSON.stringify({ efhubIds, metaTier, ...lifecycle }) },
+    "O'yinchi darajasi yangilanmadi",
+  );
+}
+
+export function adminExpireCardMeta(
+  efhubIds: number[],
+  reason?: string,
+): Promise<ActionResult<CardMetaTierUpdateResponse>> {
+  return marketplaceRequest<CardMetaTierUpdateResponse>(
+    ['v1', 'admin', 'cards', 'meta-tier', 'expire'],
+    { method: 'POST', body: JSON.stringify({ efhubIds, reason }) },
+    "META muddati tugatilmadi",
+  );
+}
+
+export function createDreamTeam(payload: DreamTeamPayload): Promise<ActionResult<DreamTeam>> {
+  return marketplaceRequest<DreamTeam>(
+    ['v1', 'dream-teams'],
+    { method: 'POST', body: JSON.stringify(payload) },
+    'Jamoa saqlanmadi',
+  );
+}
+
+export function updateDreamTeam(
+  id: string,
+  payload: DreamTeamPayload,
+): Promise<ActionResult<DreamTeam>> {
+  return marketplaceRequest<DreamTeam>(
+    ['v1', 'dream-teams', id],
+    { method: 'PUT', body: JSON.stringify(payload) },
+    'Jamoa yangilanmadi',
+  );
+}
+
+export function deleteDreamTeam(id: string): Promise<ActionResult<null>> {
+  return marketplaceRequest<null>(
+    ['v1', 'dream-teams', id],
+    { method: 'DELETE' },
+    "Jamoa o'chirilmadi",
+  );
+}
+
+/**
+ * Backfill max OVR from the efhub player index. One index fetch plus a batched
+ * UPDATE server-side — no page scraping, safe to repeat.
+ */
+export function adminRefreshMaxOvr(): Promise<ActionResult<MaxOvrRefreshResponse>> {
+  return marketplaceRequest<MaxOvrRefreshResponse>(
+    ['v1', 'admin', 'cards', 'max-ovr-refresh'],
+    { method: 'POST' },
+    'MAX OVR yangilanmadi',
   );
 }
 

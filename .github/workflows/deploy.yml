@@ -54,9 +54,9 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
-          debug: true
+          debug: false
           command_timeout: 15m
-          envs: DEPLOY_PATH,GH_TOKEN,GH_ACTOR,IMAGE_TAG,POSTGRES_PASSWORD,REDIS_PASSWORD,JWT_SECRET,APP_BASE_URL,TELEGRAM_BOT_TOKEN,TELEGRAM_BOT_USERNAME,TELEGRAM_GROUP_CHAT_ID,TELEGRAM_TOPIC_LOGS,TELEGRAM_TOPIC_REGISTRATION,TELEGRAM_TOPIC_MEDIA,TELEGRAM_TOPIC_HEALTH,TELEGRAM_TOPIC_BACKUPS,TELEGRAM_WEBHOOK_URL,TELEGRAM_WEBHOOK_SECRET,NGINX_HTTP_PORT,NGINX_HTTPS_PORT,GOOGLE_CLIENT_ID,OPS_BOT_TOKEN,BACKUP_PASSPHRASE,MAILCOW_API_KEY
+          envs: DEPLOY_PATH,GH_TOKEN,GH_ACTOR,IMAGE_TAG,POSTGRES_PASSWORD,REDIS_PASSWORD,JWT_SECRET,APP_BASE_URL,TELEGRAM_BOT_TOKEN,TELEGRAM_BOT_USERNAME,TELEGRAM_GROUP_CHAT_ID,TELEGRAM_TOPIC_LOGS,TELEGRAM_TOPIC_REGISTRATION,TELEGRAM_TOPIC_MEDIA,TELEGRAM_TOPIC_HEALTH,TELEGRAM_TOPIC_BACKUPS,TELEGRAM_WEBHOOK_URL,TELEGRAM_WEBHOOK_SECRET,NGINX_HTTP_PORT,NGINX_HTTPS_PORT,GOOGLE_CLIENT_ID,OPS_BOT_TOKEN,BACKUP_PASSPHRASE,MAILCOW_API_KEY,INTERNAL_API_SECRET,CARD_INTEREST_HMAC_SECRET
           script: |
             LOG=/tmp/efbazaar-deploy-latest.log
             cd "${DEPLOY_PATH:-/opt/efbazaar}"
@@ -80,6 +80,7 @@ jobs:
           POSTGRES_PASSWORD:           ${{ secrets.POSTGRES_PASSWORD }}
           REDIS_PASSWORD:              ${{ secrets.REDIS_PASSWORD }}
           JWT_SECRET:                  ${{ secrets.JWT_SECRET }}
+          CARD_INTEREST_HMAC_SECRET: ${{ secrets.CARD_INTEREST_HMAC_SECRET }}
           APP_BASE_URL:                ${{ secrets.APP_BASE_URL }}
           TELEGRAM_BOT_TOKEN:          ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_BOT_USERNAME:       ${{ secrets.TELEGRAM_BOT_USERNAME }}
@@ -100,3 +101,6 @@ jobs:
           BACKUP_PASSPHRASE:           ${{ secrets.BACKUP_PASSPHRASE }}
           # Mailcow admin API key — smart-admin-worker uses this to create/rotate mailboxes.
           MAILCOW_API_KEY:             ${{ secrets.MAILCOW_API_KEY }}
+          # Chempionat-X integration shared secret (nginx X-Internal-Secret +
+          # auth/marketplace /internal guard). Must equal Chempionat's EFBAZAAR_INTERNAL_SECRET.
+          INTERNAL_API_SECRET:         ${{ secrets.INTERNAL_API_SECRET }}

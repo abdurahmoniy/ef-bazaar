@@ -1,4 +1,4 @@
-import { SlidersHorizontal, TrendingUp } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 
 import { CardPickerField } from '@/components/marketplace/card-picker-field'
@@ -27,6 +27,8 @@ interface ListingFiltersProps {
 	sortParam?: string
 	/** Raw attr.* filters from the URL — source of defaultValues for attribute fields. */
 	attributes?: Record<string, string>
+	matchCards?: string[]
+	matchStrictness?: number
 }
 
 const DIVISION_CHOICES = [1, 2, 3, 4] as const
@@ -67,6 +69,8 @@ export function ListingFiltersForm({
 	valuablePlayerName,
 	sortParam,
 	attributes,
+	matchCards,
+	matchStrictness,
 	className,
 	showHeading = false,
 }: ListingFiltersProps & { className?: string; showHeading?: boolean }) {
@@ -76,6 +80,12 @@ export function ListingFiltersForm({
 	return (
 		<form action='/marketplace' method='get' className={className}>
 			{query && <input type='hidden' name='q' value={query} />}
+			{matchCards?.map((criterion) => (
+				<input key={criterion} type='hidden' name='matchCard' value={criterion} />
+			))}
+			{matchCards?.length ? (
+				<input type='hidden' name='matchStrictness' value={matchStrictness ?? 4} />
+			) : null}
 
 			{showHeading && (
 				<div className='flex items-center gap-2 pb-3 text-sm font-bold text-foreground'>
@@ -208,6 +218,26 @@ export function ListingFiltersForm({
 
 					<div>
 						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
+							Qurilma almashtirish limiti (kamida)
+						</div>
+						{/* Handover burns two sign-ins; buyers who want headroom
+						    filter for accounts with more left this month. */}
+						<Input
+							name='attr.device_transfer_limit.min'
+							type='number'
+							inputMode='numeric'
+							min={2}
+							max={10}
+							step={1}
+							placeholder='masalan 4'
+							aria-label='Qurilma almashtirish limiti (kamida)'
+							defaultValue={attr('device_transfer_limit.min')}
+							className='h-10 rounded-lg'
+						/>
+					</div>
+
+					<div>
+						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
 							Obmen shartlari
 						</div>
 						<Select
@@ -260,30 +290,26 @@ export function ListingFiltersForm({
 						/>
 					</div>
 
-					<div>
-						<div className='mb-1.5 flex items-center gap-1 text-xs font-semibold text-muted-foreground'>
-							<TrendingUp className='h-3.5 w-3.5' /> Saralash
-						</div>
-						<Select
-							name='sort'
-							defaultValue={
-								LISTING_SORT_OPTIONS.find((o) => o.id === currentSortId)?.param
-							}
-							className='h-10'
-						>
-							{LISTING_SORT_OPTIONS.map((option) => (
-								<option key={option.id} value={option.param}>
-									{option.label}
-								</option>
-							))}
-						</Select>
-					</div>
+					{/* Sorting moved to the results header, next to the count — buried at
+					    the bottom of this panel (and below the fold of the mobile sheet)
+					    it was effectively undiscoverable. Carried through as a hidden
+					    field so applying a filter doesn't silently reset the order. */}
+					<input
+						type='hidden'
+						name='sort'
+						value={
+							LISTING_SORT_OPTIONS.find((o) => o.id === currentSortId)?.param ?? ''
+						}
+					/>
 
-					<div className='grid grid-cols-2 gap-2 pt-1'>
-						<Button type='submit' className='h-10 rounded-lg'>
+					{/* Sticks to the bottom of the mobile filter sheet's scroll area so
+					    "Qo'llash" stays reachable without scrolling the whole form.
+					    In the desktop sidebar the container doesn't scroll, so this is inert. */}
+					<div className='sticky bottom-0 -mx-4 grid grid-cols-2 gap-2 border-t border-border bg-card/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-1 lg:backdrop-blur-none'>
+						<Button type='submit' className='h-11 rounded-lg'>
 							Qo'llash
 						</Button>
-						<Button asChild variant='outline' className='h-10 rounded-lg'>
+						<Button asChild variant='outline' className='h-11 rounded-lg'>
 							<Link href='/marketplace'>Tozalash</Link>
 						</Button>
 					</div>
@@ -296,22 +322,25 @@ export function QuickChips({
 	activeFilter,
 	query,
 	view,
+	currentQuery,
 }: {
 	activeFilter: MarketplaceFilterId
 	query?: string
 	view?: 'grid' | 'list'
+	currentQuery?: string
 }) {
 	return (
-		<div className='flex gap-2 overflow-x-auto no-scrollbar pb-1'>
+		<div className='snap-rail gap-2 pb-1'>
 			{MARKETPLACE_FILTERS.map((filter) => (
 				<Link
 					key={filter.id}
-					href={filterHref(filter.id, query, view)}
+					href={filterHref(filter.id, query, view, currentQuery)}
+					aria-current={filter.id === activeFilter ? 'page' : undefined}
 					className={cn(
-						'shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+						'tap-press inline-flex shrink-0 items-center min-h-10 rounded-full border px-4 py-2 text-sm font-semibold transition',
 						filter.id === activeFilter
-							? 'border-primary bg-primary text-primary-foreground'
-							: 'border-border bg-white text-muted-foreground hover:border-primary/40 hover:text-foreground',
+							? 'border-primary bg-primary text-primary-foreground shadow-sm'
+							: 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
 					)}
 				>
 					{filter.label}
@@ -321,8 +350,15 @@ export function QuickChips({
 	)
 }
 
-function filterHref(filterId: MarketplaceFilterId, query?: string, view?: 'grid' | 'list') {
-	const params = new URLSearchParams()
+function filterHref(
+	filterId: MarketplaceFilterId,
+	query?: string,
+	view?: 'grid' | 'list',
+	currentQuery?: string,
+) {
+	const params = new URLSearchParams(currentQuery)
+	params.delete('filter')
+	params.delete('page')
 	if (filterId !== 'all') params.set('filter', filterId)
 	if (query?.trim()) params.set('q', query.trim())
 	if (view === 'list') params.set('view', 'list')

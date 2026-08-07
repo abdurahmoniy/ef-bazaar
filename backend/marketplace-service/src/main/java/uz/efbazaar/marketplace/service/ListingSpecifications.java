@@ -52,6 +52,14 @@ public final class ListingSpecifications {
 
     static final String CARD_ID_KEY = "valuable_players_id";
     static final String CARD_NAME_KEY = "valuable_players_name";
+    /**
+     * JSON array of wanted slots — see {@code card_match_score} in
+     * {@code V27__dream_teams_and_card_match.sql}. Sent as
+     * {@code attr.dream_team=[{"id":…,"name":…,"w":…}]}.
+     */
+    public static final String DREAM_TEAM_KEY = "dream_team";
+    /** Minimum coverage percent 0..100 accepted only by the legacy compatibility adapter. */
+    public static final String MIN_MATCH_KEY = "dream_team_min_match";
     private static final String VALUABLE_PLAYERS = "valuable_players";
 
     static final String RANGE_MIN_SUFFIX = ".min";
@@ -145,7 +153,8 @@ public final class ListingSpecifications {
 
         for (Map.Entry<String, Object> entry : attributes.entrySet()) {
             String key = entry.getKey();
-            if (CARD_ID_KEY.equals(key) || CARD_NAME_KEY.equals(key)) continue;
+            if (CARD_ID_KEY.equals(key) || CARD_NAME_KEY.equals(key)
+                    || DREAM_TEAM_KEY.equals(key) || MIN_MATCH_KEY.equals(key)) continue;
             String base = rangeBaseKey(key);
             if (base != null) {
                 BigDecimal bound = readDecimal(entry.getValue());

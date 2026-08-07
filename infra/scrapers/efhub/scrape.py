@@ -179,6 +179,11 @@ def scrape_type(type_name, cfg, index, db_known):
                 errs.write(f"{pid}\twrong-type:{row.get('playerType')}\n")
                 n_skip += 1
             else:
+                # Max-level OVR ("Messi 106") lives ONLY in the index entry's
+                # "o" — the player page carries the level-1 rating and computes
+                # the maxed one client-side from the progression curve.
+                if d.get('o') is not None:
+                    row['maxOverallRating'] = d['o']
                 out.write(json.dumps(row, ensure_ascii=False) + '\n')
                 out.flush()
                 n_ok += 1

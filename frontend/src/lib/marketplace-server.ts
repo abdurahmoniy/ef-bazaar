@@ -6,7 +6,12 @@ import type {
   AdminReportResponse,
   AdminStatsResponse,
   AttributeDefinitionResponse,
+  CardPage,
+  AdminCardPage,
+  CardType,
   ChatResponse,
+  DreamTeam,
+  MetaTier,
   ListingBrowseParams,
   ListingResponse,
   ListingStatus,
@@ -85,8 +90,18 @@ export async function browseListings(
   return safeFetch<PageResponse<ListingResponse>>(`${MARKETPLACE_PREFIX}/listings${suffix}`);
 }
 
-export async function getListing(id: string): Promise<FetchResult<ListingResponse>> {
-  return safeFetch<ListingResponse>(`${MARKETPLACE_PREFIX}/listings/${encodeURIComponent(id)}`);
+export async function getListing(
+  id: string,
+  matchCards?: string[],
+  matchStrictness?: number,
+): Promise<FetchResult<ListingResponse>> {
+  const params = new URLSearchParams();
+  for (const criterion of matchCards ?? []) params.append('matchCard', criterion);
+  if (matchCards?.length) params.set('matchStrictness', String(matchStrictness ?? 4));
+  const query = params.toString();
+  return safeFetch<ListingResponse>(
+    `${MARKETPLACE_PREFIX}/listings/${encodeURIComponent(id)}${query ? `?${query}` : ''}`,
+  );
 }
 
 export async function getAttributeDefinitions(): Promise<AttributeDefinitionResponse[]> {
@@ -153,6 +168,52 @@ export async function getAdminUsers(
   const params = new URLSearchParams({ page: String(page), size: String(size), sort: 'createdAt,desc' });
   if (search) params.set('search', search);
   return safeFetch<PageResponse<User>>(`/auth/v1/admin/users?${params.toString()}`);
+}
+
+/** The caller's saved squads. Returns [] rather than an error when signed out. */
+export async function getDreamTeams(): Promise<FetchResult<DreamTeam[]>> {
+  return safeFetch<DreamTeam[]>(`${MARKETPLACE_PREFIX}/dream-teams`);
+}
+
+/**
+ * Player card catalogue for the admin players page. The read endpoint itself
+ * is public (same one the card picker uses) — only the meta_tier write is
+ * admin-gated.
+ */
+export async function getCards(params: {
+  q?: string;
+  types?: CardType[];
+  tier?: MetaTier;
+  page?: number;
+  size?: number;
+}): Promise<FetchResult<CardPage>> {
+  const search = new URLSearchParams({
+    page: String(params.page ?? 0),
+    size: String(params.size ?? 30),
+  });
+  if (params.q) search.set('q', params.q);
+  if (params.types?.length) search.set('types', params.types.join(','));
+  if (params.tier) search.set('tier', params.tier);
+  return safeFetch<CardPage>(`${MARKETPLACE_PREFIX}/cards?${search.toString()}`);
+}
+
+export async function getAdminCards(params: {
+  q?: string;
+  types?: CardType[];
+  tier?: MetaTier;
+  page?: number;
+  size?: number;
+}): Promise<FetchResult<AdminCardPage>> {
+  const search = new URLSearchParams({
+    page: String(params.page ?? 0),
+    size: String(params.size ?? 30),
+  });
+  if (params.q) search.set('q', params.q);
+  if (params.types?.length) search.set('types', params.types.join(','));
+  if (params.tier) search.set('tier', params.tier);
+  return safeFetch<AdminCardPage>(
+    `${MARKETPLACE_PREFIX}/admin/cards?${search.toString()}`,
+  );
 }
 
 /** All definitions including inactive — the admin table shows the `active` flag. */

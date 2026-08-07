@@ -208,11 +208,11 @@ export function CardAddModal({ onClose, onAdded }: CardAddModalProps) {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0"
+            className="h-11 w-11 p-0"
             onClick={onClose}
             aria-label="Yopish"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </Button>
         </div>
         <form className="space-y-3" onSubmit={handleSubmit} noValidate>

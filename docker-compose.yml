@@ -166,6 +166,8 @@ services:
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Required HMAC key for privacy-preserving card-interest dedupe.
+      CARD_INTEREST_HMAC_SECRET: ${CARD_INTEREST_HMAC_SECRET}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       # Media yuklash
       MEDIA_MIN_FILES: ${MEDIA_MIN_FILES}
@@ -407,8 +409,10 @@ services:
     container_name: efbazaar-nginx
     restart: unless-stopped
     environment:
-      # Snake-oil bootstrap uchun asosiy domen (SAN cert shu papkada saqlanadi)
-      TLS_DOMAINS: "efbazaar.uz"
+      # Snake-oil bootstrap uchun domenlar (har biri uchun alohida SAN papka).
+      # efbazaar.uz → efbazaar.uz + api.efbazaar.uz; chempox.uz → chempox.uz +
+      # www + api.chempox.uz (Chempionat-X co-location, chempox.conf).
+      TLS_DOMAINS: "efbazaar.uz chempox.uz"
       # Chempionat-X header-auth uchun /api/tournaments route'ida yuboriladi
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
     ports:

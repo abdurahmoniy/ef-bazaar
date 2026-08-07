@@ -71,4 +71,16 @@ describe('ListingCard', () => {
     expect(markup).toContain('Google Play');
     expect(markup).toContain('Game Center');
   });
+
+  it('shows match quality in grid view and preserves the match query in detail links', () => {
+    const markup = renderToStaticMarkup(
+      createElement(ListingCard, {
+        listing: listing({ matchPercent: 75 }),
+        detailQuery: 'matchCard=101%3Aplayer%3AN&matchStrictness=4',
+      }),
+    );
+
+    expect(markup).toContain('75% mos');
+    expect(markup).toContain('/marketplace/listing-1?matchCard=101%3Aplayer%3AN&amp;matchStrictness=4');
+  });
 });

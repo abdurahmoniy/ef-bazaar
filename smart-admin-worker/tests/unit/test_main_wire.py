@@ -2,7 +2,7 @@
 
 Exercise the FastAPI lifespan context manager with all external services
 mocked so we can verify:
-1. All 4 REQUEST_TOPICS are covered by the handler dispatch map.
+1. Every REQUEST_TOPICS entry is covered by the handler dispatch map.
 2. Producer cleanup runs even if consumer.start() raises (I1 contract).
 """
 

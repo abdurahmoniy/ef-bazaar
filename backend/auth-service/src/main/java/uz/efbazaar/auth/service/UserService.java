@@ -12,6 +12,8 @@ import uz.efbazaar.auth.event.AuthEventPublisher;
 import uz.efbazaar.auth.exception.AuthException;
 import uz.efbazaar.auth.repository.UserRepository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -46,6 +48,12 @@ public class UserService {
     }
 
     // ---------- Admin moderation ----------
+
+    /** Bulk id lookup for cross-service joins; unknown ids are simply absent. */
+    @Transactional(readOnly = true)
+    public List<User> findAllByIds(Collection<UUID> ids) {
+        return userRepository.findAllById(ids);
+    }
 
     @Transactional(readOnly = true)
     public Page<User> findAll(String search, Pageable pageable) {

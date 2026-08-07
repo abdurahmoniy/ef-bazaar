@@ -46,7 +46,7 @@ export function MobileSidebar({ mailboxes, activeMailboxId }: MobileSidebarProps
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Pochtalar ro'yxatini ochish"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:bg-muted active:bg-muted"
       >
         <Menu className="h-4 w-4" />
       </button>
@@ -60,9 +60,9 @@ export function MobileSidebar({ mailboxes, activeMailboxId }: MobileSidebarProps
             type="button"
             aria-label="Yopish"
             onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-foreground/40 backdrop-blur-[2px]"
+            className="absolute inset-0 animate-fade-in bg-foreground/40 backdrop-blur-[2px]"
           />
-          <div className="absolute inset-y-0 left-0 flex w-[85vw] max-w-xs flex-col bg-card shadow-xl">
+          <div className="absolute inset-y-0 left-0 flex w-[85vw] max-w-xs animate-slide-in-left flex-col bg-card shadow-xl">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <span className="text-sm font-black text-foreground">Pochtalarim</span>
               <button

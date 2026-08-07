@@ -1,21 +1,29 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Search, X } from 'lucide-react';
+import { Flame, Loader2, Search, X } from 'lucide-react';
 
 import { PlayerCardTile } from '@/components/marketplace/player-card-tile';
 import { Input } from '@/components/ui/input';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+import { cardRating, type MetaTier } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
 
 export interface PlayerCard {
   efhubId: number;
+  /** Absent only for legacy display-only snapshots. New catalogue results always include it. */
+  playerId?: string;
   name: string;
   team?: string;
   position?: string;
   playingStyle?: string;
+  /** Level-1 rating. Display via {@link cardRating}, never directly. */
   overallRating?: number;
+  /** OVR at max level — what players actually mean by "Messi 106". */
+  maxOverallRating?: number;
   cardType?: string;
+  /** 'META' — currently in demand. Curated by admins at /admin/players. */
+  metaTier?: MetaTier;
   imageUrl?: string;
   skills?: string[];
 }
@@ -30,6 +38,7 @@ interface CardPickerProps {
   className?: string;
   /** How selected cards render: text pill (default) or square image-only tile. */
   selectedVariant?: 'pill' | 'tile';
+  showMetaShortcut?: boolean;
 }
 
 const DEBOUNCE_MS = 250;
@@ -48,24 +57,26 @@ export function CardPicker({
   mode,
   value,
   onChange,
-  max = 12,
+  max = 30,
   placeholder = "O'yinchi qidirish (masalan: Messi)",
   id,
   className,
   selectedVariant = 'pill',
+  showMetaShortcut = true,
 }: CardPickerProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PlayerCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [metaOnly, setMetaOnly] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const trimmedQuery = query.trim();
 
   useEffect(() => {
-    if (trimmedQuery.length < MIN_QUERY) {
+    if (!metaOnly && trimmedQuery.length < MIN_QUERY) {
       setResults([]);
       setLoading(false);
       return;
@@ -74,10 +85,15 @@ export function CardPicker({
     setLoading(true);
     const handle = window.setTimeout(async () => {
       try {
-        const url = buildMarketplaceApiPath(
-          'v1/cards/search',
-          new URLSearchParams({ q: trimmedQuery }),
-        );
+        const url = metaOnly
+          ? buildMarketplaceApiPath(
+              'v1/cards',
+              new URLSearchParams({ tier: 'META', page: '0', size: String(MAX_RESULTS) }),
+            )
+          : buildMarketplaceApiPath(
+              'v1/cards/search',
+              new URLSearchParams({ q: trimmedQuery }),
+            );
         const response = await fetch(url, {
           headers: { Accept: 'application/json' },
           credentials: 'include',
@@ -88,10 +104,16 @@ export function CardPicker({
           return;
         }
         const payload = (await response.json()) as unknown;
+        const cards = metaOnly && payload && typeof payload === 'object'
+          ? (payload as { items?: unknown }).items
+          : payload;
         setResults(
-          Array.isArray(payload)
-            ? (payload as PlayerCard[])
-                .filter((card) => card && typeof card.efhubId === 'number' && typeof card.name === 'string')
+          Array.isArray(cards)
+            ? (cards as PlayerCard[])
+                .filter((card) => card
+                  && typeof card.efhubId === 'number'
+                  && typeof card.playerId === 'string'
+                  && typeof card.name === 'string')
                 .slice(0, MAX_RESULTS)
             : [],
         );
@@ -105,7 +127,7 @@ export function CardPicker({
       controller.abort();
       window.clearTimeout(handle);
     };
-  }, [trimmedQuery]);
+  }, [trimmedQuery, metaOnly]);
 
   useEffect(() => {
     function onDown(event: MouseEvent) {
@@ -121,6 +143,11 @@ export function CardPicker({
     [value],
   );
 
+  const selectedPlayerIds = useMemo(
+    () => new Set(value.flatMap((card) => card.playerId ? [card.playerId] : [])),
+    [value],
+  );
+
   const selectCard = useCallback(
     (card: PlayerCard) => {
       if (mode === 'single') {
@@ -130,14 +157,13 @@ export function CardPicker({
         inputRef.current?.blur();
         return;
       }
-      if (selectedIds.has(card.efhubId)) return;
-      if (value.length >= max) return;
+      if (cardSelectionBlockReason(value, card, max)) return;
       onChange?.([...value, card]);
       setQuery('');
       setActiveIndex(-1);
       inputRef.current?.focus();
     },
-    [mode, onChange, value, max, selectedIds],
+    [mode, onChange, value, max],
   );
 
   const removeCard = useCallback(
@@ -148,7 +174,7 @@ export function CardPicker({
   );
 
   const isMultiFull = mode === 'multi' && value.length >= max;
-  const showDropdown = open && trimmedQuery.length >= MIN_QUERY;
+  const showDropdown = open && (metaOnly || trimmedQuery.length >= MIN_QUERY);
 
   const handleKey = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -217,6 +243,7 @@ export function CardPicker({
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
+            setMetaOnly(false);
             setOpen(true);
             setActiveIndex(-1);
           }}
@@ -231,6 +258,22 @@ export function CardPicker({
         )}
       </div>
 
+      {showMetaShortcut && !isMultiFull && (
+        <button
+          type="button"
+          onClick={() => {
+            setMetaOnly((current) => !current);
+            setQuery('');
+            setOpen(true);
+          }}
+          aria-pressed={metaOnly}
+          className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-amber-400/50 px-3 text-xs font-bold text-amber-600 transition hover:bg-amber-400/10 dark:text-amber-300"
+        >
+          <Flame className="h-4 w-4" />
+          {metaOnly ? 'META kartalar ko‘rsatilmoqda' : 'META kartalardan tez tanlash'}
+        </button>
+      )}
+
       {showDropdown && (
         <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-96 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
           {!loading && results.length === 0 && (
@@ -241,7 +284,10 @@ export function CardPicker({
               key={card.efhubId}
               card={card}
               active={activeIndex === index}
-              disabled={mode === 'multi' && selectedIds.has(card.efhubId)}
+              disabled={mode === 'multi' && (
+                selectedIds.has(card.efhubId)
+                  || (card.playerId ? selectedPlayerIds.has(card.playerId) : false)
+              )}
               onSelect={() => selectCard(card)}
             />
           ))}
@@ -249,6 +295,19 @@ export function CardPicker({
       )}
     </div>
   );
+}
+
+export type CardSelectionBlockReason = 'card' | 'player' | 'limit';
+
+export function cardSelectionBlockReason(
+  selected: PlayerCard[],
+  candidate: PlayerCard,
+  max: number,
+): CardSelectionBlockReason | null {
+  if (selected.some((card) => card.efhubId === candidate.efhubId)) return 'card';
+  if (candidate.playerId && selected.some((card) => card.playerId === candidate.playerId)) return 'player';
+  if (selected.length >= max) return 'limit';
+  return null;
 }
 
 function SelectedTile({ card, onRemove }: { card: PlayerCard; onRemove: () => void }) {
@@ -281,7 +340,7 @@ function SelectedPill({
         'inline-flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-2 text-xs shadow-sm',
         variant === 'primary'
           ? 'border-primary bg-primary/5'
-          : 'border-border bg-white',
+          : 'border-border bg-card',
       )}
     >
       <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-muted">
@@ -306,9 +365,9 @@ function SelectedPill({
         >
           {card.name}
         </span>
-        {typeof card.overallRating === 'number' && (
+        {typeof cardRating(card) === 'number' && (
           <span className="rounded bg-primary px-1 py-0.5 text-[10px] font-black leading-none text-primary-foreground">
-            {card.overallRating}
+            {cardRating(card)}
           </span>
         )}
         {card.cardType && (
@@ -392,9 +451,9 @@ function CardOption({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="min-w-0 truncate text-sm font-bold text-foreground">{card.name}</span>
-          {typeof card.overallRating === 'number' && (
+          {typeof cardRating(card) === 'number' && (
             <span className="ml-auto shrink-0 rounded bg-primary px-1.5 py-0.5 text-[10px] font-black text-primary-foreground">
-              {card.overallRating}
+              {cardRating(card)}
             </span>
           )}
         </div>

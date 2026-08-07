@@ -13,14 +13,19 @@ import org.springframework.web.multipart.MultipartFile;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.dto.*;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
+import uz.efbazaar.marketplace.service.LegacyDreamTeamAdapter;
 import uz.efbazaar.marketplace.service.ListingService;
+import uz.efbazaar.marketplace.service.ListingSpecifications;
 import uz.efbazaar.marketplace.service.ListingViewAssembler;
+import uz.efbazaar.marketplace.service.MatchRequestParser;
+import uz.efbazaar.marketplace.service.MatchedListingPage;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/v1/listings")
@@ -31,6 +36,8 @@ public class ListingController {
 
     private final ListingService listingService;
     private final ListingViewAssembler assembler;
+    private final MatchRequestParser matchRequestParser;
+    private final LegacyDreamTeamAdapter legacyDreamTeamAdapter;
 
     // ---------- Public: browse ----------
 
@@ -46,25 +53,49 @@ public class ListingController {
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Boolean priceNegotiable,
             @RequestParam(required = false) String search,
+            @RequestParam(name = "matchCard", required = false) List<String> matchCards,
+            @RequestParam(name = "matchStrictness", required = false) Integer matchStrictness,
             @RequestParam Map<String, String> allParams,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
 
         Map<String, Object> attributeFilters = extractAttributeFilters(allParams);
+        String legacyDreamTeam = removeString(attributeFilters, ListingSpecifications.DREAM_TEAM_KEY);
+        String legacyMinimum = removeString(attributeFilters, ListingSpecifications.MIN_MATCH_KEY);
         ListingFilter filter = new ListingFilter(
                 minPrice, maxPrice, priceNegotiable, search, attributeFilters);
+        Optional<MatchRequest> typedMatch = matchRequestParser.parse(matchCards, matchStrictness);
+        Optional<MatchRequest> match = typedMatch.isPresent()
+                ? typedMatch
+                : legacyDreamTeamAdapter.parse(legacyDreamTeam, legacyMinimum);
+        if (match.isPresent()) {
+            MatchedListingPage matched = listingService.browseMatched(filter, match.get(), pageable);
+            UUID viewerId = viewer == null ? null : viewer.userId();
+            List<ListingResponse> assembled = assembler.assembleAll(matched.listings(), viewerId);
+            List<ListingResponse> content = assembled.stream()
+                    .map(response -> response.withMatchDetails(matched.details().get(response.id())))
+                    .toList();
+            return new PageResponse<>(content, matched.page(), matched.size(),
+                    matched.totalElements(), matched.totalPages());
+        }
         Page<Listing> page = listingService.browse(filter, pageable);
         UUID viewerId = viewer == null ? null : viewer.userId();
 
-        return new PageResponse<>(
-                assembler.assembleAll(page.getContent(), viewerId),
+        List<ListingResponse> content = assembler.assembleAll(page.getContent(), viewerId);
+
+        return new PageResponse<>(content,
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
     @GetMapping("/{id}")
     public ListingResponse get(@PathVariable UUID id,
-                               @AuthenticationPrincipal AuthenticatedUser viewer) {
+                               @AuthenticationPrincipal AuthenticatedUser viewer,
+                               @RequestParam(name = "matchCard", required = false) List<String> matchCards,
+                               @RequestParam(name = "matchStrictness", required = false) Integer matchStrictness) {
         Listing listing = listingService.getById(id);
-        return assembler.assemble(listing, viewer == null ? null : viewer.userId());
+        ListingResponse response = assembler.assemble(listing, viewer == null ? null : viewer.userId());
+        return matchRequestParser.parse(matchCards, matchStrictness)
+                .map(match -> response.withMatchDetails(listingService.matchDetails(id, match)))
+                .orElse(response);
     }
 
     // ---------- Protected: atomic create/edit ----------
@@ -149,5 +180,10 @@ public class ListingController {
             }
         }
         return out;
+    }
+
+    private static String removeString(Map<String, Object> values, String key) {
+        Object value = values.remove(key);
+        return value == null ? null : String.valueOf(value);
     }
 }

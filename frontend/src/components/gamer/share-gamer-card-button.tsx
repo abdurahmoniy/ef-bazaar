@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { Download, Loader2, Share2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface ShareGamerCardButtonProps {
   /** DOM id of the card element to rasterize. */
   captureId: string;
   /** Used in the generated filename. */
   username?: string | null;
+  className?: string;
 }
 
 /**
@@ -18,7 +20,11 @@ interface ShareGamerCardButtonProps {
  * Share support gets the native share sheet (straight into Telegram);
  * desktop falls back to a download.
  */
-export function ShareGamerCardButton({ captureId, username }: ShareGamerCardButtonProps) {
+export function ShareGamerCardButton({
+  captureId,
+  username,
+  className,
+}: ShareGamerCardButtonProps) {
   const [busy, setBusy] = useState(false);
 
   async function share() {
@@ -61,9 +67,9 @@ export function ShareGamerCardButton({ captureId, username }: ShareGamerCardButt
   }
 
   return (
-    <Button onClick={share} disabled={busy} className="gap-2">
+    <Button onClick={share} disabled={busy} className={cn('gap-2', className)}>
       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-      Kartani ulash
+      Kartani ulashish
       {!busy && <Download className="h-3.5 w-3.5 opacity-60" />}
     </Button>
   );

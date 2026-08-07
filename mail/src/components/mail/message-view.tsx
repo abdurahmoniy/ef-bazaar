@@ -162,7 +162,7 @@ export function MessageView({ mailboxId, message, nav }: MessageViewProps) {
             <CopyButton
               value={otpCode}
               label="Kodni nusxalash"
-              className="border border-primary/30 bg-white px-3 py-2 text-primary hover:bg-white/70 hover:text-primary"
+              className="border border-primary/30 bg-card px-3 py-2 text-primary hover:bg-card/70 hover:text-primary"
             >
               Nusxalash
             </CopyButton>

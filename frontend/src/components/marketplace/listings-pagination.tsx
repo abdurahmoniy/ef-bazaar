@@ -61,7 +61,7 @@ function PageLink({
     'inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-3 text-sm font-semibold transition',
     active
       ? 'border-primary bg-primary text-primary-foreground'
-      : 'border-border bg-white text-foreground hover:border-primary/40',
+      : 'border-border bg-card text-foreground hover:border-primary/40',
     disabled && 'pointer-events-none border-transparent bg-muted/60 text-muted-foreground',
     edge && 'px-2',
   );

@@ -1,0 +1,697 @@
+/*
+ * Gamer Card — self-contained dark "share poster" surface.
+ *
+ * Deliberately NOT themed off the site's CSS variables: the card is rasterized
+ * to PNG (html2canvas) and shared into Telegram, so it must look identical in
+ * light and dark mode. Everything here is html2canvas-safe — no clip-path,
+ * mask-image, mix-blend-mode, backdrop-filter or drop-shadow filters, since
+ * html2canvas 1.4 silently drops them and the PNG would not match the DOM.
+ *
+ * Tier metal colours arrive as --m1/--m2/--m3 inline on .gc-card.
+ */
+
+.gc-card {
+  --gc-bg: #0b0917;
+  --gc-tile: #120e24;
+  --gc-tile-2: #171233;
+  --gc-line: rgba(139, 109, 255, 0.16);
+  --gc-line-hot: rgba(139, 109, 255, 0.42);
+  --gc-ink: #f2efff;
+  --gc-ink-mid: #9c93c4;
+  --gc-ink-dim: #6b6395;
+  --gc-lime: #c7f534;
+  --gc-green: #3de07b;
+  --gc-red: #ff4d6d;
+
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* poster proportions — never stretch to a wide container */
+  max-width: 430px;
+  margin-inline: auto;
+  padding: 20px 16px 16px;
+  border: 1px solid var(--gc-line);
+  border-radius: 26px;
+  background-color: var(--gc-bg);
+  background-image:
+    radial-gradient(90% 45% at 78% 12%, rgba(139, 92, 246, 0.3), transparent 62%),
+    radial-gradient(70% 40% at 12% 88%, rgba(76, 29, 149, 0.28), transparent 65%),
+    radial-gradient(60% 30% at 50% 40%, rgba(167, 139, 250, 0.1), transparent 70%);
+  color: var(--gc-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── identity ─────────────────────────────────────────────── */
+.gc-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.gc-ava {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1.5px solid var(--gc-line-hot);
+  border-radius: 20px;
+  background-image:
+    repeating-linear-gradient(58deg, rgba(167, 139, 250, 0.22) 0 2px, transparent 2px 11px),
+    linear-gradient(150deg, #1a1235, #0a0715);
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.gc-id {
+  min-width: 0;
+  flex: 1;
+}
+.gc-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+.gc-name > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gc-vfy {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: #a78bfa;
+}
+.gc-handle,
+.gc-email {
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--gc-ink-mid);
+}
+.gc-email {
+  color: var(--gc-ink-dim);
+}
+.gc-plats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  font-size: 11.5px;
+  color: var(--gc-ink-dim);
+}
+.gc-plats svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ── crest: ELO is the hero ───────────────────────────────── */
+.gc-crest-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0 0;
+}
+.gc-crest {
+  position: relative;
+  width: 148px;
+  height: 168px;
+}
+.gc-crest-layer {
+  position: absolute;
+  inset: 0;
+  /* rounded crest: square shoulders, tapered point — no clip-path */
+  border-radius: 24px 24px 48% 48% / 24px 24px 38% 38%;
+}
+.gc-crest-outer {
+  background-image: linear-gradient(160deg, var(--m3), var(--m1) 30%, var(--m2) 62%, var(--m1) 100%);
+}
+.gc-crest-inner {
+  inset: 5px;
+  background-image: linear-gradient(200deg, var(--m2), #0a0715 45%, var(--m2));
+}
+.gc-crest-face {
+  inset: 9px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-image:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.14), transparent 42%),
+    linear-gradient(0deg, rgba(139, 92, 246, 0.32), rgba(10, 7, 21, 0.92));
+}
+.gc-crest-gloss {
+  inset: 5px;
+  background-image: linear-gradient(
+    102deg,
+    transparent 34%,
+    rgba(255, 255, 255, 0.22) 48%,
+    rgba(255, 255, 255, 0.05) 56%,
+    transparent 68%
+  );
+}
+.gc-crest-tier {
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  color: var(--m1);
+}
+.gc-crest-elo {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  color: #fff;
+}
+.gc-crest-unit {
+  margin-top: 6px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  color: var(--gc-ink-mid);
+}
+.gc-crest-pill {
+  padding: 5px 13px;
+  border: 1px solid var(--gc-line-hot);
+  border-radius: 999px;
+  background-color: rgba(12, 9, 26, 0.94);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--gc-lime);
+  white-space: nowrap;
+}
+
+/* ── promotion ladder ─────────────────────────────────────── */
+.gc-ladder {
+  padding: 13px 15px 12px;
+  border: 1px solid var(--gc-line);
+  border-radius: 18px;
+  background-image: linear-gradient(180deg, var(--gc-tile-2), var(--gc-tile));
+}
+.gc-lad-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.gc-lad-l {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--gc-ink-dim);
+}
+.gc-lad-r {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--gc-ink-mid);
+  white-space: nowrap;
+}
+.gc-lad-r b {
+  font-weight: 800;
+  color: var(--gc-lime);
+}
+.gc-rail {
+  display: flex;
+  gap: 4px;
+  height: 9px;
+}
+.gc-seg {
+  flex: 1;
+  overflow: hidden;
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.06);
+}
+.gc-seg > i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background-image: linear-gradient(90deg, var(--c2), var(--c1));
+}
+.gc-ticks {
+  display: flex;
+  gap: 4px;
+  margin-top: 7px;
+}
+.gc-ticks > span {
+  flex: 1;
+  text-align: center;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--gc-ink-dim);
+}
+.gc-ticks > span.gc-on {
+  color: var(--gc-ink-mid);
+}
+
+/* ── match tiles ──────────────────────────────────────────── */
+.gc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.gc-tile {
+  padding: 12px 13px;
+  border: 1px solid var(--gc-line);
+  border-radius: 16px;
+  background-color: var(--gc-tile);
+}
+.gc-tile-num {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.gc-tile.gc-win .gc-tile-num {
+  color: var(--gc-green);
+}
+.gc-tile.gc-loss .gc-tile-num {
+  color: var(--gc-red);
+}
+.gc-tile-cap {
+  margin-top: 7px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--gc-ink-dim);
+}
+.gc-wr-bar {
+  display: flex;
+  height: 5px;
+  margin-top: 9px;
+  overflow: hidden;
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.07);
+}
+.gc-wr-bar > i {
+  height: 100%;
+}
+.gc-wr-w {
+  background-color: var(--gc-green);
+}
+.gc-wr-d {
+  background-color: #5d6878;
+}
+.gc-wr-l {
+  background-color: var(--gc-red);
+}
+.gc-wr-dash {
+  height: 5px;
+  margin-top: 9px;
+  border-radius: 3px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.14) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+/* ── first-match nudge ────────────────────────────────────── */
+.gc-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(199, 245, 52, 0.22);
+  border-radius: 16px;
+  background-color: rgba(199, 245, 52, 0.06);
+}
+.gc-cta p {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--gc-ink-mid);
+}
+.gc-cta b {
+  display: block;
+  font-weight: 700;
+  color: var(--gc-ink);
+}
+.gc-cta a {
+  flex: none;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background-color: var(--gc-lime);
+  font-size: 12px;
+  font-weight: 800;
+  color: #111a02;
+  text-decoration: none;
+}
+
+/* ── trust rows ───────────────────────────────────────────── */
+.gc-rows {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--gc-line);
+  border-radius: 16px;
+  background-color: var(--gc-line);
+}
+.gc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 13px;
+  background-color: var(--gc-tile);
+  color: inherit;
+  text-decoration: none;
+}
+.gc-row svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--gc-ink-dim);
+}
+.gc-row.gc-escrow svg {
+  color: var(--gc-green);
+}
+.gc-row-num {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.gc-row-num small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--gc-ink-mid);
+}
+.gc-row.gc-escrow .gc-row-num {
+  color: var(--gc-green);
+}
+.gc-row-cap {
+  margin-top: 3px;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--gc-ink-dim);
+}
+
+/* ── bio + meta ───────────────────────────────────────────── */
+.gc-bio {
+  padding: 0 3px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--gc-ink-mid);
+}
+.gc-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px 10px;
+  padding: 13px 15px;
+  border: 1px solid var(--gc-line);
+  border-radius: 16px;
+  background-color: rgba(18, 14, 36, 0.55);
+}
+.gc-m-cap {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--gc-ink-dim);
+}
+.gc-m-val {
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+}
+.gc-m-val.gc-link {
+  color: var(--gc-lime);
+}
+
+/* ── blacklist warning ────────────────────────────────────── */
+.gc-warn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 13px;
+  border: 1px solid rgba(255, 77, 109, 0.35);
+  border-radius: 16px;
+  background-color: rgba(255, 77, 109, 0.1);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #ffb3c1;
+}
+.gc-warn svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: var(--gc-red);
+}
+
+/* ── brand bar ────────────────────────────────────────────── */
+.gc-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  padding: 11px 14px;
+  border: 1px solid var(--gc-line);
+  border-radius: 16px;
+  background-image: linear-gradient(90deg, rgba(76, 29, 149, 0.5), rgba(18, 14, 36, 0.5));
+}
+.gc-logo {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background-image: linear-gradient(150deg, #a78bfa, #6d2bff);
+  font-size: 15px;
+  font-weight: 800;
+  color: #0b0917;
+}
+.gc-bar-name {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.gc-bar-tag {
+  margin-left: auto;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--gc-ink-mid);
+}
+
+/* ── compact variant (profil sahifasi) ───────────────────── */
+.gc-card.gc-compact {
+  gap: 11px;
+  max-width: none;
+  padding: 14px;
+  border-radius: 20px;
+}
+.gc-c-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gc-compact .gc-ava {
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  font-size: 23px;
+}
+.gc-compact .gc-name {
+  font-size: 18px;
+}
+.gc-compact .gc-vfy {
+  width: 15px;
+  height: 15px;
+}
+.gc-compact .gc-handle {
+  margin-top: 2px;
+  font-size: 12px;
+}
+.gc-c-crest {
+  position: relative;
+  width: 68px;
+  height: 78px;
+  flex: none;
+  margin-left: auto;
+}
+.gc-c-crest .gc-crest-face {
+  gap: 1px;
+}
+.gc-c-crest .gc-crest-tier {
+  margin-bottom: 2px;
+  font-size: 7px;
+  letter-spacing: 0.14em;
+}
+.gc-c-crest .gc-crest-elo {
+  font-size: 22px;
+  letter-spacing: -0.04em;
+}
+.gc-compact .gc-ladder {
+  padding: 11px 12px;
+  border-radius: 14px;
+}
+.gc-compact .gc-rail {
+  height: 7px;
+}
+.gc-c-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--gc-line);
+  border-radius: 14px;
+  background-color: var(--gc-line);
+}
+.gc-c-strip > div {
+  padding: 9px 4px;
+  text-align: center;
+  background-color: var(--gc-tile);
+}
+.gc-c-strip b {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1;
+}
+.gc-c-strip .gc-c-w {
+  color: var(--gc-green);
+}
+.gc-c-strip .gc-c-l {
+  color: var(--gc-red);
+}
+.gc-c-strip span {
+  display: block;
+  margin-top: 5px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--gc-ink-dim);
+}
+
+/* Card-owned action footer — share + overflow. Sits inside the card because
+   every action in it acts on the card, not on the page. */
+.gc-c-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gc-c-actions > *:first-child {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+/* ── small phones ─────────────────────────────────────────── */
+@media (max-width: 390px) {
+  .gc-card {
+    padding: 16px 13px 13px;
+    gap: 10px;
+  }
+  .gc-name {
+    font-size: 20px;
+  }
+  .gc-ava {
+    width: 60px;
+    height: 60px;
+    font-size: 27px;
+  }
+  .gc-crest {
+    width: 130px;
+    height: 148px;
+  }
+  .gc-crest-elo {
+    font-size: 38px;
+  }
+  .gc-tile-num {
+    font-size: 22px;
+  }
+  .gc-bar-tag {
+    display: none;
+  }
+  .gc-c-strip b {
+    font-size: 15px;
+  }
+  .gc-c-strip span {
+    font-size: 7.5px;
+    letter-spacing: 0.06em;
+  }
+  .gc-lad-l {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+}
+
+@media (max-width: 330px) {
+  .gc-c-crest {
+    width: 58px;
+    height: 66px;
+  }
+  .gc-c-crest .gc-crest-elo {
+    font-size: 19px;
+  }
+  .gc-compact .gc-ava {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+}
+
+/* ── fullscreen viewer ────────────────────────────────────── */
+.gc-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 14px 12px calc(24px + env(safe-area-inset-bottom));
+  background-color: rgba(5, 4, 10, 0.92);
+}
+.gc-viewer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+}
+.gc-viewer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.gc-viewer-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid rgba(139, 109, 255, 0.3);
+  border-radius: 12px;
+  background-color: rgba(18, 14, 36, 0.9);
+  font-size: 13px;
+  font-weight: 600;
+  color: #f2efff;
+  cursor: pointer;
+}
+/* PNG capture host: in the DOM (html2canvas cannot rasterize display:none)
+   but out of sight and out of the a11y tree. */
+.gc-capture-host {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  width: 430px;
+  pointer-events: none;
+}

@@ -39,6 +39,7 @@ import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data'
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api'
 import { formatPriceUZS, normalizePlayerList } from '@/lib/marketplace-format'
 import { listingMediaUrls } from '@/lib/marketplace-media'
+import { cardRating } from '@/lib/marketplace-types'
 import type {
 	ListingAttributeDefinition,
 	ListingCreateRequest,
@@ -404,10 +405,10 @@ function StepIndicator({ current }: { current: StepId }) {
 							className={cn(
 								'grid h-7 w-7 place-items-center rounded-full border-2 text-[11px] font-black transition',
 								done && 'border-primary bg-primary text-primary-foreground',
-								active && !done && 'border-primary bg-white text-primary',
+								active && !done && 'border-primary bg-card text-primary',
 								!done &&
 									!active &&
-									'border-border bg-white text-muted-foreground',
+									'border-border bg-card text-muted-foreground',
 							)}
 						>
 							{done ? <Check className='h-3.5 w-3.5' /> : index + 1}
@@ -747,6 +748,12 @@ function BasicsStep({
 	setState: React.Dispatch<React.SetStateAction<WizardState>>
 	errors: string[]
 }) {
+	const searchableCards = playerCards(state.attributes.valuable_players)
+	const coverage = searchableCards.length === 0
+		? 'Hali tanlanmagan — e’lon o‘yinchi qidiruvida chiqmaydi.'
+		: searchableCards.length <= 10
+			? 'Boshlangan — ko‘proq qimmatli kartalar qo‘shsangiz moslik aniqroq bo‘ladi.'
+			: 'Kuchli qamrov — xaridorlar bu tarkibni aniqroq topa oladi.'
 	return (
 		<div className='space-y-4'>
 			<div className='space-y-2'>
@@ -773,11 +780,14 @@ function BasicsStep({
 			</div>
 
 			<div className='space-y-2'>
-				<Label htmlFor='valuable-players'>Yulduz o'yinchilar (ixtiyoriy)</Label>
+				<div className='flex items-end justify-between gap-3'>
+					<Label htmlFor='valuable-players'>Qidiriladigan qimmatli kartalar (ixtiyoriy)</Label>
+					<span className='text-xs font-bold tabular-nums'>{searchableCards.length} / 30</span>
+				</div>
 				<CardPicker
 					id='valuable-players'
 					mode='multi'
-					max={12}
+					max={30}
 					selectedVariant='tile'
 					value={playerCards(state.attributes.valuable_players)}
 					onChange={(next) =>
@@ -787,9 +797,9 @@ function BasicsStep({
 						}))
 					}
 				/>
-				<p className='text-[11px] text-muted-foreground'>
-					Qidiruvdan tanlang. Tanlangan o'yinchilar rasm ko'rinishida chiqadi
-					(max 12 ta).
+				<p className='text-[11px] leading-relaxed text-muted-foreground'>
+					Faqat shu yerda tanlangan kartalar xaridorning META va Dream Team
+					qidiruvida hisoblanadi. {coverage}
 				</p>
 			</div>
 
@@ -808,6 +818,11 @@ const STORE_LINK_HINTS: Record<string, string> = {
 		"Google Play ulanishini uzib bo'lmaydi — akkount faqat Konami ID orqali o'tkaziladi.",
 	has_game_center_link:
 		"Game Center ulanishini uzib bo'lmaydi — akkount faqat Konami ID orqali o'tkaziladi.",
+}
+
+const ATTRIBUTE_HINTS: Record<string, string> = {
+	device_transfer_limit:
+		"eFootball'da bir akkount oyiga 10 marta yangi qurilmaga o'tkaziladi. Shu oyda nechtasi qolganini yozing — savdo kamida 2 tasini oladi (moderator tekshiruvi va xaridorning kirishi). Limit har oy yangilanadi.",
 }
 
 function GameplayStep({
@@ -983,6 +998,11 @@ function AttributeInput({
 						className={cn('h-11', icon && 'pl-9')}
 					/>
 				</div>
+				{ATTRIBUTE_HINTS[definition.key] && (
+					<p className='text-xs leading-5 text-muted-foreground'>
+						{ATTRIBUTE_HINTS[definition.key]}
+					</p>
+				)}
 			</div>
 		)
 	}
@@ -1202,7 +1222,7 @@ function renderAttributeValue(
 		return cards
 			.map(
 				(c) =>
-					`${c.name}${c.overallRating ? ` ${c.overallRating}` : ''}${c.cardType ? ` ${c.cardType}` : ''}`,
+					`${c.name}${cardRating(c) ? ` ${cardRating(c)}` : ''}${c.cardType ? ` ${c.cardType}` : ''}`,
 			)
 			.join(', ')
 	}
@@ -1298,10 +1318,12 @@ function normalizeCardListPayload(value: unknown): PlayerCard[] {
 		if (!raw || typeof raw !== 'object') continue
 		const item = raw as Record<string, unknown>
 		const efhubId = item.efhubId ?? item.efhub_id
+		const playerId = item.playerId ?? item.player_id
 		const name = item.name
-		if (typeof efhubId !== 'number' || typeof name !== 'string') continue
+		if (typeof efhubId !== 'number' || typeof playerId !== 'string' || typeof name !== 'string') continue
 		out.push({
 			efhubId,
+			playerId,
 			name,
 			team: typeof item.team === 'string' ? item.team : undefined,
 			position: typeof item.position === 'string' ? item.position : undefined,
@@ -1312,6 +1334,10 @@ function normalizeCardListPayload(value: unknown): PlayerCard[] {
 			overallRating:
 				typeof (item.overallRating ?? item.overall_rating) === 'number'
 					? Number(item.overallRating ?? item.overall_rating)
+					: undefined,
+			maxOverallRating:
+				typeof (item.maxOverallRating ?? item.max_overall_rating) === 'number'
+					? Number(item.maxOverallRating ?? item.max_overall_rating)
 					: undefined,
 			cardType:
 				typeof (item.cardType ?? item.card_type) === 'string'
@@ -1333,6 +1359,7 @@ function normalizeCardListPayload(value: unknown): PlayerCard[] {
 function cardToApiPayload(card: PlayerCard): Record<string, unknown> {
 	const payload: Record<string, unknown> = {
 		efhub_id: card.efhubId,
+		player_id: card.playerId,
 		name: card.name,
 	}
 	if (card.team !== undefined) payload.team = card.team
@@ -1340,6 +1367,10 @@ function cardToApiPayload(card: PlayerCard): Record<string, unknown> {
 	if (card.playingStyle !== undefined) payload.playing_style = card.playingStyle
 	if (card.overallRating !== undefined)
 		payload.overall_rating = card.overallRating
+	// Snapshot the maxed OVR too — the listing must keep showing the number the
+	// seller saw, even if a later scrape changes the card.
+	if (card.maxOverallRating !== undefined)
+		payload.max_overall_rating = card.maxOverallRating
 	if (card.cardType !== undefined) payload.card_type = card.cardType
 	if (card.imageUrl !== undefined) payload.image_url = card.imageUrl
 	if (card.skills !== undefined) payload.skills = card.skills
@@ -1394,10 +1425,18 @@ function validateStep(
 				else {
 					const min = numberConstraint(def, 'min')
 					const max = numberConstraint(def, 'max')
+					const minSellable = numberConstraint(def, 'min_sellable')
 					if (min !== undefined && num < min)
 						errors.push(`${def.labelUz} ${min} dan kichik bo'lmasin.`)
 					if (max !== undefined && num > max)
 						errors.push(`${def.labelUz} ${max} dan katta bo'lmasin.`)
+					// Truthful value, untradeable account — say why, not "min".
+					if (minSellable !== undefined && num >= (min ?? num) && num < minSellable)
+						errors.push(
+							def.key === 'device_transfer_limit'
+								? `Qurilma almashtirish limiti ${num} ta qolgan. Sotuv uchun kamida ${minSellable} ta kerak: moderator tekshiruvi va xaridorning kirishi uchun. Limit har oy yangilanadi.`
+								: `${def.labelUz} sotuvga qo'yish uchun kamida ${minSellable} bo'lsin.`,
+						)
 				}
 			}
 			if (def.type === 'DECIMAL') {

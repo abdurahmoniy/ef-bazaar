@@ -64,6 +64,22 @@ export interface ListingResponse {
   forwardCount: number;
   likeCount: number;
   likedByMe?: boolean | null;
+  /** 0..100 squad coverage — present only when the request carried a dream team. */
+  matchPercent?: number | null;
+  matchDetails?: {
+    percent: number;
+    exactCount: number;
+    alternateCount: number;
+    missingCount: number;
+    selectedCount: number;
+    strictness: number;
+    exactEfhubIds: number[];
+    alternateEfhubIds: number[];
+    missingEfhubIds: number[];
+    priorityEfhubIds: number[];
+    earnedWeight: number;
+    possibleWeight: number;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,6 +92,9 @@ export interface ListingBrowseParams {
   maxPrice?: number;
   priceNegotiable?: boolean;
   search?: string;
+  /** Repeatable typed matcher criteria: efhubId:playerId:N|P. */
+  matchCards?: string[];
+  matchStrictness?: number;
   /** Equality filters on JSONB attributes — sent as {@code ?attr.<key>=<value>}. */
   attributes?: Record<string, string>;
 }
@@ -128,6 +147,120 @@ export function attributeStringList(listing: ListingResponse, key: string): stri
   return raw.filter((item): item is string => typeof item === 'string');
 }
 
+export type CardType = 'BIGTIME' | 'EPIC' | 'SHOWTIME';
+
+/**
+ * Meta relevance of a card — hand-curated by admins at /admin/players.
+ * Independent of {@link CardType}: that is rarity and never changes, this
+ * tracks whether buyers currently want the player.
+ */
+export type MetaTier = 'NORMAL' | 'META';
+
+/** One row of GET /marketplace/v1/cards — the card catalogue, not a listing. */
+export interface CardSearchResult {
+  efhubId: number;
+  /** Stable real-player identity shared by alternate card editions. */
+  playerId: string;
+  name: string;
+  team?: string;
+  position?: string;
+  playingStyle?: string;
+  /** Level-1 rating from efhub. Use {@link cardRating} to display. */
+  overallRating?: number;
+  /** OVR at max level — the number players quote. Null on older scrapes. */
+  maxOverallRating?: number;
+  cardType: CardType;
+  metaTier: MetaTier;
+  /** Ranking within currently active META cards (0..100). */
+  metaPriority: number;
+  imageUrl?: string;
+  skills?: string[];
+}
+
+/** Card catalogue page — same shape family as PageResponse but backend-specific. */
+export interface CardPage {
+  items: CardSearchResult[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+export interface AdminCardSearchResult extends CardSearchResult {
+  configuredMetaTier: MetaTier;
+  configuredMetaPriority: number;
+  metaActiveFrom?: string | null;
+  metaActiveUntil?: string | null;
+  metaReason?: string | null;
+  metaUpdatedBy?: string | null;
+  metaUpdatedAt?: string | null;
+  interest7d?: number;
+  interest30d?: number;
+}
+
+export interface AdminCardPage {
+  items: AdminCardSearchResult[];
+  page: number;
+  size: number;
+  total: number;
+}
+
+export interface CardMetaTierUpdateResponse {
+  updated: number;
+  requested: number;
+}
+
+export interface MaxOvrRefreshResponse {
+  indexEntries: number;
+  matched: number;
+  changed: number;
+}
+
+/** One position on the pitch. `card` is absent while the slot is empty. */
+export interface DreamTeamSlot {
+  index: number;
+  position: string;
+  /** Slot weight — 3 = must have, 1 = nice to have. Drives the match score. */
+  w?: number;
+  card?: AttachedPlayerCard;
+}
+
+export interface DreamTeam {
+  id: string;
+  name: string;
+  formation: string;
+  slots: DreamTeamSlot[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DreamTeamPayload {
+  name: string;
+  formation: string;
+  slots: DreamTeamSlot[];
+}
+
+/**
+ * The squad payload the backend scores against — see `card_match_score` in
+ * V27. Only filled slots count; empty ones would drag every score down.
+ */
+export function dreamTeamFilterValue(slots: DreamTeamSlot[]): string | undefined {
+  const wanted = slots
+    .filter((slot) => slot.card?.efhubId)
+    .map((slot) => ({
+      id: String(slot.card!.efhubId),
+      name: slot.card!.name,
+      w: slot.w ?? 1,
+    }));
+  return wanted.length === 0 ? undefined : JSON.stringify(wanted);
+}
+
+/** Same shape from a flat card list (the quick "filter by these players" path). */
+export function cardsFilterValue(cards: AttachedPlayerCard[]): string | undefined {
+  return dreamTeamFilterValue(
+    cards.map((card, index) => ({ index, position: '', card })),
+  );
+}
+
 /**
  * Public-facing shape for a valuable_players entry after CARD_LIST migration.
  * Backend stores snake_case; helpers below normalize to something the display
@@ -135,12 +268,28 @@ export function attributeStringList(listing: ListingResponse, key: string): stri
  */
 export interface AttachedPlayerCard {
   efhubId: number;
+  /** Missing only on legacy snapshots created before canonical identities. */
+  playerId?: string;
   name: string;
   overallRating?: number;
+  maxOverallRating?: number;
   cardType?: string;
   playingStyle?: string;
   position?: string;
   imageUrl?: string;
+}
+
+/**
+ * The rating to show a human. efhub's `overallRating` is the level-1 value
+ * (Messi 89138556575063 reports 90) while players quote the maxed one (106),
+ * so max wins wherever we have it. Cards scraped before max_overall_rating
+ * existed fall back to the base rating instead of rendering blank.
+ */
+export function cardRating(card: {
+  overallRating?: number;
+  maxOverallRating?: number;
+}): number | undefined {
+  return card.maxOverallRating ?? card.overallRating;
 }
 
 /**
@@ -161,13 +310,18 @@ export function attributeCardList(listing: ListingResponse, key: string): Attach
     if (!entry || typeof entry !== 'object') continue;
     const item = entry as Record<string, unknown>;
     const efhubIdRaw = (item.efhubId ?? item.efhub_id);
+    const playerIdRaw = (item.playerId ?? item.player_id);
     const name = item.name;
     if (typeof name !== 'string') continue;
     out.push({
       efhubId: typeof efhubIdRaw === 'number' ? efhubIdRaw : 0,
+      playerId: typeof playerIdRaw === 'string' ? playerIdRaw : undefined,
       name,
       overallRating: typeof (item.overallRating ?? item.overall_rating) === 'number'
         ? Number(item.overallRating ?? item.overall_rating)
+        : undefined,
+      maxOverallRating: typeof (item.maxOverallRating ?? item.max_overall_rating) === 'number'
+        ? Number(item.maxOverallRating ?? item.max_overall_rating)
         : undefined,
       cardType: typeof (item.cardType ?? item.card_type) === 'string'
         ? String(item.cardType ?? item.card_type)

@@ -46,6 +46,13 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        price: {
+          DEFAULT: 'hsl(var(--price))',
+          foreground: 'hsl(var(--price-foreground))',
+        },
+        surface: {
+          alt: 'hsl(var(--surface-alt))',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -58,6 +65,25 @@ const config: Config = {
       boxShadow: {
         card: '0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 1px 3px 0 rgba(15, 23, 42, 0.06)',
         'card-hover': '0 4px 10px -2px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.06)',
+      },
+      keyframes: {
+        'sheet-up': {
+          from: { transform: 'translateY(100%)' },
+          to: { transform: 'translateY(0)' },
+        },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'slide-in-left': {
+          from: { transform: 'translateX(-100%)' },
+          to: { transform: 'translateX(0)' },
+        },
+      },
+      animation: {
+        'sheet-up': 'sheet-up 0.24s cubic-bezier(0.32, 0.72, 0, 1)',
+        'fade-in': 'fade-in 0.18s ease-out',
+        'slide-in-left': 'slide-in-left 0.24s cubic-bezier(0.32, 0.72, 0, 1)',
       },
     },
   },

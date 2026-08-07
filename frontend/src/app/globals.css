@@ -4,43 +4,80 @@
 
 @layer base {
   :root {
-    /* Backdrop — warm white, denser than pure paper for marketplace feel */
-    --background: 40 25% 97%;
-    --foreground: 220 25% 12%;
+    /* eFootball palette — deep blue + gold, harmonized on white */
+    --background: 0 0% 100%;
+    --foreground: 240 60% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 25% 12%;
+    --card-foreground: 240 60% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 12%;
+    --popover-foreground: 240 60% 10%;
 
-    /* Teal — calm, premium marketplace primary */
-    --primary: 174 65% 33%;
-    --primary-foreground: 0 0% 100%;
+    /* Ultra-deep electric blue */
+    --primary: 240 100% 30%;
+    --primary-foreground: 48 100% 60%;
 
-    /* Coral — used for price and secondary CTAs (price prominence) */
-    --secondary: 12 85% 52%;
-    --secondary-foreground: 12 70% 14%;
+    /* Warm gold — readable against white, not pure #FFFF00 */
+    --secondary: 45 95% 52%;
+    --secondary-foreground: 240 60% 15%;
 
-    --muted: 40 12% 95%;
-    --muted-foreground: 30 8% 42%;
+    --muted: 240 20% 96%;
+    --muted-foreground: 240 12% 38%;
 
-    --accent: 174 45% 93%;
-    --accent-foreground: 174 65% 24%;
+    /* Deeper amber tint so accent surfaces read against white */
+    --accent: 45 90% 92%;
+    --accent-foreground: 240 60% 20%;
 
-    --destructive: 0 78% 52%;
+    --destructive: 0 84% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 35 15% 87%;
-    --input: 35 15% 87%;
-    --ring: 174 65% 33%;
+    --border: 240 15% 88%;
+    --input: 240 15% 88%;
+    --ring: 240 100% 30%;
 
-    /* Marketplace-specific tokens */
-    --price: 12 80% 42%;
-    --price-foreground: 0 0% 100%;
-    --surface-alt: 40 30% 98%;
+    --price: 240 100% 30%;
+    --price-foreground: 45 95% 55%;
+    --surface-alt: 240 30% 98%;
 
-    --radius: 0.625rem;
+    --radius: 0.875rem;
+  }
+
+  .dark {
+    /* Near-black navy — shared blue undertone unifies with primary/capsules */
+    --background: 240 35% 4%;
+    --foreground: 240 15% 94%;
+
+    --card: 240 45% 8%;
+    --card-foreground: 240 15% 94%;
+
+    --popover: 240 45% 8%;
+    --popover-foreground: 240 15% 94%;
+
+    /* Brighter deep-blue for CTAs on dark navy */
+    --primary: 235 90% 55%;
+    --primary-foreground: 45 95% 60%;
+
+    /* Warm gold, not neon */
+    --secondary: 45 90% 55%;
+    --secondary-foreground: 240 60% 12%;
+
+    --muted: 240 30% 12%;
+    --muted-foreground: 240 12% 70%;
+
+    --accent: 240 60% 16%;
+    --accent-foreground: 45 90% 65%;
+
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 35% 18%;
+    --input: 240 35% 18%;
+    --ring: 235 90% 55%;
+
+    --price: 45 90% 60%;
+    --price-foreground: 240 60% 12%;
+    --surface-alt: 240 45% 6%;
   }
 
   * {
@@ -51,12 +88,67 @@
     color-scheme: light;
     overscroll-behavior-y: none;
     touch-action: manipulation;
+    /* Grey flash on every tap reads as lag on Android — press states are
+       handled explicitly with `active:` utilities instead. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
     min-height: 100vh;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    position: relative;
+    overflow-x: clip;
+  }
+
+  /* Huge eFootball-style diagonal capsules — full-viewport backdrop */
+  body::before,
+  body::after {
+    content: '';
+    position: fixed;
+    pointer-events: none;
+    z-index: 0;
+    border-radius: 9999px;
+    transform: rotate(-24deg);
+    background: linear-gradient(180deg, hsl(240 100% 35%), hsl(240 100% 18%));
+    opacity: 0.9;
+  }
+  body::before {
+    top: -14rem;
+    left: -22rem;
+    width: 70rem;
+    height: 11rem;
+  }
+  body::after {
+    bottom: -14rem;
+    right: -26rem;
+    width: 82rem;
+    height: 12rem;
+    background: linear-gradient(180deg, hsl(240 100% 28%), hsl(240 100% 12%));
+    opacity: 0.9;
+  }
+  html.dark body::before {
+    background: linear-gradient(180deg, hsl(240 100% 28%), hsl(240 100% 8%));
+    opacity: 1;
+  }
+  html.dark body::after {
+    background: linear-gradient(180deg, hsl(240 100% 32%), hsl(240 100% 10%));
+    opacity: 1;
+  }
+
+  /* Full-viewport shells stay transparent so the capsule backdrop shows through */
+  .min-h-app.bg-background {
+    background-color: transparent !important;
+  }
+
+  /* Content stacks over the capsule backdrop */
+  body > * {
+    position: relative;
+    z-index: 1;
   }
 
   ::selection {
@@ -77,6 +169,50 @@
     @apply mx-auto w-full max-w-6xl px-4;
   }
 
+  /* Email markup rendered in the admin panel's message view. Arbitrary
+     third-party HTML (already Jsoup-sanitised server-side), so every rule is
+     scoped under .mail-html-body and wide content scrolls inside the card
+     instead of stretching the page. Mirrors the webmail's own styles. */
+  .mail-html-body {
+    overflow-wrap: anywhere; /* Konami reset URLs are very long */
+    @apply text-sm leading-relaxed text-foreground;
+  }
+  .mail-html-body p,
+  .mail-html-body ul,
+  .mail-html-body ol,
+  .mail-html-body table,
+  .mail-html-body blockquote,
+  .mail-html-body pre {
+    @apply my-3;
+  }
+  .mail-html-body a {
+    @apply font-semibold text-primary underline underline-offset-2;
+  }
+  .mail-html-body ul {
+    @apply list-disc pl-5;
+  }
+  .mail-html-body ol {
+    @apply list-decimal pl-5;
+  }
+  .mail-html-body h1,
+  .mail-html-body h2,
+  .mail-html-body h3 {
+    @apply mb-2 mt-4 font-bold text-foreground;
+  }
+  .mail-html-body blockquote {
+    @apply border-l-2 border-border pl-3 text-muted-foreground;
+  }
+  .mail-html-body pre {
+    @apply overflow-x-auto rounded-lg bg-muted p-3 text-xs;
+  }
+  .mail-html-body table {
+    @apply block max-w-full overflow-x-auto text-xs;
+  }
+  .mail-html-body th,
+  .mail-html-body td {
+    @apply border border-border px-2 py-1 text-left align-top;
+  }
+
   .container-wide {
     @apply mx-auto w-full max-w-7xl px-4;
   }
@@ -89,12 +225,29 @@
 
   /* Solid glassy top-bar used across marketplace shell */
   .surface-nav {
-    @apply bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80;
+    @apply bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80;
   }
 
   /* Price pill — hero attribute on cards + detail page */
   .price-pill {
     @apply inline-flex items-baseline gap-1 rounded-md bg-[hsl(var(--price)/0.12)] px-2 py-1 text-[hsl(var(--price))];
+  }
+
+  /* Touch press feedback. Phones have no hover, so tappable surfaces need an
+     explicit pressed state or they feel unresponsive. */
+  .tap-press {
+    @apply transition-transform duration-100 active:scale-[0.98];
+  }
+
+  /* Horizontal chip/scroller rails — snap so a flick lands on a chip edge. */
+  .snap-rail {
+    @apply flex snap-x snap-mandatory overflow-x-auto no-scrollbar;
+    scroll-padding-left: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .snap-rail > * {
+    @apply snap-start;
   }
 }
 
@@ -107,7 +260,7 @@
     @apply bg-transparent;
   }
   ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-black/10 hover:bg-black/20;
+    @apply rounded-full bg-foreground/10 hover:bg-foreground/20;
   }
 
   .no-scrollbar {
@@ -129,7 +282,7 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(255, 255, 255, 0.65),
+      hsl(var(--card) / 0.65),
       transparent
     );
     animation: skeleton-shimmer 1.6s ease-in-out infinite;

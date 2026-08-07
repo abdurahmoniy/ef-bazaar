@@ -30,7 +30,7 @@ export default async function BlacklistPage({ searchParams }: BlacklistPageProps
   const entries = page?.content ?? [];
 
   return (
-    <MarketplaceShell user={viewer} hideSearch backHref="/marketplace">
+    <MarketplaceShell user={viewer} activeTab="safety" hideSearch backHref="/marketplace">
       <div className="mx-auto max-w-2xl px-4 py-6">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-600">

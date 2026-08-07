@@ -47,6 +47,12 @@ public class TradeEventPublisher {
                 new TradeEvents.ImapPollRequest(tradeId, mailboxEmail, purpose));
     }
 
+    /** Admin-panel mailbox creation — no trade involved. */
+    public void mailboxProvisionRequest(UUID mailboxId, String localPart) {
+        send(TradeEvents.TOPIC_MAILBOX_PROVISION_REQ, mailboxId.toString(),
+                new TradeEvents.MailboxProvisionRequest(mailboxId, localPart));
+    }
+
     public void mailboxRotateRequest(UUID mailboxId) {
         send(TradeEvents.TOPIC_MAILBOX_ROTATE_REQ, mailboxId.toString(),
                 new TradeEvents.MailboxRotateRequest(mailboxId));

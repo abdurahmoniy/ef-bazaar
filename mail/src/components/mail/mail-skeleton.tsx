@@ -11,8 +11,8 @@ function Bar({ className }: { className: string }) {
 
 function ShellSkeleton({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-background">
-      <header className="shrink-0 border-b border-border bg-card">
+    <div className="flex h-dvh flex-col overflow-hidden bg-transparent">
+      <header className="shrink-0 border-b border-border surface-nav pt-[env(safe-area-inset-top)]">
         <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 animate-pulse rounded-lg bg-muted" />
@@ -22,7 +22,7 @@ function ShellSkeleton({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-72 shrink-0 border-r border-border bg-background p-2 pt-4 lg:block xl:w-80">
+        <aside className="hidden w-72 shrink-0 border-r border-border bg-surface-alt/80 p-2 pt-4 backdrop-blur lg:block xl:w-80">
           <Bar className="mb-3 ml-2 h-3 w-24" />
           <div className="space-y-1">
             {Array.from({ length: 3 }).map((_, i) => (

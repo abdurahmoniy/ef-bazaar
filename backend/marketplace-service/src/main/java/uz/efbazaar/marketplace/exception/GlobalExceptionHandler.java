@@ -80,7 +80,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> onUnknown(Exception ex) {
-        log.error("Unhandled exception", ex);
+        // Root cause on the first line: the Telegram log forwarder truncates
+        // long stack traces, and for wrapped exceptions (SQL, IO) everything
+        // that identifies the actual failure lives at the bottom.
+        log.error("Unhandled exception: {} | root cause: {}", ex.toString(), rootCauseOf(ex), ex);
         Object details = null;
         if (debugErrors) {
             Throwable root = ex;
@@ -92,6 +95,14 @@ public class GlobalExceptionHandler {
                     "rootMessage", String.valueOf(root.getMessage()));
         }
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error", "Ichki xatolik", details);
+    }
+
+    private static String rootCauseOf(Throwable ex) {
+        Throwable root = ex;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        return root.getClass().getSimpleName() + ": " + root.getMessage();
     }
 
     private ResponseEntity<Map<String, Object>> build(HttpStatus status, String code,

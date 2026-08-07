@@ -9,6 +9,7 @@ import {
   getSelectedMarketplaceFilter,
   normalizePlayerList,
   parseListingSearchParams,
+  searchParamInputToSearchParams,
 } from './marketplace-format';
 
 describe('marketplace formatting helpers', () => {
@@ -121,5 +122,21 @@ describe('marketplace formatting helpers', () => {
     expect(params.get('attr.has_google_play_link')).toBe('true');
     expect(params.get('attr.highest_division_level')).toBe('7');
     expect(params.has('maxPrice')).toBe(false);
+  });
+
+  it('preserves the complete originating marketplace query for detail navigation', () => {
+    const params = searchParamInputToSearchParams({
+      page: '3',
+      q: 'Messi',
+      filter: 'clean',
+      view: 'list',
+      matchCard: ['101:11111111-1111-4111-8111-111111111111:N', '202:22222222-2222-4222-8222-222222222222:P'],
+    });
+
+    expect(params.get('page')).toBe('3');
+    expect(params.get('q')).toBe('Messi');
+    expect(params.get('filter')).toBe('clean');
+    expect(params.get('view')).toBe('list');
+    expect(params.getAll('matchCard')).toHaveLength(2);
   });
 });

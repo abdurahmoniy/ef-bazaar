@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { cookies } from 'next/headers';
+import type { NextResponse } from 'next/server';
 
 import {
   ACCESS_COOKIE_NAME,
@@ -54,18 +55,54 @@ export async function telegramAuth(data: TelegramAuthData): Promise<User> {
 }
 
 /**
- * Telegram Mini App auto-login. `initData` — `window.Telegram.WebApp.initData`'dan
- * olingan signed query-string. Backend HMAC-SHA256 bilan tekshiradi (Login Widget'dan
- * algoritmi farqli) va xuddi shu register-or-login pipeline'iga uzatadi.
+ * Telegram Mini App auto-login — token almashinuvi (cookie'larni O'RNATMAYDI).
+ * `initData` — `window.Telegram.WebApp.initData`'dan olingan signed query-string.
+ * Backend HMAC-SHA256 bilan tekshiradi (Login Widget'dan algoritmi farqli) va
+ * xuddi shu register-or-login pipeline'iga uzatadi.
+ *
+ * <p>Cookie'lar bu yerda emas, route handler'da ({@code /api/telegram-webapp})
+ * 303-redirect javobiga {@link applyAuthCookies} orqali yoziladi. Sabab: Telegram
+ * Desktop'ning WebKitGTK webview'i fon `fetch` javobidagi `Set-Cookie`'ni ishonchli
+ * saqlamaydi — cookie top-level navigatsiya (redirect) javobida kelishi shart.
  */
-export async function telegramWebAppAuth(initData: string): Promise<User> {
-  const auth = await apiFetch<AuthResponse>('/auth/v1/auth/telegram-webapp', {
+export async function telegramWebAppAuthTokens(initData: string): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/v1/auth/telegram-webapp', {
     method: 'POST',
     auth: false,
     body: { initData },
   });
-  await setAuthCookies(auth);
-  return auth.user;
+}
+
+/**
+ * Auth token'larini javob obyektining O'ZIGA (`NextResponse`) `Set-Cookie`
+ * sifatida yozadi. Route handler'ning 303-redirect'ida ishlatiladi — top-level
+ * navigatsiya cookie'si har bir webview'da (WebKitGTK ham) ishonchli saqlanadi,
+ * `next/headers` cookies() esa fon-fetch kontekstiga bog'liq bo'lib chiqadi.
+ *
+ * <p>{@code sameSiteOverride} — Telegram Mini App kontekstiga qarab: **native
+ * webview** (Telegram Desktop/mobil, top-level first-party) uchun `'lax'` beriladi,
+ * chunki WebKitGTK'ning ITP'si `SameSite=None`'ni top-level navigatsiyada ham
+ * tashlab yuboradi (server auth muvaffaqiyatli bo'lsa ham user guest mode'da
+ * qolardi). **Telegram Web** iframe'ida (efbazaar third-party) esa cookie
+ * cross-site yuborilishi kerak — override berilmaydi, default `'none'` ishlaydi.
+ */
+export function applyAuthCookies(
+  res: NextResponse,
+  auth: AuthResponse,
+  sameSiteOverride?: 'lax' | 'none',
+): void {
+  const cookieOpts = getAuthCookieOptions();
+  const opts = sameSiteOverride
+    ? { ...cookieOpts, sameSite: sameSiteOverride }
+    : cookieOpts;
+  res.cookies.set(ACCESS_COOKIE_NAME, auth.accessToken, {
+    ...opts,
+    maxAge: ACCESS_TTL_SECONDS,
+  });
+  res.cookies.set(REFRESH_COOKIE_NAME, auth.refreshToken, {
+    ...opts,
+    maxAge: REFRESH_TTL_SECONDS,
+  });
 }
 
 // ─── Google OAuth ───────────────────────────────────────────────────────────

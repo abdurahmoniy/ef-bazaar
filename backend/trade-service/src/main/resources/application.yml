@@ -105,6 +105,11 @@ trade:
     name-cache-ttl-seconds: 60
   mailcow:
     api-url: ${MAILCOW_API_URL:https://mailcow.efbazaar.uz/api/v1}
+  mailbox:
+    # Domain appended to the local part an admin types when registering a
+    # mailbox. Must match smart-admin-worker's MAILCOW_DOMAIN or the row and
+    # the actual Mailcow box would disagree on the address.
+    domain: ${MAILBOX_DOMAIN:efbazaar.uz}
   mail:
     imap:
       # Mailcow'ning dovecot cert'i faqat MAILCOW_HOSTNAME (mail.efbazaar.uz)

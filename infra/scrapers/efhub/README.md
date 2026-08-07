@@ -78,7 +78,7 @@ CREATE TABLE bigtime (
     efhub_id            BIGINT NOT NULL UNIQUE, -- efhub'dan kelgan ID
     name, name_ja, name_zh,
     team, league, nationality, nationality_code,
-    position, playing_style, overall_rating, player_type,
+    position, playing_style, overall_rating, max_overall_rating, player_type,
     age, height, weight, preferred_foot,
     weak_foot_usage, weak_foot_accuracy,
     image_url,
@@ -88,6 +88,28 @@ CREATE TABLE bigtime (
     scraped_at, updated_at
 );
 ```
+
+## `overall_rating` vs `max_overall_rating`
+
+Player page'dagi `overallRating` — **1-darajadagi** qiymat (Messi
+`89136409091415` uchun 89). O'yinchilar aytadigan raqam esa max level'dagi
+OVR (106) va u **faqat player-index'dagi `"o"` maydonida** bor — efhub uni
+sahifada brauzer ichida progression curve orqali hisoblaydi.
+
+Demak: player page'ni qayta scrape qilish bu ustunni **hech qachon**
+to'ldirmaydi. Index kerak.
+
+```bash
+# Mavjud kartalarni to'ldirish — bitta HTTP so'rov, page scrape yo'q
+export DATABASE_URL="postgresql://efbazaar:$POSTGRES_PASSWORD@localhost:5432/efbazaar"
+python3 infra/scrapers/efhub/backfill_max_ovr.py
+```
+
+`EfhubSyncJob` ham har run'da shu ishni bajaradi — index'ni allaqachon
+yuklab olgani uchun qo'shimcha so'rov ketmaydi.
+
+UI hamma joyda `max_overall_rating ?? overall_rating` ko'rsatadi
+(`cardRating()` — `frontend/src/lib/marketplace-types.ts`).
 
 ## Konfiguratsiya
 

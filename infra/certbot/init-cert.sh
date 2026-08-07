@@ -21,7 +21,10 @@ set -euo pipefail
 
 cd "${DEPLOY_PATH:-/opt/efbazaar}"
 
-DOMAINS=(efbazaar.uz api.efbazaar.uz)
+# Har guruh bitta SAN cert (primary = birinchi element → /live/<primary>/).
+EFBAZAAR_DOMAINS=(efbazaar.uz api.efbazaar.uz)
+CHEMPOX_DOMAINS=(chempox.uz www.chempox.uz api.chempox.uz)
+ALL_DOMAINS=("${EFBAZAAR_DOMAINS[@]}" "${CHEMPOX_DOMAINS[@]}")
 LE_EMAIL="${LE_EMAIL:-}"
 SWAGGER_USER="${SWAGGER_USER:-admin}"
 SWAGGER_PASS="${SWAGGER_PASS:-}"
@@ -40,7 +43,7 @@ SERVER_IP=$(curl -4 -fsSL --max-time 5 https://ifconfig.me 2>/dev/null \
         || curl -4 -fsSL --max-time 5 https://api.ipify.org 2>/dev/null \
         || ip -4 addr show scope global 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)
 echo "==> Server IPv4: $SERVER_IP"
-for d in "${DOMAINS[@]}"; do
+for d in "${ALL_DOMAINS[@]}"; do
   # A record uchun aniq IPv4 olamiz (getent IPv6 ham qaytarishi mumkin)
   resolved=$(dig +short A "$d" 2>/dev/null | head -1)
   [[ -z "$resolved" ]] && resolved=$(getent ahostsv4 "$d" 2>/dev/null | awk '{print $1}' | head -1)
@@ -57,7 +60,7 @@ done
 # ─── Snake-oil certlarni o'chirish ─────────────────────────────────────
 echo "==> Removing any snake-oil certs from named volume"
 docker compose exec -T nginx sh -c '
-for d in '"${DOMAINS[*]}"'; do
+for d in '"${ALL_DOMAINS[*]}"'; do
   if [ -f /etc/letsencrypt/live/$d/.snakeoil ]; then
     rm -rf /etc/letsencrypt/live/$d
     echo "   removed snake-oil: $d"
@@ -68,21 +71,25 @@ done'
 STAGING_FLAG=""
 [[ "$STAGING" == "1" ]] && STAGING_FLAG="--staging" && echo "==> STAGING mode"
 
-CERTBOT_ARGS=(
-  certonly
-  --webroot --webroot-path=/var/www/certbot
-  --email "$LE_EMAIL"
-  --agree-tos --no-eff-email
-  --non-interactive
-  --keep-until-expiring
-  $STAGING_FLAG
-)
-for d in "${DOMAINS[@]}"; do
-  CERTBOT_ARGS+=(-d "$d")
-done
+# Har SAN guruh uchun alohida cert — primary domen /live/<primary>/ da saqlanadi.
+issue_cert() {
+  local -a args=(
+    certonly
+    --webroot --webroot-path=/var/www/certbot
+    --email "$LE_EMAIL"
+    --agree-tos --no-eff-email
+    --non-interactive
+    --keep-until-expiring
+    $STAGING_FLAG
+  )
+  local d
+  for d in "$@"; do args+=(-d "$d"); done
+  echo "==> Requesting Let's Encrypt cert for: $*"
+  docker compose run --rm --entrypoint certbot certbot "${args[@]}"
+}
 
-echo "==> Requesting Let's Encrypt cert for: ${DOMAINS[*]}"
-docker compose run --rm --entrypoint certbot certbot "${CERTBOT_ARGS[@]}"
+issue_cert "${EFBAZAAR_DOMAINS[@]}"
+issue_cert "${CHEMPOX_DOMAINS[@]}"
 
 # ─── Swagger basic auth (htpasswd) ─────────────────────────────────────
 echo "==> Writing Swagger htpasswd (user: $SWAGGER_USER)"
@@ -99,7 +106,7 @@ echo
 echo "================================================================"
 echo "  ✓ TLS + Swagger basic auth tayyor"
 echo "================================================================"
-for d in "${DOMAINS[@]}"; do
+for d in "${ALL_DOMAINS[@]}"; do
   echo "  https://$d"
 done
 echo

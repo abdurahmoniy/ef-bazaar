@@ -60,8 +60,8 @@ function MailboxRow({ mailbox, active }: { mailbox: MailboxSummary; active: bool
       href={`/${mailbox.id}`}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'relative flex items-center gap-3 rounded-lg py-2.5 pl-3.5 pr-2.5 transition-colors',
-        active ? 'bg-primary/10' : 'hover:bg-muted',
+        'relative flex items-center gap-3 rounded-lg py-2.5 pl-3.5 pr-2.5 transition-colors active:bg-muted',
+        active ? 'bg-accent text-accent-foreground shadow-sm' : 'hover:bg-muted',
       )}
     >
       {active && (

@@ -83,39 +83,102 @@ export const TRUST_CONTEXT_LABELS: Record<TrustContextType, string> = {
   CHAT: 'Chat',
 };
 
-/** Tier presentation: label + gradient used by the card and badges. */
-export const TIER_META: Record<
-  GamerTier,
-  { label: string; gradient: string; text: string; ring: string }
-> = {
+/** Ladder order — mirrors GamerCardDtos.Tier.fromElo thresholds. */
+export const TIER_ORDER: GamerTier[] = ['BRONZE', 'SILVER', 'GOLD', 'ELITE', 'LEGEND'];
+
+/** ELO ceiling used to fill the LEGEND segment (the tier itself is open-ended). */
+const LEGEND_SOFT_CEILING = 2000;
+
+export interface TierMeta {
+  /** Uzbek name stamped on the crest. */
+  label: string;
+  /** 3-letter tick under the ladder. */
+  short: string;
+  /** Inclusive ELO floor. */
+  min: number;
+  /** Inclusive ELO ceiling; null for the open-ended top tier. */
+  max: number | null;
+  /** Metal palette: mid, dark, highlight. Plain hex — html2canvas-safe. */
+  m1: string;
+  m2: string;
+  m3: string;
+}
+
+/** Tier presentation: name + metal palette used by the card crest and ladder. */
+export const TIER_META: Record<GamerTier, TierMeta> = {
   BRONZE: {
-    label: 'Bronze',
-    gradient: 'from-amber-700 via-amber-600 to-orange-800',
-    text: 'text-amber-100',
-    ring: 'ring-amber-600/40',
+    label: 'Bronza',
+    short: 'BRO',
+    min: 0,
+    max: 999,
+    m1: '#E0965A',
+    m2: '#7A431C',
+    m3: '#FFD6AC',
   },
   SILVER: {
-    label: 'Silver',
-    gradient: 'from-slate-400 via-slate-300 to-slate-500',
-    text: 'text-slate-900',
-    ring: 'ring-slate-400/40',
+    label: 'Kumush',
+    short: 'KUM',
+    min: 1000,
+    max: 1199,
+    m1: '#D8DEE9',
+    m2: '#7C8697',
+    m3: '#FFFFFF',
   },
   GOLD: {
-    label: 'Gold',
-    gradient: 'from-yellow-500 via-amber-400 to-yellow-600',
-    text: 'text-yellow-950',
-    ring: 'ring-yellow-500/40',
+    label: 'Oltin',
+    short: 'OLT',
+    min: 1200,
+    max: 1399,
+    m1: '#F2C455',
+    m2: '#8A6111',
+    m3: '#FFF0B8',
   },
   ELITE: {
-    label: 'Elite',
-    gradient: 'from-emerald-600 via-teal-500 to-cyan-600',
-    text: 'text-emerald-50',
-    ring: 'ring-emerald-500/40',
+    label: 'Elita',
+    short: 'ELI',
+    min: 1400,
+    max: 1599,
+    m1: '#8FD4FF',
+    m2: '#255C93',
+    m3: '#E8F7FF',
   },
   LEGEND: {
-    label: 'Legend',
-    gradient: 'from-purple-700 via-fuchsia-600 to-pink-600',
-    text: 'text-purple-50',
-    ring: 'ring-fuchsia-500/40',
+    label: 'Afsona',
+    short: 'AFS',
+    min: 1600,
+    max: null,
+    m1: '#FF8AE0',
+    m2: '#6D2BFF',
+    m3: '#FFE9FA',
   },
 };
+
+export interface TierProgress {
+  index: number;
+  /** Fill of the current tier's ladder segment, 0–100. */
+  percent: number;
+  /** null once the player is in the top tier. */
+  nextTier: TierMeta | null;
+  /** ELO still needed for the next tier; null in the top tier. */
+  eloToNext: number | null;
+}
+
+/**
+ * Honest progress: position *inside* the current tier only, so the bar never
+ * implies the player is closer to promotion than they are.
+ */
+export function tierProgress(tier: GamerTier, elo: number): TierProgress {
+  const index = TIER_ORDER.indexOf(tier);
+  const meta = TIER_META[tier];
+  const ceiling = meta.max ?? LEGEND_SOFT_CEILING;
+  const span = ceiling - meta.min + 1;
+  const percent = Math.max(0, Math.min(100, ((elo - meta.min) / span) * 100));
+  const next = index >= 0 && index < TIER_ORDER.length - 1 ? TIER_META[TIER_ORDER[index + 1]] : null;
+
+  return {
+    index,
+    percent,
+    nextTier: next,
+    eloToNext: next ? Math.max(0, next.min - elo) : null,
+  };
+}

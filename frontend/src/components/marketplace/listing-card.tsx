@@ -26,14 +26,17 @@ import {
   listingAcceptsExchange,
   type ListingResponse,
 } from '@/lib/marketplace-types';
+import { cn } from '@/lib/utils';
 
 interface ListingCardProps {
   listing: ListingResponse;
   /** When true, renders a compact horizontal layout used by list view / small containers. */
   variant?: 'grid' | 'list';
+  /** Originating marketplace query so detail and Back preserve match context. */
+  detailQuery?: string;
 }
 
-export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
+export function ListingCard({ listing, variant = 'grid', detailQuery }: ListingCardProps) {
   // `likedByMe` is omitted (undefined) by the backend when the viewer is anonymous;
   // presence of the field is a reliable authentication signal.
   const authenticated = listing.likedByMe !== undefined && listing.likedByMe !== null;
@@ -51,14 +54,19 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   const hasGameCenterLink = attributeBoolean(listing, 'has_game_center_link');
   const androidCoins = attributeNumber(listing, 'android_coins');
   const iosCoins = attributeNumber(listing, 'ios_coins');
+  // Monthly device-transfer sign-ins left. A handover eats two, so anything
+  // near the floor is a risk the buyer should see before opening the listing.
+  const deviceTransferLimit = attributeNumber(listing, 'device_transfer_limit');
+  const transferLimitTight =
+    deviceTransferLimit !== undefined && deviceTransferLimit <= 3;
   const acceptsExchange = listingAcceptsExchange(listing);
   const coverUrl = listingMediaUrls(listing, 1)[0];
-  const href = `/marketplace/${listing.id}`;
+  const href = `/marketplace/${listing.id}${detailQuery ? `?${detailQuery}` : ''}`;
 
   if (variant === 'list') {
     return (
-      <article className="group relative flex overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
-        <Link href={href} className="relative block h-32 w-32 shrink-0 overflow-hidden bg-muted sm:h-40 sm:w-52">
+      <article className="tap-press group relative flex overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
+        <Link href={href} className="relative block h-28 w-28 shrink-0 overflow-hidden bg-muted sm:h-40 sm:w-52">
           {coverUrl ? (
             <img
               src={coverUrl}
@@ -71,6 +79,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
             <PlaceholderImage />
           )}
           {isSold && <SoldOverlay />}
+          <MatchBadge percent={listing.matchPercent} details={listing.matchDetails} />
         </Link>
         {!isSold && (
           <ListingLikeButton
@@ -123,6 +132,11 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
                 <Apple className="h-3 w-3" /> {formatCompactNumber(iosCoins)}
               </Badge>
             )}
+            {transferLimitTight && (
+              <Badge variant="warn">
+                <TriangleAlert className="h-3 w-3" /> {deviceTransferLimit} qurilma limiti
+              </Badge>
+            )}
             {hasGooglePlayLink && (
               <Badge variant="warn">
                 <TriangleAlert className="h-3 w-3" /> Google Play
@@ -143,7 +157,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
   }
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
+    <article className="tap-press group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover">
       <Link href={href} className="relative block overflow-hidden bg-muted">
         {coverUrl ? (
           <img
@@ -159,6 +173,7 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
           </div>
         )}
         {isSold && <SoldOverlay />}
+        <MatchBadge percent={listing.matchPercent} details={listing.matchDetails} />
         {divisionBadgeLevel ? (
           <div className="absolute left-2 top-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
             <DivisionBadge level={divisionBadgeLevel} size={40} />
@@ -179,19 +194,21 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
         />
       )}
 
-      <div className="flex flex-1 flex-col gap-2 p-3">
+      {/* Padding and type step down at the 2-column phone width — the card is
+          ~165px wide there, so desktop sizing would wrap the price. */}
+      <div className="flex flex-1 flex-col gap-1.5 p-2.5 sm:gap-2 sm:p-3">
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-          <span className="whitespace-nowrap text-lg font-black leading-none text-[hsl(var(--price))]">
+          <span className="whitespace-nowrap text-base font-black leading-none text-[hsl(var(--price))] sm:text-lg">
             {formatPriceUZS(listing.price)}
           </span>
           <DealTags negotiable={listing.priceNegotiable} exchange={acceptsExchange} />
         </div>
         <Link href={href}>
-          <h2 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+          <h2 className="line-clamp-2 text-[13px] font-semibold leading-snug text-foreground sm:text-sm">
             {title}
           </h2>
         </Link>
-        <div className="mt-auto flex flex-wrap gap-1.5 pt-1 text-[11px]">
+        <div className="mt-auto flex flex-wrap gap-1 pt-1 text-[11px] sm:gap-1.5">
           {teamStrength !== undefined && (
             <Metric icon={<Gamepad2 className="h-3 w-3" />} value={formatCompactNumber(teamStrength)} />
           )}
@@ -207,10 +224,14 @@ export function ListingCard({ listing, variant = 'grid' }: ListingCardProps) {
         </div>
         <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
           <span>{formatListingDate(listing.createdAt)}</span>
-          {(hasGooglePlayLink || hasGameCenterLink) && (
-            <span className="ml-auto inline-flex items-center gap-1 font-semibold text-amber-700">
+          {(transferLimitTight || hasGooglePlayLink || hasGameCenterLink) && (
+            <span className="ml-auto inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-300">
               <TriangleAlert className="h-3 w-3" />
-              {[hasGooglePlayLink && 'Google Play', hasGameCenterLink && 'Game Center']
+              {[
+                transferLimitTight && `${deviceTransferLimit} qurilma limiti`,
+                hasGooglePlayLink && 'Google Play',
+                hasGameCenterLink && 'Game Center',
+              ]
                 .filter(Boolean)
                 .join(' + ')}
             </span>
@@ -246,6 +267,37 @@ function Metric({ icon, value }: { icon: React.ReactNode; value: string }) {
       <span className="text-muted-foreground">{icon}</span>
       <span className="truncate font-bold text-foreground">{value}</span>
     </div>
+  );
+}
+
+/**
+ * Squad coverage against the dream team in the current filter. Absent unless
+ * the browse request carried one, so ordinary browsing is unchanged.
+ *
+ * Colour is the honest signal: green only for a genuinely strong cover, amber
+ * for partial. Everything shown already passed the user's own threshold.
+ */
+function MatchBadge({
+  percent,
+  details,
+}: {
+  percent?: number | null;
+  details?: ListingResponse['matchDetails'];
+}) {
+  if (typeof percent !== 'number') return null;
+  const strong = percent >= 70;
+  return (
+    <span
+      className={cn(
+        'absolute bottom-2 left-2 z-10 rounded-lg px-2 py-1 text-[11px] font-black shadow-card backdrop-blur-sm',
+        strong ? 'bg-emerald-500/90 text-white' : 'bg-amber-400/90 text-amber-950',
+      )}
+      title={details
+        ? `Aniq ${details.exactCount}, boshqa nashr ${details.alternateCount}, yetishmaydi ${details.missingCount}`
+        : "Tanlangan o'yinchilarga mos kelish darajasi"}
+    >
+      {percent}% mos
+    </span>
   );
 }
 

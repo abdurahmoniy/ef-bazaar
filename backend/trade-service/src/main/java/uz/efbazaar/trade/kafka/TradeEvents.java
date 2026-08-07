@@ -20,6 +20,8 @@ public final class TradeEvents {
     public static final String TOPIC_IMAP_POLL_REQ        = "efbazaar.trade.imap-poll-request";
     public static final String TOPIC_KONAMI_EMAIL         = "efbazaar.trade.konami-email-received";
     public static final String TOPIC_IMAP_2FA             = "efbazaar.trade.imap-2fa-code";
+    public static final String TOPIC_MAILBOX_PROVISION_REQ = "efbazaar.trade.mailbox-provision-request";
+    public static final String TOPIC_MAILBOX_PROVISIONED   = "efbazaar.trade.mailbox-provisioned";
     public static final String TOPIC_MAILBOX_ROTATE_REQ   = "efbazaar.trade.mailbox-rotate-request";
     public static final String TOPIC_MAILBOX_ROTATED      = "efbazaar.trade.mailbox-rotated";
     public static final String TOPIC_WORKER_QUEUED        = "efbazaar.trade.worker-queued";
@@ -92,6 +94,24 @@ public final class TradeEvents {
             UUID tradeId,
             String code,
             Instant receivedAt) {}
+
+    /**
+     * Trade-less mailbox provisioning, issued by the admin panel. Distinct from
+     * {@link EmailProvisionRequest} because there is no trade to key the
+     * response on and the admin picks the local part instead of it being
+     * derived from a trade id. The worker MUST echo {@code mailboxId} back —
+     * it is both the row id and the encryption context (`mbox-{mailboxId}`).
+     */
+    public record MailboxProvisionRequest(
+            UUID mailboxId,
+            String localPart) {}
+
+    public record MailboxProvisioned(
+            UUID mailboxId,
+            String mailboxEmail,
+            byte[] encryptedPassword,
+            byte[] iv,
+            byte[] tag) {}
 
     public record MailboxRotateRequest(
             UUID mailboxId) {}

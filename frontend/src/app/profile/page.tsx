@@ -6,16 +6,12 @@ import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { LogoutButton } from '@/components/profile/logout-button';
 import { ProfileAccount } from '@/components/profile/profile-account';
 import { ProfileCards } from '@/components/profile/profile-cards';
-import { ProfileHeader } from '@/components/profile/profile-header';
 import { ProfileListings } from '@/components/profile/profile-listings';
 import { ProfileTabs, type ProfileTabId } from '@/components/profile/profile-tabs';
+import { ProfileTrades } from '@/components/profile/profile-trades';
 import { getMe } from '@/lib/auth';
-import {
-  getMyChats,
-  getMyFavorites,
-  getMyListings,
-} from '@/lib/marketplace-server';
-import { getMyCards } from '@/lib/trade-server';
+import { getMyFavorites, getMyListings } from '@/lib/marketplace-server';
+import { getMyCards, getMyTrades } from '@/lib/trade-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,13 +26,14 @@ interface ProfilePageProps {
 
 const VALID_TABS: ProfileTabId[] = [
   'listings',
+  'trades',
   'favorites',
   'kartalar',
-  'gamer',
   // 'pochta' is a link-out to /mail, never rendered inside the profile shell —
   // omit it here so ?tab=pochta falls back to 'listings' rather than a blank
   // section. Same for legacy ?tab=chats links: chats live at /chats now, the
-  // profile no longer has a chats tab.
+  // profile no longer has a chats tab. Legacy ?tab=gamer also falls through
+  // to 'listings' — the gamer card now renders as the page header.
   'account',
 ];
 
@@ -55,40 +52,39 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
 
   // Fetch tab data server-side. Fetch counts even for inactive tabs so the badges render.
-  // Cards are only fetched when the Kartalar tab is active — the list has no
-  // count badge and the other tabs don't need it.
-  const [listings, chats, favorites, cards] = await Promise.all([
+  // Cards and trades are only fetched when their own tab is active — neither
+  // carries a count badge, so the other tabs don't need them.
+  const [listings, favorites, cards, tradePage] = await Promise.all([
     getMyListings(),
-    getMyChats(),
     getMyFavorites(),
     activeTab === 'kartalar' ? getMyCards() : Promise.resolve([]),
+    activeTab === 'trades' ? getMyTrades() : Promise.resolve(null),
   ]);
 
   return (
     <MarketplaceShell user={user} activeTab="profile" hideSearch>
       <div className="space-y-4">
-        <ProfileHeader
-          user={user}
-          stats={{
-            listings: listings.length,
-            favorites: favorites.length,
-            chats: chats.length,
-          }}
+        {/* Admin panel used to be a trailing button here; it lives in the header
+            user menu now, alongside the other account-level entries. */}
+        <MyGamerCardSection
+          email={user.email ?? null}
+          navSlot={
+            <ProfileTabs
+              active={activeTab}
+              counts={{
+                listings: listings.length,
+                favorites: favorites.length,
+              }}
+            />
+          }
         />
 
-        <ProfileTabs
-          active={activeTab}
-          counts={{
-            listings: listings.length,
-            favorites: favorites.length,
-          }}
-        />
-
-        <section>
+        {/* Keyed on the tab so each switch remounts and replays panel-in. */}
+        <section key={activeTab} className="animate-panel-in">
           {activeTab === 'listings' && <ProfileListings listings={listings} />}
+          {activeTab === 'trades' && <ProfileTrades trades={tradePage?.items ?? []} />}
           {activeTab === 'favorites' && <ProfileListings listings={favorites} favorites />}
           {activeTab === 'kartalar' && <ProfileCards cards={cards} />}
-          {activeTab === 'gamer' && <MyGamerCardSection />}
           {activeTab === 'account' && (
             <ProfileAccount user={user} googleClientId={googleClientId} botUsername={botUsername} />
           )}

@@ -79,7 +79,7 @@ export default async function AdminDashboardPage() {
           className={
             card.highlight
               ? 'rounded-xl border border-destructive/40 bg-destructive/5 p-4 shadow-card transition hover:border-destructive'
-              : 'rounded-xl border border-border bg-white p-4 shadow-card transition hover:border-primary/40'
+              : 'rounded-xl border border-border bg-card p-4 shadow-card transition hover:border-primary/40'
           }
         >
           <div className="flex items-center justify-between gap-2">

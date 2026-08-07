@@ -12,7 +12,7 @@ describe('HomePage redesign contract', () => {
     const markup = renderLanding();
 
     expect(markup).toContain('eFBazaar');
-    expect(markup).toContain('Diviziyon, kuch, tanga');
+    expect(markup).toContain('Diviziyon, jamoa kuchi');
     expect(markup).toContain('href="/marketplace"');
     expect(markup).toContain('href="/marketplace/new"');
     expect(markup).not.toContain('Browse with signal');

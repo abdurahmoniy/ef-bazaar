@@ -5,6 +5,7 @@ import './globals.css';
 
 import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
 import { TelegramViewportBootstrap } from '@/components/telegram/telegram-viewport-bootstrap';
+import { ThemeScript } from '@/components/theme/theme-script';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 import { StoreProvider } from '@/store/provider';
 
@@ -85,8 +86,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#ffffff',
-  colorScheme: 'light',
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0b0b0f' },
+  ],
 };
 
 export default function RootLayout({
@@ -97,6 +101,8 @@ export default function RootLayout({
   return (
     <html lang="uz" className={inter.variable} suppressHydrationWarning>
       <body className="font-sans">
+        {/* No-flash theme init — must run before hydration */}
+        <ThemeScript />
         {/* Mini App SDK bootstrap — ready/expand/theme/viewport, no auth */}
         <TelegramViewportBootstrap />
         {/* Telegram Mini App context aniqlansa har qanday entry point'da auto-login */}

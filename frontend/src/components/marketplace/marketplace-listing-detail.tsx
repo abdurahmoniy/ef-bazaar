@@ -1,9 +1,19 @@
-import { ArrowLeftRight, Coins, Gamepad2, MapPin, ShieldCheck, Sparkles, TriangleAlert } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Coins,
+  Gamepad2,
+  MapPin,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  TriangleAlert,
+} from 'lucide-react';
 
 import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { ListingActions } from '@/components/marketplace/listing-actions';
 import { ListingCard } from '@/components/marketplace/listing-card';
 import { ListingMediaGallery } from '@/components/marketplace/listing-media-gallery';
+import { MatchBreakdown } from '@/components/marketplace/match-breakdown';
 import { PlayerCardTile } from '@/components/marketplace/player-card-tile';
 import { SellerCard } from '@/components/marketplace/seller-card';
 import { ShareListingButton } from '@/components/marketplace/share-listing-button';
@@ -33,6 +43,7 @@ interface MarketplaceListingDetailProps {
   seller: User | null;
   sellerBlacklisted?: boolean;
   similarListings: ListingResponse[];
+  backHref?: string;
 }
 
 export function MarketplaceListingDetail({
@@ -41,6 +52,7 @@ export function MarketplaceListingDetail({
   seller,
   sellerBlacklisted,
   similarListings,
+  backHref = '/marketplace',
 }: MarketplaceListingDetailProps) {
   const title = listing.description.split('\n')[0]?.trim() || 'eFootball account';
   const restDescription = listing.description
@@ -62,6 +74,12 @@ export function MarketplaceListingDetail({
   ]
     .filter(Boolean)
     .join(' va ');
+  // eFootball caps "transfer data to new device" at 10 sign-ins per month and
+  // a handover burns at least two (moderator check + buyer). A listing sitting
+  // near the floor can stall mid-trade, so the count is buyer-facing.
+  const deviceTransferLimit = attributeNumber(listing, 'device_transfer_limit');
+  const transferLimitTight =
+    deviceTransferLimit !== undefined && deviceTransferLimit <= 3;
   const androidCoins = attributeNumber(listing, 'android_coins');
   const iosCoins = attributeNumber(listing, 'ios_coins');
   const exchangeMode = attributeString(listing, 'exchange_mode');
@@ -74,13 +92,15 @@ export function MarketplaceListingDetail({
   return (
     <article className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <BackLink href="/marketplace" label="Bozor" />
+        <BackLink href={backHref} label="Bozor" />
         <ShareListingButton listingId={listing.id} title={title} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-6">
         <div className="min-w-0 space-y-4">
           <ListingMediaGallery title={title} urls={mediaUrls} />
+
+          <MatchBreakdown listing={listing} />
 
           <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -95,6 +115,11 @@ export function MarketplaceListingDetail({
                   <h1 className="mt-1 text-xl font-black leading-tight text-foreground sm:text-2xl">
                     {title}
                   </h1>
+                  {/* On phones the price card is replaced by the sticky action
+                      bar, so the price still needs an in-flow home here. */}
+                  <p className="mt-1 text-2xl font-black leading-none text-[hsl(var(--price))] lg:hidden">
+                    {formatPriceUZS(listing.price)}
+                  </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {formatListingDate(listing.createdAt)} • ID: {listing.id.slice(0, 8)}
                   </p>
@@ -106,6 +131,12 @@ export function MarketplaceListingDetail({
                 {acceptsExchange && (
                   <Badge variant="info">
                     <ArrowLeftRight className="h-3 w-3" /> Obmen
+                  </Badge>
+                )}
+                {deviceTransferLimit !== undefined && (
+                  <Badge variant={transferLimitTight ? 'warn' : 'outline'}>
+                    <Smartphone className="h-3 w-3" /> Qurilma limiti:{' '}
+                    {deviceTransferLimit}/10
                   </Badge>
                 )}
                 {hasGooglePlayLink && (
@@ -122,12 +153,24 @@ export function MarketplaceListingDetail({
             </div>
 
             {linkedStores && (
-              <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+              <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
                 <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>
                   Bu akkount {linkedStores} bilan ulangan. Bu ulanishni uzib
                   bo'lmaydi — akkount faqat Konami ID orqali o'tkaziladi va
                   avvalgi egasida kirish imkoni saqlanib qolishi mumkin.
+                </span>
+              </p>
+            )}
+
+            {transferLimitTight && (
+              <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
+                <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Bu akkountda shu oy uchun {deviceTransferLimit} ta qurilma
+                  almashtirish limiti qolgan. Savdo kamida 2 tasini oladi:
+                  moderator tekshiruvi va sizning qurilmangizga kirish. Limit
+                  keyingi oy yangilanadi.
                 </span>
               </p>
             )}
@@ -198,8 +241,10 @@ export function MarketplaceListingDetail({
           />
         </div>
 
-        <aside className="min-w-0 lg:sticky lg:top-32 lg:self-start">
-          <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-5">
+        {/* Media leads on mobile; the price + CTA live in the sticky bottom bar
+            there, so this panel is desktop-only. */}
+        <aside className="min-w-0 space-y-4 lg:sticky lg:top-32 lg:self-start lg:space-y-0">
+          <div className="hidden rounded-xl border border-border bg-card p-4 shadow-card sm:p-5 lg:block">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-2xl font-black text-[hsl(var(--price))] sm:text-3xl">
                 {formatPriceUZS(listing.price)}
@@ -225,7 +270,7 @@ export function MarketplaceListingDetail({
             />
           </div>
 
-          <div className="mt-4">
+          <div className="lg:mt-4">
             <SellerCard seller={seller} isViewerOwner={isOwner} blacklisted={sellerBlacklisted} />
           </div>
         </aside>
@@ -236,7 +281,7 @@ export function MarketplaceListingDetail({
           <div className="mb-3 flex items-end justify-between">
             <h2 className="text-lg font-bold text-foreground">O'xshash e'lonlar</h2>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
             {similarListings.slice(0, 4).map((entry) => (
               <ListingCard key={entry.id} listing={entry} />
             ))}

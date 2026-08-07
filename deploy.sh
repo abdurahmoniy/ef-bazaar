@@ -44,8 +44,18 @@ assert_safe_for_env() {
   fi
 }
 
+require_env() {
+  local key="$1" val="$2"
+  if [[ -z "$val" ]]; then
+    echo "!! $key must be configured" >&2
+    return 1
+  fi
+}
+
 # ─── Sync .env from CI secrets ──────────────────────────────────────────────
 write_env() {
+  require_env CARD_INTEREST_HMAC_SECRET "${CARD_INTEREST_HMAC_SECRET:-}"
+  assert_safe_for_env CARD_INTEREST_HMAC_SECRET "$CARD_INTEREST_HMAC_SECRET"
   echo "==> Writing .env from CI secrets"
   : > .env
 
@@ -80,6 +90,7 @@ write_env() {
   fi
   upsert_env .env JWT_ACCESS_TOKEN_TTL_MINUTES   15
   upsert_env .env JWT_REFRESH_TOKEN_TTL_DAYS     30
+  upsert_env .env CARD_INTEREST_HMAC_SECRET "$CARD_INTEREST_HMAC_SECRET"
 
   upsert_env .env TELEGRAM_BOT_TOKEN          "${TELEGRAM_BOT_TOKEN:-}"
   upsert_env .env TELEGRAM_BOT_USERNAME       "${TELEGRAM_BOT_USERNAME:-}"
@@ -104,6 +115,15 @@ write_env() {
   # Google OAuth — ID token flow uses only client_id (audience check on backend,
   # browser GIS init on frontend). Client secret is NOT needed for this flow.
   upsert_env .env GOOGLE_CLIENT_ID        "${GOOGLE_CLIENT_ID:-}"
+
+  # Server-to-server shared secret. nginx injects it as X-Internal-Secret on
+  # /api/tournaments/** (Chempionat-X header-auth), and auth/marketplace guard
+  # their /internal/** with it. Blank → header-auth fail-closed. Must equal
+  # Chempionat-X's EFBAZAAR_INTERNAL_SECRET.
+  if [[ -n "${INTERNAL_API_SECRET:-}" ]]; then
+    assert_safe_for_env INTERNAL_API_SECRET "$INTERNAL_API_SECRET"
+    upsert_env .env INTERNAL_API_SECRET "$INTERNAL_API_SECRET"
+  fi
 
   chmod 600 .env
   echo "==> .env written ($(wc -l < .env) lines)"

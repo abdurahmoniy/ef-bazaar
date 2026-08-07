@@ -2,7 +2,7 @@
 
 Assembles the FastAPI app, wires the lifespan hook that starts the aiokafka
 consumer + producer, the Mailcow/Konami/IMAP/Redis clients, and dispatches
-all four request-topic handlers by topic. Uvicorn runs this via
+every request-topic handler by topic. Uvicorn runs this via
 `uvicorn smart_admin_worker.main:app`.
 """
 
@@ -24,6 +24,7 @@ from smart_admin_worker.crypto.field_encryptor import FieldEncryptor
 from smart_admin_worker.handlers.email_provision import EmailProvisionHandler
 from smart_admin_worker.handlers.forgot_password import ForgotPasswordHandler
 from smart_admin_worker.handlers.imap_poll import ImapPollHandler
+from smart_admin_worker.handlers.mailbox_provision import MailboxProvisionHandler
 from smart_admin_worker.handlers.mailbox_rotate import MailboxRotateHandler
 from smart_admin_worker.http import health
 from smart_admin_worker.imap.detector import KonamiEmailDetector
@@ -36,6 +37,7 @@ from smart_admin_worker.kafka.topics import (
     TOPIC_EMAIL_PROVISION_REQ,
     TOPIC_FORGOT_PW_REQ,
     TOPIC_IMAP_POLL_REQ,
+    TOPIC_MAILBOX_PROVISION_REQ,
     TOPIC_MAILBOX_ROTATE_REQ,
 )
 from smart_admin_worker.konami.client import KonamiClient
@@ -138,8 +140,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         notifier=notifier,
     )
 
+    mailbox_provision_handler = MailboxProvisionHandler(
+        mailcow=mailcow, encryptor=encryptor, producer=producer, mailcow_domain="efbazaar.uz",
+        password_cache=app.state.password_cache,
+        mailbox_id_to_email=app.state.mailbox_id_to_email,
+        notifier=notifier,
+    )
+
     raw_handlers: dict[str, Callable[[object], Awaitable[None]]] = {
         TOPIC_EMAIL_PROVISION_REQ: email_provision_handler.handle,
+        TOPIC_MAILBOX_PROVISION_REQ: mailbox_provision_handler.handle,
         TOPIC_FORGOT_PW_REQ: ForgotPasswordHandler(konami=konami, producer=producer).handle,
         TOPIC_IMAP_POLL_REQ: ImapPollHandler(
             registry=poller_registry, producer=producer, password_provider=password_provider,
@@ -155,6 +165,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Shorthand context labels help ops grep for a specific failure mode.
     context_labels: dict[str, str] = {
         TOPIC_EMAIL_PROVISION_REQ: "email_provision",
+        TOPIC_MAILBOX_PROVISION_REQ: "mailbox_provision",
         TOPIC_FORGOT_PW_REQ: "forgot_password",
         TOPIC_IMAP_POLL_REQ: "imap_poll",
         TOPIC_MAILBOX_ROTATE_REQ: "mailbox_rotate",

@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 
-import { telegramWebAppAuthAction } from '@/app/auth/actions';
 import { isSafeInternalPath } from '@/lib/safe-redirect';
 
 /**
@@ -76,29 +75,42 @@ export function TelegramWebAppAutoLogin() {
     }
 
     setState('authing');
-    telegramWebAppAuthAction(initData)
-      .then((res) => {
-        if (!res.ok) {
-          setError(res.error ?? 'Telegram Mini App auth ishlamadi');
-          setState('error');
-          return;
-        }
-        // Server Action redirect() ni ushlab olib navigate qilish faqat
-        // form/handler wrapper'siz useEffect chaqiruvida ishonchsiz — Telegram
-        // Desktop WebView unhandled-rejection'ni jimgina yutib yuboradi. Next.js
-        // router.replace() ham ba'zi WebView versiyalarida navigation'ni
-        // qo'llab-quvvatlamaydi. window.location.assign — full-page reload,
-        // yangi cookie bilan har qanday WebView'da ishonchli ochadi.
-        //
-        // Deep link saqlanadi: bot tugmasi /chats/{id} ni ochganda server
-        // /auth/login?from=/chats/{id} ga redirect qiladi — auth'dan keyin
-        // o'sha `from` ga qaytamiz, /profile emas.
-        window.location.assign(resolvePostLoginTarget());
-      })
-      .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : 'Kutilmagan xato');
-        setState('error');
-      });
+
+    // initData'ni fon `fetch` (server action) o'rniga TOP-LEVEL form POST bilan
+    // yuboramiz. Route handler ({@code /api/telegram-webapp}) auth cookie'ni
+    // 303-redirect javobining o'ziga yozadi va target'ga yo'naltiradi. Sabab:
+    // Telegram Desktop'ning WebKitGTK webview'i fon-fetch javobidagi `Set-Cookie`'ni
+    // ishonchli saqlamaydi (server auth muvaffaqiyatli bo'lsa ham user guest mode'da
+    // qolardi) — cookie top-level navigatsiya javobida kelishi shart.
+    //
+    // Deep link saqlanadi: `resolvePostLoginTarget()` joriy `from`/path'ni hisoblab
+    // yashirin `from` maydoniga qo'yadi; server uni sanitizatsiya qiladi.
+    try {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/api/telegram-webapp';
+      form.acceptCharset = 'utf-8';
+      form.style.display = 'none';
+
+      const addField = (name: string, value: string) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      };
+      addField('initData', initData);
+      addField('from', resolvePostLoginTarget());
+      // Kontekst: iframe (Telegram Web) → cookie `SameSite=None` bo'lishi kerak;
+      // native webview (Desktop/mobil, top-level) → `Lax` (WebKitGTK ITP uchun).
+      addField('framed', window.self !== window.top ? '1' : '0');
+
+      document.body.appendChild(form);
+      form.submit();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Telegram Mini App auth ishlamadi');
+      setState('error');
+    }
   }, []);
 
   if (state === 'idle') return null;
@@ -106,7 +118,7 @@ export function TelegramWebAppAutoLogin() {
   if (state === 'authing') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur">
-        <div className="rounded-xl border border-border bg-white px-6 py-5 shadow-card-hover">
+        <div className="rounded-xl border border-border bg-card px-6 py-5 shadow-card-hover">
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
             <span className="text-sm text-foreground">Telegram orqali avtomatik kirilmoqda…</span>
@@ -118,7 +130,7 @@ export function TelegramWebAppAutoLogin() {
 
   return (
     <div className="fixed left-4 right-4 top-4 z-50">
-      <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-white px-4 py-3 text-sm text-destructive shadow-card-hover">
+      <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-card px-4 py-3 text-sm text-destructive shadow-card-hover">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <span>{error ?? 'Mini App auth muvaffaqiyatsiz'}</span>
       </div>

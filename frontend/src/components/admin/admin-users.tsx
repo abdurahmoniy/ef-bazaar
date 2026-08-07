@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { Search, ShieldCheck, ShieldOff, Trash2, UsersRound } from 'lucide-react';
+import { Mail, Search, ShieldCheck, ShieldOff, Trash2, UsersRound } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,7 +92,7 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
             return (
               <li
                 key={user.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-white p-4 shadow-card"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-card"
               >
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -121,6 +122,15 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
                       .filter(Boolean)
                       .join(' · ')}
                   </p>
+                </div>
+
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={`/admin/mailboxes?ownerUserId=${user.id}`}>
+                      <Mail className="mr-1.5 h-4 w-4" />
+                      Pochtalari
+                    </Link>
+                  </Button>
                 </div>
 
                 {!self && (

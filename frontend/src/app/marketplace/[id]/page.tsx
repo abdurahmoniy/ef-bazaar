@@ -2,9 +2,16 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
+import { ListingActions } from '@/components/marketplace/listing-actions';
 import { MarketplaceListingDetail } from '@/components/marketplace/marketplace-listing-detail';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
+import {
+  formatPriceUZS,
+  parseListingSearchParams,
+  searchParamInputToSearchParams,
+  type SearchParamInput,
+} from '@/lib/marketplace-format';
 import { listingMediaUrls } from '@/lib/marketplace-media';
 import {
   getListing,
@@ -23,6 +30,7 @@ export const dynamic = 'force-dynamic';
 
 interface ListingPageProps {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<SearchParamInput>;
 }
 
 function firstNonEmptyLine(text: string) {
@@ -141,17 +149,21 @@ function buildListingJsonLd(listing: ListingResponse) {
   };
 }
 
-export default async function ListingPage({ params }: ListingPageProps) {
+export default async function ListingPage({ params, searchParams }: ListingPageProps) {
   const { id } = await params;
+  const originatingParams = searchParams ? await searchParams : {};
+  const matchFilters = parseListingSearchParams(originatingParams);
+  const backQuery = searchParamInputToSearchParams(originatingParams).toString();
+  const backHref = backQuery ? `/marketplace?${backQuery}` : '/marketplace';
   const [viewer, result] = await Promise.all([
     resolveOptionalUser(getMe),
-    getListing(id),
+    getListing(id, matchFilters.matchCards, matchFilters.matchStrictness),
   ]);
 
   if (!result.ok) {
     if (result.error.status === 404) notFound();
     return (
-      <MarketplaceShell user={viewer} activeTab="home" backHref="/marketplace" backLabel="Bozor">
+      <MarketplaceShell user={viewer} activeTab="home" backHref={backHref} backLabel="Bozor">
         <section className="mx-auto w-full max-w-3xl space-y-4">
           <ApiErrorPanel title="E'lon yuklanmadi" error={result.error} />
         </section>
@@ -169,7 +181,23 @@ export default async function ListingPage({ params }: ListingPageProps) {
   const jsonLd = JSON.stringify(buildListingJsonLd(listing)).replace(/</g, '\\u003c');
 
   return (
-    <MarketplaceShell user={viewer} activeTab="home" backHref="/marketplace" backLabel="Bozor">
+    <MarketplaceShell
+      user={viewer}
+      activeTab="home"
+      backHref={backHref}
+      backLabel="Bozor"
+      mobileActionBar={
+        <ListingActions
+          variant="bar"
+          listingId={listing.id}
+          priceLabel={formatPriceUZS(listing.price)}
+          authenticated={viewer !== null}
+          isOwner={viewer?.id === listing.sellerId}
+          initialLiked={listing.likedByMe}
+          initialLikeCount={listing.likeCount}
+        />
+      }
+    >
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd }}
@@ -180,6 +208,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
         seller={seller}
         sellerBlacklisted={sellerBlacklisted}
         similarListings={similar}
+        backHref={backHref}
       />
     </MarketplaceShell>
   );

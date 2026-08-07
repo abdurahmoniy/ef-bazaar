@@ -46,6 +46,19 @@ class ImapPollRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class MailboxProvisionRequest:
+    """Admin-panel mailbox registration — no trade attached.
+
+    The admin picks the local part, so unlike EmailProvisionRequest there is
+    nothing to derive it from. mailbox_id is both the row id trade-service
+    already reserved and the encryption context.
+    """
+
+    mailbox_id: UUID
+    local_part: str
+
+
+@dataclass(frozen=True, slots=True)
 class MailboxRotateRequest:
     mailbox_id: UUID
 
@@ -76,6 +89,15 @@ class Imap2faCode:
     trade_id: UUID
     code: str
     received_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class MailboxProvisioned:
+    mailbox_id: UUID
+    mailbox_email: str
+    encrypted_password: bytes
+    iv: bytes
+    tag: bytes
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +144,7 @@ _SNAKE_TO_CAMEL_OVERRIDES: dict[str, str] = {
     "konami_id": "konamiId",
     "received_at": "receivedAt",
     "verification_code": "verificationCode",
+    "local_part": "localPart",
 }
 
 
@@ -156,6 +179,7 @@ _TOPIC_TO_TYPE: dict[str, type] = {
     topics.TOPIC_FORGOT_PW_REQ: ForgotPasswordRequest,
     topics.TOPIC_IMAP_POLL_REQ: ImapPollRequest,
     topics.TOPIC_MAILBOX_ROTATE_REQ: MailboxRotateRequest,
+    topics.TOPIC_MAILBOX_PROVISION_REQ: MailboxProvisionRequest,
 }
 
 

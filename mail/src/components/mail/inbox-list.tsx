@@ -58,7 +58,7 @@ function MessageRow({ mailboxId, msg }: { mailboxId: string; msg: InboxMessage }
     <Link
       href={`/${mailboxId}/${encodeURIComponent(msg.messageId)}`}
       className={cn(
-        'flex flex-col gap-0.5 px-4 py-3 transition-colors hover:bg-muted/60 sm:flex-row sm:items-center sm:gap-4 sm:px-6 sm:py-2.5',
+        'flex flex-col gap-0.5 px-4 py-3 transition-colors hover:bg-muted/60 active:bg-muted sm:flex-row sm:items-center sm:gap-4 sm:px-6 sm:py-2.5',
         !msg.seen && 'bg-primary/[0.04]',
       )}
     >

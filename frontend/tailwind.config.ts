@@ -8,7 +8,11 @@ const config: Config = {
   theme: {
     container: {
       center: true,
-      padding: '1rem',
+      padding: {
+        DEFAULT: '0.75rem',
+        sm: '1rem',
+        lg: '2rem',
+      },
       screens: {
         '2xl': '1400px',
       },
@@ -77,11 +81,31 @@ const config: Config = {
           '0%': { transform: 'translateX(0)' },
           '100%': { transform: 'translateX(-50%)' },
         },
+        'sheet-up': {
+          from: { transform: 'translateY(100%)' },
+          to: { transform: 'translateY(0)' },
+        },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'menu-in': {
+          from: { opacity: '0', transform: 'translateY(-6px) scale(0.97)' },
+          to: { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'panel-in': {
+          from: { opacity: '0', transform: 'translateY(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         marquee: 'marquee 32s linear infinite',
+        'sheet-up': 'sheet-up 0.24s cubic-bezier(0.32, 0.72, 0, 1)',
+        'fade-in': 'fade-in 0.18s ease-out',
+        'menu-in': 'menu-in 0.16s cubic-bezier(0.32, 0.72, 0, 1)',
+        'panel-in': 'panel-in 0.22s cubic-bezier(0.32, 0.72, 0, 1)',
       },
     },
   },
