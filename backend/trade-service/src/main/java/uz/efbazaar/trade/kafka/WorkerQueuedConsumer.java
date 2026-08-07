@@ -39,6 +39,9 @@ public class WorkerQueuedConsumer {
             case CAPPED -> "Smart-admin band, so'rovingiz navbatda. Muddat qo'shimcha uzaytirilmaydi.";
             case TRADE_NOT_FOUND -> null;
             case TRADE_TERMINAL -> null;
+            // A human trade has no smart admin to be busy — posting
+            // "Smart-admin band…" into its chats would be a lie.
+            case TRADE_NOT_SMART -> null;
         };
         if (text == null) {
             log.warn("worker-queued for trade {} skipped: {}", e.tradeId(), outcome);
