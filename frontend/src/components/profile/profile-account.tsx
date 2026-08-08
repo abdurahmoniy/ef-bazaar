@@ -3,17 +3,28 @@ import { BadgeCheck, ShieldAlert, User as UserIcon } from 'lucide-react';
 import { DeleteAccountButton } from '@/components/profile/delete-account-button';
 import { GoogleLinkButton } from '@/components/profile/google-link-button';
 import { LinkTelegramButton } from '@/components/profile/link-telegram-button';
+import { TradeAdminApplicationPanel } from '@/components/profile/trade-admin-application-panel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import type { TradeAdminApplicationResponse } from '@/lib/trade-admin-applications';
+import { isTradeAdmin } from '@/lib/trade-human';
 import type { User } from '@/lib/types';
 
 interface ProfileAccountProps {
   user: User;
   googleClientId: string;
   botUsername: string;
+  tradeAdminApplication: TradeAdminApplicationResponse | null;
 }
 
-export function ProfileAccount({ user, googleClientId, botUsername }: ProfileAccountProps) {
+export function ProfileAccount({
+  user,
+  googleClientId,
+  botUsername,
+  tradeAdminApplication,
+}: ProfileAccountProps) {
+  const defaultContact = user.telegramUsername ? `@${user.telegramUsername}` : user.email ?? '';
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
@@ -64,6 +75,12 @@ export function ProfileAccount({ user, googleClientId, botUsername }: ProfileAcc
           <Row label="Ro'yxatdan o'tgan" value={new Date(user.createdAt).toLocaleString('uz-UZ')} />
         </CardContent>
       </Card>
+
+      <TradeAdminApplicationPanel
+        application={tradeAdminApplication}
+        isTradeAdmin={isTradeAdmin(user)}
+        defaultContact={defaultContact}
+      />
 
       <Card className="border-destructive/30 lg:col-span-2">
         <CardHeader>
