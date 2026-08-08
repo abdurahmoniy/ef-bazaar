@@ -3,12 +3,26 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { Mail, Search, ShieldCheck, ShieldOff, Trash2, UsersRound } from 'lucide-react';
+import {
+  Mail,
+  Search,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+  UserCog,
+  UserMinus,
+  UsersRound,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { OverflowMenu, overflowItemClass } from '@/components/navigation/overflow-menu';
 import { deleteUserAction, setUserRoleAction } from '@/app/admin/users/actions';
-import { isAdmin } from '@/lib/admin';
+import {
+  adminUserActionConfig,
+  adminUserBadges,
+  type AdminUserMenuAction,
+} from '@/lib/admin-user-actions';
 import { formatListingDate } from '@/lib/marketplace-format';
 import type { User } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -27,13 +41,9 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function act(user: User, action: 'promote' | 'demote' | 'delete') {
-    const confirmations: Record<typeof action, string> = {
-      promote: `${user.displayName} admin qilinsinmi?`,
-      demote: `${user.displayName} adminlikdan olinsinmi?`,
-      delete: `${user.displayName} akkaunti butunlay o'chirilsinmi? Bu amalni qaytarib bo'lmaydi!`,
-    };
-    if (!window.confirm(confirmations[action])) return;
+  function act(user: User, action: AdminUserMenuAction) {
+    const config = adminUserActionConfig(user, action);
+    if (!window.confirm(config.confirmation)) return;
 
     setBusyId(user.id);
     setError(null);
@@ -41,7 +51,7 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
       const result =
         action === 'delete'
           ? await deleteUserAction(user.id)
-          : await setUserRoleAction(user.id, action === 'promote' ? 'ADMIN' : 'USER');
+          : await setUserRoleAction(user.id, config.role!);
       setBusyId(null);
       if (!result.ok) {
         setError(result.error ?? 'Amal bajarilmadi');
@@ -86,9 +96,11 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
       ) : (
         <ul className="space-y-3">
           {users.map((user) => {
-            const admin = isAdmin(user);
             const self = user.id === currentUserId;
             const busy = isPending && busyId === user.id;
+            const badges = adminUserBadges(user);
+            const adminToggle = adminUserActionConfig(user, 'toggle-admin');
+            const tradeAdminToggle = adminUserActionConfig(user, 'toggle-trade-admin');
             return (
               <li
                 key={user.id}
@@ -97,11 +109,19 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-black">{user.displayName}</span>
-                    {admin && (
-                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-black uppercase tracking-wide text-primary">
-                        Admin
+                    {badges.map((badge) => (
+                      <span
+                        key={badge}
+                        className={cn(
+                          'rounded-md px-2 py-0.5 text-xs font-black uppercase tracking-wide',
+                          badge === 'Inson admin'
+                            ? 'bg-sky-100 text-sky-800 dark:bg-sky-400/15 dark:text-sky-200'
+                            : 'bg-primary/10 text-primary',
+                        )}
+                      >
+                        {badge}
                       </span>
-                    )}
+                    ))}
                     {self && (
                       <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-black uppercase tracking-wide text-muted-foreground">
                         Siz
@@ -124,47 +144,103 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
                   </p>
                 </div>
 
-                <div className="flex shrink-0 flex-wrap gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <Button asChild size="sm" variant="outline">
                     <Link href={`/admin/mailboxes?ownerUserId=${user.id}`}>
                       <Mail className="mr-1.5 h-4 w-4" />
                       Pochtalari
                     </Link>
                   </Button>
-                </div>
 
-                {!self && (
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => act(user, admin ? 'demote' : 'promote')}
-                    >
-                      {admin ? (
-                        <ShieldOff className="mr-1.5 h-4 w-4" />
-                      ) : (
-                        <ShieldCheck className="mr-1.5 h-4 w-4" />
+                  {!self && (
+                    <OverflowMenu label={`${user.displayName} amallari`}>
+                      {(close) => (
+                        <>
+                          <MenuAction
+                            action="toggle-admin"
+                            user={user}
+                            busy={busy}
+                            icon={
+                              adminToggle.role === 'USER' ? (
+                                <ShieldOff className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                              )
+                            }
+                            onAct={() => {
+                              close();
+                              act(user, 'toggle-admin');
+                            }}
+                          />
+                          <MenuAction
+                            action="toggle-trade-admin"
+                            user={user}
+                            busy={busy}
+                            icon={
+                              tradeAdminToggle.role === 'USER' ? (
+                                <UserMinus className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <UserCog className="h-4 w-4 text-muted-foreground" />
+                              )
+                            }
+                            onAct={() => {
+                              close();
+                              act(user, 'toggle-trade-admin');
+                            }}
+                          />
+                          <div className="my-1 h-px bg-border" />
+                          <MenuAction
+                            action="delete"
+                            user={user}
+                            busy={busy}
+                            icon={<Trash2 className="h-4 w-4" />}
+                            onAct={() => {
+                              close();
+                              act(user, 'delete');
+                            }}
+                          />
+                        </>
                       )}
-                      {admin ? 'Adminlikdan olish' : 'Admin qilish'}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={busy}
-                      onClick={() => act(user, 'delete')}
-                      className={cn(busy && 'opacity-60')}
-                    >
-                      <Trash2 className="mr-1.5 h-4 w-4" />
-                      O&apos;chirish
-                    </Button>
-                  </div>
-                )}
+                    </OverflowMenu>
+                  )}
+                </div>
               </li>
             );
           })}
         </ul>
       )}
     </div>
+  );
+}
+
+function MenuAction({
+  user,
+  action,
+  busy,
+  icon,
+  onAct,
+}: {
+  user: User;
+  action: AdminUserMenuAction;
+  busy: boolean;
+  icon: React.ReactNode;
+  onAct: () => void;
+}) {
+  const config = adminUserActionConfig(user, action);
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      disabled={busy}
+      onClick={onAct}
+      className={cn(
+        overflowItemClass,
+        config.destructive && 'text-destructive hover:bg-destructive/10',
+        busy && 'cursor-not-allowed opacity-60',
+      )}
+    >
+      {icon}
+      {config.label}
+    </button>
   );
 }
