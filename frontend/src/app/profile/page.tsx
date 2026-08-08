@@ -12,6 +12,7 @@ import { ProfileTrades } from '@/components/profile/profile-trades';
 import { getMe } from '@/lib/auth';
 import { getMyFavorites, getMyListings } from '@/lib/marketplace-server';
 import { getMyCards, getMyTrades } from '@/lib/trade-server';
+import { getMyTradeAdminApplication } from '@/lib/trade-admin-applications-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,11 +55,12 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   // Fetch tab data server-side. Fetch counts even for inactive tabs so the badges render.
   // Cards and trades are only fetched when their own tab is active — neither
   // carries a count badge, so the other tabs don't need them.
-  const [listings, favorites, cards, tradePage] = await Promise.all([
+  const [listings, favorites, cards, tradePage, tradeAdminApplication] = await Promise.all([
     getMyListings(),
     getMyFavorites(),
     activeTab === 'kartalar' ? getMyCards() : Promise.resolve([]),
     activeTab === 'trades' ? getMyTrades() : Promise.resolve(null),
+    activeTab === 'account' ? getMyTradeAdminApplication() : Promise.resolve(null),
   ]);
 
   return (
@@ -86,7 +88,12 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           {activeTab === 'favorites' && <ProfileListings listings={favorites} favorites />}
           {activeTab === 'kartalar' && <ProfileCards cards={cards} />}
           {activeTab === 'account' && (
-            <ProfileAccount user={user} googleClientId={googleClientId} botUsername={botUsername} />
+            <ProfileAccount
+              user={user}
+              googleClientId={googleClientId}
+              botUsername={botUsername}
+              tradeAdminApplication={tradeAdminApplication}
+            />
           )}
         </section>
 
