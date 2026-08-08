@@ -59,7 +59,16 @@ export function notificationLabel(n: NotificationResponse): string {
       return `${actor} e'loningiz uchun bog'landi`;
     case 'CHAT_MESSAGE':
       return `${actor} sizga xabar yozdi`;
+    case 'TRADE_ADMIN_INVITED':
+      return `${actor} sizni inson admin savdosiga chaqirdi`;
     default:
       return actor;
   }
+}
+
+export function notificationHref(n: NotificationResponse): string | null {
+  if (n.tradeId) return `/trade-admin?tradeId=${encodeURIComponent(n.tradeId)}`;
+  if (n.chatId) return `/chats/${encodeURIComponent(n.chatId)}`;
+  if (n.listingId) return `/marketplace/${encodeURIComponent(n.listingId)}`;
+  return null;
 }

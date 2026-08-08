@@ -10,10 +10,13 @@ import {
   Loader2,
   RefreshCw,
   ShieldCheck,
+  UserCog,
   X,
   XCircle,
 } from 'lucide-react';
 
+import { HumanPartyTradePanel } from '@/components/trade-admin/human-party-trade-panel';
+import { TradeAdminPicker } from '@/components/trade-admin/trade-admin-picker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
+import { isHumanProposal, isHumanTrade, validateAdminFee } from '@/lib/trade-human';
 import {
   isTerminalState,
   TRADE_STATE_LABEL_UZ,
@@ -29,6 +33,8 @@ import {
   type ProposalAcceptRequest,
   type ProposalCreateRequest,
   type ProposalResponse,
+  type TradeAdminCardResponse,
+  type TradeMode,
   type TradeResponse,
 } from '@/lib/trade-types';
 import { cn } from '@/lib/utils';
@@ -74,12 +80,15 @@ export function TradePanel({
   const [trades, setTrades] = useState<TradeResponse[] | null>(null);
   const [proposal, setProposal] = useState<PendingProposal | null>(
     initialPendingProposal
-      ? {
-          id: initialPendingProposal.proposalId,
-          priceUzs: initialPendingProposal.amountUzs,
-          expiresAt: initialPendingProposal.expiresAt,
-        }
-      : null,
+        ? {
+            id: initialPendingProposal.proposalId,
+            priceUzs: initialPendingProposal.amountUzs,
+            expiresAt: initialPendingProposal.expiresAt,
+            mode: initialPendingProposal.mode ?? undefined,
+            adminId: initialPendingProposal.adminId ?? undefined,
+            adminFeeUzs: initialPendingProposal.adminFeeUzs ?? undefined,
+          }
+        : null,
   );
   const [showProposeModal, setShowProposeModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
@@ -138,6 +147,9 @@ export function TradePanel({
             id: p.proposalId,
             priceUzs: p.amountUzs,
             expiresAt: p.expiresAt,
+            mode: p.mode ?? undefined,
+            adminId: p.adminId ?? undefined,
+            adminFeeUzs: p.adminFeeUzs ?? undefined,
           });
         } else {
           // Also refresh trades — proposal may have been accepted between polls.
@@ -154,8 +166,8 @@ export function TradePanel({
   }, [hasActiveTrade, hasProposal, chat.id, reload]);
 
   const handleProposalCreated = useCallback(
-    (p: ProposalResponse, priceUzs: number) => {
-      setProposal({ id: p.proposalId, priceUzs, expiresAt: p.expiresAt });
+    (p: ProposalResponse, priceUzs: number, mode: TradeMode, adminFeeUzs?: number) => {
+      setProposal({ id: p.proposalId, priceUzs, expiresAt: p.expiresAt, mode, adminFeeUzs });
       setShowProposeModal(false);
       // A proposal being created doesn't open a trade yet (that happens on
       // accept), so no trade to refetch — just close and show the pending card.
@@ -182,6 +194,16 @@ export function TradePanel({
 
   // ---- active trade (post-accept) — state-conditional actions ----
   if (activeTrade) {
+    if (isHumanTrade(activeTrade)) {
+      return (
+        <HumanPartyTradePanel
+          trade={activeTrade}
+          viewerId={viewerId}
+          onRefresh={reload}
+        />
+      );
+    }
+
     return (
       <ActiveTradeCard
         trade={activeTrade}
@@ -1216,6 +1238,9 @@ interface PendingProposal {
   id: string;
   priceUzs: number;
   expiresAt: string;
+  mode?: TradeMode;
+  adminId?: string;
+  adminFeeUzs?: number;
 }
 
 function PendingProposalCard({
@@ -1251,8 +1276,11 @@ function PendingProposalCard({
         </div>
       </div>
       {isSeller ? (
-        <p className="rounded-lg bg-white/60 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-lg bg-white/60 px-3 py-2 text-xs text-muted-foreground dark:bg-white/5">
           Xaridor javobini kutmoqda.
+          {isHumanProposal(proposal) && proposal.adminFeeUzs
+            ? ` Inson admin narxi: ${formatPriceUZS(proposal.adminFeeUzs)}.`
+            : ''}
         </p>
       ) : (
         <div className="flex items-center gap-2">
@@ -1290,16 +1318,20 @@ function ProposeModal({
   listing: ListingResponse | null;
   otherPartyId: string;
   onClose: () => void;
-  onCreated: (p: ProposalResponse, priceUzs: number) => void;
+  onCreated: (p: ProposalResponse, priceUzs: number, mode: TradeMode, adminFeeUzs?: number) => void;
 }) {
   const initialPrice = listing ? String(Math.trunc(Number(listing.price))) : '';
+  const [mode, setMode] = useState<TradeMode>('SMART');
   const [price, setPrice] = useState(initialPrice);
   const [cards, setCards] = useState<CardResponse[] | null>(null);
   const [cardId, setCardId] = useState<string>('');
+  const [selectedAdmin, setSelectedAdmin] = useState<TradeAdminCardResponse | null>(null);
+  const [adminFee, setAdminFee] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
 
   useEffect(() => {
+    if (mode !== 'SMART') return;
     let cancelled = false;
     fetchCards().then((list) => {
       if (cancelled) return;
@@ -1309,7 +1341,11 @@ function ProposeModal({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [mode]);
+
+  useEffect(() => {
+    if (selectedAdmin && !adminFee) setAdminFee(String(selectedAdmin.minFeeUzs));
+  }, [selectedAdmin, adminFee]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1319,9 +1355,17 @@ function ProposeModal({
       setError("Narx musbat butun son bo'lishi kerak");
       return;
     }
-    if (!cardId) {
+    if (mode === 'SMART' && !cardId) {
       setError('Karta tanlang');
       return;
+    }
+    const feeUzs = Number(adminFee);
+    if (mode === 'HUMAN') {
+      const feeValidation = validateAdminFee(selectedAdmin, feeUzs);
+      if (!feeValidation.ok) {
+        setError(feeValidation.error);
+        return;
+      }
     }
     const payload: ProposalCreateRequest = {
       marketplaceChatId: chat.id,
@@ -1329,22 +1373,66 @@ function ProposeModal({
       sellerId: viewerId,
       buyerId: otherPartyId,
       amountUzs: priceUzs,
-      cardId,
+      mode,
       listingId: listing?.id ?? null,
     };
+    if (mode === 'SMART') payload.cardId = cardId;
+    if (mode === 'HUMAN' && selectedAdmin) {
+      payload.adminId = selectedAdmin.userId;
+      payload.adminFeeUzs = feeUzs;
+    }
     startSubmit(async () => {
       const result = await postProposal(payload);
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      onCreated(result.data, priceUzs);
+      onCreated(result.data, priceUzs, mode, mode === 'HUMAN' ? feeUzs : undefined);
     });
   }
 
   return (
     <ModalShell title="Taklif yuborish" onClose={onClose}>
       <form className="space-y-3" onSubmit={handleSubmit}>
+        <div>
+          <Label>Admin turi</Label>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Admin turi">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={mode === 'SMART'}
+              onClick={() => setMode('SMART')}
+              className={cn(
+                'rounded-lg border px-3 py-2 text-left text-sm transition',
+                mode === 'SMART'
+                  ? 'border-primary bg-primary/10 text-foreground'
+                  : 'border-border bg-card text-muted-foreground hover:border-primary/40',
+              )}
+            >
+              <span className="block font-black">Smart admin</span>
+              <span className="text-[10.5px]">Avtomatik escrow flow</span>
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={mode === 'HUMAN'}
+              onClick={() => setMode('HUMAN')}
+              className={cn(
+                'rounded-lg border px-3 py-2 text-left text-sm transition',
+                mode === 'HUMAN'
+                  ? 'border-primary bg-primary/10 text-foreground'
+                  : 'border-border bg-card text-muted-foreground hover:border-primary/40',
+              )}
+            >
+              <span className="flex items-center gap-1.5 font-black">
+                <UserCog className="h-4 w-4" />
+                Inson admin
+              </span>
+              <span className="text-[10.5px]">Platforma bepul</span>
+            </button>
+          </div>
+        </div>
+
         <div>
           <Label htmlFor="trade-price">Narx (UZS)</Label>
           <Input
@@ -1359,15 +1447,54 @@ function ProposeModal({
             required
           />
         </div>
-        <div>
-          <Label htmlFor="trade-seller-card">Sotuvchi kartasi</Label>
-          <CardSelect
-            id="trade-seller-card"
-            cards={cards}
-            value={cardId}
-            onChange={setCardId}
-          />
-        </div>
+        {mode === 'SMART' ? (
+          <div>
+            <Label htmlFor="trade-seller-card">Sotuvchi kartasi</Label>
+            <CardSelect
+              id="trade-seller-card"
+              cards={cards}
+              value={cardId}
+              onChange={setCardId}
+            />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+              Inson admin savdosida xaridor admin bilan bevosita to'lov qiladi.
+              Platforma pulni ushlab turmaydi va komissiya olmaydi.
+            </div>
+            <div>
+              <Label>Admin tanlash</Label>
+              <TradeAdminPicker
+                value={selectedAdmin?.userId}
+                onSelect={(admin) => {
+                  setSelectedAdmin(admin);
+                  setAdminFee(String(admin.minFeeUzs));
+                }}
+              />
+            </div>
+            <div>
+              <Label htmlFor="human-admin-fee">Admin xizmati narxi (UZS)</Label>
+              <Input
+                id="human-admin-fee"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                value={adminFee}
+                onChange={(e) => setAdminFee(e.target.value)}
+                placeholder={selectedAdmin ? String(selectedAdmin.minFeeUzs) : '30000'}
+                required
+              />
+              {selectedAdmin && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Ruxsat etilgan oraliq: {formatPriceUZS(selectedAdmin.minFeeUzs)} -{' '}
+                  {formatPriceUZS(selectedAdmin.maxFeeUzs)}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
         {error && (
           <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
@@ -1378,7 +1505,7 @@ function ProposeModal({
           <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
             Bekor qilish
           </Button>
-          <Button type="submit" disabled={submitting || cards === null}>
+          <Button type="submit" disabled={submitting || (mode === 'SMART' && cards === null)}>
             {submitting ? 'Yuborilmoqda…' : 'Yuborish'}
           </Button>
         </div>
@@ -1404,6 +1531,7 @@ function AcceptModal({
   const [submitting, startSubmit] = useTransition();
 
   useEffect(() => {
+    if (isHumanProposal(proposal)) return;
     let cancelled = false;
     fetchCards().then((list) => {
       if (cancelled) return;
@@ -1413,16 +1541,16 @@ function AcceptModal({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [proposal]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!cardId) {
+    if (!isHumanProposal(proposal) && !cardId) {
       setError('Karta tanlang');
       return;
     }
-    const payload: ProposalAcceptRequest = { cardId };
+    const payload: ProposalAcceptRequest = isHumanProposal(proposal) ? {} : { cardId };
     startSubmit(async () => {
       const result = await postProposalAccept(proposal.id, payload);
       if (!result.ok) {
@@ -1441,12 +1569,21 @@ function AcceptModal({
             <span className="font-semibold text-foreground">Narx:</span>{' '}
             {formatPriceUZS(proposal.priceUzs)}
           </p>
-          <p className="mt-0.5">Tasdiqlagach savdo boshlanadi.</p>
+          {isHumanProposal(proposal) ? (
+            <p className="mt-0.5">
+              Tasdiqlagach inson admin taklifni qabul qiladi. Admin to'lovi
+              platformadan tashqarida, bevosita admin bilan qilinadi.
+            </p>
+          ) : (
+            <p className="mt-0.5">Tasdiqlagach savdo boshlanadi.</p>
+          )}
         </div>
-        <div>
-          <Label htmlFor="accept-card">Sizning kartangiz</Label>
-          <CardSelect id="accept-card" cards={cards} value={cardId} onChange={setCardId} />
-        </div>
+        {!isHumanProposal(proposal) && (
+          <div>
+            <Label htmlFor="accept-card">Sizning kartangiz</Label>
+            <CardSelect id="accept-card" cards={cards} value={cardId} onChange={setCardId} />
+          </div>
+        )}
         {error && (
           <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
@@ -1457,7 +1594,7 @@ function AcceptModal({
           <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
             Bekor qilish
           </Button>
-          <Button type="submit" disabled={submitting || cards === null}>
+          <Button type="submit" disabled={submitting || (!isHumanProposal(proposal) && cards === null)}>
             {submitting ? 'Tasdiqlanmoqda…' : 'Tasdiqlash'}
           </Button>
         </div>

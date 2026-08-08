@@ -438,13 +438,14 @@ export interface MessageResponse {
   createdAt: string;
 }
 
-export type NotificationType = 'CHAT_CREATED' | 'CHAT_MESSAGE';
+export type NotificationType = 'CHAT_CREATED' | 'CHAT_MESSAGE' | 'TRADE_ADMIN_INVITED';
 
 export interface NotificationResponse {
   id: string;
   type: NotificationType;
   chatId?: string | null;
   listingId?: string | null;
+  tradeId?: string | null;
   actorDisplayName?: string | null;
   readAt?: string | null;
   createdAt: string;

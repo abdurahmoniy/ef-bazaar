@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Flag, LayoutDashboard, Mail, Package, ShieldAlert, SlidersHorizontal, Sparkles, UsersRound } from 'lucide-react';
+import { Flag, LayoutDashboard, Mail, Package, ShieldAlert, SlidersHorizontal, Sparkles, UserCog, UsersRound } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,7 @@ const TABS: Array<{ href: string; label: string; icon: React.ReactNode }> = [
   { href: '/admin/listings', label: "E'lonlar", icon: <Package className="h-4 w-4" /> },
   { href: '/admin/users', label: 'Foydalanuvchilar', icon: <UsersRound className="h-4 w-4" /> },
   { href: '/admin/mailboxes', label: 'Pochtalar', icon: <Mail className="h-4 w-4" /> },
+  { href: '/admin/human-trades', label: 'Inson admin', icon: <UserCog className="h-4 w-4" /> },
   { href: '/admin/players', label: "O'yinchilar", icon: <Sparkles className="h-4 w-4" /> },
   { href: '/admin/attributes', label: 'Atributlar', icon: <SlidersHorizontal className="h-4 w-4" /> },
 ];

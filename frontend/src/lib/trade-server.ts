@@ -3,9 +3,16 @@ import 'server-only';
 import { apiFetch, ApiException } from './api';
 import type {
   CardResponse,
+  EscalatedTradeResponse,
   PendingProposalResponse,
+  TradeAdminCardResponse,
+  TradeAdminProfileResponse,
+  TradeAdminRatingResponse,
+  TradeAdminSort,
   TradePage,
+  TradeMessageResponse,
   TradeResponse,
+  TradeStepResponse,
 } from './trade-types';
 
 /**
@@ -61,6 +68,75 @@ export async function getMyTrades(limit = 20, offset = 0): Promise<TradePage> {
 /** Cards saved to the caller's profile — used to pre-fill the trade card picker. */
 export async function getMyCards(): Promise<CardResponse[]> {
   return (await safeGet<CardResponse[]>(`${TRADE_PREFIX}/cards`)) ?? [];
+}
+
+export async function getTradeAdmins(
+  q?: string,
+  sort: TradeAdminSort = 'DEFAULT',
+): Promise<TradeAdminCardResponse[]> {
+  const params = new URLSearchParams();
+  if (q?.trim()) params.set('q', q.trim());
+  if (sort) params.set('sort', sort);
+  const query = params.toString();
+  return (await safeGet<TradeAdminCardResponse[]>(
+    `${TRADE_PREFIX}/trade-admins${query ? `?${query}` : ''}`,
+  )) ?? [];
+}
+
+export async function getTradeAdminProfile(
+  userId: string,
+): Promise<TradeAdminProfileResponse | null> {
+  return await safeGet<TradeAdminProfileResponse>(
+    `${TRADE_PREFIX}/trade-admins/${encodeURIComponent(userId)}`,
+  );
+}
+
+export async function getTradeAdminRatings(
+  userId: string,
+): Promise<TradeAdminRatingResponse[]> {
+  return (await safeGet<TradeAdminRatingResponse[]>(
+    `${TRADE_PREFIX}/trade-admins/${encodeURIComponent(userId)}/ratings`,
+  )) ?? [];
+}
+
+export async function getMyTradeAdminProfile(): Promise<TradeAdminProfileResponse | null> {
+  return await safeGet<TradeAdminProfileResponse>(`${TRADE_PREFIX}/trade-admins/me`);
+}
+
+export async function getMyTradeAdminInvitations(): Promise<TradeResponse[]> {
+  return (await safeGet<TradeResponse[]>(
+    `${TRADE_PREFIX}/trade-admins/me/invitations`,
+  )) ?? [];
+}
+
+export async function getMyTradeAdminTrades(): Promise<TradeResponse[]> {
+  return (await safeGet<TradeResponse[]>(`${TRADE_PREFIX}/trade-admins/me/trades`)) ?? [];
+}
+
+export async function getTradeById(id: string): Promise<TradeResponse | null> {
+  return await safeGet<TradeResponse>(`${TRADE_PREFIX}/trades/${encodeURIComponent(id)}`);
+}
+
+export async function getTradeSteps(id: string): Promise<TradeStepResponse[]> {
+  return (await safeGet<TradeStepResponse[]>(
+    `${TRADE_PREFIX}/trades/${encodeURIComponent(id)}/steps`,
+  )) ?? [];
+}
+
+export async function getTradeMessages(
+  id: string,
+  target?: 'SELLER' | 'BUYER',
+): Promise<TradeMessageResponse[]> {
+  const params = target ? `?target=${target}` : '';
+  return (await safeGet<TradeMessageResponse[]>(
+    `${TRADE_PREFIX}/trades/${encodeURIComponent(id)}/messages${params}`,
+  )) ?? [];
+}
+
+export async function getEscalatedHumanTrades(): Promise<EscalatedTradeResponse[]> {
+  return (await safeGet<EscalatedTradeResponse[]>(
+    `${TRADE_PREFIX}/admin/trades/escalated`,
+  )) ?? [];
 }
 
 /**

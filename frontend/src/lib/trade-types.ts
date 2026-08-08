@@ -7,6 +7,9 @@
 
 export type TradeState =
   | 'INITIATED'
+  | 'WAITING_ADMIN'
+  | 'IN_PROGRESS'
+  | 'WAITING_CLOSE_CONFIRM'
   | 'WAITING_PAYMENT'
   | 'WAITING_EMAIL_CHANGE'
   | 'VERIFYING_KONAMI_LINK'
@@ -17,13 +20,24 @@ export type TradeState =
   | 'ORPHANED';
 
 export type ParticipantRole = 'SELLER' | 'BUYER';
+export type TradeMode = 'SMART' | 'HUMAN';
+export type HumanTradeState = 'WAITING_ADMIN' | 'IN_PROGRESS' | 'WAITING_CLOSE_CONFIRM';
 
 export interface TradeResponse {
   id: string;
   state: TradeState;
+  /** Added by the human-admin feature. Older backend DTOs may omit it. */
+  mode?: TradeMode | null;
   sellerId: string;
   buyerId: string;
   priceUzs: number;
+  assignedAdminId?: string | null;
+  adminFeeUzs?: number | null;
+  escalatedAt?: string | null;
+  escalationReason?: string | null;
+  sellerConfirmedAt?: string | null;
+  buyerConfirmedAt?: string | null;
+  completedAt?: string | null;
   mailboxId: string | null;
   /**
    * Escrow-mailbox address; the seller pastes this into Konami during
@@ -77,6 +91,9 @@ export interface PendingProposalResponse {
   buyerId: string;
   proposerUserId: string;
   amountUzs: number;
+  mode?: TradeMode | null;
+  adminId?: string | null;
+  adminFeeUzs?: number | null;
   listingId: string | null;
   expiresAt: string;
 }
@@ -105,17 +122,139 @@ export interface ProposalCreateRequest {
   sellerId: string;
   buyerId: string;
   amountUzs: number;
-  cardId: string;
+  mode?: TradeMode;
+  cardId?: string;
+  adminId?: string;
+  adminFeeUzs?: number;
   listingId?: string | null;
 }
 
 export interface ProposalAcceptRequest {
-  cardId: string;
+  cardId?: string;
+}
+
+export type TradeAdminSort = 'DEFAULT' | 'RATING' | 'FEE_ASC';
+
+export interface TradeAdminCardResponse {
+  userId: string;
+  displayName: string | null;
+  photoAvailable: boolean;
+  averageStars: number | null;
+  ratingCount: number;
+  averageWorkSeconds: number | null;
+  minFeeUzs: number;
+  maxFeeUzs: number;
+  online: boolean;
+  lastSeenAt: string | null;
+  activeTrades: number;
+  maxConcurrentTrades: number;
+  busy: boolean;
+}
+
+export interface TradeAdminProfileResponse {
+  userId: string;
+  displayName: string | null;
+  minFeeUzs: number;
+  maxFeeUzs: number;
+  bio: string | null;
+  acceptingOrders: boolean;
+  maxConcurrentTrades: number;
+  active: boolean;
+  averageStars: number | null;
+  ratingCount: number;
+  completedCount: number;
+  abandonedCount: number;
+  cancelledCount: number;
+  averageWorkSeconds: number | null;
+}
+
+export interface TradeAdminRatingResponse {
+  id: string;
+  stars: number;
+  comment: string | null;
+  raterRole: ParticipantRole;
+  createdAt: string;
+}
+
+export interface TradeAdminProfileUpsertRequest {
+  minFeeUzs: number;
+  maxFeeUzs: number;
+  bio?: string;
+  acceptingOrders: boolean;
+  maxConcurrentTrades: number;
+}
+
+export type TradeStep =
+  | 'SELLER_BRIEFED'
+  | 'ACCOUNT_TRANSFERRED'
+  | 'ACCOUNT_VERIFIED'
+  | 'PAYMENT_RECEIVED'
+  | 'CREDENTIALS_DELIVERED'
+  | 'SELLER_PAID';
+
+export interface TradeStepResponse {
+  step: TradeStep;
+  labelUz: string;
+  completed: boolean;
+  completedAt: string | null;
+  note: string | null;
+}
+
+export type TradeMessageTarget = 'SELLER' | 'BUYER';
+export type TradeMessageSenderType = 'USER' | 'SMART_ADMIN' | 'SYSTEM' | 'HUMAN_ADMIN';
+export type TradeMessageType = 'TEXT' | 'BUTTON_PROMPT' | 'STATUS' | 'PASSWORD_ONETIME';
+
+export interface TradeMessageResponse {
+  id: string;
+  tradeId: string;
+  senderId: string | null;
+  senderType: TradeMessageSenderType;
+  messageType: TradeMessageType;
+  body?: string | null;
+  content?: string | null;
+  code?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface AssignAdminRequest {
+  adminId: string;
+  feeUzs: number;
+}
+
+export interface AdminCancelRequest {
+  reason?: string;
+}
+
+export interface CloseConfirmResponse {
+  sellerConfirmed: boolean;
+  buyerConfirmed: boolean;
+  state: TradeState;
+}
+
+export interface RateAdminRequest {
+  stars: number;
+  comment?: string;
+}
+
+export interface EscalatedTradeResponse {
+  id: string;
+  sellerId: string;
+  buyerId: string;
+  priceUzs: number;
+  assignedAdminId: string | null;
+  adminFeeUzs: number | null;
+  escalatedAt: string;
+  escalationReason: string | null;
+  createdAt: string;
 }
 
 /** Localized Uzbek labels for trade states — used by the chat trade panel. */
 export const TRADE_STATE_LABEL_UZ: Record<TradeState, string> = {
   INITIATED: 'Boshlangan',
+  WAITING_ADMIN: 'Admin javobi kutilmoqda',
+  IN_PROGRESS: 'Admin ishlamoqda',
+  WAITING_CLOSE_CONFIRM: 'Yakun tasdiqlanmoqda',
   WAITING_PAYMENT: "To'lov kutilmoqda",
   WAITING_EMAIL_CHANGE: "Email o'zgartirish kutilmoqda",
   VERIFYING_KONAMI_LINK: 'Konami tekshiruvi',
