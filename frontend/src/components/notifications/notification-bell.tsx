@@ -10,6 +10,7 @@ import {
   fetchUnreadCount,
   markAllNotificationsRead,
   markNotificationRead,
+  notificationHref,
   notificationLabel,
 } from '@/lib/notifications-client';
 import { formatListingDate } from '@/lib/marketplace-format';
@@ -78,11 +79,8 @@ export function NotificationBell({ className, dropdownAlign = 'right' }: Notific
       setUnread((v) => Math.max(0, v - 1));
       await markNotificationRead(n.id);
     }
-    if (n.chatId) {
-      router.push(`/chats/${n.chatId}`);
-    } else if (n.listingId) {
-      router.push(`/marketplace/${n.listingId}`);
-    }
+    const href = notificationHref(n);
+    if (href) router.push(href);
   }
 
   async function handleReadAll() {

@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Heart, LogOut, Mail, Moon, Package, ShieldCheck, Sun, UserRound } from 'lucide-react';
+import { Heart, LogOut, Mail, Moon, Package, ShieldCheck, Sun, UserCog, UserRound } from 'lucide-react';
 
 import { logoutAction } from '@/app/auth/actions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTheme } from '@/components/theme/use-theme';
 import { isAdmin } from '@/lib/admin';
+import { isTradeAdmin } from '@/lib/trade-human';
 import { cn } from '@/lib/utils';
 import type { User } from '@/lib/types';
 
@@ -57,6 +58,7 @@ export function UserMenu({ user, className }: UserMenuProps) {
   }, [open]);
 
   const admin = isAdmin(user);
+  const tradeAdmin = isTradeAdmin(user);
 
   return (
     <div ref={rootRef} className={cn('relative', className)}>
@@ -150,6 +152,12 @@ export function UserMenu({ user, className }: UserMenuProps) {
               <Link href="/admin" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
                 <ShieldCheck className="h-4 w-4 text-primary" />
                 Admin panel
+              </Link>
+            )}
+            {tradeAdmin && (
+              <Link href="/trade-admin" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
+                <UserCog className="h-4 w-4 text-primary" />
+                Inson admin
               </Link>
             )}
 
