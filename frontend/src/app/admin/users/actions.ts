@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 
 import { apiFetch, ApiException } from '@/lib/api';
+import type { AdminUserRoleMutation } from '@/lib/admin-user-actions';
 
 export interface AdminUserActionResult {
   ok: boolean;
@@ -25,7 +26,7 @@ async function run(action: () => Promise<unknown>): Promise<AdminUserActionResul
 
 export async function setUserRoleAction(
   userId: string,
-  role: 'USER' | 'ADMIN',
+  role: AdminUserRoleMutation,
 ): Promise<AdminUserActionResult> {
   return run(() =>
     apiFetch(`/auth/v1/admin/users/${encodeURIComponent(userId)}/role`, {
