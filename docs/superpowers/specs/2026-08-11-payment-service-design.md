@@ -229,7 +229,36 @@ Reference implementation exists as a working prototype and is the source of the 
 `30.000,00` is UZS with `.` as thousands separator and `,` as decimal; it converts to 3 000 000
 tiyin. The trailing `💰` line is the card balance after the movement.
 
-### 4.5 Kafka topics
+### 4.5 The admin Telegram topic
+
+Every invoice is announced in a dedicated thread topic of the admin Telegram group, so the people who
+own the cards can watch money arriving without opening the admin panel.
+
+The lifecycle is a **replacement, not an edit**:
+
+1. Invoice created → post a message carrying the card, the exact transfer amount, the requested
+   amount, the payer and the deadline. Keep the returned Telegram `message_id` on the invoice row.
+2. Invoice paid → **delete** that message, then post a fresh one saying the payment completed, with
+   the same invoice details.
+3. Invoice expired → delete the message and post nothing. An expired invoice is not news, and leaving
+   it would fill the topic with transfers that will never arrive.
+
+Deleting rather than editing is the owner's choice: an unanswered invoice sitting in the topic is a
+to-do item, and a completed one is a receipt. Editing in place would make the topic a list of things
+that all look alike.
+
+**payment-service does not talk to Telegram.** It calls `bot`, which already owns the token and a
+`TelegramApiClient`, over the internal HTTP surface `bot` already exposes at `/bot/internal/**`. That
+call is synchronous because the `message_id` must come back — Kafka would need a second topic to
+return it, for no gain.
+
+Failure to notify never blocks money. If `bot` is unreachable the invoice is still created and the
+payment still credits; the notification is logged and skipped. A Telegram outage must not stop
+deposits.
+
+The thread topic id is configuration, held in the environment beside the bot token, never in git.
+
+### 4.6 Kafka topics
 
 | Topic | Producer | Consumer | Payload |
 |---|---|---|---|
@@ -348,6 +377,7 @@ CREATE TABLE invoices (
     status                 VARCHAR(16) NOT NULL,   -- PENDING | PAID | EXPIRED | CANCELLED
     expires_at             TIMESTAMPTZ NOT NULL,
     paid_at                TIMESTAMPTZ,
+    admin_notice_message_id BIGINT,                -- Telegram message in the admin topic
     observation_id         UUID,                   -- no FK: invoices and observations
                                                    -- reference each other, so one side
                                                    -- stays a plain column
@@ -467,12 +497,14 @@ Rates are basis points to avoid floating point. A tariff change is one `UPDATE`,
 3. Guard: user has no other PENDING invoice      (§3.6)
 4. Allocate a (card, transfer_amount) slot       (§6.2)
 5. invoice(status=PENDING, expires_at=now+15m); no ledger movement yet
-6. Return card PAN, holder name, exact transfer amount, countdown, and the
+6. Announce the invoice in the admin Telegram topic (§4.5); keep the message id
+7. Return card PAN, holder name, exact transfer amount, countdown, and the
    warning that the amount must match to the tiyin
-7. User transfers from their own bank app
-8. Humo bot notifies the platform Telegram account
-9. userbot parses and publishes card-credit-observed
-10. payment-service matches                      (§6.4)
+8. User transfers from their own bank app
+9. Humo bot notifies the platform Telegram account
+10. userbot parses and publishes card-credit-observed
+11. payment-service matches                      (§6.4)
+12. On a credit: delete the announcement, post a completion message
 ```
 
 ### 6.2 Slot allocation
@@ -673,6 +705,11 @@ payment:
     minimum-uzs: 10000
   userbot:
     heartbeat-timeout-seconds: 180
+  admin-telegram:
+    enabled: ${PAYMENT_ADMIN_TELEGRAM_ENABLED:true}
+    bot-base-url: ${BOT_INTERNAL_BASE_URL:http://bot:8084}
+    chat-id: ${PAYMENT_ADMIN_CHAT_ID:}
+    thread-id: ${PAYMENT_ADMIN_THREAD_ID:}
 ```
 
 ```yaml
