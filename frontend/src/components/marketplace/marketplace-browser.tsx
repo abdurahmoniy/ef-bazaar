@@ -15,11 +15,17 @@ import { SortMenu, type SortMenuOption } from '@/components/marketplace/sort-men
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
-  buildListingSearchParams,
   formatCompactNumber,
   DEFAULT_PLATFORM,
   type MarketplaceFilterId,
 } from '@/lib/marketplace-format';
+import {
+  marketplaceHref,
+  setMarketplacePage,
+  setMarketplaceSort,
+  setMarketplaceView,
+  type MarketplaceView,
+} from '@/lib/marketplace-query';
 import { LISTING_SORT_OPTIONS, paramToSortId } from '@/lib/marketplace-sort';
 import type { FetchResult } from '@/lib/marketplace-server';
 import type {
@@ -35,7 +41,8 @@ interface MarketplaceBrowserProps {
   activeFilter: MarketplaceFilterId;
   query?: string;
   result: FetchResult<PageResponse<ListingResponse>>;
-  view?: 'grid' | 'list';
+  rawQuery: string;
+  view: MarketplaceView;
 }
 
 export function MarketplaceBrowser({
@@ -43,7 +50,8 @@ export function MarketplaceBrowser({
   activeFilter,
   query,
   result,
-  view = 'grid',
+  rawQuery,
+  view,
 }: MarketplaceBrowserProps) {
   const divisionAttr = filters.attributes?.highest_division_level;
   const divisionValue = typeof divisionAttr === 'string' ? Number(divisionAttr) : undefined;
@@ -56,6 +64,7 @@ export function MarketplaceBrowser({
     ? valuablePlayerNameRaw
     : undefined;
   const page = result.ok ? result.data : null;
+  const displayView = view === 'list' ? 'list' : 'grid';
 
   const filterProps = {
     activeFilter,
@@ -77,15 +86,10 @@ export function MarketplaceBrowser({
     filters.matchCards,
     String(filters.matchStrictness ?? 4),
   );
-  // The dialog rewrites this query string in place, so every unrelated filter
-  // survives applying a squad.
-  const currentQuery = browseHref(
-    filters,
-    activeFilter,
-    query,
-    view,
-    filters.page ?? 0,
-  ).split('?')[1] ?? '';
+  // The dialog rewrites this raw query string in place, so every unrelated
+  // parameter — including repeated criteria — survives applying a squad.
+  const currentQuery = rawQuery;
+  const rawParams = new URLSearchParams(rawQuery);
   const activeFilterCount = [
     filters.minPrice !== undefined || filters.maxPrice !== undefined,
     filters.priceNegotiable === true,
@@ -101,12 +105,12 @@ export function MarketplaceBrowser({
     Boolean(attrs.platform) && attrs.platform !== DEFAULT_PLATFORM,
   ].filter(Boolean).length;
 
-  // Precomputed here rather than in SortMenu: the client component can't be
-  // handed browseHref, and every ordering has to keep the active filters.
+  // Precomputed here rather than in SortMenu: the client component needs real
+  // hrefs, and every ordering must preserve raw public query state.
   const sortOptions: SortMenuOption[] = LISTING_SORT_OPTIONS.map((option) => ({
     id: option.id,
     label: option.label,
-    href: browseHref({ ...filters, sort: option.param }, activeFilter, query, view, 0),
+    href: marketplaceHref(setMarketplaceSort(rawParams, option.param)),
   }));
 
   return (
@@ -143,7 +147,12 @@ export function MarketplaceBrowser({
             </MobileFilterSheet>
           </div>
           <div className="min-w-0 flex-1">
-            <QuickChips activeFilter={activeFilter} query={query} view={view} currentQuery={currentQuery} />
+            <QuickChips
+              activeFilter={activeFilter}
+              query={query}
+              view={displayView}
+              currentQuery={currentQuery}
+            />
           </div>
         </div>
 
@@ -155,7 +164,7 @@ export function MarketplaceBrowser({
           <>
             <div
               className={cn(
-                view === 'list'
+                displayView === 'list'
                   ? 'flex flex-col gap-2'
                   // Two columns on phones — one card per row wastes half the
                   // screen and doubles the scroll to the same listing.
@@ -166,7 +175,7 @@ export function MarketplaceBrowser({
                 <ListingCard
                   key={listing.id}
                   listing={listing}
-                  variant={view}
+                  variant={displayView}
                   detailQuery={currentQuery}
                 />
               ))}
@@ -174,7 +183,7 @@ export function MarketplaceBrowser({
             <ListingsPagination
               page={page.page}
               totalPages={page.totalPages}
-              buildHref={(nextPage) => browseHref(filters, activeFilter, query, view, nextPage)}
+              buildHref={(nextPage) => marketplaceHref(setMarketplacePage(rawParams, nextPage))}
             />
           </>
         )}
@@ -212,7 +221,7 @@ function BrowseHeader({
 }: {
   activeFilter: MarketplaceFilterId;
   query?: string;
-  view: 'grid' | 'list';
+  view: MarketplaceView;
   totalElements: number;
   sortOptions: SortMenuOption[];
   activeSortId: string;
@@ -244,17 +253,17 @@ function BrowseHeader({
 
         <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-card">
         <Link
-          href={viewHref('grid', currentQuery)}
+          href={marketplaceHref(setMarketplaceView(new URLSearchParams(currentQuery), 'auto'))}
           className={cn(
             'tap-press grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition sm:h-10 sm:w-10',
-            view === 'grid' && 'bg-accent text-accent-foreground',
+            (view === 'grid' || view === 'auto') && 'bg-accent text-accent-foreground',
           )}
           aria-label="Katak ko'rinishi"
         >
           <LayoutGrid className="h-4 w-4" />
         </Link>
         <Link
-          href={viewHref('list', currentQuery)}
+          href={marketplaceHref(setMarketplaceView(new URLSearchParams(currentQuery), 'list'))}
           className={cn(
             'tap-press grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition sm:h-10 sm:w-10',
             view === 'list' && 'bg-accent text-accent-foreground',
@@ -297,7 +306,7 @@ function BrowseEmpty({
       </p>
       {hasPlayerMatch ? (
         <Button asChild className="mt-4">
-          <Link href={`/marketplace?${loosen.toString()}`}>Qat’iylikni pasaytirish</Link>
+          <Link href={marketplaceHref(loosen)}>Qat’iylikni pasaytirish</Link>
         </Button>
       ) : (
         <Button asChild className="mt-4">
@@ -308,26 +317,4 @@ function BrowseEmpty({
       )}
     </div>
   );
-}
-
-function browseHref(
-  filters: ListingBrowseParams,
-  activeFilter: MarketplaceFilterId,
-  query: string | undefined,
-  view: 'grid' | 'list',
-  page: number,
-) {
-  const search = buildListingSearchParams({ ...filters, page });
-  if (activeFilter !== 'all') search.set('filter', activeFilter);
-  if (query) search.set('q', query);
-  if (view === 'list') search.set('view', 'list');
-  return `/marketplace?${search.toString()}`;
-}
-
-function viewHref(view: 'grid' | 'list', currentQuery: string) {
-  const params = new URLSearchParams(currentQuery);
-  params.delete('page');
-  if (view === 'list') params.set('view', 'list');
-  else params.delete('view');
-  return params.toString() ? `/marketplace?${params.toString()}` : '/marketplace';
 }
