@@ -74,6 +74,17 @@ Run builds in the foreground and stay attached; a full `mvn clean verify` takes 
 | `.../kafka/CardCreditConsumer.java`, `HeartbeatConsumer.java` | Inbound topics |
 | `.../kafka/PaymentEventPublisher.java` | Outbound topics |
 | `.../health/UserbotHealth.java` | Heartbeat freshness, gates invoice creation |
+| `.../notify/BotClient.java`, `HttpBotClient.java` | The one seam to Telegram, via `bot` |
+| `.../notify/AdminTelegramNotifier.java` | Renders invoice notices; never throws |
+| `.../notify/InvoiceNoticeListener.java` | Posts/deletes notices after commit |
+
+### bot (existing module)
+
+| File | Change |
+|---|---|
+| `.../api/PaymentNoticeController.java` | New `/bot/internal/payments/notice` surface |
+| `.../telegram/TelegramApiClient.java` | Add `deleteMessage` |
+| `.../config/TelegramProperties.java` | Add the `payments` thread topic |
 
 ### humo-userbot (new service)
 
@@ -124,11 +135,12 @@ Task 7 needs Tasks 2, 4, 6
 Task 8 (unmatched queue) needs Task 7
 Task 9 (wallet + top-up UI) needs Tasks 2, 4
 Task 11 (unmatched queue UI) needs Task 8
+Task 12 (admin Telegram topic) needs Tasks 4, 5, 7
 ```
 
 ## Migration inventory
 
-`payment_db` starts empty; this plan owns `V1`–`V4`.
+`payment_db` starts empty; this plan owns `V1`–`V5`.
 
 | Migration | Task | Contents |
 |---|---|---|
@@ -136,6 +148,7 @@ Task 11 (unmatched queue UI) needs Task 8
 | `V2__platform_cards.sql` | 3 | `platform_cards`, `platform_card_audit` |
 | `V3__invoices.sql` | 4 | `invoices` with both partial unique indexes |
 | `V4__card_credit_observations.sql` | 7 | `card_credit_observations` |
+| `V5__invoice_admin_notice.sql` | 12 | `invoices.admin_notice_message_id` |
 
 ## New Kafka topics
 
@@ -5854,10 +5867,999 @@ git commit -m "feat(frontend): add the unmatched credits queue and the userbot s
 
 ---
 
+### Task 12: announce every invoice in the admin Telegram topic
+
+**Files:**
+- Modify: `bot/src/main/java/uz/efbazaar/bot/config/TelegramProperties.java` (add the `payments` topic)
+- Modify: `bot/src/main/resources/application.yml` (`topics.payments`)
+- Modify: `bot/src/main/java/uz/efbazaar/bot/telegram/TelegramApiClient.java` (add `deleteMessage`)
+- Create: `bot/src/main/java/uz/efbazaar/bot/api/PaymentNoticeController.java`
+- Create: `bot/src/test/java/uz/efbazaar/bot/api/PaymentNoticeControllerTest.java`
+- Create: `backend/payment-service/src/main/resources/db/migration/V5__invoice_admin_notice.sql`
+- Modify: `backend/payment-service/src/main/java/uz/efbazaar/payment/invoice/domain/Invoice.java`
+- Create: `.../payment/notify/BotClient.java`
+- Create: `.../payment/notify/HttpBotClient.java`
+- Create: `.../payment/notify/AdminTelegramNotifier.java`
+- Create: `.../payment/notify/InvoiceNotice.java`
+- Create: `.../payment/notify/InvoiceNoticeEvents.java`
+- Create: `.../payment/notify/InvoiceNoticeListener.java`
+- Modify: `.../payment/card/service/PlatformCardService.java` (add `findById`)
+- Modify: `.../payment/invoice/service/InvoiceService.java` (announce on create)
+- Modify: `.../payment/observation/service/ByCardService.java` (publish the paid event)
+- Modify: `.../payment/invoice/service/InvoiceExpirySweeper.java` (publish the expired event)
+- Modify: `backend/payment-service/src/main/resources/application.yml`
+- Modify: `backend/payment-service/src/test/resources/application-test.yml`
+- Create: `.../payment/notify/AdminTelegramNotifierTest.java`
+- Create: `.../payment/notify/InvoiceNoticeIT.java`
+- Modify: `docker-compose.yml`, `.env.example`
+
+**Interfaces:**
+- `bot` exposes `POST /bot/internal/payments/notice` → `{ "messageId": 1234 }` and
+  `POST /bot/internal/payments/notice/delete` → `204`.
+- payment-service publishes `InvoicePaidEvent(UUID invoiceId)` and
+  `InvoicesExpiredEvent(List<Long> messageIds)`; `InvoiceNoticeListener` consumes both **after commit**.
+- `AdminTelegramNotifier`:
+  - `OptionalLong invoiceCreated(InvoiceNotice n)`
+  - `OptionalLong invoicePaid(InvoiceNotice n, Long previousMessageId)`
+  - `void invoiceExpired(Long messageId)`
+
+**Context:** The people who own the receiving cards watch money arrive from Telegram, not from the
+admin panel. This task gives them a live feed: every invoice appears in a dedicated thread topic of
+the admin group the moment it is created, and disappears the moment it is answered.
+
+The lifecycle is a **replacement, not an edit** (§4.5 of the spec):
+
+1. Invoice created → post a message; keep the returned Telegram `message_id` on the invoice row.
+2. Invoice paid → **delete** that message, then post a fresh "to'lov amalga oshirildi" message
+   carrying the same invoice details.
+3. Invoice expired → delete the message and post nothing.
+
+An unanswered invoice sitting in the topic is a to-do item; a completed one is a receipt. Editing in
+place would make the whole topic look alike, which is exactly what the owner did not want.
+
+**Notification failure never blocks money.** Every method on `AdminTelegramNotifier` swallows its own
+failures. A `bot` outage, a wrong chat id or a Telegram error must leave the invoice created and the
+payment credited. This is the most important property of this task — a notifier that can throw into
+the credit path turns a cosmetic outage into lost deposits.
+
+Three further decisions, each load-bearing:
+
+- **payment-service never talks to Telegram.** It calls `bot`, which already owns the token, the
+  group chat id and a working `TelegramApiClient`. Adding a second Telegram client would mean a
+  second copy of the bot token in a second service's environment.
+- **The chat id and the thread id live in `bot`, not in payment-service.** `bot` already carries
+  `app.telegram.group-chat-id` and `app.telegram.topics.{logs,registration,media}`; the payments
+  topic is the fourth entry in that list. payment-service sends rendered text and knows nothing about
+  where it lands. (This narrows the spec's §8 sketch, which had payment-service holding both ids —
+  keeping every Telegram identifier in one service is worth the deviation.)
+- **The notice shows the masked card, never the PAN.** A Telegram group is outside our security
+  boundary and its membership is not the card owner list. Last four digits plus the holder name are
+  enough to know which card was hit.
+
+- [ ] **Step 1: Add `payments` to the bot's topics and a `deleteMessage` call**
+
+`TelegramProperties.Topics` gains one component:
+
+```java
+    public record Topics(
+            Integer logs,
+            Integer registration,
+            Integer media,
+            Integer payments
+    ) {}
+```
+
+`bot/src/main/resources/application.yml`, under `app.telegram.topics`:
+
+```yaml
+      payments:     ${TELEGRAM_TOPIC_PAYMENTS:}
+```
+
+No default number. An unset topic must mean "do not post", not "post into topic 2".
+
+`TelegramApiClient` gains the delete call, next to `sendMessage`:
+
+```java
+    /**
+     * deleteMessage — removes a message the bot itself sent.
+     *
+     * <p>Telegram answers {@code ok:false} when the message is already gone or
+     * older than 48 hours. That is not an error worth propagating: the caller
+     * only wants the message absent, and it is.
+     *
+     * @return true when Telegram confirmed the deletion.
+     */
+    public boolean deleteMessage(String chatId, long messageId) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("message_id", messageId);
+        return postJson("deleteMessage", body).isPresent();
+    }
+```
+
+- [ ] **Step 2: Write the bot's internal endpoint, test first**
+
+`bot/src/test/java/uz/efbazaar/bot/api/PaymentNoticeControllerTest.java`:
+
+```java
+package uz.efbazaar.bot.api;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import uz.efbazaar.bot.config.TelegramProperties;
+import uz.efbazaar.bot.telegram.TelegramApiClient;
+
+import java.util.Map;
+import java.util.Optional;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(controllers = PaymentNoticeController.class)
+@Import(PaymentNoticeControllerTest.Stubs.class)
+class PaymentNoticeControllerTest {
+
+    static final TelegramApiClient TELEGRAM = mock(TelegramApiClient.class);
+
+    @TestConfiguration
+    static class Stubs {
+        @Bean TelegramApiClient telegram() { return TELEGRAM; }
+        @Bean TelegramProperties props() {
+            return new TelegramProperties("t", "u", "https://api.telegram.org", "-100777",
+                    new TelegramProperties.Topics(6, 4, 2, 11), null, null);
+        }
+    }
+
+    @Autowired MockMvc mvc;
+    @Autowired ObjectMapper json;
+
+    @Test
+    void postsIntoThePaymentsTopicAndReturnsTheMessageId() throws Exception {
+        when(TELEGRAM.sendMessage(eq("-100777"), eq(11), anyString())).thenReturn(Optional.of(4242));
+
+        mvc.perform(post("/bot/internal/payments/notice")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("text", "<b>salom</b>"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.messageId").value(4242));
+    }
+
+    @Test
+    void reportsNullWhenTelegramRefuses() throws Exception {
+        when(TELEGRAM.sendMessage(anyString(), any(), anyString())).thenReturn(Optional.empty());
+
+        mvc.perform(post("/bot/internal/payments/notice")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("text", "salom"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.messageId").doesNotExist());
+    }
+
+    @Test
+    void rejectsBlankText() throws Exception {
+        mvc.perform(post("/bot/internal/payments/notice")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("text", "  "))))
+                .andExpect(status().isBadRequest());
+        verify(TELEGRAM, never()).sendMessage(anyString(), any(), anyString());
+    }
+
+    @Test
+    void deleteReturnsNoContent() throws Exception {
+        when(TELEGRAM.deleteMessage(eq("-100777"), anyLong())).thenReturn(true);
+
+        mvc.perform(post("/bot/internal/payments/notice/delete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("messageId", 4242))))
+                .andExpect(status().isNoContent());
+
+        verify(TELEGRAM).deleteMessage("-100777", 4242L);
+    }
+}
+```
+
+Reset the shared mock between tests with a `@BeforeEach org.mockito.Mockito.reset(TELEGRAM)` if the
+verifications interfere.
+
+Run it and watch it fail — the controller does not exist yet.
+
+```bash
+cd bot && mvn -q -Dtest=PaymentNoticeControllerTest test
+```
+
+`bot/src/main/java/uz/efbazaar/bot/api/PaymentNoticeController.java`:
+
+```java
+package uz.efbazaar.bot.api;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+import uz.efbazaar.bot.config.TelegramProperties;
+import uz.efbazaar.bot.telegram.TelegramApiClient;
+
+/**
+ * Internal endpoint — payment-service posts invoice notices into the admin
+ * group's payments topic through here.
+ *
+ * <p>Not reachable from outside: nginx answers 404 for {@code /bot/internal/}.
+ *
+ * <p>The caller sends rendered HTML and learns nothing about the chat or the
+ * topic. Every Telegram identifier stays in this service, beside the token.
+ *
+ * <p>An unconfigured topic is not an error. The endpoint answers 200 with a
+ * null message id, and payment-service records "not announced" — a platform
+ * running without an admin group must still take deposits.
+ */
+@Slf4j
+@RestController
+@RequestMapping("/bot/internal/payments")
+@RequiredArgsConstructor
+public class PaymentNoticeController {
+
+    private final TelegramApiClient telegram;
+    private final TelegramProperties props;
+
+    public record NoticeRequest(@NotBlank String text) {}
+
+    public record DeleteRequest(@NotNull Long messageId) {}
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record NoticeResponse(Long messageId) {}
+
+    @PostMapping("/notice")
+    public NoticeResponse notice(@Valid @RequestBody NoticeRequest req) {
+        Integer topic = topicOrNull();
+        if (topic == null) {
+            return new NoticeResponse(null);
+        }
+        return telegram.sendMessage(props.groupChatId(), topic, req.text())
+                .map(id -> new NoticeResponse(id.longValue()))
+                .orElseGet(() -> new NoticeResponse(null));
+    }
+
+    @PostMapping("/notice/delete")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@Valid @RequestBody DeleteRequest req) {
+        if (topicOrNull() == null) {
+            return;
+        }
+        telegram.deleteMessage(props.groupChatId(), req.messageId());
+    }
+
+    private Integer topicOrNull() {
+        Integer topic = props.topics() == null ? null : props.topics().payments();
+        if (topic == null || props.groupChatId() == null || props.groupChatId().isBlank()) {
+            log.warn("Payments topic is not configured — invoice notice dropped");
+            return null;
+        }
+        return topic;
+    }
+}
+```
+
+Run the test again; it must be green.
+
+- [ ] **Step 3: Add the notice column and the entity field**
+
+`backend/payment-service/src/main/resources/db/migration/V5__invoice_admin_notice.sql`:
+
+```sql
+-- The Telegram message announcing this invoice in the admin payments topic.
+-- Null means the announcement never landed (bot down, topic unconfigured) —
+-- which is allowed: notification failure must not block a deposit.
+ALTER TABLE invoices
+    ADD COLUMN admin_notice_message_id BIGINT;
+```
+
+`Invoice.java` gains, after `observationId`:
+
+```java
+    /**
+     * Telegram message id of this invoice's announcement in the admin payments
+     * topic. Null when the announcement failed or the topic is unconfigured;
+     * set again when the paid message replaces the pending one.
+     */
+    @Column(name = "admin_notice_message_id")
+    private Long adminNoticeMessageId;
+```
+
+- [ ] **Step 4: Write the bot client**
+
+`notify/BotClient.java`:
+
+```java
+package uz.efbazaar.payment.notify;
+
+import java.util.OptionalLong;
+
+/**
+ * The one seam between payment-service and Telegram. An interface so tests can
+ * substitute a client that fails, which is the behaviour that actually matters
+ * here.
+ */
+public interface BotClient {
+
+    /** @return the Telegram message id, or empty when the notice did not land. */
+    OptionalLong postPaymentNotice(String html);
+
+    void deletePaymentNotice(long messageId);
+}
+```
+
+`config/BotClientConfig.java`:
+
+```java
+package uz.efbazaar.payment.config;
+
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestClient;
+
+import java.time.Duration;
+
+/**
+ * Short timeouts on purpose. This client sits in front of the invoice creation
+ * path; a hung bot must degrade the notice, never the deposit.
+ */
+@Configuration
+public class BotClientConfig {
+
+    @Bean
+    @Qualifier("botClient")
+    public RestClient botRestClient(
+            @Value("${payment.admin-telegram.bot-base-url:http://bot:8084}") String baseUrl,
+            RestClient.Builder builder) {
+        var factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout((int) Duration.ofMillis(500).toMillis());
+        factory.setReadTimeout((int) Duration.ofSeconds(3).toMillis());
+        return builder.baseUrl(baseUrl).requestFactory(factory).build();
+    }
+}
+```
+
+`notify/HttpBotClient.java`:
+
+```java
+package uz.efbazaar.payment.notify;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+
+import java.util.Map;
+import java.util.OptionalLong;
+
+@Slf4j
+@Component
+public class HttpBotClient implements BotClient {
+
+    private static final String NOTICE = "/bot/internal/payments/notice";
+    private static final String DELETE = "/bot/internal/payments/notice/delete";
+
+    private final RestClient http;
+
+    public HttpBotClient(@Qualifier("botClient") RestClient http) {
+        this.http = http;
+    }
+
+    public record NoticeResponse(Long messageId) {}
+
+    @Override
+    public OptionalLong postPaymentNotice(String html) {
+        NoticeResponse res = http.post()
+                .uri(NOTICE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("text", html))
+                .retrieve()
+                .body(NoticeResponse.class);
+        return res == null || res.messageId() == null
+                ? OptionalLong.empty()
+                : OptionalLong.of(res.messageId());
+    }
+
+    @Override
+    public void deletePaymentNotice(long messageId) {
+        http.post()
+                .uri(DELETE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("messageId", messageId))
+                .retrieve()
+                .toBodilessEntity();
+    }
+}
+```
+
+This class does **not** catch anything. Swallowing lives one layer up, in the notifier, so there is
+exactly one place to look for it.
+
+- [ ] **Step 5: Write the notifier, test first**
+
+`notify/InvoiceNotice.java`:
+
+```java
+package uz.efbazaar.payment.notify;
+
+import java.time.Instant;
+import java.util.UUID;
+
+/** Everything a notice needs, already resolved. No entities cross this line. */
+public record InvoiceNotice(
+        UUID invoiceId,
+        UUID userId,
+        String cardLast4,
+        String holderName,
+        long requestedAmountTiyin,
+        long transferAmountTiyin,
+        Instant expiresAt,
+        Instant paidAt) {}
+```
+
+`notify/AdminTelegramNotifierTest.java`:
+
+```java
+package uz.efbazaar.payment.notify;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.OptionalLong;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+
+class AdminTelegramNotifierTest {
+
+    private static final InvoiceNotice NOTICE = new InvoiceNotice(
+            UUID.randomUUID(), UUID.randomUUID(), "4556", "ISMOILOV XUSNIDDIN",
+            10_000_000L, 10_010_000L, Instant.parse("2026-08-12T15:41:00Z"), null);
+
+    /** Records what was sent; can be told to fail like a dead bot. */
+    static class FakeBot implements BotClient {
+        final List<String> posted = new ArrayList<>();
+        final List<Long> deleted = new ArrayList<>();
+        boolean explode;
+        long nextId = 1;
+
+        @Override public OptionalLong postPaymentNotice(String html) {
+            if (explode) throw new IllegalStateException("bot is down");
+            posted.add(html);
+            return OptionalLong.of(nextId++);
+        }
+
+        @Override public void deletePaymentNotice(long messageId) {
+            if (explode) throw new IllegalStateException("bot is down");
+            deleted.add(messageId);
+        }
+    }
+
+    private AdminTelegramNotifier notifier(FakeBot bot, boolean enabled) {
+        AdminTelegramNotifier n = new AdminTelegramNotifier(bot);
+        ReflectionTestUtils.setField(n, "enabled", enabled);
+        return n;
+    }
+
+    @Test
+    void createdNoticeCarriesTheCardAmountsAndDeadline() {
+        FakeBot bot = new FakeBot();
+
+        OptionalLong id = notifier(bot, true).invoiceCreated(NOTICE);
+
+        assertThat(id).hasValue(1L);
+        assertThat(bot.posted).hasSize(1);
+        String html = bot.posted.get(0);
+        assertThat(html).contains("4556")
+                .contains("ISMOILOV XUSNIDDIN")
+                .contains("100 100")   // transfer amount, so'm
+                .contains("100 000");  // credited amount, so'm
+        assertThat(html).doesNotContain("8600");  // never a full PAN
+    }
+
+    @Test
+    void paidNoticeDeletesTheOldMessageFirst() {
+        FakeBot bot = new FakeBot();
+
+        OptionalLong id = notifier(bot, true).invoicePaid(NOTICE, 77L);
+
+        assertThat(bot.deleted).containsExactly(77L);
+        assertThat(id).isPresent();
+        assertThat(bot.posted.get(0)).contains("amalga oshirildi");
+    }
+
+    @Test
+    void paidNoticeStillPostsWhenThereIsNoOldMessage() {
+        FakeBot bot = new FakeBot();
+
+        notifier(bot, true).invoicePaid(NOTICE, null);
+
+        assertThat(bot.deleted).isEmpty();
+        assertThat(bot.posted).hasSize(1);
+    }
+
+    /** The property this whole task exists to preserve. */
+    @Test
+    void aDeadBotNeverThrowsAtTheCaller() {
+        FakeBot bot = new FakeBot();
+        bot.explode = true;
+        AdminTelegramNotifier n = notifier(bot, true);
+
+        assertThatCode(() -> {
+            assertThat(n.invoiceCreated(NOTICE)).isEmpty();
+            assertThat(n.invoicePaid(NOTICE, 5L)).isEmpty();
+            n.invoiceExpired(5L);
+        }).doesNotThrowAnyException();
+    }
+
+    @Test
+    void disabledNotifierCallsNobody() {
+        FakeBot bot = new FakeBot();
+
+        AdminTelegramNotifier n = notifier(bot, false);
+        assertThat(n.invoiceCreated(NOTICE)).isEmpty();
+        n.invoiceExpired(9L);
+
+        assertThat(bot.posted).isEmpty();
+        assertThat(bot.deleted).isEmpty();
+    }
+}
+```
+
+Run it red, then write:
+
+`notify/AdminTelegramNotifier.java`:
+
+```java
+package uz.efbazaar.payment.notify;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.OptionalLong;
+
+/**
+ * Renders invoice notices and hands them to {@link BotClient}.
+ *
+ * <p><b>Nothing here throws.</b> Every method catches everything it can and
+ * degrades to "not announced". The callers sit in the invoice creation path and
+ * in the credit path; a Telegram outage must cost us a message, never a
+ * deposit. Read every catch block in this class as load-bearing.
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class AdminTelegramNotifier {
+
+    private static final DateTimeFormatter CLOCK =
+            DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Asia/Tashkent"));
+
+    private final BotClient bot;
+
+    @Value("${payment.admin-telegram.enabled:true}")
+    private boolean enabled;
+
+    /** @return the Telegram message id to store on the invoice, or empty. */
+    public OptionalLong invoiceCreated(InvoiceNotice n) {
+        if (!enabled) return OptionalLong.empty();
+        try {
+            return bot.postPaymentNotice(renderPending(n));
+        } catch (Exception e) {
+            log.warn("Invoice {} was not announced: {}", n.invoiceId(), e.toString());
+            return OptionalLong.empty();
+        }
+    }
+
+    /**
+     * Replaces the pending announcement with a completion message. The delete
+     * and the post are independent: a failed delete still leaves a receipt in
+     * the topic, which is the more useful half.
+     */
+    public OptionalLong invoicePaid(InvoiceNotice n, Long previousMessageId) {
+        if (!enabled) return OptionalLong.empty();
+        if (previousMessageId != null) {
+            invoiceExpired(previousMessageId);
+        }
+        try {
+            return bot.postPaymentNotice(renderPaid(n));
+        } catch (Exception e) {
+            log.warn("Paid notice for invoice {} failed: {}", n.invoiceId(), e.toString());
+            return OptionalLong.empty();
+        }
+    }
+
+    /** Deletes an announcement with no replacement — an expiry is not news. */
+    public void invoiceExpired(Long messageId) {
+        if (!enabled || messageId == null) return;
+        try {
+            bot.deletePaymentNotice(messageId);
+        } catch (Exception e) {
+            log.warn("Could not delete admin notice {}: {}", messageId, e.toString());
+        }
+    }
+
+    private String renderPending(InvoiceNotice n) {
+        return """
+               🧾 <b>Yangi to'ldirish</b>
+               💳 %s • %s
+               💵 O'tkaziladi: <b>%s so'm</b>
+               🎯 Hisobga tushadi: %s so'm
+               👤 <code>%s</code>
+               🕓 Muddat: %s gacha"""
+                .formatted(mask(n.cardLast4()), esc(n.holderName()),
+                        uzs(n.transferAmountTiyin()), uzs(n.requestedAmountTiyin()),
+                        n.userId(), CLOCK.format(n.expiresAt()));
+    }
+
+    private String renderPaid(InvoiceNotice n) {
+        Instant at = n.paidAt() == null ? Instant.now() : n.paidAt();
+        return """
+               ✅ <b>To'lov amalga oshirildi</b>
+               💳 %s • %s
+               💵 Kelgan summa: <b>%s so'm</b>
+               🎯 Hisobga tushdi: %s so'm
+               👤 <code>%s</code>
+               🕓 %s"""
+                .formatted(mask(n.cardLast4()), esc(n.holderName()),
+                        uzs(n.transferAmountTiyin()), uzs(n.requestedAmountTiyin()),
+                        n.userId(), CLOCK.format(at));
+    }
+
+    private static String mask(String last4) {
+        return "•••• " + last4;
+    }
+
+    /**
+     * Amounts are whole so'm by construction: a request is UZS × 100 and a bump
+     * is a multiple of 100 so'm, so the tiyin part is always zero.
+     */
+    private static String uzs(long tiyin) {
+        return String.format("%,d", tiyin / 100).replace(',', ' ');
+    }
+
+    private static String esc(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+}
+```
+
+- [ ] **Step 6: Announce on creation**
+
+`PlatformCardService` gains a lookup the notifier path needs:
+
+```java
+    @Transactional(readOnly = true)
+    public Optional<PlatformCard> findById(UUID id) {
+        return cards.findById(id);
+    }
+```
+
+`InvoiceService` takes the notifier and announces right after allocation. `create` is deliberately
+**not** `@Transactional` — the allocator opens its own transaction per attempt — so the HTTP call
+holds no database connection:
+
+```java
+    private final AdminTelegramNotifier notifier;
+    private final InvoiceRepository invoices;   // already present
+
+    public InvoiceResponse create(UUID userId, long requestedUzs) {
+        // ... existing guards unchanged ...
+        Invoice inv = allocator.allocate(userId, requestedUzs * 100);
+        announce(inv);
+        return render(inv);
+    }
+
+    /**
+     * Best effort by construction: {@link AdminTelegramNotifier} never throws,
+     * and a missing message id simply means this invoice has no announcement to
+     * delete later.
+     */
+    private void announce(Invoice inv) {
+        PlatformCard card = cards.findById(inv.getCardId()).orElse(null);
+        if (card == null) return;
+        OptionalLong messageId = notifier.invoiceCreated(new InvoiceNotice(
+                inv.getId(), inv.getUserId(), card.getLast4(), card.getHolderName(),
+                inv.getRequestedAmountTiyin(), inv.getTransferAmountTiyin(),
+                inv.getExpiresAt(), null));
+        if (messageId.isPresent()) {
+            inv.setAdminNoticeMessageId(messageId.getAsLong());
+            invoices.save(inv);
+        }
+    }
+```
+
+- [ ] **Step 7: Replace the notice on payment, delete it on expiry**
+
+Both call sites sit **inside** transactions — `ByCardService.ingest` and `InvoiceExpirySweeper.sweep`
+are `@Transactional`. Calling Telegram there would hold a database connection for the length of an
+HTTP round trip, and a notice posted before a rollback would announce a payment that never happened.
+Publish events instead and act after commit.
+
+`notify/InvoiceNoticeEvents.java`:
+
+```java
+package uz.efbazaar.payment.notify;
+
+import java.util.List;
+import java.util.UUID;
+
+/** Signals for the admin topic, published inside a transaction, acted on after it commits. */
+public final class InvoiceNoticeEvents {
+
+    private InvoiceNoticeEvents() {}
+
+    public record InvoicePaid(UUID invoiceId) {}
+
+    /** Only message ids: an expired invoice needs its notice gone, nothing else. */
+    public record InvoicesExpired(List<Long> messageIds) {}
+}
+```
+
+In `ByCardService`, inject `ApplicationEventPublisher events` — name it `appEvents` to avoid
+colliding with the existing `PaymentEventPublisher events` field — and publish at the end of
+`credit`:
+
+```java
+        ledger.post(TransactionKind.DEPOSIT, "invoice-" + invoice.getId(), null, null, postings);
+        invoices.markPaid(invoice, obs.getId());
+        events.depositCredited(invoice.getUserId(), credited, invoice.getId());
+        appEvents.publishEvent(new InvoiceNoticeEvents.InvoicePaid(invoice.getId()));
+```
+
+In `InvoiceExpirySweeper`, collect the ids before saving and publish once:
+
+```java
+        List<Long> notices = due.stream()
+                .map(Invoice::getAdminNoticeMessageId)
+                .filter(Objects::nonNull)
+                .toList();
+        for (Invoice inv : due) {
+            inv.setStatus(InvoiceStatus.EXPIRED);
+        }
+        invoices.saveAll(due);
+        if (!notices.isEmpty()) {
+            appEvents.publishEvent(new InvoiceNoticeEvents.InvoicesExpired(notices));
+        }
+        log.info("Expired {} invoice(s)", due.size());
+```
+
+`notify/InvoiceNoticeListener.java`:
+
+```java
+package uz.efbazaar.payment.notify;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionalEventListener;
+import uz.efbazaar.payment.card.domain.PlatformCard;
+import uz.efbazaar.payment.card.service.PlatformCardService;
+import uz.efbazaar.payment.invoice.domain.Invoice;
+import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
+
+import java.util.Optional;
+import java.util.OptionalLong;
+
+/**
+ * Turns committed invoice facts into Telegram messages.
+ *
+ * <p>{@code AFTER_COMMIT} is the point: a notice announcing a credit that later
+ * rolled back would be a lie, and a Telegram round trip inside the credit
+ * transaction would hold a database connection for its duration.
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class InvoiceNoticeListener {
+
+    private final InvoiceRepository invoices;
+    private final PlatformCardService cards;
+    private final AdminTelegramNotifier notifier;
+
+    @TransactionalEventListener
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onPaid(InvoiceNoticeEvents.InvoicePaid event) {
+        Optional<Invoice> found = invoices.findById(event.invoiceId());
+        if (found.isEmpty()) return;
+        Invoice inv = found.get();
+
+        PlatformCard card = cards.findById(inv.getCardId()).orElse(null);
+        if (card == null) {
+            log.warn("Invoice {} points at a missing card — paid notice skipped", inv.getId());
+            return;
+        }
+
+        OptionalLong newId = notifier.invoicePaid(new InvoiceNotice(
+                inv.getId(), inv.getUserId(), card.getLast4(), card.getHolderName(),
+                inv.getRequestedAmountTiyin(), inv.getTransferAmountTiyin(),
+                inv.getExpiresAt(), inv.getPaidAt()), inv.getAdminNoticeMessageId());
+
+        // Store the receipt's id, or clear the stale pending one. Either way the
+        // row stops pointing at a message that no longer exists.
+        inv.setAdminNoticeMessageId(newId.isPresent() ? newId.getAsLong() : null);
+        invoices.save(inv);
+    }
+
+    @TransactionalEventListener
+    public void onExpired(InvoiceNoticeEvents.InvoicesExpired event) {
+        event.messageIds().forEach(notifier::invoiceExpired);
+    }
+}
+```
+
+`onExpired` needs no transaction: it only deletes messages.
+
+- [ ] **Step 8: Prove the wiring end to end**
+
+`notify/InvoiceNoticeIT.java` — a Spring integration test with the real event plumbing and a fake
+`BotClient`:
+
+```java
+package uz.efbazaar.payment.notify;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.TestPropertySource;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.OptionalLong;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Import(InvoiceNoticeIT.FakeBotConfig.class)
+@TestPropertySource(properties = "payment.admin-telegram.enabled=true")
+class InvoiceNoticeIT extends AbstractPostgresIT {
+
+    static class RecordingBot implements BotClient {
+        final List<String> posted = new ArrayList<>();
+        final List<Long> deleted = new ArrayList<>();
+        long nextId = 100;
+
+        @Override public OptionalLong postPaymentNotice(String html) {
+            posted.add(html);
+            return OptionalLong.of(nextId++);
+        }
+
+        @Override public void deletePaymentNotice(long messageId) {
+            deleted.add(messageId);
+        }
+    }
+
+    @TestConfiguration
+    static class FakeBotConfig {
+        @Bean @Primary RecordingBot recordingBot() { return new RecordingBot(); }
+    }
+
+    @Autowired RecordingBot bot;
+    // plus the fixtures the other invoice ITs use: PlatformCardService,
+    // InvoiceService, ByCardService, InvoiceRepository, InvoiceExpirySweeper.
+
+    @BeforeEach
+    void reset() {
+        bot.posted.clear();
+        bot.deleted.clear();
+    }
+```
+
+Four tests:
+
+1. **`creatingAnInvoiceStoresTheNoticeId`** — create an invoice against an active card; assert
+   `bot.posted` has one entry and the persisted row's `adminNoticeMessageId` is `100`.
+2. **`payingReplacesTheNotice`** — feed `ByCardService.ingest` a matching observation, then assert
+   `bot.deleted` contains `100` and a second message was posted containing `amalga oshirildi`.
+   The listener fires after the ingest transaction commits, so read the invoice back in a fresh
+   transaction before asserting the new id.
+3. **`expiringDeletesTheNotice`** — set `expiresAt` into the past, run
+   `InvoiceExpirySweeper.sweep()`, assert `bot.deleted` contains the id and `bot.posted` gained
+   nothing.
+4. **`aDeadBotStillCreditsTheWallet`** — swap in a `BotClient` that throws on every call (a nested
+   `@TestConfiguration`, or a boolean flag on `RecordingBot` flipped inside the test), run the full
+   create → ingest cycle, and assert the wallet balance rose. **This is the test that guards the
+   rule.** Without it, a future refactor that lets the notifier throw would pass every other test in
+   this file.
+
+Note for test 2: `@TransactionalEventListener` only fires when a real transaction commits. If a test
+method is itself `@Transactional`, the listener never runs. Keep these tests non-transactional and
+clean up explicitly, as the other payment ITs do.
+
+- [ ] **Step 9: Configuration, compose, and the environment**
+
+`backend/payment-service/src/main/resources/application.yml`:
+
+```yaml
+payment:
+  admin-telegram:
+    enabled: ${PAYMENT_ADMIN_TELEGRAM_ENABLED:true}
+    bot-base-url: ${BOT_INTERNAL_BASE_URL:http://bot:8084}
+```
+
+`backend/payment-service/src/test/resources/application-test.yml`:
+
+```yaml
+payment:
+  admin-telegram:
+    enabled: false
+```
+
+Off by default in tests, so the ITs written in Tasks 1–11 keep passing without a bot. `InvoiceNoticeIT`
+turns it back on for itself with `@TestPropertySource`.
+
+`docker-compose.yml` — `payment-service` gains `BOT_INTERNAL_BASE_URL` and
+`PAYMENT_ADMIN_TELEGRAM_ENABLED`; `bot` gains `TELEGRAM_TOPIC_PAYMENTS`. Add the same three keys to
+`.env.example` with empty values and a comment that `TELEGRAM_TOPIC_PAYMENTS` is the thread id of the
+admin group's payments topic. **The real value goes in `.env` only** — it is a secret, like every
+other Telegram identifier in this project.
+
+No nginx change: `/bot/internal/` already answers 404 publicly.
+
+- [ ] **Step 10: Build both modules and commit**
+
+```bash
+cd bot && mvn -q clean verify
+```
+
+```bash
+cd backend/payment-service && mvn -q clean verify
+```
+
+```bash
+git add bot/src backend/payment-service/src docker-compose.yml .env.example
+git commit -m "feat(payment): announce every invoice in the admin Telegram topic"
+```
+
+---
+
 ## Done when
 
 - A user opens `/hamyon`, requests a top-up, sees a real card with an exact amount and a countdown, transfers, and the balance rises without anybody touching the database.
 - Two users requesting the same amount at the same moment receive different cards, or different amounts, and both are credited correctly.
 - Stopping `humo-userbot` makes the platform refuse new top-ups within `heartbeat-timeout-seconds`, and the admin banner turns red.
 - A transfer with no matching invoice appears in the unmatched queue with its raw Telegram message, and an admin can attribute it to a user with a note.
-- `mvn clean verify` is green in `backend/payment-service`; `pytest` is green in `humo-userbot`; `npm run lint && npm test` are green in `frontend`.
+- Every invoice appears in the admin group's payments topic when it is created, is replaced by a completion message when it is paid, and vanishes when it expires — and stopping `bot` entirely changes none of the money outcomes above.
+- `mvn clean verify` is green in `backend/payment-service` and in `bot`; `pytest` is green in `humo-userbot`; `npm run lint && npm test` are green in `frontend`.

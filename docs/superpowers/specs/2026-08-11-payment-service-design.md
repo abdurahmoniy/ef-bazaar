@@ -256,7 +256,10 @@ Failure to notify never blocks money. If `bot` is unreachable the invoice is sti
 payment still credits; the notification is logged and skipped. A Telegram outage must not stop
 deposits.
 
-The thread topic id is configuration, held in the environment beside the bot token, never in git.
+The thread topic id is configuration, held in the environment beside the bot token, never in git —
+and it lives in `bot`, as `app.telegram.topics.payments`, alongside the three topic ids that service
+already carries. payment-service sends rendered text and never learns which chat it lands in, so
+there is exactly one service in the platform holding Telegram identifiers.
 
 ### 4.6 Kafka topics
 
@@ -708,8 +711,17 @@ payment:
   admin-telegram:
     enabled: ${PAYMENT_ADMIN_TELEGRAM_ENABLED:true}
     bot-base-url: ${BOT_INTERNAL_BASE_URL:http://bot:8084}
-    chat-id: ${PAYMENT_ADMIN_CHAT_ID:}
-    thread-id: ${PAYMENT_ADMIN_THREAD_ID:}
+```
+
+The chat and thread ids are not here: they belong to `bot`, beside the token and the three topic ids
+it already owns (§4.5).
+
+```yaml
+# bot
+app:
+  telegram:
+    topics:
+      payments: ${TELEGRAM_TOPIC_PAYMENTS:}   # unset ⇒ notices are dropped, deposits still work
 ```
 
 ```yaml
