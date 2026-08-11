@@ -11,14 +11,18 @@ import { Input } from '@/components/ui/input';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import {
   cardRating,
-  type AttachedPlayerCard,
   type CardSearchResult,
   type DreamTeam,
 } from '@/lib/marketplace-types';
+import {
+  playerMatchSelectionForTab,
+  type PlayerFilterTab,
+  type PlayerMatchSelection,
+} from '@/lib/player-filter-selection';
 import { strictnessLabel, strictnessMinimumPercent } from '@/lib/player-match-query';
 import { cn } from '@/lib/utils';
 
-type Tab = 'meta' | 'search' | 'team';
+type Tab = PlayerFilterTab;
 
 interface PlayerFilterDialogProps {
   /** The user's saved squads — empty when signed out. */
@@ -31,9 +35,7 @@ interface PlayerFilterDialogProps {
   activeCount: number;
 }
 
-export interface PlayerMatchSelection extends AttachedPlayerCard {
-  priority?: boolean;
-}
+export type { PlayerMatchSelection } from '@/lib/player-filter-selection';
 
 const META_PAGE_SIZE = 24;
 const DEBOUNCE_MS = 250;
@@ -61,7 +63,6 @@ export function PlayerFilterDialog({
   const [tab, setTab] = useState<Tab>('meta');
   const [picked, setPicked] = useState<PlayerMatchSelection[]>(selected);
   const [minMatch, setMinMatch] = useState(activeMinMatch);
-  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
 
   // Reopening should reflect what is actually filtering right now, not the
   // leftovers of an abandoned edit.
@@ -73,10 +74,9 @@ export function PlayerFilterDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const activeTeam = teams.find((team) => team.id === activeTeamId) ?? null;
+  const activeTeam = tab === 'team' ? teams[0] ?? null : null;
 
   function toggle(card: PlayerMatchSelection) {
-    setActiveTeamId(null);
     setPicked((prev) => {
       if (prev.some((c) => c.playerId === card.playerId)) {
         return prev.filter((c) => c.playerId !== card.playerId);
@@ -93,25 +93,19 @@ export function PlayerFilterDialog({
   }
 
   function apply() {
-    const value: PlayerMatchSelection[] = activeTeam
-      ? activeTeam.slots.flatMap((slot) => slot.card?.playerId ? [{
-          ...slot.card,
-          priority: (slot.w ?? 1) >= 3,
-        }] : [])
-      : picked;
+    const value = playerMatchSelectionForTab(tab, activeTeam, picked);
     onApply(value.length ? value : undefined, minMatch);
     setOpen(false);
   }
 
   function clearAll() {
     setPicked([]);
-    setActiveTeamId(null);
     onApply(undefined, minMatch);
     setOpen(false);
   }
 
-  const chosenCount = activeTeam
-    ? activeTeam.slots.filter((slot) => slot.card).length
+  const chosenCount = tab === 'team'
+    ? activeTeam?.slots.filter((slot) => slot.card).length ?? 0
     : picked.length;
 
   return (
@@ -174,20 +168,13 @@ export function PlayerFilterDialog({
                 />
               </Tabs.Content>
               <Tabs.Content value="team" className="outline-none">
-                <TeamTab
-                  teams={teams}
-                  activeTeamId={activeTeamId}
-                  onSelect={(id) => {
-                    setActiveTeamId(id);
-                    setPicked([]);
-                  }}
-                />
+                <TeamTab team={teams[0] ?? null} />
               </Tabs.Content>
             </div>
 
             <DialogFooter
               chosenCount={chosenCount}
-              selected={activeTeam ? [] : picked}
+              selected={tab === 'team' ? [] : picked}
               minMatch={minMatch}
               setMinMatch={setMinMatch}
               onTogglePriority={togglePriority}
@@ -381,15 +368,11 @@ function SearchTab({
 }
 
 function TeamTab({
-  teams,
-  activeTeamId,
-  onSelect,
+  team,
 }: {
-  teams: DreamTeam[];
-  activeTeamId: string | null;
-  onSelect: (id: string) => void;
+  team: DreamTeam | null;
 }) {
-  if (teams.length === 0) {
+  if (!team) {
     return (
       <EmptyState
         icon={<Users className="h-8 w-8" />}
@@ -404,35 +387,17 @@ function TeamTab({
     );
   }
 
-  const active = teams.find((team) => team.id === activeTeamId) ?? null;
-
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-1.5">
-        {teams.map((team) => (
-          <button
-            key={team.id}
-            type="button"
-            onClick={() => onSelect(team.id)}
-            className={cn(
-              'tap-press rounded-lg border px-2.5 py-1.5 text-xs font-bold transition',
-              team.id === activeTeamId
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border bg-card text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {team.name}
-            <span className="ml-1.5 text-[10px] font-semibold opacity-70">
-              {team.slots.filter((slot) => slot.card).length}/11
-            </span>
-          </button>
-        ))}
+      <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+        <span className="text-xs font-black">Mening jamoam</span>
+        <span className="text-xs font-semibold text-muted-foreground">
+          {team.slots.filter((slot) => slot.card).length}/11
+        </span>
       </div>
-      {active && (
-        <div className="mx-auto max-w-sm">
-          <DreamTeamPitch slots={active.slots} formation={active.formation} readOnly />
-        </div>
-      )}
+      <div className="mx-auto max-w-sm">
+        <DreamTeamPitch slots={team.slots} formation={team.formation} readOnly />
+      </div>
       <Button asChild size="sm" variant="outline" className="w-full">
         <a href="/dream-team">Jamoani tahrirlash</a>
       </Button>

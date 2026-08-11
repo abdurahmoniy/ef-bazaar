@@ -29,7 +29,7 @@ export default async function DreamTeamPage() {
       {/* 401 here means "not signed in", which the editor handles by starting
           from an empty squad — saving is what prompts for auth. */}
       {!result.ok && result.error.status >= 500 ? (
-        <ApiErrorPanel title="Jamoalar yuklanmadi" error={result.error} />
+        <ApiErrorPanel title="Jamoa yuklanmadi" error={result.error} />
       ) : (
         <DreamTeamEditor
           initialTeams={result.ok ? result.data : []}

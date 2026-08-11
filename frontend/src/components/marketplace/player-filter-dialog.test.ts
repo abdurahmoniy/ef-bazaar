@@ -43,4 +43,11 @@ describe('PlayerFilterDialog accessibility contract', () => {
     expect(source).toContain('prev.length >= MAX_MATCH_PLAYERS');
     expect(source).toContain('Ko&apos;pi bilan 11 ta o&apos;yinchi');
   });
+
+  it('automatically applies the singleton Dream Team when its tab is active', () => {
+    expect(source).toContain("const activeTeam = tab === 'team' ? teams[0] ?? null : null;");
+    expect(source).not.toContain('activeTeamId');
+    expect(source).not.toContain('teams.map((team)');
+    expect(source).toContain('<DreamTeamPitch slots={team.slots} formation={team.formation} readOnly />');
+  });
 });

@@ -21,8 +21,7 @@ import java.util.HashSet;
 @RequiredArgsConstructor
 public class DreamTeamService {
 
-    /** Enough for "my squad" plus a few experiments; stops the table growing per-click. */
-    private static final int MAX_TEAMS_PER_USER = 10;
+    private static final String DEFAULT_NAME = "Mening jamoam";
     private static final String DEFAULT_FORMATION = "4-3-3";
     private static final Map<String, List<String>> FORMATIONS = Map.of(
             "4-3-3", List.of("GK", "LB", "CB", "CB", "RB", "CMF", "DMF", "CMF", "LWF", "CF", "RWF"),
@@ -31,10 +30,11 @@ public class DreamTeamService {
 
     private final DreamTeamRepository repository;
     private final CardIdentityVerifier identities;
+    private final DreamTeamWriteLock writeLock;
 
     @Transactional(readOnly = true)
     public List<DreamTeam> findMine(UUID userId) {
-        return repository.findByUserIdOrderByCreatedAtDesc(userId);
+        return repository.findByUserIdOrderByUpdatedAtDescCreatedAtDesc(userId);
     }
 
     @Transactional(readOnly = true)
@@ -45,33 +45,30 @@ public class DreamTeamService {
 
     @Transactional
     public DreamTeam create(UUID userId, DreamTeamRequest request) {
-        if (repository.countByUserId(userId) >= MAX_TEAMS_PER_USER) {
-            throw new MarketplaceException(HttpStatus.CONFLICT, "dream_team_limit",
-                    "Ko'pi bilan " + MAX_TEAMS_PER_USER + " ta jamoa saqlash mumkin");
-        }
+        return saveMine(userId, request);
+    }
+
+    @Transactional
+    public DreamTeam saveMine(UUID userId, DreamTeamRequest request) {
         String formation = formationOf(request);
-        DreamTeam team = DreamTeam.builder()
-                .userId(userId)
-                .name(request.name().trim())
-                .formation(formation)
-                .slots(slotsOf(request, formation))
-                .build();
+        List<Map<String, Object>> slots = slotsOf(request, formation);
+        writeLock.acquire(userId);
+        DreamTeam team = repository.findFirstByUserIdOrderByUpdatedAtDescCreatedAtDesc(userId)
+                .orElseGet(() -> DreamTeam.builder().userId(userId).build());
+        team.setName(DEFAULT_NAME);
+        team.setFormation(formation);
+        team.setSlots(slots);
         return repository.save(team);
     }
 
     @Transactional
     public DreamTeam update(UUID id, UUID userId, DreamTeamRequest request) {
         DreamTeam team = get(id, userId);
-        team.setName(request.name().trim());
+        team.setName(DEFAULT_NAME);
         String formation = formationOf(request);
         team.setFormation(formation);
         team.setSlots(slotsOf(request, formation));
         return repository.save(team);
-    }
-
-    @Transactional
-    public void delete(UUID id, UUID userId) {
-        repository.delete(get(id, userId));
     }
 
     private static String formationOf(DreamTeamRequest request) {

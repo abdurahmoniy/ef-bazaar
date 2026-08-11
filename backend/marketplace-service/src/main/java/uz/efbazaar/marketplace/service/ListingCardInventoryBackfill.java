@@ -30,10 +30,17 @@ import java.util.UUID;
 public class ListingCardInventoryBackfill implements ApplicationRunner {
 
     private static final String PAGE_SQL = """
-            SELECT id, attributes -> 'valuable_players' AS cards
-            FROM listings
-            WHERE (?::uuid IS NULL OR id > ?::uuid)
-            ORDER BY id
+            SELECT listing.id, listing.attributes -> 'valuable_players' AS cards
+            FROM listings listing
+            WHERE (?::uuid IS NULL OR listing.id > ?::uuid)
+              AND jsonb_typeof(listing.attributes -> 'valuable_players') = 'array'
+              AND jsonb_array_length(listing.attributes -> 'valuable_players') > 0
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM listing_cards inventory
+                  WHERE inventory.listing_id = listing.id
+              )
+            ORDER BY listing.id
             LIMIT ?
             """;
     private static final TypeReference<List<Object>> LIST = new TypeReference<>() {};

@@ -9,9 +9,9 @@ import java.util.UUID;
 
 public interface DreamTeamRepository extends JpaRepository<DreamTeam, UUID> {
 
-    List<DreamTeam> findByUserIdOrderByCreatedAtDesc(UUID userId);
+    List<DreamTeam> findByUserIdOrderByUpdatedAtDescCreatedAtDesc(UUID userId);
+
+    Optional<DreamTeam> findFirstByUserIdOrderByUpdatedAtDescCreatedAtDesc(UUID userId);
 
     Optional<DreamTeam> findByIdAndUserId(UUID id, UUID userId);
-
-    long countByUserId(UUID userId);
 }

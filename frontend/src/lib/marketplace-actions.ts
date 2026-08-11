@@ -202,30 +202,11 @@ export function adminExpireCardMeta(
   );
 }
 
-export function createDreamTeam(payload: DreamTeamPayload): Promise<ActionResult<DreamTeam>> {
+export function saveDreamTeam(payload: DreamTeamPayload): Promise<ActionResult<DreamTeam>> {
   return marketplaceRequest<DreamTeam>(
-    ['v1', 'dream-teams'],
-    { method: 'POST', body: JSON.stringify(payload) },
-    'Jamoa saqlanmadi',
-  );
-}
-
-export function updateDreamTeam(
-  id: string,
-  payload: DreamTeamPayload,
-): Promise<ActionResult<DreamTeam>> {
-  return marketplaceRequest<DreamTeam>(
-    ['v1', 'dream-teams', id],
+    ['v1', 'dream-teams', 'me'],
     { method: 'PUT', body: JSON.stringify(payload) },
-    'Jamoa yangilanmadi',
-  );
-}
-
-export function deleteDreamTeam(id: string): Promise<ActionResult<null>> {
-  return marketplaceRequest<null>(
-    ['v1', 'dream-teams', id],
-    { method: 'DELETE' },
-    "Jamoa o'chirilmadi",
+    'Jamoa saqlanmadi',
   );
 }
 

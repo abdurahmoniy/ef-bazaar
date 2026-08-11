@@ -17,6 +17,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,12 +26,13 @@ class DreamTeamServiceTest {
 
     @Mock DreamTeamRepository repository;
     @Mock CardIdentityVerifier identities;
+    @Mock DreamTeamWriteLock writeLock;
 
     private DreamTeamService service;
 
     @BeforeEach
     void setUp() {
-        service = new DreamTeamService(repository, identities);
+        service = new DreamTeamService(repository, identities, writeLock);
     }
 
     @Test
@@ -58,6 +60,48 @@ class DreamTeamServiceTest {
             assertThat(slot).containsEntry("index", 9).containsEntry("position", "CF").containsEntry("w", 3);
         });
         verify(identities).verify(List.of(new CardIdentityVerifier.Claim(891L, playerId)));
+    }
+
+    @Test
+    void saveMine_createsTheUsersOnlyTeamWhenNoneExists() {
+        UUID userId = UUID.randomUUID();
+        UUID playerId = UUID.randomUUID();
+        when(repository.findFirstByUserIdOrderByUpdatedAtDescCreatedAtDesc(userId))
+                .thenReturn(java.util.Optional.empty());
+        when(repository.save(any(DreamTeam.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        DreamTeam saved = service.saveMine(userId, request("4-3-3", List.of(
+                slot(9, "CF", 3, 891L, playerId))));
+
+        assertThat(saved.getUserId()).isEqualTo(userId);
+        assertThat(saved.getName()).isEqualTo("Mening jamoam");
+        assertThat(saved.getSlots()).singleElement()
+                .satisfies(slot -> assertThat(slot).containsEntry("position", "CF"));
+        var ordered = inOrder(writeLock, repository);
+        ordered.verify(writeLock).acquire(userId);
+        ordered.verify(repository).findFirstByUserIdOrderByUpdatedAtDescCreatedAtDesc(userId);
+    }
+
+    @Test
+    void saveMine_updatesTheExistingTeamInsteadOfCreatingAnother() {
+        UUID userId = UUID.randomUUID();
+        DreamTeam existing = DreamTeam.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .name("Old name")
+                .formation("4-3-3")
+                .slots(List.of())
+                .build();
+        when(repository.findFirstByUserIdOrderByUpdatedAtDescCreatedAtDesc(userId))
+                .thenReturn(java.util.Optional.of(existing));
+        when(repository.save(existing)).thenReturn(existing);
+
+        DreamTeam saved = service.saveMine(userId, request("3-5-2", List.of()));
+
+        assertThat(saved).isSameAs(existing);
+        assertThat(saved.getName()).isEqualTo("Mening jamoam");
+        assertThat(saved.getFormation()).isEqualTo("3-5-2");
+        verify(repository).save(existing);
     }
 
     @Test
