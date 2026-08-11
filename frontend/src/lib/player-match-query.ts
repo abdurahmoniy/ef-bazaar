@@ -71,10 +71,9 @@ export function strictnessMinimumPercent(strictness: number): number {
 }
 
 export function strictnessLabel(strictness: number): string {
-  if (strictness <= 1) return 'Istalgan moslik';
-  if (strictness <= 3) return 'Keng qidiruv';
-  if (strictness <= 5) return 'Muvozanatli';
-  if (strictness <= 7) return 'Yaqin tarkib';
-  if (strictness <= 9) return 'Juda yaqin';
-  return 'Aniq maqsad';
+  if (strictness <= 2) return 'Keng qidiruv';
+  if (strictness <= 4) return 'Moslashuvchan';
+  if (strictness <= 6) return 'Muvozanatli';
+  if (strictness <= 8) return 'Aniqroq';
+  return 'Juda qat’iy';
 }

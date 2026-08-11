@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { LayoutGrid, List, Package2, Plus } from 'lucide-react';
 
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
+import { AppliedFilterChips } from '@/components/marketplace/applied-filter-chips';
 import { ListingCard } from '@/components/marketplace/listing-card';
 import {
   ListingFilters,
@@ -16,9 +17,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
   formatCompactNumber,
-  DEFAULT_PLATFORM,
   type MarketplaceFilterId,
 } from '@/lib/marketplace-format';
+import {
+  buildAppliedMarketplaceFilters,
+  generalAppliedFilterCount,
+  playerAppliedFilterCount,
+} from '@/lib/marketplace-applied-filters';
 import {
   loosenMarketplaceMatch,
   marketplaceHref,
@@ -82,7 +87,6 @@ export function MarketplaceBrowser({
     matchStrictness: filters.matchStrictness,
   };
 
-  const attrs = filters.attributes ?? {};
   const activeMatch = parsePlayerMatchValues(
     filters.matchCards,
     String(filters.matchStrictness ?? 4),
@@ -91,20 +95,9 @@ export function MarketplaceBrowser({
   // parameter — including repeated criteria — survives applying a squad.
   const currentQuery = rawQuery;
   const rawParams = new URLSearchParams(rawQuery);
-  const activeFilterCount = [
-    filters.minPrice !== undefined || filters.maxPrice !== undefined,
-    filters.priceNegotiable === true,
-    filterProps.division !== undefined,
-    Boolean(attrs['team_strength.min'] || attrs['team_strength.max']),
-    Boolean(attrs['android_coins.min']),
-    Boolean(attrs['ios_coins.min']),
-    Boolean(attrs.exchange_mode),
-    Boolean(attrs.has_google_play_link),
-    Boolean(attrs.has_game_center_link),
-    filterProps.valuablePlayerId !== undefined,
-    activeMatch.criteria.length > 0,
-    Boolean(attrs.platform) && attrs.platform !== DEFAULT_PLATFORM,
-  ].filter(Boolean).length;
+  const appliedFilters = buildAppliedMarketplaceFilters(rawParams);
+  const generalFilterCount = generalAppliedFilterCount(appliedFilters);
+  const playerFilterCount = playerAppliedFilterCount(rawParams);
 
   // Precomputed here rather than in SortMenu: the client component needs real
   // hrefs, and every ordering must preserve raw public query state.
@@ -127,11 +120,11 @@ export function MarketplaceBrowser({
           sortOptions={sortOptions}
           activeSortId={paramToSortId(filters.sort)}
           currentQuery={currentQuery}
-          activeMatchCards={filters.matchCards}
+          activeMatchCards={playerFilterCount > 0 ? filters.matchCards : []}
           activeMinMatch={activeMatch.strictness}
         />
 
-        {activeMatch.criteria.length > 0 && (
+        {playerFilterCount > 0 && (
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-semibold">
             <span>{activeMatch.criteria.length} o‘yinchi</span>
             <span>•</span>
@@ -143,7 +136,7 @@ export function MarketplaceBrowser({
 
         <div className="flex items-center gap-2">
           <div className="shrink-0 lg:hidden">
-            <MobileFilterSheet activeCount={activeFilterCount}>
+            <MobileFilterSheet activeCount={generalFilterCount}>
               <ListingFiltersForm {...filterProps} />
             </MobileFilterSheet>
           </div>
@@ -157,12 +150,14 @@ export function MarketplaceBrowser({
           </div>
         </div>
 
+        <AppliedFilterChips items={appliedFilters} rawQuery={currentQuery} />
+
         {!result.ok ? (
           <ApiErrorPanel title="E'lonlar yuklanmadi" error={result.error} />
         ) : page === null || page.content.length === 0 ? (
           <BrowseEmpty
             query={query}
-            hasPlayerMatch={activeMatch.criteria.length > 0}
+            hasPlayerMatch={playerFilterCount > 0}
             currentQuery={currentQuery}
             activeMatchStrictness={activeMatch.strictness}
           />
