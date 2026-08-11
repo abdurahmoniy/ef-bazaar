@@ -22,7 +22,6 @@ import {
 import {
   buildAppliedMarketplaceFilters,
   generalAppliedFilterCount,
-  playerAppliedFilterCount,
 } from '@/lib/marketplace-applied-filters';
 import {
   loosenMarketplaceMatch,
@@ -97,7 +96,7 @@ export function MarketplaceBrowser({
   const rawParams = new URLSearchParams(rawQuery);
   const appliedFilters = buildAppliedMarketplaceFilters(rawParams);
   const generalFilterCount = generalAppliedFilterCount(appliedFilters);
-  const playerFilterCount = playerAppliedFilterCount(rawParams);
+  const playerFilterCount = activeMatch.criteria.length;
 
   // Precomputed here rather than in SortMenu: the client component needs real
   // hrefs, and every ordering must preserve raw public query state.

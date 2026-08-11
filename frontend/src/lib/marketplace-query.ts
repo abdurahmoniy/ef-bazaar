@@ -2,12 +2,12 @@ import type { MarketplaceFilterId, SearchParamInput } from './marketplace-format
 
 export type MarketplaceView = 'auto' | 'list' | 'grid';
 
-const QUICK_FILTER_CONFLICTS: Record<MarketplaceFilterId, readonly string[]> = {
+export const MARKETPLACE_QUICK_FILTER_CONTROLLED_KEYS = {
   all: [],
   negotiable: ['priceNegotiable'],
   clean: ['attr.has_google_play_link', 'attr.has_game_center_link'],
   exchange: ['attr.exchange_mode'],
-};
+} as const satisfies Readonly<Record<MarketplaceFilterId, readonly string[]>>;
 
 const MARKETPLACE_CRITERIA_KEYS = [
   'q',
@@ -73,7 +73,7 @@ export function setMarketplaceQuickFilter(
 ) {
   const next = cloneParams(current);
   next.delete('filter');
-  for (const key of QUICK_FILTER_CONFLICTS[filter]) next.delete(key);
+  for (const key of MARKETPLACE_QUICK_FILTER_CONTROLLED_KEYS[filter]) next.delete(key);
   if (filter !== 'all') next.set('filter', filter);
   resetPage(next);
   return next;

@@ -26,7 +26,7 @@ export function AppliedFilterChips({ items, rawQuery }: AppliedFilterChipsProps)
         >
           <span>{item.label}</span>
           <X aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="sr-only">{item.label} filtrini olib tashlash</span>
+          <span className="sr-only">filtrini olib tashlash</span>
         </Link>
       ))}
       <Link

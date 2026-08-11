@@ -1,10 +1,16 @@
 import {
-  formatCompactNumber,
   formatPriceUZS,
   MARKETPLACE_FILTERS,
+  parseListingSearchParams,
   PLATFORM_FILTER_OPTIONS,
 } from './marketplace-format';
-import { marketplaceHref, removeMarketplaceParams } from './marketplace-query';
+import {
+  MARKETPLACE_QUICK_FILTER_CONTROLLED_KEYS,
+  marketplaceHref,
+  removeMarketplaceParams,
+  searchParamsToInput,
+} from './marketplace-query';
+import type { ListingBrowseParams } from './marketplace-types';
 import { parsePlayerMatchValues, strictnessLabel } from './player-match-query';
 
 export type AppliedMarketplaceFilterKind = 'search' | 'general' | 'player';
@@ -24,12 +30,6 @@ const RANGE_FILTERS = [
   { key: 'device_transfer_limit', label: 'Transfer limiti' },
 ] as const;
 
-const SHORTCUT_KEYS: Record<string, string[]> = {
-  negotiable: ['priceNegotiable'],
-  clean: ['attr.has_google_play_link', 'attr.has_game_center_link'],
-  exchange: ['attr.exchange_mode'],
-};
-
 const EXCHANGE_LABELS: Record<string, string> = {
   NONE: "Obmen yo'q",
   EXCHANGE_ONLY: 'Faqat obmen',
@@ -42,16 +42,26 @@ function textValue(params: URLSearchParams, key: string) {
   return value || undefined;
 }
 
-function finiteNumber(params: URLSearchParams, key: string) {
-  const value = textValue(params, key);
+function finiteNumber(value: string | undefined) {
   if (!value) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function nonNegativeNumber(params: URLSearchParams, key: string) {
-  const value = finiteNumber(params, key);
-  return value === undefined || value < 0 ? undefined : value;
+function filterValue(filters: ListingBrowseParams, key: string) {
+  if (key.startsWith('attr.')) return filters.attributes?.[key.slice('attr.'.length)];
+  return filters[key as keyof ListingBrowseParams];
+}
+
+function shortcutMatchesEffectiveState(
+  defaults: ListingBrowseParams,
+  effective: ListingBrowseParams,
+  controlledKeys: readonly string[],
+) {
+  return controlledKeys.every((key) => Object.is(
+    filterValue(effective, key),
+    filterValue(defaults, key),
+  ));
 }
 
 function descriptor(
@@ -72,10 +82,19 @@ function descriptor(
 
 function rangeLabel(label: string, minimum: number | undefined, maximum: number | undefined) {
   if (minimum !== undefined && maximum !== undefined) {
-    return `${label}: ${formatCompactNumber(minimum)} dan – ${formatCompactNumber(maximum)} gacha`;
+    return `${label}: ${formatRangeNumber(minimum)} dan – ${formatRangeNumber(maximum)} gacha`;
   }
-  if (minimum !== undefined) return `${label}: ${formatCompactNumber(minimum)} dan`;
-  return `${label}: ${formatCompactNumber(maximum as number)} gacha`;
+  if (minimum !== undefined) return `${label}: ${formatRangeNumber(minimum)} dan`;
+  return `${label}: ${formatRangeNumber(maximum as number)} gacha`;
+}
+
+const RANGE_NUMBER_FORMATTER = new Intl.NumberFormat('en-US', {
+  maximumFractionDigits: 20,
+  useGrouping: true,
+});
+
+function formatRangeNumber(value: number) {
+  return RANGE_NUMBER_FORMATTER.format(value).replaceAll(',', ' ');
 }
 
 function priceLabel(minimum: number | undefined, maximum: number | undefined) {
@@ -99,16 +118,26 @@ export function generalAppliedFilterCount(items: readonly AppliedMarketplaceFilt
 
 export function buildAppliedMarketplaceFilters(params: URLSearchParams) {
   const items: AppliedMarketplaceFilter[] = [];
-  const search = textValue(params, 'q') ?? textValue(params, 'search');
+  const effective = parseListingSearchParams(searchParamsToInput(params));
+  const search = effective.search;
   if (search) {
     items.push(descriptor(params, 'search', 'search', `Qidiruv: ${search}`, ['q', 'search']));
   }
 
   const selectedShortcut = MARKETPLACE_FILTERS.find((filter) => filter.id === textValue(params, 'filter'));
-  const shortcutKeys = selectedShortcut && selectedShortcut.id !== 'all'
-    ? SHORTCUT_KEYS[selectedShortcut.id] ?? []
+  const shortcutKeys: readonly string[] = selectedShortcut && selectedShortcut.id !== 'all'
+    ? MARKETPLACE_QUICK_FILTER_CONTROLLED_KEYS[selectedShortcut.id]
     : [];
-  if (selectedShortcut && selectedShortcut.id !== 'all') {
+  const shortcutIsEffective = Boolean(
+    selectedShortcut
+    && selectedShortcut.id !== 'all'
+    && shortcutMatchesEffectiveState(selectedShortcut.params, effective, shortcutKeys),
+  );
+  const explicitKeys = (key: string) => shortcutKeys.includes(key)
+    ? [key, 'filter']
+    : [key];
+
+  if (selectedShortcut && selectedShortcut.id !== 'all' && shortcutIsEffective) {
     items.push(descriptor(
       params,
       `shortcut:${selectedShortcut.id}`,
@@ -118,8 +147,8 @@ export function buildAppliedMarketplaceFilters(params: URLSearchParams) {
     ));
   }
 
-  const minPrice = nonNegativeNumber(params, 'minPrice');
-  const maxPrice = nonNegativeNumber(params, 'maxPrice');
+  const minPrice = effective.minPrice;
+  const maxPrice = effective.maxPrice;
   if (minPrice !== undefined || maxPrice !== undefined) {
     items.push(descriptor(
       params,
@@ -130,9 +159,9 @@ export function buildAppliedMarketplaceFilters(params: URLSearchParams) {
     ));
   }
 
-  const platform = textValue(params, 'attr.platform');
+  const platform = effective.attributes?.platform;
   const platformOption = PLATFORM_FILTER_OPTIONS.find((option) => option.value === platform);
-  if (platformOption && platformOption.value !== 'MOBILE') {
+  if (textValue(params, 'attr.platform') && platformOption && platformOption.value !== 'MOBILE') {
     items.push(descriptor(
       params,
       'platform',
@@ -142,17 +171,18 @@ export function buildAppliedMarketplaceFilters(params: URLSearchParams) {
     ));
   }
 
-  if (params.get('priceNegotiable') === 'true' && !shortcutKeys.includes('priceNegotiable')) {
+  if (effective.priceNegotiable === true
+    && !(shortcutIsEffective && shortcutKeys.includes('priceNegotiable'))) {
     items.push(descriptor(
       params,
       'negotiable',
       'general',
       'Savdolashish mumkin',
-      ['priceNegotiable'],
+      explicitKeys('priceNegotiable'),
     ));
   }
 
-  const division = finiteNumber(params, 'attr.highest_division_level');
+  const division = finiteNumber(effective.attributes?.highest_division_level);
   if (division !== undefined && Number.isInteger(division) && division >= 1) {
     items.push(descriptor(
       params,
@@ -166,8 +196,8 @@ export function buildAppliedMarketplaceFilters(params: URLSearchParams) {
   for (const range of RANGE_FILTERS) {
     const minimumKey = `attr.${range.key}.min`;
     const maximumKey = `attr.${range.key}.max`;
-    const minimum = finiteNumber(params, minimumKey);
-    const maximum = finiteNumber(params, maximumKey);
+    const minimum = finiteNumber(effective.attributes?.[`${range.key}.min`]);
+    const maximum = finiteNumber(effective.attributes?.[`${range.key}.max`]);
     if (minimum === undefined && maximum === undefined) continue;
     items.push(descriptor(
       params,
@@ -178,41 +208,42 @@ export function buildAppliedMarketplaceFilters(params: URLSearchParams) {
     ));
   }
 
-  const exchangeMode = textValue(params, 'attr.exchange_mode');
+  const exchangeMode = effective.attributes?.exchange_mode;
   const exchangeLabel = exchangeMode ? EXCHANGE_LABELS[exchangeMode] : undefined;
-  if (exchangeLabel && !shortcutKeys.includes('attr.exchange_mode')) {
+  if (exchangeLabel
+    && !(shortcutIsEffective && shortcutKeys.includes('attr.exchange_mode'))) {
     items.push(descriptor(
       params,
       'exchange',
       'general',
       exchangeLabel,
-      ['attr.exchange_mode'],
+      explicitKeys('attr.exchange_mode'),
     ));
   }
 
-  if (params.get('attr.has_google_play_link') === 'false'
-    && !shortcutKeys.includes('attr.has_google_play_link')) {
+  if (effective.attributes?.has_google_play_link === 'false'
+    && !(shortcutIsEffective && shortcutKeys.includes('attr.has_google_play_link'))) {
     items.push(descriptor(
       params,
       'google-play',
       'general',
       'Google Play ulanmagan',
-      ['attr.has_google_play_link'],
+      explicitKeys('attr.has_google_play_link'),
     ));
   }
-  if (params.get('attr.has_game_center_link') === 'false'
-    && !shortcutKeys.includes('attr.has_game_center_link')) {
+  if (effective.attributes?.has_game_center_link === 'false'
+    && !(shortcutIsEffective && shortcutKeys.includes('attr.has_game_center_link'))) {
     items.push(descriptor(
       params,
       'game-center',
       'general',
       'Game Center ulanmagan',
-      ['attr.has_game_center_link'],
+      explicitKeys('attr.has_game_center_link'),
     ));
   }
 
-  const valuableId = finiteNumber(params, 'attr.valuable_players_id');
-  const valuableName = textValue(params, 'attr.valuable_players_name');
+  const valuableId = finiteNumber(effective.attributes?.valuable_players_id);
+  const valuableName = effective.attributes?.valuable_players_name;
   if ((valuableId !== undefined && valuableId > 0) || valuableName) {
     items.push(descriptor(
       params,
@@ -223,17 +254,13 @@ export function buildAppliedMarketplaceFilters(params: URLSearchParams) {
     ));
   }
 
-  const playerCount = playerAppliedFilterCount(params);
+  const playerCount = effective.matchCards?.length ?? 0;
   if (playerCount > 0) {
-    const strictness = parsePlayerMatchValues(
-      params.getAll('matchCard'),
-      textValue(params, 'matchStrictness'),
-    ).strictness;
     items.push(descriptor(
       params,
       'player-match',
       'player',
-      `${playerCount} o‘yinchi · ${strictnessLabel(strictness)}`,
+      `${playerCount} o‘yinchi · ${strictnessLabel(effective.matchStrictness ?? 4)}`,
       ['matchCard', 'matchStrictness'],
     ));
   }

@@ -83,6 +83,49 @@ describe('applied marketplace filters', () => {
     },
   );
 
+  it('does not describe a clean shortcut overridden by linked-store criteria', () => {
+    const params = new URLSearchParams(
+      'filter=clean&attr.has_google_play_link=true&attr.has_game_center_link=true&page=4&view=list&tag=one&tag=two',
+    );
+
+    const items = buildAppliedMarketplaceFilters(params);
+
+    expect(items.map((item) => item.label)).toEqual([]);
+  });
+
+  it('does not describe a negotiable shortcut overridden by false', () => {
+    const params = new URLSearchParams(
+      'filter=negotiable&priceNegotiable=false&page=4&view=list&tag=one&tag=two',
+    );
+
+    const items = buildAppliedMarketplaceFilters(params);
+
+    expect(items.map((item) => item.label)).toEqual([]);
+  });
+
+  it('describes an explicit exchange override and removes its dormant shortcut', () => {
+    const params = new URLSearchParams(
+      'filter=exchange&attr.exchange_mode=BOTH&page=4&view=list&tag=one&tag=two',
+    );
+
+    const items = buildAppliedMarketplaceFilters(params);
+
+    expect(items.map((item) => item.label)).toEqual(['Obmen yoki doplata']);
+    expect(items[0]?.href).toBe('/marketplace?view=list&tag=one&tag=two');
+  });
+
+  it('uses parser-normalized prices while preserving exact decimal range bounds', () => {
+    const params = new URLSearchParams(
+      'minPrice=1.9&attr.team_strength.min=1234.56&attr.android_coins.max=-0.75',
+    );
+
+    expect(buildAppliedMarketplaceFilters(params).map((item) => item.label)).toEqual([
+      "Narx: 1 so'm dan",
+      'Team Strength: 1 234.56 dan',
+      'Android coin: -0.75 gacha',
+    ]);
+  });
+
   it('shows explicit platform only, groups both range ends, and retains negative bounds', () => {
     const params = new URLSearchParams();
     params.set('attr.platform', 'STEAM');
