@@ -402,10 +402,7 @@ CREATE TABLE withdrawal_tickets (
     id                UUID PRIMARY KEY,
     user_id           UUID        NOT NULL,
     amount_tiyin      BIGINT      NOT NULL,
-    card_pan_encrypted BYTEA      NOT NULL,
-    card_pan_iv       BYTEA       NOT NULL,
-    card_pan_tag      BYTEA       NOT NULL,
-    card_last4        CHAR(4)     NOT NULL,
+    user_card_id      UUID        NOT NULL REFERENCES user_cards(id),
     holder_name       VARCHAR(64) NOT NULL,
     contact_phone     VARCHAR(24) NOT NULL,
     status            VARCHAR(16) NOT NULL,   -- PENDING | PAID | REJECTED | CANCELLED
@@ -421,6 +418,22 @@ CREATE TABLE withdrawal_tickets (
 
 The user's PAN is readable by an admin fulfilling the ticket and by nobody else. Every decryption
 writes a `card_reveal_audit` row: admin id, ticket id, timestamp.
+
+### 5.6.1 User cards move here in Plan 2
+
+trade-service **already owns a complete user-card feature**: `card/` package with `Card`,
+`CardBrand`, `LuhnValidator`, `CardService` and `CardController` on `/api/v1/cards`, backed by
+`V2__create_card_table.sql`, plus a profile "Kartalar" tab in the frontend with `card-detect.ts`
+mirroring the backend's brand and Luhn rules.
+
+Cards are a payment concern, so Plan 2 migrates that table into `payment_db` as `user_cards` with the
+same shape, moves the package, and drops it from trade-service. `trades.seller_card_id` and
+`trades.buyer_card_id` are plain UUID columns with **no foreign key**, so the move breaks no
+referential integrity; they become loose references to a table in another service, which is what they
+already are in spirit.
+
+Nothing in this area is written from scratch. `LuhnValidator`, `CardBrand` and the frontend's
+`card-detect.ts` are moved and reused. A plan that reimplements them is wrong.
 
 ### 5.7 Card audit and commission policy
 
@@ -682,14 +695,17 @@ Two different card concepts, deliberately in separate tables:
 to any authenticated user creating an invoice — that is the product. Encryption at rest protects a
 database dump; there is no PCI obligation arising from displaying a card you own.
 
-**User withdrawal cards** live inline on the ticket (`withdrawal_tickets`). This is cardholder data
-belonging to someone else. It is encrypted at rest, decrypted only when an admin opens a `PENDING`
-ticket, never returned in a list view, never returned to a non-admin caller, and every decryption is
-audited.
+**User withdrawal cards** live in `user_cards`, migrated from trade-service in Plan 2 (§5.6.1). This
+is cardholder data belonging to someone else. It is encrypted at rest, decrypted only when an admin
+opens a `PENDING` ticket, never returned in a list view, never returned to a non-admin caller, and
+every decryption is audited.
 
-Card creation validates by Luhn and rejects a `last4` already held by an active card (§5.3). Luhn
-proves the number is well-formed, not that it exists; for a platform card this is acceptable because
-a wrong number fails visibly on the first transfer attempt, in front of an admin.
+Both kinds validate by Luhn using trade-service's existing `LuhnValidator`, and brand detection uses
+its existing `CardBrand` — moved, not rewritten. Platform card creation additionally rejects a
+`last4` already held by an active card (§5.3).
+
+Luhn proves a number is well-formed, not that it exists. For a platform card that is acceptable: a
+wrong number fails visibly on the first transfer attempt, in front of an admin.
 
 ## 10. Security, invariants and failure paths
 
