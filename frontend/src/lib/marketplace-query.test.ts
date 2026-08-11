@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clearMarketplaceCriteria,
   getMarketplaceView,
+  loosenMarketplaceMatch,
   marketplaceHref,
   removeMarketplaceParams,
   searchParamsToInput,
@@ -12,6 +13,7 @@ import {
   setMarketplaceSort,
   setMarketplaceView,
 } from './marketplace-query';
+import { parsePlayerMatchValues } from './player-match-query';
 
 const MESSI_CARD = '101:11111111-1111-4111-8111-111111111111:N';
 const NEYMAR_CARD = '202:22222222-2222-4222-8222-222222222222:P';
@@ -69,6 +71,66 @@ describe('marketplace query state', () => {
     expect(paged.toString()).toBe('page=2&sort=createdAt%2Cdesc&attr.exchange_mode=BOTH&campaign=summer');
   });
 
+  it.each([
+    ['search', ['q', 'search'], (params: URLSearchParams) => setMarketplaceSearch(params, '   ')],
+    ['sort', ['sort'], (params: URLSearchParams) => setMarketplaceSort(params, '   ')],
+  ] as const)('deletes blank %s state and resets page', (_name, ownedKeys, apply) => {
+    const current = new URLSearchParams(
+      'q=Messi&search=legacy&sort=price%2Casc&page=2&utm_source=telegram',
+    );
+
+    const next = apply(current);
+
+    for (const key of ownedKeys) expect(next.has(key)).toBe(false);
+    expect(next.has('page')).toBe(false);
+    expect(next.get('utm_source')).toBe('telegram');
+    expect(current.get('page')).toBe('2');
+  });
+
+  it.each([
+    [Number.NaN, 0],
+    [Number.POSITIVE_INFINITY, 0],
+    [Number.NEGATIVE_INFINITY, 0],
+    [-2.8, 0],
+    [2.9, 2],
+  ])('normalizes page input %s to the deterministic integer %i', (page, expected) => {
+    const current = new URLSearchParams('page=7&view=list&utm_source=telegram');
+
+    const next = setMarketplacePage(current, page);
+
+    expect(next.toString()).toBe(
+      `page=${expected}&view=list&utm_source=telegram`,
+    );
+    expect(next.get('page')).not.toMatch(/NaN|Infinity/);
+    expect(current.get('page')).toBe('7');
+  });
+
+  it.each([
+    ['all', []],
+    ['negotiable', ['priceNegotiable']],
+    ['clean', ['attr.has_google_play_link', 'attr.has_game_center_link']],
+    ['exchange', ['attr.exchange_mode']],
+  ] as const)('clears only the %s shortcut conflicts', (filter, removedKeys) => {
+    const controlledKeys = [
+      'priceNegotiable',
+      'attr.has_google_play_link',
+      'attr.has_game_center_link',
+      'attr.exchange_mode',
+    ];
+    const current = new URLSearchParams(
+      'filter=clean&page=4&priceNegotiable=false&attr.has_google_play_link=true&attr.has_game_center_link=true&attr.exchange_mode=BOTH&utm_source=telegram',
+    );
+
+    const next = setMarketplaceQuickFilter(current, filter);
+
+    expect(next.get('filter')).toBe(filter === 'all' ? null : filter);
+    for (const key of controlledKeys) {
+      expect(next.has(key)).toBe(!removedKeys.some((removed) => removed === key));
+    }
+    expect(next.has('page')).toBe(false);
+    expect(next.get('utm_source')).toBe('telegram');
+  });
+
   it('clears marketplace criteria but preserves display, order, and tracking state', () => {
     const current = new URLSearchParams();
     current.set('q', 'Messi');
@@ -109,5 +171,30 @@ describe('marketplace query state', () => {
       q: 'Messi',
       matchCard: [MESSI_CARD, NEYMAR_CARD],
     });
+  });
+
+  it.each([
+    ['', 3],
+    ['bogus', 3],
+    ['999', 9],
+  ])('loosens normalized match strictness for raw %j while preserving raw query state', (raw, expected) => {
+    const current = new URLSearchParams();
+    current.set('matchStrictness', raw);
+    current.set('page', '7');
+    current.set('utm_source', 'telegram');
+    current.append('matchCard', MESSI_CARD);
+    current.append('matchCard', NEYMAR_CARD);
+    const normalized = parsePlayerMatchValues(
+      current.getAll('matchCard'),
+      current.get('matchStrictness') ?? undefined,
+    ).strictness;
+
+    const next = loosenMarketplaceMatch(current, normalized);
+
+    expect(next.get('matchStrictness')).toBe(String(expected));
+    expect(next.has('page')).toBe(false);
+    expect(next.get('utm_source')).toBe('telegram');
+    expect(next.getAll('matchCard')).toEqual([MESSI_CARD, NEYMAR_CARD]);
+    expect(current.get('matchStrictness')).toBe(raw);
   });
 });

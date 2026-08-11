@@ -86,6 +86,16 @@ export function setMarketplacePage(current: URLSearchParams, page: number) {
   return next;
 }
 
+export function loosenMarketplaceMatch(
+  current: URLSearchParams,
+  normalizedStrictness: number,
+) {
+  const next = cloneParams(current);
+  next.set('matchStrictness', String(Math.max(1, normalizedStrictness - 1)));
+  resetPage(next);
+  return next;
+}
+
 export function removeMarketplaceParams(current: URLSearchParams, keys: readonly string[]) {
   const next = cloneParams(current);
   for (const key of keys) next.delete(key);

@@ -20,6 +20,7 @@ import {
   type MarketplaceFilterId,
 } from '@/lib/marketplace-format';
 import {
+  loosenMarketplaceMatch,
   marketplaceHref,
   setMarketplacePage,
   setMarketplaceSort,
@@ -159,7 +160,12 @@ export function MarketplaceBrowser({
         {!result.ok ? (
           <ApiErrorPanel title="E'lonlar yuklanmadi" error={result.error} />
         ) : page === null || page.content.length === 0 ? (
-          <BrowseEmpty query={query} hasPlayerMatch={activeMatch.criteria.length > 0} currentQuery={currentQuery} />
+          <BrowseEmpty
+            query={query}
+            hasPlayerMatch={activeMatch.criteria.length > 0}
+            currentQuery={currentQuery}
+            activeMatchStrictness={activeMatch.strictness}
+          />
         ) : (
           <>
             <div
@@ -282,15 +288,17 @@ function BrowseEmpty({
   query,
   hasPlayerMatch,
   currentQuery,
+  activeMatchStrictness,
 }: {
   query?: string;
   hasPlayerMatch: boolean;
   currentQuery: string;
+  activeMatchStrictness: number;
 }) {
-  const loosen = new URLSearchParams(currentQuery);
-  const currentStrictness = Number.parseInt(loosen.get('matchStrictness') ?? '4', 10);
-  loosen.set('matchStrictness', String(Math.max(1, currentStrictness - 1)));
-  loosen.delete('page');
+  const loosen = loosenMarketplaceMatch(
+    new URLSearchParams(currentQuery),
+    activeMatchStrictness,
+  );
   return (
     <div className="rounded-xl border border-dashed border-border bg-card px-4 py-16 text-center shadow-card">
       <Package2 className="mx-auto h-10 w-10 text-muted-foreground/50" />
