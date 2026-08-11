@@ -66,6 +66,23 @@ describe('applied marketplace filters', () => {
     });
   });
 
+  it.each([
+    ['negotiable', 'priceNegotiable=true', 'Savdolashish'],
+    ['exchange', 'attr.exchange_mode=EXCHANGE_ONLY', 'Faqat obmen'],
+  ] as const)(
+    'suppresses the expanded %s shortcut and removes all shortcut-owned keys',
+    (shortcut, expandedCriterion, label) => {
+      const params = new URLSearchParams(
+        `filter=${shortcut}&${expandedCriterion}&page=4&view=list&tag=one&tag=two`,
+      );
+
+      const items = buildAppliedMarketplaceFilters(params);
+
+      expect(items.map((item) => item.label)).toEqual([label]);
+      expect(items[0]?.href).toBe('/marketplace?view=list&tag=one&tag=two');
+    },
+  );
+
   it('shows explicit platform only, groups both range ends, and retains negative bounds', () => {
     const params = new URLSearchParams();
     params.set('attr.platform', 'STEAM');
@@ -127,6 +144,23 @@ describe('applied marketplace filters', () => {
       'Game Center ulanmagan',
       'Tanlangan o‘yinchi',
     ]);
+  });
+
+  it('describes a valuable-player name without an ID and removes the grouped keys', () => {
+    const params = new URLSearchParams();
+    params.set('attr.valuable_players_name', 'Lionel Messi');
+    params.set('page', '5');
+    params.set('view', 'grid');
+    params.append('tag', 'one');
+    params.append('tag', 'two');
+
+    const [item] = buildAppliedMarketplaceFilters(params);
+
+    expect(item).toMatchObject({
+      label: 'Yulduz: Lionel Messi',
+      keys: ['attr.valuable_players_id', 'attr.valuable_players_name'],
+      href: '/marketplace?view=grid&tag=one&tag=two',
+    });
   });
 
   it('removes only a chip’s criteria, resets page, and preserves repeated unrelated values', () => {
