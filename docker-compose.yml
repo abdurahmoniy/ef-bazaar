@@ -298,6 +298,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+    mem_limit: 384m
+    memswap_limit: 512m
     networks:
       - efbazaar-net
 
