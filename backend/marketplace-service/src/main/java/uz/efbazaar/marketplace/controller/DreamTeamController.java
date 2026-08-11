@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,6 +50,12 @@ public class DreamTeamController {
         return DreamTeamResponse.from(service.create(user.userId(), request));
     }
 
+    @PutMapping("/me")
+    public DreamTeamResponse saveMine(@AuthenticationPrincipal AuthenticatedUser user,
+                                      @Valid @RequestBody DreamTeamRequest request) {
+        return DreamTeamResponse.from(service.saveMine(user.userId(), request));
+    }
+
     @PutMapping("/{id}")
     public DreamTeamResponse update(@AuthenticationPrincipal AuthenticatedUser user,
                                     @PathVariable UUID id,
@@ -58,10 +63,4 @@ public class DreamTeamController {
         return DreamTeamResponse.from(service.update(id, user.userId(), request));
     }
 
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@AuthenticationPrincipal AuthenticatedUser user,
-                       @PathVariable UUID id) {
-        service.delete(id, user.userId());
-    }
 }

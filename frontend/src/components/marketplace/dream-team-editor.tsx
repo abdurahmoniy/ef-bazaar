@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { Plus, Save, Search, Sparkles, Trash2, Users, X } from 'lucide-react';
+import { Save, Search, Sparkles, Users, X } from 'lucide-react';
 
 import {
   DEFAULT_FORMATION,
@@ -13,13 +13,8 @@ import {
 } from '@/components/marketplace/dream-team-pitch';
 import { CardPicker, type PlayerCard } from '@/components/marketplace/card-picker';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  createDreamTeam,
-  deleteDreamTeam,
-  updateDreamTeam,
-} from '@/lib/marketplace-actions';
+import { saveDreamTeam } from '@/lib/marketplace-actions';
 import {
   type DreamTeam,
   type DreamTeamSlot,
@@ -32,9 +27,9 @@ import {
   type DreamTeamDraft,
 } from '@/lib/dream-team-draft';
 import { writePlayerMatch } from '@/lib/player-match-query';
-import { cn } from '@/lib/utils';
 
 const MUST_HAVE_WEIGHT = 3;
+const TEAM_NAME = 'Mening jamoam';
 
 /**
  * Squad builder: pick a formation, fill 11 slots from the card catalogue, save,
@@ -55,8 +50,6 @@ export function DreamTeamEditor({
   const [isPending, startTransition] = useTransition();
 
   const first = initialTeams[0] ?? null;
-  const [teamId, setTeamId] = useState<string | null>(first?.id ?? null);
-  const [name, setName] = useState(first?.name ?? "Mening jamoam");
   const [formation, setFormation] = useState(first?.formation ?? DEFAULT_FORMATION);
   const [slots, setSlots] = useState<DreamTeamSlot[]>(
     first ? reshape(first.slots, first.formation) : emptySlots(DEFAULT_FORMATION),
@@ -66,7 +59,7 @@ export function DreamTeamEditor({
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingDraft, setPendingDraft] = useState<DreamTeamDraft | null>(null);
   const initialDraft = createDreamTeamDraft(
-    first?.name ?? 'Mening jamoam',
+    TEAM_NAME,
     first?.formation ?? DEFAULT_FORMATION,
     first?.slots ?? [],
   );
@@ -75,8 +68,8 @@ export function DreamTeamEditor({
   );
 
   const currentDraft = useMemo(
-    () => createDreamTeamDraft(name, formation, slots),
-    [name, formation, slots],
+    () => createDreamTeamDraft(TEAM_NAME, formation, slots),
+    [formation, slots],
   );
   const currentFingerprint = dreamTeamDraftFingerprint(currentDraft);
   const dirty = currentFingerprint !== savedFingerprint;
@@ -85,7 +78,6 @@ export function DreamTeamEditor({
     const restored = parseDreamTeamDraft(window.localStorage.getItem(DREAM_TEAM_DRAFT_KEY));
     if (!restored) return;
     if (new URLSearchParams(window.location.search).get('restore') === 'draft') {
-      setName(restored.name);
       setFormation(restored.formation);
       setSlots(reshape(restored.slots, restored.formation));
       setNotice('Kirishdan oldingi jamoangiz tiklandi');
@@ -111,24 +103,6 @@ export function DreamTeamEditor({
     window.addEventListener('beforeunload', warnBeforeLeaving);
     return () => window.removeEventListener('beforeunload', warnBeforeLeaving);
   }, [dirty]);
-
-  function loadTeam(team: DreamTeam | null) {
-    if (dirty && !window.confirm("Saqlanmagan o'zgarishlar bekor qilinsinmi?")) return;
-    setError(null);
-    setNotice(null);
-    setEditingSlot(null);
-    setTeamId(team?.id ?? null);
-    setName(team?.name ?? 'Yangi jamoa');
-    setFormation(team?.formation ?? DEFAULT_FORMATION);
-    setSlots(
-      team ? reshape(team.slots, team.formation) : emptySlots(DEFAULT_FORMATION),
-    );
-    setSavedFingerprint(dreamTeamDraftFingerprint(createDreamTeamDraft(
-      team?.name ?? 'Yangi jamoa',
-      team?.formation ?? DEFAULT_FORMATION,
-      team?.slots ?? [],
-    )));
-  }
 
   function changeFormation(next: string) {
     setFormation(next);
@@ -188,7 +162,7 @@ export function DreamTeamEditor({
     setError(null);
     setNotice(null);
     const payload = {
-      name: name.trim() || 'Mening jamoam',
+      name: TEAM_NAME,
       formation,
       // Empty slots carry no information and would only bloat the row.
       slots: slots.filter((slot) => slot.card),
@@ -199,32 +173,14 @@ export function DreamTeamEditor({
       return;
     }
     startTransition(async () => {
-      const result = teamId
-        ? await updateDreamTeam(teamId, payload)
-        : await createDreamTeam(payload);
+      const result = await saveDreamTeam(payload);
       if (!result.ok) {
         setError(result.message);
         return;
       }
-      setTeamId(result.data.id);
       setNotice('Jamoa saqlandi');
       setSavedFingerprint(currentFingerprint);
       window.localStorage.removeItem(DREAM_TEAM_DRAFT_KEY);
-      router.refresh();
-    });
-  }
-
-  function remove() {
-    if (!teamId) return;
-    if (!window.confirm(`"${name}" jamoasi o'chirilsinmi?`)) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await deleteDreamTeam(teamId);
-      if (!result.ok) {
-        setError(result.message);
-        return;
-      }
-      loadTeam(null);
       router.refresh();
     });
   }
@@ -246,8 +202,6 @@ export function DreamTeamEditor({
 
   function restorePendingDraft() {
     if (!pendingDraft) return;
-    setTeamId(null);
-    setName(pendingDraft.name);
     setFormation(pendingDraft.formation);
     setSlots(reshape(pendingDraft.slots, pendingDraft.formation));
     setPendingDraft(null);
@@ -290,58 +244,29 @@ export function DreamTeamEditor({
             </div>
           </div>
         )}
-        {initialTeams.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {initialTeams.map((team) => (
-              <button
-                key={team.id}
-                type="button"
-                onClick={() => loadTeam(team)}
-                className={cn(
-                  'tap-press rounded-lg border px-2.5 py-1.5 text-xs font-bold transition',
-                  team.id === teamId
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border bg-card text-muted-foreground hover:text-foreground',
-                )}
+        <div className="rounded-xl border border-border bg-card p-3">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-black">Mening jamoam</p>
+              <p className="text-xs font-semibold text-muted-foreground">
+                Bitta jamoani istalgan payt yangilang.
+              </p>
+            </div>
+            <div className="w-32 space-y-1.5 sm:w-40">
+              <Label htmlFor="team-formation">Formatsiya</Label>
+              <select
+                id="team-formation"
+                value={formation}
+                onChange={(event) => changeFormation(event.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                {team.name}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => loadTeam(null)}
-              className="tap-press inline-flex items-center gap-1 rounded-lg border border-dashed border-border px-2.5 py-1.5 text-xs font-bold text-muted-foreground transition hover:text-foreground"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Yangi
-            </button>
-          </div>
-        )}
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="team-name">Jamoa nomi</Label>
-            <Input
-              id="team-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              maxLength={80}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="team-formation">Formatsiya</Label>
-            <select
-              id="team-formation"
-              value={formation}
-              onChange={(event) => changeFormation(event.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              {Object.keys(FORMATIONS).map((key) => (
-                <option key={key} value={key}>
-                  {key}
-                </option>
-              ))}
-            </select>
+                {Object.keys(FORMATIONS).map((key) => (
+                  <option key={key} value={key}>
+                    {key}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -375,7 +300,7 @@ export function DreamTeamEditor({
         <div className="flex flex-wrap gap-2">
           <Button onClick={save} disabled={isPending || filled === 0}>
             <Save className="mr-1.5 h-4 w-4" />
-            {!authenticated ? 'Kirish va saqlash' : teamId ? 'Saqlash' : 'Yaratish'}
+            {!authenticated ? 'Kirish va saqlash' : 'Saqlash'}
           </Button>
           <Button asChild variant="outline" disabled={filled === 0}>
             <a href={browseHref}>
@@ -383,12 +308,6 @@ export function DreamTeamEditor({
               Shu jamoa bo&apos;yicha qidirish
             </a>
           </Button>
-          {teamId && (
-            <Button variant="destructive" onClick={remove} disabled={isPending}>
-              <Trash2 className="mr-1.5 h-4 w-4" />
-              O&apos;chirish
-            </Button>
-          )}
         </div>
       </div>
     </div>

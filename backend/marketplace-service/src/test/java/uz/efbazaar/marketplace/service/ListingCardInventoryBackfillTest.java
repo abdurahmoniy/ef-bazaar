@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,30 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ListingCardInventoryBackfillTest {
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void run_onlyPagesListingsWithDeclaredCardsAndMissingNormalizedInventory() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        ListingCardInventoryBackfill backfill = new ListingCardInventoryBackfill(
+                jdbc,
+                mock(ListingCardInventory.class),
+                mock(CardIdentityVerifier.class),
+                new ObjectMapper(),
+                100);
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        when(jdbc.query(sql.capture(), any(RowMapper.class),
+                nullable(UUID.class), nullable(UUID.class), anyInt()))
+                .thenReturn(List.of());
+
+        assertThat(backfill.run()).isEqualTo(new ListingCardInventoryBackfill.Result(0, 0, 0, 0));
+        assertThat(sql.getValue())
+                .contains("jsonb_typeof(listing.attributes -> 'valuable_players') = 'array'")
+                .contains("jsonb_array_length(listing.attributes -> 'valuable_players') > 0")
+                .contains("NOT EXISTS")
+                .contains("FROM listing_cards inventory")
+                .contains("inventory.listing_id = listing.id");
+    }
 
     @Test
     void normalization_isIdempotentAndSkipsMalformedOrUnknownCards() throws Exception {
