@@ -54,3 +54,5 @@ payment:
     max-bump-uzs: 1000
   userbot:
     heartbeat-timeout-seconds: 180
+  scheduler:
+    expiry-sweep-interval-ms: 30000

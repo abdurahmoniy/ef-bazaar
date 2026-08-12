@@ -3,18 +3,25 @@ package uz.efbazaar.payment.invoice;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.payment.card.dto.PlatformCardCreateRequest;
 import uz.efbazaar.payment.card.repository.PlatformCardAuditRepository;
 import uz.efbazaar.payment.card.repository.PlatformCardRepository;
 import uz.efbazaar.payment.card.service.PlatformCardService;
+import uz.efbazaar.payment.health.UserbotHealth;
 import uz.efbazaar.payment.invoice.domain.InvoiceStatus;
 import uz.efbazaar.payment.invoice.dto.InvoiceResponse;
 import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
 import uz.efbazaar.payment.invoice.service.InvoiceService;
 import uz.efbazaar.payment.testsupport.AbstractPostgresIT;
+import uz.efbazaar.payment.testsupport.ClockTestConfig;
+import uz.efbazaar.payment.testsupport.MutableClock;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -29,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
+@Import(ClockTestConfig.class)
 class InvoiceServiceIT extends AbstractPostgresIT {
 
     @Autowired InvoiceService invoices;
@@ -36,7 +44,20 @@ class InvoiceServiceIT extends AbstractPostgresIT {
     @Autowired PlatformCardService cards;
     @Autowired PlatformCardRepository cardRepo;
     @Autowired PlatformCardAuditRepository auditRepo;
+    @Autowired UserbotHealth userbotHealth;
+    @Autowired MutableClock clock;
 
+    @Value("${payment.userbot.heartbeat-timeout-seconds}")
+    long heartbeatTimeoutSeconds;
+
+    /**
+     * UserbotHealth and the injected clock are singletons shared across the
+     * whole test run, so every test re-establishes the state it needs here
+     * rather than trusting what a previous test (in this class or another)
+     * left behind. Resetting the clock to a real "now" before stamping a
+     * fresh beat keeps this class order-independent regardless of what ran
+     * before it.
+     */
     @BeforeEach
     void clean() {
         invoiceRepo.deleteAll();
@@ -44,6 +65,8 @@ class InvoiceServiceIT extends AbstractPostgresIT {
         cardRepo.deleteAll();
         cards.create(UUID.randomUUID(), new PlatformCardCreateRequest(
                 "9860160101080101", "aziz karimov", (short) 12, (short) 2030));
+        clock.reset(Instant.now());
+        userbotHealth.record(clock.instant());
     }
 
     @Test
@@ -73,6 +96,25 @@ class InvoiceServiceIT extends AbstractPostgresIT {
         assertThatThrownBy(() -> invoices.create(user, 50_000))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("409");
+    }
+
+    /**
+     * Proves the gate both opens and closes. A test that fakes staleness by
+     * rewinding the recorded beat would never actually flip isHealthy() —
+     * UserbotHealth's monotonic guard rejects exactly that — and it doesn't
+     * model anything that happens in production anyway: a real userbot goes
+     * quiet while time keeps moving forward, so that is what this test does.
+     */
+    @Test
+    void aStaleUserbotStopsNewInvoices() {
+        userbotHealth.record(clock.instant());
+        invoices.create(UUID.randomUUID(), 100_000);
+
+        clock.advance(Duration.ofSeconds(heartbeatTimeoutSeconds + 1));
+
+        assertThatThrownBy(() -> invoices.create(UUID.randomUUID(), 100_000))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("503");
     }
 
     @Test
