@@ -2,20 +2,24 @@
 
 import { useEffect, useState } from 'react';
 
+import type { AppTheme } from '@/lib/telegram-shell';
+
 import { THEME_STORAGE_KEY } from './theme-script';
 
-export type Theme = 'light' | 'dark';
+export type { AppTheme as Theme } from '@/lib/telegram-shell';
 
-function readTheme(): Theme {
+function readTheme(): AppTheme {
   if (typeof document === 'undefined') return 'light';
   return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
 }
 
-function applyTheme(t: Theme) {
+function applyTheme(t: AppTheme) {
   document.documentElement.classList.toggle('dark', t === 'dark');
+  document.documentElement.dataset.resolvedTheme = t;
   try {
     localStorage.setItem(THEME_STORAGE_KEY, t);
   } catch {}
+  window.dispatchEvent(new CustomEvent('efbazaar:theme-change', { detail: t }));
 }
 
 /**
@@ -26,12 +30,25 @@ function applyTheme(t: Theme) {
  * icon on it, not the toggle itself.
  */
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>('light');
+  const [theme, setTheme] = useState<AppTheme>('light');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setTheme(readTheme());
+    const syncThemeState = () => setTheme(readTheme());
+    const observer = new MutationObserver(syncThemeState);
+
+    syncThemeState();
     setMounted(true);
+    window.addEventListener('efbazaar:theme-change', syncThemeState);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-resolved-theme'],
+    });
+
+    return () => {
+      window.removeEventListener('efbazaar:theme-change', syncThemeState);
+      observer.disconnect();
+    };
   }, []);
 
   return {
@@ -39,7 +56,8 @@ export function useTheme() {
     isDark: theme === 'dark',
     mounted,
     toggle() {
-      const next: Theme = theme === 'dark' ? 'light' : 'dark';
+      const current = readTheme();
+      const next: AppTheme = current === 'dark' ? 'light' : 'dark';
       applyTheme(next);
       setTheme(next);
     },

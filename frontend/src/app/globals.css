@@ -41,11 +41,26 @@
     --surface-alt: 240 30% 98%;
 
     --radius: 0.875rem;
+
+    --app-header-color: #ffffff;
+    --app-background-color: #ffffff;
+    --app-bottom-bar-color: #ffffff;
+
+    --app-safe-top: max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px));
+    --app-safe-right: max(env(safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px));
+    --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
+    --app-safe-left: max(env(safe-area-inset-left, 0px), var(--tg-safe-area-inset-left, 0px));
+    --app-content-safe-top: max(var(--app-safe-top), var(--tg-content-safe-area-inset-top, 0px));
+    --app-content-safe-right: max(var(--app-safe-right), var(--tg-content-safe-area-inset-right, 0px));
+    --app-content-safe-bottom: max(var(--app-safe-bottom), var(--tg-content-safe-area-inset-bottom, 0px));
+    --app-content-safe-left: max(var(--app-safe-left), var(--tg-content-safe-area-inset-left, 0px));
+    --marketplace-bottom-bar-height: calc(3.5rem + var(--app-content-safe-bottom));
+    --marketplace-sticky-height: calc(3.5rem + var(--app-content-safe-top));
   }
 
   .dark {
     /* Near-black navy — shared blue undertone unifies with primary/capsules */
-    --background: 240 35% 4%;
+    --background: 240 28% 4.901960784313726%;
     --foreground: 240 15% 94%;
 
     --card: 240 45% 8%;
@@ -78,6 +93,10 @@
     --price: 45 90% 60%;
     --price-foreground: 240 60% 12%;
     --surface-alt: 240 45% 6%;
+
+    --app-header-color: #090910;
+    --app-background-color: #090910;
+    --app-bottom-bar-color: #121225;
   }
 
   * {
@@ -86,7 +105,6 @@
 
   html {
     color-scheme: light;
-    overscroll-behavior-y: none;
     touch-action: manipulation;
     /* Grey flash on every tap reads as lag on Android — press states are
        handled explicitly with `active:` utilities instead. */
@@ -228,6 +246,169 @@
     @apply bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80;
   }
 
+  .marketplace-search {
+    order: 20;
+    flex: 1 0 100%;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-bottom: 0.75rem;
+  }
+
+  .marketplace-search[data-phase='compact'] {
+    order: 0;
+    flex: 0 0 2.75rem;
+    width: 2.75rem;
+    padding-bottom: 0;
+  }
+
+  .marketplace-search-form,
+  .marketplace-search-inner {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .marketplace-search-form {
+    overflow: hidden;
+  }
+
+  .marketplace-search-inner {
+    transition: transform 180ms ease, opacity 180ms ease;
+  }
+
+  .marketplace-search[data-phase='collapsing'] .marketplace-search-inner {
+    pointer-events: none;
+    transform: translateY(-0.25rem);
+    opacity: 0;
+  }
+
+  @media (min-width: 640px) {
+    .marketplace-search {
+      order: 0;
+      flex: 1 1 12rem;
+      width: auto;
+      padding-bottom: 0;
+      margin-left: 0.5rem;
+    }
+
+    .marketplace-search[data-phase='compact'] {
+      flex: 0 0 2.75rem;
+      width: 2.75rem;
+    }
+  }
+
+  .marketplace-toolbar-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    gap: 8px;
+    align-items: center;
+  }
+
+  .marketplace-toolbar-actions > * {
+    min-width: 0;
+  }
+
+  .marketplace-toolbar-actions > :nth-child(3) {
+    justify-self: end;
+  }
+
+  .marketplace-toolbar-actions > :nth-child(4) {
+    justify-self: start;
+  }
+
+  .marketplace-results-container {
+    container-type: inline-size;
+  }
+
+  .marketplace-shell-content {
+    padding-bottom: calc(var(--marketplace-bottom-bar-height, 3.5rem) + 1rem);
+  }
+
+  .listing-card {
+    scroll-margin-top: calc(var(--marketplace-sticky-height, 7rem) + 0.75rem);
+  }
+
+  .marketplace-listings {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .listing-card[data-layout='horizontal'],
+  .listing-card[data-layout='auto'] {
+    display: grid;
+    grid-template-columns: minmax(104px, 34%) minmax(0, 1fr);
+  }
+
+  .listing-card[data-layout='vertical'] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .listing-card[data-layout='horizontal'] .listing-card__media,
+  .listing-card[data-layout='auto'] .listing-card__media {
+    align-self: start;
+  }
+
+  .listing-card[data-layout='horizontal'] .listing-card__favorite,
+  .listing-card[data-layout='auto'] .listing-card__favorite {
+    right: auto;
+    left: 0.5rem;
+  }
+
+  @container (min-width: 380px) {
+    .marketplace-listings:not([data-view='list']) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .listing-card[data-layout='auto'] {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .listing-card[data-layout='auto'] .listing-card__favorite {
+      right: 0.5rem;
+      left: auto;
+    }
+  }
+
+  @container (min-width: 696px) {
+    .marketplace-listings:not([data-view='list']) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @container (min-width: 932px) {
+    .marketplace-listings[data-view='grid'] {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 360px) {
+    .marketplace-toolbar-actions {
+      grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr) 44px 44px;
+    }
+
+    .marketplace-toolbar-actions > :nth-child(3),
+    .marketplace-toolbar-actions > :nth-child(4) {
+      justify-self: stretch;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .marketplace-toolbar-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .marketplace-shell-content {
+      padding-bottom: 1.5rem;
+    }
+  }
+
   /* Price pill — hero attribute on cards + detail page */
   .price-pill {
     @apply inline-flex items-baseline gap-1 rounded-md bg-[hsl(var(--price)/0.12)] px-2 py-1 text-[hsl(var(--price))];
@@ -292,5 +473,43 @@
     100% {
       transform: translateX(100%);
     }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marketplace-search-inner {
+      transition: none;
+    }
+
+    .tap-press {
+      transition: none;
+    }
+
+    .skeleton::after {
+      animation: none;
+    }
+  }
+}
+
+/* The server and first hydration render intentionally share expanded reducer
+   state. Before JavaScript can synchronize matchMedia in a layout effect,
+   render the short-landscape shell compact so no expanded header flashes. */
+@media (orientation: landscape) and (max-height: 480px) {
+  .marketplace-verification-copy {
+    display: none;
+  }
+
+  .marketplace-search--collapsible[data-short-landscape='false'][data-session-open='false'] {
+    order: 0;
+    flex: 0 0 2.75rem;
+    width: 2.75rem;
+    padding-bottom: 0;
+  }
+
+  .marketplace-search--collapsible[data-short-landscape='false'][data-session-open='false'] > button {
+    display: inline-flex;
+  }
+
+  .marketplace-search--collapsible[data-short-landscape='false'][data-session-open='false'] > .marketplace-search-form {
+    display: none;
   }
 }

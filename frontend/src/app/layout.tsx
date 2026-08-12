@@ -4,6 +4,7 @@ import Script from 'next/script';
 import './globals.css';
 
 import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
+import { TelegramBackProvider } from '@/components/telegram/telegram-back-provider';
 import { TelegramViewportBootstrap } from '@/components/telegram/telegram-viewport-bootstrap';
 import { ThemeScript } from '@/components/theme/theme-script';
 import { absoluteUrl, siteConfig } from '@/lib/site';
@@ -89,7 +90,7 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b0b0f' },
+    { media: '(prefers-color-scheme: dark)', color: '#090910' },
   ],
 };
 
@@ -100,15 +101,23 @@ export default function RootLayout({
 }) {
   return (
     <html lang="uz" className={inter.variable} suppressHydrationWarning>
-      <body className="font-sans">
-        {/* No-flash theme init — must run before hydration */}
+      <head>
+        <Script
+          src="https://telegram.org/js/telegram-web-app.js?63"
+          strategy="beforeInteractive"
+        />
+        {/* Independent raw fallback: stored/system theme still initializes if the SDK fails. */}
         <ThemeScript />
-        {/* Mini App SDK bootstrap — ready/expand/theme/viewport, no auth */}
+      </head>
+      <body className="font-sans">
+        {/* Syncs the first visible Mini App state before calling Telegram ready. */}
         <TelegramViewportBootstrap />
         {/* Telegram Mini App context aniqlansa har qanday entry point'da auto-login */}
         <TelegramWebAppAutoLogin />
 
-        <StoreProvider>{children}</StoreProvider>
+        <TelegramBackProvider>
+          <StoreProvider>{children}</StoreProvider>
+        </TelegramBackProvider>
 
         <Script id="yandex-metrika" strategy="afterInteractive">
           {`

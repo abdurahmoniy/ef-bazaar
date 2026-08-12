@@ -1,367 +1,134 @@
-import { SlidersHorizontal } from 'lucide-react'
-import Link from 'next/link'
+'use client';
 
-import { CardPickerField } from '@/components/marketplace/card-picker-field'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
+import { SlidersHorizontal } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import * as React from 'react';
+
+import { ListingFilterFields } from '@/components/marketplace/listing-filter-fields';
 import {
-	DEFAULT_PLATFORM,
-	MARKETPLACE_FILTERS,
-	PLATFORM_FILTER_OPTIONS,
-	type MarketplaceFilterId,
-} from '@/lib/marketplace-format'
-import { LISTING_SORT_OPTIONS, paramToSortId } from '@/lib/marketplace-sort'
-import { cn } from '@/lib/utils'
+  MarketplacePendingLink,
+  useMarketplaceNavigation,
+} from '@/components/marketplace/marketplace-navigation';
+import { Button } from '@/components/ui/button';
+import {
+  MARKETPLACE_FILTERS,
+  type MarketplaceFilterId,
+} from '@/lib/marketplace-format';
+import {
+  applyMarketplaceFilterDraft,
+  clearMarketplaceFilterDraft,
+  filterDraftFromBrowseParams,
+  validateMarketplaceFilterDraft,
+} from '@/lib/marketplace-filter-draft';
+import { marketplaceHref, setMarketplaceQuickFilter } from '@/lib/marketplace-query';
+import { getTelegramWebApp } from '@/lib/telegram';
+import { telegramHaptic } from '@/lib/telegram-shell';
+import type { ListingBrowseParams } from '@/lib/marketplace-types';
+import { cn } from '@/lib/utils';
 
 interface ListingFiltersProps {
-	activeFilter: MarketplaceFilterId
-	query?: string
-	minPrice?: number
-	maxPrice?: number
-	priceNegotiable?: boolean
-	division?: number
-	valuablePlayerId?: number
-	valuablePlayerName?: string
-	sortParam?: string
-	/** Raw attr.* filters from the URL — source of defaultValues for attribute fields. */
-	attributes?: Record<string, string>
-	matchCards?: string[]
-	matchStrictness?: number
+  filters: ListingBrowseParams;
+  rawQuery: string;
 }
+/** Desktop detailed-filter controller. It shares the mobile draft contract but
+ * intentionally performs no preview request. Clear remains local until Apply. */
+export function ListingFilters({ filters, rawQuery }: ListingFiltersProps) {
+  const router = useRouter();
+  const navigation = useMarketplaceNavigation();
+  const [draft, setDraft] = React.useState(() => filterDraftFromBrowseParams(filters));
+  const applyStartedRef = React.useRef(false);
+  const errors = validateMarketplaceFilterDraft(draft);
+  const valid = Object.keys(errors).length === 0;
 
-const DIVISION_CHOICES = [1, 2, 3, 4] as const
-const DIVISION_LABELS: Record<number, string> = {
-	1: 'Division 1',
-	2: 'Division 2',
-	3: 'Division 3',
-	4: 'Division 4+',
-}
+  React.useEffect(() => {
+    setDraft(filterDraftFromBrowseParams(filters));
+    applyStartedRef.current = false;
+  }, [filters, rawQuery]);
 
-// Values + labels mirror the exchange_mode attribute definition (V17 migration).
-const EXCHANGE_MODE_OPTIONS = [
-	{ value: 'NONE', label: "Obmen yo'q" },
-	{ value: 'EXCHANGE_ONLY', label: 'Faqat obmen' },
-	{ value: 'EXCHANGE_WITH_SURCHARGE', label: 'Obmen + doplata' },
-	{ value: 'BOTH', label: 'Obmen yoki obmen + doplata' },
-] as const
+  function apply(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!valid || applyStartedRef.current) return;
+    applyStartedRef.current = true;
+    const href = marketplaceHref(
+      applyMarketplaceFilterDraft(new URLSearchParams(rawQuery), draft),
+    );
+    if (navigation) navigation.navigate(href);
+    else router.push(href);
+  }
 
-export function ListingFilters(props: ListingFiltersProps) {
-	return (
-		<aside className='hidden space-y-3 lg:sticky lg:top-32 lg:block'>
-			<ListingFiltersForm
-				{...props}
-				className='rounded-xl border border-border bg-card p-4 shadow-card'
-				showHeading
-			/>
-		</aside>
-	)
-}
-
-export function ListingFiltersForm({
-	query,
-	minPrice,
-	maxPrice,
-	priceNegotiable,
-	division,
-	valuablePlayerId,
-	valuablePlayerName,
-	sortParam,
-	attributes,
-	matchCards,
-	matchStrictness,
-	className,
-	showHeading = false,
-}: ListingFiltersProps & { className?: string; showHeading?: boolean }) {
-	const currentSortId = paramToSortId(sortParam)
-	const attr = (key: string) => attributes?.[key] ?? ''
-
-	return (
-		<form action='/marketplace' method='get' className={className}>
-			{query && <input type='hidden' name='q' value={query} />}
-			{matchCards?.map((criterion) => (
-				<input key={criterion} type='hidden' name='matchCard' value={criterion} />
-			))}
-			{matchCards?.length ? (
-				<input type='hidden' name='matchStrictness' value={matchStrictness ?? 4} />
-			) : null}
-
-			{showHeading && (
-				<div className='flex items-center gap-2 pb-3 text-sm font-bold text-foreground'>
-					<SlidersHorizontal className='h-4 w-4 text-primary' />
-					Filtrlar
-				</div>
-			)}
-
-			<div className='space-y-3'>
-					<div>
-						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
-							Platforma
-						</div>
-						{/* Required — no "Barchasi" option; an unset URL means the default. */}
-						<Select
-							name='attr.platform'
-							required
-							defaultValue={attr('platform') || DEFAULT_PLATFORM}
-							className='h-10'
-						>
-							{PLATFORM_FILTER_OPTIONS.map((option) => (
-								<option key={option.value} value={option.value}>
-									{option.label}
-								</option>
-							))}
-						</Select>
-					</div>
-
-					<div>
-						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
-							Narx, so'm
-						</div>
-						<div className='grid grid-cols-2 gap-2'>
-							<Input
-								name='minPrice'
-								type='number'
-								inputMode='numeric'
-								min={0}
-								step={10000}
-								placeholder='dan'
-								defaultValue={minPrice ?? ''}
-								className='h-10 rounded-lg'
-							/>
-							<Input
-								name='maxPrice'
-								type='number'
-								inputMode='numeric'
-								min={0}
-								step={10000}
-								placeholder='gacha'
-								defaultValue={maxPrice ?? ''}
-								className='h-10 rounded-lg'
-							/>
-						</div>
-					</div>
-
-					<div>
-						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
-							Eng yuqori Division
-						</div>
-						<Select
-							name='attr.highest_division_level'
-							defaultValue={division === undefined ? '' : String(division)}
-							className='h-10'
-						>
-							<option value=''>Barchasi</option>
-							{DIVISION_CHOICES.map((div) => (
-								<option key={div} value={div}>
-									{DIVISION_LABELS[div]}
-								</option>
-							))}
-						</Select>
-					</div>
-
-					<div>
-						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
-							Team Strength
-						</div>
-						<div className='grid grid-cols-2 gap-2'>
-							<Input
-								name='attr.team_strength.min'
-								type='number'
-								inputMode='numeric'
-								min={0}
-								step={100}
-								placeholder='dan'
-								defaultValue={attr('team_strength.min')}
-								className='h-10 rounded-lg'
-							/>
-							<Input
-								name='attr.team_strength.max'
-								type='number'
-								inputMode='numeric'
-								min={0}
-								step={100}
-								placeholder='gacha'
-								defaultValue={attr('team_strength.max')}
-								className='h-10 rounded-lg'
-							/>
-						</div>
-					</div>
-
-					<div>
-						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
-							Coin (kamida)
-						</div>
-						{/* No min / inputMode: balances can be negative, and the
-						    digit-only mobile keypad has no minus key. */}
-						<div className='grid grid-cols-2 gap-2'>
-							<Input
-								name='attr.android_coins.min'
-								type='number'
-								step={1000}
-								placeholder='Android'
-								aria-label='Android coin (kamida)'
-								defaultValue={attr('android_coins.min')}
-								className='h-10 rounded-lg'
-							/>
-							<Input
-								name='attr.ios_coins.min'
-								type='number'
-								step={1000}
-								placeholder='iOS'
-								aria-label='iOS coin (kamida)'
-								defaultValue={attr('ios_coins.min')}
-								className='h-10 rounded-lg'
-							/>
-						</div>
-					</div>
-
-					<div>
-						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
-							Qurilma almashtirish limiti (kamida)
-						</div>
-						{/* Handover burns two sign-ins; buyers who want headroom
-						    filter for accounts with more left this month. */}
-						<Input
-							name='attr.device_transfer_limit.min'
-							type='number'
-							inputMode='numeric'
-							min={2}
-							max={10}
-							step={1}
-							placeholder='masalan 4'
-							aria-label='Qurilma almashtirish limiti (kamida)'
-							defaultValue={attr('device_transfer_limit.min')}
-							className='h-10 rounded-lg'
-						/>
-					</div>
-
-					<div>
-						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
-							Obmen shartlari
-						</div>
-						<Select
-							name='attr.exchange_mode'
-							defaultValue={attr('exchange_mode')}
-							className='h-10'
-						>
-							<option value=''>Barchasi</option>
-							{EXCHANGE_MODE_OPTIONS.map((option) => (
-								<option key={option.value} value={option.value}>
-									{option.label}
-								</option>
-							))}
-						</Select>
-					</div>
-
-					<div className='space-y-2'>
-						<Checkbox
-							name='priceNegotiable'
-							value='true'
-							defaultChecked={priceNegotiable === true}
-							label='Savdolashish mumkin'
-							className='p-2'
-						/>
-						{/* Store links block a clean transfer (only Konami ID moves), so
-						    buyers filter for accounts WITHOUT them. */}
-						<Checkbox
-							name='attr.has_google_play_link'
-							value='false'
-							defaultChecked={attr('has_google_play_link') === 'false'}
-							label='Google Play ulanmagan'
-							className='p-2'
-						/>
-						<Checkbox
-							name='attr.has_game_center_link'
-							value='false'
-							defaultChecked={attr('has_game_center_link') === 'false'}
-							label='Game Center ulanmagan'
-							className='p-2'
-						/>
-					</div>
-
-					<div>
-						<div className='mb-1.5 text-xs font-semibold text-muted-foreground'>
-							Yulduz o'yinchi
-						</div>
-						<CardPickerField
-							defaultEfhubId={valuablePlayerId}
-							defaultName={valuablePlayerName}
-						/>
-					</div>
-
-					{/* Sorting moved to the results header, next to the count — buried at
-					    the bottom of this panel (and below the fold of the mobile sheet)
-					    it was effectively undiscoverable. Carried through as a hidden
-					    field so applying a filter doesn't silently reset the order. */}
-					<input
-						type='hidden'
-						name='sort'
-						value={
-							LISTING_SORT_OPTIONS.find((o) => o.id === currentSortId)?.param ?? ''
-						}
-					/>
-
-					{/* Sticks to the bottom of the mobile filter sheet's scroll area so
-					    "Qo'llash" stays reachable without scrolling the whole form.
-					    In the desktop sidebar the container doesn't scroll, so this is inert. */}
-					<div className='sticky bottom-0 -mx-4 grid grid-cols-2 gap-2 border-t border-border bg-card/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:pb-0 lg:pt-1 lg:backdrop-blur-none'>
-						<Button type='submit' className='h-11 rounded-lg'>
-							Qo'llash
-						</Button>
-						<Button asChild variant='outline' className='h-11 rounded-lg'>
-							<Link href='/marketplace'>Tozalash</Link>
-						</Button>
-					</div>
-				</div>
-		</form>
-	)
+  return (
+    <aside className="hidden space-y-3 lg:sticky lg:top-32 lg:block">
+      <form
+        onSubmit={apply}
+        className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-card"
+      >
+        <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+          <SlidersHorizontal className="h-4 w-4 text-primary" aria-hidden />
+          Filtrlar
+        </div>
+        <ListingFilterFields
+          draft={draft}
+          errors={errors}
+          onChange={setDraft}
+          collapsible={false}
+        />
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <Button type="submit" className="min-h-11" disabled={!valid}>
+            Qo‘llash
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={() => setDraft(clearMarketplaceFilterDraft())}
+          >
+            Tozalash
+          </Button>
+        </div>
+      </form>
+    </aside>
+  );
 }
 
 export function QuickChips({
-	activeFilter,
-	query,
-	view,
-	currentQuery,
+  activeFilter,
+  currentQuery,
 }: {
-	activeFilter: MarketplaceFilterId
-	query?: string
-	view?: 'grid' | 'list'
-	currentQuery?: string
+  activeFilter: MarketplaceFilterId;
+  currentQuery?: string;
 }) {
-	return (
-		<div className='snap-rail gap-2 pb-1'>
-			{MARKETPLACE_FILTERS.map((filter) => (
-				<Link
-					key={filter.id}
-					href={filterHref(filter.id, query, view, currentQuery)}
-					aria-current={filter.id === activeFilter ? 'page' : undefined}
-					className={cn(
-						'tap-press inline-flex shrink-0 items-center min-h-10 rounded-full border px-4 py-2 text-sm font-semibold transition',
-						filter.id === activeFilter
-							? 'border-primary bg-primary text-primary-foreground shadow-sm'
-							: 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
-					)}
-				>
-					{filter.label}
-				</Link>
-			))}
-		</div>
-	)
-}
-
-function filterHref(
-	filterId: MarketplaceFilterId,
-	query?: string,
-	view?: 'grid' | 'list',
-	currentQuery?: string,
-) {
-	const params = new URLSearchParams(currentQuery)
-	params.delete('filter')
-	params.delete('page')
-	if (filterId !== 'all') params.set('filter', filterId)
-	if (query?.trim()) params.set('q', query.trim())
-	if (view === 'list') params.set('view', 'list')
-	const serialized = params.toString()
-	return serialized ? `/marketplace?${serialized}` : '/marketplace'
+  return (
+    <div className="snap-rail gap-2 pb-1">
+      {MARKETPLACE_FILTERS.map((filter) => (
+        <MarketplacePendingLink
+          key={filter.id}
+          href={marketplaceHref(setMarketplaceQuickFilter(
+            new URLSearchParams(currentQuery),
+            filter.id,
+          ))}
+          aria-current={filter.id === activeFilter ? 'page' : undefined}
+          onClick={(event) => {
+            if (filter.id === activeFilter) return;
+            const modified = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+            if (event.defaultPrevented || modified || event.button !== 0) return;
+            let reducedMotion = false;
+            try {
+              reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            } catch {}
+            const webApp = getTelegramWebApp();
+            if (!webApp?.initData.trim()) return;
+            telegramHaptic(webApp, 'selection', reducedMotion);
+          }}
+          className={cn(
+            'tap-press inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 py-2 text-sm font-semibold transition',
+            filter.id === activeFilter
+              ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+              : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
+          )}
+        >
+          {filter.label}
+        </MarketplacePendingLink>
+      ))}
+    </div>
+  );
 }

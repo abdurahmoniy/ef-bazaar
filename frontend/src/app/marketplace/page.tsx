@@ -6,8 +6,10 @@ import { getMe } from '@/lib/auth';
 import {
   getSelectedMarketplaceFilter,
   parseListingSearchParams,
+  searchParamInputToSearchParams,
   type SearchParamInput,
 } from '@/lib/marketplace-format';
+import { getMarketplaceView } from '@/lib/marketplace-query';
 import { browseListings } from '@/lib/marketplace-server';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 
@@ -35,12 +37,14 @@ interface MarketplacePageProps {
 
 export default async function MarketplacePage({ searchParams }: MarketplacePageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
+  const rawParams = searchParamInputToSearchParams(resolvedSearchParams);
   const filters = parseListingSearchParams(resolvedSearchParams);
   if (filters.size === undefined) filters.size = PAGE_SIZE;
 
   const activeFilter = getSelectedMarketplaceFilter(resolvedSearchParams);
-  const query = typeof resolvedSearchParams.q === 'string' ? resolvedSearchParams.q : undefined;
-  const view = resolvedSearchParams.view === 'list' ? 'list' : 'grid';
+  const query = filters.search;
+  const view = getMarketplaceView(rawParams);
+  const rawQuery = rawParams.toString();
 
   const [user, result] = await Promise.all([
     resolveOptionalUser(getMe),
@@ -48,13 +52,21 @@ export default async function MarketplacePage({ searchParams }: MarketplacePageP
   ]);
 
   return (
-    <MarketplaceShell user={user} activeTab="home" initialQuery={query}>
+    <MarketplaceShell
+      user={user}
+      activeTab="home"
+      initialQuery={query}
+      marketplaceQuery={rawQuery}
+      collapsibleSearch
+    >
       <MarketplaceBrowser
         filters={filters}
         activeFilter={activeFilter}
         query={query}
         result={result}
+        rawQuery={rawQuery}
         view={view}
+        authenticated={user !== null}
       />
     </MarketplaceShell>
   );

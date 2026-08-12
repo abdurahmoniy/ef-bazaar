@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parsePlayerMatchValues, writePlayerMatch } from './player-match-query';
+import { parsePlayerMatchValues, strictnessLabel, writePlayerMatch } from './player-match-query';
 
 describe('player match query', () => {
   it('parses canonical criteria, priority, and strictness one without truthiness bugs', () => {
@@ -49,5 +49,20 @@ describe('player match query', () => {
       }],
       strictness: 10,
     });
+  });
+
+  it.each([
+    [1, 'Keng qidiruv'],
+    [2, 'Keng qidiruv'],
+    [3, 'Moslashuvchan'],
+    [4, 'Moslashuvchan'],
+    [5, 'Muvozanatli'],
+    [6, 'Muvozanatli'],
+    [7, 'Aniqroq'],
+    [8, 'Aniqroq'],
+    [9, 'Juda qat’iy'],
+    [10, 'Juda qat’iy'],
+  ])('uses the shared five-band label for strictness %i', (strictness, expected) => {
+    expect(strictnessLabel(strictness)).toBe(expected);
   });
 });

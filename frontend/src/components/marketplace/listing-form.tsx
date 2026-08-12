@@ -1319,6 +1319,7 @@ function normalizeCardListPayload(value: unknown): PlayerCard[] {
 		const item = raw as Record<string, unknown>
 		const efhubId = item.efhubId ?? item.efhub_id
 		const playerId = item.playerId ?? item.player_id
+		const metaTierRaw = item.metaTier ?? item.meta_tier
 		const name = item.name
 		if (typeof efhubId !== 'number' || typeof playerId !== 'string' || typeof name !== 'string') continue
 		out.push({
@@ -1342,6 +1343,10 @@ function normalizeCardListPayload(value: unknown): PlayerCard[] {
 			cardType:
 				typeof (item.cardType ?? item.card_type) === 'string'
 					? String(item.cardType ?? item.card_type)
+					: undefined,
+			metaTier:
+				metaTierRaw === 'META' || metaTierRaw === 'NORMAL'
+					? metaTierRaw
 					: undefined,
 			imageUrl:
 				typeof (item.imageUrl ?? item.image_url) === 'string'
@@ -1372,6 +1377,7 @@ function cardToApiPayload(card: PlayerCard): Record<string, unknown> {
 	if (card.maxOverallRating !== undefined)
 		payload.max_overall_rating = card.maxOverallRating
 	if (card.cardType !== undefined) payload.card_type = card.cardType
+	if (card.metaTier !== undefined) payload.meta_tier = card.metaTier
 	if (card.imageUrl !== undefined) payload.image_url = card.imageUrl
 	if (card.skills !== undefined) payload.skills = card.skills
 	return payload

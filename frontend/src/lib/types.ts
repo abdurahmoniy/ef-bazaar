@@ -71,7 +71,48 @@ export interface TelegramWebAppMainButton {
 export interface TelegramWebAppHapticFeedback {
   impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
   notificationOccurred: (type: 'error' | 'success' | 'warning') => void;
+  selectionChanged?: () => void;
 }
+
+export type TelegramColorScheme = 'light' | 'dark';
+
+export interface TelegramWebAppInset {
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+}
+
+export interface TelegramThemeParams {
+  accent_text_color?: string;
+  bg_color?: string;
+  bottom_bar_bg_color?: string;
+  button_color?: string;
+  button_text_color?: string;
+  destructive_text_color?: string;
+  header_bg_color?: string;
+  hint_color?: string;
+  link_color?: string;
+  secondary_bg_color?: string;
+  section_bg_color?: string;
+  section_header_text_color?: string;
+  subtitle_text_color?: string;
+  text_color?: string;
+  [key: string]: string | undefined;
+}
+
+export type TelegramWebAppEvent =
+  | 'themeChanged'
+  | 'viewportChanged'
+  | 'safeAreaChanged'
+  | 'contentSafeAreaChanged'
+  | 'backButtonClicked';
+
+export interface TelegramWebAppEventPayload {
+  isStateStable?: boolean;
+}
+
+export type TelegramWebAppEventCallback = (payload?: TelegramWebAppEventPayload) => void;
 
 /**
  * Minimal Telegram Mini App SDK surface — only the bits we read.
@@ -84,12 +125,19 @@ export interface TelegramWebApp {
   close?: () => void;
   setHeaderColor?: (color: string) => void;
   setBackgroundColor?: (color: string) => void;
+  setBottomBarColor?: (color: string) => void;
+  colorScheme?: TelegramColorScheme;
+  themeParams?: TelegramThemeParams;
+  safeAreaInset?: TelegramWebAppInset;
+  contentSafeAreaInset?: TelegramWebAppInset;
+  isVerticalSwipesEnabled?: boolean;
   disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
   enableClosingConfirmation?: () => void;
   viewportHeight?: number;
   viewportStableHeight?: number;
-  onEvent?: (eventType: string, callback: () => void) => void;
-  offEvent?: (eventType: string, callback: () => void) => void;
+  onEvent?: (eventType: TelegramWebAppEvent, callback: TelegramWebAppEventCallback) => void;
+  offEvent?: (eventType: TelegramWebAppEvent, callback: TelegramWebAppEventCallback) => void;
   BackButton?: TelegramWebAppBackButton;
   MainButton?: TelegramWebAppMainButton;
   HapticFeedback?: TelegramWebAppHapticFeedback;
