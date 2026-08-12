@@ -7,6 +7,17 @@ import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('@/lib/auth', () => ({}));
+vi.mock('next/navigation', async () => {
+  const actual = await vi.importActual<typeof import('next/navigation')>('next/navigation');
+  return {
+    ...actual,
+    usePathname: () => '/marketplace',
+    useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+    useSearchParams: () => new URLSearchParams(),
+  };
+});
+
 import {
   MarketplaceEmptyState,
   MarketplaceErrorState,
@@ -153,6 +164,10 @@ describe('marketplace route boundaries', () => {
     expect(source).toContain("import { ResponsiveListingGridSkeleton }");
     expect(source).not.toMatch(/searchParams|useSearchParams/);
     expect(markup).toContain('data-marketplace-route-loading="true"');
+    expect(markup).toContain('data-marketplace-shell');
+    expect(markup).toContain('Pastki navigatsiya');
+    expect(markup).toContain('data-filter-sidebar-skeleton');
+    expect(source).not.toContain('hidden h-96');
     expect(markup).toContain('marketplace-toolbar-actions');
     expect(markup).toContain('role="status"');
     expect(markup).toContain('aria-label="E‘lonlar yuklanmoqda"');

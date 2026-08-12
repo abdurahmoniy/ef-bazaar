@@ -13,6 +13,11 @@ interface ListingCardMediaProps {
   children?: ReactNode;
 }
 
+/** Telegram's file-id proxy already returns the final bytes; Next's optimizer rejects it. */
+export function shouldBypassImageOptimization(src: string) {
+  return src.startsWith('/bot/photo/');
+}
+
 /** A single reserved media box shared by real images and the branded fallback. */
 export function ListingCardMedia({
   src,
@@ -37,8 +42,9 @@ export function ListingCardMedia({
           fill
           src={src}
           alt={alt}
-          sizes="(max-width: 379px) 34vw, (max-width: 695px) 50vw, (max-width: 1199px) 33vw, 224px"
+          sizes="(max-width: 551px) calc(100vw - 2rem), (max-width: 695px) calc(50vw - 1.5rem), (max-width: 1199px) calc(33vw - 1.5rem), 18rem"
           priority={priority}
+          unoptimized={shouldBypassImageOptimization(src)}
           className="object-cover transition duration-300 group-hover:scale-[1.03] motion-reduce:transition-none"
           onError={() => setFailedSrc(src)}
         />

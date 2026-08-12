@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { ApiException } from '@/lib/api';
 import { applyAuthCookies, telegramWebAppAuthTokens } from '@/lib/auth';
 import { resolvePostLoginPath } from '@/lib/safe-redirect';
+import { telegramAuthErrorHref } from '@/lib/telegram-auth-error';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,12 +38,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // webview (Desktop/mobil, top-level) → `SameSite=Lax`, chunki WebKitGTK ITP
   // `None`'ni saqlamaydi.
   const framed = form.get('framed') === '1';
+  const target = resolvePostLoginPath(typeof from === 'string' ? from : undefined);
 
   if (typeof initData !== 'string' || initData.length === 0) {
-    return seeOther('/auth/login?error=telegram');
+    return seeOther(telegramAuthErrorHref('telegram', target));
   }
-
-  const target = resolvePostLoginPath(typeof from === 'string' ? from : undefined);
 
   try {
     const auth = await telegramWebAppAuthTokens(initData);
@@ -51,6 +51,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return res;
   } catch (e) {
     const code = e instanceof ApiException ? (e.code ?? 'telegram') : 'telegram';
-    return seeOther(`/auth/login?error=${encodeURIComponent(code)}`);
+    console.warn('[telegram-webapp] auth failed', {
+      code,
+      status: e instanceof ApiException ? e.status : undefined,
+    });
+    return seeOther(telegramAuthErrorHref(code, target));
   }
 }
