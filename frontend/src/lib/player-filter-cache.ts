@@ -37,7 +37,7 @@ export function parsePlayerFilterCache(raw: string | null): PlayerMatchSelection
 
       const card: PlayerMatchSelection = {
         efhubId: item.efhubId as number,
-        playerId: item.playerId,
+        playerId: item.playerId.toLowerCase(),
         name: item.name,
       };
       if (typeof item.priority === 'boolean') card.priority = item.priority;
@@ -59,10 +59,13 @@ export function mergeCachedPlayerSelections(
   cached: PlayerMatchSelection[],
 ): PlayerMatchSelection[] {
   return criteria.slice(0, MAX_PLAYER_SELECTIONS).map((criterion) => {
-    const exact = cached.find((card) => card.efhubId === criterion.efhubId);
+    const playerId = criterion.playerId.toLowerCase();
+    const exact = cached.find((card) => (
+      card.efhubId === criterion.efhubId && card.playerId?.toLowerCase() === playerId
+    ));
     const canonical = exact
       ? undefined
-      : cached.find((card) => card.playerId === criterion.playerId);
+      : cached.find((card) => card.playerId?.toLowerCase() === playerId);
     const snapshot = exact
       ? exact
       : canonical
@@ -72,7 +75,7 @@ export function mergeCachedPlayerSelections(
     return {
       ...snapshot,
       efhubId: criterion.efhubId,
-      playerId: criterion.playerId,
+      playerId,
       name: snapshot?.name ?? 'Tanlangan karta',
       priority: criterion.importance === 'P',
     };

@@ -25,6 +25,33 @@ interface PlayerFilterLauncherProps {
   authenticated: boolean;
 }
 
+function isDreamTeam(value: unknown): value is DreamTeam {
+  if (!value || typeof value !== 'object') return false;
+  const team = value as Record<string, unknown>;
+  return typeof team.id === 'string'
+    && typeof team.name === 'string'
+    && typeof team.formation === 'string'
+    && typeof team.createdAt === 'string'
+    && typeof team.updatedAt === 'string'
+    && Array.isArray(team.slots)
+    && team.slots.every((slot) => (
+      Boolean(slot)
+      && typeof slot === 'object'
+      && Number.isSafeInteger((slot as Record<string, unknown>).index)
+      && typeof (slot as Record<string, unknown>).position === 'string'
+    ));
+}
+
+function firstDreamTeam(payload: unknown): DreamTeam | null {
+  const values = Array.isArray(payload)
+    ? payload
+    : payload && typeof payload === 'object'
+      && Array.isArray((payload as { content?: unknown }).content)
+      ? (payload as { content: unknown[] }).content
+      : [];
+  return values.find(isDreamTeam) ?? null;
+}
+
 /**
  * Client shell for {@link PlayerFilterDialog}: owns the URL rewrite and lazily
  * loads the user's saved squads.
@@ -66,6 +93,13 @@ export function PlayerFilterLauncher({
 
   const changeOpen = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen);
+    if (!nextOpen && window.location.hash === '#marketplace-player-filter') {
+      window.history.replaceState(
+        window.history.state,
+        '',
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
     if (!nextOpen || teamLoadStartedRef.current) return;
 
     teamLoadStartedRef.current = true;
@@ -79,13 +113,8 @@ export function PlayerFilterLauncher({
       .then((response) => (response.ok ? response.json() : []))
       .then((payload) => {
         if (!controller.signal.aborted) {
-          const values = Array.isArray(payload)
-            ? payload
-            : payload && typeof payload === 'object'
-              && Array.isArray((payload as { content?: unknown }).content)
-              ? (payload as { content: unknown[] }).content
-              : [];
-          setTeams((values as DreamTeam[]).slice(0, 1));
+          const team = firstDreamTeam(payload);
+          setTeams(team ? [team] : []);
         }
       })
       .catch((error) => {

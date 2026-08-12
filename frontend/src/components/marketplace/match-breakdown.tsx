@@ -100,8 +100,8 @@ function MatchGroup({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={card.imageUrl} alt="" className="h-7 w-5 shrink-0 object-contain" />
                 )}
-                <span className="min-w-0 truncate" title={card?.name ?? `Karta #${efhubId}`}>
-                  {card?.name ?? `Maqsad karta #${efhubId}`}
+                <span className="min-w-0 truncate" title={card?.name ?? 'Tanlangan karta'}>
+                  {card?.name ?? 'Tanlangan karta'}
                 </span>
                 {priorities.has(efhubId) && (
                   <span title="Ustuvor: 3×" aria-label="Ustuvor: 3 karra">

@@ -106,8 +106,12 @@ export function PlayerFilterDialog({
         ))
       ) {
         // The launcher hydrates display metadata after mount. Merge that late
-        // snapshot only while selection identity is still untouched.
-        setPicked(selected);
+        // snapshot only while selection identity is still untouched, retaining
+        // mutable choices the user may already have made in this open session.
+        setPicked((current) => selected.map((card, index) => ({
+          ...card,
+          priority: current[index]?.priority,
+        })));
       }
     } else {
       const shouldRestoreFocus = openedRef.current;
@@ -221,6 +225,7 @@ export function PlayerFilterDialog({
               <Tabs.Content value="meta" className="outline-none">
                 <MetaTab
                   pickedIds={picked.map((c) => c.efhubId)}
+                  pickedPlayerIds={picked.flatMap((c) => c.playerId ? [c.playerId] : [])}
                   selectionFull={picked.length >= MAX_MATCH_PLAYERS}
                   onToggle={toggle}
                 />
@@ -228,6 +233,7 @@ export function PlayerFilterDialog({
               <Tabs.Content value="search" className="outline-none">
                 <SearchTab
                   pickedIds={picked.map((c) => c.efhubId)}
+                  pickedPlayerIds={picked.flatMap((c) => c.playerId ? [c.playerId] : [])}
                   selectionFull={picked.length >= MAX_MATCH_PLAYERS}
                   onToggle={toggle}
                 />
@@ -297,10 +303,12 @@ function DialogHeader() {
 
 function MetaTab({
   pickedIds,
+  pickedPlayerIds,
   selectionFull,
   onToggle,
 }: {
   pickedIds: number[];
+  pickedPlayerIds: string[];
   selectionFull: boolean;
   onToggle: (card: PlayerMatchSelection) => void;
 }) {
@@ -335,6 +343,7 @@ function MetaTab({
           <CardGrid
             cards={cards}
             pickedIds={pickedIds}
+            pickedPlayerIds={pickedPlayerIds}
             selectionFull={selectionFull}
             onToggle={onToggle}
           />
@@ -355,10 +364,12 @@ function MetaTab({
 
 function SearchTab({
   pickedIds,
+  pickedPlayerIds,
   selectionFull,
   onToggle,
 }: {
   pickedIds: number[];
+  pickedPlayerIds: string[];
   selectionFull: boolean;
   onToggle: (card: PlayerMatchSelection) => void;
 }) {
@@ -414,6 +425,7 @@ function SearchTab({
           <CardGrid
             cards={cards}
             pickedIds={pickedIds}
+            pickedPlayerIds={pickedPlayerIds}
             selectionFull={selectionFull}
             onToggle={onToggle}
           />
@@ -477,11 +489,13 @@ function TeamTab({
 function CardGrid({
   cards,
   pickedIds,
+  pickedPlayerIds,
   selectionFull,
   onToggle,
 }: {
   cards: CardSearchResult[];
   pickedIds: number[];
+  pickedPlayerIds: string[];
   selectionFull: boolean;
   onToggle: (card: PlayerMatchSelection) => void;
 }) {
@@ -489,7 +503,8 @@ function CardGrid({
     <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6">
       {cards.map((card) => {
         const isPicked = pickedIds.includes(card.efhubId);
-        const disabled = selectionFull && !isPicked;
+        const isPickedPlayer = pickedPlayerIds.includes(card.playerId);
+        const disabled = selectionFull && !isPicked && !isPickedPlayer;
         const rating = cardRating(card);
         return (
           <li key={card.efhubId}>

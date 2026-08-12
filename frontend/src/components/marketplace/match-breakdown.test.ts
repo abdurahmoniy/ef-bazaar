@@ -13,4 +13,10 @@ describe('MatchBreakdown contract', () => {
     expect(source).toContain('Boshqa nashr (75%)');
     expect(source).toContain('aria-label="Ustuvor: 3 karra"');
   });
+
+  it('never exposes internal card ids as buyer-facing fallback copy', () => {
+    expect(source).toContain('Tanlangan karta');
+    expect(source).not.toContain('Karta #');
+    expect(source).not.toContain('Maqsad karta #');
+  });
 });

@@ -91,4 +91,32 @@ describe('player filter presentation cache', () => {
     expect(parsePlayerFilterCache('{bad json')).toEqual([]);
     expect(parsePlayerFilterCache('{}')).toEqual([]);
   });
+
+  it('normalizes UUID case and never trusts an edition match from another player', () => {
+    const otherPlayerId = '22222222-2222-4222-8222-222222222222';
+    const cached = parsePlayerFilterCache(JSON.stringify([
+      {
+        efhubId: 202,
+        playerId: otherPlayerId,
+        name: 'Wrong player',
+        imageUrl: '/wrong.png',
+      },
+      {
+        efhubId: 999,
+        playerId: playerId.toUpperCase(),
+        name: 'Lionel Messi',
+        imageUrl: '/canonical-only.png',
+      },
+    ]));
+
+    expect(cached[1]?.playerId).toBe(playerId);
+    expect(mergeCachedPlayerSelections([
+      { efhubId: 202, playerId, importance: 'N' },
+    ], cached)).toEqual([{
+      efhubId: 202,
+      playerId,
+      name: 'Lionel Messi',
+      priority: false,
+    }]);
+  });
 });

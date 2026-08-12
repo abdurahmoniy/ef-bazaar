@@ -369,20 +369,38 @@ describe('PlayerFilterLauncher lifecycle', () => {
     }))).resolves.toBeUndefined();
   });
 
-  it('opens from the stable hash on mount and on later hash changes', async () => {
-    window.history.replaceState(null, '', '/marketplace#marketplace-player-filter');
+  it('owns its stable hash, preserves the public query on close, and can reopen', async () => {
+    window.history.replaceState(null, '', '/marketplace?q=Messi&view=list#marketplace-player-filter');
     await renderWithProviders(launcherNode());
     await settle();
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
     await click(buttonNamed('Yopish'));
 
-    window.history.replaceState(null, '', '/marketplace');
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
-    window.history.replaceState(null, '', '/marketplace#marketplace-player-filter');
+    expect(window.location.pathname).toBe('/marketplace');
+    expect(window.location.search).toBe('?q=Messi&view=list');
+    expect(window.location.hash).toBe('');
+
+    window.history.replaceState(null, '', '/marketplace?q=Messi&view=list#marketplace-player-filter');
     window.dispatchEvent(new HashChangeEvent('hashchange'));
     await settle();
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  });
+
+  it('ignores malformed successful Dream Team payloads', async () => {
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      if (String(input).includes('dream-teams')) {
+        return Promise.resolve(jsonResponse({ content: [{ id: 'bad', slots: null }] }));
+      }
+      return Promise.resolve(jsonResponse({ items: [], total: 0 }));
+    });
+
+    await renderWithProviders(launcherNode());
+    await click(buttonNamed('O‘yinchilar', container));
+    await clickTab('Mening jamoam');
+    await settle();
+
+    expect(document.body.textContent).toContain("Saqlangan jamoa yo'q");
+    expect(document.body.textContent).not.toContain('Jamoani tahrirlash');
   });
 
   it('routes the empty singleton-team state according to authentication', async () => {
@@ -485,12 +503,73 @@ describe('PlayerFilterDialog Telegram interactions', () => {
     expect(buttonNamed('2 o‘yinchi bo‘yicha qidirish')).toBeTruthy();
   });
 
+  it('preserves a priority-only user edit during late metadata hydration', async () => {
+    const props = {
+      open: true,
+      onOpenChange: vi.fn(),
+      teams: [] as DreamTeam[],
+      authenticated: true,
+      activeMinMatch: 4,
+      onApply: vi.fn(),
+      activeCount: 1,
+    };
+    await renderWithProviders(React.createElement(PlayerFilterDialog, {
+      ...props,
+      selected: [{ efhubId: 101, playerId, name: 'Tanlangan karta', priority: false }],
+    }));
+    await click(buttonNamed('Muhim o‘yinchi'));
+    expect(buttonNamed('Muhim o‘yinchi').getAttribute('aria-pressed')).toBe('true');
+
+    await act(async () => root.render(React.createElement(TelegramBackProvider, null,
+      React.createElement(PlayerFilterDialog, {
+        ...props,
+        selected: [{
+          efhubId: 101,
+          playerId,
+          name: 'Lionel Messi',
+          imageUrl: '/messi.png',
+          priority: false,
+        }],
+      }))));
+
+    expect(buttonNamed('Muhim o‘yinchi').getAttribute('aria-pressed')).toBe('true');
+    expect(document.body.textContent).toContain('Lionel Messi');
+  });
+
+  it('keeps alternate editions enabled when eleven distinct players are selected', async () => {
+    const selected = [
+      { efhubId: 999, playerId, name: 'Lionel Messi' },
+      ...Array.from({ length: 10 }, (_, index) => ({
+        efhubId: 1000 + index,
+        playerId: `${String(index + 10).padStart(2, '0')}111111-1111-4111-8111-111111111111`,
+        name: `Player ${index + 1}`,
+      })),
+    ];
+    await renderWithProviders(React.createElement(PlayerFilterDialog, {
+      open: true,
+      onOpenChange: vi.fn(),
+      teams: [],
+      authenticated: true,
+      selected,
+      activeMinMatch: 4,
+      onApply: vi.fn(),
+      activeCount: 11,
+    }));
+    await settle();
+
+    const editions = Array.from(document.querySelectorAll('button[title="Lionel Messi"]'));
+    expect(editions).toHaveLength(2);
+    expect(editions.every((edition) => !(edition as HTMLButtonElement).disabled)).toBe(true);
+    await click(editions[0]);
+    expect(buttonNamed('11 o‘yinchi bo‘yicha qidirish')).toBeTruthy();
+  });
+
   it('emits one haptic per mutation under StrictMode and none for a rejected twelfth pick', async () => {
     const telegram = createTelegramWebApp();
     window.Telegram = { WebApp: telegram.webApp };
     const selected = Array.from({ length: 11 }, (_, index) => ({
       efhubId: 1000 + index,
-      playerId: `${String(index + 10).padStart(2, '0')}111111-1111-4111-8111-111111111111`,
+      playerId: `${String(index + 30).padStart(2, '0')}111111-1111-4111-8111-111111111111`,
       name: `Player ${index + 1}`,
     }));
     await act(async () => root.render(React.createElement(
