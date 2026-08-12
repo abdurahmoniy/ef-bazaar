@@ -74,6 +74,7 @@ write_env() {
   upsert_env .env MARKETPLACE_DB_NAME        marketplace_db
   upsert_env .env RECOMMENDATION_DB_NAME     recommendation_db
   upsert_env .env TRADE_DB_NAME              trade_db
+  upsert_env .env PAYMENT_DB_NAME            payment_db
 
   upsert_env .env REDIS_HOST                 redis
   upsert_env .env REDIS_PORT                 6379
@@ -285,15 +286,39 @@ sync_db_password() {
   echo "==> DB password sync OK"
 }
 
+# ─── DB creation helper ─────────────────────────────────────────────────────
+# postgres' MULTIPLE_DATABASES init script only fires on a fresh data volume,
+# so on this long-lived server we create per-service databases ourselves if
+# missing. Idempotent, safe to run every deploy. Shared by trade_bootstrap
+# and payment_bootstrap.
+# ─────────────────────────────────────────────────────────────────────────────
+ensure_db() {
+  local db_name="$1"
+
+  # Only proceed with DB creation if postgres is running.
+  if ! docker compose ps --services --filter status=running | grep -q '^postgres$'; then
+    echo "!! postgres not running — skipping $db_name check"
+    return 0
+  fi
+
+  # `psql -lqt` lists databases; column 1 is the name. Trim whitespace + grep exact.
+  if docker compose exec -T postgres psql -U efbazaar -lqt 2>/dev/null \
+       | awk -F'|' '{gsub(/ /,"",$1); print $1}' \
+       | grep -qx "$db_name"; then
+    return 0
+  fi
+
+  echo "==> Creating $db_name (missing — first-run bootstrap)"
+  docker compose exec -T postgres createdb -U efbazaar "$db_name"
+}
+
 # ─── Trade-service bootstrap ────────────────────────────────────────────────
 # Idempotent, first-run bootstrap for trade-service. Safe to run every deploy.
 #
 #   1. master_key (32 raw bytes, base64) — used to derive AES-256-GCM keys for
 #      PAN, CVV, and mailbox-password at-rest encryption. Generated ONCE per
 #      environment; rotating it makes all previously-encrypted data unreadable.
-#   2. trade_db — postgres' MULTIPLE_DATABASES init script only fires on a
-#      fresh data volume, so on this long-lived server we create the DB
-#      ourselves if it's missing.
+#   2. trade_db — see ensure_db above.
 # ─────────────────────────────────────────────────────────────────────────────
 trade_bootstrap() {
   local key_file="infra/secrets/master_key"
@@ -316,21 +341,21 @@ trade_bootstrap() {
   chmod 644 "$key_file"
   chmod 700 "$(dirname "$key_file")" 2>/dev/null || true
 
-  # Only proceed with DB creation if postgres is running.
-  if ! docker compose ps --services --filter status=running | grep -q '^postgres$'; then
-    echo "!! postgres not running — skipping trade_db check"
-    return 0
-  fi
+  ensure_db "$trade_db"
+}
 
-  # `psql -lqt` lists databases; column 1 is the name. Trim whitespace + grep exact.
-  if docker compose exec -T postgres psql -U efbazaar -lqt 2>/dev/null \
-       | awk -F'|' '{gsub(/ /,"",$1); print $1}' \
-       | grep -qx "$trade_db"; then
-    return 0
-  fi
+# ─── Payment-service bootstrap ──────────────────────────────────────────────
+# Idempotent, first-run bootstrap for payment-service. Safe to run every
+# deploy.
+#
+#   payment_db — see ensure_db above. payment-service reuses trade-service's
+#   master_key (already provisioned by trade_bootstrap), so no secret
+#   handling is needed here.
+# ─────────────────────────────────────────────────────────────────────────────
+payment_bootstrap() {
+  local payment_db="${PAYMENT_DB_NAME:-payment_db}"
 
-  echo "==> Creating $trade_db (missing — first-run bootstrap)"
-  docker compose exec -T postgres createdb -U efbazaar "$trade_db"
+  ensure_db "$payment_db"
 }
 
 # ─── Smart-admin-worker bootstrap ──────────────────────────────────────────
@@ -391,6 +416,7 @@ docker compose pull
 docker compose up -d postgres
 sync_db_password
 trade_bootstrap
+payment_bootstrap
 sa_worker_bootstrap
 
 # Force-all override
