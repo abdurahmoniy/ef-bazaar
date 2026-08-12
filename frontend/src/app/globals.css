@@ -55,11 +55,12 @@
     --app-content-safe-bottom: max(var(--app-safe-bottom), var(--tg-content-safe-area-inset-bottom, 0px));
     --app-content-safe-left: max(var(--app-safe-left), var(--tg-content-safe-area-inset-left, 0px));
     --marketplace-bottom-bar-height: calc(3.5rem + var(--app-content-safe-bottom));
+    --marketplace-action-bar-reserve: calc(7rem + var(--app-content-safe-bottom));
   }
 
   .dark {
     /* Near-black navy — shared blue undertone unifies with primary/capsules */
-    --background: 240 35% 4%;
+    --background: 240 28% 4.901960784313726%;
     --foreground: 240 15% 94%;
 
     --card: 240 45% 8%;

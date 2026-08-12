@@ -34,8 +34,21 @@ export function useTheme() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setTheme(readTheme());
+    const syncThemeState = () => setTheme(readTheme());
+    const observer = new MutationObserver(syncThemeState);
+
+    syncThemeState();
     setMounted(true);
+    window.addEventListener('efbazaar:theme-change', syncThemeState);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-resolved-theme'],
+    });
+
+    return () => {
+      window.removeEventListener('efbazaar:theme-change', syncThemeState);
+      observer.disconnect();
+    };
   }, []);
 
   return {
@@ -43,7 +56,8 @@ export function useTheme() {
     isDark: theme === 'dark',
     mounted,
     toggle() {
-      const next: AppTheme = theme === 'dark' ? 'light' : 'dark';
+      const current = readTheme();
+      const next: AppTheme = current === 'dark' ? 'light' : 'dark';
       applyTheme(next);
       setTheme(next);
     },

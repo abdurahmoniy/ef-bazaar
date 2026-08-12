@@ -141,7 +141,15 @@ export function MarketplaceShell({
   const desktopLinks = buildDesktopLinks();
 
   return (
-    <div className="min-h-app bg-background pb-[var(--marketplace-bottom-bar-height)] md:pb-0">
+    <div
+      className={cn(
+        'min-h-app bg-background',
+        mobileActionBar
+          ? 'pb-[var(--marketplace-action-bar-reserve)]'
+          : 'pb-[var(--marketplace-bottom-bar-height)]',
+        'md:pb-0',
+      )}
+    >
       <header className="sticky top-0 z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)]">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-2 px-4 sm:gap-3">
           {backHref && <TopBackButton href={backHref} label={backLabel} className="-ml-2" />}
