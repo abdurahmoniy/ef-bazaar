@@ -52,10 +52,15 @@ export function reduceSearchChrome(
     };
   }
   if (action.type === 'landscape') {
+    const active = state.focused || state.sessionOpen;
     return {
       ...state,
       shortLandscape: action.short,
-      phase: action.short && !state.focused ? 'compact' : state.phase,
+      phase: action.short
+        ? active ? 'expanded' : 'compact'
+        : active || state.lastY <= 8 ? 'expanded' : state.phase,
+      direction: 'none',
+      directionAnchorY: state.lastY,
     };
   }
 
@@ -87,7 +92,12 @@ export function reduceSearchChrome(
   const anchor = direction !== state.direction ? state.lastY : state.directionAnchorY;
   let phase = state.phase;
 
-  if (direction === 'down' && y >= COLLAPSE_AFTER_Y && y - anchor >= HYSTERESIS) {
+  if (
+    phase === 'expanded'
+    && direction === 'down'
+    && y >= COLLAPSE_AFTER_Y
+    && y - anchor >= HYSTERESIS
+  ) {
     phase = 'collapsing';
   }
   if (direction === 'up' && anchor - y >= HYSTERESIS) phase = 'expanded';

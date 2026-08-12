@@ -57,6 +57,58 @@ describe('marketplace search chrome', () => {
     expect(focused.phase).toBe('expanded');
   });
 
+  it('keeps an open session or focused search expanded when short landscape activates', () => {
+    let open = reduceSearchChrome(initialSearchChromeState(false), { type: 'open' });
+    open = reduceSearchChrome(open, { type: 'landscape', short: true });
+    expect(open).toMatchObject({
+      phase: 'expanded',
+      sessionOpen: true,
+      shortLandscape: true,
+    });
+
+    let focused = reduceSearchChrome(initialSearchChromeState(false), { type: 'focus' });
+    focused = reduceSearchChrome(focused, { type: 'landscape', short: true });
+    expect(focused).toMatchObject({
+      phase: 'expanded',
+      focused: true,
+      shortLandscape: true,
+    });
+  });
+
+  it('restores ordinary top state when leaving short landscape and preserves compact away from top', () => {
+    let atTop = reduceSearchChrome(initialSearchChromeState(false), {
+      type: 'landscape',
+      short: true,
+    });
+    atTop = reduceSearchChrome(atTop, { type: 'landscape', short: false });
+    expect(atTop).toMatchObject({ phase: 'expanded', shortLandscape: false });
+
+    let scrolled = reduceSearchChrome(initialSearchChromeState(false), { type: 'scroll', y: 100 });
+    scrolled = reduceSearchChrome(scrolled, { type: 'transitionEnd' });
+    scrolled = reduceSearchChrome(scrolled, { type: 'landscape', short: true });
+    scrolled = reduceSearchChrome(scrolled, { type: 'landscape', short: false });
+    expect(scrolled).toMatchObject({
+      phase: 'compact',
+      lastY: 100,
+      direction: 'none',
+      directionAnchorY: 100,
+      shortLandscape: false,
+    });
+    expect(reduceSearchChrome(scrolled, { type: 'scroll', y: 76 }).phase).toBe('expanded');
+  });
+
+  it('never re-enters collapsing from compact on continued downward scroll', () => {
+    let state = initialSearchChromeState(false);
+    state = reduceSearchChrome(state, { type: 'scroll', y: 60 });
+    state = reduceSearchChrome(state, { type: 'scroll', y: 73 });
+    state = reduceSearchChrome(state, { type: 'scroll', y: 98 });
+    state = reduceSearchChrome(state, { type: 'transitionEnd' });
+    expect(state.phase).toBe('compact');
+
+    state = reduceSearchChrome(state, { type: 'scroll', y: 110 });
+    expect(state.phase).toBe('compact');
+  });
+
   it('opens and closes a compact search session explicitly', () => {
     let state: SearchChromeState = {
       ...initialSearchChromeState(false),
@@ -96,8 +148,8 @@ describe('marketplace navigation source contract', () => {
     expect(navigation).toContain('event.ctrlKey');
     expect(navigation).toContain('event.shiftKey');
     expect(navigation).toContain('event.altKey');
-    expect(navigation).toContain('event.button !== 0');
-    expect(navigation).toContain("target === '_blank'");
+    expect(navigation).toContain('button === 0');
+    expect(navigation).toContain('shouldInterceptMarketplaceLinkClick');
     expect(navigation).toContain('event.preventDefault()');
     expect(navigation).toContain('download');
     expect(navigation).toContain('external');

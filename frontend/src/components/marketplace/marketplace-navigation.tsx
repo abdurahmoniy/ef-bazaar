@@ -62,6 +62,39 @@ function isExternalHref(href: string) {
   }
 }
 
+export interface MarketplaceLinkClickDecision {
+  navigationAvailable: boolean;
+  external: boolean;
+  download?: string | boolean;
+  defaultPrevented: boolean;
+  metaKey: boolean;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+  button: number;
+  target?: string;
+}
+
+export function shouldInterceptMarketplaceLinkClick({
+  navigationAvailable,
+  external,
+  download,
+  defaultPrevented,
+  metaKey,
+  ctrlKey,
+  shiftKey,
+  altKey,
+  button,
+  target,
+}: MarketplaceLinkClickDecision) {
+  if (!navigationAvailable || external || (download !== undefined && download !== false)) {
+    return false;
+  }
+  const modified = metaKey || ctrlKey || shiftKey || altKey;
+  const opensAnotherContext = Boolean(target) && target?.toLowerCase() !== '_self';
+  return !defaultPrevented && !modified && button === 0 && !opensAnotherContext;
+}
+
 export function MarketplacePendingLink({
   href,
   target,
@@ -80,11 +113,18 @@ export function MarketplacePendingLink({
       onClick={(event) => {
         onClick?.(event);
         const external = isExternalHref(href);
-        if (!navigation || external || (download !== undefined && download !== false)) {
-          return;
-        }
-        const modified = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
-        if (event.defaultPrevented || modified || event.button !== 0 || target === '_blank') return;
+        if (!navigation || !shouldInterceptMarketplaceLinkClick({
+          navigationAvailable: Boolean(navigation),
+          external,
+          download,
+          defaultPrevented: event.defaultPrevented,
+          metaKey: event.metaKey,
+          ctrlKey: event.ctrlKey,
+          shiftKey: event.shiftKey,
+          altKey: event.altKey,
+          button: event.button,
+          target,
+        })) return;
         event.preventDefault();
         navigation.navigate(href);
       }}
