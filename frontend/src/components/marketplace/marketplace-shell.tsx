@@ -141,8 +141,8 @@ export function MarketplaceShell({
   const desktopLinks = buildDesktopLinks();
 
   return (
-    <div className="min-h-app bg-background pb-24 md:pb-0">
-      <header className="sticky top-0 z-40 border-b border-border surface-nav pt-[env(safe-area-inset-top)]">
+    <div className="min-h-app bg-background pb-[var(--marketplace-bottom-bar-height)] md:pb-0">
+      <header className="sticky top-0 z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)]">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-2 px-4 sm:gap-3">
           {backHref && <TopBackButton href={backHref} label={backLabel} className="-ml-2" />}
           <Logo size="sm" href="/marketplace" />
@@ -259,13 +259,13 @@ export function MarketplaceShell({
 
       {mobileActionBar ? (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden">
-          <div className="mx-auto w-full max-w-6xl px-4 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))]">
+          <div className="mx-auto w-full max-w-6xl px-4 py-2.5 pb-[calc(0.625rem+var(--app-content-safe-bottom))]">
             {mobileActionBar}
           </div>
         </div>
       ) : (
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden">
-          <div className="mx-auto grid max-w-md grid-cols-5 px-1 pb-[env(safe-area-inset-bottom)]">
+          <div className="mx-auto grid max-w-md grid-cols-5 px-1 pb-[var(--app-content-safe-bottom)]">
             {items.map((item) => (
               <MobileNavLink key={item.id} item={item} active={item.id === activeTab} />
             ))}

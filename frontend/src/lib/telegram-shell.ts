@@ -32,6 +32,20 @@ export function resolveAppTheme(
   return systemDark ? 'dark' : 'light';
 }
 
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+/** Selects Telegram's stable viewport when usable, then its live viewport. */
+export function selectTelegramViewportHeight(
+  stableHeight: unknown,
+  viewportHeight: unknown,
+): number | undefined {
+  if (isPositiveFiniteNumber(stableHeight)) return stableHeight;
+  if (isPositiveFiniteNumber(viewportHeight)) return viewportHeight;
+  return undefined;
+}
+
 function cssPixel(value: unknown): string | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0
     ? `${value}px`

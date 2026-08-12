@@ -89,7 +89,7 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b0b0f' },
+    { media: '(prefers-color-scheme: dark)', color: '#090910' },
   ],
 };
 
@@ -105,11 +105,11 @@ export default function RootLayout({
           src="https://telegram.org/js/telegram-web-app.js?63"
           strategy="beforeInteractive"
         />
+        {/* Independent raw fallback: stored/system theme still initializes if the SDK fails. */}
+        <ThemeScript />
       </head>
       <body className="font-sans">
-        {/* No-flash theme init — must run before hydration */}
-        <ThemeScript />
-        {/* Mini App SDK bootstrap — ready/expand/theme/viewport, no auth */}
+        {/* Syncs the first visible Mini App state before calling Telegram ready. */}
         <TelegramViewportBootstrap />
         {/* Telegram Mini App context aniqlansa har qanday entry point'da auto-login */}
         <TelegramWebAppAutoLogin />

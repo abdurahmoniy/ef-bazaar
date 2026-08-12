@@ -7,13 +7,16 @@ import { getTelegramWebApp } from '@/lib/telegram';
 import {
   APP_CHROME_COLORS,
   resolveAppTheme,
+  selectTelegramViewportHeight,
   telegramCssVariables,
 } from '@/lib/telegram-shell';
 import type { TelegramWebAppEvent, TelegramWebAppEventCallback } from '@/lib/types';
 
 /**
- * Synchronizes the already-loaded Telegram SDK with browser theme, viewport,
- * and safe-area state. The SDK is loaded in the root layout before first paint.
+ * Synchronizes Telegram with browser theme, viewport, and safe-area state
+ * before ready dismisses Telegram's loading placeholder, so the first visible Mini App state
+ * already has the correct chrome. The raw theme fallback remains independent
+ * of the external SDK request in the root layout.
  *
  * No visual output — mirrors `TelegramWebAppAutoLogin`, which handles login
  * separately and is left untouched by this component.
@@ -37,8 +40,12 @@ export function TelegramViewportBootstrap() {
     const syncCssVariables = () => {
       safely(() => {
         const root = document.documentElement;
+        const viewportHeight = selectTelegramViewportHeight(
+          webApp.viewportStableHeight,
+          webApp.viewportHeight,
+        );
         const variables = telegramCssVariables(
-          webApp.viewportStableHeight ?? webApp.viewportHeight,
+          viewportHeight,
           webApp.safeAreaInset,
           webApp.contentSafeAreaInset,
         );
@@ -74,11 +81,6 @@ export function TelegramViewportBootstrap() {
       });
     };
 
-    safely(() => webApp.ready());
-    safely(() => webApp.expand?.());
-    syncCssVariables();
-    syncTheme();
-
     const eventCallbacks: Array<[TelegramWebAppEvent, TelegramWebAppEventCallback]> = [
       ['viewportChanged', syncCssVariables],
       ['safeAreaChanged', syncCssVariables],
@@ -89,14 +91,33 @@ export function TelegramViewportBootstrap() {
       safely(() => webApp.onEvent?.(event, callback));
     }
 
-    safely(() => mediaQuery?.addEventListener('change', syncTheme));
+    let systemThemeListenerApi: 'event' | 'legacy' | undefined;
+    if (typeof mediaQuery?.addEventListener === 'function') {
+      safely(() => {
+        mediaQuery?.addEventListener('change', syncTheme);
+        systemThemeListenerApi = 'event';
+      });
+    } else if (typeof mediaQuery?.addListener === 'function') {
+      safely(() => {
+        mediaQuery?.addListener(syncTheme);
+        systemThemeListenerApi = 'legacy';
+      });
+    }
     safely(() => window.addEventListener('efbazaar:theme-change', syncTheme));
+    safely(() => webApp.expand?.());
+    syncCssVariables();
+    syncTheme();
+    safely(() => webApp.ready());
 
     return () => {
       for (const [event, callback] of eventCallbacks) {
         safely(() => webApp.offEvent?.(event, callback));
       }
-      safely(() => mediaQuery?.removeEventListener('change', syncTheme));
+      if (systemThemeListenerApi === 'event') {
+        safely(() => mediaQuery?.removeEventListener('change', syncTheme));
+      } else if (systemThemeListenerApi === 'legacy') {
+        safely(() => mediaQuery?.removeListener(syncTheme));
+      }
       safely(() => window.removeEventListener('efbazaar:theme-change', syncTheme));
     };
   }, []);
