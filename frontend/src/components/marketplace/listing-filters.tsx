@@ -1,7 +1,10 @@
+'use client'
+
 import { SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 
 import { CardPickerField } from '@/components/marketplace/card-picker-field'
+import { MarketplacePendingLink } from '@/components/marketplace/marketplace-navigation'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -12,6 +15,9 @@ import {
 	PLATFORM_FILTER_OPTIONS,
 	type MarketplaceFilterId,
 } from '@/lib/marketplace-format'
+import { getTelegramWebApp } from '@/lib/telegram'
+import { telegramHaptic } from '@/lib/telegram-shell'
+import { marketplaceHref, setMarketplaceQuickFilter } from '@/lib/marketplace-query'
 import { LISTING_SORT_OPTIONS, paramToSortId } from '@/lib/marketplace-sort'
 import { cn } from '@/lib/utils'
 
@@ -320,48 +326,43 @@ export function ListingFiltersForm({
 
 export function QuickChips({
 	activeFilter,
-	query,
-	view,
 	currentQuery,
 }: {
 	activeFilter: MarketplaceFilterId
-	query?: string
-	view?: 'grid' | 'list'
 	currentQuery?: string
 }) {
 	return (
 		<div className='snap-rail gap-2 pb-1'>
 			{MARKETPLACE_FILTERS.map((filter) => (
-				<Link
+				<MarketplacePendingLink
 					key={filter.id}
-					href={filterHref(filter.id, query, view, currentQuery)}
+					href={marketplaceHref(setMarketplaceQuickFilter(
+						new URLSearchParams(currentQuery),
+						filter.id,
+					))}
 					aria-current={filter.id === activeFilter ? 'page' : undefined}
+					onClick={(event) => {
+						if (filter.id === activeFilter) return
+						const modified = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+						if (event.defaultPrevented || modified || event.button !== 0) return
+						let reducedMotion = false
+						try {
+							reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+						} catch {}
+						const webApp = getTelegramWebApp()
+						if (!webApp?.initData.trim()) return
+						telegramHaptic(webApp, 'selection', reducedMotion)
+					}}
 					className={cn(
-						'tap-press inline-flex shrink-0 items-center min-h-10 rounded-full border px-4 py-2 text-sm font-semibold transition',
+						'tap-press inline-flex min-h-11 shrink-0 items-center rounded-full border px-4 py-2 text-sm font-semibold transition',
 						filter.id === activeFilter
 							? 'border-primary bg-primary text-primary-foreground shadow-sm'
 							: 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
 					)}
 				>
 					{filter.label}
-				</Link>
+				</MarketplacePendingLink>
 			))}
 		</div>
 	)
-}
-
-function filterHref(
-	filterId: MarketplaceFilterId,
-	query?: string,
-	view?: 'grid' | 'list',
-	currentQuery?: string,
-) {
-	const params = new URLSearchParams(currentQuery)
-	params.delete('filter')
-	params.delete('page')
-	if (filterId !== 'all') params.set('filter', filterId)
-	if (query?.trim()) params.set('q', query.trim())
-	if (view === 'list') params.set('view', 'list')
-	const serialized = params.toString()
-	return serialized ? `/marketplace?${serialized}` : '/marketplace'
 }

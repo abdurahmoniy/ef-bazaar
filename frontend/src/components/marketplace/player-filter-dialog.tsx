@@ -126,7 +126,7 @@ export function PlayerFilterDialog({
             className="pointer-events-none absolute inset-0 animate-pulse rounded-lg ring-1 ring-amber-400/40 motion-reduce:animate-none"
           />
           <Flame className="h-4 w-4" />
-          <span className="hidden sm:inline">META</span>
+          <span>O‘yinchilar</span>
           {activeCount > 0 && (
             <span className="grid h-5 min-w-5 place-items-center rounded-full bg-amber-400 px-1 text-[11px] font-black text-amber-950">
               {activeCount}

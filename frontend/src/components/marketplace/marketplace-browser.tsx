@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LayoutGrid, List, Package2, Plus } from 'lucide-react';
+import { Package2, Plus } from 'lucide-react';
 
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { AppliedFilterChips } from '@/components/marketplace/applied-filter-chips';
@@ -11,14 +11,15 @@ import {
 } from '@/components/marketplace/listing-filters';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
 import { MobileFilterSheet } from '@/components/marketplace/mobile-filter-sheet';
+import {
+  MarketplaceResultsRegion,
+  MarketplaceToolbar,
+} from '@/components/marketplace/marketplace-toolbar';
 import { PlayerFilterLauncher } from '@/components/marketplace/player-filter-launcher';
-import { SortMenu, type SortMenuOption } from '@/components/marketplace/sort-menu';
+import { type SortMenuOption } from '@/components/marketplace/sort-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import {
-  formatCompactNumber,
-  type MarketplaceFilterId,
-} from '@/lib/marketplace-format';
+import { type MarketplaceFilterId } from '@/lib/marketplace-format';
 import {
   buildAppliedMarketplaceFilters,
   generalAppliedFilterCount,
@@ -28,7 +29,6 @@ import {
   marketplaceHref,
   setMarketplacePage,
   setMarketplaceSort,
-  setMarketplaceView,
   type MarketplaceView,
 } from '@/lib/marketplace-query';
 import { LISTING_SORT_OPTIONS, paramToSortId } from '@/lib/marketplace-sort';
@@ -39,7 +39,7 @@ import type {
   PageResponse,
 } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
-import { parsePlayerMatchValues, strictnessLabel } from '@/lib/player-match-query';
+import { parsePlayerMatchValues } from '@/lib/player-match-query';
 
 interface MarketplaceBrowserProps {
   filters: ListingBrowseParams;
@@ -105,49 +105,46 @@ export function MarketplaceBrowser({
     label: option.label,
     href: marketplaceHref(setMarketplaceSort(rawParams, option.param)),
   }));
+  const activeSortId = paramToSortId(filters.sort);
+  const activeSortLabel = LISTING_SORT_OPTIONS.find((option) => option.id === activeSortId)?.label
+    ?? LISTING_SORT_OPTIONS[0].label;
+  const title = query ? `“${query}” bo‘yicha natijalar` : 'eFootball akkountlar';
+
+  const filterTrigger = (
+    <MobileFilterSheet activeCount={generalFilterCount}>
+      <ListingFiltersForm {...filterProps} />
+    </MobileFilterSheet>
+  );
+  const playerTrigger = (
+    <PlayerFilterLauncher
+      currentQuery={currentQuery}
+      activeMatchCards={playerFilterCount > 0 ? filters.matchCards : []}
+      activeMinMatch={activeMatch.strictness}
+    />
+  );
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:gap-6">
       <ListingFilters {...filterProps} />
 
-      <section className="min-w-0 space-y-3">
-        <BrowseHeader
-          activeFilter={activeFilter}
-          query={query}
-          view={view}
+      <MarketplaceResultsRegion>
+        <MarketplaceToolbar
+          title={title}
           totalElements={page?.totalElements ?? 0}
+          filterTrigger={filterTrigger}
+          playerTrigger={playerTrigger}
           sortOptions={sortOptions}
-          activeSortId={paramToSortId(filters.sort)}
-          currentQuery={currentQuery}
-          activeMatchCards={playerFilterCount > 0 ? filters.matchCards : []}
-          activeMinMatch={activeMatch.strictness}
-        />
-
-        {playerFilterCount > 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-semibold">
-            <span>{activeMatch.criteria.length} o‘yinchi</span>
-            <span>•</span>
-            <span>{activeMatch.criteria.filter((criterion) => criterion.importance === 'P').length} ustuvor</span>
-            <span>•</span>
-            <span>{strictnessLabel(activeMatch.strictness)}</span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2">
-          <div className="shrink-0 lg:hidden">
-            <MobileFilterSheet activeCount={generalFilterCount}>
-              <ListingFiltersForm {...filterProps} />
-            </MobileFilterSheet>
-          </div>
-          <div className="min-w-0 flex-1">
+          activeSortId={activeSortId}
+          activeSortLabel={activeSortLabel}
+          rawQuery={currentQuery}
+          view={view}
+          quickChips={(
             <QuickChips
               activeFilter={activeFilter}
-              query={query}
-              view={displayView}
               currentQuery={currentQuery}
             />
-          </div>
-        </div>
+          )}
+        />
 
         <AppliedFilterChips items={appliedFilters} rawQuery={currentQuery} />
 
@@ -187,7 +184,7 @@ export function MarketplaceBrowser({
             />
           </>
         )}
-      </section>
+      </MarketplaceResultsRegion>
     </div>
   );
 }
@@ -202,76 +199,6 @@ export function MarketplaceBrowserSkeleton() {
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} className="h-60 rounded-xl sm:h-72" />
           ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BrowseHeader({
-  activeFilter,
-  query,
-  view,
-  totalElements,
-  sortOptions,
-  activeSortId,
-  currentQuery,
-  activeMatchCards,
-  activeMinMatch,
-}: {
-  activeFilter: MarketplaceFilterId;
-  query?: string;
-  view: MarketplaceView;
-  totalElements: number;
-  sortOptions: SortMenuOption[];
-  activeSortId: string;
-  currentQuery: string;
-  activeMatchCards?: string[];
-  activeMinMatch: number;
-}) {
-  return (
-    <div className="flex items-end justify-between gap-3">
-      <div className="min-w-0">
-        {/* Eyebrow is redundant on a phone — the tab bar already says where you are. */}
-        <p className="hidden text-xs font-bold uppercase tracking-wide text-primary sm:block">
-          Marketplace
-        </p>
-        <h1 className="line-clamp-2 text-lg font-black leading-tight text-foreground sm:mt-1 sm:text-2xl">
-          {query ? `"${query}" bo'yicha natijalar` : 'eFootball akkountlar'}
-        </h1>
-        <p className="mt-0.5 text-xs font-semibold text-muted-foreground sm:mt-1">
-          {formatCompactNumber(totalElements)} ta e'lon
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <PlayerFilterLauncher
-          currentQuery={currentQuery}
-          activeMatchCards={activeMatchCards}
-          activeMinMatch={activeMinMatch}
-        />
-        <SortMenu options={sortOptions} activeId={activeSortId} />
-
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-card">
-        <Link
-          href={marketplaceHref(setMarketplaceView(new URLSearchParams(currentQuery), 'auto'))}
-          className={cn(
-            'tap-press grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition sm:h-10 sm:w-10',
-            (view === 'grid' || view === 'auto') && 'bg-accent text-accent-foreground',
-          )}
-          aria-label="Katak ko'rinishi"
-        >
-          <LayoutGrid className="h-4 w-4" />
-        </Link>
-        <Link
-          href={marketplaceHref(setMarketplaceView(new URLSearchParams(currentQuery), 'list'))}
-          className={cn(
-            'tap-press grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition sm:h-10 sm:w-10',
-            view === 'list' && 'bg-accent text-accent-foreground',
-          )}
-          aria-label="Ro'yxat ko'rinishi"
-        >
-          <List className="h-4 w-4" />
-        </Link>
         </div>
       </div>
     </div>
