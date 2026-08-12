@@ -61,10 +61,12 @@ export function ResponsiveListingGridSkeleton({
             data-layout="auto"
           >
             <div className="listing-card__media aspect-[4/3] animate-pulse bg-muted motion-reduce:animate-none" />
-            <div className="listing-card__content space-y-2 p-3">
-              <div className="h-5 w-2/3 rounded bg-muted" />
-              <div className="h-4 w-full rounded bg-muted" />
-              <div className="h-4 w-1/2 rounded bg-muted" />
+            <div className="listing-card__content space-y-3 p-3">
+              <div data-skeleton-price className="h-5 w-2/3 rounded bg-muted" />
+              <div data-skeleton-facts className="listing-card__facts grid gap-2">
+                <div className="h-10 rounded-lg bg-muted" />
+                <div className="h-10 rounded-lg bg-muted" />
+              </div>
             </div>
           </li>
         ))}

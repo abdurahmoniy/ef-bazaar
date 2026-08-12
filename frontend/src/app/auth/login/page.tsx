@@ -11,6 +11,7 @@ import {
 import { getMe } from '@/lib/auth'
 import { resolveAuthPageUser } from '@/lib/auth-page'
 import { resolvePostLoginPath } from '@/lib/safe-redirect'
+import { telegramAuthErrorMessage } from '@/lib/telegram-auth-error'
 import { LoginForm } from './login-form'
 
 export const dynamic = 'force-dynamic'
@@ -19,11 +20,11 @@ export const metadata: Metadata = {
 }
 
 interface LoginPageProps {
-	searchParams?: Promise<{ from?: string }>
+	searchParams?: Promise<{ from?: string; error?: string }>
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-	const { from } = (searchParams ? await searchParams : {}) as { from?: string }
+	const { from, error } = (searchParams ? await searchParams : {}) as { from?: string; error?: string }
 	// `from=` bilan kelgan bo'lsa (masalan mail.efbazaar.uz dan) login'dan
 	// keyin o'sha yerga qaytamiz — allaqachon login bo'lgan user ham.
 	if (await resolveAuthPageUser(getMe)) redirect(resolvePostLoginPath(from))
@@ -45,6 +46,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 					botUsername={botUsername}
 					googleClientId={googleClientId}
 					from={from}
+					initialError={telegramAuthErrorMessage(error)}
 				/>
 			</CardContent>
 		</Card>

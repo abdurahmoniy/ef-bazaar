@@ -327,6 +327,7 @@
 
   .listing-card {
     scroll-margin-top: calc(var(--marketplace-sticky-height, 7rem) + 0.75rem);
+    container-type: inline-size;
   }
 
   .marketplace-listings {
@@ -336,52 +337,32 @@
   }
 
   .listing-card[data-layout='horizontal'],
-  .listing-card[data-layout='auto'] {
-    display: grid;
-    grid-template-columns: minmax(104px, 34%) minmax(0, 1fr);
-  }
-
+  .listing-card[data-layout='auto'],
   .listing-card[data-layout='vertical'] {
     display: flex;
     flex-direction: column;
   }
 
-  .listing-card[data-layout='horizontal'] .listing-card__media,
-  .listing-card[data-layout='auto'] .listing-card__media {
-    align-self: start;
+  @container (min-width: 360px) {
+    .listing-card__facts {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 
-  .listing-card[data-layout='horizontal'] .listing-card__favorite,
-  .listing-card[data-layout='auto'] .listing-card__favorite {
-    right: auto;
-    left: 0.5rem;
+  .listing-card__facts > :only-child {
+    grid-column: 1 / -1;
   }
 
-  @container (min-width: 380px) {
+  @container (min-width: 520px) {
     .marketplace-listings:not([data-view='list']) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .listing-card[data-layout='auto'] {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .listing-card[data-layout='auto'] .listing-card__favorite {
-      right: 0.5rem;
-      left: auto;
-    }
   }
 
   @container (min-width: 696px) {
     .marketplace-listings:not([data-view='list']) {
       grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
-
-  @container (min-width: 932px) {
-    .marketplace-listings[data-view='grid'] {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
   }
 
