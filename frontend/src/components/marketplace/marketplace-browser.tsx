@@ -2,6 +2,7 @@ import { AppliedFilterChips } from '@/components/marketplace/applied-filter-chip
 import { ListingFilters, QuickChips } from '@/components/marketplace/listing-filters';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
 import { MarketplaceFilterSheet } from '@/components/marketplace/marketplace-filter-sheet';
+import { MarketplaceScrollRestorer } from '@/components/marketplace/marketplace-scroll-restorer';
 import {
   MarketplaceResultsRegion,
   MarketplaceToolbar,
@@ -136,6 +137,10 @@ export function MarketplaceBrowser({
               view={view}
               rawQuery={currentQuery}
               matchCriteria={activeMatch.criteria}
+            />
+            <MarketplaceScrollRestorer
+              rawQuery={currentQuery}
+              listingIds={page.content.map((listing) => listing.id)}
             />
             <ListingsPagination
               page={page.page}

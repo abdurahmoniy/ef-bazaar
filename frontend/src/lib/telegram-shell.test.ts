@@ -223,9 +223,12 @@ describe('Telegram shell source contract', () => {
   });
 
   it('consumes semantic safe areas throughout the marketplace shell', () => {
-    expect(marketplaceShell).toContain("? 'pb-[var(--marketplace-action-bar-reserve)]'");
-    expect(marketplaceShell).toContain(": 'pb-[var(--marketplace-bottom-bar-height)]'");
-    expect(marketplaceShell).toContain("'md:pb-0'");
+    expect(marketplaceShell).toContain('<MeasuredBottomBar');
+    expect(marketplaceShell).toContain('key="marketplace-action-bar"');
+    expect(marketplaceShell).toContain('key="marketplace-tab-bar"');
+    expect(globals).toContain(
+      'padding-bottom: calc(var(--marketplace-bottom-bar-height, 3.5rem) + 1rem);',
+    );
     expect(marketplaceShell).toContain('pt-[var(--app-content-safe-top)]');
     expect(marketplaceShell).toContain(
       'pb-[calc(0.625rem+var(--app-content-safe-bottom))]',

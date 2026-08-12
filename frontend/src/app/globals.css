@@ -55,7 +55,6 @@
     --app-content-safe-bottom: max(var(--app-safe-bottom), var(--tg-content-safe-area-inset-bottom, 0px));
     --app-content-safe-left: max(var(--app-safe-left), var(--tg-content-safe-area-inset-left, 0px));
     --marketplace-bottom-bar-height: calc(3.5rem + var(--app-content-safe-bottom));
-    --marketplace-action-bar-reserve: calc(7rem + var(--app-content-safe-bottom));
     --marketplace-sticky-height: calc(3.5rem + var(--app-content-safe-top));
   }
 
@@ -322,6 +321,14 @@
     container-type: inline-size;
   }
 
+  .marketplace-shell-content {
+    padding-bottom: calc(var(--marketplace-bottom-bar-height, 3.5rem) + 1rem);
+  }
+
+  .listing-card {
+    scroll-margin-top: calc(var(--marketplace-sticky-height, 7rem) + 0.75rem);
+  }
+
   .marketplace-listings {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -393,6 +400,12 @@
     .marketplace-toolbar-actions {
       display: flex;
       gap: 0.5rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .marketplace-shell-content {
+      padding-bottom: 1.5rem;
     }
   }
 
@@ -481,6 +494,10 @@
    state. Before JavaScript can synchronize matchMedia in a layout effect,
    render the short-landscape shell compact so no expanded header flashes. */
 @media (orientation: landscape) and (max-height: 480px) {
+  .marketplace-verification-copy {
+    display: none;
+  }
+
   .marketplace-search--collapsible[data-short-landscape='false'][data-session-open='false'] {
     order: 0;
     flex: 0 0 2.75rem;

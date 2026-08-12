@@ -31,6 +31,8 @@ interface ListingCardProps {
   /** Originating marketplace query so detail and Back preserve match context. */
   detailQuery?: string;
   priority?: boolean;
+  /** Opted in only by the main marketplace feed. */
+  trackFeedNavigation?: boolean;
   /** Compatibility for profile, landing, and related-listing callers. */
   variant?: 'grid' | 'list';
 }
@@ -41,6 +43,7 @@ export function ListingCard({
   matchCriteria = [],
   detailQuery = '',
   priority = false,
+  trackFeedNavigation = false,
   variant,
 }: ListingCardProps) {
   const resolvedLayout = layout ?? (variant === 'list' ? 'horizontal' : 'vertical');
@@ -62,6 +65,7 @@ export function ListingCard({
         listingId={listing.id}
         href={`/marketplace/${listing.id}`}
         rawQuery={detailQuery}
+        trackFeedNavigation={trackFeedNavigation}
         className="absolute inset-0 z-10 cursor-pointer rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <span className="sr-only">{model.title} e&apos;lonini ochish</span>

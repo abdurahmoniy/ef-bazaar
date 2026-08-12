@@ -11,6 +11,7 @@ import {
 import { ChatsUnreadBadge } from '@/components/chat/chats-unread-badge';
 import { Logo } from '@/components/brand/logo';
 import { MarketplaceSearch } from '@/components/marketplace/marketplace-search';
+import { MeasuredBottomBar } from '@/components/marketplace/measured-bottom-bar';
 import { SlidingNav, type SlidingNavItem } from '@/components/navigation/sliding-nav';
 import { TopBackButton } from '@/components/navigation/top-back-button';
 import { UserMenu } from '@/components/navigation/user-menu';
@@ -148,13 +149,7 @@ export function MarketplaceShell({
   return (
     <div
       data-marketplace-shell
-      className={cn(
-        'min-h-app bg-background',
-        mobileActionBar
-          ? 'pb-[var(--marketplace-action-bar-reserve)]'
-          : 'pb-[var(--marketplace-bottom-bar-height)]',
-        'md:pb-0',
-      )}
+      className="min-h-app bg-background"
     >
       <header className="sticky top-0 z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)]">
         <div className="mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center gap-x-2 px-4 sm:h-14 sm:flex-nowrap sm:gap-3">
@@ -233,7 +228,7 @@ export function MarketplaceShell({
         <div className="border-b border-border/70 bg-amber-50/70 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
           <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-1.5 text-[11px] font-semibold">
             <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">
+            <span className="marketplace-verification-copy min-w-0 flex-1 truncate">
               Akkount tasdiqlanmagan — Telegram va Google ulang
             </span>
             <Link
@@ -246,24 +241,32 @@ export function MarketplaceShell({
         </div>
       )}
 
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 md:py-6">
+      <main className="marketplace-shell-content mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-4 md:py-6">
         {children}
       </main>
 
       {mobileActionBar ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden">
+        <MeasuredBottomBar
+          key="marketplace-action-bar"
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden"
+        >
           <div className="mx-auto w-full max-w-6xl px-4 py-2.5 pb-[calc(0.625rem+var(--app-content-safe-bottom))]">
             {mobileActionBar}
           </div>
-        </div>
+        </MeasuredBottomBar>
       ) : (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden">
+        <MeasuredBottomBar
+          key="marketplace-tab-bar"
+          as="nav"
+          aria-label="Pastki navigatsiya"
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden"
+        >
           <div className="mx-auto grid max-w-md grid-cols-5 px-1 pb-[var(--app-content-safe-bottom)]">
             {items.map((item) => (
               <MobileNavLink key={item.id} item={item} active={item.id === activeTab} />
             ))}
           </div>
-        </nav>
+        </MeasuredBottomBar>
       )}
     </div>
   );
@@ -278,12 +281,12 @@ function MobileNavLink({ item, active }: { item: NavItem; active: boolean }) {
       <Link
         href={item.href}
         aria-current={active ? 'page' : undefined}
-        aria-label={item.label}
-        className="flex min-h-14 flex-col items-center justify-center gap-1 transition active:scale-95"
+        className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10.5px] font-semibold text-primary transition active:scale-95"
       >
-        <span className="grid h-11 w-11 place-items-center rounded-full bg-primary text-primary-foreground shadow-card-hover transition hover:brightness-110">
+        <span className="grid h-9 w-11 place-items-center rounded-full bg-primary text-primary-foreground shadow-card-hover transition hover:brightness-110">
           {item.icon}
         </span>
+        <span>{item.label}</span>
       </Link>
     );
   }

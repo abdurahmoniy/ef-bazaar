@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 
 import { useTelegramBackButton } from '@/hooks/use-telegram-back-button';
+import { useMarketplaceBackNavigation } from '@/components/navigation/top-back-button';
 import { cn } from '@/lib/utils';
 
 interface BackLinkProps {
@@ -20,14 +20,26 @@ interface BackLinkProps {
  * no way back on these drill-down pages — it renders a normal link.
  */
 export function BackLink({ href, label = 'Orqaga', className }: BackLinkProps) {
-  const router = useRouter();
-  const isTelegram = useTelegramBackButton(() => router.replace(href));
+  const goBack = useMarketplaceBackNavigation(href);
+  const isTelegram = useTelegramBackButton(goBack);
 
   if (isTelegram) return null;
 
   return (
     <Link
       href={href}
+      onClick={(event) => {
+        if (
+          event.defaultPrevented
+          || event.button !== 0
+          || event.metaKey
+          || event.ctrlKey
+          || event.shiftKey
+          || event.altKey
+        ) return;
+        event.preventDefault();
+        goBack();
+      }}
       className={cn(
         'inline-flex min-h-11 min-w-11 items-center gap-1 px-1 text-sm font-bold text-muted-foreground transition hover:text-foreground',
         className,

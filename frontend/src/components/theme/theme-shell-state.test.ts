@@ -25,16 +25,15 @@ const marketplaceShell = readFileSync(
 const globals = readFileSync(join(process.cwd(), 'src', 'app', 'globals.css'), 'utf8');
 
 describe('responsive marketplace footer clearance', () => {
-  it('reserves the taller action-bar height only when that footer is rendered', () => {
+  it('uses the rendered measured bar for exact mobile footer clearance', () => {
+    expect(marketplaceShell).toContain('<MeasuredBottomBar');
+    expect(marketplaceShell).toContain('key="marketplace-action-bar"');
+    expect(marketplaceShell).toContain('key="marketplace-tab-bar"');
     expect(globals).toContain(
-      '--marketplace-action-bar-reserve: calc(7rem + var(--app-content-safe-bottom));',
+      'padding-bottom: calc(var(--marketplace-bottom-bar-height, 3.5rem) + 1rem);',
     );
-    expect(marketplaceShell).toContain("mobileActionBar\n          ? 'pb-[var(--marketplace-action-bar-reserve)]'");
-    expect(marketplaceShell).toContain(": 'pb-[var(--marketplace-bottom-bar-height)]'");
-    expect(marketplaceShell).toContain("'md:pb-0'");
-    expect(marketplaceShell).not.toContain(
-      'className="min-h-app bg-background pb-[var(--marketplace-bottom-bar-height)] md:pb-0"',
-    );
+    expect(globals).not.toContain('--marketplace-action-bar-reserve');
+    expect(marketplaceShell).not.toContain('pb-24');
   });
 });
 

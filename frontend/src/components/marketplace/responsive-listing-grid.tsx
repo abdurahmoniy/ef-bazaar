@@ -30,6 +30,7 @@ export function ResponsiveListingGrid({
               layout={layout}
               matchCriteria={matchCriteria}
               detailQuery={rawQuery}
+              trackFeedNavigation
               priority={index === 0}
             />
           </li>
