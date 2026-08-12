@@ -42,7 +42,6 @@ interface MarketplaceListingDetailProps {
   seller: User | null;
   sellerBlacklisted?: boolean;
   similarListings: ListingResponse[];
-  backHref?: string;
 }
 
 export function MarketplaceListingDetail({

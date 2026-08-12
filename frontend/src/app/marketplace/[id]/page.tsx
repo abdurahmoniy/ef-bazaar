@@ -208,7 +208,6 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
         seller={seller}
         sellerBlacklisted={sellerBlacklisted}
         similarListings={similar}
-        backHref={backHref}
       />
     </MarketplaceShell>
   );
