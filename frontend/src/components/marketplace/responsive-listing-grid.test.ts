@@ -96,12 +96,13 @@ describe('ResponsiveListingGrid', () => {
     expect(markup).not.toContain('data-marketplace-listing-id');
   });
 
-  it('uses exact container thresholds and caps Auto at three columns', () => {
+  it('restores two columns on Telegram phone containers and caps Auto at three columns', () => {
     const css = readFileSync(resolve(process.cwd(), 'src/app/globals.css'), 'utf8');
 
     expect(css).toContain('.marketplace-results-container');
     expect(css).toContain('container-type: inline-size');
-    expect(css).toContain('@container (min-width: 520px)');
+    expect(css).toContain('@container (min-width: 300px)');
+    expect(css).not.toContain('@container (min-width: 520px)');
     expect(css).not.toContain('@container (min-width: 380px)');
     expect(css).toContain('@container (min-width: 696px)');
     expect(css).toMatch(/marketplace-listings:not\(\[data-view='list'\]\)[^{]*\{[^}]*repeat\(2, minmax\(0, 1fr\)\)/s);

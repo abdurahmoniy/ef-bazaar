@@ -123,45 +123,7 @@
     overflow-x: clip;
   }
 
-  /* Huge eFootball-style diagonal capsules — full-viewport backdrop */
-  body::before,
-  body::after {
-    content: '';
-    position: fixed;
-    pointer-events: none;
-    z-index: 0;
-    border-radius: 9999px;
-    transform: rotate(-24deg);
-    background: linear-gradient(180deg, hsl(240 100% 35%), hsl(240 100% 18%));
-    opacity: 0.9;
-  }
-  body::before {
-    top: -14rem;
-    left: -22rem;
-    width: 70rem;
-    height: 11rem;
-  }
-  body::after {
-    bottom: -14rem;
-    right: -26rem;
-    width: 82rem;
-    height: 12rem;
-    background: linear-gradient(180deg, hsl(240 100% 28%), hsl(240 100% 12%));
-    opacity: 0.9;
-  }
-  html.dark body::before {
-    background: linear-gradient(180deg, hsl(240 100% 28%), hsl(240 100% 8%));
-    opacity: 1;
-  }
-  html.dark body::after {
-    background: linear-gradient(180deg, hsl(240 100% 32%), hsl(240 100% 10%));
-    opacity: 1;
-  }
-
-  /* Full-viewport shells stay transparent so the capsule backdrop shows through */
-  .min-h-app.bg-background {
-    background-color: transparent !important;
-  }
+  /* Removed diagonal background capsules per user feedback */
 
   /* Content stacks over the capsule backdrop */
   body > * {
@@ -353,11 +315,10 @@
     grid-column: 1 / -1;
   }
 
-  @container (min-width: 520px) {
+  @container (min-width: 300px) {
     .marketplace-listings:not([data-view='list']) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-
   }
 
   @container (min-width: 696px) {

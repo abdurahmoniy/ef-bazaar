@@ -289,7 +289,7 @@ export default function HomePage() {
 
 function LandingHeader() {
   return (
-    <header className="container py-5">
+    <header className="container hidden py-5 md:block">
       <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-3 shadow-card sm:px-4">
         <Logo size="sm" href="/" />
 
@@ -332,6 +332,14 @@ function LandingHeader() {
 function Hero() {
   return (
     <section className="container py-5 sm:py-8">
+      <Link href="/marketplace" className="mb-5 flex min-h-14 items-center gap-3 rounded-lg border border-input bg-muted/60 px-3 md:hidden">
+        <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 truncate text-sm font-bold text-muted-foreground">
+          Akkount, Messi, Division...
+        </span>
+        <Filter className="ml-auto h-5 w-5 shrink-0 text-primary" />
+      </Link>
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(20rem,0.56fr)]">
         <div className="flex min-w-0 flex-col justify-between gap-6 rounded-xl border border-border bg-card p-4 shadow-card sm:gap-8 sm:p-7">
           <div>
@@ -374,7 +382,7 @@ function Hero() {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="hidden space-y-3 md:block">
             <div className="flex min-h-14 items-center gap-3 rounded-lg border border-input bg-muted/60 px-3">
               <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 truncate text-sm font-bold text-muted-foreground">

@@ -7,7 +7,6 @@ Present linked Google Play and Game Center accounts as transfer risks on compact
 ## Approved presentation
 
 - Render one separate amber warning chip for each linked service.
-- Preserve the official Google and Apple logo assets already used by the card.
 - Add a small warning triangle and explicit copy: `Google Play ulangan` or `Game Center ulangan`.
 - Use semantic warning colors through the existing accent tokens: amber-tinted surface, amber border, and high-contrast warning text in light and dark themes.
 - Allow the chips to wrap when both are present so the two-column mobile card never overflows.
@@ -15,7 +14,7 @@ Present linked Google Play and Game Center accounts as transfer risks on compact
 
 ## Accessibility
 
-Risk is communicated through the warning triangle and `ulangan` text, not color alone. Brand images remain decorative because the adjacent label names the service.
+Risk is communicated through the warning triangle and `ulangan` text, not color alone. Google and Apple brand images are intentionally omitted to keep the chips compact.
 
 ## Scope
 

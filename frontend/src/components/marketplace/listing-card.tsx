@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { ArrowLeftRight } from 'lucide-react';
+import { ArrowLeftRight, TriangleAlert } from 'lucide-react';
 
 import { ListingCardMedia } from '@/components/marketplace/listing-card-media';
 import { buildListingCardModel } from '@/components/marketplace/listing-card-model';
@@ -92,10 +92,20 @@ export function ListingCard({
           {(model.googlePlayLinked || model.gameCenterLinked) && (
             <div
               data-listing-linked-services
-              className="flex min-h-10 items-center gap-2 rounded-lg bg-muted/65 px-2.5 py-2"
+              className="flex min-w-0 flex-wrap gap-1.5"
             >
-              {model.googlePlayLinked && <ServiceIcon src="/icons/google.svg" label="Google Play" />}
-              {model.gameCenterLinked && <ServiceIcon src="/icons/apple.svg" label="Game Center" />}
+              {model.googlePlayLinked && (
+                <LinkedServiceWarning
+                  service="google-play"
+                  label="Google Play"
+                />
+              )}
+              {model.gameCenterLinked && (
+                <LinkedServiceWarning
+                  service="game-center"
+                  label="Game Center"
+                />
+              )}
             </div>
           )}
 
@@ -120,11 +130,20 @@ function ExchangeTag({ label }: { label: string }) {
   );
 }
 
-function ServiceIcon({ src, label }: { src: string; label: string }) {
+function LinkedServiceWarning({
+  service,
+  label,
+}: {
+  service: 'google-play' | 'game-center';
+  label: string;
+}) {
   return (
-    <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-foreground">
-      <Image src={src} alt="" width={18} height={18} unoptimized className="h-[18px] w-[18px] shrink-0 object-contain" />
-      <span className="truncate">{label}</span>
+    <div
+      data-linked-service-warning={service}
+      className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-secondary/45 bg-secondary/10 px-2 py-1.5 text-[10px] font-bold text-accent-foreground"
+    >
+      <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span className="truncate">{label} ulangan</span>
     </div>
   );
 }
@@ -134,7 +153,7 @@ function CoinFact({ platform, value }: { platform: 'Android' | 'iOS'; value: num
     <div role="group" aria-label={`${platform} coin: ${value}`} className="flex min-w-0 items-center gap-1.5">
       <Image
         data-efootball-coin-icon
-        src="/icons/efootball-coin.svg"
+        src="/icons/efootball-coin.png"
         alt=""
         width={18}
         height={18}

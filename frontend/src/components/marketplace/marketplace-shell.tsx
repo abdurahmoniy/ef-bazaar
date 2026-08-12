@@ -160,10 +160,15 @@ export function MarketplaceShell({
       data-marketplace-shell
       className="min-h-app bg-background"
     >
-      <header className="sticky top-0 z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)]">
-        <div className="mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center gap-x-2 px-4 sm:h-14 sm:flex-nowrap sm:gap-3">
+      <header className="relative z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)] md:sticky md:top-0">
+        <div className={cn(
+          "mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center gap-x-2 px-4 sm:h-14 sm:flex-nowrap sm:gap-3",
+          activeTab === 'home' && "pt-3 sm:pt-0"
+        )}>
           {backHref && <TopBackButton href={backHref} label={backLabel} className="-ml-2" />}
-          <Logo size="sm" href="/marketplace" />
+          <div className={cn("flex items-center", activeTab === 'home' && "hidden sm:flex")}>
+            <Logo size="sm" href="/marketplace" />
+          </div>
 
           <SlidingNav
             items={desktopLinks}
@@ -191,7 +196,7 @@ export function MarketplaceShell({
             controls were equal-weight bordered pills with nothing marking the
             primary action.
           */}
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <div className={cn("ml-auto flex shrink-0 items-center gap-1.5", activeTab === 'home' && "hidden sm:flex")}>
             {user ? (
               <>
                 <div className="hidden items-center sm:flex">
@@ -270,7 +275,12 @@ export function MarketplaceShell({
           aria-label="Pastki navigatsiya"
           className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden"
         >
-          <div className="mx-auto grid max-w-md grid-cols-5 px-1 pb-[var(--app-content-safe-bottom)]">
+          <div
+            className={cn(
+              'mx-auto grid max-w-md px-1 pb-[var(--app-content-safe-bottom)]',
+              items.length === 5 ? 'grid-cols-5' : 'grid-cols-4'
+            )}
+          >
             {items.map((item) => (
               <MobileNavLink key={item.id} item={item} active={item.id === activeTab} />
             ))}

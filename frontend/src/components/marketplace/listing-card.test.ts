@@ -2,6 +2,7 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import sharp from 'sharp';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -80,6 +81,19 @@ afterEach(async () => {
 });
 
 describe('ListingCard', () => {
+  it('ships the coin mark with a transparent canvas instead of a white tile', async () => {
+    const { data, info } = await sharp(resolve(process.cwd(), 'public/icons/efootball-coin.png'))
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    expect(info.channels).toBe(4);
+    expect(info.width).toBe(64);
+    expect(info.height).toBe(64);
+    expect(data[3]).toBe(0);
+    expect(data[((32 * info.width) + 32) * info.channels + 3]).toBeGreaterThan(0);
+  });
+
   it('renders only the approved compact buyer facts on the feed card', () => {
     const richListing = listing({
       mediaMessageIds: ['telegram file/id'],
@@ -157,11 +171,19 @@ describe('ListingCard', () => {
     expect(markup).not.toContain('META');
   });
 
-  it('shows only linked identity providers and omits the block when neither is linked', () => {
+  it('renders each linked identity provider as its own amber warning chip', () => {
     const gameCenterMarkup = renderToStaticMarkup(createElement(ListingCard, {
       listing: listing({
         attributes: {
           has_google_play_link: false,
+          has_game_center_link: true,
+        },
+      }),
+    }));
+    const bothLinkedMarkup = renderToStaticMarkup(createElement(ListingCard, {
+      listing: listing({
+        attributes: {
+          has_google_play_link: true,
           has_game_center_link: true,
         },
       }),
@@ -176,8 +198,20 @@ describe('ListingCard', () => {
     }));
 
     expect(gameCenterMarkup).toContain('data-listing-linked-services');
-    expect(gameCenterMarkup).toContain('Game Center');
+    expect(gameCenterMarkup).toContain('data-linked-service-warning="game-center"');
+    expect(gameCenterMarkup).toContain('Game Center ulangan');
     expect(gameCenterMarkup).not.toContain('Google Play');
+    expect(gameCenterMarkup).not.toContain('/icons/apple.svg');
+    expect(gameCenterMarkup).toContain('lucide-triangle-alert');
+    expect(gameCenterMarkup).toContain('border-secondary/45');
+    expect(gameCenterMarkup).toContain('bg-secondary/10');
+    expect(gameCenterMarkup).toContain('text-accent-foreground');
+    expect((bothLinkedMarkup.match(/data-linked-service-warning=/g) ?? [])).toHaveLength(2);
+    expect(bothLinkedMarkup).toContain('data-linked-service-warning="google-play"');
+    expect(bothLinkedMarkup).toContain('Google Play ulangan');
+    expect(bothLinkedMarkup).toContain('Game Center ulangan');
+    expect(bothLinkedMarkup).not.toContain('/icons/google.svg');
+    expect(bothLinkedMarkup).not.toContain('/icons/apple.svg');
     expect(unlinkedMarkup).not.toContain('data-listing-linked-services');
   });
 
@@ -207,6 +241,19 @@ describe('ListingCard', () => {
     expect(markup).toContain('900');
     expect(markup).not.toContain('iOS');
     expect(markup).not.toContain('-900');
+  });
+
+  it('uses the supplied PNG and omits zero-valued platform coin facts', () => {
+    const markup = renderToStaticMarkup(createElement(ListingCard, {
+      listing: listing({
+        attributes: { android_coins: 400, ios_coins: 0 },
+      }),
+    }));
+
+    expect(markup).toContain('src="/icons/efootball-coin.png"');
+    expect(markup).toContain('aria-label="Android coin: 400"');
+    expect(markup).not.toContain('aria-label="iOS coin: 0"');
+    expect((markup.match(/data-efootball-coin-icon/g) ?? [])).toHaveLength(1);
   });
 
   it('announces sold state and omits the favorite without removing the detail link', () => {

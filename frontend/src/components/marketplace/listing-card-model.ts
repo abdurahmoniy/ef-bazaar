@@ -54,9 +54,9 @@ function exchangeLabel(listing: ListingResponse): string | null {
   }
 }
 
-function nonNegativeNumberAttribute(listing: ListingResponse, key: string) {
+function positiveNumberAttribute(listing: ListingResponse, key: string) {
   const value = attributeNumber(listing, key);
-  return value !== undefined && value >= 0 ? value : undefined;
+  return value !== undefined && value > 0 ? value : undefined;
 }
 
 /**
@@ -114,8 +114,8 @@ export function buildListingCardModel(
     gameCenterLinked: listing.attributes.has_game_center_link === true,
     division: attributeNumber(listing, 'highest_division_level'),
     teamStrength: attributeNumber(listing, 'team_strength'),
-    androidCoins: nonNegativeNumberAttribute(listing, 'android_coins'),
-    iosCoins: nonNegativeNumberAttribute(listing, 'ios_coins'),
+    androidCoins: positiveNumberAttribute(listing, 'android_coins'),
+    iosCoins: positiveNumberAttribute(listing, 'ios_coins'),
     valuableCount: valuable.length,
     hasMetaCard: valuable.some((card) => card.metaTier === 'META'),
     matchLabel: details

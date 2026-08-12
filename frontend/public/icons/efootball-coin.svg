@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="eFootball coin">
-  <circle cx="32" cy="32" r="25" fill="#fff9df" stroke="#e7b91e" stroke-width="7"/>
-  <path fill="#e7b91e" d="M29 4h6v11h-6zM29 49h6v11h-6z"/>
-  <path fill="#e7b91e" fill-rule="evenodd" d="M18 24a17 17 0 0 1 28-4l-5 5a10 10 0 0 0-16-1h15v6H16a17 17 0 0 1 2-6Zm28 16a17 17 0 0 1-28 4l5-5a10 10 0 0 0 16 1H24v-6h24a17 17 0 0 1-2 6Z" clip-rule="evenodd"/>
-</svg>
