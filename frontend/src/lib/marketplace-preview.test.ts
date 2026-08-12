@@ -53,6 +53,29 @@ describe('fetchMarketplaceResultCount', () => {
     expect(current.get('page')).toBe('4');
   });
 
+  it.each([
+    ['unsafe', '9007199254740993', null],
+    ['maximum safe', '9007199254740991', '9007199254740991'],
+  ] as const)('%s price reaches the preview API only when exactly representable', async (
+    _name,
+    minPrice,
+    expected,
+  ) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      totalElements: 0,
+    }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchMarketplaceResultCount(
+      new URLSearchParams(),
+      draft({ minPrice }),
+      new AbortController().signal,
+    );
+
+    const [path] = fetchMock.mock.calls[0] ?? [];
+    expect(new URL(path, 'http://localhost').searchParams.get('minPrice')).toBe(expected);
+  });
+
   it('rejects non-success responses and malformed totals', async () => {
     const current = new URLSearchParams();
     const controller = new AbortController();

@@ -54,6 +54,8 @@ const EXCHANGE_MODE_VALUES = new Set<MarketplaceExchangeMode>([
   'BOTH',
 ]);
 const INTEGER_PATTERN = /^-?(0|[1-9]\d*)$/;
+const POSITIVE_INTEGER_PATTERN = /^[1-9]\d*$/;
+const MAX_SAFE_INTEGER = 9007199254740991n;
 
 const OWNED_FILTER_KEYS = [
   'filter',
@@ -116,8 +118,13 @@ function integerValue(value: unknown) {
 }
 
 function positiveSafeInteger(value: string) {
-  const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+  if (!POSITIVE_INTEGER_PATTERN.test(value)) return undefined;
+  try {
+    const parsed = BigInt(value);
+    return parsed <= MAX_SAFE_INTEGER ? Number(parsed) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function boundedInteger(value: unknown, minimum?: bigint, maximum?: bigint) {
@@ -190,6 +197,8 @@ export function validateMarketplaceFilterDraft(draft: MarketplaceFilterDraft): M
     if (value === null) errors[key] = 'Butun son kiriting.';
     else if (value !== undefined && value < 0n) {
       errors[key] = 'Narx 0 dan kam bo‘lishi mumkin emas.';
+    } else if (value !== undefined && value > MAX_SAFE_INTEGER) {
+      errors[key] = 'Son juda katta.';
     }
     return value;
   };
@@ -197,6 +206,7 @@ export function validateMarketplaceFilterDraft(draft: MarketplaceFilterDraft): M
   const maxPrice = validatePrice('maxPrice');
   if (minPrice !== null && maxPrice !== null
     && minPrice !== undefined && maxPrice !== undefined
+    && errors.minPrice === undefined && errors.maxPrice === undefined
     && minPrice >= 0n && maxPrice >= 0n && minPrice > maxPrice) {
     delete errors.minPrice;
     delete errors.maxPrice;
@@ -253,8 +263,8 @@ export function applyMarketplaceFilterDraft(
   if (validPlatform(draft.platform) && draft.platform !== 'MOBILE') {
     next.set('attr.platform', draft.platform);
   }
-  const minPrice = boundedInteger(draft.minPrice, 0n);
-  const maxPrice = boundedInteger(draft.maxPrice, 0n);
+  const minPrice = boundedInteger(draft.minPrice, 0n, MAX_SAFE_INTEGER);
+  const maxPrice = boundedInteger(draft.maxPrice, 0n, MAX_SAFE_INTEGER);
   if (minPrice === undefined || maxPrice === undefined || minPrice <= maxPrice) {
     setInteger(next, 'minPrice', minPrice);
     setInteger(next, 'maxPrice', maxPrice);
