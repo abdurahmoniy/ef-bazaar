@@ -44,6 +44,7 @@ interface MarketplaceBrowserProps {
   result: FetchResult<PageResponse<ListingResponse>>;
   rawQuery: string;
   view: MarketplaceView;
+  authenticated: boolean;
 }
 
 export function MarketplaceBrowser({
@@ -53,6 +54,7 @@ export function MarketplaceBrowser({
   result,
   rawQuery,
   view,
+  authenticated,
 }: MarketplaceBrowserProps) {
   const page = result.ok ? result.data : null;
   const displayView = view === 'list' ? 'list' : 'grid';
@@ -94,6 +96,7 @@ export function MarketplaceBrowser({
       currentQuery={currentQuery}
       activeMatchCards={playerFilterCount > 0 ? filters.matchCards : []}
       activeMinMatch={activeMatch.strictness}
+      authenticated={authenticated}
     />
   );
 

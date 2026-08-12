@@ -1,13 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Check, Flame, Loader2, Search, Sparkles, Star, Users, X } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Tabs from '@radix-ui/react-tabs';
 
 import { DreamTeamPitch } from '@/components/marketplace/dream-team-pitch';
+import { useTelegramBackLayer } from '@/components/telegram/telegram-back-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import {
   cardRating,
@@ -20,13 +22,18 @@ import {
   type PlayerMatchSelection,
 } from '@/lib/player-filter-selection';
 import { strictnessLabel, strictnessMinimumPercent } from '@/lib/player-match-query';
+import { getTelegramWebApp } from '@/lib/telegram';
+import { telegramHaptic } from '@/lib/telegram-shell';
 import { cn } from '@/lib/utils';
 
 type Tab = PlayerFilterTab;
 
 interface PlayerFilterDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   /** The user's saved squads — empty when signed out. */
   teams: DreamTeam[];
+  authenticated: boolean;
   /** Cards already applied to the current browse, so the dialog opens in sync. */
   selected?: PlayerMatchSelection[];
   activeMinMatch?: number;
@@ -49,59 +56,109 @@ const MAX_MATCH_PLAYERS = 11;
  *   search — has a name in mind
  *   team   — has a saved squad and wants accounts that cover it
  *
- * Matching uses canonical player identity and weighted fuzzy credit: exact
- * edition 100%, another edition 75%, and a priority player counts 3×.
+ * Matching uses canonical player identity: exact edition gets full credit,
+ * another edition gets 75%, and a priority player counts 3×.
  */
 export function PlayerFilterDialog({
+  open,
+  onOpenChange,
   teams,
+  authenticated,
   selected = [],
   activeMinMatch = 4,
   onApply,
   activeCount,
 }: PlayerFilterDialogProps) {
-  const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('meta');
   const [picked, setPicked] = useState<PlayerMatchSelection[]>(selected);
   const [minMatch, setMinMatch] = useState(activeMinMatch);
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const playerLayerId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const applyStartedRef = useRef(false);
+  const pickedRef = useRef(picked);
+  const openedRef = useRef(false);
+  pickedRef.current = picked;
+
+  const close = useCallback(() => onOpenChange(false), [onOpenChange]);
+
+  useTelegramBackLayer({
+    id: playerLayerId,
+    kind: 'overlay',
+    onBack: close,
+    lockVerticalSwipes: true,
+  }, open);
 
   // Reopening should reflect what is actually filtering right now, not the
   // leftovers of an abandoned edit.
   useEffect(() => {
     if (open) {
-      setPicked(selected);
-      setMinMatch(activeMinMatch);
+      if (!openedRef.current) {
+        openedRef.current = true;
+        setPicked(selected);
+        setMinMatch(activeMinMatch);
+        applyStartedRef.current = false;
+      } else if (
+        pickedRef.current.length === selected.length
+        && pickedRef.current.every((card, index) => (
+          card.efhubId === selected[index]?.efhubId
+          && card.playerId === selected[index]?.playerId
+        ))
+      ) {
+        // The launcher hydrates display metadata after mount. Merge that late
+        // snapshot only while selection identity is still untouched.
+        setPicked(selected);
+      }
+    } else {
+      const shouldRestoreFocus = openedRef.current;
+      openedRef.current = false;
+      if (shouldRestoreFocus) triggerRef.current?.focus();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, selected, activeMinMatch]);
 
   const activeTeam = tab === 'team' ? teams[0] ?? null : null;
 
   function toggle(card: PlayerMatchSelection) {
-    setPicked((prev) => {
-      if (prev.some((c) => c.playerId === card.playerId)) {
-        return prev.filter((c) => c.playerId !== card.playerId);
-      }
-      return prev.length >= MAX_MATCH_PLAYERS ? prev : [...prev, card];
-    });
+    const current = pickedRef.current;
+    const existing = current.find((candidate) => candidate.playerId === card.playerId);
+    if (!existing && current.length >= MAX_MATCH_PLAYERS) return;
+    const next = existing?.efhubId === card.efhubId
+      ? current.filter((candidate) => candidate.playerId !== card.playerId)
+      : existing
+        ? current.map((candidate) => candidate.playerId === card.playerId
+          ? { ...card, priority: candidate.priority }
+          : candidate)
+        : [...current, card];
+    pickedRef.current = next;
+    setPicked(next);
+    telegramHaptic(getTelegramWebApp(), 'selection', reducedMotion);
   }
 
   function togglePriority(playerId: string | undefined) {
     if (!playerId) return;
-    setPicked((prev) => prev.map((card) => card.playerId === playerId
+    const current = pickedRef.current;
+    if (!current.some((card) => card.playerId === playerId)) return;
+    const next = current.map((card) => card.playerId === playerId
       ? { ...card, priority: !card.priority }
-      : card));
+      : card);
+    pickedRef.current = next;
+    setPicked(next);
+    telegramHaptic(getTelegramWebApp(), 'selection', reducedMotion);
   }
 
   function apply() {
+    if (applyStartedRef.current) return;
+    applyStartedRef.current = true;
     const value = playerMatchSelectionForTab(tab, activeTeam, picked);
     onApply(value.length ? value : undefined, minMatch);
-    setOpen(false);
+    telegramHaptic(getTelegramWebApp(), 'success', reducedMotion);
+    close();
   }
 
   function clearAll() {
     setPicked([]);
     onApply(undefined, minMatch);
-    setOpen(false);
+    close();
   }
 
   const chosenCount = tab === 'team'
@@ -109,9 +166,11 @@ export function PlayerFilterDialog({
     : picked.length;
 
   return (
-    <Dialog.Root open={open} onOpenChange={setOpen}>
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Trigger asChild>
         <button
+          ref={triggerRef}
+          id="marketplace-player-filter"
           type="button"
           className={cn(
             'tap-press relative flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold sm:px-3',
@@ -137,8 +196,14 @@ export function PlayerFilterDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 animate-fade-in bg-black/60 backdrop-blur-sm motion-reduce:animate-none" />
         <Dialog.Content
+          onFocusOutside={(event) => event.preventDefault()}
+          onCloseAutoFocus={(event) => {
+            if (!triggerRef.current) return;
+            event.preventDefault();
+            triggerRef.current.focus();
+          }}
           className={cn(
-            'fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] animate-sheet-up flex-col rounded-t-2xl bg-card shadow-2xl outline-none motion-reduce:animate-none',
+            'fixed inset-x-0 bottom-0 z-50 flex max-h-[min(92dvh,var(--tg-viewport-height,92dvh))] animate-sheet-up flex-col rounded-t-2xl bg-card shadow-2xl outline-none motion-reduce:animate-none',
             'sm:inset-0 sm:m-auto sm:h-[86vh] sm:max-w-4xl sm:rounded-2xl',
           )}
         >
@@ -168,7 +233,7 @@ export function PlayerFilterDialog({
                 />
               </Tabs.Content>
               <Tabs.Content value="team" className="outline-none">
-                <TeamTab team={teams[0] ?? null} />
+                <TeamTab team={teams[0] ?? null} authenticated={authenticated} />
               </Tabs.Content>
             </div>
 
@@ -262,8 +327,8 @@ function MetaTab({
       ) : cards.length === 0 ? (
         <EmptyState
           icon={<Flame className="h-8 w-8" />}
-          title="META kartalar hali belgilanmagan"
-          hint="Admin panelda /admin/players sahifasidan belgilang."
+          title="META kartalar hozircha yo‘q"
+          hint="Keyinroq yana tekshirib ko‘ring."
         />
       ) : (
         <>
@@ -369,8 +434,10 @@ function SearchTab({
 
 function TeamTab({
   team,
+  authenticated,
 }: {
   team: DreamTeam | null;
+  authenticated: boolean;
 }) {
   if (!team) {
     return (
@@ -380,7 +447,9 @@ function TeamTab({
         hint="Dream Team sahifasida 11 ta o'yinchidan jamoa tuzing."
         action={
           <Button asChild size="sm" className="mt-3">
-            <a href="/dream-team">Jamoa tuzish</a>
+            <a href={authenticated ? '/dream-team' : '/auth/login?from=/dream-team'}>
+              Jamoa tuzish
+            </a>
           </Button>
         }
       />
@@ -510,7 +579,7 @@ function DialogFooter({
   onClear: () => void;
 }) {
   return (
-    <div className="shrink-0 space-y-3 border-t border-border bg-card px-4 py-3">
+    <div className="shrink-0 space-y-3 border-t border-border bg-card px-4 pb-[calc(0.75rem+var(--app-content-safe-bottom))] pt-3">
       {selected.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar" aria-label="Tanlangan o‘yinchilar ustuvorligi">
           {selected.map((card) => (
@@ -519,7 +588,7 @@ function DialogFooter({
               type="button"
               onClick={() => onTogglePriority(card.playerId)}
               aria-pressed={card.priority === true}
-              aria-label={`${card.name}: ustuvor, 3 karra hisoblanadi`}
+              aria-label={`${card.name}: Muhim o‘yinchi`}
               className={cn(
                 'inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border px-2 text-xs font-bold',
                 card.priority
@@ -529,7 +598,7 @@ function DialogFooter({
             >
               <Star className={cn('h-3.5 w-3.5', card.priority && 'fill-current')} />
               {card.name}
-              <span className="text-[10px]">{card.priority ? '3×' : '1×'}</span>
+              <span className="text-[10px]">Muhim o‘yinchi</span>
             </button>
           ))}
         </div>
@@ -555,13 +624,13 @@ function DialogFooter({
           aria-label="Qidiruv qat’iyligi 1 dan 10 gacha"
         />
         <p className="text-[11px] font-semibold text-muted-foreground">
-          Kamida {strictnessMinimumPercent(minMatch)}% weighted moslik. Ustuvor
-          o&apos;yinchilar 3× hisoblanadi; ular majburiy emas. Boshqa karta nashri 75% kredit oladi.
+          Kamida {strictnessMinimumPercent(minMatch)}% moslik. Muhim o&apos;yinchi reytingga
+          ko&apos;proq ta&apos;sir qiladi, ammo majburiy emas. Boshqa karta nashri 75% kredit oladi.
         </p>
       </div>
       <div className="flex gap-2">
         <Button onClick={onApply} disabled={chosenCount === 0} className="flex-1">
-          {chosenCount === 0 ? "O'yinchi tanlang" : `Qo'llash (${chosenCount})`}
+          {chosenCount === 0 ? 'O‘yinchi tanlang' : `${chosenCount} o‘yinchi bo‘yicha qidirish`}
         </Button>
         <Button variant="outline" onClick={onClear}>
           Tozalash
@@ -575,7 +644,7 @@ function CardGridSkeleton() {
   return (
     <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6">
       {Array.from({ length: 12 }).map((_, index) => (
-        <div key={index} className="aspect-[12/17] animate-pulse rounded-xl bg-muted" />
+        <div key={index} className="aspect-[12/17] animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
       ))}
     </div>
   );

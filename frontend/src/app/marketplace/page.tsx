@@ -66,6 +66,7 @@ export default async function MarketplacePage({ searchParams }: MarketplacePageP
         result={result}
         rawQuery={rawQuery}
         view={view}
+        authenticated={user !== null}
       />
     </MarketplaceShell>
   );
