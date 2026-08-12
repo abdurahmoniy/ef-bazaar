@@ -113,6 +113,61 @@ class PlatformCardServiceIT extends AbstractPostgresIT {
     }
 
     @Test
+    void reorderOmittingAnActiveCardIsRejectedAndLeavesTheStoredOrderUnchanged() {
+        UUID admin = UUID.randomUUID();
+        var a = cards.create(admin, req(HUMO_A, "AZIZ"));
+        var b = cards.create(admin, req(HUMO_B, "BOBUR"));
+
+        assertThatThrownBy(() -> cards.reorder(admin, List.of(a.getId())))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+
+        assertThat(cards.activeOrdered())
+                .extracting(x -> x.getId())
+                .containsExactly(a.getId(), b.getId());
+    }
+
+    @Test
+    void reorderNamingTheSameCardTwiceIsRejectedAndLeavesTheStoredOrderUnchanged() {
+        UUID admin = UUID.randomUUID();
+        var a = cards.create(admin, req(HUMO_A, "AZIZ"));
+        var b = cards.create(admin, req(HUMO_B, "BOBUR"));
+
+        assertThatThrownBy(() -> cards.reorder(admin, List.of(a.getId(), a.getId())))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+
+        assertThat(cards.activeOrdered())
+                .extracting(x -> x.getId())
+                .containsExactly(a.getId(), b.getId());
+    }
+
+    @Test
+    void reorderNamingAnUnknownCardIsRejectedAndLeavesTheStoredOrderUnchanged() {
+        UUID admin = UUID.randomUUID();
+        var a = cards.create(admin, req(HUMO_A, "AZIZ"));
+        var b = cards.create(admin, req(HUMO_B, "BOBUR"));
+
+        assertThatThrownBy(() -> cards.reorder(admin, List.of(a.getId(), UUID.randomUUID())))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400");
+
+        assertThat(cards.activeOrdered())
+                .extracting(x -> x.getId())
+                .containsExactly(a.getId(), b.getId());
+    }
+
+    @Test
+    void aPanWithNoKnownBinIsRefused() {
+        UUID admin = UUID.randomUUID();
+
+        // Luhn-valid but no BIN rule in CardBrand.detect matches "6011" (Discover).
+        assertThatThrownBy(() -> cards.create(admin, req("6011000000000004", "AZIZ")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unknown card brand");
+    }
+
+    @Test
     void everyMutationIsAudited() {
         UUID admin = UUID.randomUUID();
         var a = cards.create(admin, req(HUMO_A, "AZIZ"));

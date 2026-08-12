@@ -45,6 +45,8 @@ management:
         include: health
 
 payment:
+  crypto:
+    master-key-file: ${MASTER_KEY_FILE:}
   deposit:
     minimum-uzs: 1000
     invoice-ttl-minutes: 15

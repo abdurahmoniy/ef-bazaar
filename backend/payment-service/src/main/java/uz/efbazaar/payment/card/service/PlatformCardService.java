@@ -89,6 +89,10 @@ public class PlatformCardService {
     @Transactional
     public void activate(UUID actorId, UUID cardId) {
         PlatformCard card = require(cardId);
+        // Unlike create(), a losing race here has no local try/catch: a
+        // DataIntegrityViolationException from the save() below propagates
+        // uncaught and is turned into 409 by the global PaymentExceptionHandler.
+        // That's intentional, not an oversight -- see its doc comment.
         if (cards.existsByLast4AndActiveTrue(card.getLast4())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Oxirgi 4 raqami bir xil faol karta bor: " + card.getLast4());
