@@ -149,6 +149,11 @@ public class PlatformCardService {
         return cards.findByLast4AndActiveTrue(last4);
     }
 
+    @Transactional(readOnly = true)
+    public Optional<PlatformCard> findById(UUID cardId) {
+        return cards.findById(cardId);
+    }
+
     @Transactional
     public void recordBalance(UUID cardId, long balanceTiyin, Instant observedAt) {
         PlatformCard card = require(cardId);

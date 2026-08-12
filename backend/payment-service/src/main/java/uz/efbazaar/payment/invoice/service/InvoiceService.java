@@ -74,9 +74,7 @@ public class InvoiceService {
     }
 
     private InvoiceResponse render(Invoice inv) {
-        PlatformCard card = cards.listAll().stream()
-                .filter(c -> c.getId().equals(inv.getCardId()))
-                .findFirst()
+        PlatformCard card = cards.findById(inv.getCardId())
                 .orElseThrow(() -> new IllegalStateException(
                         "Invoice " + inv.getId() + " points at a missing card"));
         String expiry = "%02d/%02d".formatted(card.getExpiryMonth(), card.getExpiryYear() % 100);

@@ -28,7 +28,16 @@ import java.util.UUID;
  * <p>The insert IS the allocation. Nothing is read to find a free slot first,
  * because a read-then-write loses the race whenever two users request the same
  * amount at the same moment; {@code uk_invoices_live_slot} decides the winner
- * instead, and a constraint violation is ordinary control flow here.
+ * instead, and a constraint violation on it is ordinary control flow here.
+ *
+ * <p>A second constraint, {@code uk_invoices_one_live_per_user}, can also fire
+ * on the same insert — the caller's one-pending-invoice check is a plain read
+ * before allocating, so two concurrent requests from the same user both pass
+ * it. That violation is NOT "try the next slot": every remaining card/bump
+ * combination would fail it too, so it is treated as a real conflict and
+ * surfaced immediately instead of being ground through the whole matrix.
+ * Any other constraint violation is a bug, not control flow, and propagates
+ * uncaught rather than being silently retried into a false "system busy".
  *
  * <p>Each attempt runs in its own transaction: in PostgreSQL a constraint
  * violation marks the enclosing transaction rollback-only, so a retry inside
@@ -39,6 +48,9 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class SlotAllocator {
+
+    private static final String LIVE_SLOT_CONSTRAINT = "uk_invoices_live_slot";
+    private static final String ONE_LIVE_PER_USER_CONSTRAINT = "uk_invoices_one_live_per_user";
 
     private final PlatformCardService cards;
     private final InvoiceRepository invoices;
@@ -98,10 +110,41 @@ public class SlotAllocator {
                 return inv;
             });
         } catch (DataIntegrityViolationException e) {
-            // Either this slot is taken, or the user already has a live
-            // invoice. The caller checks the latter first, so treat it as
-            // "slot busy" and move on.
-            return null;
+            return switch (violatedConstraint(e)) {
+                // This exact (card, amount) slot is already claimed — move on
+                // to the next one, the ordinary case this loop exists for.
+                case LIVE_SLOT_CONSTRAINT -> null;
+                // The user already has a live invoice. Every remaining card
+                // and bump would fail the same way, so stop now and surface
+                // the same 409 the sequential pre-check in InvoiceService
+                // gives — not a 503 after grinding through the whole matrix.
+                case ONE_LIVE_PER_USER_CONSTRAINT -> throw new ResponseStatusException(
+                        HttpStatus.CONFLICT, "Sizda tugallanmagan to'ldirish bor", e);
+                // Neither known constraint — an unexpected violation is a
+                // bug, not control flow. Propagate it rather than silently
+                // absorbing it into a false "system busy".
+                default -> throw e;
+            };
         }
+    }
+
+    /**
+     * PostgreSQL names the violated constraint in the exception message; this
+     * pulls it out so the two live constraints on {@code invoices} can be
+     * told apart instead of both being treated as "slot busy".
+     */
+    private static String violatedConstraint(DataIntegrityViolationException e) {
+        Throwable cause = e.getMostSpecificCause();
+        String message = cause != null ? cause.getMessage() : null;
+        if (message == null) {
+            return "";
+        }
+        if (message.contains(ONE_LIVE_PER_USER_CONSTRAINT)) {
+            return ONE_LIVE_PER_USER_CONSTRAINT;
+        }
+        if (message.contains(LIVE_SLOT_CONSTRAINT)) {
+            return LIVE_SLOT_CONSTRAINT;
+        }
+        return "";
     }
 }

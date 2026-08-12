@@ -9,11 +9,21 @@ import uz.efbazaar.payment.card.dto.PlatformCardCreateRequest;
 import uz.efbazaar.payment.card.repository.PlatformCardAuditRepository;
 import uz.efbazaar.payment.card.repository.PlatformCardRepository;
 import uz.efbazaar.payment.card.service.PlatformCardService;
+import uz.efbazaar.payment.invoice.domain.InvoiceStatus;
+import uz.efbazaar.payment.invoice.dto.InvoiceResponse;
 import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
 import uz.efbazaar.payment.invoice.service.InvoiceService;
 import uz.efbazaar.payment.testsupport.AbstractPostgresIT;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -73,5 +83,61 @@ class InvoiceServiceIT extends AbstractPostgresIT {
         assertThat(invoices.myActive(user)).isPresent()
                 .get().extracting(x -> x.id()).isEqualTo(created.id());
         assertThat(invoices.myActive(UUID.randomUUID())).isEmpty();
+    }
+
+    /**
+     * The one-pending-invoice-per-user check in {@code create()} is a plain
+     * read before allocating, so two concurrent requests from the same user
+     * both pass it. That is fine — {@code uk_invoices_one_live_per_user}
+     * still guarantees only one PENDING row ever persists. What this test
+     * pins down is what the *loser* sees: it must get the same 409 the
+     * sequential path gives, not a 503 from grinding through every
+     * card/bump combination because the allocator couldn't tell "this slot
+     * is taken" apart from "this user already has a live invoice."
+     */
+    @Test
+    void concurrentSameUserRequestsProduceExactlyOneInvoiceAndOneConflict() throws Exception {
+        int iterations = 5;
+        for (int iter = 0; iter < iterations; iter++) {
+            UUID user = UUID.randomUUID();
+
+            ExecutorService pool = Executors.newFixedThreadPool(2);
+            CountDownLatch go = new CountDownLatch(1);
+            List<Future<InvoiceResponse>> futures = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                futures.add(pool.submit(() -> {
+                    go.await(5, TimeUnit.SECONDS);
+                    return invoices.create(user, 100_000);
+                }));
+            }
+            go.countDown();
+
+            int succeeded = 0;
+            int conflicted = 0;
+            for (Future<InvoiceResponse> f : futures) {
+                try {
+                    f.get(30, TimeUnit.SECONDS);
+                    succeeded++;
+                } catch (ExecutionException e) {
+                    assertThat(e.getCause())
+                            .as("iteration %d — the loser must get 409, not a 503 from an "
+                                    + "exhausted card/bump search", iter)
+                            .isInstanceOf(ResponseStatusException.class)
+                            .hasMessageContaining("409");
+                    conflicted++;
+                }
+            }
+            pool.shutdown();
+
+            assertThat(succeeded).as("iteration %d — exactly one winner", iter).isEqualTo(1);
+            assertThat(conflicted).as("iteration %d — exactly one conflict", iter).isEqualTo(1);
+
+            long pendingForUser = invoiceRepo.findAll().stream()
+                    .filter(inv -> inv.getUserId().equals(user) && inv.getStatus() == InvoiceStatus.PENDING)
+                    .count();
+            assertThat(pendingForUser)
+                    .as("iteration %d — exactly one live row for the user", iter)
+                    .isEqualTo(1);
+        }
     }
 }
