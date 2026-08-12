@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { ListingActions } from '@/components/marketplace/listing-actions';
 import { MarketplaceListingDetail } from '@/components/marketplace/marketplace-listing-detail';
+import { MarketplaceErrorState } from '@/components/marketplace/marketplace-result-state';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
 import {
@@ -165,7 +165,7 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
     return (
       <MarketplaceShell user={viewer} activeTab="home" backHref={backHref} backLabel="Bozor">
         <section className="mx-auto w-full max-w-3xl space-y-4">
-          <ApiErrorPanel title="E'lon yuklanmadi" error={result.error} />
+          <MarketplaceErrorState retryHref={backHref} />
         </section>
       </MarketplaceShell>
     );

@@ -1,7 +1,3 @@
-import Link from 'next/link';
-import { Package2, Plus } from 'lucide-react';
-
-import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { AppliedFilterChips } from '@/components/marketplace/applied-filter-chips';
 import { ListingFilters, QuickChips } from '@/components/marketplace/listing-filters';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
@@ -12,19 +8,22 @@ import {
 } from '@/components/marketplace/marketplace-toolbar';
 import { PlayerFilterLauncher } from '@/components/marketplace/player-filter-launcher';
 import {
+  MarketplaceEmptyState,
+  MarketplaceErrorState,
+  getMarketplaceEmptyState,
+} from '@/components/marketplace/marketplace-result-state';
+import {
   ResponsiveListingGrid,
   ResponsiveListingGridSkeleton,
 } from '@/components/marketplace/responsive-listing-grid';
 import { type SortMenuOption } from '@/components/marketplace/sort-menu';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
 import { type MarketplaceFilterId } from '@/lib/marketplace-format';
 import {
   buildAppliedMarketplaceFilters,
   generalAppliedFilterCount,
 } from '@/lib/marketplace-applied-filters';
 import {
-  loosenMarketplaceMatch,
   marketplaceHref,
   setMarketplacePage,
   setMarketplaceSort,
@@ -127,14 +126,9 @@ export function MarketplaceBrowser({
         <AppliedFilterChips items={appliedFilters} rawQuery={currentQuery} />
 
         {!result.ok ? (
-          <ApiErrorPanel title="E'lonlar yuklanmadi" error={result.error} />
+          <MarketplaceErrorState retryHref={marketplaceHref(rawParams)} />
         ) : page === null || page.content.length === 0 ? (
-          <BrowseEmpty
-            query={query}
-            hasPlayerMatch={playerFilterCount > 0}
-            currentQuery={currentQuery}
-            activeMatchStrictness={activeMatch.strictness}
-          />
+          <MarketplaceEmptyState state={getMarketplaceEmptyState(rawParams)} />
         ) : (
           <>
             <ResponsiveListingGrid
@@ -163,49 +157,6 @@ export function MarketplaceBrowserSkeleton() {
         <Skeleton className="h-8 w-64 rounded-lg" />
         <ResponsiveListingGridSkeleton />
       </div>
-    </div>
-  );
-}
-
-function BrowseEmpty({
-  query,
-  hasPlayerMatch,
-  currentQuery,
-  activeMatchStrictness,
-}: {
-  query?: string;
-  hasPlayerMatch: boolean;
-  currentQuery: string;
-  activeMatchStrictness: number;
-}) {
-  const loosen = loosenMarketplaceMatch(
-    new URLSearchParams(currentQuery),
-    activeMatchStrictness,
-  );
-  return (
-    <div className="rounded-xl border border-dashed border-border bg-card px-4 py-16 text-center shadow-card">
-      <Package2 className="mx-auto h-10 w-10 text-muted-foreground/50" />
-      <h2 className="mt-3 text-base font-bold text-foreground">
-        {hasPlayerMatch ? 'Bu tarkibga mos akkount topilmadi' : query ? 'Hech narsa topilmadi' : "Hozircha e'lonlar yo'q"}
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {hasPlayerMatch
-          ? 'Qat’iylikni pasaytiring yoki tanlangan o‘yinchilarni tahrirlang.'
-          : query
-          ? "Boshqa kalit so'z yoki filtrni sinab ko'ring."
-          : "Birinchi bo'lib akkountingizni sotishga qo'ying."}
-      </p>
-      {hasPlayerMatch ? (
-        <Button asChild className="mt-4">
-          <Link href={marketplaceHref(loosen)}>Qat’iylikni pasaytirish</Link>
-        </Button>
-      ) : (
-        <Button asChild className="mt-4">
-          <Link href="/marketplace/new">
-            <Plus className="h-4 w-4" /> Akkount joylash
-          </Link>
-        </Button>
-      )}
     </div>
   );
 }

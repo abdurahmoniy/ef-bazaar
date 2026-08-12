@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
+import { MarketplacePendingLink } from '@/components/marketplace/marketplace-navigation';
 import { cn } from '@/lib/utils';
 
 interface ListingsPaginationProps {
@@ -15,29 +15,63 @@ export function ListingsPagination({ page, totalPages, buildHref }: ListingsPagi
   const pages = pageNumbers(page, totalPages);
 
   return (
-    <nav className="flex flex-wrap items-center justify-center gap-1 pt-2" aria-label="Sahifalash">
-      <PageLink href={buildHref(Math.max(0, page - 1))} disabled={page === 0} label="Oldingi" edge>
-        <ChevronLeft className="h-4 w-4" />
-      </PageLink>
-      {pages.map((entry, index) =>
-        entry === 'ellipsis' ? (
-          <span key={`ellipsis-${index}`} className="px-2 text-sm text-muted-foreground">
-            …
-          </span>
-        ) : (
-          <PageLink key={entry} href={buildHref(entry)} active={entry === page} label={`Sahifa ${entry + 1}`}>
-            {entry + 1}
-          </PageLink>
-        ),
-      )}
-      <PageLink
-        href={buildHref(Math.min(totalPages - 1, page + 1))}
-        disabled={page >= totalPages - 1}
-        label="Keyingi"
-        edge
-      >
-        <ChevronRight className="h-4 w-4" />
-      </PageLink>
+    <nav className="pt-2" aria-label="Sahifalash">
+      <div className="flex items-center justify-center gap-2 sm:hidden">
+        <PageLink
+          href={buildHref(Math.max(0, page - 1))}
+          disabled={page === 0}
+          label="Oldingi"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        </PageLink>
+        <span className="min-w-16 text-center text-sm font-bold text-foreground">
+          {page + 1} / {totalPages}
+        </span>
+        <PageLink
+          href={buildHref(Math.min(totalPages - 1, page + 1))}
+          disabled={page >= totalPages - 1}
+          label="Keyingi"
+        >
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </PageLink>
+      </div>
+
+      <div className="hidden items-center justify-center gap-1 sm:flex">
+        <PageLink
+          href={buildHref(Math.max(0, page - 1))}
+          disabled={page === 0}
+          label="Oldingi"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        </PageLink>
+        {pages.map((entry, index) =>
+          entry === 'ellipsis' ? (
+            <span
+              key={`ellipsis-${index}`}
+              aria-hidden="true"
+              className="px-2 text-sm text-muted-foreground"
+            >
+              …
+            </span>
+          ) : (
+            <PageLink
+              key={entry}
+              href={buildHref(entry)}
+              active={entry === page}
+              label={`Sahifa ${entry + 1}`}
+            >
+              {entry + 1}
+            </PageLink>
+          ),
+        )}
+        <PageLink
+          href={buildHref(Math.min(totalPages - 1, page + 1))}
+          disabled={page >= totalPages - 1}
+          label="Keyingi"
+        >
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </PageLink>
+      </div>
     </nav>
   );
 }
@@ -47,37 +81,39 @@ function PageLink({
   children,
   active,
   disabled,
-  edge,
   label,
 }: {
   href: string;
   children: React.ReactNode;
   active?: boolean;
   disabled?: boolean;
-  edge?: boolean;
   label: string;
 }) {
   const className = cn(
-    'inline-flex h-9 min-w-9 items-center justify-center rounded-lg border px-3 text-sm font-semibold transition',
+    'inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-3 text-sm font-semibold transition-colors',
     active
       ? 'border-primary bg-primary text-primary-foreground'
       : 'border-border bg-card text-foreground hover:border-primary/40',
     disabled && 'pointer-events-none border-transparent bg-muted/60 text-muted-foreground',
-    edge && 'px-2',
   );
 
   if (disabled) {
     return (
-      <span aria-disabled className={className} title={label}>
+      <span aria-disabled="true" aria-label={label} className={className}>
         {children}
       </span>
     );
   }
 
   return (
-    <Link href={href} className={className} title={label}>
+    <MarketplacePendingLink
+      href={href}
+      className={className}
+      aria-label={label}
+      aria-current={active ? 'page' : undefined}
+    >
       {children}
-    </Link>
+    </MarketplacePendingLink>
   );
 }
 
