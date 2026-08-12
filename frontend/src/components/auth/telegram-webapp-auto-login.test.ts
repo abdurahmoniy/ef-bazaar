@@ -81,7 +81,7 @@ describe('TelegramWebAppAutoLogin', () => {
     expect(container.textContent).toBe('');
   });
 
-  it('does not resubmit the same SDK initData after a previous auto-login attempt without a fresh launch hash', async () => {
+  it('silently ignores the same SDK initData after a previous auto-login attempt without a fresh launch hash', async () => {
     window.Telegram = {
       WebApp: {
         initData: 'user=%7B%22id%22%3A123%7D&auth_date=1786540000&hash=same-hash',
@@ -100,7 +100,7 @@ describe('TelegramWebAppAutoLogin', () => {
     await act(async () => root.render(createElement(TelegramWebAppAutoLogin)));
 
     expect(submit).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('Telegram Web sessiyani saqlamadi');
+    expect(container.textContent).toBe('');
   });
 
   it('stops waiting after unmount', async () => {
