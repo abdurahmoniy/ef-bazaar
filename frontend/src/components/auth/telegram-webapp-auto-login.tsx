@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2, RotateCcw } from 'lucide-react';
 
 import { isSafeInternalPath } from '@/lib/safe-redirect';
 
@@ -15,7 +15,16 @@ import { isSafeInternalPath } from '@/lib/safe-redirect';
  * Biz `telegram-web-app.js` skriptidan mustaqil o'qiymiz — skript yuklash CSP yoki
  * tarmoq sababli kechikishi yoki bloklanishi mumkin.
  */
-function readMiniAppInitData(): string | null {
+const TELEGRAM_HASH_KEYS = [
+  'tgWebAppData',
+  'tgWebAppVersion',
+  'tgWebAppPlatform',
+  'tgWebAppThemeParams',
+] as const;
+const HYDRATION_INTERVAL_MS = 100;
+const HYDRATION_ATTEMPTS = 30;
+
+export function readMiniAppInitData(): string | null {
   if (typeof window === 'undefined') return null;
 
   const raw = window.location.hash.replace(/^#/, '');
@@ -27,6 +36,24 @@ function readMiniAppInitData(): string | null {
 
   // Fallback — skript allaqachon yuklangan bo'lsa
   return window.Telegram?.WebApp?.initData || null;
+}
+
+function hasTelegramLaunchContext() {
+  const raw = window.location.hash.replace(/^#/, '');
+  if (!raw) return false;
+  const params = new URLSearchParams(raw);
+  return TELEGRAM_HASH_KEYS.some((key) => params.has(key));
+}
+
+function removeTelegramLaunchHash() {
+  const raw = window.location.hash.replace(/^#/, '');
+  if (!raw) return;
+  const params = new URLSearchParams(raw);
+  if (!TELEGRAM_HASH_KEYS.some((key) => params.has(key))) return;
+  TELEGRAM_HASH_KEYS.forEach((key) => params.delete(key));
+  const remaining = params.toString();
+  const url = `${window.location.pathname}${window.location.search}${remaining ? `#${remaining}` : ''}`;
+  window.history.replaceState(window.history.state, '', url);
 }
 
 /**
@@ -45,7 +72,7 @@ function resolvePostLoginTarget(): string {
   const path = window.location.pathname;
   if (path === '/') return '/marketplace';
   if (!path.startsWith('/auth')) {
-    return path + window.location.search;
+    return path + window.location.search + window.location.hash;
   }
   return '/profile';
 }
@@ -60,58 +87,74 @@ function resolvePostLoginTarget(): string {
 export function TelegramWebAppAutoLogin() {
   const [state, setState] = React.useState<'idle' | 'authing' | 'error'>('idle');
   const [error, setError] = React.useState<string | null>(null);
-  const startedRef = React.useRef(false);
+  const submittedRef = React.useRef(false);
+  const [retryKey, setRetryKey] = React.useState(0);
 
   React.useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
+    if (submittedRef.current) return;
+    const launchContext = hasTelegramLaunchContext();
+    let cancelled = false;
+    let timer: number | undefined;
+    let attempts = 0;
 
-    const initData = readMiniAppInitData();
-    if (!initData) return;
+    const submitInitData = (initData: string) => {
+      if (cancelled || submittedRef.current) return;
+      submittedRef.current = true;
+      removeTelegramLaunchHash();
+      setState('authing');
 
-    // Hash'ni tozalaymiz — keyingi sahifada qayta auth urinishi bo'lmasligi uchun
-    if (window.location.hash) {
-      window.history.replaceState({}, '', window.location.pathname + window.location.search);
-    }
+      try {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/api/telegram-webapp';
+        form.acceptCharset = 'utf-8';
+        form.style.display = 'none';
 
-    setState('authing');
+        const addField = (name: string, value: string) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = name;
+          input.value = value;
+          form.appendChild(input);
+        };
+        addField('initData', initData);
+        addField('from', resolvePostLoginTarget());
+        addField('framed', window.self !== window.top ? '1' : '0');
 
-    // initData'ni fon `fetch` (server action) o'rniga TOP-LEVEL form POST bilan
-    // yuboramiz. Route handler ({@code /api/telegram-webapp}) auth cookie'ni
-    // 303-redirect javobining o'ziga yozadi va target'ga yo'naltiradi. Sabab:
-    // Telegram Desktop'ning WebKitGTK webview'i fon-fetch javobidagi `Set-Cookie`'ni
-    // ishonchli saqlamaydi (server auth muvaffaqiyatli bo'lsa ham user guest mode'da
-    // qolardi) — cookie top-level navigatsiya javobida kelishi shart.
-    //
-    // Deep link saqlanadi: `resolvePostLoginTarget()` joriy `from`/path'ni hisoblab
-    // yashirin `from` maydoniga qo'yadi; server uni sanitizatsiya qiladi.
-    try {
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/api/telegram-webapp';
-      form.acceptCharset = 'utf-8';
-      form.style.display = 'none';
+        document.body.appendChild(form);
+        form.submit();
+      } catch {
+        submittedRef.current = false;
+        setError('Telegram orqali kirib bo‘lmadi. Mini Appni qayta oching.');
+        setState('error');
+      }
+    };
 
-      const addField = (name: string, value: string) => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = name;
-        input.value = value;
-        form.appendChild(input);
-      };
-      addField('initData', initData);
-      addField('from', resolvePostLoginTarget());
-      // Kontekst: iframe (Telegram Web) → cookie `SameSite=None` bo'lishi kerak;
-      // native webview (Desktop/mobil, top-level) → `Lax` (WebKitGTK ITP uchun).
-      addField('framed', window.self !== window.top ? '1' : '0');
+    const attempt = () => {
+      if (cancelled || submittedRef.current) return;
+      const initData = readMiniAppInitData();
+      if (initData) {
+        submitInitData(initData);
+        return;
+      }
+      if (!launchContext) return;
 
-      document.body.appendChild(form);
-      form.submit();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Telegram Mini App auth ishlamadi');
-      setState('error');
-    }
-  }, []);
+      attempts += 1;
+      if (attempts >= HYDRATION_ATTEMPTS) {
+        setError('Telegram ma’lumotlari yuklanmadi. Mini Appni qayta oching yoki qayta urining.');
+        setState('error');
+        return;
+      }
+      setState('authing');
+      timer = window.setTimeout(attempt, HYDRATION_INTERVAL_MS);
+    };
+
+    attempt();
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [retryKey]);
 
   if (state === 'idle') return null;
 
@@ -132,7 +175,19 @@ export function TelegramWebAppAutoLogin() {
     <div className="fixed left-4 right-4 top-4 z-50">
       <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-card px-4 py-3 text-sm text-destructive shadow-card-hover">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>{error ?? 'Mini App auth muvaffaqiyatsiz'}</span>
+        <span className="min-w-0 flex-1">{error ?? 'Mini App auth muvaffaqiyatsiz'}</span>
+        <button
+          type="button"
+          onClick={() => {
+            setError(null);
+            setState('idle');
+            setRetryKey((value) => value + 1);
+          }}
+          className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 font-bold text-foreground hover:bg-muted"
+        >
+          <RotateCcw className="h-4 w-4" aria-hidden="true" />
+          Qayta urinish
+        </button>
       </div>
     </div>
   );

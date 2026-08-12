@@ -15,10 +15,11 @@ interface LoginFormProps {
   googleClientId: string;
   /** Login'dan keyin qaytish manzili (`?from=` dan) — server action tekshiradi. */
   from?: string;
+  initialError?: string | null;
 }
 
-export function LoginForm({ botUsername, googleClientId, from }: LoginFormProps) {
-  const [error, setError] = React.useState<string | null>(null);
+export function LoginForm({ botUsername, googleClientId, from, initialError = null }: LoginFormProps) {
+  const [error, setError] = React.useState<string | null>(initialError);
   const [pending, setPending] = React.useState(false);
 
   const onTelegram = React.useCallback(async (data: TelegramAuthData) => {

@@ -180,4 +180,20 @@ describe('listing card model', () => {
       },
     }), []).safety).toEqual({ tone: 'safe', label: 'Transfer xavfsiz' });
   });
+
+  it('keeps only strictly positive platform coin balances on feed cards', () => {
+    expect(buildListingCardModel(listing({
+      attributes: { android_coins: 125, ios_coins: 0 },
+    }), [])).toMatchObject({
+      androidCoins: 125,
+      iosCoins: undefined,
+    });
+
+    expect(buildListingCardModel(listing({
+      attributes: { android_coins: 0, ios_coins: 75 },
+    }), [])).toMatchObject({
+      androidCoins: undefined,
+      iosCoins: 75,
+    });
+  });
 });

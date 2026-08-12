@@ -1,26 +1,14 @@
-import {
-  Apple,
-  ArrowLeftRight,
-  Gamepad2,
-  ShieldCheck,
-  Smartphone,
-  Sparkles,
-  Target,
-  TriangleAlert,
-  UserRound,
-} from 'lucide-react';
-import type { ReactNode } from 'react';
+import Image from 'next/image';
+import { ArrowLeftRight, TriangleAlert } from 'lucide-react';
 
-import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { ListingCardMedia } from '@/components/marketplace/listing-card-media';
 import { buildListingCardModel } from '@/components/marketplace/listing-card-model';
 import { ListingLikeButton } from '@/components/marketplace/listing-like-button';
 import { MarketplaceListingLink } from '@/components/marketplace/marketplace-listing-link';
-import { divisionLabel, formatCompactNumber } from '@/lib/marketplace-format';
+import { formatCompactNumber } from '@/lib/marketplace-format';
 import { listingMediaUrls } from '@/lib/marketplace-media';
 import type { ListingResponse } from '@/lib/marketplace-types';
 import type { PlayerMatchCriterion } from '@/lib/player-match-query';
-import { cn } from '@/lib/utils';
 
 export type ListingCardLayout = 'auto' | 'horizontal' | 'vertical';
 
@@ -49,7 +37,6 @@ export function ListingCard({
   const resolvedLayout = layout ?? (variant === 'list' ? 'horizontal' : 'vertical');
   const model = buildListingCardModel(listing, matchCriteria);
   const coverUrl = listingMediaUrls(listing, 1)[0];
-  const divisionBadgeLevel = toDivisionLevel(model.division);
   const authenticated = listing.likedByMe !== undefined && listing.likedByMe !== null;
   const titleId = `marketplace-listing-${listing.id}-title`;
 
@@ -94,151 +81,89 @@ export function ListingCard({
           <span className="whitespace-nowrap text-lg font-black leading-none text-[hsl(var(--price))]">
             {model.price}
           </span>
-          <DealTags negotiable={model.negotiable} exchange={model.exchange} />
+          {model.exchangeLabel && <ExchangeTag label={model.exchangeLabel} />}
         </div>
 
-        {model.matchLabel && (
-          <div className="inline-flex w-fit items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-xs font-black text-primary">
-            <Target className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{model.matchLabel}</span>
-          </div>
-        )}
-
-        {model.playerNames.length > 0 && (
-          <div className="flex min-w-0 items-start gap-1.5 text-xs font-semibold text-foreground">
-            <UserRound className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
-            <span className="min-w-0 leading-5">
-              {model.playerNames.map((name, index) => (
-                <span key={`${name}-${index}`}>
-                  {index > 0 && <span aria-hidden="true"> · </span>}
-                  {name}
-                </span>
-              ))}
-              {model.playerRemainder > 0 && (
-                <span className="text-muted-foreground"> +{model.playerRemainder}</span>
-              )}
-            </span>
-            {model.hasMetaCard && (
-              <span
-                aria-label="META karta mavjud"
-                className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-black tracking-wide text-primary"
-              >
-                META
-              </span>
-            )}
-          </div>
-        )}
-
-        {model.playerNames.length === 0 && model.hasMetaCard && (
-          <span
-            aria-label="META karta mavjud"
-            className="w-fit rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-black tracking-wide text-primary"
-          >
-            META
-          </span>
-        )}
-
-        <h2 id={titleId} className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+        <h2 id={titleId} className="sr-only">
           {model.title}
         </h2>
 
-        {(model.division !== undefined || model.teamStrength !== undefined) && (
-          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-            {divisionBadgeLevel ? (
-              <Metric
-                icon={<DivisionBadge level={divisionBadgeLevel} size={22} />}
-                value={divisionLabel(model.division)}
-              />
-            ) : model.division !== undefined ? (
-              <Metric
-                icon={<ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />}
-                value={divisionLabel(model.division)}
-              />
-            ) : null}
-            {model.teamStrength !== undefined && (
-              <Metric
-                icon={<Gamepad2 className="h-3.5 w-3.5" aria-hidden="true" />}
-                value={formatCompactNumber(model.teamStrength)}
-              />
-            )}
-          </div>
-        )}
+        <div className="listing-card__facts grid gap-2">
+          {(model.googlePlayLinked || model.gameCenterLinked) && (
+            <div
+              data-listing-linked-services
+              className="flex min-w-0 flex-wrap gap-1.5"
+            >
+              {model.googlePlayLinked && (
+                <LinkedServiceWarning
+                  service="google-play"
+                  label="Google Play"
+                />
+              )}
+              {model.gameCenterLinked && (
+                <LinkedServiceWarning
+                  service="game-center"
+                  label="Game Center"
+                />
+              )}
+            </div>
+          )}
 
-        {(model.valuableCount > 0 || model.androidCoins !== undefined || model.iosCoins !== undefined) && (
-          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-            {model.valuableCount > 0 && (
-              <Metric
-                icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" />}
-                value={`${model.valuableCount} karta`}
-              />
-            )}
-            {model.androidCoins !== undefined && (
-              <Metric
-                icon={<Smartphone className="h-3.5 w-3.5" aria-hidden="true" />}
-                value={formatCompactNumber(model.androidCoins)}
-              />
-            )}
-            {model.iosCoins !== undefined && (
-              <Metric
-                icon={<Apple className="h-3.5 w-3.5" aria-hidden="true" />}
-                value={formatCompactNumber(model.iosCoins)}
-              />
-            )}
-          </div>
-        )}
-
-        {model.safety && (
-          <div
-            className={cn(
-              'inline-flex w-fit items-center gap-1 text-[11px] font-bold',
-              model.safety.tone === 'warning'
-                ? 'text-amber-700 dark:text-amber-300'
-                : 'text-emerald-700 dark:text-emerald-300',
-            )}
-          >
-            {model.safety.tone === 'warning' ? (
-              <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
-            ) : (
-              <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-            )}
-            <span>{model.safety.label}</span>
-          </div>
-        )}
-
-        <time
-          dateTime={listing.createdAt}
-          className="mt-auto text-[11px] text-muted-foreground"
-        >
-          {model.date}
-        </time>
+          {(model.androidCoins !== undefined || model.iosCoins !== undefined) && (
+            <div className="flex min-h-10 items-center gap-3 rounded-lg bg-muted/65 px-2.5 py-2 text-[11px]">
+              {model.androidCoins !== undefined && <CoinFact platform="Android" value={model.androidCoins} />}
+              {model.iosCoins !== undefined && <CoinFact platform="iOS" value={model.iosCoins} />}
+            </div>
+          )}
+        </div>
       </div>
     </article>
   );
 }
 
-function DealTags({ negotiable, exchange }: { negotiable: boolean; exchange: boolean }) {
-  if (!negotiable && !exchange) return null;
+function ExchangeTag({ label }: { label: string }) {
   return (
-    <span className="flex shrink-0 items-center gap-1">
-      {negotiable && (
-        <span className="rounded-full bg-[hsl(var(--price)/0.14)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[hsl(var(--price))]">
-          savdo
-        </span>
-      )}
-      {exchange && (
-        <span className="inline-flex items-center gap-0.5 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent-foreground">
-          <ArrowLeftRight className="h-2.5 w-2.5" aria-hidden="true" /> obmen
-        </span>
-      )}
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent px-2 py-1 text-[10px] font-bold text-accent-foreground">
+      <ArrowLeftRight className="h-3 w-3" aria-hidden="true" />
+      {label}
     </span>
   );
 }
 
-function Metric({ icon, value }: { icon: ReactNode; value: string }) {
+function LinkedServiceWarning({
+  service,
+  label,
+}: {
+  service: 'google-play' | 'game-center';
+  label: string;
+}) {
   return (
-    <div className="flex min-w-0 items-center gap-1 rounded-md bg-muted/70 px-1.5 py-1">
-      <span className="shrink-0 text-muted-foreground">{icon}</span>
-      <span className="truncate font-bold text-foreground">{value}</span>
+    <div
+      data-linked-service-warning={service}
+      className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-secondary/45 bg-secondary/10 px-2 py-1.5 text-[10px] font-bold text-accent-foreground"
+    >
+      <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span className="truncate">{label} ulangan</span>
+    </div>
+  );
+}
+
+function CoinFact({ platform, value }: { platform: 'Android' | 'iOS'; value: number }) {
+  return (
+    <div role="group" aria-label={`${platform} coin: ${value}`} className="flex min-w-0 items-center gap-1.5">
+      <Image
+        data-efootball-coin-icon
+        src="/icons/efootball-coin.png"
+        alt=""
+        width={18}
+        height={18}
+        unoptimized
+        className="h-[18px] w-[18px] shrink-0 object-contain"
+      />
+      <span className="min-w-0">
+        <span className="block text-[9px] font-semibold leading-none text-muted-foreground">{platform}</span>
+        <span className="block truncate font-black leading-tight text-foreground">{formatCompactNumber(value)}</span>
+      </span>
     </div>
   );
 }

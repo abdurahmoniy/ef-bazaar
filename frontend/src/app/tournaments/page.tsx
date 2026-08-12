@@ -5,6 +5,7 @@ import { TournamentsList } from '@/components/tournaments/tournaments-list';
 import { getMe } from '@/lib/auth';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 import { getJoinedTournamentIds } from '@/lib/tournament-server';
+import { FeatureGate } from '@/components/feature-gate';
 
 export const metadata: Metadata = {
   title: 'Turnirlar',
@@ -21,8 +22,10 @@ export default async function TournamentsPage() {
   const joinedIds = viewer ? await getJoinedTournamentIds() : new Set<number>();
 
   return (
-    <MarketplaceShell user={viewer} activeTab="tournaments" hideSearch backHref="/marketplace">
-      <TournamentsList joinedIds={[...joinedIds]} />
-    </MarketplaceShell>
+    <FeatureGate feature="tournaments">
+      <MarketplaceShell user={viewer} activeTab="tournaments" hideSearch backHref="/marketplace">
+        <TournamentsList joinedIds={[...joinedIds]} />
+      </MarketplaceShell>
+    </FeatureGate>
   );
 }

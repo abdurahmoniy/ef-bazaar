@@ -76,7 +76,7 @@ describe('ResponsiveListingGrid', () => {
     expect((markup.match(/data-priority="true"/g) ?? [])).toHaveLength(1);
   });
 
-  it('renders a same-geometry, non-navigating Auto skeleton', () => {
+  it('renders a same-geometry compact, non-navigating Auto skeleton', () => {
     const markup = renderToStaticMarkup(createElement(ResponsiveListingGridSkeleton, {
       count: 4,
     }));
@@ -87,22 +87,31 @@ describe('ResponsiveListingGrid', () => {
     expect(markup).toContain('data-view="auto"');
     expect((markup.match(/data-layout="auto"/g) ?? [])).toHaveLength(4);
     expect((markup.match(/aspect-\[4\/3\]/g) ?? [])).toHaveLength(4);
+    expect((markup.match(/data-skeleton-price/g) ?? [])).toHaveLength(4);
+    expect((markup.match(/data-skeleton-facts/g) ?? [])).toHaveLength(4);
+    expect(markup).toContain('listing-card__facts');
+    expect(markup).not.toContain('grid-cols-2');
+    expect(markup).not.toContain('data-skeleton-description');
     expect(markup).not.toContain('href=');
     expect(markup).not.toContain('data-marketplace-listing-id');
   });
 
-  it('uses exact container thresholds and caps Auto at three columns', () => {
+  it('restores two columns on Telegram phone containers and caps Auto at three columns', () => {
     const css = readFileSync(resolve(process.cwd(), 'src/app/globals.css'), 'utf8');
 
     expect(css).toContain('.marketplace-results-container');
     expect(css).toContain('container-type: inline-size');
-    expect(css).toContain('@container (min-width: 380px)');
+    expect(css).toContain('@container (min-width: 300px)');
+    expect(css).not.toContain('@container (min-width: 520px)');
+    expect(css).not.toContain('@container (min-width: 380px)');
     expect(css).toContain('@container (min-width: 696px)');
-    expect(css).toContain('@container (min-width: 932px)');
     expect(css).toMatch(/marketplace-listings:not\(\[data-view='list'\]\)[^{]*\{[^}]*repeat\(2, minmax\(0, 1fr\)\)/s);
     expect(css).toMatch(/@container \(min-width: 696px\)[^{]*\{[^}]*marketplace-listings:not\(\[data-view='list'\]\)[^{]*\{[^}]*repeat\(3, minmax\(0, 1fr\)\)/s);
-    expect(css).toMatch(/marketplace-listings\[data-view='grid'\][^{]*\{[^}]*repeat\(4, minmax\(0, 1fr\)\)/s);
-    expect(css).not.toMatch(/marketplace-listings\[data-view='auto'\][^{]*repeat\(4/);
+    expect(css).not.toMatch(/marketplace-listings[^}]*repeat\(4/);
+    expect(css).toMatch(/listing-card\[data-layout='horizontal'\][^{]*,[\s\S]*listing-card\[data-layout='vertical'\][^{]*\{[^}]*flex-direction:\s*column/s);
+    expect(css).toMatch(/\.listing-card\s*\{[^}]*container-type:\s*inline-size/s);
+    expect(css).toMatch(/@container \(min-width: 360px\)[\s\S]*\.listing-card__facts[^}]*repeat\(2, minmax\(0, 1fr\)\)/s);
+    expect(css).toMatch(/\.listing-card__facts > :only-child\s*\{[^}]*grid-column:\s*1 \/ -1/s);
   });
 
   it('is the marketplace browser feed and loading geometry boundary', () => {

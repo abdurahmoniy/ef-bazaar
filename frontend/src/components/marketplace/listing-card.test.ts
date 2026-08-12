@@ -2,6 +2,7 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import sharp from 'sharp';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -23,9 +24,13 @@ vi.mock('@/lib/marketplace-actions', () => ({
 vi.mock('next/image', async () => {
   const React = await vi.importActual<typeof import('react')>('react');
   return {
-    default: ({ fill: _fill, priority, ...props }: Record<string, unknown>) => React.createElement(
+    default: ({ fill: _fill, priority, unoptimized, ...props }: Record<string, unknown>) => React.createElement(
       'img',
-      { ...props, 'data-priority': priority ? 'true' : undefined },
+      {
+        ...props,
+        'data-priority': priority ? 'true' : undefined,
+        'data-unoptimized': unoptimized ? 'true' : undefined,
+      },
     ),
   };
 });
@@ -76,7 +81,20 @@ afterEach(async () => {
 });
 
 describe('ListingCard', () => {
-  it('renders one full-card detail link with buyer facts in priority order', () => {
+  it('ships the coin mark with a transparent canvas instead of a white tile', async () => {
+    const { data, info } = await sharp(resolve(process.cwd(), 'public/icons/efootball-coin.png'))
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    expect(info.channels).toBe(4);
+    expect(info.width).toBe(64);
+    expect(info.height).toBe(64);
+    expect(data[3]).toBe(0);
+    expect(data[((32 * info.width) + 32) * info.channels + 3]).toBeGreaterThan(0);
+  });
+
+  it('renders only the approved compact buyer facts on the feed card', () => {
     const richListing = listing({
       mediaMessageIds: ['telegram file/id'],
       matchPercent: 58,
@@ -106,6 +124,7 @@ describe('ListingCard', () => {
         ios_coins: 50,
         has_google_play_link: true,
         has_game_center_link: false,
+        exchange_mode: 'EXCHANGE_WITH_SURCHARGE',
         device_transfer_limit: 7,
       },
     });
@@ -129,39 +148,112 @@ describe('ListingCard', () => {
     expect(markup).toContain('data-marketplace-listing-id="listing-1"');
     expect(markup).toContain('data-layout="auto"');
     expect(markup).toContain('data-priority="true"');
-    expect(markup.indexOf("500 000 so&#x27;m")).toBeLessThan(markup.indexOf('2/3 mos · 58%'));
-    expect(markup.indexOf('2/3 mos · 58%')).toBeLessThan(markup.indexOf('Lionel Messi'));
-    expect(markup).toContain('Neymar Jr');
-    expect(markup).toContain('1 ta transfer xavfi');
+    expect(markup).toContain("500 000 so&#x27;m");
+    expect(markup).toContain('Obmen + doplata');
+    expect(markup).toContain('Google Play');
+    expect(markup).not.toContain('Game Center');
+    expect(markup).toContain('Android');
+    expect(markup).toContain('100');
+    expect(markup).toContain('iOS');
+    expect(markup).toContain('50');
+    expect((markup.match(/data-efootball-coin-icon/g) ?? [])).toHaveLength(2);
+
+    expect(markup).not.toContain('2/3 mos · 58%');
+    expect(markup).not.toContain('Lionel Messi');
+    expect(markup).not.toContain('Neymar Jr');
+    expect(markup).toContain('class="sr-only">Strong account with rare players</h2>');
+    expect(markup).not.toContain('line-clamp-2');
+    expect(markup).not.toContain('Division');
+    expect(markup).not.toContain('3 150');
+    expect(markup).not.toContain('3 karta');
+    expect(markup).not.toContain('transfer xavfi');
+    expect(markup).not.toContain('29 iyun');
     expect(markup).not.toContain('META');
   });
 
-  it('renders exactly one META badge only for genuinely META attached cards', () => {
-    const metaMarkup = renderToStaticMarkup(createElement(ListingCard, {
+  it('renders each linked identity provider as its own amber warning chip', () => {
+    const gameCenterMarkup = renderToStaticMarkup(createElement(ListingCard, {
       listing: listing({
         attributes: {
-          valuable_players: [
-            { efhub_id: 101, name: 'Messi', meta_tier: 'META' },
-            { efhub_id: 202, name: 'Neymar', metaTier: 'META' },
-          ],
+          has_google_play_link: false,
+          has_game_center_link: true,
         },
       }),
     }));
-    const normalMarkup = renderToStaticMarkup(createElement(ListingCard, {
+    const bothLinkedMarkup = renderToStaticMarkup(createElement(ListingCard, {
       listing: listing({
-        description: 'META account',
         attributes: {
-          valuable_players: [
-            { efhub_id: 101, name: 'Messi', card_type: 'BIGTIME', meta_tier: 'NORMAL' },
-          ],
-          meta_tier: 'META',
+          has_google_play_link: true,
+          has_game_center_link: true,
+        },
+      }),
+    }));
+    const unlinkedMarkup = renderToStaticMarkup(createElement(ListingCard, {
+      listing: listing({
+        attributes: {
+          has_google_play_link: false,
+          has_game_center_link: false,
         },
       }),
     }));
 
-    expect((metaMarkup.match(/aria-label="META karta mavjud"/g) ?? [])).toHaveLength(1);
-    expect((metaMarkup.match(/>META<\/span>/g) ?? [])).toHaveLength(1);
-    expect(normalMarkup).not.toContain('aria-label="META karta mavjud"');
+    expect(gameCenterMarkup).toContain('data-listing-linked-services');
+    expect(gameCenterMarkup).toContain('data-linked-service-warning="game-center"');
+    expect(gameCenterMarkup).toContain('Game Center ulangan');
+    expect(gameCenterMarkup).not.toContain('Google Play');
+    expect(gameCenterMarkup).not.toContain('/icons/apple.svg');
+    expect(gameCenterMarkup).toContain('lucide-triangle-alert');
+    expect(gameCenterMarkup).toContain('border-secondary/45');
+    expect(gameCenterMarkup).toContain('bg-secondary/10');
+    expect(gameCenterMarkup).toContain('text-accent-foreground');
+    expect((bothLinkedMarkup.match(/data-linked-service-warning=/g) ?? [])).toHaveLength(2);
+    expect(bothLinkedMarkup).toContain('data-linked-service-warning="google-play"');
+    expect(bothLinkedMarkup).toContain('Google Play ulangan');
+    expect(bothLinkedMarkup).toContain('Game Center ulangan');
+    expect(bothLinkedMarkup).not.toContain('/icons/google.svg');
+    expect(bothLinkedMarkup).not.toContain('/icons/apple.svg');
+    expect(unlinkedMarkup).not.toContain('data-listing-linked-services');
+  });
+
+  it('requires exact boolean true for linked services and labels explicit no-exchange', () => {
+    const markup = renderToStaticMarkup(createElement(ListingCard, {
+      listing: listing({
+        attributes: {
+          has_google_play_link: 'true',
+          has_game_center_link: 1,
+          exchange_mode: 'NONE',
+        },
+      }),
+    }));
+
+    expect(markup).not.toContain('data-listing-linked-services');
+    expect(markup).toContain('Obmen yo‘q');
+  });
+
+  it('does not render corrupted negative coin balances', () => {
+    const markup = renderToStaticMarkup(createElement(ListingCard, {
+      listing: listing({
+        attributes: { android_coins: 900, ios_coins: -900 },
+      }),
+    }));
+
+    expect(markup).toContain('Android');
+    expect(markup).toContain('900');
+    expect(markup).not.toContain('iOS');
+    expect(markup).not.toContain('-900');
+  });
+
+  it('uses the supplied PNG and omits zero-valued platform coin facts', () => {
+    const markup = renderToStaticMarkup(createElement(ListingCard, {
+      listing: listing({
+        attributes: { android_coins: 400, ios_coins: 0 },
+      }),
+    }));
+
+    expect(markup).toContain('src="/icons/efootball-coin.png"');
+    expect(markup).toContain('aria-label="Android coin: 400"');
+    expect(markup).not.toContain('aria-label="iOS coin: 0"');
+    expect((markup.match(/data-efootball-coin-icon/g) ?? [])).toHaveLength(1);
   });
 
   it('announces sold state and omits the favorite without removing the detail link', () => {
@@ -203,6 +295,8 @@ describe('ListingCardMedia', () => {
     expect(media?.className).toContain('aspect-[4/3]');
     const firstImage = container.querySelector('img');
     expect(firstImage?.getAttribute('src')).toBe('/bot/photo/one');
+    expect(firstImage?.getAttribute('data-unoptimized')).toBe('true');
+    expect(firstImage?.getAttribute('sizes')).toContain('(max-width: 551px) calc(100vw - 2rem)');
 
     await act(async () => firstImage?.dispatchEvent(new Event('error', { bubbles: true })));
     expect(container.querySelector('[data-listing-card-fallback]')).not.toBeNull();
@@ -215,6 +309,15 @@ describe('ListingCardMedia', () => {
     })));
     expect(container.querySelector('img')?.getAttribute('src')).toBe('/bot/photo/two');
     expect(container.querySelector('[data-listing-card-fallback]')).toBeNull();
+  });
+
+  it('keeps ordinary image URLs on the Next optimizer path', async () => {
+    await act(async () => root.render(createElement(ListingCardMedia, {
+      src: 'https://cdn.example.com/listing.jpg',
+      alt: 'CDN rasmi',
+    })));
+
+    expect(container.querySelector('img')?.getAttribute('data-unoptimized')).toBeNull();
   });
 });
 

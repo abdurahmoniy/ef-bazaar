@@ -2,6 +2,7 @@ import { formatListingDate, formatPriceUZS } from '@/lib/marketplace-format';
 import {
   attributeCardList,
   attributeNumber,
+  attributeString,
   listingAcceptsExchange,
   type ListingResponse,
 } from '@/lib/marketplace-types';
@@ -14,6 +15,9 @@ export interface ListingCardModel {
   sold: boolean;
   negotiable: boolean;
   exchange: boolean;
+  exchangeLabel: string | null;
+  googlePlayLinked: boolean;
+  gameCenterLinked: boolean;
   division?: number;
   teamStrength?: number;
   androidCoins?: number;
@@ -33,6 +37,26 @@ function booleanAttribute(value: unknown) {
   if (value === true || value === 'true') return true;
   if (value === false || value === 'false') return false;
   return undefined;
+}
+
+function exchangeLabel(listing: ListingResponse): string | null {
+  switch (attributeString(listing, 'exchange_mode')) {
+    case 'NONE':
+      return 'Obmen yo‘q';
+    case 'EXCHANGE_ONLY':
+      return 'Faqat obmen';
+    case 'EXCHANGE_WITH_SURCHARGE':
+      return 'Obmen + doplata';
+    case 'BOTH':
+      return 'Obmen yoki obmen + doplata';
+    default:
+      return null;
+  }
+}
+
+function positiveNumberAttribute(listing: ListingResponse, key: string) {
+  const value = attributeNumber(listing, key);
+  return value !== undefined && value > 0 ? value : undefined;
 }
 
 /**
@@ -85,10 +109,13 @@ export function buildListingCardModel(
     sold: listing.status === 'SOLD',
     negotiable: listing.priceNegotiable,
     exchange: listingAcceptsExchange(listing),
+    exchangeLabel: exchangeLabel(listing),
+    googlePlayLinked: listing.attributes.has_google_play_link === true,
+    gameCenterLinked: listing.attributes.has_game_center_link === true,
     division: attributeNumber(listing, 'highest_division_level'),
     teamStrength: attributeNumber(listing, 'team_strength'),
-    androidCoins: attributeNumber(listing, 'android_coins'),
-    iosCoins: attributeNumber(listing, 'ios_coins'),
+    androidCoins: positiveNumberAttribute(listing, 'android_coins'),
+    iosCoins: positiveNumberAttribute(listing, 'ios_coins'),
     valuableCount: valuable.length,
     hasMetaCard: valuable.some((card) => card.metaTier === 'META'),
     matchLabel: details
