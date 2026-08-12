@@ -114,7 +114,24 @@ export function ListingCard({
                 <span className="text-muted-foreground"> +{model.playerRemainder}</span>
               )}
             </span>
+            {model.hasMetaCard && (
+              <span
+                aria-label="META karta mavjud"
+                className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-black tracking-wide text-primary"
+              >
+                META
+              </span>
+            )}
           </div>
+        )}
+
+        {model.playerNames.length === 0 && model.hasMetaCard && (
+          <span
+            aria-label="META karta mavjud"
+            className="w-fit rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-black tracking-wide text-primary"
+          >
+            META
+          </span>
         )}
 
         <h2 id={titleId} className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">

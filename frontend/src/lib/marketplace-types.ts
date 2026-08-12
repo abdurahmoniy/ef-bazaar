@@ -274,6 +274,8 @@ export interface AttachedPlayerCard {
   overallRating?: number;
   maxOverallRating?: number;
   cardType?: string;
+  /** Buyer-facing META flag captured in the listing snapshot. */
+  metaTier?: MetaTier;
   playingStyle?: string;
   position?: string;
   imageUrl?: string;
@@ -311,6 +313,7 @@ export function attributeCardList(listing: ListingResponse, key: string): Attach
     const item = entry as Record<string, unknown>;
     const efhubIdRaw = (item.efhubId ?? item.efhub_id);
     const playerIdRaw = (item.playerId ?? item.player_id);
+    const metaTierRaw = (item.metaTier ?? item.meta_tier);
     const name = item.name;
     if (typeof name !== 'string') continue;
     out.push({
@@ -325,6 +328,9 @@ export function attributeCardList(listing: ListingResponse, key: string): Attach
         : undefined,
       cardType: typeof (item.cardType ?? item.card_type) === 'string'
         ? String(item.cardType ?? item.card_type)
+        : undefined,
+      metaTier: metaTierRaw === 'META' || metaTierRaw === 'NORMAL'
+        ? metaTierRaw
         : undefined,
       playingStyle: typeof (item.playingStyle ?? item.playing_style) === 'string'
         ? String(item.playingStyle ?? item.playing_style)

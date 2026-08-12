@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { buildListingCardModel } from './listing-card-model';
-import type { ListingResponse } from '@/lib/marketplace-types';
+import { attributeCardList, type ListingResponse } from '@/lib/marketplace-types';
 
 const messiId = '11111111-1111-4111-8111-111111111111';
 const neymarId = '22222222-2222-4222-8222-222222222222';
@@ -26,6 +28,50 @@ function listing(overrides: Partial<ListingResponse> = {}): ListingResponse {
 }
 
 describe('listing card model', () => {
+  it('normalizes snake and camel META tiers from attached card snapshots', () => {
+    const cards = attributeCardList(listing({
+      attributes: {
+        valuable_players: [
+          { efhub_id: 101, name: 'Messi', meta_tier: 'META' },
+          { efhubId: 202, name: 'Neymar', metaTier: 'NORMAL' },
+          { efhub_id: 303, name: 'Mbappé', meta_tier: 'UNKNOWN' },
+        ],
+      },
+    }), 'valuable_players');
+
+    expect(cards.map((card) => card.metaTier)).toEqual(['META', 'NORMAL', undefined]);
+  });
+
+  it('preserves catalogue META tiers through listing form edit and submit snapshots', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/components/marketplace/listing-form.tsx'),
+      'utf8',
+    );
+
+    expect(source).toMatch(/metaTier:\s*metaTierRaw === 'META' \|\| metaTierRaw === 'NORMAL'/);
+    expect(source).toContain("payload.meta_tier = card.metaTier");
+  });
+
+  it('reports META only when an attached valuable card is genuinely META', () => {
+    expect(buildListingCardModel(listing({
+      attributes: {
+        valuable_players: [
+          { efhub_id: 101, name: 'Messi', card_type: 'BIGTIME', meta_tier: 'META' },
+        ],
+      },
+    }), []).hasMetaCard).toBe(true);
+
+    expect(buildListingCardModel(listing({
+      description: 'META account',
+      attributes: {
+        valuable_players: [
+          { efhub_id: 101, name: 'Messi', card_type: 'BIGTIME', meta_tier: 'NORMAL' },
+        ],
+        meta_tier: 'META',
+      },
+    }), []).hasMetaCard).toBe(false);
+  });
+
   it('derives exact and alternate names through efhub and canonical player identity', () => {
     const model = buildListingCardModel(listing({
       matchPercent: 58,

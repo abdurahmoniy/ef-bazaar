@@ -136,6 +136,34 @@ describe('ListingCard', () => {
     expect(markup).not.toContain('META');
   });
 
+  it('renders exactly one META badge only for genuinely META attached cards', () => {
+    const metaMarkup = renderToStaticMarkup(createElement(ListingCard, {
+      listing: listing({
+        attributes: {
+          valuable_players: [
+            { efhub_id: 101, name: 'Messi', meta_tier: 'META' },
+            { efhub_id: 202, name: 'Neymar', metaTier: 'META' },
+          ],
+        },
+      }),
+    }));
+    const normalMarkup = renderToStaticMarkup(createElement(ListingCard, {
+      listing: listing({
+        description: 'META account',
+        attributes: {
+          valuable_players: [
+            { efhub_id: 101, name: 'Messi', card_type: 'BIGTIME', meta_tier: 'NORMAL' },
+          ],
+          meta_tier: 'META',
+        },
+      }),
+    }));
+
+    expect((metaMarkup.match(/aria-label="META karta mavjud"/g) ?? [])).toHaveLength(1);
+    expect((metaMarkup.match(/>META<\/span>/g) ?? [])).toHaveLength(1);
+    expect(normalMarkup).not.toContain('aria-label="META karta mavjud"');
+  });
+
   it('announces sold state and omits the favorite without removing the detail link', () => {
     const markup = renderToStaticMarkup(createElement(ListingCard, {
       listing: listing({ status: 'SOLD' }),

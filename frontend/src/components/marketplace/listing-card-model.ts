@@ -19,6 +19,7 @@ export interface ListingCardModel {
   androidCoins?: number;
   iosCoins?: number;
   valuableCount: number;
+  hasMetaCard: boolean;
   matchLabel: string | null;
   playerNames: string[];
   playerRemainder: number;
@@ -89,6 +90,7 @@ export function buildListingCardModel(
     androidCoins: attributeNumber(listing, 'android_coins'),
     iosCoins: attributeNumber(listing, 'ios_coins'),
     valuableCount: valuable.length,
+    hasMetaCard: valuable.some((card) => card.metaTier === 'META'),
     matchLabel: details
       ? `${details.exactCount + details.alternateCount}/${details.selectedCount} mos · ${details.percent}%`
       : typeof listing.matchPercent === 'number'
