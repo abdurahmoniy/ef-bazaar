@@ -60,6 +60,15 @@ export function reduceSearchChrome(
   }
 
   const y = Math.max(0, action.y);
+  if (state.shortLandscape && !state.focused && !state.sessionOpen) {
+    return {
+      ...state,
+      phase: 'compact',
+      lastY: y,
+      direction: 'none',
+      directionAnchorY: y,
+    };
+  }
   if (state.focused || state.sessionOpen || y <= 8) {
     return {
       ...state,

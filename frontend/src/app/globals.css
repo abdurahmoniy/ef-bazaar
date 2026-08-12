@@ -379,3 +379,23 @@
     }
   }
 }
+
+/* The server and first hydration render intentionally share expanded reducer
+   state. Before JavaScript can synchronize matchMedia in a layout effect,
+   render the short-landscape shell compact so no expanded header flashes. */
+@media (orientation: landscape) and (max-height: 480px) {
+  .marketplace-search--collapsible[data-short-landscape='false'][data-session-open='false'] {
+    order: 0;
+    flex: 0 0 2.75rem;
+    width: 2.75rem;
+    padding-bottom: 0;
+  }
+
+  .marketplace-search--collapsible[data-short-landscape='false'][data-session-open='false'] > button {
+    display: inline-flex;
+  }
+
+  .marketplace-search--collapsible[data-short-landscape='false'][data-session-open='false'] > .marketplace-search-form {
+    display: none;
+  }
+}

@@ -22,6 +22,9 @@ interface MarketplaceSearchProps {
 
 const SHORT_LANDSCAPE_QUERY = '(orientation: landscape) and (max-height: 480px)';
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+const useIsomorphicLayoutEffect = typeof window === 'undefined'
+  ? React.useEffect
+  : React.useLayoutEffect;
 
 export function MarketplaceSearch({
   rawQuery,
@@ -75,7 +78,7 @@ export function MarketplaceSearch({
     };
   }, [collapsible]);
 
-  React.useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (!collapsible) return;
     const media = window.matchMedia(SHORT_LANDSCAPE_QUERY);
     const sync = () => dispatch({ type: 'landscape', short: media.matches });
@@ -183,6 +186,7 @@ export function MarketplaceSearch({
       id="marketplace-search"
       data-phase={phase}
       data-session-open={state.sessionOpen ? 'true' : 'false'}
+      data-short-landscape={state.shortLandscape ? 'true' : 'false'}
       className={cn('marketplace-search', collapsible && 'marketplace-search--collapsible')}
     >
       <button

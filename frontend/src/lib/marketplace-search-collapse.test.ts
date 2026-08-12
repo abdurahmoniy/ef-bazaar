@@ -43,6 +43,20 @@ describe('marketplace search chrome', () => {
     expect(state.focused).toBe(true);
   });
 
+  it('keeps runtime short landscape compact at the top until explicitly opened or focused', () => {
+    let state = initialSearchChromeState(false);
+    state = reduceSearchChrome(state, { type: 'landscape', short: true });
+    expect(state.phase).toBe('compact');
+
+    state = reduceSearchChrome(state, { type: 'scroll', y: 0 });
+    expect(state.phase).toBe('compact');
+
+    const opened = reduceSearchChrome(state, { type: 'open' });
+    expect(opened.phase).toBe('expanded');
+    const focused = reduceSearchChrome(state, { type: 'focus' });
+    expect(focused.phase).toBe('expanded');
+  });
+
   it('opens and closes a compact search session explicitly', () => {
     let state: SearchChromeState = {
       ...initialSearchChromeState(false),
@@ -118,6 +132,7 @@ describe('marketplace search source contract', () => {
 
 describe('marketplace search integration source contract', () => {
   const layout = source('../app/marketplace/layout.tsx');
+  const search = source('../components/marketplace/marketplace-search.tsx');
   const shell = source('../components/marketplace/marketplace-shell.tsx');
   const page = source('../app/marketplace/page.tsx');
   const globals = source('../app/globals.css');
@@ -139,5 +154,15 @@ describe('marketplace search integration source contract', () => {
     expect(globals).toContain('transform 180ms ease');
     expect(globals).toContain(".marketplace-search[data-phase='collapsing']");
     expect(globals).toContain('@media (prefers-reduced-motion: reduce)');
+  });
+
+  it('renders short-landscape search compact before paint and synchronizes state in layout', () => {
+    expect(search).toContain('React.useLayoutEffect');
+    expect(search).toContain('useIsomorphicLayoutEffect(() =>');
+    expect(search).toContain('data-short-landscape={state.shortLandscape');
+    expect(globals).toContain('@media (orientation: landscape) and (max-height: 480px)');
+    expect(globals).toContain(
+      ".marketplace-search--collapsible[data-short-landscape='false'][data-session-open='false']",
+    );
   });
 });
