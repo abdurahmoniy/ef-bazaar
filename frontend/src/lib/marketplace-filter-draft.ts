@@ -32,7 +32,7 @@ export type MarketplaceFilterDraftErrorKey =
   | 'iosCoinsMin'
   | 'transferLimitMin';
 
-export type MarketplaceFilterDraftErrors = Partial<
+export type MarketplaceFilterErrors = Partial<
   Record<MarketplaceFilterDraftErrorKey, string>
 >;
 
@@ -141,8 +141,8 @@ export function filterDraftFromBrowseParams(filters: ListingBrowseParams): Marke
 }
 
 /** Validates only the fields that the detailed filter controls. Empty values are valid. */
-export function validateMarketplaceFilterDraft(draft: MarketplaceFilterDraft): MarketplaceFilterDraftErrors {
-  const errors: MarketplaceFilterDraftErrors = {};
+export function validateMarketplaceFilterDraft(draft: MarketplaceFilterDraft): MarketplaceFilterErrors {
+  const errors: MarketplaceFilterErrors = {};
   if (!validPlatform(draft.platform)) errors.platform = 'Platformani tanlang.';
 
   const validatePrice = (key: 'minPrice' | 'maxPrice') => {
@@ -171,16 +171,17 @@ export function validateMarketplaceFilterDraft(draft: MarketplaceFilterDraft): M
   const validateTeamStrength = (key: 'teamStrengthMin' | 'teamStrengthMax') => {
     const value = integerValue(draft[key]);
     if (value === null) errors[key] = 'Butun son kiriting.';
-    else if (value !== undefined && value < 1000) errors[key] = '1000 dan kam bo‘lishi kerak.';
+    else if (value !== undefined && value < 1000) errors[key] = '1000 dan kam bo‘lmasligi kerak.';
     else if (value !== undefined && value > 5000) errors[key] = '5000 dan oshmasligi kerak.';
     return value;
   };
   const minStrength = validateTeamStrength('teamStrengthMin');
   const maxStrength = validateTeamStrength('teamStrengthMax');
   if (minStrength !== null && maxStrength !== null
-    && minStrength !== undefined && maxStrength !== undefined && minStrength > maxStrength) {
-    delete errors.teamStrengthMin;
-    delete errors.teamStrengthMax;
+    && minStrength !== undefined && maxStrength !== undefined
+    && minStrength >= 1000 && minStrength <= 5000
+    && maxStrength >= 1000 && maxStrength <= 5000
+    && minStrength > maxStrength) {
     errors.teamStrength = 'Eng kam kuch eng yuqori kuchdan oshmasligi kerak.';
   }
 

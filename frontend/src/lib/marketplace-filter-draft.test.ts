@@ -89,14 +89,11 @@ describe('marketplace filter draft', () => {
     expect(validateMarketplaceFilterDraft(draft({ minPrice: '100', maxPrice: '99' }))).toEqual({
       price: 'Eng kam narx eng yuqori narxdan oshmasligi kerak.',
     });
-    expect(validateMarketplaceFilterDraft(draft({ teamStrengthMin: '999' }))).toEqual({
-      teamStrengthMin: '1000 dan kam bo‘lishi kerak.',
+    expect(validateMarketplaceFilterDraft(draft({ teamStrengthMin: '900' }))).toEqual({
+      teamStrengthMin: '1000 dan kam bo‘lmasligi kerak.',
     });
     expect(validateMarketplaceFilterDraft(draft({ teamStrengthMax: '5001' }))).toEqual({
       teamStrengthMax: '5000 dan oshmasligi kerak.',
-    });
-    expect(validateMarketplaceFilterDraft(draft({ teamStrengthMin: '5000', teamStrengthMax: '1000' }))).toEqual({
-      teamStrength: 'Eng kam kuch eng yuqori kuchdan oshmasligi kerak.',
     });
     expect(validateMarketplaceFilterDraft(draft({ androidCoinsMin: '-4', iosCoinsMin: '-5' }))).toEqual({});
     expect(validateMarketplaceFilterDraft(draft({ iosCoinsMin: '3.1' }))).toEqual({
@@ -104,6 +101,25 @@ describe('marketplace filter draft', () => {
     });
     expect(validateMarketplaceFilterDraft(draft({ transferLimitMin: '0' }))).toEqual({});
     expect(validateMarketplaceFilterDraft(draft({ transferLimitMin: '10' }))).toEqual({});
+  });
+
+  it('preserves strength bound errors instead of replacing them with a reversal error', () => {
+    expect(validateMarketplaceFilterDraft(draft({
+      teamStrengthMin: '6000',
+      teamStrengthMax: '5500',
+    }))).toEqual({
+      teamStrengthMin: '5000 dan oshmasligi kerak.',
+      teamStrengthMax: '5000 dan oshmasligi kerak.',
+    });
+  });
+
+  it('uses only the group error when valid strength bounds are reversed', () => {
+    expect(validateMarketplaceFilterDraft(draft({
+      teamStrengthMin: '4100',
+      teamStrengthMax: '3000',
+    }))).toEqual({
+      teamStrength: 'Eng kam kuch eng yuqori kuchdan oshmasligi kerak.',
+    });
   });
 
   it('ignores invalid platform and valuable-player values while hydrating', () => {
