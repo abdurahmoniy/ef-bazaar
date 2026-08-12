@@ -3,7 +3,6 @@ import {
   Home,
   MessageCircle,
   Plus,
-  Search,
   ShieldCheck,
   Trophy,
   UserRound,
@@ -11,13 +10,13 @@ import {
 
 import { ChatsUnreadBadge } from '@/components/chat/chats-unread-badge';
 import { Logo } from '@/components/brand/logo';
+import { MarketplaceSearch } from '@/components/marketplace/marketplace-search';
 import { SlidingNav, type SlidingNavItem } from '@/components/navigation/sliding-nav';
 import { TopBackButton } from '@/components/navigation/top-back-button';
 import { UserMenu } from '@/components/navigation/user-menu';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { User } from '@/lib/types';
 
@@ -34,6 +33,10 @@ interface MarketplaceShellProps {
   hideSearch?: boolean;
   /** Current search text — populates the top-bar input on marketplace listing routes. */
   initialQuery?: string;
+  /** Raw public marketplace query; search rewrites only its owned keys. */
+  marketplaceQuery?: string;
+  /** Collapses marketplace search after deliberate downward scrolling. */
+  collapsibleSearch?: boolean;
   /**
    * When set, renders a chevron back button in the top-left of the header (and,
    * inside a Telegram Mini App, activates the native BackButton). Prefer this
@@ -133,6 +136,8 @@ export function MarketplaceShell({
   activeTab,
   hideSearch = false,
   initialQuery,
+  marketplaceQuery = '',
+  collapsibleSearch = false,
   backHref,
   backLabel,
   mobileActionBar,
@@ -142,6 +147,7 @@ export function MarketplaceShell({
 
   return (
     <div
+      data-marketplace-shell
       className={cn(
         'min-h-app bg-background',
         mobileActionBar
@@ -151,7 +157,7 @@ export function MarketplaceShell({
       )}
     >
       <header className="sticky top-0 z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)]">
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-2 px-4 sm:gap-3">
+        <div className="mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center gap-x-2 px-4 sm:h-14 sm:flex-nowrap sm:gap-3">
           {backHref && <TopBackButton href={backHref} label={backLabel} className="-ml-2" />}
           <Logo size="sm" href="/marketplace" />
 
@@ -165,17 +171,11 @@ export function MarketplaceShell({
           />
 
           {!hideSearch && (
-            <form action="/marketplace" method="get" className="ml-2 hidden min-w-0 flex-1 items-center sm:flex">
-              <div className="relative w-full">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  name="q"
-                  defaultValue={initialQuery}
-                  placeholder="Akkount, Messi, Division..."
-                  className="h-10 rounded-lg pl-9 pr-3"
-                />
-              </div>
-            </form>
+            <MarketplaceSearch
+              rawQuery={marketplaceQuery}
+              initialQuery={initialQuery}
+              collapsible={collapsibleSearch}
+            />
           )}
 
           {/*
@@ -227,39 +227,24 @@ export function MarketplaceShell({
           </div>
         </div>
 
-        {!hideSearch && (
-          <div className="sm:hidden">
-            <form action="/marketplace" method="get" className="px-4 pb-3">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  name="q"
-                  defaultValue={initialQuery}
-                  placeholder="Qidiring..."
-                  className="h-11 rounded-lg pl-9 pr-3"
-                />
-              </div>
-            </form>
-          </div>
-        )}
-
-        {user && !user.verified && (
-          <div className="border-t border-border/70 bg-amber-50/70 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
-            <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-1.5 text-[11px] font-semibold">
-              <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">
-                Akkount tasdiqlanmagan — Telegram va Google ulang
-              </span>
-              <Link
-                href="/profile?tab=account"
-                className="tap-press shrink-0 rounded-md bg-amber-100/80 px-2 py-1 hover:bg-amber-200/80 dark:bg-amber-400/20 dark:hover:bg-amber-400/30"
-              >
-                Tasdiqlash
-              </Link>
-            </div>
-          </div>
-        )}
       </header>
+
+      {user && !user.verified && (
+        <div className="border-b border-border/70 bg-amber-50/70 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
+          <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-1.5 text-[11px] font-semibold">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">
+              Akkount tasdiqlanmagan — Telegram va Google ulang
+            </span>
+            <Link
+              href="/profile?tab=account"
+              className="tap-press shrink-0 rounded-md bg-amber-100/80 px-2 py-1 hover:bg-amber-200/80 dark:bg-amber-400/20 dark:hover:bg-amber-400/30"
+            >
+              Tasdiqlash
+            </Link>
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 md:py-6">
         {children}

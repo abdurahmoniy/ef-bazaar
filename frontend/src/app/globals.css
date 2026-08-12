@@ -56,6 +56,7 @@
     --app-content-safe-left: max(var(--app-safe-left), var(--tg-content-safe-area-inset-left, 0px));
     --marketplace-bottom-bar-height: calc(3.5rem + var(--app-content-safe-bottom));
     --marketplace-action-bar-reserve: calc(7rem + var(--app-content-safe-bottom));
+    --marketplace-sticky-height: calc(3.5rem + var(--app-content-safe-top));
   }
 
   .dark {
@@ -246,6 +247,58 @@
     @apply bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80;
   }
 
+  .marketplace-search {
+    order: 20;
+    flex: 1 0 100%;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-bottom: 0.75rem;
+  }
+
+  .marketplace-search[data-phase='compact'] {
+    order: 0;
+    flex: 0 0 2.75rem;
+    width: 2.75rem;
+    padding-bottom: 0;
+  }
+
+  .marketplace-search-form,
+  .marketplace-search-inner {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .marketplace-search-form {
+    overflow: hidden;
+  }
+
+  .marketplace-search-inner {
+    transition: transform 180ms ease, opacity 180ms ease;
+  }
+
+  .marketplace-search[data-phase='collapsing'] .marketplace-search-inner {
+    pointer-events: none;
+    transform: translateY(-0.25rem);
+    opacity: 0;
+  }
+
+  @media (min-width: 640px) {
+    .marketplace-search {
+      order: 0;
+      flex: 1 1 12rem;
+      width: auto;
+      padding-bottom: 0;
+      margin-left: 0.5rem;
+    }
+
+    .marketplace-search[data-phase='compact'] {
+      flex: 0 0 2.75rem;
+      width: 2.75rem;
+    }
+  }
+
   /* Price pill — hero attribute on cards + detail page */
   .price-pill {
     @apply inline-flex items-baseline gap-1 rounded-md bg-[hsl(var(--price)/0.12)] px-2 py-1 text-[hsl(var(--price))];
@@ -313,6 +366,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .marketplace-search-inner {
+      transition: none;
+    }
+
     .tap-press {
       transition: none;
     }
