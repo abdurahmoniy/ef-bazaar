@@ -1,4 +1,8 @@
-import type { TelegramColorScheme, TelegramWebAppInset } from '@/lib/types';
+import type {
+  TelegramColorScheme,
+  TelegramWebApp,
+  TelegramWebAppInset,
+} from '@/lib/types';
 
 export type AppTheme = 'light' | 'dark';
 
@@ -75,4 +79,18 @@ export function telegramCssVariables(
   addInsetVariables(variables, 'safe-area-inset', safeAreaInset);
   addInsetVariables(variables, 'content-safe-area-inset', contentSafeAreaInset);
   return variables;
+}
+
+export function telegramHaptic(
+  webApp: TelegramWebApp | undefined,
+  kind: 'selection' | 'success' | 'warning' | 'error',
+  reducedMotion: boolean,
+) {
+  if (!webApp || reducedMotion) return;
+  try {
+    if (kind === 'selection') webApp.HapticFeedback?.selectionChanged?.();
+    else webApp.HapticFeedback?.notificationOccurred(kind);
+  } catch {
+    return;
+  }
 }

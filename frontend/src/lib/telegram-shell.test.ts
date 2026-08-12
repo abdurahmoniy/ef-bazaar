@@ -1,11 +1,14 @@
 import { readFileSync } from 'node:fs';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+import type { TelegramWebApp } from './types';
 
 import {
   APP_CHROME_COLORS,
   resolveAppTheme,
   selectTelegramViewportHeight,
+  telegramHaptic,
   telegramCssVariables,
 } from './telegram-shell';
 
@@ -91,6 +94,48 @@ describe('Telegram shell helpers', () => {
 
     expect(Object.values(variables).some((value) => /(?:NaN|-|Infinity)px/.test(value))).toBe(false);
     expect(variables).toEqual({});
+  });
+
+  it('fires guarded selection and success haptics exactly once', () => {
+    const selectionChanged = vi.fn();
+    const notificationOccurred = vi.fn();
+    const webApp = {
+      HapticFeedback: { selectionChanged, notificationOccurred },
+    } as unknown as TelegramWebApp;
+
+    telegramHaptic(webApp, 'selection', false);
+    telegramHaptic(webApp, 'success', false);
+
+    expect(selectionChanged).toHaveBeenCalledTimes(1);
+    expect(notificationOccurred).toHaveBeenCalledTimes(1);
+    expect(notificationOccurred).toHaveBeenCalledWith('success');
+  });
+
+  it('suppresses haptics without an SDK or when reduced motion is enabled', () => {
+    const selectionChanged = vi.fn();
+    const notificationOccurred = vi.fn();
+    const webApp = {
+      HapticFeedback: { selectionChanged, notificationOccurred },
+    } as unknown as TelegramWebApp;
+
+    expect(() => telegramHaptic(undefined, 'selection', false)).not.toThrow();
+    telegramHaptic(webApp, 'selection', true);
+    telegramHaptic(webApp, 'warning', true);
+
+    expect(selectionChanged).not.toHaveBeenCalled();
+    expect(notificationOccurred).not.toHaveBeenCalled();
+  });
+
+  it('does not let SDK haptic failures escape', () => {
+    const webApp = {
+      HapticFeedback: {
+        selectionChanged: () => { throw new Error('SDK failure'); },
+        notificationOccurred: () => { throw new Error('SDK failure'); },
+      },
+    } as unknown as TelegramWebApp;
+
+    expect(() => telegramHaptic(webApp, 'selection', false)).not.toThrow();
+    expect(() => telegramHaptic(webApp, 'error', false)).not.toThrow();
   });
 });
 

@@ -4,6 +4,7 @@ import Script from 'next/script';
 import './globals.css';
 
 import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
+import { TelegramBackProvider } from '@/components/telegram/telegram-back-provider';
 import { TelegramViewportBootstrap } from '@/components/telegram/telegram-viewport-bootstrap';
 import { ThemeScript } from '@/components/theme/theme-script';
 import { absoluteUrl, siteConfig } from '@/lib/site';
@@ -114,7 +115,9 @@ export default function RootLayout({
         {/* Telegram Mini App context aniqlansa har qanday entry point'da auto-login */}
         <TelegramWebAppAutoLogin />
 
-        <StoreProvider>{children}</StoreProvider>
+        <TelegramBackProvider>
+          <StoreProvider>{children}</StoreProvider>
+        </TelegramBackProvider>
 
         <Script id="yandex-metrika" strategy="afterInteractive">
           {`

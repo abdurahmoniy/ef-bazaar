@@ -25,7 +25,7 @@ interface TopBackButtonProps {
  */
 export function TopBackButton({ href, label = 'Orqaga', className }: TopBackButtonProps) {
   const router = useRouter();
-  const isTelegram = useTelegramBackButton(() => router.push(href));
+  const isTelegram = useTelegramBackButton(() => router.replace(href));
 
   if (isTelegram) return null;
 
@@ -34,7 +34,7 @@ export function TopBackButton({ href, label = 'Orqaga', className }: TopBackButt
       href={href}
       aria-label={label}
       className={cn(
-        'inline-flex h-10 w-10 items-center justify-center rounded-lg text-foreground/70 transition',
+        'inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-foreground/70 transition',
         'hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
         className,
       )}

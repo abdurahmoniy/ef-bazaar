@@ -17,7 +17,6 @@ import { MatchBreakdown } from '@/components/marketplace/match-breakdown';
 import { PlayerCardTile } from '@/components/marketplace/player-card-tile';
 import { SellerCard } from '@/components/marketplace/seller-card';
 import { ShareListingButton } from '@/components/marketplace/share-listing-button';
-import { BackLink } from '@/components/navigation/back-link';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -52,7 +51,6 @@ export function MarketplaceListingDetail({
   seller,
   sellerBlacklisted,
   similarListings,
-  backHref = '/marketplace',
 }: MarketplaceListingDetailProps) {
   const title = listing.description.split('\n')[0]?.trim() || 'eFootball account';
   const restDescription = listing.description
@@ -91,8 +89,7 @@ export function MarketplaceListingDetail({
 
   return (
     <article className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <BackLink href={backHref} label="Bozor" />
+      <div className="flex justify-end">
         <ShareListingButton listingId={listing.id} title={title} />
       </div>
 

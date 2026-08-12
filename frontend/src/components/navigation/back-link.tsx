@@ -21,7 +21,7 @@ interface BackLinkProps {
  */
 export function BackLink({ href, label = 'Orqaga', className }: BackLinkProps) {
   const router = useRouter();
-  const isTelegram = useTelegramBackButton(() => router.push(href));
+  const isTelegram = useTelegramBackButton(() => router.replace(href));
 
   if (isTelegram) return null;
 
@@ -29,7 +29,7 @@ export function BackLink({ href, label = 'Orqaga', className }: BackLinkProps) {
     <Link
       href={href}
       className={cn(
-        'inline-flex min-h-9 items-center gap-1 text-sm font-bold text-muted-foreground transition hover:text-foreground',
+        'inline-flex min-h-11 min-w-11 items-center gap-1 px-1 text-sm font-bold text-muted-foreground transition hover:text-foreground',
         className,
       )}
     >
