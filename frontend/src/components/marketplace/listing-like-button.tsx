@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, type MouseEvent } from 'react';
+import { useRef, useState, type MouseEvent } from 'react';
 import { Heart } from 'lucide-react';
 
 import { toggleListingLike } from '@/lib/marketplace-actions';
@@ -26,29 +26,43 @@ export function ListingLikeButton({
 }: ListingLikeButtonProps) {
   const [liked, setLiked] = useState(initialLiked);
   const [count, setCount] = useState(initialCount);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
+  const pendingRef = useRef(false);
 
-  function handleClick(event: MouseEvent<HTMLButtonElement>) {
+  async function handleClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
+    if (pendingRef.current) return;
     if (!authenticated) {
       window.location.href = `/auth/login?from=/marketplace/${listingId}`;
       return;
     }
-    const nextLiked = !liked;
-    const nextCount = Math.max(0, count + (nextLiked ? 1 : -1));
+
+    pendingRef.current = true;
+    setIsPending(true);
+    const previousLiked = liked;
+    const previousCount = count;
+    const nextLiked = !previousLiked;
+    const nextCount = Math.max(0, previousCount + (nextLiked ? 1 : -1));
     setLiked(nextLiked);
     setCount(nextCount);
-    startTransition(async () => {
+
+    try {
       const result = await toggleListingLike(listingId);
       if (!result.ok) {
-        setLiked(!nextLiked);
-        setCount(count);
+        setLiked(previousLiked);
+        setCount(previousCount);
         return;
       }
       setLiked(result.data.liked);
       setCount(result.data.totalLikes);
-    });
+    } catch {
+      setLiked(previousLiked);
+      setCount(previousCount);
+    } finally {
+      pendingRef.current = false;
+      setIsPending(false);
+    }
   }
 
   return (
@@ -56,16 +70,18 @@ export function ListingLikeButton({
       type="button"
       onClick={handleClick}
       disabled={isPending}
+      aria-busy={isPending}
       aria-pressed={liked}
       aria-label={liked ? 'Sevimlilardan olib tashlash' : "Sevimlilarga qo'shish"}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur transition',
-        'hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70',
-        isPending && 'opacity-70',
+        'inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-full bg-black/60 px-2 text-[11px] font-semibold text-white backdrop-blur transition',
+        'cursor-pointer touch-manipulation hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 active:bg-black/85',
+        liked && 'bg-primary/90 hover:bg-primary',
+        isPending && 'cursor-wait opacity-70',
         className,
       )}
     >
-      <Heart className={cn('h-3 w-3', liked && 'fill-white text-white')} />
+      <Heart className={cn('h-4 w-4', liked && 'fill-white text-white')} />
       {count > 0 && <span>{formatCompactNumber(count)}</span>}
     </button>
   );

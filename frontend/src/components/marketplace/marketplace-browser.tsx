@@ -3,7 +3,6 @@ import { Package2, Plus } from 'lucide-react';
 
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { AppliedFilterChips } from '@/components/marketplace/applied-filter-chips';
-import { ListingCard } from '@/components/marketplace/listing-card';
 import { ListingFilters, QuickChips } from '@/components/marketplace/listing-filters';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
 import { MarketplaceFilterSheet } from '@/components/marketplace/marketplace-filter-sheet';
@@ -12,6 +11,10 @@ import {
   MarketplaceToolbar,
 } from '@/components/marketplace/marketplace-toolbar';
 import { PlayerFilterLauncher } from '@/components/marketplace/player-filter-launcher';
+import {
+  ResponsiveListingGrid,
+  ResponsiveListingGridSkeleton,
+} from '@/components/marketplace/responsive-listing-grid';
 import { type SortMenuOption } from '@/components/marketplace/sort-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -34,7 +37,6 @@ import type {
   ListingResponse,
   PageResponse,
 } from '@/lib/marketplace-types';
-import { cn } from '@/lib/utils';
 import { parsePlayerMatchValues } from '@/lib/player-match-query';
 
 interface MarketplaceBrowserProps {
@@ -57,7 +59,6 @@ export function MarketplaceBrowser({
   authenticated,
 }: MarketplaceBrowserProps) {
   const page = result.ok ? result.data : null;
-  const displayView = view === 'list' ? 'list' : 'grid';
 
   const activeMatch = parsePlayerMatchValues(
     filters.matchCards,
@@ -136,24 +137,12 @@ export function MarketplaceBrowser({
           />
         ) : (
           <>
-            <div
-              className={cn(
-                displayView === 'list'
-                  ? 'flex flex-col gap-2'
-                  // Two columns on phones — one card per row wastes half the
-                  // screen and doubles the scroll to the same listing.
-                  : 'grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3',
-              )}
-            >
-              {page.content.map((listing) => (
-                <ListingCard
-                  key={listing.id}
-                  listing={listing}
-                  variant={displayView}
-                  detailQuery={currentQuery}
-                />
-              ))}
-            </div>
+            <ResponsiveListingGrid
+              listings={page.content}
+              view={view}
+              rawQuery={currentQuery}
+              matchCriteria={activeMatch.criteria}
+            />
             <ListingsPagination
               page={page.page}
               totalPages={page.totalPages}
@@ -172,11 +161,7 @@ export function MarketplaceBrowserSkeleton() {
       <Skeleton className="hidden h-96 rounded-xl lg:block" />
       <div className="space-y-3">
         <Skeleton className="h-8 w-64 rounded-lg" />
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-60 rounded-xl sm:h-72" />
-          ))}
-        </div>
+        <ResponsiveListingGridSkeleton />
       </div>
     </div>
   );
