@@ -2323,7 +2323,9 @@ git commit -m "feat(payment): add the platform receiving cards with admin CRUD a
   - `InvoiceService.findLive(UUID cardId, long transferTiyin, Instant at)` → `List<Invoice>` — **Task 7 calls this**
   - `InvoiceService.markPaid(Invoice invoice, UUID observationId)` — **Task 7 calls this**
   - `InvoiceService.myActive(UUID userId)` → `Optional<InvoiceResponse>`
-  - `record CreateInvoiceRequest(@NotNull @Min(1000) Long amountUzs)`
+  - `record CreateInvoiceRequest(@NotNull @Min(1) Long amountUzs)` — the real floor is
+    `payment.deposit.minimum-uzs`, enforced in `InvoiceService.create` so it stays configurable;
+    the annotation only rejects zero and negatives.
   - `record InvoiceResponse(UUID id, String pan, String holderName, String cardExpiry, long requestedTiyin, long transferTiyin, Instant expiresAt, InvoiceStatus status)`
 - Endpoints:
   - `POST /api/v1/payments/invoices` → `InvoiceResponse`
