@@ -27,6 +27,7 @@ afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
   submit.mockRestore();
+  window.sessionStorage.clear();
   vi.useRealTimers();
   delete window.Telegram;
 });
@@ -78,6 +79,28 @@ describe('TelegramWebAppAutoLogin', () => {
 
     expect(submit).not.toHaveBeenCalled();
     expect(container.textContent).toBe('');
+  });
+
+  it('does not resubmit the same SDK initData after a previous auto-login attempt without a fresh launch hash', async () => {
+    window.Telegram = {
+      WebApp: {
+        initData: 'user=%7B%22id%22%3A123%7D&auth_date=1786540000&hash=same-hash',
+      },
+    } as typeof window.Telegram;
+
+    await act(async () => root.render(createElement(TelegramWebAppAutoLogin)));
+    expect(submit).toHaveBeenCalledTimes(1);
+
+    await act(async () => root.unmount());
+    container.textContent = '';
+    submit.mockClear();
+    root = createRoot(container);
+    window.history.replaceState({}, '', '/auth/login?from=%2Fprofile');
+
+    await act(async () => root.render(createElement(TelegramWebAppAutoLogin)));
+
+    expect(submit).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('Telegram Web sessiyani saqlamadi');
   });
 
   it('stops waiting after unmount', async () => {

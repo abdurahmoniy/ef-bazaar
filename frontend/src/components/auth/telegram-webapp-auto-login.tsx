@@ -23,6 +23,7 @@ const TELEGRAM_HASH_KEYS = [
 ] as const;
 const HYDRATION_INTERVAL_MS = 100;
 const HYDRATION_ATTEMPTS = 30;
+const SUBMITTED_INIT_DATA_STORAGE_KEY = 'efbazaar.telegramWebAppAutoLogin.submittedInitData';
 
 export function readMiniAppInitData(): string | null {
   if (typeof window === 'undefined') return null;
@@ -54,6 +55,29 @@ function removeTelegramLaunchHash() {
   const remaining = params.toString();
   const url = `${window.location.pathname}${window.location.search}${remaining ? `#${remaining}` : ''}`;
   window.history.replaceState(window.history.state, '', url);
+}
+
+function submittedInitDataMarker(initData: string): string {
+  const params = new URLSearchParams(initData);
+  const hash = params.get('hash');
+  if (hash) return `${params.get('auth_date') ?? ''}:${hash}`;
+  return `${initData.length}:${initData.slice(0, 64)}`;
+}
+
+function readSubmittedInitDataMarker(): string | null {
+  try {
+    return window.sessionStorage.getItem(SUBMITTED_INIT_DATA_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeSubmittedInitDataMarker(marker: string) {
+  try {
+    window.sessionStorage.setItem(SUBMITTED_INIT_DATA_STORAGE_KEY, marker);
+  } catch {
+    // Auth should still proceed if storage is unavailable.
+  }
 }
 
 /**
@@ -99,7 +123,14 @@ export function TelegramWebAppAutoLogin() {
 
     const submitInitData = (initData: string) => {
       if (cancelled || submittedRef.current) return;
+      const submittedMarker = submittedInitDataMarker(initData);
+      if (!launchContext && readSubmittedInitDataMarker() === submittedMarker) {
+        setError('Telegram Web sessiyani saqlamadi. Mini Appni Telegram ilovasida qayta oching.');
+        setState('error');
+        return;
+      }
       submittedRef.current = true;
+      writeSubmittedInitDataMarker(submittedMarker);
       removeTelegramLaunchHash();
       setState('authing');
 
