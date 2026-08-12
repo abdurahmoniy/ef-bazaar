@@ -235,6 +235,54 @@ describe('MarketplaceHistoryProvider lifecycle', () => {
     expect(remove).toHaveBeenCalledWith('popstate', expect.any(Function));
     root = createRoot(container);
   });
+
+  it('survives blocked storage and history state writes without leaking stale popstate state', async () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem')
+      .mockImplementation(() => { throw new DOMException('Denied', 'SecurityError'); });
+
+    await expect(act(async () => root.render(React.createElement(
+      MarketplaceHistoryProvider,
+      null,
+      React.createElement('span', null, 'child'),
+    )))).resolves.toBeUndefined();
+    getItem.mockRestore();
+
+    const pending = {
+      version: 1,
+      targetHref: '/marketplace/listing-1?q=Messi',
+      createdAt: Date.now(),
+      feed,
+    };
+    window.sessionStorage.setItem(MARKETPLACE_PENDING_STORAGE_KEY, JSON.stringify(pending));
+    navigation.pathname = '/marketplace/listing-1';
+    const replaceState = vi.spyOn(window.history, 'replaceState')
+      .mockImplementation(() => { throw new DOMException('Denied', 'SecurityError'); });
+
+    await expect(act(async () => root.render(React.createElement(
+      MarketplaceHistoryProvider,
+      null,
+      React.createElement('span', null, 'detail'),
+    )))).resolves.toBeUndefined();
+    expect(window.sessionStorage.getItem(MARKETPLACE_PENDING_STORAGE_KEY)).toBeNull();
+    replaceState.mockRestore();
+
+    let latest: ReturnType<typeof useMarketplaceHistory> | undefined;
+    function Consumer() {
+      latest = useMarketplaceHistory();
+      return null;
+    }
+    await act(async () => root.render(React.createElement(
+      MarketplaceHistoryProvider,
+      null,
+      React.createElement(Consumer),
+    )));
+    await act(async () => window.dispatchEvent(new PopStateEvent('popstate', {
+      state: { [MARKETPLACE_FEED_STATE_KEY]: feed },
+    })));
+    expect(latest?.popstateMarker).toEqual(feed);
+    await act(async () => window.dispatchEvent(new PopStateEvent('popstate', { state: {} })));
+    expect(latest?.popstateMarker).toBeNull();
+  });
 });
 
 describe('MarketplaceScrollRestorer', () => {

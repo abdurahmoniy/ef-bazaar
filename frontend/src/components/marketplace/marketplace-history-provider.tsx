@@ -30,17 +30,26 @@ export function MarketplaceHistoryProvider({ children }: { children: React.React
   React.useEffect(() => {
     let raw: string | null = null;
     try {
-      raw = window.sessionStorage.getItem(MARKETPLACE_PENDING_STORAGE_KEY);
+      try {
+        raw = window.sessionStorage.getItem(MARKETPLACE_PENDING_STORAGE_KEY);
+      } catch {
+        // Hardened/private WebViews may deny storage reads entirely.
+        return;
+      }
       if (!raw) return;
 
       const currentHref = `${pathname}${search ? `?${search}` : ''}`;
       const marker = detailBackMarkerFromPending(raw, currentHref, Date.now());
       if (marker) {
-        window.history.replaceState(
-          detailMarkerState(window.history.state, marker),
-          '',
-          currentHref,
-        );
+        try {
+          window.history.replaceState(
+            detailMarkerState(window.history.state, marker),
+            '',
+            currentHref,
+          );
+        } catch {
+          // Marker-proven Back simply falls through to the safe fallback URL.
+        }
       }
     } finally {
       if (raw !== null) {
