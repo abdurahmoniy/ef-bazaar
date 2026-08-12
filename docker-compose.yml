@@ -370,6 +370,39 @@ services:
     networks:
       - efbazaar-net
 
+  # ---------- Humo userbot (deposit rail) ----------
+  # An MTProto *user* session, not a bot: it watches the Humo card bot's chat,
+  # parses top-up notifications and publishes them to Kafka. No HTTP surface,
+  # so no EXPOSE and no healthcheck — liveness is the Kafka heartbeat, which
+  # is what payment-service gates deposits on.
+  #
+  # The session file in humo-userbot-session is a CREDENTIAL and is created by
+  # a one-time interactive login (phone + code + 2FA). Until it exists this
+  # container crash-loops: there is no TTY for the prompt. See
+  # humo-userbot/README.md.
+  humo-userbot:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-humo-userbot:${IMAGE_TAG:-latest}
+    build:
+      context: ./humo-userbot
+    container_name: efbazaar-humo-userbot
+    restart: unless-stopped
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      TELEGRAM_SESSION_DIR: /session
+      HUMO_SOURCE_CHAT: ${HUMO_SOURCE_CHAT:-humocardbot}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      LOG_LEVEL: INFO
+    volumes:
+      - humo-userbot-session:/session
+    depends_on:
+      kafka:
+        condition: service_started
+    mem_limit: 256m
+    memswap_limit: 384m
+    networks:
+      - efbazaar-net
+
   bot:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-bot:${IMAGE_TAG:-latest}
     container_name: efbazaar-bot
@@ -501,6 +534,9 @@ volumes:
   letsencrypt_data:
   acme_challenge:
   nginx_auth:
+  # Holds the Pyrogram .session credential — created by a one-time interactive
+  # login, never rebuilt automatically. Deleting it means redoing that login.
+  humo-userbot-session:
 
 networks:
   efbazaar-net:

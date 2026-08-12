@@ -102,6 +102,14 @@ write_env() {
   upsert_env .env TELEGRAM_WEBHOOK_URL        "${TELEGRAM_WEBHOOK_URL:-}"
   upsert_env .env TELEGRAM_WEBHOOK_SECRET     "${TELEGRAM_WEBHOOK_SECRET:-}"
 
+  # humo-userbot — MTProto *user* session credentials (my.telegram.org).
+  # TELEGRAM_API_ID / TELEGRAM_API_HASH are required Settings fields with no
+  # default: left blank the container crash-loops at import instead of
+  # starting a client that could never authenticate.
+  upsert_env .env TELEGRAM_API_ID             "${TELEGRAM_API_ID:-}"
+  upsert_env .env TELEGRAM_API_HASH           "${TELEGRAM_API_HASH:-}"
+  upsert_env .env HUMO_SOURCE_CHAT            "${HUMO_SOURCE_CHAT:-humocardbot}"
+
   upsert_env .env MEDIA_MIN_FILES         1
   upsert_env .env MEDIA_MAX_FILES         6
   upsert_env .env MEDIA_MAX_FILE_SIZE_MB  5
