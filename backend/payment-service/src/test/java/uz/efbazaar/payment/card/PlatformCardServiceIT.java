@@ -10,6 +10,7 @@ import uz.efbazaar.payment.card.dto.PlatformCardCreateRequest;
 import uz.efbazaar.payment.card.repository.PlatformCardAuditRepository;
 import uz.efbazaar.payment.card.repository.PlatformCardRepository;
 import uz.efbazaar.payment.card.service.PlatformCardService;
+import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
 import uz.efbazaar.payment.testsupport.AbstractPostgresIT;
 
 import java.time.Instant;
@@ -25,14 +26,25 @@ class PlatformCardServiceIT extends AbstractPostgresIT {
     @Autowired PlatformCardService cards;
     @Autowired PlatformCardRepository repo;
     @Autowired PlatformCardAuditRepository audits;
+    @Autowired InvoiceRepository invoices;
 
     // Luhn-valid Humo test PANs (BIN 9860). Each digit sum below is verified
     // divisible by 10; last4 stays as annotated for the assertions that key on it.
     private static final String HUMO_A = "9860160101080101"; // last4 0101
     private static final String HUMO_B = "9860160102050202"; // last4 0202
 
+    /**
+     * Children before parents. Invoices reference platform_cards, and the
+     * invoice ITs leave their rows behind — so under a run order that puts
+     * them first, deleting cards without clearing invoices trips
+     * invoices_card_id_fkey. Cleaning up here rather than teaching every
+     * invoice IT to tidy after itself keeps this class independent of what
+     * ran before it, which is the property that makes a reversed run order
+     * worth running at all.
+     */
     @BeforeEach
     void clean() {
+        invoices.deleteAll();
         audits.deleteAll();
         repo.deleteAll();
     }

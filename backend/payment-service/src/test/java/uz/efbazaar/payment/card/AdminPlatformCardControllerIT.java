@@ -11,6 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import uz.efbazaar.payment.card.dto.PlatformCardCreateRequest;
 import uz.efbazaar.payment.card.repository.PlatformCardAuditRepository;
 import uz.efbazaar.payment.card.repository.PlatformCardRepository;
+import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
 import uz.efbazaar.payment.testsupport.AbstractPostgresIT;
 
 import java.util.UUID;
@@ -30,9 +31,12 @@ class AdminPlatformCardControllerIT extends AbstractPostgresIT {
     @Autowired ObjectMapper json;
     @Autowired PlatformCardRepository repo;
     @Autowired PlatformCardAuditRepository audits;
+    @Autowired InvoiceRepository invoices;
 
+    /** Children before parents — see the note on PlatformCardServiceIT.clean(). */
     @BeforeEach
     void clean() {
+        invoices.deleteAll();
         audits.deleteAll();
         repo.deleteAll();
     }
