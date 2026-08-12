@@ -4,13 +4,9 @@ import { Package2, Plus } from 'lucide-react';
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { AppliedFilterChips } from '@/components/marketplace/applied-filter-chips';
 import { ListingCard } from '@/components/marketplace/listing-card';
-import {
-  ListingFilters,
-  ListingFiltersForm,
-  QuickChips,
-} from '@/components/marketplace/listing-filters';
+import { ListingFilters, QuickChips } from '@/components/marketplace/listing-filters';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
-import { MobileFilterSheet } from '@/components/marketplace/mobile-filter-sheet';
+import { MarketplaceFilterSheet } from '@/components/marketplace/marketplace-filter-sheet';
 import {
   MarketplaceResultsRegion,
   MarketplaceToolbar,
@@ -58,33 +54,8 @@ export function MarketplaceBrowser({
   rawQuery,
   view,
 }: MarketplaceBrowserProps) {
-  const divisionAttr = filters.attributes?.highest_division_level;
-  const divisionValue = typeof divisionAttr === 'string' ? Number(divisionAttr) : undefined;
-  const valuablePlayerIdRaw = filters.attributes?.valuable_players_id;
-  const valuablePlayerId = typeof valuablePlayerIdRaw === 'string'
-    ? Number.parseInt(valuablePlayerIdRaw, 10)
-    : undefined;
-  const valuablePlayerNameRaw = filters.attributes?.valuable_players_name;
-  const valuablePlayerName = typeof valuablePlayerNameRaw === 'string'
-    ? valuablePlayerNameRaw
-    : undefined;
   const page = result.ok ? result.data : null;
   const displayView = view === 'list' ? 'list' : 'grid';
-
-  const filterProps = {
-    activeFilter,
-    query,
-    minPrice: filters.minPrice,
-    maxPrice: filters.maxPrice,
-    priceNegotiable: filters.priceNegotiable,
-    division: Number.isFinite(divisionValue) ? divisionValue : undefined,
-    valuablePlayerId: Number.isFinite(valuablePlayerId) ? valuablePlayerId : undefined,
-    valuablePlayerName,
-    sortParam: filters.sort,
-    attributes: filters.attributes,
-    matchCards: filters.matchCards,
-    matchStrictness: filters.matchStrictness,
-  };
 
   const activeMatch = parsePlayerMatchValues(
     filters.matchCards,
@@ -109,11 +80,14 @@ export function MarketplaceBrowser({
   const activeSortLabel = LISTING_SORT_OPTIONS.find((option) => option.id === activeSortId)?.label
     ?? LISTING_SORT_OPTIONS[0].label;
   const title = query ? `“${query}” bo‘yicha natijalar` : 'eFootball akkountlar';
+  const filterProps = { filters, rawQuery: currentQuery };
 
   const filterTrigger = (
-    <MobileFilterSheet activeCount={generalFilterCount}>
-      <ListingFiltersForm {...filterProps} />
-    </MobileFilterSheet>
+    <MarketplaceFilterSheet
+      filters={filters}
+      rawQuery={currentQuery}
+      activeCount={generalFilterCount}
+    />
   );
   const playerTrigger = (
     <PlayerFilterLauncher
