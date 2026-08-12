@@ -100,6 +100,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="uz" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <Script
+          src="https://telegram.org/js/telegram-web-app.js?63"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body className="font-sans">
         {/* No-flash theme init — must run before hydration */}
         <ThemeScript />

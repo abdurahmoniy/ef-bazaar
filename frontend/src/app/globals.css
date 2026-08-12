@@ -41,6 +41,20 @@
     --surface-alt: 240 30% 98%;
 
     --radius: 0.875rem;
+
+    --app-header-color: #ffffff;
+    --app-background-color: #ffffff;
+    --app-bottom-bar-color: #ffffff;
+
+    --app-safe-top: max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px));
+    --app-safe-right: max(env(safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px));
+    --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
+    --app-safe-left: max(env(safe-area-inset-left, 0px), var(--tg-safe-area-inset-left, 0px));
+    --app-content-safe-top: max(var(--app-safe-top), var(--tg-content-safe-area-inset-top, 0px));
+    --app-content-safe-right: max(var(--app-safe-right), var(--tg-content-safe-area-inset-right, 0px));
+    --app-content-safe-bottom: max(var(--app-safe-bottom), var(--tg-content-safe-area-inset-bottom, 0px));
+    --app-content-safe-left: max(var(--app-safe-left), var(--tg-content-safe-area-inset-left, 0px));
+    --marketplace-bottom-bar-height: calc(3.5rem + var(--app-content-safe-bottom));
   }
 
   .dark {
@@ -78,6 +92,10 @@
     --price: 45 90% 60%;
     --price-foreground: 240 60% 12%;
     --surface-alt: 240 45% 6%;
+
+    --app-header-color: #090910;
+    --app-background-color: #090910;
+    --app-bottom-bar-color: #121225;
   }
 
   * {
@@ -86,7 +104,6 @@
 
   html {
     color-scheme: light;
-    overscroll-behavior-y: none;
     touch-action: manipulation;
     /* Grey flash on every tap reads as lag on Android — press states are
        handled explicitly with `active:` utilities instead. */
@@ -291,6 +308,16 @@
   @keyframes skeleton-shimmer {
     100% {
       transform: translateX(100%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tap-press {
+      transition: none;
+    }
+
+    .skeleton::after {
+      animation: none;
     }
   }
 }

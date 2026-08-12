@@ -2,60 +2,103 @@
 
 import * as React from 'react';
 
-import { getTelegramWebApp, TELEGRAM_CHROME_COLOR } from '@/lib/telegram';
-
-const SCRIPT_SRC = 'https://telegram.org/js/telegram-web-app.js';
+import { THEME_STORAGE_KEY } from '@/components/theme/theme-script';
+import { getTelegramWebApp } from '@/lib/telegram';
+import {
+  APP_CHROME_COLORS,
+  resolveAppTheme,
+  telegramCssVariables,
+} from '@/lib/telegram-shell';
+import type { TelegramWebAppEvent, TelegramWebAppEventCallback } from '@/lib/types';
 
 /**
- * Loads the actual Telegram Mini App SDK (`telegram-web-app.js`) and does the
- * one-time chrome setup: ready/expand, header+background color sync, disable
- * vertical swipe-to-close, and mirror the live viewport height into a CSS var
- * so pages can size themselves against Telegram's resizable WebView instead
- * of an unreliable `100vh`.
- *
- * Script is injected manually (not via `next/script`) to match the existing
- * pattern in `components/auth/telegram-login.tsx` — Script tag attributes
- * aren't reliable here, per that component's own comment.
+ * Synchronizes the already-loaded Telegram SDK with browser theme, viewport,
+ * and safe-area state. The SDK is loaded in the root layout before first paint.
  *
  * No visual output — mirrors `TelegramWebAppAutoLogin`, which handles login
  * separately and is left untouched by this component.
  */
 export function TelegramViewportBootstrap() {
   React.useEffect(() => {
-    let cleanupViewportListener: (() => void) | undefined;
+    const webApp = getTelegramWebApp();
+    if (!webApp) return;
 
-    function setup() {
-      const webApp = getTelegramWebApp();
-      if (!webApp) return;
+    const safely = (operation: () => void) => {
+      try {
+        operation();
+      } catch {}
+    };
 
-      webApp.ready();
-      webApp.expand?.();
-      webApp.setHeaderColor?.(TELEGRAM_CHROME_COLOR);
-      webApp.setBackgroundColor?.(TELEGRAM_CHROME_COLOR);
-      webApp.disableVerticalSwipes?.();
+    let mediaQuery: MediaQueryList | undefined;
+    safely(() => {
+      mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    });
 
-      const applyViewportHeight = () => {
-        const height = webApp.viewportStableHeight ?? webApp.viewportHeight;
-        if (height) {
-          document.documentElement.style.setProperty('--tg-viewport-height', `${height}px`);
+    const syncCssVariables = () => {
+      safely(() => {
+        const root = document.documentElement;
+        const variables = telegramCssVariables(
+          webApp.viewportStableHeight ?? webApp.viewportHeight,
+          webApp.safeAreaInset,
+          webApp.contentSafeAreaInset,
+        );
+        const names = [
+          '--tg-viewport-height',
+          '--tg-safe-area-inset-top', '--tg-safe-area-inset-right',
+          '--tg-safe-area-inset-bottom', '--tg-safe-area-inset-left',
+          '--tg-content-safe-area-inset-top', '--tg-content-safe-area-inset-right',
+          '--tg-content-safe-area-inset-bottom', '--tg-content-safe-area-inset-left',
+        ];
+        for (const name of names) root.style.removeProperty(name);
+        for (const [name, value] of Object.entries(variables)) root.style.setProperty(name, value);
+      });
+    };
+
+    const syncTheme = () => {
+      safely(() => {
+        let preference: string | null = null;
+        try {
+          preference = window.localStorage.getItem(THEME_STORAGE_KEY);
+        } catch {}
+        const next = resolveAppTheme(preference, webApp.colorScheme, mediaQuery?.matches ?? false);
+        const root = document.documentElement;
+        if (root.classList.contains('dark') !== (next === 'dark')) {
+          root.classList.toggle('dark', next === 'dark');
         }
-      };
-      applyViewportHeight();
-      webApp.onEvent?.('viewportChanged', applyViewportHeight);
-      cleanupViewportListener = () => webApp.offEvent?.('viewportChanged', applyViewportHeight);
+        if (root.dataset.resolvedTheme !== next) root.dataset.resolvedTheme = next;
+
+        const chrome = APP_CHROME_COLORS[next];
+        safely(() => webApp.setHeaderColor?.(chrome.header));
+        safely(() => webApp.setBackgroundColor?.(chrome.background));
+        safely(() => webApp.setBottomBarColor?.(chrome.bottomBar));
+      });
+    };
+
+    safely(() => webApp.ready());
+    safely(() => webApp.expand?.());
+    syncCssVariables();
+    syncTheme();
+
+    const eventCallbacks: Array<[TelegramWebAppEvent, TelegramWebAppEventCallback]> = [
+      ['viewportChanged', syncCssVariables],
+      ['safeAreaChanged', syncCssVariables],
+      ['contentSafeAreaChanged', syncCssVariables],
+      ['themeChanged', syncTheme],
+    ];
+    for (const [event, callback] of eventCallbacks) {
+      safely(() => webApp.onEvent?.(event, callback));
     }
 
-    if (window.Telegram?.WebApp) {
-      setup();
-    } else if (!document.querySelector(`script[src="${SCRIPT_SRC}"]`)) {
-      const script = document.createElement('script');
-      script.src = SCRIPT_SRC;
-      script.async = true;
-      script.onload = setup;
-      document.head.appendChild(script);
-    }
+    safely(() => mediaQuery?.addEventListener('change', syncTheme));
+    safely(() => window.addEventListener('efbazaar:theme-change', syncTheme));
 
-    return () => cleanupViewportListener?.();
+    return () => {
+      for (const [event, callback] of eventCallbacks) {
+        safely(() => webApp.offEvent?.(event, callback));
+      }
+      safely(() => mediaQuery?.removeEventListener('change', syncTheme));
+      safely(() => window.removeEventListener('efbazaar:theme-change', syncTheme));
+    };
   }, []);
 
   return null;
