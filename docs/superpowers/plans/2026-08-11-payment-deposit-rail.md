@@ -1441,8 +1441,8 @@ class PlatformCardServiceIT extends AbstractPostgresIT {
     @Autowired PlatformCardRepository repo;
     @Autowired PlatformCardAuditRepository audits;
 
-    private static final String HUMO_A = "9860160101010101";
-    private static final String HUMO_B = "9860160102020202";
+    private static final String HUMO_A = "9860160101080101";
+    private static final String HUMO_B = "9860160102050202";
 
     @BeforeEach
     void clean() {
@@ -1473,7 +1473,7 @@ class PlatformCardServiceIT extends AbstractPostgresIT {
         cards.create(admin, req(HUMO_A, "AZIZ"));
 
         // Different full number, same trailing four.
-        assertThatThrownBy(() -> cards.create(admin, req("9860160199990101", "BOBUR")))
+        assertThatThrownBy(() -> cards.create(admin, req("9860160199920101", "BOBUR")))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("409");
     }
@@ -1484,7 +1484,7 @@ class PlatformCardServiceIT extends AbstractPostgresIT {
         var first = cards.create(admin, req(HUMO_A, "AZIZ"));
         cards.deactivate(admin, first.getId());
 
-        var second = cards.create(admin, req("9860160199990101", "BOBUR"));
+        var second = cards.create(admin, req("9860160199920101", "BOBUR"));
         assertThat(second.getLast4()).isEqualTo("0101");
     }
 
@@ -1492,6 +1492,8 @@ class PlatformCardServiceIT extends AbstractPostgresIT {
     void anInvalidCardNumberIsRefused() {
         UUID admin = UUID.randomUUID();
 
+        // Deliberately NOT Luhn-valid (its check digit sums to 34). Every other
+        // PAN in these tests is genuinely valid — do not "fix" this one.
         assertThatThrownBy(() -> cards.create(admin, req("9860160101010102", "AZIZ")))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("400");
@@ -1502,7 +1504,7 @@ class PlatformCardServiceIT extends AbstractPostgresIT {
         UUID admin = UUID.randomUUID();
         var a = cards.create(admin, req(HUMO_A, "AZIZ"));
         var b = cards.create(admin, req(HUMO_B, "BOBUR"));
-        var c = cards.create(admin, req("9860160103030303", "DILSHOD"));
+        var c = cards.create(admin, req("9860160103020303", "DILSHOD"));
         cards.deactivate(admin, b.getId());
 
         assertThat(cards.activeOrdered())
@@ -1589,7 +1591,7 @@ CREATE TABLE platform_cards (
     pan_encrypted       BYTEA       NOT NULL,
     pan_iv              BYTEA       NOT NULL,
     pan_tag             BYTEA       NOT NULL,
-    last4               CHAR(4)     NOT NULL,
+    last4               VARCHAR(4)  NOT NULL,
     holder_name         VARCHAR(64) NOT NULL,
     expiry_month        SMALLINT    NOT NULL,
     expiry_year         SMALLINT    NOT NULL,
@@ -2411,7 +2413,7 @@ class SlotAllocatorIT extends AbstractPostgresIT {
 
     @Test
     void theFirstInvoiceTakesThePrimaryCardAtTheRequestedAmount() {
-        givenCards("9860160101010101", "9860160102020202");
+        givenCards("9860160101080101", "9860160102050202");
 
         Invoice inv = allocator.allocate(UUID.randomUUID(), 100_000 * UZS);
 
@@ -2424,7 +2426,7 @@ class SlotAllocatorIT extends AbstractPostgresIT {
 
     @Test
     void aSecondInvoiceForTheSameAmountFallsToTheNextCard() {
-        givenCards("9860160101010101", "9860160102020202");
+        givenCards("9860160101080101", "9860160102050202");
 
         Invoice first  = allocator.allocate(UUID.randomUUID(), 100_000 * UZS);
         Invoice second = allocator.allocate(UUID.randomUUID(), 100_000 * UZS);
@@ -2437,7 +2439,7 @@ class SlotAllocatorIT extends AbstractPostgresIT {
 
     @Test
     void whenEveryCardIsBusyTheAmountIsBumped() {
-        givenCards("9860160101010101", "9860160102020202");
+        givenCards("9860160101080101", "9860160102050202");
 
         allocator.allocate(UUID.randomUUID(), 100_000 * UZS);
         allocator.allocate(UUID.randomUUID(), 100_000 * UZS);
@@ -2451,7 +2453,7 @@ class SlotAllocatorIT extends AbstractPostgresIT {
 
     @Test
     void theBumpCeilingRefusesRatherThanClimbingForever() {
-        givenCards("9860160101010101");
+        givenCards("9860160101080101");
 
         // One card, step 100, ceiling 1000 -> 11 slots (bump 0..1000).
         for (int i = 0; i <= 10; i++) {
@@ -2472,8 +2474,8 @@ class SlotAllocatorIT extends AbstractPostgresIT {
 
     @Test
     void concurrentRequestsForTheSameAmountNeverShareASlot() throws Exception {
-        givenCards("9860160101010101", "9860160102020202",
-                   "9860160103030303", "9860160104040404");
+        givenCards("9860160101080101", "9860160102050202",
+                   "9860160103020303", "9860160104090404");
 
         int threads = 4;
         ExecutorService pool = Executors.newFixedThreadPool(threads);
@@ -3070,14 +3072,14 @@ class InvoiceServiceIT extends AbstractPostgresIT {
         auditRepo.deleteAll();
         cardRepo.deleteAll();
         cards.create(UUID.randomUUID(), new PlatformCardCreateRequest(
-                "9860160101010101", "aziz karimov", (short) 12, (short) 2030));
+                "9860160101080101", "aziz karimov", (short) 12, (short) 2030));
     }
 
     @Test
     void anInvoiceCarriesEverythingThePayerNeeds() {
         var res = invoices.create(UUID.randomUUID(), 100_000);
 
-        assertThat(res.pan()).isEqualTo("9860160101010101");
+        assertThat(res.pan()).isEqualTo("9860160101080101");
         assertThat(res.holderName()).isEqualTo("AZIZ KARIMOV");
         assertThat(res.cardExpiry()).isEqualTo("12/30");
         assertThat(res.transferTiyin()).isEqualTo(10_000_000);
@@ -3245,7 +3247,7 @@ class InvoiceExpirySweeperIT extends AbstractPostgresIT {
         auditRepo.deleteAll();
         cardRepo.deleteAll();
         cards.create(UUID.randomUUID(), new PlatformCardCreateRequest(
-                "9860160101010101", "AZIZ", (short) 12, (short) 2030));
+                "9860160101080101", "AZIZ", (short) 12, (short) 2030));
     }
 
     @Test
@@ -4133,7 +4135,7 @@ class ByCardServiceIT extends AbstractPostgresIT {
         auditRepo.deleteAll();
         cardRepo.deleteAll();
         cards.create(UUID.randomUUID(), new PlatformCardCreateRequest(
-                "9860160101010101", "AZIZ", (short) 12, (short) 2030));
+                "9860160101080101", "AZIZ", (short) 12, (short) 2030));
     }
 
     private CardCreditEvent event(String last4, long amountTiyin) {
@@ -4260,7 +4262,7 @@ Expected: compilation failure — `ByCardService` does not exist.
 CREATE TABLE card_credit_observations (
     id                  UUID PRIMARY KEY,
     telegram_message_id BIGINT      NOT NULL UNIQUE,
-    card_last4          CHAR(4)     NOT NULL,
+    card_last4          VARCHAR(4)  NOT NULL,
     amount_tiyin        BIGINT      NOT NULL,
     card_balance_tiyin  BIGINT,
     observed_at         TIMESTAMPTZ NOT NULL,
@@ -4743,7 +4745,7 @@ class AdminObservationControllerIT extends AbstractPostgresIT {
         auditRepo.deleteAll();
         cardRepo.deleteAll();
         cards.create(UUID.randomUUID(), new PlatformCardCreateRequest(
-                "9860160101010101", "AZIZ", (short) 12, (short) 2030));
+                "9860160101080101", "AZIZ", (short) 12, (short) 2030));
     }
 
     /** An observation with no invoice behind it — the queue's whole subject. */
