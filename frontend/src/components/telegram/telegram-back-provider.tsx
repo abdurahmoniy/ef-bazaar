@@ -84,10 +84,11 @@ export function TelegramBackProvider({ children }: { children: React.ReactNode }
     }
     safely(() => bridge.backButton.hide());
     if (swipeRestoreNeededRef.current) {
-      safely(() => bridge.webApp.enableVerticalSwipes?.());
+      if (safely(() => bridge.webApp.enableVerticalSwipes?.())) {
+        swipeRestoreNeededRef.current = false;
+      }
     }
     swipesLockedRef.current = false;
-    swipeRestoreNeededRef.current = false;
 
     if (showBrowserFallback) setMiniApp(false);
   }, []);
@@ -100,14 +101,16 @@ export function TelegramBackProvider({ children }: { children: React.ReactNode }
     const backButton = webApp?.BackButton;
     if (!hasTelegramLaunchEvidence(webApp) || !backButton) return;
 
+    let bridge: NativeBackBridge;
     const handleBack = () => {
+      if (bridge.released || bridgeRef.current !== bridge) return;
       const layers = Array.from(layersRef.current.values());
       const overlays = layers.filter((layer) => layer.kind === 'overlay');
       const routes = layers.filter((layer) => layer.kind === 'route');
       const target = overlays.at(-1) ?? routes.at(-1);
       target?.onBack();
     };
-    const bridge: NativeBackBridge = {
+    bridge = {
       webApp,
       backButton,
       handleBack,

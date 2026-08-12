@@ -255,6 +255,7 @@ describe('Telegram Mini App lifecycle', () => {
 
   it('falls back when show throws and still attempts independent bridge cleanup', async () => {
     const fake = createFakeWebApp();
+    const onBack = vi.fn();
     fake.webApp.BackButton.show.mockImplementation(() => {
       throw new Error('show unavailable');
     });
@@ -270,13 +271,40 @@ describe('Telegram Mini App lifecycle', () => {
       root.render(React.createElement(
         TelegramBackProvider,
         null,
-        React.createElement(NativeAffordance, { onBack: vi.fn() }),
+        React.createElement(NativeAffordance, { onBack }),
       ));
     })).resolves.toBeUndefined();
 
     expect(container.textContent).toBe('browser-back');
     expect(fake.webApp.BackButton.offClick).toHaveBeenCalled();
     expect(fake.webApp.BackButton.hide).toHaveBeenCalled();
+    await act(async () => fake.pressBack());
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it('makes StrictMode replay handlers inert when SDK listener removal fails', async () => {
+    const fake = createFakeWebApp();
+    const onBack = vi.fn();
+    fake.webApp.BackButton.offClick.mockImplementation(() => {
+      throw new Error('offClick unavailable');
+    });
+    window.Telegram = { WebApp: fake.webApp as TelegramWebApp };
+
+    await act(async () => {
+      root.render(React.createElement(
+        React.StrictMode,
+        null,
+        React.createElement(
+          TelegramBackProvider,
+          null,
+          React.createElement(NativeAffordance, { onBack }),
+        ),
+      ));
+    });
+
+    expect(fake.backHandlers.size).toBeGreaterThan(1);
+    await act(async () => fake.pressBack());
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 
   it('guards throwing swipe and teardown calls independently', async () => {
@@ -308,7 +336,50 @@ describe('Telegram Mini App lifecycle', () => {
     expect(fake.webApp.BackButton.offClick).toHaveBeenCalled();
     expect(fake.webApp.BackButton.hide).toHaveBeenCalled();
     expect(fake.webApp.enableVerticalSwipes).toHaveBeenCalled();
+    const restoreAttempts = fake.webApp.enableVerticalSwipes.mock.calls.length;
+
+    // Failed restoration remains marked as needed until a later bridge pass can
+    // retry it; teardown must not falsely record success.
+    expect(restoreAttempts).toBeGreaterThan(0);
 
     root = createRoot(container);
+  });
+
+  it('retries a failed swipe restore while the provider remains mounted', async () => {
+    const fake = createFakeWebApp();
+    const onBack = vi.fn();
+    let restoreAttempts = 0;
+    fake.webApp.enableVerticalSwipes.mockImplementation(() => {
+      restoreAttempts += 1;
+      if (restoreAttempts === 1) throw new Error('temporary restore failure');
+    });
+    window.Telegram = { WebApp: fake.webApp as TelegramWebApp };
+
+    const renderLayers = (lockingActive: boolean, passiveActive: boolean) => React.createElement(
+      TelegramBackProvider,
+      null,
+      React.createElement(Layer, {
+        id: 'retry-lock',
+        onBack,
+        active: lockingActive,
+      }),
+      React.createElement(Layer, {
+        id: 'retry-passive',
+        onBack,
+        active: passiveActive,
+        lockVerticalSwipes: false,
+      }),
+    );
+
+    await act(async () => root.render(renderLayers(true, false)));
+    await act(async () => root.render(renderLayers(false, false)));
+    expect(fake.webApp.enableVerticalSwipes).toHaveBeenCalledTimes(1);
+
+    // A later non-locking registration retries successfully. Its cleanup must
+    // not restore again, proving success (and only success) cleared the marker.
+    await act(async () => root.render(renderLayers(false, true)));
+    expect(fake.webApp.enableVerticalSwipes).toHaveBeenCalledTimes(2);
+    await act(async () => root.render(renderLayers(false, false)));
+    expect(fake.webApp.enableVerticalSwipes).toHaveBeenCalledTimes(2);
   });
 });
