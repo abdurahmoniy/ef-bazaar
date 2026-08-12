@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 const configPath = join(process.cwd(), '..', 'nginx', 'conf.d', 'efbazaar.conf');
 const apiConfigPath = join(process.cwd(), '..', 'nginx', 'conf.d', 'api.conf');
 const rootConfigPath = join(process.cwd(), '..', 'nginx', 'nginx.conf');
+const envExamplePath = join(process.cwd(), '.env.local.example');
 
 function extractBlocks(config: string, directive: RegExp) {
   const blocks: string[] = [];
@@ -101,5 +102,15 @@ describe('nginx api subdomain routing', () => {
     // resolver, so container recreations don't leave nginx on a stale IP.
     expect(apiLocation).toContain('proxy_pass http://$backend_marketplace$request_uri;');
     expect(config).toContain('rewrite ^/api/(.*)$ /api/$1 break;');
+  });
+});
+
+describe('frontend internal API env', () => {
+  it('documents the internal nginx SSR API endpoint', () => {
+    const envExample = readFileSync(envExamplePath, 'utf8');
+
+    expect(envExample).toContain('INTERNAL_API_BASE_URL=http://nginx:8080/api');
+    expect(envExample).not.toContain('INTERNAL_API_BASE_URL=http://nginx/api');
+    expect(envExample).not.toContain('INTERNAL_API_BASE_URL=https://api.efbazaar.uz');
   });
 });

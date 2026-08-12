@@ -26,6 +26,7 @@ import { SiteFooter } from '@/components/site-footer';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { MARKETPLACE_LANDINGS } from '@/lib/marketplace-landing';
 import { absoluteUrl, siteConfig } from '@/lib/site';
+import { FEATURES } from '@/lib/feature-flags';
 
 const FAQ_ITEMS = [
   {
@@ -277,14 +278,8 @@ export default function HomePage() {
       <main className="min-h-app overflow-hidden bg-background pt-[env(safe-area-inset-top)] text-foreground">
         <LandingHeader />
         <Hero />
-        <StarPlayers />
-        <PlatformSplit />
-        <ExchangeModes />
-        <DivisionLadder />
         <HowItWorks />
         <TrustGrid />
-        <PopularCategories />
-        <Faq />
         <FinalCta />
         <SiteFooter />
       </main>
@@ -302,20 +297,13 @@ function LandingHeader() {
           <Link href="/marketplace" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
             Bozor
           </Link>
-          <Link href="/tournaments" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
-            Turnirlar
-          </Link>
-          <Link href="#yulduzlar" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
-            Kartalar
-          </Link>
-          <Link href="#obmen" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
-            Obmen
-          </Link>
+          {FEATURES.tournaments && (
+            <Link href="/tournaments" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
+              Turnirlar
+            </Link>
+          )}
           <Link href="#qanday-ishlaydi" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
             Qanday ishlaydi
-          </Link>
-          <Link href="#savollar" className="rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground">
-            Savollar
           </Link>
         </nav>
 

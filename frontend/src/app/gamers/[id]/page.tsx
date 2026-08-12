@@ -7,6 +7,7 @@ import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
 import { getGamerCard } from '@/lib/gamer-server';
 import { resolveOptionalUser } from '@/lib/optional-auth';
+import { FeatureGate } from '@/components/feature-gate';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,13 +32,15 @@ export default async function GamerPage({ params }: GamerPageProps) {
   if (!card) notFound();
 
   return (
-    <MarketplaceShell user={viewer} hideSearch backHref="/marketplace">
-      <div className="mx-auto max-w-xl px-4 py-6">
-        <GamerCardView card={card} captureId={CAPTURE_ID} />
-        <div className="mt-4 flex justify-center">
-          <ShareGamerCardButton captureId={CAPTURE_ID} username={card.telegramUsername} />
+    <FeatureGate feature="gamers">
+      <MarketplaceShell user={viewer} hideSearch backHref="/marketplace">
+        <div className="mx-auto max-w-xl px-4 py-6">
+          <GamerCardView card={card} captureId={CAPTURE_ID} />
+          <div className="mt-4 flex justify-center">
+            <ShareGamerCardButton captureId={CAPTURE_ID} username={card.telegramUsername} />
+          </div>
         </div>
-      </div>
-    </MarketplaceShell>
+      </MarketplaceShell>
+    </FeatureGate>
   );
 }

@@ -20,6 +20,7 @@ import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { User } from '@/lib/types';
+import { FEATURES } from '@/lib/feature-flags';
 
 interface MarketplaceShellProps {
   user: User | null;
@@ -72,7 +73,7 @@ interface NavItem {
  * desktop header nav carries it.
  */
 function buildNavItems(user: User | null): NavItem[] {
-  return [
+  const all: NavItem[] = [
     { id: 'home', href: '/marketplace', label: 'Bozor', icon: <Home className="h-5 w-5" />, requiresAuth: false },
     {
       id: 'tournaments',
@@ -109,6 +110,10 @@ function buildNavItems(user: User | null): NavItem[] {
       requiresAuth: false,
     },
   ];
+  return all.filter((item) => {
+    if (item.id === 'tournaments') return FEATURES.tournaments;
+    return true;
+  });
 }
 
 /**
@@ -128,7 +133,11 @@ function buildDesktopLinks(): SlidingNavItem[] {
     { id: 'home', href: '/marketplace', label: 'Bozor' },
     { id: 'tournaments', href: '/tournaments', label: 'Turnirlar' },
     { id: 'safety', href: '/blacklist', label: 'Xavfsizlik' },
-  ];
+  ].filter((item) => {
+    if (item.id === 'tournaments') return FEATURES.tournaments;
+    if (item.id === 'safety') return FEATURES.blacklist;
+    return true;
+  });
 }
 
 export function MarketplaceShell({
