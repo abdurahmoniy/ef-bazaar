@@ -44,7 +44,7 @@ export function MarketplaceToolbar({
       </h1>
 
       <div className="marketplace-toolbar-actions">
-        <div className="min-w-0 [&>button]:min-h-11 [&>button]:w-full [&>button]:min-w-0 [&>button]:px-1.5 [&>button]:text-xs [&>button>svg]:hidden min-[400px]:[&>button>svg]:block">
+        <div className="min-w-0 lg:hidden [&>button]:min-h-11 [&>button]:w-full [&>button]:min-w-0 [&>button]:px-1.5 [&>button]:text-xs [&>button>svg]:hidden min-[400px]:[&>button>svg]:block">
           {filterTrigger}
         </div>
         <div className="min-w-0 [&>button]:w-full [&>button]:min-h-11 [&>button]:min-w-0 [&>button]:justify-center [&>button]:px-1.5 [&>button]:text-xs [&>button>svg]:hidden min-[400px]:[&>button>svg]:block">
