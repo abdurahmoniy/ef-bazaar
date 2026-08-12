@@ -125,8 +125,7 @@ export function TelegramWebAppAutoLogin() {
       if (cancelled || submittedRef.current) return;
       const submittedMarker = submittedInitDataMarker(initData);
       if (!launchContext && readSubmittedInitDataMarker() === submittedMarker) {
-        setError('Telegram Web sessiyani saqlamadi. Mini Appni Telegram ilovasida qayta oching.');
-        setState('error');
+        submittedRef.current = true;
         return;
       }
       submittedRef.current = true;
