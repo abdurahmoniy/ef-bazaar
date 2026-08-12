@@ -10,8 +10,16 @@ import uz.efbazaar.payment.wallet.domain.TransactionKind;
 import uz.efbazaar.payment.wallet.service.LedgerService;
 import uz.efbazaar.payment.wallet.service.LedgerService.Posting;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -166,5 +174,102 @@ class LedgerServiceIT extends AbstractPostgresIT {
         assertThat(w.getLifetimeDepositedTiyin())
                 .as("a release is not a deposit")
                 .isEqualTo(100_000);
+    }
+
+    /**
+     * Simulates a Kafka redelivery racing the original post: two threads call
+     * {@code post} with the same idempotency key at (as close to) the same
+     * instant. Only one transaction row must ever exist for the key, and
+     * every caller must observe its id -- never an exception.
+     */
+    @Test
+    void concurrentPostsWithTheSameIdempotencyKeyProduceExactlyOneTransaction() throws Exception {
+        for (int iteration = 0; iteration < 5; iteration++) {
+            UUID user = UUID.randomUUID();
+            String key = "race-" + user;
+            List<Posting> postings = List.of(
+                    new Posting(LedgerAccount.PLATFORM_CARDS, null, 10_000),
+                    new Posting(LedgerAccount.USER_AVAILABLE, user, -10_000));
+
+            int threadCount = 8;
+            CountDownLatch ready = new CountDownLatch(threadCount);
+            CountDownLatch start = new CountDownLatch(1);
+            ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+            try {
+                List<Future<UUID>> futures = new ArrayList<>();
+                for (int i = 0; i < threadCount; i++) {
+                    futures.add(pool.submit(() -> {
+                        ready.countDown();
+                        start.await();
+                        return ledger.post(TransactionKind.DEPOSIT, key, null, null, postings);
+                    }));
+                }
+                ready.await();
+                start.countDown();
+
+                Set<UUID> results = new HashSet<>();
+                for (Future<UUID> f : futures) {
+                    results.add(f.get(10, TimeUnit.SECONDS));
+                }
+                assertThat(results)
+                        .as("iteration %d: every racing caller must see the same transaction id", iteration)
+                        .hasSize(1);
+            } finally {
+                pool.shutdownNow();
+            }
+
+            Integer count = jdbc.queryForObject(
+                    "SELECT count(*) FROM wallet_transactions WHERE idempotency_key = ?",
+                    Integer.class, key);
+            assertThat(count)
+                    .as("iteration %d: exactly one transaction row for the key", iteration)
+                    .isEqualTo(1);
+        }
+    }
+
+    /**
+     * Simulates a deposit crediting a brand-new user at the same instant that
+     * something else (a wallet-page load, another concurrent deposit) first
+     * touches that same userId. Neither caller has a row to lock yet, so both
+     * must survive the race to create it, and the resulting balance must
+     * still be the exact sum of every deposit.
+     */
+    @Test
+    void concurrentFirstTouchesOfTheSameWalletDoNotCrash() throws Exception {
+        for (int iteration = 0; iteration < 5; iteration++) {
+            UUID user = UUID.randomUUID();
+            int threadCount = 8;
+            CountDownLatch ready = new CountDownLatch(threadCount);
+            CountDownLatch start = new CountDownLatch(1);
+            ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+            try {
+                List<Future<UUID>> futures = new ArrayList<>();
+                for (int i = 0; i < threadCount; i++) {
+                    int idx = i;
+                    futures.add(pool.submit(() -> {
+                        ready.countDown();
+                        start.await();
+                        return ledger.post(TransactionKind.DEPOSIT, "wallet-race-" + user + "-" + idx, null, null,
+                                List.of(
+                                        new Posting(LedgerAccount.PLATFORM_CARDS, null, 1_000),
+                                        new Posting(LedgerAccount.USER_AVAILABLE, user, -1_000)));
+                    }));
+                }
+                ready.await();
+                start.countDown();
+
+                for (Future<UUID> f : futures) {
+                    assertThat(f.get(10, TimeUnit.SECONDS))
+                            .as("iteration %d: no racing caller may throw", iteration)
+                            .isNotNull();
+                }
+            } finally {
+                pool.shutdownNow();
+            }
+
+            assertThat(ledger.balanceOf(user).getAvailableTiyin())
+                    .as("iteration %d: every thread's deposit must be reflected exactly once", iteration)
+                    .isEqualTo(1_000L * threadCount);
+        }
     }
 }

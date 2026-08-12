@@ -8,7 +8,6 @@ import uz.efbazaar.payment.wallet.domain.LedgerAccount;
 import uz.efbazaar.payment.wallet.domain.LedgerEntry;
 import uz.efbazaar.payment.wallet.domain.TransactionKind;
 import uz.efbazaar.payment.wallet.domain.WalletAccount;
-import uz.efbazaar.payment.wallet.domain.WalletTransaction;
 import uz.efbazaar.payment.wallet.dto.WalletEntryResponse;
 import uz.efbazaar.payment.wallet.repository.LedgerEntryRepository;
 import uz.efbazaar.payment.wallet.repository.WalletAccountRepository;
@@ -46,7 +45,9 @@ public class LedgerService {
     public UUID post(TransactionKind kind, String idempotencyKey, UUID createdBy,
                      String note, List<Posting> postings) {
 
-        // Idempotency first: a repeat writes nothing and returns the original.
+        // Fast path: a repeat of an already-committed key writes nothing and
+        // returns the original. This is an optimisation, not the correctness
+        // guarantee -- see insertIfAbsent below for that.
         var existing = transactions.findByIdempotencyKey(idempotencyKey);
         if (existing.isPresent()) {
             return existing.get().getId();
@@ -70,14 +71,20 @@ public class LedgerService {
         }
 
         UUID txId = UUID.randomUUID();
-        transactions.save(WalletTransaction.builder()
-                .id(txId)
-                .kind(kind)
-                .idempotencyKey(idempotencyKey)
-                .createdAt(Instant.now())
-                .createdBy(createdBy)
-                .note(note)
-                .build());
+        // ON CONFLICT DO NOTHING instead of save(): two callers racing on the
+        // same key (a Kafka redelivery during a consumer rebalance, say) must
+        // not have the loser throw a UNIQUE-violation that would mark this
+        // whole transaction rollback-only. If we lost the race, somebody
+        // else's row already exists -- return its id and write nothing else.
+        int inserted = transactions.insertIfAbsent(
+                txId, kind.name(), idempotencyKey, Instant.now(), createdBy, note);
+        if (inserted == 0) {
+            return transactions.findByIdempotencyKey(idempotencyKey)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "wallet_transactions row missing immediately after an insertIfAbsent conflict for key "
+                                    + idempotencyKey))
+                    .getId();
+        }
 
         for (Posting p : postings) {
             entries.save(LedgerEntry.builder()
@@ -96,11 +103,15 @@ public class LedgerService {
 
     @Transactional
     public WalletAccount balanceOf(UUID userId) {
-        return wallets.findById(userId).orElseGet(() -> wallets.save(WalletAccount.builder()
-                .userId(userId)
-                .createdAt(Instant.now())
-                .updatedAt(Instant.now())
-                .build()));
+        return wallets.findById(userId).orElseGet(() -> {
+            // ON CONFLICT DO NOTHING: a concurrent first touch of this same
+            // brand-new userId (a deposit landing while this read races it)
+            // may have already created the row. Either way, read it back
+            // rather than assuming this call's insert won.
+            wallets.insertIfAbsent(userId);
+            return wallets.findById(userId).orElseThrow(() -> new IllegalStateException(
+                    "wallet_accounts row missing immediately after insertIfAbsent for user " + userId));
+        });
     }
 
     @Transactional(readOnly = true)
@@ -112,12 +123,16 @@ public class LedgerService {
         if (!p.account().isUserScoped()) {
             return;
         }
+        // Ensure the row exists BEFORE taking the lock: there is nothing to
+        // lock for a brand-new userId, so two concurrent first touches (e.g.
+        // a deposit crediting while the wallet page loads) would otherwise
+        // both try to INSERT the same primary key. ON CONFLICT DO NOTHING
+        // lets the loser fall through to the locked read below instead of
+        // throwing; the row it then locks is whichever call's insert won.
+        wallets.insertIfAbsent(p.userId());
         WalletAccount w = wallets.findByIdForUpdate(p.userId())
-                .orElseGet(() -> wallets.save(WalletAccount.builder()
-                        .userId(p.userId())
-                        .createdAt(Instant.now())
-                        .updatedAt(Instant.now())
-                        .build()));
+                .orElseThrow(() -> new IllegalStateException(
+                        "wallet_accounts row missing immediately after insertIfAbsent for user " + p.userId()));
 
         // A credit is negative and increases the user's holding.
         long delta = -p.amountTiyin();
