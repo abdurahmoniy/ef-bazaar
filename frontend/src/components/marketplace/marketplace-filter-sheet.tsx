@@ -53,8 +53,15 @@ export function MarketplaceFilterSheet({
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const restoreFocusRef = React.useRef(false);
   const applyStartedRef = React.useRef(false);
+  const previewGenerationRef = React.useRef(0);
   const errors = validateMarketplaceFilterDraft(draft);
   const valid = Object.keys(errors).length === 0;
+
+  const changeDraft = React.useCallback((nextDraft: MarketplaceFilterDraft) => {
+    previewGenerationRef.current += 1;
+    setPreview({ status: 'idle' });
+    setDraft(nextDraft);
+  }, []);
 
   const close = React.useCallback(() => {
     restoreFocusRef.current = true;
@@ -69,20 +76,34 @@ export function MarketplaceFilterSheet({
   }, open);
 
   React.useEffect(() => {
+    const generation = previewGenerationRef.current + 1;
+    previewGenerationRef.current = generation;
     if (!open || !valid) {
       setPreview({ status: 'idle' });
       return;
     }
+    setPreview({ status: 'idle' });
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
+      if (previewGenerationRef.current !== generation) return;
       setPreview({ status: 'loading' });
       fetchMarketplaceResultCount(new URLSearchParams(rawQuery), draft, controller.signal)
-        .then((count) => setPreview({ status: 'success', count }))
+        .then((count) => {
+          if (previewGenerationRef.current === generation) {
+            setPreview({ status: 'success', count });
+          }
+        })
         .catch((error) => {
-          if ((error as Error).name !== 'AbortError') setPreview({ status: 'error' });
+          if (previewGenerationRef.current === generation
+            && (error as Error).name !== 'AbortError') {
+            setPreview({ status: 'error' });
+          }
         });
     }, 300);
     return () => {
+      if (previewGenerationRef.current === generation) {
+        previewGenerationRef.current += 1;
+      }
       window.clearTimeout(timer);
       controller.abort();
     };
@@ -173,7 +194,7 @@ export function MarketplaceFilterSheet({
             <ListingFilterFields
               draft={draft}
               errors={errors}
-              onChange={setDraft}
+              onChange={changeDraft}
               collapsible
             />
           </div>
@@ -183,7 +204,7 @@ export function MarketplaceFilterSheet({
               type="button"
               variant="outline"
               className="min-h-11"
-              onClick={() => setDraft(clearMarketplaceFilterDraft())}
+              onClick={() => changeDraft(clearMarketplaceFilterDraft())}
             >
               Tozalash
             </Button>

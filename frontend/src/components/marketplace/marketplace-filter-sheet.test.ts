@@ -115,6 +115,16 @@ function countResponse(count: number) {
   } as Response;
 }
 
+function deferred<Value>() {
+  let resolve!: (value: Value | PromiseLike<Value>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<Value>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
 function createTelegramWebApp() {
   const backHandlers = new Set<() => void>();
   const webApp = {
@@ -306,6 +316,53 @@ describe('MarketplaceFilterSheet lifecycle', () => {
     const apply = buttonNamed('42 ta e‘lonni ko‘rsatish');
     expect(apply.disabled).toBe(false);
     expect(apply.querySelector('[aria-live="polite"]')).not.toBeNull();
+  });
+
+  it('invalidates a successful preview immediately when a valid draft changes', async () => {
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValueOnce(countResponse(42));
+
+    await renderWithProviders(sheet());
+    await click(buttonNamed('Filtrlar', container));
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    await act(async () => { await Promise.resolve(); });
+    expect(buttonNamed('42 ta e‘lonni ko‘rsatish')).toBeTruthy();
+
+    await input(controlNamed('Eng yuqori narx') as HTMLInputElement, '900');
+
+    expect(buttonNamed('Natijalarni ko‘rsatish')).toBeTruthy();
+    expect(document.body.textContent).not.toContain('42 ta e‘lonni ko‘rsatish');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a stale preview completion after a newer request succeeds', async () => {
+    vi.useFakeTimers();
+    const stale = deferred<Response>();
+    const current = deferred<Response>();
+    fetchMock
+      .mockImplementationOnce(() => stale.promise)
+      .mockImplementationOnce(() => current.promise);
+
+    await renderWithProviders(sheet());
+    await click(buttonNamed('Filtrlar', container));
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    await input(controlNamed('Eng yuqori narx') as HTMLInputElement, '900');
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+
+    await act(async () => {
+      current.resolve(countResponse(22));
+      await current.promise;
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(buttonNamed('22 ta e‘lonni ko‘rsatish')).toBeTruthy();
+
+    await act(async () => {
+      stale.resolve(countResponse(99));
+      await stale.promise;
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(buttonNamed('22 ta e‘lonni ko‘rsatish')).toBeTruthy();
+    expect(document.body.textContent).not.toContain('99 ta e‘lonni ko‘rsatish');
   });
 
   it('keeps Apply enabled after preview error, haptics once, navigates once, and preserves state', async () => {
