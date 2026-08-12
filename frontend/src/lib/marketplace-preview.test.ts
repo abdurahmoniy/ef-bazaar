@@ -63,6 +63,8 @@ describe('fetchMarketplaceResultCount', () => {
       {},
       { totalElements: '37' },
       { totalElements: -1 },
+      { totalElements: 1.5 },
+      { totalElements: Number.MAX_SAFE_INTEGER + 1 },
       { totalElements: Number.POSITIVE_INFINITY },
     ]) {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 })));
@@ -73,6 +75,33 @@ describe('fetchMarketplaceResultCount', () => {
       json: async () => ({ totalElements: Number.NaN }),
     }));
     await expect(fetchMarketplaceResultCount(current, draft(), controller.signal)).rejects.toThrow('marketplace_preview_invalid');
+  });
+
+  it('normalizes invalid JSON without leaking the parser error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{', { status: 200 })));
+
+    const promise = fetchMarketplaceResultCount(
+      new URLSearchParams(),
+      draft(),
+      new AbortController().signal,
+    );
+
+    await expect(promise).rejects.toThrow('marketplace_preview_invalid');
+    await expect(promise).rejects.not.toBeInstanceOf(SyntaxError);
+  });
+
+  it('propagates an AbortError raised while parsing the response body', async () => {
+    const aborted = { name: 'AbortError' };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockRejectedValue(aborted),
+    }));
+
+    await expect(fetchMarketplaceResultCount(
+      new URLSearchParams(),
+      draft(),
+      new AbortController().signal,
+    )).rejects.toBe(aborted);
   });
 
   it('propagates fetch aborts without changing the caller input', async () => {

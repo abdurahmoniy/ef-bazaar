@@ -59,7 +59,7 @@ describe('marketplace filter draft', () => {
     expect(validateMarketplaceFilterDraft(draft({
       minPrice: '-1',
       maxPrice: '100',
-      division: '8',
+      division: '8' as never,
       teamStrengthMin: '4100',
       teamStrengthMax: '3000',
       androidCoinsMin: '1.5',
@@ -103,6 +103,44 @@ describe('marketplace filter draft', () => {
     expect(validateMarketplaceFilterDraft(draft({ transferLimitMin: '10' }))).toEqual({});
   });
 
+  it.each([
+    ['hexadecimal', 'minPrice', '0x10', 'minPrice'],
+    ['exponent', 'maxPrice', '1e3', 'maxPrice'],
+    ['explicit plus', 'teamStrengthMin', '+1000', 'teamStrengthMin'],
+    ['unsafe decimal', 'androidCoinsMin', '9007199254740992.1', 'androidCoinsMin'],
+    ['NaN', 'iosCoinsMin', 'NaN', 'iosCoinsMin'],
+    ['Infinity', 'transferLimitMin', 'Infinity', 'transferLimitMin'],
+    ['leading zero', 'maxPrice', '001', 'maxPrice'],
+  ] as const)('rejects %s integer syntax', (_name, field, value, errorKey) => {
+    expect(validateMarketplaceFilterDraft(draft({ [field]: value }))).toEqual({
+      [errorKey]: 'Butun son kiriting.',
+    });
+  });
+
+  it('accepts canonical signed integers and compares prices beyond Number precision', () => {
+    expect(validateMarketplaceFilterDraft(draft({
+      minPrice: '0',
+      androidCoinsMin: '-500',
+      transferLimitMin: '0',
+    }))).toEqual({});
+    expect(validateMarketplaceFilterDraft(draft({
+      minPrice: '9007199254740993',
+      maxPrice: '9007199254740992',
+    }))).toEqual({
+      price: 'Eng kam narx eng yuqori narxdan oshmasligi kerak.',
+    });
+  });
+
+  it('validates exact division and exchange-mode membership', () => {
+    expect(validateMarketplaceFilterDraft(draft({
+      division: '01' as never,
+      exchangeMode: 'TRADE' as never,
+    }))).toEqual({
+      division: 'Division 1–4 oralig‘ida bo‘lishi kerak.',
+      exchangeMode: 'Obmen turini tanlang.',
+    });
+  });
+
   it('preserves strength bound errors instead of replacing them with a reversal error', () => {
     expect(validateMarketplaceFilterDraft(draft({
       teamStrengthMin: '6000',
@@ -137,6 +175,25 @@ describe('marketplace filter draft', () => {
       },
     }).valuablePlayer).toBeNull();
   });
+
+  it.each([
+    ['01', 'BOTH', '', 'BOTH'],
+    ['1e0', 'INVALID', '', ''],
+    ['2', 'EXCHANGE_ONLY', '2', 'EXCHANGE_ONLY'],
+  ] as const)(
+    'normalizes hydrated division %s and exchange mode %s by exact membership',
+    (division, exchangeMode, expectedDivision, expectedExchangeMode) => {
+      const hydrated = filterDraftFromBrowseParams({
+        attributes: {
+          highest_division_level: division,
+          exchange_mode: exchangeMode,
+        },
+      });
+
+      expect(hydrated.division).toBe(expectedDivision);
+      expect(hydrated.exchangeMode).toBe(expectedExchangeMode);
+    },
+  );
 
   it('applies a clean detailed draft without mutating or discarding unrelated criteria', () => {
     const current = new URLSearchParams();
@@ -219,5 +276,56 @@ describe('marketplace filter draft', () => {
     expect(next.get('view')).toBe('grid');
     expect(next.getAll('matchCard')).toEqual([MESSI_CARD]);
     expect(next.getAll('tracking')).toEqual(['one', 'two']);
+  });
+
+  it.each([
+    ['negative price', { minPrice: '-1' }, 'minPrice'],
+    ['exponent price', { maxPrice: '1e3' }, 'maxPrice'],
+    ['invalid division', { division: '01' as never }, 'attr.highest_division_level'],
+    ['low strength', { teamStrengthMin: '999' }, 'attr.team_strength.min'],
+    ['high strength', { teamStrengthMax: '5001' }, 'attr.team_strength.max'],
+    ['hex coin', { androidCoinsMin: '0x10' }, 'attr.android_coins.min'],
+    ['plus coin', { iosCoinsMin: '+1' }, 'attr.ios_coins.min'],
+    ['high transfer limit', { transferLimitMin: '11' }, 'attr.device_transfer_limit.min'],
+    ['invalid exchange', { exchangeMode: 'TRADE' as never }, 'attr.exchange_mode'],
+  ] as const)('does not apply a %s that bypassed validation', (_name, override, key) => {
+    const next = applyMarketplaceFilterDraft(new URLSearchParams(), draft(override));
+    expect(next.has(key)).toBe(false);
+  });
+
+  it('serializes valid integers exactly and canonicalizes signed zero', () => {
+    const next = applyMarketplaceFilterDraft(new URLSearchParams(), draft({
+      minPrice: '9007199254740993',
+      division: '4',
+      teamStrengthMin: '1000',
+      teamStrengthMax: '5000',
+      androidCoinsMin: '-500',
+      iosCoinsMin: '-0',
+      transferLimitMin: '0',
+      exchangeMode: 'NONE',
+    }));
+
+    expect(next.get('minPrice')).toBe('9007199254740993');
+    expect(next.get('attr.highest_division_level')).toBe('4');
+    expect(next.get('attr.team_strength.min')).toBe('1000');
+    expect(next.get('attr.team_strength.max')).toBe('5000');
+    expect(next.get('attr.android_coins.min')).toBe('-500');
+    expect(next.get('attr.ios_coins.min')).toBe('0');
+    expect(next.get('attr.device_transfer_limit.min')).toBe('0');
+    expect(next.get('attr.exchange_mode')).toBe('NONE');
+  });
+
+  it('omits both ends of a reversed range when validation is bypassed', () => {
+    const next = applyMarketplaceFilterDraft(new URLSearchParams(), draft({
+      minPrice: '9007199254740993',
+      maxPrice: '9007199254740992',
+      teamStrengthMin: '4100',
+      teamStrengthMax: '3000',
+    }));
+
+    expect(next.has('minPrice')).toBe(false);
+    expect(next.has('maxPrice')).toBe(false);
+    expect(next.has('attr.team_strength.min')).toBe(false);
+    expect(next.has('attr.team_strength.max')).toBe(false);
   });
 });

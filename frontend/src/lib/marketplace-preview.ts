@@ -3,6 +3,13 @@ import { buildMarketplaceApiPath } from './marketplace-client-api';
 import { applyMarketplaceFilterDraft, type MarketplaceFilterDraft } from './marketplace-filter-draft';
 import { searchParamsToInput } from './marketplace-query';
 
+function isAbortError(error: unknown) {
+  return typeof error === 'object'
+    && error !== null
+    && 'name' in error
+    && error.name === 'AbortError';
+}
+
 /** Fetches the matching-listing count for a draft without changing public URL state. */
 export async function fetchMarketplaceResultCount(
   current: URLSearchParams,
@@ -19,11 +26,19 @@ export async function fetchMarketplaceResultCount(
   });
 
   if (!response.ok) throw new Error(`marketplace_preview_${response.status}`);
-  const payload: unknown = await response.json();
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    throw new Error('marketplace_preview_invalid');
+  }
   const totalElements = typeof payload === 'object' && payload !== null
     ? (payload as { totalElements?: unknown }).totalElements
     : undefined;
-  if (typeof totalElements !== 'number' || !Number.isFinite(totalElements) || totalElements < 0) {
+  if (typeof totalElements !== 'number'
+    || !Number.isSafeInteger(totalElements)
+    || totalElements < 0) {
     throw new Error('marketplace_preview_invalid');
   }
   return totalElements;

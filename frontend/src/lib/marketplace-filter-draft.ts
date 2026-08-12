@@ -1,19 +1,26 @@
 import type { ListingBrowseParams } from './marketplace-types';
 
 export type MarketplacePlatform = 'MOBILE' | 'STEAM' | 'PLAYSTATION';
+export type MarketplaceDivision = '' | '1' | '2' | '3' | '4';
+export type MarketplaceExchangeMode =
+  | ''
+  | 'NONE'
+  | 'EXCHANGE_ONLY'
+  | 'EXCHANGE_WITH_SURCHARGE'
+  | 'BOTH';
 
 export interface MarketplaceFilterDraft {
   platform: MarketplacePlatform;
   minPrice: string;
   maxPrice: string;
   priceNegotiable: boolean;
-  division: string;
+  division: MarketplaceDivision;
   teamStrengthMin: string;
   teamStrengthMax: string;
   androidCoinsMin: string;
   iosCoinsMin: string;
   transferLimitMin: string;
-  exchangeMode: string;
+  exchangeMode: MarketplaceExchangeMode;
   googlePlayDisconnected: boolean;
   gameCenterDisconnected: boolean;
   valuablePlayer: { efhubId: number; name: string } | null;
@@ -25,6 +32,7 @@ export type MarketplaceFilterDraftErrorKey =
   | 'maxPrice'
   | 'price'
   | 'division'
+  | 'exchangeMode'
   | 'teamStrengthMin'
   | 'teamStrengthMax'
   | 'teamStrength'
@@ -37,6 +45,15 @@ export type MarketplaceFilterErrors = Partial<
 >;
 
 const PLATFORM_VALUES = new Set<MarketplacePlatform>(['MOBILE', 'STEAM', 'PLAYSTATION']);
+const DIVISION_VALUES = new Set<MarketplaceDivision>(['', '1', '2', '3', '4']);
+const EXCHANGE_MODE_VALUES = new Set<MarketplaceExchangeMode>([
+  '',
+  'NONE',
+  'EXCHANGE_ONLY',
+  'EXCHANGE_WITH_SURCHARGE',
+  'BOTH',
+]);
+const INTEGER_PATTERN = /^-?(0|[1-9]\d*)$/;
 
 const OWNED_FILTER_KEYS = [
   'filter',
@@ -64,6 +81,15 @@ function validPlatform(value: unknown): value is MarketplacePlatform {
   return typeof value === 'string' && PLATFORM_VALUES.has(value as MarketplacePlatform);
 }
 
+function validDivision(value: unknown): value is MarketplaceDivision {
+  return typeof value === 'string' && DIVISION_VALUES.has(value as MarketplaceDivision);
+}
+
+function validExchangeMode(value: unknown): value is MarketplaceExchangeMode {
+  return typeof value === 'string'
+    && EXCHANGE_MODE_VALUES.has(value as MarketplaceExchangeMode);
+}
+
 function text(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -77,11 +103,16 @@ function numericText(value: unknown) {
   return text(value);
 }
 
-function integerValue(value: string) {
+function integerValue(value: unknown) {
+  if (typeof value !== 'string') return null;
   const normalized = value.trim();
   if (!normalized) return undefined;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) && Number.isInteger(parsed) ? parsed : null;
+  if (!INTEGER_PATTERN.test(normalized)) return null;
+  try {
+    return BigInt(normalized);
+  } catch {
+    return null;
+  }
 }
 
 function positiveSafeInteger(value: string) {
@@ -89,9 +120,16 @@ function positiveSafeInteger(value: string) {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-function setIfPresent(params: URLSearchParams, key: string, value: string) {
-  const normalized = value.trim();
-  if (normalized) params.set(key, normalized);
+function boundedInteger(value: unknown, minimum?: bigint, maximum?: bigint) {
+  const parsed = integerValue(value);
+  if (typeof parsed !== 'bigint') return undefined;
+  if (minimum !== undefined && parsed < minimum) return undefined;
+  if (maximum !== undefined && parsed > maximum) return undefined;
+  return parsed;
+}
+
+function setInteger(params: URLSearchParams, key: string, value: bigint | undefined) {
+  if (value !== undefined) params.set(key, value.toString());
 }
 
 /** Returns a new, empty detailed filter draft with Mobile as the implicit platform. */
@@ -120,6 +158,8 @@ export function filterDraftFromBrowseParams(filters: ListingBrowseParams): Marke
   const id = positiveSafeInteger(attributeText(filters, 'valuable_players_id'));
   const name = attributeText(filters, 'valuable_players_name');
   const platform = attributes.platform;
+  const division = attributeText(filters, 'highest_division_level');
+  const exchangeMode = attributeText(filters, 'exchange_mode');
 
   return {
     ...clearMarketplaceFilterDraft(),
@@ -127,13 +167,13 @@ export function filterDraftFromBrowseParams(filters: ListingBrowseParams): Marke
     minPrice: numericText(filters.minPrice),
     maxPrice: numericText(filters.maxPrice),
     priceNegotiable: filters.priceNegotiable === true,
-    division: attributeText(filters, 'highest_division_level'),
+    division: validDivision(division) ? division : '',
     teamStrengthMin: attributeText(filters, 'team_strength.min'),
     teamStrengthMax: attributeText(filters, 'team_strength.max'),
     androidCoinsMin: attributeText(filters, 'android_coins.min'),
     iosCoinsMin: attributeText(filters, 'ios_coins.min'),
     transferLimitMin: attributeText(filters, 'device_transfer_limit.min'),
-    exchangeMode: attributeText(filters, 'exchange_mode'),
+    exchangeMode: validExchangeMode(exchangeMode) ? exchangeMode : '',
     googlePlayDisconnected: attributes.has_google_play_link === 'false',
     gameCenterDisconnected: attributes.has_game_center_link === 'false',
     valuablePlayer: id !== undefined && name ? { efhubId: id, name } : null,
@@ -148,7 +188,7 @@ export function validateMarketplaceFilterDraft(draft: MarketplaceFilterDraft): M
   const validatePrice = (key: 'minPrice' | 'maxPrice') => {
     const value = integerValue(draft[key]);
     if (value === null) errors[key] = 'Butun son kiriting.';
-    else if (value !== undefined && value < 0) {
+    else if (value !== undefined && value < 0n) {
       errors[key] = 'Narx 0 dan kam bo‘lishi mumkin emas.';
     }
     return value;
@@ -157,30 +197,32 @@ export function validateMarketplaceFilterDraft(draft: MarketplaceFilterDraft): M
   const maxPrice = validatePrice('maxPrice');
   if (minPrice !== null && maxPrice !== null
     && minPrice !== undefined && maxPrice !== undefined
-    && minPrice >= 0 && maxPrice >= 0 && minPrice > maxPrice) {
+    && minPrice >= 0n && maxPrice >= 0n && minPrice > maxPrice) {
     delete errors.minPrice;
     delete errors.maxPrice;
     errors.price = 'Eng kam narx eng yuqori narxdan oshmasligi kerak.';
   }
 
-  const division = integerValue(draft.division);
-  if (division === null || (division !== undefined && (division < 1 || division > 4))) {
+  if (!validDivision(draft.division)) {
     errors.division = 'Division 1–4 oralig‘ida bo‘lishi kerak.';
+  }
+  if (!validExchangeMode(draft.exchangeMode)) {
+    errors.exchangeMode = 'Obmen turini tanlang.';
   }
 
   const validateTeamStrength = (key: 'teamStrengthMin' | 'teamStrengthMax') => {
     const value = integerValue(draft[key]);
     if (value === null) errors[key] = 'Butun son kiriting.';
-    else if (value !== undefined && value < 1000) errors[key] = '1000 dan kam bo‘lmasligi kerak.';
-    else if (value !== undefined && value > 5000) errors[key] = '5000 dan oshmasligi kerak.';
+    else if (value !== undefined && value < 1000n) errors[key] = '1000 dan kam bo‘lmasligi kerak.';
+    else if (value !== undefined && value > 5000n) errors[key] = '5000 dan oshmasligi kerak.';
     return value;
   };
   const minStrength = validateTeamStrength('teamStrengthMin');
   const maxStrength = validateTeamStrength('teamStrengthMax');
   if (minStrength !== null && maxStrength !== null
     && minStrength !== undefined && maxStrength !== undefined
-    && minStrength >= 1000 && minStrength <= 5000
-    && maxStrength >= 1000 && maxStrength <= 5000
+    && minStrength >= 1000n && minStrength <= 5000n
+    && maxStrength >= 1000n && maxStrength <= 5000n
     && minStrength > maxStrength) {
     errors.teamStrength = 'Eng kam kuch eng yuqori kuchdan oshmasligi kerak.';
   }
@@ -190,7 +232,9 @@ export function validateMarketplaceFilterDraft(draft: MarketplaceFilterDraft): M
   }
 
   const transferLimit = integerValue(draft.transferLimitMin);
-  if (transferLimit === null || (transferLimit !== undefined && (transferLimit < 0 || transferLimit > 10))) {
+  if (transferLimit === null) {
+    errors.transferLimitMin = 'Butun son kiriting.';
+  } else if (transferLimit !== undefined && (transferLimit < 0n || transferLimit > 10n)) {
     errors.transferLimitMin = '0 dan 10 gacha son kiriting.';
   }
 
@@ -209,21 +253,37 @@ export function applyMarketplaceFilterDraft(
   if (validPlatform(draft.platform) && draft.platform !== 'MOBILE') {
     next.set('attr.platform', draft.platform);
   }
-  setIfPresent(next, 'minPrice', draft.minPrice);
-  setIfPresent(next, 'maxPrice', draft.maxPrice);
+  const minPrice = boundedInteger(draft.minPrice, 0n);
+  const maxPrice = boundedInteger(draft.maxPrice, 0n);
+  if (minPrice === undefined || maxPrice === undefined || minPrice <= maxPrice) {
+    setInteger(next, 'minPrice', minPrice);
+    setInteger(next, 'maxPrice', maxPrice);
+  }
   if (draft.priceNegotiable) next.set('priceNegotiable', 'true');
-  setIfPresent(next, 'attr.highest_division_level', draft.division);
-  setIfPresent(next, 'attr.team_strength.min', draft.teamStrengthMin);
-  setIfPresent(next, 'attr.team_strength.max', draft.teamStrengthMax);
-  setIfPresent(next, 'attr.android_coins.min', draft.androidCoinsMin);
-  setIfPresent(next, 'attr.ios_coins.min', draft.iosCoinsMin);
-  setIfPresent(next, 'attr.device_transfer_limit.min', draft.transferLimitMin);
-  setIfPresent(next, 'attr.exchange_mode', draft.exchangeMode);
+  if (validDivision(draft.division) && draft.division) {
+    next.set('attr.highest_division_level', draft.division);
+  }
+  const minStrength = boundedInteger(draft.teamStrengthMin, 1000n, 5000n);
+  const maxStrength = boundedInteger(draft.teamStrengthMax, 1000n, 5000n);
+  if (minStrength === undefined || maxStrength === undefined || minStrength <= maxStrength) {
+    setInteger(next, 'attr.team_strength.min', minStrength);
+    setInteger(next, 'attr.team_strength.max', maxStrength);
+  }
+  setInteger(next, 'attr.android_coins.min', boundedInteger(draft.androidCoinsMin));
+  setInteger(next, 'attr.ios_coins.min', boundedInteger(draft.iosCoinsMin));
+  setInteger(
+    next,
+    'attr.device_transfer_limit.min',
+    boundedInteger(draft.transferLimitMin, 0n, 10n),
+  );
+  if (validExchangeMode(draft.exchangeMode) && draft.exchangeMode) {
+    next.set('attr.exchange_mode', draft.exchangeMode);
+  }
   if (draft.googlePlayDisconnected) next.set('attr.has_google_play_link', 'false');
   if (draft.gameCenterDisconnected) next.set('attr.has_game_center_link', 'false');
 
   const valuableId = draft.valuablePlayer?.efhubId;
-  const valuableName = draft.valuablePlayer?.name.trim();
+  const valuableName = text(draft.valuablePlayer?.name);
   if (valuableId !== undefined && Number.isSafeInteger(valuableId) && valuableId > 0 && valuableName) {
     next.set('attr.valuable_players_id', String(valuableId));
     next.set('attr.valuable_players_name', valuableName);
