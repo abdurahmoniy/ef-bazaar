@@ -70,7 +70,6 @@ export function ListingFilters({ filters, rawQuery }: ListingFiltersProps) {
           draft={draft}
           errors={errors}
           onChange={setDraft}
-          collapsible={false}
         />
         <div className="grid grid-cols-2 gap-2 pt-1">
           <Button type="submit" className="min-h-11" disabled={!valid}>

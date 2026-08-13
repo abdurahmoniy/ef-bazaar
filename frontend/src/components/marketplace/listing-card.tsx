@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { ArrowLeftRight, TriangleAlert } from 'lucide-react';
+import { Check, TriangleAlert } from 'lucide-react';
 
 import { ListingCardMedia } from '@/components/marketplace/listing-card-media';
 import { buildListingCardModel } from '@/components/marketplace/listing-card-model';
@@ -9,6 +9,7 @@ import { formatCompactNumber } from '@/lib/marketplace-format';
 import { listingMediaUrls } from '@/lib/marketplace-media';
 import type { ListingResponse } from '@/lib/marketplace-types';
 import type { PlayerMatchCriterion } from '@/lib/player-match-query';
+import { cn } from '@/lib/utils';
 
 export type ListingCardLayout = 'auto' | 'horizontal' | 'vertical';
 
@@ -110,9 +111,9 @@ export function ListingCard({
           )}
 
           {(model.androidCoins !== undefined || model.iosCoins !== undefined) && (
-            <div className="flex min-h-10 items-center gap-3 rounded-lg bg-muted/65 px-2.5 py-2 text-[11px]">
-              {model.androidCoins !== undefined && <CoinFact platform="Android" value={model.androidCoins} />}
-              {model.iosCoins !== undefined && <CoinFact platform="iOS" value={model.iosCoins} />}
+            <div className="flex min-w-0 flex-wrap gap-1.5 pt-0.5">
+              {model.androidCoins !== undefined && <CoinPill platform="Android" value={model.androidCoins} />}
+              {model.iosCoins !== undefined && <CoinPill platform="iOS" value={model.iosCoins} />}
             </div>
           )}
         </div>
@@ -123,8 +124,8 @@ export function ListingCard({
 
 function ExchangeTag({ label }: { label: string }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent px-2 py-1 text-[10px] font-bold text-accent-foreground">
-      <ArrowLeftRight className="h-3 w-3" aria-hidden="true" />
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">
+      <Check className="h-3.5 w-3.5" aria-hidden="true" />
       {label}
     </span>
   );
@@ -140,29 +141,34 @@ function LinkedServiceWarning({
   return (
     <div
       data-linked-service-warning={service}
-      className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-secondary/45 bg-secondary/10 px-2 py-1.5 text-[10px] font-bold text-accent-foreground"
+      className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-secondary/30 px-2.5 py-1 text-[10px] font-bold text-secondary-foreground"
     >
       <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span className="truncate">{label} ulangan</span>
+      <span className="truncate">{label}</span>
     </div>
   );
 }
 
-function CoinFact({ platform, value }: { platform: 'Android' | 'iOS'; value: number }) {
+
+function CoinPill({ platform, value }: { platform: 'Android' | 'iOS'; value: number }) {
   return (
-    <div role="group" aria-label={`${platform} coin: ${value}`} className="flex min-w-0 items-center gap-1.5">
+    <div
+      role="group"
+      aria-label={`${platform} coin: ${value}`}
+      className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold text-accent-foreground"
+    >
       <Image
         data-efootball-coin-icon
         src="/icons/efootball-coin.png"
         alt=""
-        width={18}
-        height={18}
+        width={14}
+        height={14}
         unoptimized
-        className="h-[18px] w-[18px] shrink-0 object-contain"
+        className="h-3.5 w-3.5 shrink-0 object-contain"
       />
-      <span className="min-w-0">
-        <span className="block text-[9px] font-semibold leading-none text-muted-foreground">{platform}</span>
-        <span className="block truncate font-black leading-tight text-foreground">{formatCompactNumber(value)}</span>
+      <span className="truncate">
+        <span className="font-semibold text-muted-foreground mr-1">{platform}</span>
+        <span className={cn(value < 0 && 'text-destructive')}>{formatCompactNumber(value)}</span>
       </span>
     </div>
   );

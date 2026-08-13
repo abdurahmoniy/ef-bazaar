@@ -35,6 +35,7 @@ import {
   type ListingResponse,
 } from '@/lib/marketplace-types';
 import type { User } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 interface MarketplaceListingDetailProps {
   listing: ListingResponse;
@@ -339,7 +340,7 @@ function AttributeTable({
   exchangeMode?: string;
   priceNegotiable: boolean;
 }) {
-  const rows: Array<{ label: string; value: string }> = [
+  const rows: Array<{ label: string; value: string; negative?: boolean }> = [
     { label: 'Eng yuqori Division', value: division === undefined ? '—' : divisionLabel(division) },
     { label: 'Team Strength', value: teamStrength === undefined ? '—' : formatCompactNumber(teamStrength) },
     { label: "Jami o'yinchilar", value: playersCount === undefined ? '—' : formatCompactNumber(playersCount) },
@@ -347,10 +348,18 @@ function AttributeTable({
     { label: 'Game Center ulangan', value: hasGameCenterLink ? 'Ha' : "Yo'q" },
   ];
   if (androidCoins !== undefined) {
-    rows.push({ label: 'Android coin', value: formatCompactNumber(androidCoins) });
+    rows.push({
+      label: 'Android coin',
+      value: formatCompactNumber(androidCoins),
+      negative: androidCoins < 0,
+    });
   }
   if (iosCoins !== undefined) {
-    rows.push({ label: 'iOS coin', value: formatCompactNumber(iosCoins) });
+    rows.push({
+      label: 'iOS coin',
+      value: formatCompactNumber(iosCoins),
+      negative: iosCoins < 0,
+    });
   }
   rows.push({ label: 'Obmen', value: exchangeModeLabel(exchangeMode) });
   rows.push({ label: 'Savdolashish', value: priceNegotiable ? 'Mumkin' : "Yo'q" });
@@ -365,7 +374,9 @@ function AttributeTable({
             className="flex items-center justify-between gap-4 border-b border-dashed border-border py-2 text-sm"
           >
             <dt className="text-muted-foreground">{row.label}</dt>
-            <dd className="font-semibold text-foreground">{row.value}</dd>
+            <dd className={cn('font-semibold text-foreground', row.negative && 'text-destructive')}>
+              {row.value}
+            </dd>
           </div>
         ))}
       </dl>

@@ -90,7 +90,10 @@ describe('applied marketplace filters', () => {
 
     const items = buildAppliedMarketplaceFilters(params);
 
-    expect(items.map((item) => item.label)).toEqual([]);
+    expect(items.map((item) => item.label)).toEqual([
+      'Android coin: 0 dan',
+      'iOS coin: 0 dan',
+    ]);
   });
 
   it('does not describe a negotiable shortcut overridden by false', () => {

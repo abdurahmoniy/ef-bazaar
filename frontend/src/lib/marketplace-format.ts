@@ -39,7 +39,12 @@ export const MARKETPLACE_FILTERS = [
     id: 'clean',
     label: 'Toza akkount',
     params: {
-      attributes: { has_google_play_link: 'false', has_game_center_link: 'false' },
+      attributes: {
+        has_google_play_link: 'false',
+        has_game_center_link: 'false',
+        'android_coins.min': '0',
+        'ios_coins.min': '0',
+      },
     },
   },
   // 'division1' and 'strong' used to live here. Both pinned one arbitrary value

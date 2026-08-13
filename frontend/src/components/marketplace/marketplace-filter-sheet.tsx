@@ -195,7 +195,6 @@ export function MarketplaceFilterSheet({
               draft={draft}
               errors={errors}
               onChange={changeDraft}
-              collapsible
             />
           </div>
 
