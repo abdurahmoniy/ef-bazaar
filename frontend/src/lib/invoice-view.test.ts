@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  countdownAnnouncement,
   formatCountdown,
   invoiceBumpTiyin,
   secondsUntil,
@@ -36,6 +37,42 @@ describe('formatCountdown', () => {
 
   it('shows zero rather than a negative clock', () => {
     expect(formatCountdown(-5)).toBe('00:00');
+  });
+});
+
+describe('countdownAnnouncement', () => {
+  it('says nothing while there is plenty of time', () => {
+    expect(countdownAnnouncement(900)).toBeNull();
+    expect(countdownAnnouncement(301)).toBeNull();
+  });
+
+  it('speaks once at five minutes and holds that text', () => {
+    // A live region announces on CHANGE — a string that stays put is silence.
+    expect(countdownAnnouncement(300)).toContain('besh daqiqa');
+    expect(countdownAnnouncement(300)).toBe(countdownAnnouncement(120));
+  });
+
+  it('speaks again under a minute', () => {
+    expect(countdownAnnouncement(60)).toContain('bir daqiqadan kam');
+    expect(countdownAnnouncement(1)).toBe(countdownAnnouncement(60));
+  });
+
+  it('says the window has closed, and what to do', () => {
+    expect(countdownAnnouncement(0)).toContain('muddati tugadi');
+    expect(countdownAnnouncement(0)).toContain('Yangi so‘rov');
+  });
+
+  it('treats a negative clock as expired, not as plenty of time', () => {
+    expect(countdownAnnouncement(-5)).toBe(countdownAnnouncement(0));
+  });
+
+  it('announces at most three times over the whole window', () => {
+    const spoken = new Set<string>();
+    for (let left = 900; left >= 0; left -= 1) {
+      const line = countdownAnnouncement(left);
+      if (line) spoken.add(line);
+    }
+    expect(spoken.size).toBe(3);
   });
 });
 

@@ -61,8 +61,14 @@ function articles() {
   return [...container.querySelectorAll('article')];
 }
 
-function arrows(label: string) {
-  return [...container.querySelectorAll<HTMLButtonElement>(`button[aria-label="${label}"]`)];
+/**
+ * Every reorder button names its own card, so a screen-reader user on a grid
+ * hears which one moves — hence the prefix match rather than an equality one.
+ */
+function arrows(direction: 'yuqoriga' | 'pastga') {
+  return [...container.querySelectorAll<HTMLButtonElement>('button[aria-label]')].filter((b) =>
+    b.getAttribute('aria-label')!.endsWith(`kartasini ${direction} surish`),
+  );
 }
 
 describe('PlatformCardList', () => {
@@ -86,8 +92,8 @@ describe('PlatformCardList', () => {
 
   it('gives the first card no up arrow and the last no down arrow', async () => {
     await render([card('a', 1), card('b', 2)]);
-    expect(arrows('Yuqoriga').length).toBe(1);
-    expect(arrows('Pastga').length).toBe(1);
+    expect(arrows('yuqoriga').length).toBe(1);
+    expect(arrows('pastga').length).toBe(1);
   });
 
   /**
@@ -100,7 +106,7 @@ describe('PlatformCardList', () => {
     clientMocks.listPlatformCards.mockResolvedValue([card('b', 1), card('a', 2)]);
     await render([card('a', 1), card('b', 2), card('x', 3, false)]);
 
-    await act(async () => arrows('Yuqoriga')[0].click());
+    await act(async () => arrows('yuqoriga')[0].click());
 
     expect(clientMocks.reorderCards).toHaveBeenCalledWith(['b', 'a']);
     expect(clientMocks.listPlatformCards).toHaveBeenCalled();
@@ -139,7 +145,7 @@ describe('PlatformCardList', () => {
     clientMocks.listPlatformCards.mockResolvedValue([card('a', 1), card('b', 2)]);
     await render([card('a', 1), card('b', 2)]);
 
-    await act(async () => arrows('Yuqoriga')[0].click());
+    await act(async () => arrows('yuqoriga')[0].click());
 
     expect(container.querySelector('[role="alert"]')?.textContent)
       .toBe('Tartib qabul qilinmadi');

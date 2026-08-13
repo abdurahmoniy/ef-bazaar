@@ -7,6 +7,11 @@ import { formatTiyin } from '@/lib/money';
 import type { PlatformCardResponse } from '@/lib/payment-types';
 import { cn } from '@/lib/utils';
 
+/**
+ * Only the brands that need a prettier name than the enum's own. A brand added
+ * to the backend later falls back to its raw value rather than to an empty
+ * span — same rule as `UNKNOWN_KIND_LABEL` in `wallet-history.ts`.
+ */
 const BRAND_LABEL: Record<PlatformCardResponse['brand'], string> = {
   HUMO: 'HUMO',
   UZCARD: 'UZCARD',
@@ -44,9 +49,11 @@ export function PlatformCard({
   onMoveDown,
 }: PlatformCardProps) {
   const expiry = `${String(card.expiryMonth).padStart(2, '0')}/${String(card.expiryYear).slice(-2)}`;
+  const brand = BRAND_LABEL[card.brand] ?? card.brand;
 
   return (
     <article
+      aria-label={`${brand} ${card.maskedPan}`}
       className={cn(
         'flex aspect-[1.586/1] w-full flex-col justify-between rounded-2xl p-4 text-white shadow-card sm:p-5',
         card.active
@@ -55,7 +62,7 @@ export function PlatformCard({
       )}
     >
       <header className="flex items-start justify-between gap-2">
-        <span className="text-sm font-black tracking-wide">{BRAND_LABEL[card.brand]}</span>
+        <span className="text-sm font-black tracking-wide">{brand}</span>
         {card.active ? (
           <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tabular-nums">
             #{position ?? card.displayOrder}
@@ -85,13 +92,17 @@ export function PlatformCard({
             {card.balanceObservedAt && ` · ${formatListingDate(card.balanceObservedAt)}`}
           </span>
 
+          {/* Every label names the card. On a grid of cards these buttons are
+              otherwise N identical "Yuqoriga"/"O'chirish" to a screen reader,
+              with nothing saying which card is about to change. The masked PAN
+              is the only number this component ever holds. */}
           <span className="flex shrink-0 items-center gap-1">
             {onMoveUp && (
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => onMoveUp(card.id)}
-                aria-label="Yuqoriga"
+                aria-label={`${card.maskedPan} kartasini yuqoriga surish`}
                 className="rounded-md p-1 transition hover:bg-white/20 disabled:opacity-40"
               >
                 <ChevronUp className="h-4 w-4" aria-hidden="true" />
@@ -102,7 +113,7 @@ export function PlatformCard({
                 type="button"
                 disabled={busy}
                 onClick={() => onMoveDown(card.id)}
-                aria-label="Pastga"
+                aria-label={`${card.maskedPan} kartasini pastga surish`}
                 className="rounded-md p-1 transition hover:bg-white/20 disabled:opacity-40"
               >
                 <ChevronDown className="h-4 w-4" aria-hidden="true" />
@@ -112,6 +123,11 @@ export function PlatformCard({
               type="button"
               disabled={busy}
               onClick={() => (card.active ? onDeactivate(card.id) : onActivate(card.id))}
+              aria-label={
+                card.active
+                  ? `${card.maskedPan} kartasini o'chirish`
+                  : `${card.maskedPan} kartasini yoqish`
+              }
               className="rounded-md px-2 py-1 font-semibold transition hover:bg-white/20 disabled:opacity-40"
             >
               {card.active ? "O'chirish" : 'Yoqish'}

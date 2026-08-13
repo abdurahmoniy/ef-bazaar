@@ -85,4 +85,45 @@ describe('InvoicePanel', () => {
     expect(markup).toContain('00:00');
     expect(markup).toContain('Muddat tugadi');
   });
+
+  it('keeps the card number readable past the deadline', () => {
+    // A transfer already in flight must still be completable or checkable.
+    expect(render({ expiresAt: '2026-08-13T08:59:59Z' })).toContain('9860 1234 5678 9012');
+  });
+
+  it('tells an expired user not to transfer a second time', () => {
+    expect(render({ expiresAt: '2026-08-13T08:59:59Z' })).toContain('qayta o‘tkazmang');
+  });
+
+  it('offers the new-request button only on a dead invoice', () => {
+    const expired = renderToStaticMarkup(
+      createElement(InvoicePanel, {
+        invoice: invoice({ expiresAt: '2026-08-13T08:59:59Z' }),
+        onExpired: () => {},
+        onDismiss: () => {},
+      }),
+    );
+    const live = renderToStaticMarkup(
+      createElement(InvoicePanel, {
+        invoice: invoice(),
+        onExpired: () => {},
+        onDismiss: () => {},
+      }),
+    );
+    expect(expired).toContain('Yangi so‘rov');
+    expect(live).not.toContain('Yangi so‘rov');
+  });
+
+  it('carries the countdown in a live region, without reading out every second', () => {
+    const markup = render();
+    expect(markup).toContain('aria-live="polite"');
+    // 15:00 is above the first threshold, so the region starts empty.
+    expect(markup).toContain('<p aria-live="polite" class="sr-only"></p>');
+  });
+
+  it('announces the closing window once it matters', () => {
+    // 09:04:30 — four and a half minutes left.
+    const markup = render({ expiresAt: '2026-08-13T09:04:30Z' });
+    expect(markup).toContain('besh daqiqa');
+  });
 });

@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import {
+  Check,
+  Copy,
   Mail,
   Search,
   ShieldCheck,
@@ -142,6 +144,7 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
                       .filter(Boolean)
                       .join(' · ')}
                   </p>
+                  <UserIdCopy userId={user.id} />
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
@@ -210,6 +213,53 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * The user's id, click to copy.
+ *
+ * It is here because the unmatched-credits queue asks an admin to type a raw
+ * UUID, and attributing a payment is the one irreversible money-minting action
+ * on the platform — payment-service has no foreign key to any users table, so a
+ * well-formed but mistyped id opens a funded wallet for nobody. Hand-copying it
+ * out of a database or a link URL is how that typo happens.
+ */
+function UserIdCopy({ userId }: { userId: string }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(userId);
+    } catch {
+      // Selecting the text by hand still works; a failed copy is not an error
+      // worth a banner.
+      return;
+    }
+    setCopied(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void copy()}
+      aria-label={`Foydalanuvchi ID sidan nusxa olish: ${userId}`}
+      className="inline-flex max-w-full items-center gap-1 break-all rounded-md text-left font-mono text-[11px] text-muted-foreground transition hover:text-foreground"
+    >
+      {copied ? (
+        <Check className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+      ) : (
+        <Copy className="h-3 w-3 shrink-0" aria-hidden="true" />
+      )}
+      {userId}
+    </button>
   );
 }
 

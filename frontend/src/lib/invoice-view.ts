@@ -16,6 +16,22 @@ export function formatCountdown(seconds: number): string {
 }
 
 /**
+ * What a screen reader should say about the clock, or `null` for silence.
+ *
+ * The ticking digits themselves cannot go in a live region — they change every
+ * second, so the reader would talk over the user for the whole fifteen minutes.
+ * This returns the same string until a threshold is crossed, which is exactly
+ * when a live region speaks: at five minutes, at one minute, and at zero.
+ */
+export function countdownAnnouncement(secondsLeft: number): string | null {
+  const left = Math.max(0, Math.floor(secondsLeft));
+  if (left === 0) return 'To‘lov muddati tugadi. Yangi so‘rov yarating.';
+  if (left <= 60) return 'To‘lov muddatiga bir daqiqadan kam vaqt qoldi.';
+  if (left <= 300) return 'To‘lov muddatiga besh daqiqa qoldi.';
+  return null;
+}
+
+/**
  * How much more than the requested amount the user must send. Non-zero when
  * the disambiguation bump fired — another invoice was already waiting for the
  * same amount, so this one was nudged to keep the two tellable apart.

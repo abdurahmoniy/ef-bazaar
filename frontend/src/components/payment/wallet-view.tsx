@@ -31,11 +31,22 @@ export function WalletView({ wallet, initialInvoice, history }: WalletViewProps)
   }, []);
 
   const handleExpired = useCallback(() => {
-    setInvoice(null);
+    // Deliberately does NOT clear the invoice. A user who was in their banking
+    // app when the clock ran out comes back to a page that still shows the card
+    // number and the amount — otherwise the transfer looks like it failed and
+    // gets sent a second time. Two more reasons to keep it: an off-invoice
+    // transfer lands in the admin's manual queue, which is the work this whole
+    // design exists to avoid; and the PENDING row survives until the sweeper
+    // runs (every 30s), so a preset tapped right now answers a bare 409.
+    //
     // Re-runs the server fetches: a deposit that landed in the last seconds
     // still shows up as a fresh balance rather than a stale one.
     router.refresh();
   }, [router]);
+
+  const handleDismissed = useCallback(() => {
+    setInvoice(null);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -79,7 +90,13 @@ export function WalletView({ wallet, initialInvoice, history }: WalletViewProps)
       </section>
 
       {invoice
-        ? <InvoicePanel invoice={invoice} onExpired={handleExpired} />
+        ? (
+          <InvoicePanel
+            invoice={invoice}
+            onExpired={handleExpired}
+            onDismiss={handleDismissed}
+          />
+        )
         : <TopUpForm onCreated={handleCreated} />}
 
       <section className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
@@ -90,9 +107,12 @@ export function WalletView({ wallet, initialInvoice, history }: WalletViewProps)
           </p>
         ) : (
           <ul className="mt-3 divide-y divide-border">
-            {rows.map((row) => (
+            {rows.map((row, index) => (
               <li
-                key={row.transactionId}
+                // One row per ledger entry, and the entry id is not exposed —
+                // a transaction that posts twice to USER_AVAILABLE for one
+                // user would collide on the transaction id alone.
+                key={`${row.transactionId}-${index}`}
                 className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
               >
                 <div className="min-w-0">

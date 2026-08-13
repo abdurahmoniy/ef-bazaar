@@ -10,9 +10,11 @@ import { detectBrand, luhnCheck, normalizePan, type DetectableBrand } from './ca
  *     the brand and nothing else. The digits go into `request.pan` and travel
  *     straight to the API; they belong in no log, no error and no analytics.
  *  2. **Nothing the backend would reject gets sent.** `PlatformCardService`
- *     answers 400 on a bad Luhn, and `CardBrand.detect` *throws* (a 500) on a
- *     BIN no brand claims — so an undetectable brand is blocked here, not
- *     discovered by the admin as a server error.
+ *     answers 400 on a bad Luhn, and a BIN no brand claims is also a 400 —
+ *     `CardBrand.detect` throws `IllegalArgumentException`, which
+ *     `PaymentExceptionHandler` maps to BAD_REQUEST. Blocking it here is a UX
+ *     call, not a crash fix: it saves a round trip and shows an Uzbek message
+ *     instead of the backend's English "Unknown card brand for this BIN".
  */
 
 /** What the four inputs currently hold, verbatim. */

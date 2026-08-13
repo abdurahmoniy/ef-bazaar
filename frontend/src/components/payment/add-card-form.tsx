@@ -136,7 +136,7 @@ export function AddCardForm({ onAdded }: AddCardFormProps) {
       </div>
 
       {/* Disabled until the draft is good: a typo becomes a dead button rather
-          than a server error, and an undetectable BIN would be a 500. */}
+          than a round trip that comes back as an English 400. */}
       <Button type="submit" disabled={busy || !review.canSubmit} className="min-h-11">
         {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
         Qo&apos;shish

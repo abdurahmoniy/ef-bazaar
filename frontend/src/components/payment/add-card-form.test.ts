@@ -125,7 +125,7 @@ describe('AddCardForm', () => {
     expect(field('platform-card-holder').value).toBe('');
   });
 
-  it('refuses to send a BIN no brand claims — the backend answers 500 on those', async () => {
+  it('refuses to send a BIN no brand claims, rather than round-tripping to a 400', async () => {
     await renderForm();
     await type('platform-card-pan', '6011000000000004');
     await type('platform-card-holder', 'EFBAZAAR MCHJ');

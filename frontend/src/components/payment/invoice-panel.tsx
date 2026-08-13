@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, Copy, Timer } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { formatPanForDisplay } from '@/lib/card-detect';
 import {
+  countdownAnnouncement,
   formatCountdown,
   invoiceBumpTiyin,
   secondsUntil,
@@ -40,6 +41,11 @@ async function writeClipboard(value: string): Promise<boolean> {
 interface InvoicePanelProps {
   invoice: InvoiceResponse;
   onExpired: () => void;
+  /**
+   * Clears the panel. Optional so a static render still works, but on the
+   * wallet page it is the ONLY way this panel goes away — see `onExpired`.
+   */
+  onDismiss?: () => void;
 }
 
 /**
@@ -50,33 +56,58 @@ interface InvoicePanelProps {
  * `invoice.pan` is the full card number. This component is the only place it
  * may be rendered — it must never reach a log line, an error message, or any
  * analytics call.
+ *
+ * Past the deadline the panel STAYS, dimmed, with the card number still
+ * readable: a user who was in their banking app when the clock ran out must be
+ * able to finish or verify a transfer that is already in flight. Only the
+ * explicit "Yangi so'rov" button clears it.
  */
-export function InvoicePanel({ invoice, onExpired }: InvoicePanelProps) {
+export function InvoicePanel({ invoice, onExpired, onDismiss }: InvoicePanelProps) {
   const secondsLeft = useCountdown(invoice.expiresAt);
   const [copied, setCopied] = useState<CopyTarget | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bumpTiyin = invoiceBumpTiyin(invoice);
 
   useEffect(() => {
     if (secondsLeft === 0) onExpired();
   }, [secondsLeft, onExpired]);
 
+  // This panel unmounts routinely — a timer left running writes state into a
+  // component that is gone.
+  useEffect(() => () => {
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+  }, []);
+
   const copy = useCallback(async (value: string, what: CopyTarget) => {
     const ok = await writeClipboard(value);
     setCopyFailed(!ok);
     setCopied(ok ? what : null);
-    if (ok) setTimeout(() => setCopied(null), 2000);
+    if (!ok) return;
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopied(null), 2000);
   }, []);
 
   const running = secondsLeft > 0;
 
   return (
-    <section className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
+    <section
+      className={cn(
+        'rounded-xl border border-border bg-card p-4 shadow-card sm:p-6',
+        !running && 'opacity-75',
+      )}
+    >
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-black text-foreground">
           Quyidagi kartaga o‘tkazing
         </h2>
         <span
+          role="timer"
+          aria-label={
+            running
+              ? `To‘lov muddati: ${formatCountdown(secondsLeft)}`
+              : 'To‘lov muddati tugadi'
+          }
           className={cn(
             'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-semibold tabular-nums',
             running ? 'bg-accent text-accent-foreground' : 'bg-destructive/10 text-destructive',
@@ -86,6 +117,13 @@ export function InvoicePanel({ invoice, onExpired }: InvoicePanelProps) {
           {formatCountdown(secondsLeft)}
         </span>
       </header>
+
+      {/* Polite, and threshold-based rather than per-second: a screen-reader
+          user must learn the payment window is closing without the reader
+          talking over them while they copy the card number. */}
+      <p aria-live="polite" className="sr-only">
+        {countdownAnnouncement(secondsLeft) ?? ''}
+      </p>
 
       <dl className="mt-5 space-y-5">
         <div>
@@ -158,8 +196,20 @@ export function InvoicePanel({ invoice, onExpired }: InvoicePanelProps) {
       <p className="mt-3 text-sm text-muted-foreground">
         {running
           ? 'To‘lov tushgach hamyoningiz avtomatik to‘ldiriladi. Sahifani yopsangiz ham bo‘ladi.'
-          : 'Muddat tugadi — yangi so‘rov yarating.'}
+          : 'Muddat tugadi. Agar pulni allaqachon o‘tkazgan bo‘lsangiz, qayta o‘tkazmang — '
+            + 'to‘lov qo‘lda tekshiriladi va hamyoningizga tushadi. Aks holda yangi so‘rov yarating.'}
       </p>
+
+      {!running && onDismiss && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onDismiss}
+          className="mt-3 min-h-11 w-full sm:w-auto"
+        >
+          Yangi so‘rov
+        </Button>
+      )}
     </section>
   );
 }

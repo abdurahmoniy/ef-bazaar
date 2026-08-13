@@ -50,6 +50,13 @@ async function render(card: PlatformCardResponse, props: Handlers = {}) {
   })));
 }
 
+/**
+ * The reorder buttons are icon-only and name their card, so a grid of them is
+ * not N identical "Yuqoriga" to a screen reader.
+ */
+const MOVE_UP = `${baseCard.maskedPan} kartasini yuqoriga surish`;
+const MOVE_DOWN = `${baseCard.maskedPan} kartasini pastga surish`;
+
 function buttonLabelled(label: string) {
   return [...container.querySelectorAll('button')]
     .find((b) => b.textContent === label || b.getAttribute('aria-label') === label)!;
@@ -114,14 +121,14 @@ describe('PlatformCard', () => {
 
   it('offers move arrows only when the list supplies a handler', async () => {
     await render(baseCard);
-    expect(buttonLabelled('Yuqoriga')).toBeUndefined();
-    expect(buttonLabelled('Pastga')).toBeUndefined();
+    expect(buttonLabelled(MOVE_UP)).toBeUndefined();
+    expect(buttonLabelled(MOVE_DOWN)).toBeUndefined();
 
     const onMoveUp = vi.fn();
     await render(baseCard, { onMoveUp });
-    await act(async () => buttonLabelled('Yuqoriga').click());
+    await act(async () => buttonLabelled(MOVE_UP).click());
     expect(onMoveUp).toHaveBeenCalledWith(baseCard.id);
-    expect(buttonLabelled('Pastga')).toBeUndefined();
+    expect(buttonLabelled(MOVE_DOWN)).toBeUndefined();
   });
 
   it('locks every button while an action is in flight', async () => {
@@ -129,5 +136,28 @@ describe('PlatformCard', () => {
     const buttons = [...container.querySelectorAll('button')];
     expect(buttons.length).toBe(3);
     expect(buttons.every((b) => b.disabled)).toBe(true);
+  });
+
+  it('falls back to the raw brand rather than an empty label', async () => {
+    // BRAND_LABEL is a total Record over today's four brands. A fifth added to
+    // the backend must not render as a blank corner — see UNKNOWN_KIND_LABEL.
+    await render({ ...baseCard, brand: 'MIR' as PlatformCardResponse['brand'] });
+    expect(container.textContent).toContain('MIR');
+  });
+
+  it('names the card on its region and on its toggle', async () => {
+    await render(baseCard);
+    expect(container.querySelector('article')?.getAttribute('aria-label'))
+      .toBe(`HUMO ${baseCard.maskedPan}`);
+    expect(buttonLabelled(`${baseCard.maskedPan} kartasini o'chirish`)).toBeDefined();
+  });
+
+  it('never puts anything but the masked number in an accessible name', async () => {
+    await render(baseCard, { onMoveUp: () => {}, onMoveDown: () => {} });
+    const labels = [
+      ...[...container.querySelectorAll('[aria-label]')].map((e) => e.getAttribute('aria-label')!),
+    ];
+    expect(labels.length).toBeGreaterThan(0);
+    expect(labels.every((label) => !/\d{6,}/.test(label))).toBe(true);
   });
 });
