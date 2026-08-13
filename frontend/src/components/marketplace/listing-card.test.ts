@@ -230,7 +230,7 @@ describe('ListingCard', () => {
     expect(markup).toContain('Obmen yo‘q');
   });
 
-  it('does not render corrupted negative coin balances', () => {
+  it('renders negative coin balances in red', () => {
     const markup = renderToStaticMarkup(createElement(ListingCard, {
       listing: listing({
         attributes: { android_coins: 900, ios_coins: -900 },
@@ -239,8 +239,9 @@ describe('ListingCard', () => {
 
     expect(markup).toContain('Android');
     expect(markup).toContain('900');
-    expect(markup).not.toContain('iOS');
-    expect(markup).not.toContain('-900');
+    expect(markup).toContain('aria-label="iOS coin: -900"');
+    expect(markup).toContain('-900');
+    expect(markup).toContain('text-destructive');
   });
 
   it('uses the supplied PNG and omits zero-valued platform coin facts', () => {

@@ -9,6 +9,7 @@ import { formatCompactNumber } from '@/lib/marketplace-format';
 import { listingMediaUrls } from '@/lib/marketplace-media';
 import type { ListingResponse } from '@/lib/marketplace-types';
 import type { PlayerMatchCriterion } from '@/lib/player-match-query';
+import { cn } from '@/lib/utils';
 
 export type ListingCardLayout = 'auto' | 'horizontal' | 'vertical';
 
@@ -162,7 +163,14 @@ function CoinFact({ platform, value }: { platform: 'Android' | 'iOS'; value: num
       />
       <span className="min-w-0">
         <span className="block text-[9px] font-semibold leading-none text-muted-foreground">{platform}</span>
-        <span className="block truncate font-black leading-tight text-foreground">{formatCompactNumber(value)}</span>
+        <span
+          className={cn(
+            'block truncate font-black leading-tight text-foreground',
+            value < 0 && 'text-destructive',
+          )}
+        >
+          {formatCompactNumber(value)}
+        </span>
       </span>
     </div>
   );
