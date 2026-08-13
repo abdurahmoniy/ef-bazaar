@@ -12,12 +12,18 @@ from dataclasses import dataclass
 
 # "➕ 30.000,00 UZS" — '.' groups thousands, ',' separates decimals.
 _AMOUNT = re.compile(r"➕\s*([\d.\s]+(?:,\d+)?)\s*UZS")
-# "💳 HUMOCARD *4556"
-_CARD = re.compile(r"💳\s*HUMOCARD\s*\*(\d{4})")
+# "💳 HUMOCARD *4556" — the (?!\d) stops a longer tail from being read as its
+# own first four digits, which could name a DIFFERENT platform card.
+_CARD = re.compile(r"💳\s*HUMOCARD\s*\*(\d{4})(?!\d)")
 # "💰 31.659,16 UZS" — the card balance after the movement.
 _BALANCE = re.compile(r"💰\s*([\d.\s]+(?:,\d+)?)\s*UZS")
 
 _TOPUP_MARKER = "To'ldirish"
+
+# Words that turn the top-up heading into its opposite. Matched on the heading
+# line only, case-folded. If Humo never sends these the filter is unchanged; if
+# it does, we decline to credit -- which is the safe direction either way.
+_NEGATIONS = ("bekor", "rad etil", "qaytar", "amalga oshmadi", "muvaffaqiyatsiz")
 
 # Uzbek Latin spells the heading with U+02BB (Toʻldirish); Telegram clients,
 # copy-paste and hand-typed fixtures also produce U+02BC, U+2019 and plain
@@ -45,7 +51,10 @@ def _to_tiyin(raw: str) -> int:
 
     Integer arithmetic throughout: this is money, and a float would round.
     """
-    cleaned = raw.replace(".", "").replace(" ", "").replace(" ", "")
+    # Strip everything that is not a digit or the decimal comma. The amount
+    # pattern admits any Unicode space, so listing the separators by hand
+    # missed U+202F (narrow no-break space) and int() raised on it.
+    cleaned = re.sub(r"[^\d,]", "", raw)
     if "," in cleaned:
         whole, _, frac = cleaned.partition(",")
     else:
@@ -63,10 +72,35 @@ def parse_topup(text: str | None) -> TopUp | None:
     if not text:
         return None
 
-    # The marker AND the plus sign must both be present. A withdrawal carries
-    # '➖' and a different heading, so either check alone would be enough --
-    # requiring both keeps a wording change from silently widening the filter.
-    if _TOPUP_MARKER not in text.translate(_APOSTROPHES) or "➕" not in text:
+    # Each check below narrows the same question: is this message ONE top-up,
+    # and only a top-up? Requiring the heading and the '➕' was not enough --
+    # both tokens can appear in a message that is not a deposit at all.
+    folded = text.translate(_APOSTROPHES)
+
+    # A withdrawal marker anywhere means do not credit, full stop. Humo puts a
+    # footer like "Oldingi To'ldirish: ➕ 10.000,00 UZS" on withdrawal notices,
+    # and searching the markers independently over the whole text would read
+    # that footer as this message's amount -- crediting money nobody sent.
+    if "➖" in text:
+        return None
+
+    # The heading has to BE the message, not appear somewhere inside it.
+    first_line = folded.splitlines()[0]
+    if _TOPUP_MARKER not in first_line:
+        return None
+
+    # "To'ldirish bekor qilindi" is a reversal: the heading and the plus sign
+    # are both present and it is the opposite of a deposit.
+    if any(word in first_line.casefold() for word in _NEGATIONS):
+        return None
+
+    # More than one record in one message (a digest, a "last operations"
+    # summary) means the amount and the card tail may belong to different
+    # rows. Refuse rather than guess: an unmatched payment is an admin's
+    # problem, a mis-attributed one is a user's money.
+    amounts = _AMOUNT.findall(text)
+    cards = _CARD.findall(text)
+    if len(amounts) != 1 or len(cards) != 1:
         return None
 
     amount_match = _AMOUNT.search(text)

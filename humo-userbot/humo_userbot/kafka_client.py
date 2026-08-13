@@ -35,6 +35,32 @@ def iso_z(value: datetime) -> str:
     return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def build_card_credit_payload(
+    telegram_message_id: int,
+    card_last4: str,
+    amount_tiyin: int,
+    card_balance_tiyin: int | None,
+    observed_at: datetime,
+    raw_text: str,
+) -> dict[str, Any]:
+    """The card-credit wire payload.
+
+    Pure and separate from main.py on purpose: main.py imports pyrogram, which
+    a test environment need not have, and these key names are a contract with
+    a Java record on the other side. Renaming one here leaves every Python and
+    Java test green while every deposit silently stops arriving, so the key set
+    is asserted in tests/test_wire_format.py.
+    """
+    return {
+        "telegramMessageId": telegram_message_id,
+        "cardLast4": card_last4,
+        "amountTiyin": amount_tiyin,
+        "cardBalanceTiyin": card_balance_tiyin,
+        "observedAt": iso_z(observed_at),
+        "rawText": raw_text,
+    }
+
+
 class KafkaClient:
     def __init__(self, bootstrap_servers: str) -> None:
         self._bootstrap = bootstrap_servers

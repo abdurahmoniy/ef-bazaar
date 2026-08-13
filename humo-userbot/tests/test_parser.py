@@ -150,6 +150,65 @@ def test_folding_the_apostrophe_does_not_let_a_withdrawal_through():
         assert parse_topup(WITHDRAWAL.replace("'", apostrophe)) is None
 
 
+def test_a_withdrawal_that_mentions_a_previous_topup_is_not_a_topup():
+    """The message is a WITHDRAWAL; the top-up words are in its footer.
+
+    Searching the heading, the '➕' and the card tail independently over the
+    whole text read that footer as this message's amount and credited 10 000
+    UZS that nobody sent. A '➖' anywhere now ends it.
+    """
+    text = (
+        "💸 Yechish\n"
+        "➖ 50.000,00 UZS\n"
+        "💳 HUMOCARD *4556\n"
+        "Oldingi To'ldirish: ➕ 10.000,00 UZS"
+    )
+    assert parse_topup(text) is None
+
+
+def test_a_reversed_topup_is_not_a_topup():
+    """"To'ldirish bekor qilindi" carries the heading AND the plus sign.
+
+    It is the exact opposite of a deposit, and it used to parse as one.
+    """
+    for heading in [
+        "🎉 To'ldirish bekor qilindi",
+        "🎉 To'ldirish rad etildi",
+        "🎉 To'ldirish qaytarildi",
+    ]:
+        text = TOPUP.replace("🎉 To'ldirish", heading)
+        assert parse_topup(text) is None, f"{heading!r} was read as a top-up"
+
+
+def test_a_digest_carrying_two_records_is_refused():
+    """Two records in one message: the amount and the tail may be different rows.
+
+    Refusing sends it to the admin queue. Guessing sends someone else's money
+    to the wrong wallet.
+    """
+    two_topups = TOPUP + "\n\n" + TOPUP.replace("*4556", "*9999")
+    assert parse_topup(two_topups) is None
+
+
+def test_the_heading_must_be_the_first_line():
+    """A top-up quoted inside some other notice is not this message's subject."""
+    text = "📊 Kunlik hisobot\n" + TOPUP
+    assert parse_topup(text) is None
+
+
+def test_a_longer_card_tail_is_not_truncated_to_another_card():
+    """*45567 must not be read as card *4556, which may be a different card."""
+    text = TOPUP.replace("HUMOCARD *4556", "HUMOCARD *45567")
+    assert parse_topup(text) is None
+
+
+def test_a_narrow_no_break_space_separator_is_rejected_not_raised():
+    """U+202F reached int() and raised, aborting before the log line."""
+    text = TOPUP.replace("➕ 30.000,00 UZS", "➕ 30 000,00 UZS")
+    result = parse_topup(text)
+    assert result is None or result.amount_tiyin == 3_000_000
+
+
 def test_a_plus_sign_with_no_digits_is_rejected_not_raised():
     """'➕  UZS' matches the amount pattern on whitespace alone.
 
