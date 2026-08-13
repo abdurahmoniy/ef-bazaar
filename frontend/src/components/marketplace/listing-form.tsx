@@ -86,7 +86,7 @@ const STEPS = ['photos', 'basics', 'gameplay', 'pricing', 'review'] as const
 type StepId = (typeof STEPS)[number]
 
 /** Bump the version suffix when WizardState shape changes so old drafts are ignored. */
-const DRAFT_KEY = 'efbazaar:listing-draft-v1'
+const DRAFT_KEY = 'efbazaar:listing-draft-v2'
 
 const STEP_LABELS: Record<StepId, { title: string; subtitle: string }> = {
 	photos: {
@@ -182,21 +182,26 @@ export function ListingForm({
 		if (editMode) return
 		const draft = readDraft()
 		if (!draft) return
-		setState((prev) => ({
-			description:
-				typeof draft.description === 'string'
-					? draft.description
-					: prev.description,
-			price: typeof draft.price === 'string' ? draft.price : prev.price,
-			priceNegotiable:
-				typeof draft.priceNegotiable === 'boolean'
-					? draft.priceNegotiable
-					: prev.priceNegotiable,
-			attributes: mergeAttributes(
-				(draft.attributes as Record<string, string | boolean>) ?? {},
-				definitions,
-			),
-		}))
+		if (draft.step && STEPS.includes(draft.step)) {
+			setStep(draft.step)
+		}
+		if (draft.state) {
+			setState((prev) => ({
+				description:
+					typeof draft.state?.description === 'string'
+						? draft.state.description
+						: prev.description,
+				price: typeof draft.state?.price === 'string' ? draft.state.price : prev.price,
+				priceNegotiable:
+					typeof draft.state?.priceNegotiable === 'boolean'
+						? draft.state.priceNegotiable
+						: prev.priceNegotiable,
+				attributes: mergeAttributes(
+					(draft.state?.attributes as Record<string, string | boolean>) ?? {},
+					definitions,
+				),
+			}))
+		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [editMode])
 
@@ -204,8 +209,8 @@ export function ListingForm({
 	// because File objects can't be serialised — user re-picks images on reload.
 	useEffect(() => {
 		if (editMode) return
-		writeDraft(state)
-	}, [state, editMode])
+		writeDraft(step, state)
+	}, [step, state, editMode])
 
 	const stepIndex = STEPS.indexOf(step)
 	const stepErrors = useMemo(
@@ -994,7 +999,14 @@ function AttributeInput({
 						max={max}
 						step={definition.type === 'DECIMAL' ? '0.01' : '1'}
 						value={raw}
-						onChange={(event) => update(event.target.value)}
+						onChange={(event) => {
+							let nextVal = event.target.value
+							if (nextVal !== '') {
+								const num = Number(nextVal)
+								if (max !== undefined && num > max) nextVal = String(max)
+							}
+							update(nextVal)
+						}}
 						className={cn('h-11', icon && 'pl-9')}
 					/>
 				</div>
@@ -1047,9 +1059,15 @@ function PricingStep({
 						min={0}
 						step={10000}
 						value={state.price}
-						onChange={(event) =>
-							setState((prev) => ({ ...prev, price: event.target.value }))
-						}
+						onChange={(event) => {
+							let nextVal = event.target.value
+							if (nextVal !== '') {
+								const num = Number(nextVal)
+								if (num > 1_000_000_000) nextVal = '1000000000'
+								else if (num < 0) nextVal = '0'
+							}
+							setState((prev) => ({ ...prev, price: nextVal }))
+						}}
 						className='h-14 pl-9 text-2xl font-black text-[hsl(var(--price))]'
 					/>
 				</div>
@@ -1600,22 +1618,22 @@ function formatMB(bytes: number) {
  * Read a persisted draft. Returns null on server, unavailable storage, missing
  * key, or malformed JSON — callers should treat null as "no draft to restore".
  */
-function readDraft(): Partial<WizardState> | null {
+function readDraft(): { step?: StepId; state?: Partial<WizardState> } | null {
 	if (typeof window === 'undefined') return null
 	try {
 		const raw = window.localStorage.getItem(DRAFT_KEY)
 		if (!raw) return null
 		const parsed = JSON.parse(raw) as unknown
-		return isRecord(parsed) ? (parsed as Partial<WizardState>) : null
+		return isRecord(parsed) ? (parsed as { step?: StepId; state?: Partial<WizardState> }) : null
 	} catch {
 		return null
 	}
 }
 
-function writeDraft(state: WizardState) {
+function writeDraft(step: StepId, state: WizardState) {
 	if (typeof window === 'undefined') return
 	try {
-		window.localStorage.setItem(DRAFT_KEY, JSON.stringify(state))
+		window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, state }))
 	} catch {
 		// storage full / private mode / SecurityError — dropping the draft is fine
 	}
