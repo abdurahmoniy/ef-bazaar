@@ -63,3 +63,9 @@ payment:
     heartbeat-timeout-seconds: 180
   scheduler:
     expiry-sweep-interval-ms: 30000
+  # The admin payments topic. This service renders the text and posts it at
+  # `bot`, which owns the bot token, the group chat id and the thread id — none
+  # of those identifiers exist in this service's environment.
+  admin-telegram:
+    enabled: ${PAYMENT_ADMIN_TELEGRAM_ENABLED:true}
+    bot-base-url: ${BOT_INTERNAL_BASE_URL:http://bot:8084}

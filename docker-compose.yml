@@ -294,6 +294,10 @@ services:
       POSTGRES_DB: ${PAYMENT_DB_NAME}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       MASTER_KEY_FILE: /run/secrets/master_key
+      # Invoice notices go out through `bot`, which owns the token, the group
+      # chat id and the payments thread id. None of those reach this service.
+      BOT_INTERNAL_BASE_URL: ${BOT_INTERNAL_BASE_URL:-http://bot:8084}
+      PAYMENT_ADMIN_TELEGRAM_ENABLED: ${PAYMENT_ADMIN_TELEGRAM_ENABLED:-true}
     secrets:
       - master_key
     depends_on:
@@ -417,6 +421,7 @@ services:
       TELEGRAM_TOPIC_LOGS: ${TELEGRAM_TOPIC_LOGS}
       TELEGRAM_TOPIC_REGISTRATION: ${TELEGRAM_TOPIC_REGISTRATION}
       TELEGRAM_TOPIC_MEDIA: ${TELEGRAM_TOPIC_MEDIA}
+      TELEGRAM_TOPIC_PAYMENTS: ${TELEGRAM_TOPIC_PAYMENTS}
       TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
     depends_on:

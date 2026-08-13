@@ -67,6 +67,14 @@ public class Invoice {
     @Column(name = "observation_id")
     private UUID observationId;
 
+    /**
+     * Telegram message id of this invoice's announcement in the admin payments
+     * topic. Null when the announcement failed or the topic is unconfigured;
+     * set again when the paid message replaces the pending one.
+     */
+    @Column(name = "admin_notice_message_id")
+    private Long adminNoticeMessageId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }

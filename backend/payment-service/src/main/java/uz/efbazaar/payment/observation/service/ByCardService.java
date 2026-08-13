@@ -2,6 +2,7 @@ package uz.efbazaar.payment.observation.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +12,7 @@ import uz.efbazaar.payment.card.service.PlatformCardService;
 import uz.efbazaar.payment.invoice.domain.Invoice;
 import uz.efbazaar.payment.invoice.service.InvoiceService;
 import uz.efbazaar.payment.kafka.PaymentEventPublisher;
+import uz.efbazaar.payment.notify.InvoiceNoticeEvents;
 import uz.efbazaar.payment.observation.domain.CardCreditObservation;
 import uz.efbazaar.payment.observation.domain.ObservationStatus;
 import uz.efbazaar.payment.observation.repository.CardCreditObservationRepository;
@@ -46,6 +48,8 @@ public class ByCardService {
     private final InvoiceService invoices;
     private final LedgerService ledger;
     private final PaymentEventPublisher events;
+    /** Named apart from {@code events} above — that one is the Kafka publisher. */
+    private final ApplicationEventPublisher appEvents;
 
     public record CardCreditEvent(
             Long telegramMessageId,
@@ -173,6 +177,11 @@ public class ByCardService {
         // unconstrained.
         invoices.markPaid(invoice, obs.getId());
         events.depositCredited(invoice.getUserId(), credited, invoice.getId());
+        // Announced after this transaction commits, never inside it: a notice
+        // posted before a rollback would advertise a payment that never
+        // happened, and a Telegram round trip here would hold a database
+        // connection for its duration. See InvoiceNoticeListener.
+        appEvents.publishEvent(new InvoiceNoticeEvents.InvoicePaid(invoice.getId()));
     }
 
     private CardCreditObservation require(UUID id) {

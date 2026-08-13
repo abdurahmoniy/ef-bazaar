@@ -99,6 +99,9 @@ write_env() {
   upsert_env .env TELEGRAM_TOPIC_LOGS         "${TELEGRAM_TOPIC_LOGS:-6}"
   upsert_env .env TELEGRAM_TOPIC_REGISTRATION "${TELEGRAM_TOPIC_REGISTRATION:-4}"
   upsert_env .env TELEGRAM_TOPIC_MEDIA        "${TELEGRAM_TOPIC_MEDIA:-2}"
+  # No default: an unset payments topic means "do not announce", and a wrong
+  # number would put user ids into somebody else's thread.
+  upsert_env .env TELEGRAM_TOPIC_PAYMENTS     "${TELEGRAM_TOPIC_PAYMENTS:-}"
   upsert_env .env TELEGRAM_WEBHOOK_URL        "${TELEGRAM_WEBHOOK_URL:-}"
   upsert_env .env TELEGRAM_WEBHOOK_SECRET     "${TELEGRAM_WEBHOOK_SECRET:-}"
 

@@ -13,10 +13,13 @@ import uz.efbazaar.payment.invoice.domain.Invoice;
 import uz.efbazaar.payment.invoice.domain.InvoiceStatus;
 import uz.efbazaar.payment.invoice.dto.InvoiceResponse;
 import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
+import uz.efbazaar.payment.notify.AdminTelegramNotifier;
+import uz.efbazaar.payment.notify.InvoiceNotice;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 
 @Service
@@ -27,6 +30,7 @@ public class InvoiceService {
     private final InvoiceRepository invoices;
     private final PlatformCardService cards;
     private final UserbotHealth userbot;
+    private final AdminTelegramNotifier notifier;
 
     @Value("${payment.deposit.minimum-uzs}") private long minimumUzs;
 
@@ -46,7 +50,30 @@ public class InvoiceService {
         }
 
         Invoice inv = allocator.allocate(userId, requestedUzs * 100);
+        announce(inv);
         return render(inv);
+    }
+
+    /**
+     * Best effort by construction: {@link AdminTelegramNotifier} never throws,
+     * and a missing message id simply means this invoice has no announcement to
+     * delete later.
+     *
+     * <p>{@code create} is deliberately not {@code @Transactional} — the
+     * allocator opens its own transaction per attempt — so this HTTP call holds
+     * no database connection.
+     */
+    private void announce(Invoice inv) {
+        PlatformCard card = cards.findById(inv.getCardId()).orElse(null);
+        if (card == null) return;
+        OptionalLong messageId = notifier.invoiceCreated(new InvoiceNotice(
+                inv.getId(), inv.getUserId(), card.getLast4(), card.getHolderName(),
+                inv.getRequestedAmountTiyin(), inv.getTransferAmountTiyin(),
+                inv.getExpiresAt(), null));
+        if (messageId.isPresent()) {
+            inv.setAdminNoticeMessageId(messageId.getAsLong());
+            invoices.save(inv);
+        }
     }
 
     @Transactional(readOnly = true)

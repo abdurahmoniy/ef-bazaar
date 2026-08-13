@@ -76,6 +76,22 @@ public class TelegramApiClient {
     }
 
     /**
+     * deleteMessage — removes a message the bot itself sent.
+     *
+     * <p>Telegram answers {@code ok:false} when the message is already gone or
+     * older than 48 hours. That is not an error worth propagating: the caller
+     * only wants the message absent, and it is.
+     *
+     * @return true when Telegram confirmed the deletion.
+     */
+    public boolean deleteMessage(String chatId, long messageId) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("message_id", messageId);
+        return postJson("deleteMessage", body).isPresent();
+    }
+
+    /**
      * sendMediaGroup — albom (2-10 rasm) sifatida yuboradi.
      * 1 ta rasm uchun sendPhoto ishlatamiz.
      * @return list of (messageId, fileId) for each photo

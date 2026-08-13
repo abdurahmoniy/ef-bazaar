@@ -1,0 +1,9 @@
+# Test profile — activated by AbstractPostgresIT's @ActiveProfiles("test").
+#
+# Announcements are off by default so the suites written before this feature
+# keep passing without a `bot` to talk to. The tests that are about the
+# announcement (InvoiceNoticeIT, DeadBotStillCreditsIT) turn it back on for
+# themselves with @TestPropertySource.
+payment:
+  admin-telegram:
+    enabled: false

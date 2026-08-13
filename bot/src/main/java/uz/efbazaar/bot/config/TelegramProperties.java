@@ -12,10 +12,18 @@ public record TelegramProperties(
         String webhookUrl,
         String webhookSecret
 ) {
+    /**
+     * Forum thread ids inside {@link #groupChatId()}.
+     *
+     * <p>{@code payments} has no default on purpose — an unset id must mean
+     * "do not post", never "post into thread 2". These ids are secrets: they
+     * come from the environment and are never logged.
+     */
     public record Topics(
             Integer logs,
             Integer registration,
-            Integer media
+            Integer media,
+            Integer payments
     ) {}
 
     public boolean isWebhookMode() {
