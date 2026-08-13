@@ -222,6 +222,12 @@ jobs:
       - name: Install
         working-directory: frontend
         run: npm install --no-audit --no-fund
+      # Vitest ilgari CI'da umuman ishlamas edi — faqat Build bor edi. Shuning
+      # uchun 37a1d36 eskirgan test bilan main'ga o'tib ketdi va hech kim
+      # sezmadi. 440+ test yozilgan, ular hech nimani himoya qilmasa ma'nosiz.
+      - name: Test
+        working-directory: frontend
+        run: npm test
       - name: Build
         working-directory: frontend
         run: npm run build

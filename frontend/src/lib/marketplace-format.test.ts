@@ -96,6 +96,8 @@ describe('marketplace formatting helpers', () => {
     expect(parsed.attributes).toEqual({
       has_google_play_link: 'false',
       has_game_center_link: 'false',
+      'android_coins.min': '0',
+      'ios_coins.min': '0',
       platform: 'MOBILE',
     });
   });
