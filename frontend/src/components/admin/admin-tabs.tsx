@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   ClipboardCheck,
+  CreditCard,
   Flag,
   LayoutDashboard,
   Mail,
@@ -25,6 +26,9 @@ const TABS: Array<{ href: string; label: string; icon: React.ReactNode }> = [
   { href: '/admin/users', label: 'Foydalanuvchilar', icon: <UsersRound className="h-4 w-4" /> },
   { href: '/admin/trade-admin-applications', label: 'Admin arizalari', icon: <ClipboardCheck className="h-4 w-4" /> },
   { href: '/admin/mailboxes', label: 'Pochtalar', icon: <Mail className="h-4 w-4" /> },
+  // The active check below is `startsWith`, so this must stay the only
+  // `/admin/payments*` tab — a `/admin/payments` entry would light up too.
+  { href: '/admin/payments/cards', label: 'Kartalar', icon: <CreditCard className="h-4 w-4" /> },
   { href: '/admin/human-trades', label: 'Inson admin', icon: <UserCog className="h-4 w-4" /> },
   { href: '/admin/players', label: "O'yinchilar", icon: <Sparkles className="h-4 w-4" /> },
   { href: '/admin/attributes', label: 'Atributlar', icon: <SlidersHorizontal className="h-4 w-4" /> },
