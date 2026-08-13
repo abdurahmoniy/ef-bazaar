@@ -123,3 +123,39 @@ def test_empty_and_none_are_safe():
 
 def test_an_unrelated_message_is_ignored():
     assert parse_topup(OTHER_CARD) is None
+
+
+def test_every_apostrophe_spelling_of_the_heading_is_understood():
+    """Uzbek Latin writes it Toʻldirish (U+02BB), not To'ldirish (ASCII).
+
+    The fixture above was transcribed with an ASCII apostrophe. If the real
+    Humo message uses U+02BB and the parser demands ASCII, the marker never
+    matches: the userbot runs, logs nothing unusual, and credits nobody --
+    forever. Every test here would still pass. So fold the variants.
+    """
+    for apostrophe in ["'", "ʻ", "ʼ", "’", "‘"]:
+        text = TOPUP.replace("To'ldirish", f"To{apostrophe}ldirish")
+        result = parse_topup(text)
+        assert result is not None, f"U+{ord(apostrophe):04X} was not recognised"
+        assert result.amount_tiyin == 3_000_000
+
+
+def test_folding_the_apostrophe_does_not_let_a_withdrawal_through():
+    """The widened marker must not widen the filter towards withdrawals.
+
+    No apostrophe spelling turns "Yechish" into the top-up heading, and '➕'
+    plus a card tail are still required.
+    """
+    for apostrophe in ["'", "ʻ", "ʼ", "’", "‘"]:
+        assert parse_topup(WITHDRAWAL.replace("'", apostrophe)) is None
+
+
+def test_a_plus_sign_with_no_digits_is_rejected_not_raised():
+    """'➕  UZS' matches the amount pattern on whitespace alone.
+
+    Converting that would raise ValueError on int(''), which aborts the
+    handler before it can log what happened. Rejecting it keeps the failure
+    closed and legible.
+    """
+    text = TOPUP.replace("➕ 30.000,00 UZS", "➕  UZS")
+    assert parse_topup(text) is None
