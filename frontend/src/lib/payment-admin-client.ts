@@ -16,6 +16,22 @@ import type {
  */
 const BASE = '/api/payment/v1/admin/payments';
 
+/**
+ * Carries the HTTP status alongside the message. It extends `Error`, so the
+ * callers that only read `.message` are unaffected — but the unmatched queue
+ * has to tell a 409 (somebody else already handled that row, so it is simply
+ * gone) apart from a real failure, and a bare `Error` cannot say which it was.
+ */
+export class PaymentAdminError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'PaymentAdminError';
+    this.status = status;
+  }
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
@@ -27,7 +43,10 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     // ProblemDetail carries `detail`; the proxy's own 502 carries `message`.
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || body.message || `So'rov bajarilmadi (${res.status})`);
+    throw new PaymentAdminError(
+      res.status,
+      body.detail || body.message || `So'rov bajarilmadi (${res.status})`,
+    );
   }
   // deactivate / activate / reorder answer 200 with an empty body.
   const text = await res.text();
