@@ -24,6 +24,15 @@ export const FEATURES = {
   blacklist: true,
   /** Trade admin public directory (/trade-admins). */
   tradeAdminDirectory: true,
+  /**
+   * Wallet & card top-up (/hamyon).
+   *
+   * Ships dark on purpose. The deposit rail only works once the humo-userbot
+   * holds a live Telegram session and at least one active platform card
+   * exists — until then a reachable top-up page means a user transfers real
+   * money that nothing is watching for. Flip this when the userbot is live.
+   */
+  wallet: false,
 
   // ── Phase 3 ───────────────────────────────────────────────────
   /** Tournament brackets & registration. */
