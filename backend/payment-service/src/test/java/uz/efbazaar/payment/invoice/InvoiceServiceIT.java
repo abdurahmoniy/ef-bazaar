@@ -97,7 +97,34 @@ class InvoiceServiceIT extends AbstractPostgresIT {
 
         assertThatThrownBy(() -> invoices.create(user, 50_000))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("409");
+                .hasMessageContaining("409")
+                .hasMessageContaining("tugallanmagan");
+    }
+
+    /**
+     * The 30-second window between an invoice expiring and the sweeper reaching
+     * it. Both answers are a 409, but they mean opposite things to the person
+     * reading them: one says "finish what you started", the other says "wait a
+     * moment". Telling a user whose countdown just hit zero that they have an
+     * unfinished top-up contradicts their own screen and offers them no action,
+     * and a confused user re-sends the old amount — which no longer matches
+     * anything and becomes an admin's manual queue row.
+     */
+    @Test
+    void anInvoiceAwaitingTheSweeperSaysSoRatherThanBlamingTheUser() {
+        UUID user = UUID.randomUUID();
+        InvoiceResponse first = invoices.create(user, 100_000);
+
+        var row = invoiceRepo.findById(first.id()).orElseThrow();
+        row.setExpiresAt(Instant.now().minusSeconds(1));
+        invoiceRepo.save(row);
+
+        assertThatThrownBy(() -> invoices.create(user, 100_000))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("409")
+                .hasMessageContaining("yopilmoqda")
+                .as("an expired-but-unswept row must not be reported as unfinished work")
+                .hasMessageNotContaining("tugallanmagan");
     }
 
     /**

@@ -44,9 +44,20 @@ public class InvoiceService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Eng kam summa: " + minimumUzs + " so'm");
         }
-        if (invoices.findByUserIdAndStatus(userId, InvoiceStatus.PENDING).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Sizda tugallanmagan to'ldirish bor");
+        // A PENDING row whose expiresAt has already passed is not an unfinished
+        // request -- it is one the sweeper has not reached yet, and the sweep
+        // interval is 30s. Telling that user "you have an unfinished top-up"
+        // contradicts the screen, which just told them the countdown ran out,
+        // and leaves them with no action to take. The row is deliberately NOT
+        // superseded here: it still holds its (card, amount) slot, and freeing
+        // that slot early could hand the same amount to a new invoice while a
+        // late transfer for the old one is still in flight.
+        Optional<Invoice> pending = invoices.findByUserIdAndStatus(userId, InvoiceStatus.PENDING);
+        if (pending.isPresent()) {
+            boolean awaitingSweep = !pending.get().getExpiresAt().isAfter(Instant.now());
+            throw new ResponseStatusException(HttpStatus.CONFLICT, awaitingSweep
+                    ? "Oldingi so'rovingiz yopilmoqda — bir necha soniyadan keyin urinib ko'ring"
+                    : "Sizda tugallanmagan to'ldirish bor");
         }
 
         Invoice inv = allocator.allocate(userId, requestedUzs * 100);
