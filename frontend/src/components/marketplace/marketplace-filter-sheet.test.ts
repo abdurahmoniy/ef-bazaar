@@ -79,6 +79,12 @@ function buttonNamed(name: string, scope: ParentNode = document) {
 }
 
 function controlNamed(name: string, scope: ParentNode = document) {
+  const inputs = Array.from(scope.querySelectorAll('input, select'));
+  const match = inputs.find((candidate) => candidate.getAttribute('aria-label')?.includes(name));
+  if (match && (match instanceof HTMLInputElement || match instanceof HTMLSelectElement)) {
+    return match;
+  }
+
   const label = Array.from(scope.querySelectorAll('label')).find(
     (candidate) => candidate.textContent?.includes(name),
   );
@@ -203,10 +209,7 @@ describe('marketplace detailed filter sheet contract', () => {
       draft,
       errors: { minPrice: 'Narx xato.' },
       onChange: vi.fn(),
-      collapsible: true,
     })));
-    expect(container.querySelectorAll('details')).toHaveLength(3);
-    expect(container.querySelectorAll('details[open]')).toHaveLength(1);
     const minimumPrice = controlNamed('Eng kam narx', container);
     expect(minimumPrice.getAttribute('aria-invalid')).toBe('true');
     expect(minimumPrice.nextElementSibling?.getAttribute('role')).toBe('alert');

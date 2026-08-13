@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 
-import { CardPickerField } from '@/components/marketplace/card-picker-field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,7 +16,6 @@ interface ListingFilterFieldsProps {
   draft: MarketplaceFilterDraft;
   errors: MarketplaceFilterErrors;
   onChange(next: MarketplaceFilterDraft): void;
-  collapsible: boolean;
 }
 
 const DIVISION_OPTIONS = [
@@ -46,39 +44,16 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 }
 
 function FilterGroup({
-  id,
   title,
-  collapsible,
   children,
 }: {
-  id: string;
   title: string;
-  collapsible: boolean;
   children: React.ReactNode;
 }) {
-  const [expanded, setExpanded] = React.useState(id === 'main');
-  const fields = <div className="space-y-3 pt-3">{children}</div>;
-  if (collapsible) {
-    return (
-      <details
-        open={expanded}
-        onToggle={(event) => setExpanded(event.currentTarget.open)}
-        className="group rounded-xl border border-border bg-card px-3 pb-3"
-      >
-        <summary className="flex min-h-11 cursor-pointer list-none items-center font-bold text-foreground">
-          {title}
-        </summary>
-        <fieldset>
-          <legend className="sr-only">{title}</legend>
-          {fields}
-        </fieldset>
-      </details>
-    );
-  }
   return (
-    <fieldset className="space-y-3 border-b border-border pb-4 last:border-b-0 last:pb-0">
-      <legend className="mb-3 text-sm font-black text-foreground">{title}</legend>
-      {children}
+    <fieldset className="space-y-4 border-b border-border pb-6 last:border-b-0 last:pb-0">
+      <legend className="text-sm font-black text-foreground">{title}</legend>
+      <div className="space-y-4">{children}</div>
     </fieldset>
   );
 }
@@ -87,7 +62,6 @@ export function ListingFilterFields({
   draft,
   errors,
   onChange,
-  collapsible,
 }: ListingFilterFieldsProps) {
   const generatedId = React.useId();
   const id = (name: string) => `${generatedId}-${name}`;
@@ -117,7 +91,6 @@ export function ListingFilterFields({
   const iosCoinsErrorId = id('ios-coins-error');
   const exchangeId = id('exchange');
   const exchangeErrorId = id('exchange-error');
-  const valuablePlayerId = id('valuable-player');
   const transferLimitId = id('transfer-limit');
   const transferLimitErrorId = id('transfer-limit-error');
   const googlePlayId = id('google-play');
@@ -125,7 +98,7 @@ export function ListingFilterFields({
 
   return (
     <div className="space-y-3">
-      <FilterGroup id="main" title="Asosiy" collapsible={collapsible}>
+      <FilterGroup title="Asosiy">
         <div>
           <Label htmlFor={platformId}>Platforma</Label>
           <Select
@@ -137,49 +110,50 @@ export function ListingFilterFields({
             className="mt-1.5"
           >
             {PLATFORM_FILTER_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </Select>
           <FieldError id={platformErrorId} message={errors.platform} />
         </div>
 
-        <div>
-          <div className="grid grid-cols-2 gap-2">
+        <fieldset>
+          <legend className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Narx</legend>
+          <div className="mt-2 grid grid-cols-2 gap-2">
             <div>
-              <Label htmlFor={minPriceId}>Eng kam narx</Label>
               <Input
                 id={minPriceId}
                 type="text"
                 inputMode="numeric"
+                placeholder="Dan"
+                aria-label="Eng kam narx"
                 value={draft.minPrice}
                 aria-invalid={Boolean(errors.minPrice || errors.price) || undefined}
                 aria-describedby={errors.minPrice
                   ? minPriceErrorId
                   : errors.price ? priceErrorId : undefined}
                 onChange={(event) => update('minPrice', event.target.value)}
-                className="mt-1.5"
               />
               <FieldError id={minPriceErrorId} message={errors.minPrice} />
             </div>
             <div>
-              <Label htmlFor={maxPriceId}>Eng yuqori narx</Label>
               <Input
                 id={maxPriceId}
                 type="text"
                 inputMode="numeric"
+                placeholder="Gacha"
+                aria-label="Eng yuqori narx"
                 value={draft.maxPrice}
                 aria-invalid={Boolean(errors.maxPrice || errors.price) || undefined}
                 aria-describedby={errors.maxPrice
                   ? maxPriceErrorId
                   : errors.price ? priceErrorId : undefined}
                 onChange={(event) => update('maxPrice', event.target.value)}
-                className="mt-1.5"
               />
               <FieldError id={maxPriceErrorId} message={errors.maxPrice} />
             </div>
           </div>
           <FieldError id={priceErrorId} message={errors.price} />
-        </div>
+        </fieldset>
 
         <Checkbox
           id={negotiableId}
@@ -206,52 +180,54 @@ export function ListingFilterFields({
         </div>
       </FilterGroup>
 
-      <FilterGroup id="account" title="Akkount" collapsible={collapsible}>
-        <div>
-          <div className="grid grid-cols-2 gap-2">
+      <FilterGroup title="Akkount">
+        <fieldset>
+          <legend className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Team Strength</legend>
+          <div className="mt-2 grid grid-cols-2 gap-2">
             <div>
-              <Label htmlFor={teamStrengthMinId}>Eng kam Team Strength</Label>
               <Input
                 id={teamStrengthMinId}
                 type="text"
                 inputMode="numeric"
+                placeholder="Dan"
+                aria-label="Eng kam Team Strength"
                 value={draft.teamStrengthMin}
                 aria-invalid={Boolean(errors.teamStrengthMin || errors.teamStrength) || undefined}
                 aria-describedby={errors.teamStrengthMin
                   ? teamStrengthMinErrorId
                   : errors.teamStrength ? teamStrengthErrorId : undefined}
                 onChange={(event) => update('teamStrengthMin', event.target.value)}
-                className="mt-1.5"
               />
               <FieldError id={teamStrengthMinErrorId} message={errors.teamStrengthMin} />
             </div>
             <div>
-              <Label htmlFor={teamStrengthMaxId}>Eng yuqori Team Strength</Label>
               <Input
                 id={teamStrengthMaxId}
                 type="text"
                 inputMode="numeric"
+                placeholder="Gacha"
+                aria-label="Eng yuqori Team Strength"
                 value={draft.teamStrengthMax}
                 aria-invalid={Boolean(errors.teamStrengthMax || errors.teamStrength) || undefined}
                 aria-describedby={errors.teamStrengthMax
                   ? teamStrengthMaxErrorId
                   : errors.teamStrength ? teamStrengthErrorId : undefined}
                 onChange={(event) => update('teamStrengthMax', event.target.value)}
-                className="mt-1.5"
               />
               <FieldError id={teamStrengthMaxErrorId} message={errors.teamStrengthMax} />
             </div>
           </div>
           <FieldError id={teamStrengthErrorId} message={errors.teamStrength} />
-        </div>
+        </fieldset>
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <Label htmlFor={androidCoinsId}>Android coin (kamida)</Label>
+            <Label htmlFor={androidCoinsId} className="truncate block">Android coin</Label>
             <Input
               id={androidCoinsId}
               type="number"
               step={1}
+              placeholder="Kamida"
               value={draft.androidCoinsMin}
               aria-invalid={Boolean(errors.androidCoinsMin) || undefined}
               aria-describedby={errors.androidCoinsMin ? androidCoinsErrorId : undefined}
@@ -261,11 +237,12 @@ export function ListingFilterFields({
             <FieldError id={androidCoinsErrorId} message={errors.androidCoinsMin} />
           </div>
           <div>
-            <Label htmlFor={iosCoinsId}>iOS coin (kamida)</Label>
+            <Label htmlFor={iosCoinsId} className="truncate block">iOS coin</Label>
             <Input
               id={iosCoinsId}
               type="number"
               step={1}
+              placeholder="Kamida"
               value={draft.iosCoinsMin}
               aria-invalid={Boolean(errors.iosCoinsMin) || undefined}
               aria-describedby={errors.iosCoinsMin ? iosCoinsErrorId : undefined}
@@ -293,19 +270,9 @@ export function ListingFilterFields({
           <FieldError id={exchangeErrorId} message={errors.exchangeMode} />
         </div>
 
-        <div>
-          <Label htmlFor={valuablePlayerId}>Yulduz o‘yinchi</Label>
-          <div className="mt-1.5">
-            <CardPickerField
-              id={valuablePlayerId}
-              value={draft.valuablePlayer}
-              onChange={(value) => update('valuablePlayer', value)}
-            />
-          </div>
-        </div>
       </FilterGroup>
 
-      <FilterGroup id="safety" title="Xavfsizlik" collapsible={collapsible}>
+      <FilterGroup title="Xavfsizlik">
         <div>
           <Label htmlFor={transferLimitId}>Qurilma almashtirish limiti (kamida)</Label>
           <Input

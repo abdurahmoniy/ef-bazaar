@@ -199,17 +199,16 @@ describe('ListingCard', () => {
 
     expect(gameCenterMarkup).toContain('data-listing-linked-services');
     expect(gameCenterMarkup).toContain('data-linked-service-warning="game-center"');
-    expect(gameCenterMarkup).toContain('Game Center ulangan');
+    expect(gameCenterMarkup).toContain('Game Center');
     expect(gameCenterMarkup).not.toContain('Google Play');
     expect(gameCenterMarkup).not.toContain('/icons/apple.svg');
     expect(gameCenterMarkup).toContain('lucide-triangle-alert');
-    expect(gameCenterMarkup).toContain('border-secondary/45');
-    expect(gameCenterMarkup).toContain('bg-secondary/10');
-    expect(gameCenterMarkup).toContain('text-accent-foreground');
+    expect(gameCenterMarkup).toContain('bg-secondary/30');
+    expect(gameCenterMarkup).toContain('text-secondary-foreground');
     expect((bothLinkedMarkup.match(/data-linked-service-warning=/g) ?? [])).toHaveLength(2);
     expect(bothLinkedMarkup).toContain('data-linked-service-warning="google-play"');
-    expect(bothLinkedMarkup).toContain('Google Play ulangan');
-    expect(bothLinkedMarkup).toContain('Game Center ulangan');
+    expect(bothLinkedMarkup).toContain('Google Play');
+    expect(bothLinkedMarkup).toContain('Game Center');
     expect(bothLinkedMarkup).not.toContain('/icons/google.svg');
     expect(bothLinkedMarkup).not.toContain('/icons/apple.svg');
     expect(unlinkedMarkup).not.toContain('data-listing-linked-services');

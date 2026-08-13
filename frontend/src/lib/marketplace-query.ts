@@ -5,7 +5,7 @@ export type MarketplaceView = 'auto' | 'list' | 'grid';
 export const MARKETPLACE_QUICK_FILTER_CONTROLLED_KEYS = {
   all: [],
   negotiable: ['priceNegotiable'],
-  clean: ['attr.has_google_play_link', 'attr.has_game_center_link'],
+  clean: ['attr.has_google_play_link', 'attr.has_game_center_link', 'attr.android_coins.min', 'attr.ios_coins.min'],
   exchange: ['attr.exchange_mode'],
 } as const satisfies Readonly<Record<MarketplaceFilterId, readonly string[]>>;
 

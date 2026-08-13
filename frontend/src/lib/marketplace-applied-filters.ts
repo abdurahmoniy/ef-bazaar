@@ -199,6 +199,9 @@ export function buildAppliedMarketplaceFilters(params: URLSearchParams) {
     const minimum = finiteNumber(effective.attributes?.[`${range.key}.min`]);
     const maximum = finiteNumber(effective.attributes?.[`${range.key}.max`]);
     if (minimum === undefined && maximum === undefined) continue;
+    if (shortcutIsEffective && (shortcutKeys.includes(minimumKey) || shortcutKeys.includes(maximumKey))) {
+      continue;
+    }
     items.push(descriptor(
       params,
       range.key,
