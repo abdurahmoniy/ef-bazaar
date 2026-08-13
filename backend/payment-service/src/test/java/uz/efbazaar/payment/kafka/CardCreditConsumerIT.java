@@ -1,9 +1,12 @@
 package uz.efbazaar.payment.kafka;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,7 +32,9 @@ import uz.efbazaar.payment.wallet.service.LedgerService;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -125,6 +130,54 @@ class CardCreditConsumerIT extends AbstractIntegrationIT {
                     .isEqualTo(InvoiceStatus.PAID);
             assertThat(ledger.balanceOf(user).getAvailableTiyin()).isEqualTo(10_000_000);
         });
+    }
+
+    /**
+     * {@code observed_at} and {@code raw_text} are both NOT NULL in V4, so a
+     * record missing either reaches {@code observations.save} and blows up
+     * there. With no error handler anywhere the container simply retries, gives
+     * up, seeks past the record and commits the offset — and that record is
+     * money the platform physically received, gone with one log line, no queue
+     * row and no alert. It has to land somewhere an operator can find it.
+     */
+    @Test
+    void aRecordMissingItsRawTextIsParkedOnTheDeadLetterTopicRatherThanDropped() {
+        long messageId = 77_002L;
+
+        publishRaw(("""
+                {"telegramMessageId":%d,"cardLast4":"0101","amountTiyin":10000000,\
+                "cardBalanceTiyin":3165916,"observedAt":"2026-08-10T20:41:00Z"}"""
+                .formatted(messageId))
+                .getBytes(StandardCharsets.UTF_8));
+
+        List<String> parked = new ArrayList<>();
+        try (KafkaConsumer<String, String> dlt = deadLetterConsumer()) {
+            await().atMost(Duration.ofSeconds(60)).pollInterval(Duration.ofMillis(500))
+                    .untilAsserted(() -> {
+                        dlt.poll(Duration.ofMillis(500))
+                                .forEach(r -> parked.add(r.value()));
+                        assertThat(parked)
+                                .as("a top-up the platform received must never vanish silently")
+                                .anySatisfy(v -> assertThat(v).contains(String.valueOf(messageId)));
+                    });
+        }
+
+        assertThat(observations.findByTelegramMessageId(messageId))
+                .as("the malformed record must not have half-written a row either")
+                .isEmpty();
+    }
+
+    private KafkaConsumer<String, String> deadLetterConsumer() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "dlt-probe-" + UUID.randomUUID());
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
+        consumer.subscribe(List.of(
+                PaymentTopics.CARD_CREDIT_OBSERVED + PaymentTopics.DLT_SUFFIX));
+        return consumer;
     }
 
     /** Bypasses the app's producer on purpose — the point is headerless bytes. */

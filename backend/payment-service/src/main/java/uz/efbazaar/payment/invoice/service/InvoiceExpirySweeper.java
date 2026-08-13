@@ -14,6 +14,7 @@ import uz.efbazaar.payment.notify.InvoiceNoticeEvents;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Flips overdue PENDING invoices to EXPIRED, which releases their
@@ -38,19 +39,32 @@ public class InvoiceExpirySweeper {
         if (due.isEmpty()) {
             return;
         }
-        // Collected before the save so the ids survive; the notices are deleted
-        // after this transaction commits, never inside it.
-        List<Long> notices = due.stream()
+        List<UUID> ids = due.stream().map(Invoice::getId).toList();
+
+        // A conditional UPDATE rather than saveAll of this snapshot. Between the
+        // findDue above and the write below, an observation can credit one of
+        // these invoices; a full-row save from the stale snapshot would then
+        // land last and leave the row EXPIRED with paid_at and observation_id
+        // erased, while the user has the money and the observation says MATCHED.
+        // The money would be right and the reconciliation trail a lie. With the
+        // status predicate the paid row simply is not matched.
+        int expired = invoices.expireIfStillPending(ids);
+        if (expired == 0) {
+            return;
+        }
+
+        // Re-read after the update: only the rows this sweep really expired have
+        // an announcement to take down. An invoice that was paid mid-sweep keeps
+        // its notice, which the paid listener replaces with a receipt.
+        List<Long> notices = invoices.findAllById(ids).stream()
+                .filter(inv -> inv.getStatus() == InvoiceStatus.EXPIRED)
                 .map(Invoice::getAdminNoticeMessageId)
                 .filter(Objects::nonNull)
                 .toList();
-        for (Invoice inv : due) {
-            inv.setStatus(InvoiceStatus.EXPIRED);
-        }
-        invoices.saveAll(due);
         if (!notices.isEmpty()) {
+            // Deleted after this transaction commits, never inside it.
             appEvents.publishEvent(new InvoiceNoticeEvents.InvoicesExpired(notices));
         }
-        log.info("Expired {} invoice(s)", due.size());
+        log.info("Expired {} invoice(s)", expired);
     }
 }

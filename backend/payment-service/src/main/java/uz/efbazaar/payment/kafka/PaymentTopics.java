@@ -7,5 +7,12 @@ public final class PaymentTopics {
     public static final String USERBOT_HEARTBEAT    = "efbazaar.payment.userbot-heartbeat";
     public static final String DEPOSIT_CREDITED     = "efbazaar.payment.deposit-credited";
 
+    /**
+     * Where a record this service cannot process is parked. Spring Kafka's own
+     * convention, kept here so the consumer, the recoverer and any operator
+     * runbook name the same topic.
+     */
+    public static final String DLT_SUFFIX           = ".DLT";
+
     private PaymentTopics() {}
 }

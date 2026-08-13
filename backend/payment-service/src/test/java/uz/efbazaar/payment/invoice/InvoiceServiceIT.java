@@ -16,6 +16,7 @@ import uz.efbazaar.payment.invoice.domain.InvoiceStatus;
 import uz.efbazaar.payment.invoice.dto.InvoiceResponse;
 import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
 import uz.efbazaar.payment.invoice.service.InvoiceService;
+import uz.efbazaar.payment.invoice.service.SlotAllocator;
 import uz.efbazaar.payment.testsupport.AbstractPostgresIT;
 import uz.efbazaar.payment.testsupport.ClockTestConfig;
 import uz.efbazaar.payment.testsupport.MutableClock;
@@ -40,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class InvoiceServiceIT extends AbstractPostgresIT {
 
     @Autowired InvoiceService invoices;
+    @Autowired SlotAllocator allocator;
     @Autowired InvoiceRepository invoiceRepo;
     @Autowired PlatformCardService cards;
     @Autowired PlatformCardRepository cardRepo;
@@ -125,6 +127,43 @@ class InvoiceServiceIT extends AbstractPostgresIT {
         assertThat(invoices.myActive(user)).isPresent()
                 .get().extracting(x -> x.id()).isEqualTo(created.id());
         assertThat(invoices.myActive(UUID.randomUUID())).isEmpty();
+    }
+
+    /**
+     * The 0-row path. {@code Invoice} has no {@code @Version} and Hibernate's
+     * default update writes every column, so a second {@code markPaid} holding
+     * a snapshot taken before the first one committed still reads PENDING in
+     * memory, sails past the status check and blind-writes the whole row —
+     * stamping its own observation id over the observation that actually funded
+     * the invoice. The ledger's {@code invoice-<id>} key stops the double
+     * credit, so no money is created; what is lost is the record of which real
+     * payment paid for it, and a second genuine payment gets recorded as MATCHED
+     * against an invoice it never funded.
+     *
+     * <p>Two separately loaded snapshots, not two calls on one object: the
+     * in-memory instance is mutated by the first call, which would make this
+     * pass for the wrong reason.
+     */
+    @Test
+    void aStaleSnapshotCannotTakeAnInvoiceThatSomebodyElseAlreadyPaid() {
+        var inv = allocator.allocate(UUID.randomUUID(), 10_000_000);
+        var winnerSnapshot = invoiceRepo.findById(inv.getId()).orElseThrow();
+        var loserSnapshot = invoiceRepo.findById(inv.getId()).orElseThrow();
+        UUID winnerObservation = UUID.randomUUID();
+        UUID loserObservation = UUID.randomUUID();
+
+        assertThat(invoices.markPaid(winnerSnapshot, winnerObservation))
+                .as("the first payment takes the invoice")
+                .isTrue();
+        assertThat(invoices.markPaid(loserSnapshot, loserObservation))
+                .as("the second must be told it got nothing, so its observation can queue")
+                .isFalse();
+
+        var row = invoiceRepo.findById(inv.getId()).orElseThrow();
+        assertThat(row.getStatus()).isEqualTo(InvoiceStatus.PAID);
+        assertThat(row.getObservationId())
+                .as("the invoice must still name the observation that actually funded it")
+                .isEqualTo(winnerObservation);
     }
 
     /**

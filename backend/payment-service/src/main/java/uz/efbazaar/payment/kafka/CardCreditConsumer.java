@@ -25,10 +25,18 @@ public class CardCreditConsumer {
             groupId = "payment-service-card-credit",
             properties = {"spring.json.value.default.type=uz.efbazaar.payment.observation.service.ByCardService$CardCreditEvent"})
     public void onCardCredit(CardCreditEvent event) {
+        // All five NOT NULL columns of V4, not three. observedAt and rawText
+        // were unguarded, so a record missing either sailed through to
+        // observations.save and died there on a constraint — and with the
+        // record already consumed that top-up was simply gone.
         if (event == null || event.telegramMessageId() == null
-                || event.cardLast4() == null || event.amountTiyin() == null) {
-            log.warn("card-credit-observed with missing fields, skipping: {}", event);
-            return;
+                || event.cardLast4() == null || event.amountTiyin() == null
+                || event.observedAt() == null || event.rawText() == null) {
+            // Not a silent skip: see MalformedCardCreditException. The record
+            // goes to the dead-letter topic so the money stays findable.
+            log.error("card-credit-observed with missing fields, sending to the DLT: {}", event);
+            throw new MalformedCardCreditException(
+                    "card-credit-observed is missing a required field: " + event);
         }
         byCard.ingest(event);
     }

@@ -88,16 +88,26 @@ public class InvoiceService {
         return invoices.findLiveSlot(cardId, transferTiyin, at);
     }
 
+    /**
+     * Claims an invoice for the observation that funded it.
+     *
+     * <p>Conditional, not a status check followed by a full-row save. The check
+     * used to run against the caller's in-memory snapshot, which is exactly the
+     * thing that can be stale: two observations naming the same slot both read
+     * PENDING, both pass, and the second blind-writes the row — no double
+     * credit, because the ledger's {@code invoice-<id>} key stops that, but a
+     * second real payment recorded as MATCHED against an invoice it never
+     * funded. And the expiry sweeper landing last wiped {@code paid_at} the same
+     * way. Letting the database test the status makes the invariant independent
+     * of how many consumers happen to be running.
+     *
+     * @return true if this call took the invoice; false if somebody else already
+     *         had it, in which case the caller must NOT treat the payment as
+     *         matched
+     */
     @Transactional
-    public void markPaid(Invoice invoice, UUID observationId) {
-        if (invoice.getStatus() != InvoiceStatus.PENDING) {
-            throw new IllegalStateException(
-                    "Invoice " + invoice.getId() + " is " + invoice.getStatus());
-        }
-        invoice.setStatus(InvoiceStatus.PAID);
-        invoice.setPaidAt(Instant.now());
-        invoice.setObservationId(observationId);
-        invoices.save(invoice);
+    public boolean markPaid(Invoice invoice, UUID observationId) {
+        return invoices.markPaidIfPending(invoice.getId(), Instant.now(), observationId) == 1;
     }
 
     private InvoiceResponse render(Invoice inv) {

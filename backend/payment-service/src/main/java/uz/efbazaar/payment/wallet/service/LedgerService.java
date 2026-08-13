@@ -62,6 +62,14 @@ public class LedgerService {
                     "Postings must sum to zero, got " + total + " for key " + idempotencyKey);
         }
         for (Posting p : postings) {
+            // chk_entry_non_zero would catch this too, but a constraint
+            // violation dooms the whole transaction in PostgreSQL, so the caller
+            // gets a 409 about nothing instead of the clean 400 its sibling
+            // invariants raise.
+            if (p.amountTiyin() == 0) {
+                throw new IllegalArgumentException(
+                        "A posting to " + p.account() + " must move a non-zero amount");
+            }
             if (p.account().isUserScoped() && p.userId() == null) {
                 throw new IllegalArgumentException(p.account() + " requires a userId");
             }

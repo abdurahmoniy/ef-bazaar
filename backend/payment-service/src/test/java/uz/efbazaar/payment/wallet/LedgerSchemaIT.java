@@ -16,10 +16,18 @@ class LedgerSchemaIT extends AbstractPostgresIT {
 
     @Test
     void walletBalancesCannotGoNegative() {
-        jdbc.update("INSERT INTO wallet_accounts (user_id) VALUES (gen_random_uuid())");
+        // Scoped to the row this test just inserted. Unqualified it relied on
+        // the constraint to abort before touching every other wallet in the
+        // shared container — true, but only because the constraint works, which
+        // is the thing under test.
+        String userId = jdbc.queryForObject("""
+                INSERT INTO wallet_accounts (user_id) VALUES (gen_random_uuid())
+                RETURNING user_id::text
+                """, String.class);
 
         assertThatThrownBy(() -> jdbc.update(
-                "UPDATE wallet_accounts SET available_tiyin = -1"))
+                "UPDATE wallet_accounts SET available_tiyin = -1 WHERE user_id = ?::uuid",
+                userId))
                 .hasMessageContaining("chk_wallet_non_negative");
     }
 

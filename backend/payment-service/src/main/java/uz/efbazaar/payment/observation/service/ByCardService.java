@@ -47,8 +47,12 @@ public class ByCardService {
     private final PlatformCardService cards;
     private final InvoiceService invoices;
     private final LedgerService ledger;
-    private final PaymentEventPublisher events;
-    /** Named apart from {@code events} above — that one is the Kafka publisher. */
+    /**
+     * In-process only. Everything that leaves this service — the Kafka record
+     * and the Telegram notice alike — is published as an application event here
+     * and sent by an AFTER_COMMIT listener, so nothing is announced that a
+     * rollback could still take back.
+     */
     private final ApplicationEventPublisher appEvents;
 
     public record CardCreditEvent(
@@ -102,7 +106,15 @@ public class ByCardService {
         }
 
         Invoice invoice = candidates.get(0);
-        credit(invoice, obs);
+        if (!credit(invoice, obs)) {
+            // Somebody else took this invoice between our read and our write.
+            // The observation stays UNMATCHED and goes to the admin queue:
+            // recording it MATCHED would file a second real payment against an
+            // invoice it never funded, which is how money disappears quietly.
+            log.warn("Observation {} lost the race for invoice {} — queued",
+                    obs.getId(), invoice.getId());
+            return observations.save(obs);
+        }
         obs.setStatus(ObservationStatus.MATCHED);
         obs.setInvoiceId(invoice.getId());
         return observations.save(obs);
@@ -157,7 +169,24 @@ public class ByCardService {
         return observations.findByStatusOrderByObservedAtAsc(ObservationStatus.UNMATCHED);
     }
 
-    private void credit(Invoice invoice, CardCreditObservation obs) {
+    /**
+     * @return false if another observation claimed this invoice first, in which
+     *         case nothing was credited and the caller must queue instead
+     */
+    private boolean credit(Invoice invoice, CardCreditObservation obs) {
+        // Claim first, credit second. markPaid is a conditional UPDATE, so its
+        // row count is the one authority on who owns this invoice; doing it
+        // before any money moves means a loser posts nothing at all rather than
+        // relying on the ledger's idempotency key to undo it afterwards.
+        //
+        // Claiming before the observation row is saved is safe on purpose:
+        // invoices.observation_id is a plain UUID column with no REFERENCES,
+        // because the two tables point at each other and one side has to stay
+        // unconstrained.
+        if (!invoices.markPaid(invoice, obs.getId())) {
+            return false;
+        }
+
         long transferred = invoice.getTransferAmountTiyin();
         long credited = invoice.getRequestedAmountTiyin();
         long bump = transferred - credited;
@@ -171,21 +200,26 @@ public class ByCardService {
         }
 
         ledger.post(TransactionKind.DEPOSIT, "invoice-" + invoice.getId(), null, null, postings);
-        // markPaid before the observation is saved is safe on purpose:
-        // invoices.observation_id is a plain UUID column with no REFERENCES,
-        // because the two tables point at each other and one side has to stay
-        // unconstrained.
-        invoices.markPaid(invoice, obs.getId());
-        events.depositCredited(invoice.getUserId(), credited, invoice.getId());
-        // Announced after this transaction commits, never inside it: a notice
-        // posted before a rollback would advertise a payment that never
-        // happened, and a Telegram round trip here would hold a database
-        // connection for its duration. See InvoiceNoticeListener.
+
+        // Both of these fire only after this transaction commits, never inside
+        // it. A deposit-credited record on the wire before a rollback has a
+        // downstream consumer announcing money that never arrived, and there is
+        // no retraction to send afterwards — the same reason the Telegram notice
+        // has always been AFTER_COMMIT. See InvoiceNoticeListener and
+        // PaymentEventPublisher.
+        appEvents.publishEvent(new PaymentEventPublisher.DepositCreditedSignal(
+                invoice.getUserId(), credited, invoice.getId()));
         appEvents.publishEvent(new InvoiceNoticeEvents.InvoicePaid(invoice.getId()));
+        return true;
     }
 
+    /**
+     * Locked, not a plain read: {@code resolveManually} and {@code markIgnored}
+     * both decide on this row and one of them creates money that nothing can
+     * take back. See {@code findByIdForUpdate}.
+     */
     private CardCreditObservation require(UUID id) {
-        return observations.findById(id).orElseThrow(() ->
+        return observations.findByIdForUpdate(id).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Tushum topilmadi"));
     }
 }

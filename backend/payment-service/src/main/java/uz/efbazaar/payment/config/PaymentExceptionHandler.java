@@ -1,12 +1,14 @@
 package uz.efbazaar.payment.config;
 
 import jakarta.persistence.EntityNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+@Slf4j
 @RestControllerAdvice
 public class PaymentExceptionHandler {
 
@@ -15,9 +17,17 @@ public class PaymentExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
+    /**
+     * The detail is logged, not returned. {@code IllegalArgumentException} is
+     * raised by the ledger's own invariants as well as by input validation, and
+     * "Postings must sum to zero, got -4200 for key invoice-…" is internal
+     * accounting language: it tells an HTTP caller nothing it can act on and
+     * describes the shape of the ledger to anyone who pokes at the API.
+     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail badRequest(IllegalArgumentException e) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+        log.warn("Rejected as a bad request: {}", e.getMessage(), e);
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "So'rov noto'g'ri");
     }
 
     /**

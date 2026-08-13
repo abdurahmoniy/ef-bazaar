@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.payment.card.dto.PlatformCardCreateRequest;
 import uz.efbazaar.payment.card.repository.PlatformCardAuditRepository;
 import uz.efbazaar.payment.card.repository.PlatformCardRepository;
@@ -21,19 +22,27 @@ import uz.efbazaar.payment.testsupport.AbstractIntegrationIT;
 import uz.efbazaar.payment.wallet.service.LedgerService;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Needs a broker, so {@link AbstractIntegrationIT} rather than the Postgres-only
- * base: crediting publishes {@code efbazaar.payment.deposit-credited} from inside
- * the same transaction, and with no broker {@code KafkaTemplate.send} blocks for
- * {@code max.block.ms} and then throws {@code KafkaException: Send failed},
- * rolling the credit back. That is the right production behaviour — an
- * uncommitted offset is redelivered, so nothing is lost — but it means this
- * suite cannot be run without Kafka.
+ * Kept on {@link AbstractIntegrationIT} rather than the Postgres-only base.
+ * Crediting used to publish {@code efbazaar.payment.deposit-credited} from
+ * inside the crediting transaction, which without a broker blocked for
+ * {@code max.block.ms} and then rolled the credit back; that publish is now an
+ * AFTER_COMMIT listener, so the credit itself no longer depends on Kafka. The
+ * broker stays because the listener still runs and a send that throws in a test
+ * teardown is noise nobody should have to diagnose.
  */
 @SpringBootTest
 class ByCardServiceIT extends AbstractIntegrationIT {
@@ -166,5 +175,109 @@ class ByCardServiceIT extends AbstractIntegrationIT {
         byCard.ingest(event("0101", 12_345));
         assertThat(observations.findAll())
                 .allSatisfy(o -> assertThat(o.getRawText()).isNotBlank());
+    }
+
+    /**
+     * Race B. Two observations naming the same live slot both read it as
+     * PENDING. The ledger's {@code invoice-<id>} idempotency key correctly stops
+     * the second credit, so the money is right — but the second {@code markPaid}
+     * succeeds on a stale snapshot and its observation is filed MATCHED against
+     * an invoice it never funded. That is a second real payment swallowed: no
+     * queue row, no alert, and the only trace is a wallet that is short.
+     *
+     * <p>Unreachable in production today only because listener concurrency is 1
+     * and the topic has one partition, and nothing in the code records that
+     * dependency. Exactly one observation may come out MATCHED however the
+     * threads interleave.
+     */
+    @Test
+    void onlyOneOfSeveralObservationsForTheSameSlotIsEverMatched() throws Exception {
+        UUID user = UUID.randomUUID();
+        Invoice inv = allocator.allocate(user, 10_000_000);
+        long amount = inv.getTransferAmountTiyin();
+
+        int threads = 6;
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        CountDownLatch go = new CountDownLatch(1);
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < threads; i++) {
+            futures.add(pool.submit(() -> {
+                go.await(5, TimeUnit.SECONDS);
+                return byCard.ingest(event("0101", amount));
+            }));
+        }
+        go.countDown();
+        for (Future<?> f : futures) {
+            f.get(60, TimeUnit.SECONDS);
+        }
+        pool.shutdown();
+
+        long matched = observations.findAll().stream()
+                .filter(o -> o.getStatus() == ObservationStatus.MATCHED)
+                .count();
+        assertThat(matched)
+                .as("a second payment must be queued for an admin, not filed against "
+                        + "an invoice it did not fund")
+                .isEqualTo(1);
+        assertThat(observations.count()).isEqualTo(threads);
+        assertThat(ledger.balanceOf(user).getAvailableTiyin()).isEqualTo(10_000_000);
+        assertThat(invoices.findById(inv.getId()).orElseThrow().getStatus())
+                .isEqualTo(InvoiceStatus.PAID);
+    }
+
+    /**
+     * {@code require()} reads the observation with a plain {@code findById}, so
+     * two admins working the same queue row both see UNMATCHED and both post
+     * with the key {@code obs-manual-<id>}. The ledger returns the winner's
+     * transaction id to the loser and writes nothing — but the loser's HTTP call
+     * still returns 200 MANUALLY_RESOLVED. Admin B is told they credited user B
+     * while user A has the money, on an action no screen in this platform can
+     * undo.
+     */
+    @Test
+    void twoAdminsResolvingTheSameObservationCannotBothBeToldTheyCreditedSomebody()
+            throws Exception {
+        var obs = byCard.ingest(event("0101", 7_777_777));
+        assertThat(obs.getStatus()).isEqualTo(ObservationStatus.UNMATCHED);
+
+        UUID targetA = UUID.randomUUID();
+        UUID targetB = UUID.randomUUID();
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch go = new CountDownLatch(1);
+        List<Future<UUID>> futures = new ArrayList<>();
+        for (UUID target : List.of(targetA, targetB)) {
+            futures.add(pool.submit(() -> {
+                go.await(5, TimeUnit.SECONDS);
+                byCard.resolveManually(obs.getId(), target, UUID.randomUUID(), "biriktirildi");
+                return target;
+            }));
+        }
+        go.countDown();
+
+        int credited = 0;
+        int conflicted = 0;
+        for (Future<UUID> f : futures) {
+            try {
+                f.get(60, TimeUnit.SECONDS);
+                credited++;
+            } catch (ExecutionException e) {
+                assertThat(e.getCause())
+                        .isInstanceOf(ResponseStatusException.class)
+                        .hasMessageContaining("409");
+                conflicted++;
+            }
+        }
+        pool.shutdown();
+
+        assertThat(credited).as("exactly one admin may be told the credit happened")
+                .isEqualTo(1);
+        assertThat(conflicted).as("the other must be told the row was already taken")
+                .isEqualTo(1);
+
+        long toA = ledger.balanceOf(targetA).getAvailableTiyin();
+        long toB = ledger.balanceOf(targetB).getAvailableTiyin();
+        assertThat(toA + toB)
+                .as("the money arrived exactly once")
+                .isEqualTo(7_777_777);
     }
 }

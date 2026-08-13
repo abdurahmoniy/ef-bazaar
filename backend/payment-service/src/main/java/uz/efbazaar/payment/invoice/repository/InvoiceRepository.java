@@ -1,6 +1,7 @@
 package uz.efbazaar.payment.invoice.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import uz.efbazaar.payment.invoice.domain.Invoice;
@@ -38,4 +39,43 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
              AND i.expiresAt <= :now
            """)
     List<Invoice> findDue(@Param("now") Instant now);
+
+    /**
+     * Claims an invoice for a payment. The {@code status = PENDING} predicate is
+     * the whole point: {@code Invoice} has no {@code @Version} and Hibernate's
+     * default update writes every column, so saving a snapshot taken before
+     * somebody else committed silently overwrites their work. Here the database
+     * decides, and the row count says who won.
+     *
+     * @return 1 if this caller took the invoice, 0 if somebody else already had
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+           UPDATE Invoice i
+              SET i.status = uz.efbazaar.payment.invoice.domain.InvoiceStatus.PAID,
+                  i.paidAt = :paidAt,
+                  i.observationId = :observationId
+            WHERE i.id = :id
+              AND i.status = uz.efbazaar.payment.invoice.domain.InvoiceStatus.PENDING
+           """)
+    int markPaidIfPending(@Param("id") UUID id,
+                          @Param("paidAt") Instant paidAt,
+                          @Param("observationId") UUID observationId);
+
+    /**
+     * The sweeper's write, conditional for the same reason. A payment that lands
+     * between {@code findDue} and this statement flips the row to PAID, and this
+     * update then matches nothing instead of stamping EXPIRED over it and wiping
+     * {@code paid_at} and {@code observation_id}.
+     *
+     * @return how many of the given invoices this sweep actually expired
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+           UPDATE Invoice i
+              SET i.status = uz.efbazaar.payment.invoice.domain.InvoiceStatus.EXPIRED
+            WHERE i.id IN :ids
+              AND i.status = uz.efbazaar.payment.invoice.domain.InvoiceStatus.PENDING
+           """)
+    int expireIfStillPending(@Param("ids") List<UUID> ids);
 }
