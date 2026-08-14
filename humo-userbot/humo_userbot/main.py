@@ -100,6 +100,11 @@ def observation_is_possible() -> tuple[bool, str]:
     """
     if not app.is_connected:
         return False, "Telegram client is not connected"
+    # is_connected was True during the asyncio.run() bug below while no message
+    # could ever reach a handler, so connectivity alone is not the question.
+    # An empty dispatcher means updates arrive and go nowhere.
+    if not app.dispatcher.groups:
+        return False, "no message handler is registered — updates go nowhere"
     if not _reporting_ok:
         return False, "the last observation failed to publish"
     return True, ""
@@ -134,4 +139,15 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # app.run(), NOT asyncio.run(). Pyrogram's Dispatcher captures
+    # asyncio.get_event_loop() when Client(...) is constructed -- which happens
+    # at import, above -- and every handler registration and handler worker is
+    # scheduled onto THAT loop with loop.create_task(). asyncio.run() creates a
+    # brand new loop, so all of that stays queued on a loop nothing ever runs:
+    # the client connects, the heartbeat flows, "Started 10 HandlerTasks" is
+    # logged, no error is raised anywhere, and not one message is ever
+    # dispatched. Pyrogram's own docs put it plainly -- run() "uses the current
+    # event loop instead of a new one".
+    #
+    # This cost three real transfers to find. Every visible signal said healthy.
+    app.run(main())
