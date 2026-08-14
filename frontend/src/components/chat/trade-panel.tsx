@@ -15,6 +15,7 @@ import {
   XCircle,
 } from 'lucide-react';
 
+import { CountdownText } from '@/components/trade-admin/countdown-text';
 import { HumanPartyTradePanel } from '@/components/trade-admin/human-party-trade-panel';
 import { TradeAdminPicker } from '@/components/trade-admin/trade-admin-picker';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,7 @@ import { Select } from '@/components/ui/select';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
 import { isHumanProposal, isHumanTrade, validateAdminFee } from '@/lib/trade-human';
+import { planPollTick } from '@/lib/trade-poll-plan';
 import {
   isTerminalState,
   TRADE_STATE_LABEL_UZ,
@@ -132,30 +134,39 @@ export function TradePanel({
     return () => window.clearInterval(id);
   }, [activeTradeId, activeTradeState, reload]);
 
-  // ---- polling: pending proposal until either trade opens or proposal seen ----
+  // ---- polling: runs until a trade exists ----
+  // Deliberately keeps polling while a proposal is pending. The other party can
+  // accept at any moment, and the proposer has no action of their own to hang a
+  // refresh on — the accept happens on the other browser. Bailing out here left
+  // the seller parked on the pending-proposal card after the buyer accepted, so
+  // they never saw the escrow mailbox address they were supposed to move the
+  // account to, and the trade timed out unattended (trade 6c09400e).
   const hasProposal = proposal !== null;
   const hasActiveTrade = activeTrade !== null;
   useEffect(() => {
-    if (hasActiveTrade) return;
-    if (hasProposal) return;
+    if (planPollTick({ hasActiveTrade, hasProposal }) === 'stop') return;
     const tick = async () => {
       if (proposalPollInFlight.current) return;
       proposalPollInFlight.current = true;
       try {
-        const p = await fetchPendingProposal(chat.id);
-        if (p) {
-          setProposal({
-            id: p.proposalId,
-            priceUzs: p.amountUzs,
-            expiresAt: p.expiresAt,
-            mode: p.mode ?? undefined,
-            adminId: p.adminId ?? undefined,
-            adminFeeUzs: p.adminFeeUzs ?? undefined,
-          });
-        } else {
-          // Also refresh trades — proposal may have been accepted between polls.
-          await reload();
+        if (planPollTick({ hasActiveTrade, hasProposal }) === 'find-proposal') {
+          const p = await fetchPendingProposal(chat.id);
+          if (p) {
+            setProposal({
+              id: p.proposalId,
+              priceUzs: p.amountUzs,
+              expiresAt: p.expiresAt,
+              mode: p.mode ?? undefined,
+              adminId: p.adminId ?? undefined,
+              adminFeeUzs: p.adminFeeUzs ?? undefined,
+            });
+            return;
+          }
         }
+        // Either the proposal was already known, or there is none to find —
+        // either way it may have been accepted since the last tick, which is
+        // what opens the trade.
+        await reload();
       } finally {
         proposalPollInFlight.current = false;
       }
@@ -318,7 +329,18 @@ function ActiveTradeCard({
             {formatPriceUZS(trade.priceUzs)}
           </p>
         </div>
-        <Badge variant="verified">{TRADE_STATE_LABEL_UZ[trade.state]}</Badge>
+        <div className="flex shrink-0 flex-col items-end gap-0.5">
+          <Badge variant="verified">{TRADE_STATE_LABEL_UZ[trade.state]}</Badge>
+          {/* Every non-terminal state runs on a stateDeadline the server set on
+              entry, and missing it ORPHANs the trade. Showing it only in the
+              human-admin panel meant a smart-trade seller had 30 minutes to
+              move the account with no clock anywhere on screen. */}
+          {trade.stateDeadline && !isTerminalState(trade.state) && (
+            <span className="text-[10px] text-muted-foreground">
+              <CountdownText until={trade.stateDeadline} prefix="Qoldi:" />
+            </span>
+          )}
+        </div>
       </div>
 
       <TradeStateActions
