@@ -255,6 +255,7 @@ services:
       REDIS_PORT: ${REDIS_PORT}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
       MAILCOW_API_URL: https://mailcow.efbazaar.uz/api/v1
       # Mailcow'ning ichki IMAP/dovecot cert'i faqat mail.efbazaar.uz SAN'ni
       # o'z ichiga oladi (SKIP_LETS_ENCRYPT=y + MAILCOW_HOSTNAME=mail.efbazaar.uz).

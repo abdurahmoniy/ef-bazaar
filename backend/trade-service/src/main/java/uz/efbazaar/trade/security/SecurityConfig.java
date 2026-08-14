@@ -35,6 +35,13 @@ public class SecurityConfig {
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/swagger-resources/**",
+                                "/webjars/**"
+                        ).permitAll()
                         // STOMP handshake — CONNECT frame auth happens in WebSocketConfig (Task 17)
                         .requestMatchers("/ws/trade/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")

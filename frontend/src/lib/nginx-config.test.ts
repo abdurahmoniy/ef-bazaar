@@ -6,6 +6,16 @@ import { describe, expect, it } from 'vitest';
 const configPath = join(process.cwd(), '..', 'nginx', 'conf.d', 'efbazaar.conf');
 const apiConfigPath = join(process.cwd(), '..', 'nginx', 'conf.d', 'api.conf');
 const rootConfigPath = join(process.cwd(), '..', 'nginx', 'nginx.conf');
+const authApplicationPath = join(
+  process.cwd(),
+  '..',
+  'backend',
+  'auth-service',
+  'src',
+  'main',
+  'resources',
+  'application.yml',
+);
 const envExamplePath = join(process.cwd(), '.env.local.example');
 
 function extractBlocks(config: string, directive: RegExp) {
@@ -102,6 +112,20 @@ describe('nginx api subdomain routing', () => {
     // resolver, so container recreations don't leave nginx on a stale IP.
     expect(apiLocation).toContain('proxy_pass http://$backend_marketplace$request_uri;');
     expect(config).toContain('rewrite ^/api/(.*)$ /api/$1 break;');
+  });
+
+  it('aggregates OpenAPI JSON for every documented public backend service', () => {
+    const apiConfig = readFileSync(apiConfigPath, 'utf8');
+    const authApplication = readFileSync(authApplicationPath, 'utf8');
+
+    for (const service of ['auth', 'marketplace', 'bot', 'trade', 'payment']) {
+      expect(authApplication).toContain(`- name: ${service}`);
+      expect(authApplication).toContain(`url: /v3/api-docs/${service}`);
+      expect(apiConfig).toContain(`location = /v3/api-docs/${service}`);
+    }
+
+    expect(apiConfig).toContain('proxy_pass http://$backend_trade/v3/api-docs;');
+    expect(apiConfig).toContain('proxy_pass http://$backend_payment/v3/api-docs;');
   });
 });
 

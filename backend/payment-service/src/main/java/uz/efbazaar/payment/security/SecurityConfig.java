@@ -35,6 +35,13 @@ public class SecurityConfig {
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/swagger-resources/**",
+                                "/webjars/**"
+                        ).permitAll()
                         // Guarded by InternalSecretFilter, not by a role: the
                         // caller is trade-service, which has no user identity.
                         // permitAll here would be wrong without that filter.
