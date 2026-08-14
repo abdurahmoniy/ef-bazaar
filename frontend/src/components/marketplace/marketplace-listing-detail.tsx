@@ -109,7 +109,7 @@ export function MarketplaceListingDetail({
                   <p className="text-xs font-bold uppercase tracking-wide text-primary">
                     {divisionLabel(division)}
                   </p>
-                  <h1 className="mt-1 text-xl font-black leading-tight text-foreground sm:text-2xl">
+                  <h1 className="mt-1 line-clamp-3 text-lg font-bold leading-tight text-foreground sm:text-xl sm:font-black">
                     {title}
                   </h1>
                   {/* On phones the price card is replaced by the sticky action

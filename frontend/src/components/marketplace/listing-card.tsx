@@ -89,32 +89,18 @@ export function ListingCard({
           {model.title}
         </h2>
 
-        <div className="listing-card__facts grid gap-2">
-          {(model.googlePlayLinked || model.gameCenterLinked) && (
-            <div
-              data-listing-linked-services
-              className="flex min-w-0 flex-wrap gap-1.5"
-            >
-              {model.googlePlayLinked && (
-                <LinkedServiceWarning
-                  service="google-play"
-                  label="Google Play"
-                />
-              )}
-              {model.gameCenterLinked && (
-                <LinkedServiceWarning
-                  service="game-center"
-                  label="Game Center"
-                />
-              )}
-            </div>
+        <div className="listing-card__facts flex flex-wrap gap-1.5 pt-0.5">
+          {model.googlePlayLinked && (
+            <LinkedServiceWarning service="google-play" label="Google Play" />
           )}
-
-          {(model.androidCoins !== undefined || model.iosCoins !== undefined) && (
-            <div className="flex min-w-0 flex-wrap gap-1.5 pt-0.5">
-              {model.androidCoins !== undefined && <CoinPill platform="Android" value={model.androidCoins} />}
-              {model.iosCoins !== undefined && <CoinPill platform="iOS" value={model.iosCoins} />}
-            </div>
+          {model.gameCenterLinked && (
+            <LinkedServiceWarning service="game-center" label="Game Center" />
+          )}
+          {model.androidCoins !== undefined && (
+            <CoinPill platform="Android" value={model.androidCoins} />
+          )}
+          {model.iosCoins !== undefined && (
+            <CoinPill platform="iOS" value={model.iosCoins} />
           )}
         </div>
       </div>
@@ -124,9 +110,9 @@ export function ListingCard({
 
 function ExchangeTag({ label }: { label: string }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">
-      <Check className="h-3.5 w-3.5" aria-hidden="true" />
-      {label}
+    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary dark:bg-primary/25">
+      <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span className="truncate">{label}</span>
     </span>
   );
 }
@@ -141,7 +127,7 @@ function LinkedServiceWarning({
   return (
     <div
       data-linked-service-warning={service}
-      className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-secondary/30 px-2.5 py-1 text-[10px] font-bold text-secondary-foreground"
+      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-secondary/30 px-2.5 py-1 text-[10px] font-bold text-secondary-foreground dark:bg-secondary/20 dark:text-secondary"
     >
       <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <span className="truncate">{label}</span>
@@ -155,7 +141,7 @@ function CoinPill({ platform, value }: { platform: 'Android' | 'iOS'; value: num
     <div
       role="group"
       aria-label={`${platform} coin: ${value}`}
-      className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold text-accent-foreground"
+      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold text-accent-foreground"
     >
       <Image
         data-efootball-coin-icon
