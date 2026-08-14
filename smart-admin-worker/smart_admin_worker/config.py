@@ -61,6 +61,21 @@ class Settings(BaseSettings):
     telegram_bot_token: str | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
     telegram_group_chat_id: str | None = Field(default=None, alias="TELEGRAM_GROUP_CHAT_ID")
     telegram_topic_logs: int | None = Field(default=None, alias="TELEGRAM_TOPIC_LOGS")
+    # Mailbox notifications have their own forum topic. Unset falls back to
+    # telegram_topic_logs, which is where they used to go -- so an environment
+    # that has not set it yet keeps working instead of going silent.
+    telegram_topic_email: int | None = Field(default=None, alias="TELEGRAM_TOPIC_EMAIL")
+
+    @property
+    def mailbox_topic_id(self) -> int | None:
+        """Forum topic the mailbox notifications go to.
+
+        Falls back to the logs topic, which is where they used to land. An
+        environment that has not set TELEGRAM_TOPIC_EMAIL yet keeps posting
+        where it always did rather than going quietly silent -- these carry
+        mailbox credentials, so losing them is worse than misfiling them.
+        """
+        return self.telegram_topic_email or self.telegram_topic_logs
 
     @model_validator(mode="after")
     def clamp_concurrent_rotate(self) -> Settings:

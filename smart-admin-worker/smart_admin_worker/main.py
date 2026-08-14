@@ -128,7 +128,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     notifier = TelegramNotifier(
         bot_token=settings.telegram_bot_token,
         chat_id=settings.telegram_group_chat_id,
-        topic_id=settings.telegram_topic_logs,
+        topic_id=settings.mailbox_topic_id,
         http_client=notifier_http_client,
     )
     log.info("telegram_notifier_init", enabled=notifier.enabled)

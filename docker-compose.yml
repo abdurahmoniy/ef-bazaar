@@ -355,6 +355,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_GROUP_CHAT_ID: ${TELEGRAM_GROUP_CHAT_ID}
       TELEGRAM_TOPIC_LOGS: ${TELEGRAM_TOPIC_LOGS}
+      TELEGRAM_TOPIC_EMAIL: ${TELEGRAM_TOPIC_EMAIL}
     secrets:
       - mailcow_api_key
       - master_key
