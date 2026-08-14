@@ -117,4 +117,35 @@ class TradeEscrowSweeperIT extends AbstractIntegrationIT {
                 .as("still owed, so it stays in the sweeper's sights")
                 .isNull();
     }
+
+    @Test
+    void anExpiredTradeIsRefundedToo() {
+        // Found in production: a trade ran out of time, went ORPHANED, and the
+        // buyer's money stayed frozen. Escrow was wired into SUCCESS and
+        // REJECTED only — ORPHANED is terminal as well, and nothing was left
+        // that could ever free it.
+        Trade t = stranded(TradeState.ORPHANED, TradeMode.SMART);
+
+        sweeper.sweep();
+
+        verify(escrow).release(eq(t.getId()), eq(t.getBuyerId()), eq(500_000L));
+        assertThat(trades.findById(t.getId()).orElseThrow().getEscrowResolvedAt()).isNotNull();
+    }
+
+    @Test
+    void everyTerminalStateResolvesItsEscrow() {
+        // The gap was one missing enum constant, so assert over the whole set
+        // rather than the two that happened to be remembered.
+        for (TradeState terminal : TradeState.values()) {
+            if (!terminal.isTerminal()) continue;
+            Mockito.reset(escrow);
+            Trade t = stranded(terminal, TradeMode.SMART);
+
+            sweeper.sweep();
+
+            assertThat(trades.findById(t.getId()).orElseThrow().getEscrowResolvedAt())
+                    .as("%s must not leave money frozen", terminal)
+                    .isNotNull();
+        }
+    }
 }

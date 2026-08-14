@@ -92,10 +92,11 @@ public class TradeProposalService {
             // Throws 400 when the admin is unknown, inactive, paused, or the
             // fee sits outside their advertised band.
             adminProfiles.requireHireable(req.adminId(), req.adminFeeUzs());
-        } else if (req.cardId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Smart savdo uchun karta tanlanishi kerak");
         }
+        // No card check for SMART. The two card ids were collected for a payout
+        // flow that was never built; the money moves wallet to wallet now and
+        // neither id is read anywhere. A caller may still send one and it is
+        // still stored, so older trades stay comparable.
 
         UUID proposalId = UUID.randomUUID();
         String key = redisKey(proposalId);
@@ -215,10 +216,11 @@ public class TradeProposalService {
             // either, leaving 24h to ORPHANED as the only exit.
             adminProfiles.requireHireable(adminId, adminFee);
         } else {
-            if (accepterCardId == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Smart savdo uchun kartangizni tanlang");
-            }
+            // No card is asked for any more. The two ids were collected for a
+            // payout flow that was never built and is not coming: the money
+            // moves wallet to wallet now, and neither id is read anywhere.
+            // They are still recorded when a caller happens to send one, so
+            // older trades and their history stay comparable.
             sellerCardId = sellerId.equals(proposerUserId) ? proposerCard : accepterCardId;
             buyerCardId  = buyerId.equals(proposerUserId)  ? proposerCard : accepterCardId;
         }

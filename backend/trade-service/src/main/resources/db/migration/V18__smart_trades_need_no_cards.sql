@@ -1,0 +1,14 @@
+-- SMART trades no longer carry bank cards.
+--
+-- The two card ids were collected so a payout could be sent to the seller's
+-- card and a charge taken from the buyer's. That flow was never built —
+-- PaymentAdapter.createPayoutIntent has no caller — and it is not going to be:
+-- the money now moves wallet to wallet inside payment-service, and neither
+-- card id is read anywhere in the codebase.
+--
+-- Asking a buyer for a card in order to spend their wallet balance is a
+-- question with no purpose behind it, so the constraint that forced it goes.
+--
+-- The columns stay. They hold real answers from real trades, and dropping them
+-- would throw away history to save two nullable uuids.
+ALTER TABLE trades DROP CONSTRAINT IF EXISTS chk_trades_smart_cards;
