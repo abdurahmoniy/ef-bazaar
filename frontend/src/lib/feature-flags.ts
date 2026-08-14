@@ -27,12 +27,12 @@ export const FEATURES = {
   /**
    * Wallet & card top-up (/hamyon).
    *
-   * Ships dark on purpose. The deposit rail only works once the humo-userbot
-   * holds a live Telegram session and at least one active platform card
-   * exists — until then a reachable top-up page means a user transfers real
-   * money that nothing is watching for. Flip this when the userbot is live.
+   * Shipped dark until the rail was proven end to end on 2026-08-14: the
+   * userbot holds a live session, a platform card is active, and a real
+   * transfer was observed and queued. Three bugs had to be found first, and
+   * every one of them was silent — which is exactly why this stayed off.
    */
-  wallet: false,
+  wallet: true,
 
   // ── Phase 3 ───────────────────────────────────────────────────
   /** Tournament brackets & registration. */
