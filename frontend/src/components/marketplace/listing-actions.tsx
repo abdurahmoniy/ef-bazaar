@@ -6,7 +6,6 @@ import { useState, useTransition } from 'react';
 import { Flag, Heart, MessageCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { useTelegramMainButton } from '@/hooks/use-telegram-main-button';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { formatCompactNumber } from '@/lib/marketplace-format';
 import { toggleListingLike } from '@/lib/marketplace-actions';
@@ -80,19 +79,6 @@ export function ListingActions({
       else setMessage({ tone: 'ok', text: 'Chat ochildi' });
     });
   }
-
-  useTelegramMainButton({
-    text: !authenticated ? 'Kirish' : isOwner ? "E'lonni tahrirlash" : "Sotuvchi bilan bog'lanish",
-    onClick: () => {
-      if (!authenticated) return router.push(`/auth/login?from=/marketplace/${listingId}`);
-      if (isOwner) return router.push(`/marketplace/${listingId}/edit`);
-      handleContact();
-    },
-    disabled: isPending,
-    // The sticky bar is a responsive duplicate of the sidebar panel; only one
-    // of the two may drive Telegram's single native MainButton.
-    enabled: variant === 'panel',
-  });
 
   function handleLike() {
     if (!authenticated) return router.push(`/auth/login?from=/marketplace/${listingId}`);

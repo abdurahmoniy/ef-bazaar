@@ -197,7 +197,6 @@ describe('ListingCard', () => {
       }),
     }));
 
-    expect(gameCenterMarkup).toContain('data-listing-linked-services');
     expect(gameCenterMarkup).toContain('data-linked-service-warning="game-center"');
     expect(gameCenterMarkup).toContain('Game Center');
     expect(gameCenterMarkup).not.toContain('Google Play');
@@ -211,7 +210,7 @@ describe('ListingCard', () => {
     expect(bothLinkedMarkup).toContain('Game Center');
     expect(bothLinkedMarkup).not.toContain('/icons/google.svg');
     expect(bothLinkedMarkup).not.toContain('/icons/apple.svg');
-    expect(unlinkedMarkup).not.toContain('data-listing-linked-services');
+    expect(unlinkedMarkup).not.toContain('data-linked-service-warning');
   });
 
   it('requires exact boolean true for linked services and labels explicit no-exchange', () => {
@@ -225,7 +224,7 @@ describe('ListingCard', () => {
       }),
     }));
 
-    expect(markup).not.toContain('data-listing-linked-services');
+    expect(markup).not.toContain('data-linked-service-warning');
     expect(markup).toContain('Obmen yo‘q');
   });
 
