@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { getAuthCookieClearOptions, getAuthCookieOptions } from './lib/auth-cookies';
+import { rewriteCookieHeader } from './lib/proxy-refresh-cookies';
 import { isSafeInternalPath } from './lib/safe-redirect';
 import { refreshSession, type RefreshedTokens } from './lib/session-refresh';
 
@@ -28,6 +29,22 @@ function isAuthOnlyLoggedOutPath(pathname: string) {
   return AUTH_ONLY_LOGGED_OUT_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
+}
+
+/**
+ * Rewrites the outgoing request's Cookie header with freshly refreshed tokens.
+ *
+ * Setting them on the response only tells the BROWSER, and only in time for
+ * the next request. The one in flight still carries the expired (or absent)
+ * access cookie, so whatever handles it downstream — an API proxy route, a
+ * Server Component — finds no token, sends no Authorization header, and the
+ * upstream answers 401. That is what made the 401s intermittent: exactly one
+ * per expiry, on whatever the user happened to click first.
+ */
+function withRefreshedCookies(request: NextRequest, tokens: RefreshedTokens): Headers {
+  const headers = new Headers(request.headers);
+  headers.set('cookie', rewriteCookieHeader(request.cookies.getAll(), tokens));
+  return headers;
 }
 
 function applySecurityHeaders(response: NextResponse) {
@@ -126,7 +143,11 @@ export async function proxy(request: NextRequest) {
     return finalize(NextResponse.redirect(marketplace));
   }
 
-  return finalize(NextResponse.next({ request }));
+  return finalize(
+    refreshed
+      ? NextResponse.next({ request: { headers: withRefreshedCookies(request, refreshed) } })
+      : NextResponse.next({ request }),
+  );
 }
 
 export const config = {

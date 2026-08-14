@@ -159,4 +159,49 @@ class TradeEscrowServiceIT extends AbstractPostgresIT {
                 .as("every tiyin the buyer put in is somewhere")
                 .isEqualTo(50_000_000L);
     }
+
+    @Test
+    void aTradeThatNeverHeldAnythingIsNotRefunded() {
+        // Found in production: every trade that existed before escrow shipped
+        // got escrow_resolved_at = NULL from the migration, so the sweeper read
+        // them as owing a refund and asked for one once a minute. Posting it
+        // drove held negative and chk_wallet_non_negative refused, which the
+        // caller saw as a 409 it could never satisfy.
+        UUID buyer = fundedUser(50_000_000L);
+
+        escrow.release(UUID.randomUUID(), buyer, 50_000_000L);   // no hold ever
+
+        var w = ledger.balanceOf(buyer);
+        assertThat(w.getAvailableTiyin())
+                .as("a refund for money never taken must not invent money")
+                .isEqualTo(50_000_000L);
+        assertThat(w.getHeldTiyin()).isZero();
+    }
+
+    @Test
+    void aTradeThatNeverHeldAnythingPaysNobodyOnSettle() {
+        UUID buyer = fundedUser(50_000_000L);
+        UUID seller = UUID.randomUUID();
+
+        escrow.settle(UUID.randomUUID(), buyer, seller, 50_000_000L);
+
+        assertThat(ledger.balanceOf(seller).getAvailableTiyin())
+                .as("paying a seller out of an escrow that was never collected "
+                        + "would create money from nothing")
+                .isZero();
+        assertThat(ledger.balanceOf(buyer).getAvailableTiyin()).isEqualTo(50_000_000L);
+    }
+
+    @Test
+    void aRealEscrowIsStillSettledNormally() {
+        // The guard must not swallow the case it is not for.
+        UUID trade = UUID.randomUUID();
+        UUID buyer = fundedUser(50_000_000L);
+        UUID seller = UUID.randomUUID();
+
+        escrow.hold(trade, buyer, 50_000_000L);
+        escrow.settle(trade, buyer, seller, 50_000_000L);
+
+        assertThat(ledger.balanceOf(seller).getAvailableTiyin()).isEqualTo(46_250_000L);
+    }
 }
