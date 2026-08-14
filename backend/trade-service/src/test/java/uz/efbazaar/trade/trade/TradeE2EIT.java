@@ -30,6 +30,8 @@ import static org.awaitility.Awaitility.await;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUser;
+import org.springframework.context.annotation.Import;
+import uz.efbazaar.trade.testsupport.StubEscrowConfig;
 
 /**
  * End-to-end happy path over the real REST surface: proposal creation →
@@ -42,6 +44,7 @@ import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUse
  * and tests that the consumer fixes properly handle at-least-once redelivery.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(StubEscrowConfig.class)
 @AutoConfigureMockMvc
 class TradeE2EIT extends AbstractIntegrationIT {
 

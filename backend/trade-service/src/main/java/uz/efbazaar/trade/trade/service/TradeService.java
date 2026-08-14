@@ -74,6 +74,22 @@ public class TradeService {
                                    UUID sellerCardId, UUID buyerCardId, UUID listingId,
                                    UUID chatId, TradeMode mode,
                                    UUID assignedAdminId, Long adminFeeUzs) {
+        return openTrade(UUID.randomUUID(), sellerId, buyerId, priceUzs, sellerCardId,
+                buyerCardId, listingId, chatId, mode, assignedAdminId, adminFeeUzs);
+    }
+
+    /**
+     * Opens a trade under an id the caller already knows.
+     *
+     * <p>Exists because the escrow hold has to happen before the trade row does
+     * — a trade must never exist without the money behind it — and the hold is
+     * keyed by trade id. The caller generates the id, holds, then opens.
+     */
+    @Transactional
+    public TradeResponse openTrade(UUID tradeId, UUID sellerId, UUID buyerId, long priceUzs,
+                                   UUID sellerCardId, UUID buyerCardId, UUID listingId,
+                                   UUID chatId, TradeMode mode,
+                                   UUID assignedAdminId, Long adminFeeUzs) {
         if (mode == TradeMode.SMART && (sellerCardId == null || buyerCardId == null)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Smart savdo uchun ikki tarafning kartasi ham kerak");
@@ -89,7 +105,7 @@ public class TradeService {
         UUID mailboxId = allocatePlaceholderMailbox();
 
         Trade t = Trade.builder()
-                .id(UUID.randomUUID())
+                .id(tradeId)
                 .sellerId(sellerId)
                 .buyerId(buyerId)
                 .listingId(listingId)

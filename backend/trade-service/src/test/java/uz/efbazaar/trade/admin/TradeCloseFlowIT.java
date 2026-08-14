@@ -30,8 +30,11 @@ import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.springframework.context.annotation.Import;
+import uz.efbazaar.trade.testsupport.StubEscrowConfig;
 
 @SpringBootTest
+@Import(StubEscrowConfig.class)
 class TradeCloseFlowIT extends AbstractIntegrationIT {
 
     @Autowired TradeCloseService closeService;

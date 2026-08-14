@@ -11,7 +11,9 @@ import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.trade.admin.service.TradeAdminProfileService;
 import uz.efbazaar.trade.kafka.TradeEventPublisher;
 import uz.efbazaar.trade.kafka.TradeEvents;
+import uz.efbazaar.trade.payment.EscrowClient;
 import uz.efbazaar.trade.trade.domain.ActorType;
+import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.dto.ProposalCreateRequest;
 import uz.efbazaar.trade.trade.dto.ProposalDetailsResponse;
@@ -65,6 +67,7 @@ public class TradeProposalService {
     private final TradeService trades;
     private final TradeAuditService audit;
     private final TradeAdminProfileService adminProfiles;
+    private final EscrowClient escrow;
 
     @Value("${trade.proposal.ttl-seconds:600}")
     private long ttlSeconds;
@@ -223,8 +226,39 @@ public class TradeProposalService {
         UUID listingId = optionalUuid(raw.get("listingId"));
         UUID chatId    = optionalUuid(raw.get("marketplaceChatId"));
 
-        var trade = trades.openTrade(sellerId, buyerId, amountUzs,
-                sellerCardId, buyerCardId, listingId, chatId, mode, adminId, adminFee);
+        // Hold the money BEFORE the trade exists. A trade with nothing behind
+        // it must not be creatable at all: openTrade allocates a mailbox and
+        // fires events, and this method is @Transactional, so cancelling an
+        // already-opened trade from inside it would roll back with everything
+        // else and leave the trade running anyway.
+        //
+        // The hold is authoritative — no separate balance check, which would
+        // only add a call and a race. Not enough money surfaces as the wallet's
+        // own 409 and nothing is created.
+        UUID tradeId = UUID.randomUUID();
+        if (mode == TradeMode.SMART) {
+            escrow.hold(tradeId, buyerId, amountUzs);
+        }
+
+        TradeResponse trade;
+        try {
+            trade = trades.openTrade(tradeId, sellerId, buyerId, amountUzs,
+                    sellerCardId, buyerCardId, listingId, chatId, mode, adminId, adminFee);
+        } catch (RuntimeException e) {
+            // The money is already frozen and there is no trade to release it.
+            // Give it straight back rather than stranding it; release is keyed
+            // by the same id, so a retry is harmless.
+            if (mode == TradeMode.SMART) {
+                try {
+                    escrow.release(tradeId, buyerId, amountUzs);
+                } catch (RuntimeException releaseFailed) {
+                    log.error("Trade {} could not be opened AND its hold could not be "
+                            + "released — buyer {} has {} so'm frozen with no trade",
+                            tradeId, buyerId, amountUzs, releaseFailed);
+                }
+            }
+            throw e;
+        }
 
         redis.delete(mainKey);
         if (chatId != null) redis.delete(chatIndexKey(chatId));
