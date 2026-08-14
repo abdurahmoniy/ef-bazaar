@@ -108,7 +108,7 @@ springdoc:
   swagger-ui:
     path: /swagger-ui/index.html
     enabled: true
-    # Aggregated swagger UI: dropdown'da 3 ta servis.
+    # Aggregated swagger UI: dropdown'da public HTTP API servislar.
     # URL'lar `api.efbazaar.uz` orqali chiqadi (nginx routing).
     urls:
       - name: auth
@@ -117,6 +117,10 @@ springdoc:
         url: /v3/api-docs/marketplace
       - name: bot
         url: /v3/api-docs/bot
+      - name: trade
+        url: /v3/api-docs/trade
+      - name: payment
+        url: /v3/api-docs/payment
     disable-swagger-default-url: true
     display-request-duration: true
     operations-sorter: method
