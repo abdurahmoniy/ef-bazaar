@@ -53,7 +53,7 @@ class TradeWebSocketIT extends AbstractIntegrationIT {
         // then drive a TIMEOUT ourselves (a transition no Kafka consumer competes
         // for) so the WS push we assert on isn't racing live infrastructure.
         await().atMost(10, TimeUnit.SECONDS).until(() ->
-                tradeRepo.findById(t.id()).orElseThrow().getState() == TradeState.WAITING_PAYMENT);
+                tradeRepo.findById(t.id()).orElseThrow().getState() == TradeState.WAITING_EMAIL_CHANGE);
 
         var sockJs = new SockJsClient(List.of(new WebSocketTransport(new StandardWebSocketClient())));
         var stomp = new WebSocketStompClient(sockJs);
@@ -79,7 +79,7 @@ class TradeWebSocketIT extends AbstractIntegrationIT {
         // Re-check that we're still in WAITING_PAYMENT before firing TIMEOUT
         // (the trade's WAITING_PAYMENT deadline might have already expired).
         await().atMost(10, TimeUnit.SECONDS).until(() ->
-                tradeRepo.findById(t.id()).orElseThrow().getState() == TradeState.WAITING_PAYMENT);
+                tradeRepo.findById(t.id()).orElseThrow().getState() == TradeState.WAITING_EMAIL_CHANGE);
         trades.transition(t.id(), TradeEvent.TIMEOUT, ActorType.SYSTEM, null);
 
         Object frame = queue.poll(5, TimeUnit.SECONDS);

@@ -297,6 +297,7 @@ services:
       # Invoice notices go out through `bot`, which owns the token, the group
       # chat id and the payments thread id. None of those reach this service.
       BOT_INTERNAL_BASE_URL: ${BOT_INTERNAL_BASE_URL:-http://bot:8084}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
       PAYMENT_ADMIN_TELEGRAM_ENABLED: ${PAYMENT_ADMIN_TELEGRAM_ENABLED:-true}
     secrets:
       - master_key
@@ -355,6 +356,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_GROUP_CHAT_ID: ${TELEGRAM_GROUP_CHAT_ID}
       TELEGRAM_TOPIC_LOGS: ${TELEGRAM_TOPIC_LOGS}
+      TELEGRAM_TOPIC_EMAIL: ${TELEGRAM_TOPIC_EMAIL}
     secrets:
       - mailcow_api_key
       - master_key

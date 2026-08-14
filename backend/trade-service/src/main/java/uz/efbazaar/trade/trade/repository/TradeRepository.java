@@ -171,4 +171,17 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
     int markEscalated(@Param("id") UUID id,
                       @Param("now") Instant now,
                       @Param("reason") String reason);
+
+    /**
+     * Terminal SMART trades whose escrow never moved. Backed by the partial
+     * index from V10 — the set is normally empty and the table is not.
+     */
+    @Query("""
+           SELECT t FROM Trade t
+           WHERE t.escrowResolvedAt IS NULL
+             AND t.mode = uz.efbazaar.trade.trade.domain.TradeMode.SMART
+             AND t.state IN (:success, :rejected)
+           """)
+    List<Trade> findEscrowUnresolved(@Param("success") TradeState success,
+                                     @Param("rejected") TradeState rejected);
 }

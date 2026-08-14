@@ -17,8 +17,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.springframework.context.annotation.Import;
+import uz.efbazaar.trade.testsupport.StubEscrowConfig;
 
 @SpringBootTest
+@Import(StubEscrowConfig.class)
 class TradeProposalServiceIT extends AbstractIntegrationIT {
 
     @Autowired TradeProposalService svc;

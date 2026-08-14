@@ -30,6 +30,8 @@ import static org.awaitility.Awaitility.await;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUser;
+import org.springframework.context.annotation.Import;
+import uz.efbazaar.trade.testsupport.StubEscrowConfig;
 
 /**
  * End-to-end happy path over the real REST surface: proposal creation →
@@ -42,6 +44,7 @@ import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUse
  * and tests that the consumer fixes properly handle at-least-once redelivery.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(StubEscrowConfig.class)
 @AutoConfigureMockMvc
 class TradeE2EIT extends AbstractIntegrationIT {
 
@@ -105,16 +108,13 @@ class TradeE2EIT extends AbstractIntegrationIT {
                 .andReturn();
         var trade = json.readValue(acceptResult.getResponse().getContentAsString(), TradeResponse.class);
 
-        // Step 4: MockWorker + EmailProvisionedConsumer race to drive
-        // INITIATED → WAITING_PAYMENT asynchronously.
+        // Step 4: MockWorker + EmailProvisionedConsumer drive INITIATED →
+        // WAITING_PAYMENT and, for a SMART trade, straight through it: the
+        // buyer's money was frozen when they accepted, so there is no payment
+        // left to confirm and no button to press.
         await().atMost(10, TimeUnit.SECONDS).until(() ->
-                tradeRepo.findById(trade.id()).orElseThrow().getState() == TradeState.WAITING_PAYMENT);
-
-        // Step 5: Buyer confirms payment.
-        mvc.perform(post("/api/v1/trades/" + trade.id() + "/actions/payment-confirmed").with(asUser(buyer)))
-                .andExpect(status().isOk());
-        assertThat(tradeRepo.findById(trade.id()).orElseThrow().getState())
-                .isEqualTo(TradeState.WAITING_EMAIL_CHANGE);
+                tradeRepo.findById(trade.id()).orElseThrow().getState()
+                        == TradeState.WAITING_EMAIL_CHANGE);
 
         // Step 6: Seller changes email.
         mvc.perform(post("/api/v1/trades/" + trade.id() + "/actions/email-changed").with(asUser(seller)))

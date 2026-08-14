@@ -102,6 +102,7 @@ write_env() {
   # No default: an unset payments topic means "do not announce", and a wrong
   # number would put user ids into somebody else's thread.
   upsert_env .env TELEGRAM_TOPIC_PAYMENTS     "${TELEGRAM_TOPIC_PAYMENTS:-}"
+  upsert_env .env TELEGRAM_TOPIC_EMAIL        "${TELEGRAM_TOPIC_EMAIL:-}"
   upsert_env .env TELEGRAM_WEBHOOK_URL        "${TELEGRAM_WEBHOOK_URL:-}"
   upsert_env .env TELEGRAM_WEBHOOK_SECRET     "${TELEGRAM_WEBHOOK_SECRET:-}"
 

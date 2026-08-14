@@ -35,6 +35,10 @@ public class SecurityConfig {
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
+                        // Guarded by InternalSecretFilter, not by a role: the
+                        // caller is trade-service, which has no user identity.
+                        // permitAll here would be wrong without that filter.
+                        .requestMatchers("/internal/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class)

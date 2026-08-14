@@ -11,6 +11,7 @@ import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.Trade;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
+import uz.efbazaar.trade.payment.EscrowClient;
 import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.domain.TradeState;
 
@@ -34,6 +35,7 @@ public class TradeStateHandler {
     private final MailboxService mailboxes;
     private final TradeAuditService audit;
     private final TradeAdminStats adminStats;
+    private final EscrowClient escrow;
 
     @Value("${trade.timeouts.waiting-payment-seconds}")        private long twpS;
     @Value("${trade.timeouts.waiting-email-change-seconds}")   private long twecS;
@@ -137,6 +139,14 @@ public class TradeStateHandler {
             case SUCCESS -> {
                 trade.setStateDeadline(null);
                 trade.setEscalationDeadlineAt(null);
+                // Pay the seller before anything else in this branch. The
+                // account has already changed hands by the time a trade
+                // reaches SUCCESS, so an unsettled one is the asymmetry that
+                // actually costs somebody: buyer has the account, seller has
+                // nothing. Settling first means a failure here aborts the
+                // whole transition and the trade is retried still owing money,
+                // rather than closing as done with the payment lost.
+                settleEscrow(trade);
                 trade.setTerminalReason(trade.getMode() == TradeMode.HUMAN
                         ? "ADMIN_CLOSED_CONFIRMED" : "BUYER_CONFIRMED");
                 events.mailboxRotateRequest(trade.getMailboxId());
@@ -170,6 +180,7 @@ public class TradeStateHandler {
             case REJECTED -> {
                 trade.setStateDeadline(null);
                 trade.setEscalationDeadlineAt(null);
+                releaseEscrow(trade);
                 // Same reasoning as WAITING_CLOSE_CONFIRM above: the admin
                 // (or a platform admin acting on ADMIN_CANCELLED) resolved
                 // the trade, so a stale escalated flag must not linger into
@@ -213,5 +224,41 @@ public class TradeStateHandler {
 
     private static Instant now(long seconds) {
         return Instant.now().plus(Duration.ofSeconds(seconds));
+    }
+
+    /**
+     * Pays the seller out of escrow, less the platform's share.
+     *
+     * <p>HUMAN trades never touched the wallet, so there is nothing to settle.
+     * A wallet failure propagates on purpose: it must abort the transition to
+     * SUCCESS rather than close a trade whose seller was never paid.
+     */
+    private void settleEscrow(Trade trade) {
+        if (trade.getMode() != TradeMode.SMART) return;
+        escrow.settle(trade.getId(), trade.getBuyerId(), trade.getSellerId(), trade.getPriceUzs());
+        trade.setEscrowResolvedAt(Instant.now());
+    }
+
+    /**
+     * Gives the escrow back, whole. No fee — the platform charges for a trade
+     * that completed, and this one did not.
+     *
+     * <p>Unlike settle this swallows its failure. A trade can be rejected
+     * before the hold ever ran (the accept path cancels an unfunded trade that
+     * way), and refusing to close it would leave it stuck in a state nobody can
+     * move. The money is still in escrow and reconciliation will find it; a
+     * trade that cannot be closed is the worse outcome.
+     */
+    private void releaseEscrow(Trade trade) {
+        if (trade.getMode() != TradeMode.SMART) return;
+        try {
+            escrow.release(trade.getId(), trade.getBuyerId(), trade.getPriceUzs());
+            trade.setEscrowResolvedAt(Instant.now());
+        } catch (RuntimeException e) {
+            // Left unresolved on purpose: escrow_resolved_at stays NULL and
+            // TradeEscrowSweeper comes back for it.
+            log.error("Escrow release failed for trade {} — money stays held, "
+                    + "the sweeper must pick it up", trade.getId(), e);
+        }
     }
 }
