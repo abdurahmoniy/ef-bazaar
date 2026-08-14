@@ -10,6 +10,7 @@ import uz.efbazaar.payment.card.domain.PlatformCard;
 import uz.efbazaar.payment.card.service.PlatformCardService;
 import uz.efbazaar.payment.invoice.domain.Invoice;
 import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
+import uz.efbazaar.payment.observation.repository.CardCreditObservationRepository;
 
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -29,6 +30,7 @@ import java.util.OptionalLong;
 public class InvoiceNoticeListener {
 
     private final InvoiceRepository invoices;
+    private final CardCreditObservationRepository observations;
     private final PlatformCardService cards;
     private final AdminTelegramNotifier notifier;
 
@@ -60,5 +62,14 @@ public class InvoiceNoticeListener {
     public void onExpired(InvoiceNoticeEvents.InvoicesExpired event) {
         // No transaction needed: this only deletes messages.
         event.messageIds().forEach(notifier::invoiceExpired);
+    }
+
+    @TransactionalEventListener
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onUnmatched(InvoiceNoticeEvents.UnmatchedCredit event) {
+        observations.findById(event.observationId()).ifPresent(obs ->
+                notifier.unmatchedCredit(new UnmatchedNotice(
+                        obs.getId(), obs.getCardLast4(),
+                        obs.getAmountTiyin(), obs.getObservedAt())));
     }
 }

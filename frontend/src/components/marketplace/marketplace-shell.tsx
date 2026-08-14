@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   Trophy,
   UserRound,
+  Wallet,
 } from 'lucide-react';
 
 import { ChatsUnreadBadge } from '@/components/chat/chats-unread-badge';
@@ -55,7 +56,14 @@ interface MarketplaceShellProps {
   mobileActionBar?: React.ReactNode;
 }
 
-export type MarketplaceTab = 'home' | 'tournaments' | 'safety' | 'sell' | 'chats' | 'profile';
+export type MarketplaceTab =
+  | 'home'
+  | 'tournaments'
+  | 'safety'
+  | 'sell'
+  | 'chats'
+  | 'profile'
+  | 'wallet';
 
 interface NavItem {
   id: MarketplaceTab;
@@ -71,6 +79,12 @@ interface NavItem {
  * Bottom tab bar (mobile). Five slots, no more — a sixth truncates labels on a
  * 360px phone. Sevimli is intentionally absent: it is a profile tab, and the
  * desktop header nav carries it.
+ *
+ * <p>Two entries are flag-gated and the budget only balances because one of
+ * them is off: with FEATURES.wallet on and FEATURES.tournaments off this is
+ * exactly five. Turning tournaments on makes it six and something has to give
+ * — most likely Turnirlar moves to the desktop nav and the user menu, the way
+ * Sevimli did. Do not just add it and hope; check it on a 360px viewport.
  */
 function buildNavItems(user: User | null): NavItem[] {
   const all: NavItem[] = [
@@ -81,6 +95,13 @@ function buildNavItems(user: User | null): NavItem[] {
       label: 'Turnirlar',
       icon: <Trophy className="h-5 w-5" />,
       requiresAuth: false,
+    },
+    {
+      id: 'wallet',
+      href: user ? '/hamyon' : '/auth/login?from=/hamyon',
+      label: 'Hamyon',
+      icon: <Wallet className="h-5 w-5" />,
+      requiresAuth: true,
     },
     {
       id: 'sell',
@@ -112,6 +133,7 @@ function buildNavItems(user: User | null): NavItem[] {
   ];
   return all.filter((item) => {
     if (item.id === 'tournaments') return FEATURES.tournaments;
+    if (item.id === 'wallet') return FEATURES.wallet;
     return true;
   });
 }

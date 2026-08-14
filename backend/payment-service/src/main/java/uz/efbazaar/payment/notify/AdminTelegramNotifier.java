@@ -64,6 +64,24 @@ public class AdminTelegramNotifier {
         }
     }
 
+    /**
+     * Announces a payment that matched no live invoice.
+     *
+     * <p>This is the one event in the rail that needs a human, and it was the
+     * only one the topic never mentioned. The card owners watch Telegram, not
+     * the admin panel, so an unmatched credit could sit in the queue unseen —
+     * and the case that produces one most often is a late payment, whose
+     * invoice notice has already been deleted, leaving no trace at all.
+     */
+    public void unmatchedCredit(UnmatchedNotice n) {
+        if (!enabled) return;
+        try {
+            bot.postPaymentNotice(renderUnmatched(n));
+        } catch (Exception e) {
+            log.warn("Unmatched credit {} was not announced: {}", n.observationId(), e.toString());
+        }
+    }
+
     /** Deletes an announcement with no replacement — an expiry is not news. */
     public void invoiceExpired(Long messageId) {
         if (!enabled || messageId == null) return;
@@ -101,8 +119,34 @@ public class AdminTelegramNotifier {
                         n.userId(), CLOCK.format(at));
     }
 
+    private String renderUnmatched(UnmatchedNotice n) {
+        return """
+               ⚠️ <b>Tekshirilmagan tushum</b>
+               💳 %s
+               💵 Kelgan summa: <b>%s so'm</b>
+               🕓 %s
+               ❓ Mos so'rov topilmadi — admin panelidan biriktiring"""
+                .formatted(mask(n.cardLast4()), exactUzs(n.amountTiyin()),
+                        CLOCK.format(n.observedAt()));
+    }
+
     private static String mask(String last4) {
         return "•••• " + last4;
+    }
+
+    /**
+     * Like {@link #uzs} but keeps a non-zero tiyin remainder.
+     *
+     * <p>{@code uzs} may drop it because an invoice amount is whole so'm by
+     * construction. A payment nobody asked for carries no such guarantee, and
+     * this number is the one an admin reads back against a bank statement — so
+     * "1 000,50" must not print as "1 000".
+     */
+    private static String exactUzs(long tiyin) {
+        long whole = tiyin / 100;
+        long frac = Math.abs(tiyin % 100);
+        String grouped = String.format(Locale.ROOT, "%,d", whole).replace(',', ' ');
+        return frac == 0 ? grouped : "%s,%02d".formatted(grouped, frac);
     }
 
     /**

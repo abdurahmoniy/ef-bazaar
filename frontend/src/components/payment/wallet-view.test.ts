@@ -29,6 +29,8 @@ const wallet: WalletResponse = {
   availableTiyin: 0,
   heldTiyin: 0,
   withdrawPendingTiyin: 0,
+  lifetimeDepositedTiyin: 0,
+  lifetimeEarnedTiyin: 0,
 };
 
 function invoice(overrides: Partial<InvoiceResponse> = {}): InvoiceResponse {

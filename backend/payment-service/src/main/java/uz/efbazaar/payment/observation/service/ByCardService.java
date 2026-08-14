@@ -102,7 +102,7 @@ public class ByCardService {
         if (candidates.size() != 1) {
             log.warn("Observation {} matched {} invoices on card *{} at {} tiyin — queued",
                     obs.getId(), candidates.size(), event.cardLast4(), event.amountTiyin());
-            return observations.save(obs);
+            return queue(obs);
         }
 
         Invoice invoice = candidates.get(0);
@@ -113,7 +113,7 @@ public class ByCardService {
             // invoice it never funded, which is how money disappears quietly.
             log.warn("Observation {} lost the race for invoice {} — queued",
                     obs.getId(), invoice.getId());
-            return observations.save(obs);
+            return queue(obs);
         }
         obs.setStatus(ObservationStatus.MATCHED);
         obs.setInvoiceId(invoice.getId());
@@ -218,6 +218,21 @@ public class ByCardService {
      * both decide on this row and one of them creates money that nothing can
      * take back. See {@code findByIdForUpdate}.
      */
+    /**
+     * Files a payment nobody claimed and tells the admin topic about it.
+     *
+     * <p>Both callers reach here with the observation still UNMATCHED, which is
+     * the status it must keep. The announcement is AFTER_COMMIT like every
+     * other notice, so a Telegram outage cannot roll back the row that records
+     * the money — a missing message is recoverable, a missing observation is
+     * a payment nobody can trace.
+     */
+    private CardCreditObservation queue(CardCreditObservation obs) {
+        CardCreditObservation saved = observations.save(obs);
+        appEvents.publishEvent(new InvoiceNoticeEvents.UnmatchedCredit(saved.getId()));
+        return saved;
+    }
+
     private CardCreditObservation require(UUID id) {
         return observations.findByIdForUpdate(id).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Tushum topilmadi"));
