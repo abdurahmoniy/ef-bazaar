@@ -55,7 +55,9 @@ require_env() {
 # ─── Sync .env from CI secrets ──────────────────────────────────────────────
 write_env() {
   require_env CARD_INTEREST_HMAC_SECRET "${CARD_INTEREST_HMAC_SECRET:-}"
+  require_env INTERNAL_API_SECRET "${INTERNAL_API_SECRET:-}"
   assert_safe_for_env CARD_INTEREST_HMAC_SECRET "$CARD_INTEREST_HMAC_SECRET"
+  assert_safe_for_env INTERNAL_API_SECRET "$INTERNAL_API_SECRET"
   echo "==> Writing .env from CI secrets"
   : > .env
 
@@ -133,10 +135,7 @@ write_env() {
   # /api/tournaments/** (Chempionat-X header-auth), and auth/marketplace guard
   # their /internal/** with it. Blank → header-auth fail-closed. Must equal
   # Chempionat-X's EFBAZAAR_INTERNAL_SECRET.
-  if [[ -n "${INTERNAL_API_SECRET:-}" ]]; then
-    assert_safe_for_env INTERNAL_API_SECRET "$INTERNAL_API_SECRET"
-    upsert_env .env INTERNAL_API_SECRET "$INTERNAL_API_SECRET"
-  fi
+  upsert_env .env INTERNAL_API_SECRET "$INTERNAL_API_SECRET"
 
   chmod 600 .env
   echo "==> .env written ($(wc -l < .env) lines)"
@@ -416,6 +415,29 @@ report_changes() {
   fi
 }
 
+# Read one variable from a container without writing its value to the deploy log.
+container_env_value() {
+  local container="$1" key="$2"
+  docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$container" \
+    | awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print; exit }'
+}
+
+verify_internal_api_secret() {
+  local trade_secret payment_secret
+  trade_secret="$(container_env_value efbazaar-trade INTERNAL_API_SECRET)"
+  payment_secret="$(container_env_value efbazaar-payment INTERNAL_API_SECRET)"
+
+  if [[ -z "$trade_secret" || -z "$payment_secret" ]]; then
+    echo "!! INTERNAL_API_SECRET missing from trade-service or payment-service" >&2
+    return 1
+  fi
+  if [[ "$trade_secret" != "$payment_secret" ]]; then
+    echo "!! trade/payment INTERNAL_API_SECRET mismatch" >&2
+    return 1
+  fi
+  echo "==> trade/payment INTERNAL_API_SECRET present and matching"
+}
+
 # ─── Main flow ──────────────────────────────────────────────────────────────
 
 write_env
@@ -444,6 +466,7 @@ fi
 # - boshqalar — tinch qoladi
 echo "==> docker compose up -d (smart recreate)"
 docker compose up -d --remove-orphans $RECREATE_FLAG
+verify_internal_api_secret
 
 # Nginx config validatsiya (agar nginx ishlaganda)
 if docker compose ps --services --filter status=running | grep -q '^nginx$'; then
