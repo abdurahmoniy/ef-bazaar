@@ -74,6 +74,7 @@ public class TradeEscrowService {
     @Transactional
     public void settle(UUID tradeId, UUID buyerId, UUID sellerId, long priceTiyin) {
         requirePositive(priceTiyin);
+        if (neverHeld(tradeId, "settle")) return;
         long fee = TradeCommission.feeTiyin(priceTiyin);
         long proceeds = priceTiyin - fee;
 
@@ -104,10 +105,33 @@ public class TradeEscrowService {
     @Transactional
     public void release(UUID tradeId, UUID buyerId, long priceTiyin) {
         requirePositive(priceTiyin);
+        if (neverHeld(tradeId, "release")) return;
         ledger.post(TransactionKind.TRADE_RELEASE, key("release", tradeId), null,
                 "trade " + tradeId,
                 List.of(new Posting(LedgerAccount.USER_HELD, buyerId, priceTiyin),
                         new Posting(LedgerAccount.USER_AVAILABLE, buyerId, -priceTiyin)));
+    }
+
+    /**
+     * True when this trade never had money frozen, in which case there is
+     * nothing to settle or release and the caller is done.
+     *
+     * <p>Trades that predate escrow are exactly this: the sweeper sees them as
+     * terminal with no resolution recorded and asks for a movement, and posting
+     * one would drive the buyer's held balance negative — which is what
+     * chk_wallet_non_negative caught in production, once a minute per trade,
+     * as a 409 the sweeper could never satisfy.
+     *
+     * <p>Checked against the hold transaction rather than the balance, which
+     * cannot tell "never held" from "already released". Under the current code
+     * a SMART trade cannot exist without a successful hold, so a missing one
+     * always means the trade came from before this feature.
+     */
+    private boolean neverHeld(UUID tradeId, String action) {
+        if (ledger.hasPosted(key("hold", tradeId))) return false;
+        log.info("Trade {} has no escrow hold — nothing to {}; it predates the wallet",
+                tradeId, action);
+        return true;
     }
 
     private static String key(String action, UUID tradeId) {

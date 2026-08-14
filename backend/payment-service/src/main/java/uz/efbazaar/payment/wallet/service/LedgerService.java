@@ -109,6 +109,12 @@ public class LedgerService {
         return txId;
     }
 
+    /** Whether a transaction with this idempotency key has already been posted. */
+    @Transactional(readOnly = true)
+    public boolean hasPosted(String idempotencyKey) {
+        return transactions.findByIdempotencyKey(idempotencyKey).isPresent();
+    }
+
     @Transactional
     public WalletAccount balanceOf(UUID userId) {
         return wallets.findById(userId).orElseGet(() -> {
