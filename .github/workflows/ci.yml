@@ -182,10 +182,12 @@ jobs:
             path: smart-admin-worker
             package: smart_admin_worker
             changed: ${{ needs.precheck.outputs['smart-admin'] }}
+            image_check: false
           - name: humo-userbot
             path: humo-userbot
             package: humo_userbot
             changed: ${{ needs.precheck.outputs['humo-userbot'] }}
+            image_check: true
     steps:
       - if: matrix.changed == 'true'
         uses: actions/checkout@v4
@@ -207,6 +209,21 @@ jobs:
         name: Pytest
         working-directory: ${{ matrix.path }}
         run: pytest -q
+      # Pytest passing proves nothing about the image. The runner ships a C
+      # compiler and python:*-slim does not, so a dependency with no wheel for
+      # our Python installs fine here and dies in the Dockerfile — which is
+      # exactly how a red build reached main (TgCrypto, cp311 wheels only).
+      # Building on the PR is the only step that runs pip in the environment
+      # the container actually gets.
+      #
+      # smart-admin-worker opts out: its base is the ~2.5GB MS Playwright image,
+      # so every PR touching it would pull that before doing anything useful. I
+      # could not verify that build end to end, and shipping an unverified step
+      # would turn somebody else's PRs red. Flip its flag once someone has.
+      - if: matrix.changed == 'true' && matrix.image_check == true
+        name: Docker build
+        working-directory: ${{ matrix.path }}
+        run: docker build -t ${{ matrix.name }}:ci .
 
   test-frontend:
     needs: precheck
