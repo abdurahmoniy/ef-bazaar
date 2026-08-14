@@ -42,6 +42,12 @@ export const MARKETPLACE_FILTERS = [
       attributes: {
         has_google_play_link: 'false',
         has_game_center_link: 'false',
+        // A coin balance can legitimately be negative (the card renders those
+        // in red), and a negative balance is a debt the buyer inherits — so a
+        // clean account is a non-negative one. `.min` casts the JSONB text to
+        // numeric, and a listing that declares no coin count yields NULL,
+        // which fails the comparison and drops out. That is deliberate: an
+        // undeclared balance cannot be shown to be non-negative.
         'android_coins.min': '0',
         'ios_coins.min': '0',
       },

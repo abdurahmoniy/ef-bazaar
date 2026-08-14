@@ -18,12 +18,33 @@ export const FEATURES = {
   favorites: true,
 
   // ── Phase 2 ───────────────────────────────────────────────────
-  /** Human trade admin escrow system. */
-  tradeAdmin: true,
+  /**
+   * Human trade admin: the workspace, the public directory, the applications,
+   * the admin oversight screens, the role toggle, and the HUMAN option when a
+   * trade is proposed.
+   *
+   * Off means closed for use, not deleted. Every route, component and API call
+   * stays exactly where it is — this flag only removes the ways in. Turning it
+   * back on is one line.
+   *
+   * SMART trades are untouched. They are a different mode of the same trade
+   * service and nothing here gates them.
+   *
+   * Replaces `tradeAdmin` and `tradeAdminDirectory`, which were declared but
+   * referenced nowhere — they read as protection while gating nothing.
+   */
+  humanAdmin: false,
   /** Public scammer blacklist (/blacklist). */
   blacklist: true,
-  /** Trade admin public directory (/trade-admins). */
-  tradeAdminDirectory: true,
+  /**
+   * Wallet & card top-up (/hamyon).
+   *
+   * Shipped dark until the rail was proven end to end on 2026-08-14: the
+   * userbot holds a live session, a platform card is active, and a real
+   * transfer was observed and queued. Three bugs had to be found first, and
+   * every one of them was silent — which is exactly why this stayed off.
+   */
+  wallet: true,
 
   // ── Phase 3 ───────────────────────────────────────────────────
   /** Tournament brackets & registration. */

@@ -29,12 +29,20 @@ class ListingPersistenceTest {
                 .id(listingId)
                 .attributes(Map.of("valuable_players", cards))
                 .build();
-        when(listings.save(any(Listing.class))).thenReturn(listing);
+        when(listings.saveAndFlush(any(Listing.class))).thenReturn(listing);
 
         assertThat(persistence.saveWithCardInventory(listing)).isSameAs(listing);
 
         var ordered = inOrder(listings, inventory);
-        ordered.verify(listings).save(listing);
+        // saveAndFlush, not save: the inventory writes through JdbcTemplate,
+        // which does not see the persistence context, so an unflushed listing
+        // means listing_cards.listing_id points at a row the database does not
+        // have yet and the insert dies on the foreign key.
+        //
+        // A mock cannot prove flush semantics -- this only stops a regression
+        // to save(). The real proof was production: every listing carrying a
+        // valuable-players card failed to publish.
+        ordered.verify(listings).saveAndFlush(listing);
         ordered.verify(inventory).replace(listingId, cards);
         assertThat(ListingPersistence.class
                 .getMethod("saveWithCardInventory", Listing.class)

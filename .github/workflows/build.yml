@@ -69,6 +69,9 @@ jobs:
             trade:
               - 'backend/trade-service/**'
               - '.github/workflows/build.yml'
+            payment:
+              - 'backend/payment-service/**'
+              - '.github/workflows/build.yml'
             bot:
               - 'bot/**'
               - '.github/workflows/build.yml'
@@ -84,6 +87,9 @@ jobs:
             smart-admin:
               - 'smart-admin-worker/**'
               - '.github/workflows/build.yml'
+            humo-userbot:
+              - 'humo-userbot/**'
+              - '.github/workflows/build.yml'
 
       - id: build-matrix
         env:
@@ -98,11 +104,13 @@ jobs:
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.marketplace }}"    == "true" ]]; then add marketplace-service    backend/marketplace-service    marketplace-service;    fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.recommendation }}" == "true" ]]; then add recommendation-service backend/recommendation-service recommendation-service; fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.trade }}"          == "true" ]]; then add trade-service          backend/trade-service          trade-service;          fi
+          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.payment }}"        == "true" ]]; then add payment-service        backend/payment-service        payment-service;        fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.bot }}"            == "true" ]]; then add bot                    bot                            bot;                    fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.frontend }}"       == "true" ]]; then add frontend               frontend                       frontend;               fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.mail }}"           == "true" ]]; then add mail-frontend          mail                           mail-frontend;          fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.nginx }}"          == "true" ]]; then add nginx                  nginx                          nginx;                  fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs['smart-admin'] }}" == "true" ]]; then add smart-admin-worker      smart-admin-worker             smart-admin-worker;     fi
+          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs['humo-userbot'] }}" == "true" ]]; then add humo-userbot            humo-userbot                   humo-userbot;           fi
 
           if [ ${#ITEMS[@]} -eq 0 ]; then
             MATRIX='{"include":[]}'

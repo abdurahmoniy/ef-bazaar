@@ -38,6 +38,7 @@ import {
   type TradeResponse,
 } from '@/lib/trade-types';
 import { cn } from '@/lib/utils';
+import { FEATURES } from '@/lib/feature-flags';
 
 /** Polling cadence for both trade-state and pending-proposal watchers. */
 const POLL_INTERVAL_MS = 4000;
@@ -1394,6 +1395,11 @@ function ProposeModal({
   return (
     <ModalShell title="Taklif yuborish" onClose={onClose}>
       <form className="space-y-3" onSubmit={handleSubmit}>
+        {/* The whole chooser disappears when human admin is closed: SMART is
+            then the only mode, and a radio group with one option is noise.
+            setMode is never called, so `mode` stays at its 'SMART' default and
+            every branch below already handles that. */}
+        {FEATURES.humanAdmin && (
         <div>
           <Label>Admin turi</Label>
           <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Admin turi">
@@ -1432,6 +1438,7 @@ function ProposeModal({
             </button>
           </div>
         </div>
+        )}
 
         <div>
           <Label htmlFor="trade-price">Narx (UZS)</Label>
