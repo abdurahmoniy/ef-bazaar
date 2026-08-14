@@ -40,6 +40,20 @@ WITHDRAWAL = (
 
 OTHER_CARD = "Sizning balansingiz: 31.659,16 UZS"
 
+# Captured from production on 2026-08-14, the first real transfer this service
+# ever saw. It did NOT parse: the card pattern demanded the literal "HUMOCARD"
+# and the platform's card is a Hamkorbank-issued VISA. Nothing was credited.
+# Note the commission line, which the reconstructed fixtures did not have.
+PRODUCTION_VISA = (
+    "🎉 To'ldirish\n"
+    "➕ 1.000,00 UZS\n"
+    "⚠️ Komissiya: 0,00 UZS\n"
+    "📍 HAMKORBANK PAYME AJ\n"
+    "💳 VISA *4962\n"
+    "🕓 08:21 14.08.2026\n"
+    "💰 1.000,00 UZS"
+)
+
 
 def test_a_topup_is_parsed():
     result = parse_topup(TOPUP)
@@ -218,3 +232,39 @@ def test_a_plus_sign_with_no_digits_is_rejected_not_raised():
     """
     text = TOPUP.replace("➕ 30.000,00 UZS", "➕  UZS")
     assert parse_topup(text) is None
+
+
+def test_the_first_real_production_message_parses():
+    """The capture that proved the brand check was wrong.
+
+    The parser demanded "HUMOCARD" and production sent a VISA, so the transfer
+    was silently not credited. The brand is not what makes a card ours --
+    payment-service resolves the tail with findActiveByLast4 and ignores what
+    it does not own.
+    """
+    result = parse_topup(PRODUCTION_VISA)
+    assert result is not None
+    assert result.amount_tiyin == 100_000
+    assert result.card_last4 == "4962"
+    assert result.card_balance_tiyin == 100_000
+
+
+def test_the_commission_line_is_not_read_as_the_amount():
+    """"Komissiya: 0,00 UZS" is an amount-shaped line without a plus sign.
+
+    If it were ever counted the multi-record guard would refuse the message,
+    and a non-zero commission could be credited instead of the transfer.
+    """
+    bumped = PRODUCTION_VISA.replace("Komissiya: 0,00 UZS", "Komissiya: 500,00 UZS")
+    result = parse_topup(bumped)
+    assert result is not None
+    assert result.amount_tiyin == 100_000
+
+
+def test_every_card_brand_the_platform_supports_is_read():
+    """PlatformCardResponse models four brands; the parser must read them all."""
+    for brand in ["VISA", "HUMOCARD", "UZCARD", "MASTERCARD", "HUMO"]:
+        text = PRODUCTION_VISA.replace("VISA *4962", f"{brand} *4962")
+        result = parse_topup(text)
+        assert result is not None, f"{brand} was not recognised"
+        assert result.card_last4 == "4962"

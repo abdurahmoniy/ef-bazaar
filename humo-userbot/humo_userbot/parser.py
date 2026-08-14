@@ -12,9 +12,18 @@ from dataclasses import dataclass
 
 # "➕ 30.000,00 UZS" — '.' groups thousands, ',' separates decimals.
 _AMOUNT = re.compile(r"➕\s*([\d.\s]+(?:,\d+)?)\s*UZS")
-# "💳 HUMOCARD *4556" — the (?!\d) stops a longer tail from being read as its
-# own first four digits, which could name a DIFFERENT platform card.
-_CARD = re.compile(r"💳\s*HUMOCARD\s*\*(\d{4})(?!\d)")
+# "💳 VISA *4962", "💳 HUMOCARD *4556", "💳 UZCARD *1234".
+#
+# The brand is NOT matched. It used to demand "HUMOCARD" and the first real
+# production message was a VISA issued by Hamkorbank, so nothing was credited.
+# The platform's own cards can be any of the four brands PlatformCardResponse
+# already models, and the brand is not what makes a card ours: payment-service
+# looks the tail up with findActiveByLast4 and IGNOREs anything it does not
+# own. Matching the brand here only invented a way to miss our own money.
+#
+# The (?!\d) stops a longer tail from being read as its own first four digits,
+# which could name a DIFFERENT platform card.
+_CARD = re.compile(r"💳[^*\n]*\*(\d{4})(?!\d)")
 # "💰 31.659,16 UZS" — the card balance after the movement.
 _BALANCE = re.compile(r"💰\s*([\d.\s]+(?:,\d+)?)\s*UZS")
 
