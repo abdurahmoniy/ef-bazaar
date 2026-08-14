@@ -4,6 +4,7 @@ import { DeleteAccountButton } from '@/components/profile/delete-account-button'
 import { GoogleLinkButton } from '@/components/profile/google-link-button';
 import { LinkTelegramButton } from '@/components/profile/link-telegram-button';
 import { TradeAdminApplicationPanel } from '@/components/profile/trade-admin-application-panel';
+import { FEATURES } from '@/lib/feature-flags';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import type { TradeAdminApplicationResponse } from '@/lib/trade-admin-applications';
@@ -76,11 +77,15 @@ export function ProfileAccount({
         </CardContent>
       </Card>
 
-      <TradeAdminApplicationPanel
-        application={tradeAdminApplication}
-        isTradeAdmin={isTradeAdmin(user)}
-        defaultContact={defaultContact}
-      />
+      {/* Applying to become a trade admin is pointless while the role has
+          nowhere to work — FEATURES.humanAdmin closes the workspace too. */}
+      {FEATURES.humanAdmin && (
+        <TradeAdminApplicationPanel
+          application={tradeAdminApplication}
+          isTradeAdmin={isTradeAdmin(user)}
+          defaultContact={defaultContact}
+        />
+      )}
 
       <Card className="border-destructive/30 lg:col-span-2">
         <CardHeader>

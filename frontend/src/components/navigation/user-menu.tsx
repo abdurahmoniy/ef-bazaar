@@ -168,7 +168,7 @@ export function UserMenu({ user, className }: UserMenuProps) {
                 Admin panel
               </Link>
             )}
-            {tradeAdmin && (
+            {FEATURES.humanAdmin && tradeAdmin && (
               <Link href="/trade-admin" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
                 <UserCog className="h-4 w-4 text-primary" />
                 Inson admin

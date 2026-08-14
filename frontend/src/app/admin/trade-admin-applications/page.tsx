@@ -3,6 +3,8 @@ import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
 import { getAdminTradeAdminApplications } from '@/lib/trade-admin-applications-server';
 import type { TradeAdminApplicationStatus } from '@/lib/trade-admin-applications';
+import { FEATURES } from '@/lib/feature-flags';
+import { notFound } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +24,11 @@ function resolveStatus(value: string | undefined): TradeAdminApplicationStatus |
 export default async function AdminTradeAdminApplicationsPage({
   searchParams,
 }: AdminTradeAdminApplicationsPageProps) {
+  // Human trade admin is closed for use (FEATURES.humanAdmin). notFound()
+  // rather than a "coming soon" screen: the feature is not arriving, it is
+  // switched off, and a 404 is the honest answer for a route with no way in.
+  if (!FEATURES.humanAdmin) notFound();
+
   const params = searchParams ? await searchParams : {};
   const status = resolveStatus(params.status);
   const page = Math.max(0, Number.parseInt(params.page ?? '0', 10) || 0);
