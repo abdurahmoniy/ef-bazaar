@@ -44,7 +44,7 @@ class TradeDeadlineExtenderIT extends AbstractIntegrationIT {
         // that churn to settle before overriding the deadline ourselves, or a
         // late-arriving transition clobbers our override underneath the test.
         await().atMost(10, TimeUnit.SECONDS).until(() ->
-                repo.findById(t.id()).orElseThrow().getState() == TradeState.WAITING_PAYMENT);
+                repo.findById(t.id()).orElseThrow().getState() == TradeState.WAITING_EMAIL_CHANGE);
 
         var trade = repo.findById(t.id()).orElseThrow();
         trade.setStateDeadline(Instant.now().plusSeconds(600));

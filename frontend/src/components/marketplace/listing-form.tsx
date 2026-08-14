@@ -46,6 +46,7 @@ import type {
 	ListingResponse,
 } from '@/lib/marketplace-types'
 import { cn } from '@/lib/utils'
+import { MIN_TRADE_PRICE_SOM, sellerProceedsSom, tradeFeeSom } from '@/lib/trade-commission'
 
 interface ListingFormProps {
 	attributeDefinitions?: readonly ListingAttributeDefinition[]
@@ -1075,6 +1076,32 @@ function PricingStep({
 					<p className='text-sm font-semibold text-muted-foreground'>
 						= <span className='text-foreground'>{formatPriceUZS(parsed)}</span>
 					</p>
+				)}
+				{hasValue && parsed > 0 && (
+					parsed < MIN_TRADE_PRICE_SOM ? (
+						<p className='rounded-lg bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive'>
+							Eng kam savdo summasi {formatPriceUZS(MIN_TRADE_PRICE_SOM)} — bundan
+							arzon e&apos;lonni sotib bo&apos;lmaydi.
+						</p>
+					) : (
+						/* Shown while typing, so the seller decides the price knowing
+						   what they keep. The number is computed here rather than
+						   fetched because no trade exists yet to ask about. */
+						<div className='rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs'>
+							<p className='flex items-center justify-between'>
+								<span className='text-muted-foreground'>Smart-admin xizmati</span>
+								<span className='font-semibold text-foreground'>
+									−{formatPriceUZS(tradeFeeSom(parsed))}
+								</span>
+							</p>
+							<p className='mt-1 flex items-center justify-between'>
+								<span className='text-muted-foreground'>Sotilganda qo&apos;lingizga tushadi</span>
+								<span className='font-black text-[hsl(var(--price))]'>
+									{formatPriceUZS(sellerProceedsSom(parsed))}
+								</span>
+							</p>
+						</div>
+					)
 				)}
 			</div>
 

@@ -39,6 +39,7 @@ import {
 } from '@/lib/trade-types';
 import { cn } from '@/lib/utils';
 import { FEATURES } from '@/lib/feature-flags';
+import { sellerProceedsSom, tradeFeeSom } from '@/lib/trade-commission';
 
 /** Polling cadence for both trade-state and pending-proposal watchers. */
 const POLL_INTERVAL_MS = 4000;
@@ -385,14 +386,19 @@ function TradeStateActions({
     case 'INITIATED':
       return <InitiatedPanel />;
     case 'WAITING_PAYMENT':
+      // Nobody acts here any more. The money was frozen when the buyer
+      // accepted, and the trade moves on by itself — both sides just get told
+      // where their money is.
       return isBuyer ? (
-        <WaitingPaymentBuyerPanel
-          trade={trade}
-          onActionError={onActionError}
-          onRefresh={onRefresh}
-        />
+        <InfoBox>
+          Pulingiz platformada saqlanmoqda. Savdo muvaffaqiyatli yakunlansa
+          sotuvchiga o&apos;tkaziladi, bekor bo&apos;lsa to&apos;liq qaytariladi.
+        </InfoBox>
       ) : (
-        <InfoBox>Xaridor to&apos;lovni amalga oshirishini kutmoqda.</InfoBox>
+        <InfoBox>
+          Xaridorning puli platformada saqlanmoqda. Savdo yakunlangach
+          hamyoningizga tushadi.
+        </InfoBox>
       );
     case 'WAITING_EMAIL_CHANGE':
       return isSeller ? (
@@ -463,63 +469,6 @@ function InitiatedPanel() {
       <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
       <span>Mailbox tayyorlanmoqda…</span>
     </div>
-  );
-}
-
-function WaitingPaymentBuyerPanel({
-  trade,
-  onActionError,
-  onRefresh,
-}: {
-  trade: TradeResponse;
-  onActionError: (msg: string | null) => void;
-  onRefresh: () => Promise<void> | void;
-}) {
-  const [showModal, setShowModal] = useState(false);
-  const [submitting, startSubmit] = useTransition();
-
-  function confirm() {
-    onActionError(null);
-    startSubmit(async () => {
-      const r = await postTradeAction(trade.id, 'payment-confirmed');
-      if (!r.ok) {
-        onActionError(r.error);
-        return;
-      }
-      setShowModal(false);
-      await onRefresh();
-    });
-  }
-
-  return (
-    <>
-      <Button
-        type="button"
-        className="w-full"
-        onClick={() => setShowModal(true)}
-        disabled={submitting}
-      >
-        To&apos;ladim
-      </Button>
-      {showModal && (
-        <ConfirmModal
-          title="To'lovni tasdiqlash"
-          body={
-            <p>
-              Karta hisobingizdan{' '}
-              <span className="font-semibold text-foreground">
-                {formatPriceUZS(trade.priceUzs)}
-              </span>{' '}
-              yechilganiga ishonchingiz komilmi?
-            </p>
-          }
-          confirmLabel={submitting ? 'Tasdiqlanmoqda…' : "Ha, to'ladim"}
-          submitting={submitting}
-          onConfirm={confirm}
-          onClose={() => setShowModal(false)}
-        />
-      )}
-    </>
   );
 }
 
@@ -1453,6 +1402,13 @@ function ProposeModal({
             placeholder="500000"
             required
           />
+          {Number(price) > 0 && (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Xaridor <b className="text-foreground">{formatPriceUZS(Number(price))}</b> to&apos;laydi ·
+              smart-admin xizmati <b className="text-foreground">−{formatPriceUZS(tradeFeeSom(Number(price)))}</b> ·
+              sotuvchiga <b className="text-foreground">{formatPriceUZS(sellerProceedsSom(Number(price)))}</b>
+            </p>
+          )}
         </div>
         {mode === 'SMART' ? (
           <div>

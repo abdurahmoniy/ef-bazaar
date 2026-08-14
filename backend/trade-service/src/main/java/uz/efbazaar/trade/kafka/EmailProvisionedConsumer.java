@@ -8,6 +8,8 @@ import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.Trade;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
+import uz.efbazaar.trade.trade.domain.TradeState;
+import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
 import uz.efbazaar.trade.trade.service.TradeService;
@@ -62,8 +64,19 @@ public class EmailProvisionedConsumer {
                     e.mailboxEmail(), e.encryptedPassword(), e.iv(), e.tag());
         }
         try {
-            tradeService.transition(e.tradeId(), TradeEvent.MAILBOX_PROVISIONED,
+            var afterMailbox = tradeService.transition(e.tradeId(), TradeEvent.MAILBOX_PROVISIONED,
                     ActorType.WORKER, null);
+            // WAITING_PAYMENT used to wait for the buyer to click "TO'LOV
+            // QILDIM" for a payment that happened off-platform. A SMART trade's
+            // money is now frozen at the moment the proposal is accepted, so
+            // there is nothing left to confirm: the state is passed through
+            // immediately and the UI reports it as "money is with the platform"
+            // rather than asking for an action nobody has to take.
+            if (afterMailbox.getMode() == TradeMode.SMART
+                    && afterMailbox.getState() == TradeState.WAITING_PAYMENT) {
+                tradeService.transition(e.tradeId(), TradeEvent.PAYMENT_CONFIRMED,
+                        ActorType.SYSTEM, null);
+            }
         } catch (InvalidTradeTransitionException ex) {
             // Kafka is at-least-once; the trade may have already moved past
             // INITIATED (e.g. a caller drove the transition directly, or this

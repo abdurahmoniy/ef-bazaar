@@ -255,7 +255,9 @@ export const TRADE_STATE_LABEL_UZ: Record<TradeState, string> = {
   WAITING_ADMIN: 'Admin javobi kutilmoqda',
   IN_PROGRESS: 'Admin ishlamoqda',
   WAITING_CLOSE_CONFIRM: 'Yakun tasdiqlanmoqda',
-  WAITING_PAYMENT: "To'lov kutilmoqda",
+  // The buyer's money is frozen the moment they accept the proposal, so
+  // this state is no longer waiting for anything they have to do.
+  WAITING_PAYMENT: 'Pul platformada saqlanmoqda',
   WAITING_EMAIL_CHANGE: "Email o'zgartirish kutilmoqda",
   VERIFYING_KONAMI_LINK: 'Konami tekshiruvi',
   WAITING_PASSWORD: 'Parol kutilmoqda',
