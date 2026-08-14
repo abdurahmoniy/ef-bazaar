@@ -10,6 +10,8 @@ import {
   getMyTradeAdminProfile,
   getMyTradeAdminTrades,
 } from '@/lib/trade-server';
+import { FEATURES } from '@/lib/feature-flags';
+import { notFound } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +25,11 @@ interface PageProps {
 }
 
 export default async function TradeAdminPage({ searchParams }: PageProps) {
+  // Human trade admin is closed for use (FEATURES.humanAdmin). notFound()
+  // rather than a "coming soon" screen: the feature is not arriving, it is
+  // switched off, and a 404 is the honest answer for a route with no way in.
+  if (!FEATURES.humanAdmin) notFound();
+
   const params = searchParams ? await searchParams : {};
   const user = await getMe();
   if (!user) redirect('/auth/login?from=/trade-admin');

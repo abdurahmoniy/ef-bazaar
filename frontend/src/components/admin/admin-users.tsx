@@ -28,6 +28,7 @@ import {
 import { formatListingDate } from '@/lib/marketplace-format';
 import type { User } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { FEATURES } from '@/lib/feature-flags';
 
 interface AdminUsersProps {
   users: User[];
@@ -175,22 +176,26 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
                               act(user, 'toggle-admin');
                             }}
                           />
-                          <MenuAction
-                            action="toggle-trade-admin"
-                            user={user}
-                            busy={busy}
-                            icon={
-                              tradeAdminToggle.role === 'USER' ? (
-                                <UserMinus className="h-4 w-4 text-muted-foreground" />
-                              ) : (
-                                <UserCog className="h-4 w-4 text-muted-foreground" />
-                              )
-                            }
-                            onAct={() => {
-                              close();
-                              act(user, 'toggle-trade-admin');
-                            }}
-                          />
+                          {/* Granting the role does nothing while the human
+                              admin workspace is closed. */}
+                          {FEATURES.humanAdmin && (
+                            <MenuAction
+                              action="toggle-trade-admin"
+                              user={user}
+                              busy={busy}
+                              icon={
+                                tradeAdminToggle.role === 'USER' ? (
+                                  <UserMinus className="h-4 w-4 text-muted-foreground" />
+                                ) : (
+                                  <UserCog className="h-4 w-4 text-muted-foreground" />
+                                )
+                              }
+                              onAct={() => {
+                                close();
+                                act(user, 'toggle-trade-admin');
+                              }}
+                            />
+                          )}
                           <div className="my-1 h-px bg-border" />
                           <MenuAction
                             action="delete"

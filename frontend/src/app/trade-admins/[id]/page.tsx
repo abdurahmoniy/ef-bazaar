@@ -13,6 +13,7 @@ import { formatListingDate, formatPriceUZS } from '@/lib/marketplace-format';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 import { formatDurationUz } from '@/lib/trade-human';
 import { getTradeAdminProfile, getTradeAdminRatings } from '@/lib/trade-server';
+import { FEATURES } from '@/lib/feature-flags';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,11 @@ interface PageProps {
 }
 
 export default async function TradeAdminProfilePage({ params }: PageProps) {
+  // Human trade admin is closed for use (FEATURES.humanAdmin). notFound()
+  // rather than a "coming soon" screen: the feature is not arriving, it is
+  // switched off, and a 404 is the honest answer for a route with no way in.
+  if (!FEATURES.humanAdmin) notFound();
+
   const { id } = await params;
   const [user, profile, ratings] = await Promise.all([
     resolveOptionalUser(getMe),
