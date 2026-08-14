@@ -144,4 +144,40 @@ class AdminTelegramNotifierTest {
             java.util.Locale.setDefault(previous);
         }
     }
+
+    @Test
+    void anUnmatchedCreditIsAnnouncedWithTheCardAndAmount() {
+        FakeBot bot = new FakeBot();
+
+        notifier(bot, true).unmatchedCredit(new UnmatchedNotice(
+                UUID.randomUUID(), "4962", 100_000L, Instant.parse("2026-08-14T04:38:00Z")));
+
+        assertThat(bot.posted).hasSize(1);
+        String html = bot.posted.get(0);
+        assertThat(html).contains("4962").contains("1 000");
+        assertThat(bot.deleted).as("an unmatched credit replaces nothing").isEmpty();
+    }
+
+    @Test
+    void anUnmatchedAmountKeepsItsTiyinRemainder() {
+        // An invoice amount is whole so'm by construction; a payment nobody
+        // asked for is not. Printing 1 000,50 as "1 000" would make the notice
+        // disagree with the bank statement the admin reads it against.
+        FakeBot bot = new FakeBot();
+
+        notifier(bot, true).unmatchedCredit(new UnmatchedNotice(
+                UUID.randomUUID(), "4962", 100_050L, Instant.parse("2026-08-14T04:38:00Z")));
+
+        assertThat(bot.posted.get(0)).contains("1 000,50");
+    }
+
+    @Test
+    void anUnmatchedCreditNeverThrowsAtTheCaller() {
+        FakeBot bot = new FakeBot();
+        bot.explode = true;
+
+        assertThatCode(() -> notifier(bot, true).unmatchedCredit(new UnmatchedNotice(
+                UUID.randomUUID(), "4962", 100_000L, Instant.now())))
+                .doesNotThrowAnyException();
+    }
 }
