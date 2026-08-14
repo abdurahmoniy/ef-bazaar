@@ -20,8 +20,11 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
+import org.springframework.context.annotation.Import;
+import uz.efbazaar.trade.testsupport.StubEscrowConfig;
 
 @SpringBootTest
+@Import(StubEscrowConfig.class)
 class HumanProposalIT extends AbstractIntegrationIT {
 
     @Autowired TradeProposalService proposals;
@@ -158,16 +161,19 @@ class HumanProposalIT extends AbstractIntegrationIT {
     }
 
     @Test
-    void smartProposalStillRequiresBothCards() {
+    void aSmartProposalNeedsNoCard() {
+        // Cards were collected for a payout flow that was never built. The
+        // money now moves wallet to wallet, so asking a buyer for a card in
+        // order to spend their own balance is a question with nothing behind
+        // it — accepting without one has to work.
         UUID seller = UUID.randomUUID(), buyer = UUID.randomUUID();
         var req = new ProposalCreateRequest(UUID.randomUUID(), buyer, seller, buyer,
-                80_000L, UUID.randomUUID(), null, TradeMode.SMART, null, null);
+                80_000L, null, null, TradeMode.SMART, null, null);
 
         var created = proposals.create(seller, req);
+        var trade = proposals.accept(buyer, created.proposalId(), null);
 
-        // Accepting without the accepter's card must fail for a smart trade.
-        assertThatThrownBy(() -> proposals.accept(buyer, created.proposalId(), null))
-                .isInstanceOf(ResponseStatusException.class);
+        assertThat(trade.id()).isNotNull();
     }
 
     @Test

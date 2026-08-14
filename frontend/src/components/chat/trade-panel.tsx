@@ -28,7 +28,6 @@ import { isHumanProposal, isHumanTrade, validateAdminFee } from '@/lib/trade-hum
 import {
   isTerminalState,
   TRADE_STATE_LABEL_UZ,
-  type CardResponse,
   type PendingProposalResponse,
   type ProposalAcceptRequest,
   type ProposalCreateRequest,
@@ -1273,25 +1272,10 @@ function ProposeModal({
   const initialPrice = listing ? String(Math.trunc(Number(listing.price))) : '';
   const [mode, setMode] = useState<TradeMode>('SMART');
   const [price, setPrice] = useState(initialPrice);
-  const [cards, setCards] = useState<CardResponse[] | null>(null);
-  const [cardId, setCardId] = useState<string>('');
   const [selectedAdmin, setSelectedAdmin] = useState<TradeAdminCardResponse | null>(null);
   const [adminFee, setAdminFee] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
-
-  useEffect(() => {
-    if (mode !== 'SMART') return;
-    let cancelled = false;
-    fetchCards().then((list) => {
-      if (cancelled) return;
-      setCards(list);
-      if (list.length > 0) setCardId(list[0].id);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [mode]);
 
   useEffect(() => {
     if (selectedAdmin && !adminFee) setAdminFee(String(selectedAdmin.minFeeUzs));
@@ -1303,10 +1287,6 @@ function ProposeModal({
     const priceUzs = Number(price);
     if (!Number.isFinite(priceUzs) || priceUzs <= 0) {
       setError("Narx musbat butun son bo'lishi kerak");
-      return;
-    }
-    if (mode === 'SMART' && !cardId) {
-      setError('Karta tanlang');
       return;
     }
     const feeUzs = Number(adminFee);
@@ -1326,7 +1306,6 @@ function ProposeModal({
       mode,
       listingId: listing?.id ?? null,
     };
-    if (mode === 'SMART') payload.cardId = cardId;
     if (mode === 'HUMAN' && selectedAdmin) {
       payload.adminId = selectedAdmin.userId;
       payload.adminFeeUzs = feeUzs;
@@ -1411,14 +1390,9 @@ function ProposeModal({
           )}
         </div>
         {mode === 'SMART' ? (
-          <div>
-            <Label htmlFor="trade-seller-card">Sotuvchi kartasi</Label>
-            <CardSelect
-              id="trade-seller-card"
-              cards={cards}
-              value={cardId}
-              onChange={setCardId}
-            />
+          <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            To&apos;lov xaridorning hamyonidan yechiladi va savdo yakunlangunicha
+            platformada saqlanadi. Karta kerak emas.
           </div>
         ) : (
           <div className="space-y-3">
@@ -1468,7 +1442,7 @@ function ProposeModal({
           <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
             Bekor qilish
           </Button>
-          <Button type="submit" disabled={submitting || (mode === 'SMART' && cards === null)}>
+          <Button type="submit" disabled={submitting}>
             {submitting ? 'Yuborilmoqda…' : 'Yuborish'}
           </Button>
         </div>
@@ -1488,32 +1462,15 @@ function AcceptModal({
   onClose: () => void;
   onAccepted: () => void;
 }) {
-  const [cards, setCards] = useState<CardResponse[] | null>(null);
-  const [cardId, setCardId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
-
-  useEffect(() => {
-    if (isHumanProposal(proposal)) return;
-    let cancelled = false;
-    fetchCards().then((list) => {
-      if (cancelled) return;
-      setCards(list);
-      if (list.length > 0) setCardId(list[0].id);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [proposal]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!isHumanProposal(proposal) && !cardId) {
-      setError('Karta tanlang');
-      return;
-    }
-    const payload: ProposalAcceptRequest = isHumanProposal(proposal) ? {} : { cardId };
+    // No card: a smart trade is paid from the buyer's wallet balance, which
+    // is frozen the moment this accept succeeds.
+    const payload: ProposalAcceptRequest = {};
     startSubmit(async () => {
       const result = await postProposalAccept(proposal.id, payload);
       if (!result.ok) {
@@ -1542,9 +1499,12 @@ function AcceptModal({
           )}
         </div>
         {!isHumanProposal(proposal) && (
-          <div>
-            <Label htmlFor="accept-card">Sizning kartangiz</Label>
-            <CardSelect id="accept-card" cards={cards} value={cardId} onChange={setCardId} />
+          <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">
+              {formatPriceUZS(proposal.priceUzs)}
+            </span>{' '}
+            hamyoningizdan yechilib, savdo yakunlanguncha platformada saqlanadi.
+            Savdo bekor bo&apos;lsa to&apos;liq qaytariladi.
           </div>
         )}
         {error && (
@@ -1557,7 +1517,7 @@ function AcceptModal({
           <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
             Bekor qilish
           </Button>
-          <Button type="submit" disabled={submitting || (!isHumanProposal(proposal) && cards === null)}>
+          <Button type="submit" disabled={submitting}>
             {submitting ? 'Tasdiqlanmoqda…' : 'Tasdiqlash'}
           </Button>
         </div>
@@ -1606,48 +1566,6 @@ function ModalShell({
   );
 }
 
-function CardSelect({
-  id,
-  cards,
-  value,
-  onChange,
-}: {
-  id: string;
-  cards: CardResponse[] | null;
-  value: string;
-  onChange: (id: string) => void;
-}) {
-  const options = useMemo(() => cards ?? [], [cards]);
-  if (cards === null) {
-    return (
-      <Select id={id} disabled>
-        <option>Kartalar yuklanmoqda…</option>
-      </Select>
-    );
-  }
-  if (options.length === 0) {
-    return (
-      <div
-        className={cn(
-          'rounded-lg border border-input bg-muted/40 px-4 py-3 text-xs text-muted-foreground',
-        )}
-      >
-        Saqlangan kartangiz yo'q. Avval kartani qo'shing.
-      </div>
-    );
-  }
-  return (
-    <Select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
-      {options.map((c) => (
-        <option key={c.id} value={c.id}>
-          {c.brand} · **** {c.last4} ({String(c.expiryMonth).padStart(2, '0')}/
-          {String(c.expiryYear).slice(-2)})
-        </option>
-      ))}
-    </Select>
-  );
-}
-
 // -------------------- client-side fetchers --------------------
 
 async function fetchTradesByChat(chatId: string): Promise<TradeResponse[]> {
@@ -1673,15 +1591,6 @@ async function fetchPendingProposal(
   } catch {
     return null;
   }
-}
-
-async function fetchCards(): Promise<CardResponse[]> {
-  const response = await fetch('/api/trade/v1/cards', {
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-  });
-  if (!response.ok) return [];
-  return (await response.json()) as CardResponse[];
 }
 
 type MutationResult<T> = { ok: true; data: T } | { ok: false; error: string };

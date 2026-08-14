@@ -90,10 +90,6 @@ public class TradeService {
                                    UUID sellerCardId, UUID buyerCardId, UUID listingId,
                                    UUID chatId, TradeMode mode,
                                    UUID assignedAdminId, Long adminFeeUzs) {
-        if (mode == TradeMode.SMART && (sellerCardId == null || buyerCardId == null)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Smart savdo uchun ikki tarafning kartasi ham kerak");
-        }
         if (mode == TradeMode.HUMAN && assignedAdminId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Inson admin savdosi uchun admin tanlanishi kerak");
