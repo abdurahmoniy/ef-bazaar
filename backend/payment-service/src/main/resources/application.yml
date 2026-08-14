@@ -45,6 +45,12 @@ spring:
 server:
   port: 8087
 
+app:
+  internal:
+    # Shared secret for /internal/** (trade-service → escrow). Blank refuses
+    # every internal call — these endpoints move money between wallets.
+    secret: ${INTERNAL_API_SECRET:}
+
 management:
   endpoints:
     web:
