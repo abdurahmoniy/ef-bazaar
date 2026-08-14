@@ -43,6 +43,14 @@ public class Trade {
     @Column(name = "price_uzs", nullable = false, updatable = false)
     private long priceUzs;
 
+    /**
+     * When the escrow was settled or released. NULL on a terminal SMART trade
+     * means the buyer's money is still frozen and TradeEscrowSweeper has to
+     * finish the job.
+     */
+    @Column(name = "escrow_resolved_at")
+    private Instant escrowResolvedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private TradeState state;
