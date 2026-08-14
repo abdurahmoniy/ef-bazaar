@@ -48,7 +48,8 @@ public class TradeEscrowSweeper {
      */
     @Scheduled(fixedRateString = "${trade.scheduler.escrow-sweep-interval-ms:60000}")
     public void sweep() {
-        List<Trade> stranded = trades.findEscrowUnresolved(TradeState.SUCCESS, TradeState.REJECTED);
+        List<Trade> stranded = trades.findEscrowUnresolved(
+                List.of(TradeState.SUCCESS, TradeState.REJECTED, TradeState.ORPHANED));
         if (stranded.isEmpty()) return;
 
         log.warn("{} trade(s) still owe an escrow movement", stranded.size());
@@ -71,6 +72,8 @@ public class TradeEscrowSweeper {
         if (t.getState() == TradeState.SUCCESS) {
             escrow.settle(t.getId(), t.getBuyerId(), t.getSellerId(), t.getPriceUzs());
         } else {
+            // REJECTED and ORPHANED alike: nobody completed the trade, so the
+            // buyer gets everything back.
             escrow.release(t.getId(), t.getBuyerId(), t.getPriceUzs());
         }
         t.setEscrowResolvedAt(Instant.now());

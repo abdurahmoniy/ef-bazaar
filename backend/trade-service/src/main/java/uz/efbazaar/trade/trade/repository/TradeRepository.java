@@ -180,8 +180,7 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
            SELECT t FROM Trade t
            WHERE t.escrowResolvedAt IS NULL
              AND t.mode = uz.efbazaar.trade.trade.domain.TradeMode.SMART
-             AND t.state IN (:success, :rejected)
+             AND t.state IN :states
            """)
-    List<Trade> findEscrowUnresolved(@Param("success") TradeState success,
-                                     @Param("rejected") TradeState rejected);
+    List<Trade> findEscrowUnresolved(@Param("states") java.util.Collection<TradeState> states);
 }

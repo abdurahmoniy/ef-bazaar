@@ -211,6 +211,10 @@ public class TradeStateHandler {
             case ORPHANED -> {
                 trade.setStateDeadline(null);
                 trade.setEscalationDeadlineAt(null);
+                // A trade that ran out of time is a trade that did not happen.
+                // Without this the buyer's money stayed frozen for a deal
+                // nobody completed, with no state left that could ever free it.
+                releaseEscrow(trade);
                 trade.setTerminalReason("TIMEOUT_ORPHAN");
                 mailboxes.stripFromTrade(trade.getMailboxId());
                 audit.record(trade.getId(), actor, actorId, "TRADE_ORPHANED",
