@@ -16,6 +16,7 @@ import type {
   ListingResponse,
   ListingStatus,
   MessageResponse,
+  NotificationResponse,
   PageResponse,
   ReportStatus,
 } from './marketplace-types';
@@ -275,3 +276,12 @@ export async function getSimilarListings(
   if (!result.ok) return [];
   return result.data.content.filter((entry) => entry.id !== listing.id).slice(0, limit);
 }
+
+export async function getMyNotifications(size = 50): Promise<NotificationResponse[]> {
+  const result = await safeFetch<PageResponse<NotificationResponse>>(
+    `${MARKETPLACE_PREFIX}/notifications?size=${size}`,
+  );
+  if (!result.ok) return [];
+  return result.data.content ?? [];
+}
+
