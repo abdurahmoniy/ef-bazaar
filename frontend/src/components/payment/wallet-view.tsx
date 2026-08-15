@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Wallet as WalletIcon } from 'lucide-react';
+import { Lock, Snowflake, Wallet as WalletIcon } from 'lucide-react';
 
 import { InvoicePanel } from '@/components/payment/invoice-panel';
 import { TopUpForm } from '@/components/payment/top-up-form';
@@ -138,10 +138,17 @@ export function WalletView({
                 </div>
                 <span
                   className={cn(
-                    'shrink-0 text-sm font-black tabular-nums',
-                    row.incoming ? 'text-primary' : 'text-foreground',
+                    'flex shrink-0 items-center gap-1 text-sm font-black tabular-nums',
+                    row.movement === 'in' && 'text-primary',
+                    row.movement === 'out' && 'text-foreground',
+                    // Muted and signless: the owner still has this money, it
+                    // just moved between their own piles.
+                    row.movement === 'internal' && 'text-muted-foreground',
                   )}
                 >
+                  {row.movement === 'internal' && (
+                    <Snowflake className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
                   {row.amount}
                 </span>
               </li>
