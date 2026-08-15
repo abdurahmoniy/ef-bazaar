@@ -1,6 +1,7 @@
 package uz.efbazaar.payment.kafka;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -8,11 +9,33 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import java.time.Instant;
 import java.util.UUID;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class PaymentEventPublisher {
 
     private final KafkaTemplate<String, Object> kafka;
+
+    /**
+     * Publishes without letting a broker outage reach the caller.
+     *
+     * <p>These are all AFTER_COMMIT publications running on the request thread:
+     * the money has already moved and the row is already committed, so throwing
+     * here would fail a request whose work succeeded, and there is nothing to
+     * roll back anyway. {@code send} still blocks up to {@code max.block.ms}
+     * waiting for metadata, which is why that is bounded in application.yml.
+     *
+     * <p>A dropped event is a real loss — an admin who is never told about a
+     * payout. It is logged at error for that reason. Making it survivable needs
+     * an outbox, which is a larger change than this.
+     */
+    private void publish(String topic, String key, Object payload) {
+        try {
+            kafka.send(topic, key, payload);
+        } catch (Exception e) {
+            log.error("Could not publish {} for key {}: {}", topic, key, e.toString());
+        }
+    }
 
     /** What goes on the wire. */
     public record DepositCredited(UUID userId, long amountTiyin, UUID invoiceId, Instant occurredAt) {}
@@ -36,7 +59,7 @@ public class PaymentEventPublisher {
     }
 
     public void depositCredited(UUID userId, long amountTiyin, UUID invoiceId) {
-        kafka.send(PaymentTopics.DEPOSIT_CREDITED, userId.toString(),
+        publish(PaymentTopics.DEPOSIT_CREDITED, userId.toString(),
                 new DepositCredited(userId, amountTiyin, invoiceId, Instant.now()));
     }
 
@@ -54,13 +77,13 @@ public class PaymentEventPublisher {
                                    boolean paid, String note, Instant occurredAt) {}
 
     public void withdrawalRequested(UUID ticketId, UUID userId, long amountTiyin, String last4) {
-        kafka.send(PaymentTopics.WITHDRAWAL_REQUESTED, ticketId.toString(),
+        publish(PaymentTopics.WITHDRAWAL_REQUESTED, ticketId.toString(),
                 new WithdrawalRequested(ticketId, userId, amountTiyin, last4, Instant.now()));
     }
 
     public void withdrawalClosed(UUID ticketId, UUID userId, long amountTiyin,
                                  boolean paid, String note) {
-        kafka.send(PaymentTopics.WITHDRAWAL_CLOSED, ticketId.toString(),
+        publish(PaymentTopics.WITHDRAWAL_CLOSED, ticketId.toString(),
                 new WithdrawalClosed(ticketId, userId, amountTiyin, paid, note, Instant.now()));
     }
 }

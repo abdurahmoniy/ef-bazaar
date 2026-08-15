@@ -7,3 +7,14 @@
 payment:
   admin-telegram:
     enabled: false
+
+# No broker runs in the suite, so every publish waits out the producer's
+# metadata timeout before giving up. Production bounds that at 2s to keep a
+# Kafka outage off the request thread; here it can be far shorter, because
+# there is nothing to wait for. Left as a real send rather than a stub so the
+# publisher's own error handling is exercised.
+spring:
+  kafka:
+    producer:
+      properties:
+        max.block.ms: 50
