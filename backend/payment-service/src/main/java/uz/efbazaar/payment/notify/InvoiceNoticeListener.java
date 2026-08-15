@@ -34,6 +34,7 @@ public class InvoiceNoticeListener {
     private final PlatformCardService cards;
     private final AdminTelegramNotifier notifier;
     private final uz.efbazaar.payment.withdrawal.repository.WithdrawalTicketRepository withdrawals;
+    private final uz.efbazaar.payment.kafka.PaymentEventPublisher paymentEvents;
 
     /**
      * Announces a payout waiting for a human.
@@ -45,10 +46,30 @@ public class InvoiceNoticeListener {
     @TransactionalEventListener
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onWithdrawalOpened(InvoiceNoticeEvents.WithdrawalOpened event) {
-        withdrawals.findById(event.ticketId()).ifPresent(t -> notifier.withdrawalOpened(
-                new WithdrawalNotice(t.getId(), t.getUserId(), t.getAmountTiyin(),
-                        t.getLast4(), t.getHolderName(), t.getPhone(),
-                        t.getTelegramUsername())));
+        withdrawals.findById(event.ticketId()).ifPresent(t -> {
+            notifier.withdrawalOpened(new WithdrawalNotice(
+                    t.getId(), t.getUserId(), t.getAmountTiyin(), t.getLast4(),
+                    t.getHolderName(), t.getPhone(), t.getTelegramUsername()));
+            // Kafka reaches the admin panel's bell; the topic reaches the phone
+            // in someone's pocket. Both, because neither is watched all day.
+            paymentEvents.withdrawalRequested(
+                    t.getId(), t.getUserId(), t.getAmountTiyin(), t.getLast4());
+        });
+    }
+
+    /**
+     * Tells the wallet owner how their payout ended.
+     *
+     * <p>The card is not in the event: the user knows which card they asked
+     * for, and last4 is already on the ticket they can open.
+     */
+    @TransactionalEventListener
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onWithdrawalClosed(InvoiceNoticeEvents.WithdrawalClosed event) {
+        withdrawals.findById(event.ticketId()).ifPresent(t -> paymentEvents.withdrawalClosed(
+                t.getId(), t.getUserId(), t.getAmountTiyin(),
+                t.getStatus() == uz.efbazaar.payment.withdrawal.domain.WithdrawalStatus.PAID,
+                t.getCloseNote()));
     }
 
     @TransactionalEventListener

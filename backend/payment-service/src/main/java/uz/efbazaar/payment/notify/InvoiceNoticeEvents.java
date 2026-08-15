@@ -28,4 +28,7 @@ public final class InvoiceNoticeEvents {
      * after commit, so a notice can never describe a ticket that rolled back.
      */
     public record WithdrawalOpened(UUID ticketId) {}
+
+    /** Paid or refunded — the listener re-reads the row to find out which. */
+    public record WithdrawalClosed(UUID ticketId) {}
 }

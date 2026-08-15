@@ -157,4 +157,80 @@ class NotificationServiceTest {
         service.markRead(id, buyerId); // idempotent
         assertThat(result.getReadAt()).isEqualTo(first);
     }
+
+    // ---------- withdrawals ----------
+
+    @Test
+    void everyAdminIsToldAboutAPayout() {
+        // There is no broadcast: notifications are per-user rows, so "tell the
+        // admins" is N inserts and a missing one is an admin who never hears.
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        UUID ticket = UUID.randomUUID();
+
+        service.withdrawalRequested(java.util.List.of(first, second), ticket);
+
+        ArgumentCaptor<Notification> saved = ArgumentCaptor.forClass(Notification.class);
+        verify(notifications, org.mockito.Mockito.times(2)).save(saved.capture());
+        assertThat(saved.getAllValues()).extracting(Notification::getUserId)
+                .containsExactlyInAnyOrder(first, second);
+        assertThat(saved.getAllValues()).allSatisfy(n -> {
+            assertThat(n.getType()).isEqualTo(NotificationType.WITHDRAWAL_REQUESTED);
+            assertThat(n.getWithdrawalId()).as("the bell has to link somewhere").isEqualTo(ticket);
+        });
+    }
+
+    @Test
+    void anAdminWhoAlreadyKnowsIsNotToldTwice() {
+        // Kafka is at-least-once; a redelivery must not double the bell.
+        UUID known = UUID.randomUUID();
+        UUID fresh = UUID.randomUUID();
+        UUID ticket = UUID.randomUUID();
+        when(notifications.existsByUserIdAndTypeAndWithdrawalId(
+                known, NotificationType.WITHDRAWAL_REQUESTED, ticket)).thenReturn(true);
+
+        service.withdrawalRequested(java.util.List.of(known, fresh), ticket);
+
+        ArgumentCaptor<Notification> saved = ArgumentCaptor.forClass(Notification.class);
+        verify(notifications).save(saved.capture());
+        assertThat(saved.getValue().getUserId())
+                .as("an admin added after the first delivery still gets told")
+                .isEqualTo(fresh);
+    }
+
+    @Test
+    void aPaidPayoutAndARejectedOneReadDifferently() {
+        UUID user = UUID.randomUUID();
+        UUID ticket = UUID.randomUUID();
+
+        service.withdrawalClosed(user, ticket, true);
+
+        ArgumentCaptor<Notification> saved = ArgumentCaptor.forClass(Notification.class);
+        verify(notifications).save(saved.capture());
+        assertThat(saved.getValue().getType()).isEqualTo(NotificationType.WITHDRAWAL_PAID);
+    }
+
+    @Test
+    void aRejectionSaysSo() {
+        UUID user = UUID.randomUUID();
+        UUID ticket = UUID.randomUUID();
+
+        service.withdrawalClosed(user, ticket, false);
+
+        ArgumentCaptor<Notification> saved = ArgumentCaptor.forClass(Notification.class);
+        verify(notifications).save(saved.capture());
+        assertThat(saved.getValue().getType()).isEqualTo(NotificationType.WITHDRAWAL_REJECTED);
+    }
+
+    @Test
+    void aRepeatedCloseIsNotAnnouncedTwice() {
+        UUID user = UUID.randomUUID();
+        UUID ticket = UUID.randomUUID();
+        when(notifications.existsByUserIdAndTypeAndWithdrawalId(
+                user, NotificationType.WITHDRAWAL_PAID, ticket)).thenReturn(true);
+
+        service.withdrawalClosed(user, ticket, true);
+
+        verify(notifications, never()).save(any());
+    }
 }

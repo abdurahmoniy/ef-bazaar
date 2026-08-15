@@ -42,6 +42,13 @@ public class Notification {
     @Column(name = "trade_id")
     private UUID tradeId;
 
+    /**
+     * Payout ticket this refers to. Not a foreign key — the ticket lives in
+     * payment-service and marketplace does not read that database.
+     */
+    @Column(name = "withdrawal_id")
+    private UUID withdrawalId;
+
     @Column(name = "actor_display_name", length = 64)
     private String actorDisplayName;
 

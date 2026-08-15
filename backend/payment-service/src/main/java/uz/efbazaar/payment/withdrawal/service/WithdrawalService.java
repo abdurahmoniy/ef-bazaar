@@ -122,7 +122,10 @@ public class WithdrawalService {
                 List.of(new Posting(LedgerAccount.WITHDRAW_PENDING, t.getUserId(), t.getAmountTiyin()),
                         new Posting(LedgerAccount.PLATFORM_CARDS, null, -t.getAmountTiyin())));
         t.close(WithdrawalStatus.PAID, adminId, note);
-        return tickets.save(t);
+        WithdrawalTicket saved = tickets.save(t);
+        events.publishEvent(new uz.efbazaar.payment.notify.InvoiceNoticeEvents
+                .WithdrawalClosed(ticketId));
+        return saved;
     }
 
     /** Admin declined: the frozen money goes back where it came from. */
@@ -134,7 +137,10 @@ public class WithdrawalService {
                 List.of(new Posting(LedgerAccount.WITHDRAW_PENDING, t.getUserId(), t.getAmountTiyin()),
                         new Posting(LedgerAccount.USER_AVAILABLE, t.getUserId(), -t.getAmountTiyin())));
         t.close(WithdrawalStatus.REJECTED, adminId, note);
-        return tickets.save(t);
+        WithdrawalTicket saved = tickets.save(t);
+        events.publishEvent(new uz.efbazaar.payment.notify.InvoiceNoticeEvents
+                .WithdrawalClosed(ticketId));
+        return saved;
     }
 
     /** The full number, for the admin who is about to send money to it. */

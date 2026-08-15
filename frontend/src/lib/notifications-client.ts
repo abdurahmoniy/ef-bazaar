@@ -61,12 +61,24 @@ export function notificationLabel(n: NotificationResponse): string {
       return `${actor} sizga xabar yozdi`;
     case 'TRADE_ADMIN_INVITED':
       return `${actor} sizni inson admin savdosiga chaqirdi`;
+    case 'WITHDRAWAL_REQUESTED':
+      return 'Yangi pul yechish so\u2019rovi';
+    case 'WITHDRAWAL_PAID':
+      return 'Pul yechish tasdiqlandi \u2014 kartangizga o\u2019tkazildi';
+    case 'WITHDRAWAL_REJECTED':
+      return 'Pul yechish rad etildi \u2014 mablag\u2018 hamyoningizga qaytarildi';
     default:
       return actor;
   }
 }
 
 export function notificationHref(n: NotificationResponse): string | null {
+  // Withdrawals split by audience: an admin is being sent to the queue to pay
+  // somebody, the owner to their own wallet to see it landed.
+  if (n.type === 'WITHDRAWAL_REQUESTED') {
+    return `/admin/payments/withdrawals?ticket=${encodeURIComponent(n.withdrawalId ?? '')}`;
+  }
+  if (n.type === 'WITHDRAWAL_PAID' || n.type === 'WITHDRAWAL_REJECTED') return '/hamyon';
   if (n.tradeId) return `/trade-admin?tradeId=${encodeURIComponent(n.tradeId)}`;
   if (n.chatId) return `/chats/${encodeURIComponent(n.chatId)}`;
   if (n.listingId) return `/marketplace/${encodeURIComponent(n.listingId)}`;
