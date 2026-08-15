@@ -36,6 +36,7 @@ public class ChatService {
     private final AuthNameClient authNameClient;
     private final NotificationService notifications;
     private final BlacklistGuard blacklistGuard;
+    private final ChatAccountRequestService accountRequests;
 
     @Transactional
     public Chat start(UUID buyerId, UUID listingId) {
@@ -51,17 +52,28 @@ public class ChatService {
             throw MarketplaceException.cannotChatWithSelf();
         }
 
-        // Idempotency: agar allaqachon aktiv chat bor bo'lsa, qaytaramiz.
-        // Xaridor uni "o'chirgan" bo'lsa ham qayta ochilgani — unhide.
-        var existing = chats.findByBuyerIdAndListingIdAndStatus(buyerId, listingId, ChatStatus.ACTIVE);
+        UUID sellerId = listing.getSellerId();
+
+        // One conversation per pair, not per listing. Contacting the same
+        // person about a second account reuses the chat they already have and
+        // records which listing this is about (V32) instead of opening another
+        // thread — that is what stopped a pair from trading twice, because the
+        // second attempt landed back in the first listing's chat with no way to
+        // say it was now about a different account.
+        //
+        // Direction-agnostic: today's buyer may be yesterday's seller.
+        var existing = chats.findBetween(buyerId, sellerId, ChatStatus.ACTIVE)
+                .stream().findFirst();
         if (existing.isPresent()) {
-            participants.findByChatIdAndUserId(existing.get().getId(), buyerId)
+            Chat chat = existing.get();
+            // "Deleted for me" then contacted again — bring it back.
+            participants.findByChatIdAndUserId(chat.getId(), buyerId)
                     .filter(p -> p.getHiddenAt() != null)
                     .ifPresent(p -> p.setHiddenAt(null));
-            return existing.get();
+            accountRequests.open(buyerId, chat.getId(), listingId);
+            return chat;
         }
 
-        UUID sellerId = listing.getSellerId();
         Map<UUID, String> names = authNameClient.resolveNames(List.of(buyerId, sellerId));
 
         try {
@@ -82,6 +94,9 @@ public class ChatService {
                     .chatId(chat.getId()).userId(buyerId).lastReadAt(now).build());
             participants.save(ChatParticipant.builder()
                     .chatId(chat.getId()).userId(sellerId).lastReadAt(now).build());
+            // Records which account the conversation opens on, so a brand-new
+            // chat and a reused one both arrive with the same context.
+            accountRequests.open(buyerId, chat.getId(), listingId);
             events.chatCreated(chat.getId(), listingId, buyerId, sellerId);
             notifications.chatCreated(chat);
             log.info("Chat created: id={} listingId={} buyer={} seller={}",

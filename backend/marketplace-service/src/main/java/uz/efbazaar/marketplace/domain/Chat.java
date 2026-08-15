@@ -77,4 +77,17 @@ public class Chat {
     public boolean isParticipant(UUID userId) {
         return userId != null && (userId.equals(buyerId) || userId.equals(sellerId));
     }
+
+    /**
+     * The other person in the conversation.
+     *
+     * <p>Named "partner", not "seller": {@code buyerId} / {@code sellerId}
+     * record who opened the chat about which listing, and stop describing the
+     * roles once the pair trades again — possibly the other way round. Trading
+     * roles come from the chat's account request, not from these columns.
+     */
+    public UUID partnerOf(UUID userId) {
+        if (!isParticipant(userId)) return null;
+        return userId.equals(buyerId) ? sellerId : buyerId;
+    }
 }

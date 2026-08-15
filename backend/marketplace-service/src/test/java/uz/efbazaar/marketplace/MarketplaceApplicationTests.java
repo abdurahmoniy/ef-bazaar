@@ -18,6 +18,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
+import uz.efbazaar.marketplace.repository.ChatAccountRequestRepository;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
 import uz.efbazaar.marketplace.repository.ChatParticipantRepository;
 import uz.efbazaar.marketplace.repository.ChatRepository;
@@ -65,6 +66,7 @@ class MarketplaceApplicationTests {
     @MockBean ChatRepository chatRepository;
     @MockBean ChatTradePinRepository chatTradePinRepository;
     @MockBean ChatMessageRepository chatMessageRepository;
+    @MockBean ChatAccountRequestRepository chatAccountRequestRepository;
     @MockBean ChatParticipantRepository chatParticipantRepository;
     @MockBean AttributeDefinitionRepository attributeDefinitionRepository;
     @MockBean ListingReportRepository listingReportRepository;

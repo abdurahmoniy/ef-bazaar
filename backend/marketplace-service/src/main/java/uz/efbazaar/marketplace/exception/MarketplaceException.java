@@ -30,6 +30,22 @@ public class MarketplaceException extends RuntimeException {
                 "E'lon aktiv emas (sotilgan yoki o'chirilgan)");
     }
 
+    public static MarketplaceException accountRequestNotFound() {
+        return new MarketplaceException(HttpStatus.NOT_FOUND, "account_request_not_found",
+                "Akkount so'rovi topilmadi");
+    }
+
+    /** The picker only ever offers the partner's own listings; this is a hand-built request. */
+    public static MarketplaceException listingNotPartners() {
+        return new MarketplaceException(HttpStatus.BAD_REQUEST, "listing_not_partners",
+                "Bu e'lon suhbatdoshingizga tegishli emas");
+    }
+
+    public static MarketplaceException cannotRequestOwnListing() {
+        return new MarketplaceException(HttpStatus.BAD_REQUEST, "cannot_request_own_listing",
+                "O'z e'loningiz bo'yicha akkount so'ray olmaysiz");
+    }
+
     public static MarketplaceException chatNotFound() {
         return new MarketplaceException(HttpStatus.NOT_FOUND, "chat_not_found",
                 "Chat topilmadi");
