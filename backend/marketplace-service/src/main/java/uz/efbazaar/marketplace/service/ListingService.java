@@ -133,6 +133,7 @@ public class ListingService {
     public Listing markSold(UUID id, UUID sellerId) {
         Listing listing = getActiveOwned(id, sellerId);
         listing.setStatus(ListingStatus.SOLD);
+        listing.setSoldAt(java.time.Instant.now());
         Listing saved = listings.save(listing);
         events.listingDeleted(saved.getId(), sellerId, ListingStatus.SOLD);
         return saved;

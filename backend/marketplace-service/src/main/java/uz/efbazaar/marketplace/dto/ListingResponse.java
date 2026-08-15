@@ -13,6 +13,7 @@ import java.util.UUID;
 public record ListingResponse(
         UUID id,
         UUID sellerId,
+        SellerSummary seller,
         String description,
         BigDecimal price,
         boolean priceNegotiable,
@@ -38,14 +39,14 @@ public record ListingResponse(
 ) {
     /** Same listing with a match percentage attached. */
     public ListingResponse withMatchPercent(Integer percent) {
-        return new ListingResponse(id, sellerId, description, price, priceNegotiable,
+        return new ListingResponse(id, sellerId, seller, description, price, priceNegotiable,
                 attributes, mediaMessageIds, status, soldAt, forwardCount, likeCount,
                 likedByMe, percent, matchDetails, createdAt, updatedAt);
     }
 
     /** Attach the canonical explanation and mirror its percent for old clients. */
     public ListingResponse withMatchDetails(MatchDetails details) {
-        return new ListingResponse(id, sellerId, description, price, priceNegotiable,
+        return new ListingResponse(id, sellerId, seller, description, price, priceNegotiable,
                 attributes, mediaMessageIds, status, soldAt, forwardCount, likeCount,
                 likedByMe, details == null ? null : details.percent(), details,
                 createdAt, updatedAt);

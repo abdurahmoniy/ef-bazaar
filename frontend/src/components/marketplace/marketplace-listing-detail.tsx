@@ -33,6 +33,7 @@ import {
   attributeString,
   listingAcceptsExchange,
   type ListingResponse,
+  type SellerSummary,
 } from '@/lib/marketplace-types';
 import type { User } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -40,7 +41,7 @@ import { cn } from '@/lib/utils';
 interface MarketplaceListingDetailProps {
   listing: ListingResponse;
   viewer: User | null;
-  seller: User | null;
+  seller: SellerSummary | User | null;
   sellerBlacklisted?: boolean;
   similarListings: ListingResponse[];
 }
@@ -264,6 +265,7 @@ export function MarketplaceListingDetail({
               isOwner={isOwner}
               initialLiked={listing.likedByMe}
               initialLikeCount={listing.likeCount}
+              status={listing.status}
             />
           </div>
 
