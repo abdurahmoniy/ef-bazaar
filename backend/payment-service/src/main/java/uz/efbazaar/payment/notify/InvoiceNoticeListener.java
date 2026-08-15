@@ -33,6 +33,23 @@ public class InvoiceNoticeListener {
     private final CardCreditObservationRepository observations;
     private final PlatformCardService cards;
     private final AdminTelegramNotifier notifier;
+    private final uz.efbazaar.payment.withdrawal.repository.WithdrawalTicketRepository withdrawals;
+
+    /**
+     * Announces a payout waiting for a human.
+     *
+     * <p>Re-read after commit rather than passed in the event: the reserve
+     * posting and the ticket row commit together, and a notice sent from
+     * inside that transaction could advertise money that was never frozen.
+     */
+    @TransactionalEventListener
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onWithdrawalOpened(InvoiceNoticeEvents.WithdrawalOpened event) {
+        withdrawals.findById(event.ticketId()).ifPresent(t -> notifier.withdrawalOpened(
+                new WithdrawalNotice(t.getId(), t.getUserId(), t.getAmountTiyin(),
+                        t.getLast4(), t.getHolderName(), t.getPhone(),
+                        t.getTelegramUsername())));
+    }
 
     @TransactionalEventListener
     @Transactional(propagation = Propagation.REQUIRES_NEW)
