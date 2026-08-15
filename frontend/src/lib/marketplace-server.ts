@@ -144,6 +144,13 @@ export async function getMyFavorites(): Promise<ListingResponse[]> {
   return result.ok ? result.data.content : [];
 }
 
+export async function getUserListings(userId: string, page = 0, size = 50): Promise<ListingResponse[]> {
+  const result = await safeFetch<PageResponse<ListingResponse>>(
+    `${MARKETPLACE_PREFIX}/listings/user/${encodeURIComponent(userId)}?page=${page}&size=${size}&sort=createdAt,desc`,
+  );
+  return result.ok ? result.data.content : [];
+}
+
 /**
  * auth-service faqat /api/v1/users/me endpointini beradi (boshqa userni id
  * bo'yicha olish yo'q) — shuning uchun profil faqat so'ralgan userId joriy

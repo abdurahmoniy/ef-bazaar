@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BadgeCheck, IdCard, MessageCircle, ShieldAlert, Star } from 'lucide-react';
+import { BadgeCheck, ChevronRight, MessageCircle, ShieldAlert, Star } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -50,9 +50,22 @@ export function SellerCard({ seller, isViewerOwner, blacklisted }: SellerCardPro
           </Link>
         </div>
       )}
-      <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Sotuvchi</div>
-      <div className="mt-3 flex items-start gap-3">
-        <Avatar className="h-12 w-12 ring-2 ring-primary/10">
+      <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        <span>Sotuvchi</span>
+        <Link
+          href={`/users/${seller.id}`}
+          className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-primary hover:underline lowercase tracking-normal"
+        >
+          profilga o'tish <ChevronRight className="h-3 w-3" />
+        </Link>
+      </div>
+
+      <Link
+        href={`/users/${seller.id}`}
+        className="group mt-3 flex items-start gap-3 rounded-lg p-1.5 -m-1.5 transition-colors hover:bg-muted/60"
+        title={`${seller.displayName} profilini ko'rish`}
+      >
+        <Avatar className="h-12 w-12 ring-2 ring-primary/10 transition-transform group-hover:scale-105">
           {seller.telegramPhotoUrl && (
             <AvatarImage src={seller.telegramPhotoUrl} alt={seller.displayName} />
           )}
@@ -60,7 +73,9 @@ export function SellerCard({ seller, isViewerOwner, blacklisted }: SellerCardPro
         </Avatar>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-bold text-foreground">{seller.displayName}</p>
+            <p className="truncate text-sm font-bold text-foreground transition-colors group-hover:text-primary">
+              {seller.displayName}
+            </p>
             {seller.verified ? (
               <Badge variant="verified" className="shrink-0">
                 <BadgeCheck className="h-3 w-3" />
@@ -76,23 +91,31 @@ export function SellerCard({ seller, isViewerOwner, blacklisted }: SellerCardPro
           {seller.telegramUsername && (
             <p className="mt-0.5 text-xs text-muted-foreground">@{seller.telegramUsername}</p>
           )}
-          <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
+          <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <Star className="h-3 w-3" /> A'zo: {memberSinceLabel}
             </span>
-
           </div>
         </div>
-      </div>
+      </Link>
 
-      {!isViewerOwner && seller.telegramUsername && (
-        <Button asChild variant="outline" size="sm" className="mt-3 w-full rounded-lg">
-          <Link href={`https://t.me/${seller.telegramUsername}`} target="_blank" rel="noopener noreferrer">
-            <MessageCircle className="h-4 w-4" />
-            Telegramda yozish
-          </Link>
+      <div className="mt-3 flex items-center gap-2">
+        <Button asChild variant="secondary" size="sm" className="flex-1 rounded-lg">
+          <Link href={`/users/${seller.id}`}>Profilni ko'rish</Link>
         </Button>
-      )}
+        {!isViewerOwner && seller.telegramUsername && (
+          <Button asChild variant="outline" size="sm" className="shrink-0 rounded-lg px-3">
+            <Link
+              href={`https://t.me/${seller.telegramUsername}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Telegramda yozish"
+            >
+              <MessageCircle className="h-4 w-4" />
+            </Link>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

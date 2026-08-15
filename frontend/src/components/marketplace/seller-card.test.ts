@@ -31,6 +31,8 @@ describe('SellerCard', () => {
     expect(html).toContain('@cr7_official');
     expect(html).toContain('tasdiqlangan');
     expect(html).toContain("A&#x27;zo: 2025");
+    expect(html).toContain('/users/123e4567-e89b-12d3-a456-426614174000');
+    expect(html).toContain("Profilni ko&#x27;rish");
     expect(html).toContain('https://t.me/cr7_official');
     expect(html).toContain('Telegramda yozish');
   });
