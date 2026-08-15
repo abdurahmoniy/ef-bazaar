@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 
 import { DeleteListingButton } from '@/components/marketplace/delete-listing-button';
 import { ListingForm } from '@/components/marketplace/listing-form';
+import { MarkSoldButton } from '@/components/marketplace/mark-sold-button';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
 import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
@@ -46,6 +47,11 @@ export default async function EditListingPage({ params }: EditPageProps) {
           </p>
         </header>
         <ListingForm attributeDefinitions={definitions} initialListing={result.data} />
+        {result.data.status === 'ACTIVE' && (
+          <div className="pt-2">
+            <MarkSoldButton listingId={id} />
+          </div>
+        )}
         <DeleteListingButton listingId={id} />
       </section>
     </MarketplaceShell>

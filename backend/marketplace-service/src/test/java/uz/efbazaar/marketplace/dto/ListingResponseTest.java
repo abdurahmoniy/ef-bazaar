@@ -13,8 +13,11 @@ class ListingResponseTest {
 
     @Test
     void one_match_explanation_drives_both_new_and_compatibility_fields() {
+        SellerSummary seller = new SellerSummary(
+                UUID.randomUUID(), "Seller", "seller_tg", "https://photo.jpg", true, java.time.Instant.now()
+        );
         ListingResponse response = new ListingResponse(
-                UUID.randomUUID(), UUID.randomUUID(), "Account", BigDecimal.TEN,
+                UUID.randomUUID(), seller.id(), seller, "Account", BigDecimal.TEN,
                 false, Map.of(), List.of(), null, null, 0, 0, null,
                 null, null, null, null);
         MatchDetails details = new MatchDetails(75, 1, 2, 8, 11, 4);
@@ -23,5 +26,6 @@ class ListingResponseTest {
 
         assertThat(matched.matchDetails()).isEqualTo(details);
         assertThat(matched.matchPercent()).isEqualTo(75);
+        assertThat(matched.seller()).isEqualTo(seller);
     }
 }

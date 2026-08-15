@@ -51,7 +51,13 @@ public class AuthSummaryClient {
             Long telegramId,
             boolean verified,
             Instant createdAt,
-            boolean photoAvailable) {}
+            boolean photoAvailable,
+            String telegramPhotoUrl) {
+        public UserSummary(UUID id, String displayName, String telegramUsername, Long telegramId,
+                           boolean verified, Instant createdAt, boolean photoAvailable) {
+            this(id, displayName, telegramUsername, telegramId, verified, createdAt, photoAvailable, null);
+        }
+    }
 
     /** Empty when the id is unknown, the secret is unset, or auth is unreachable. */
     public Optional<UserSummary> resolve(UUID userId) {

@@ -9,6 +9,7 @@ import type {
   DreamTeam,
   DreamTeamPayload,
   LikeToggleResponse,
+  ListingResponse,
   MaxOvrRefreshResponse,
   MetaTier,
 } from './marketplace-types';
@@ -115,6 +116,17 @@ export function adminRejectTrustComplaint(complaintId: string): Promise<ActionRe
     ['v1', 'admin', 'trust', 'complaints', complaintId, 'reject'],
     { method: 'POST' },
     'Shikoyat rad etilmadi',
+  );
+}
+
+/**
+ * Seller marks their own listing as SOLD manually via POST /api/v1/listings/{id}/sold.
+ */
+export function markListingSold(listingId: string): Promise<ActionResult<ListingResponse>> {
+  return marketplaceRequest<ListingResponse>(
+    ['v1', 'listings', listingId, 'sold'],
+    { method: 'POST' },
+    "E'lonni sotilgan deb belgilab bo'lmadi",
   );
 }
 

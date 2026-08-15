@@ -18,9 +18,16 @@ public record UserSummaryResponse(
         Long telegramId,
         boolean verified,
         Instant createdAt,
-        boolean photoAvailable
+        boolean photoAvailable,
+        String telegramPhotoUrl
 ) {
     public static UserSummaryResponse from(User user) {
+        String photoUrl = null;
+        if (user.getTelegramPhotoFileId() != null && !user.getTelegramPhotoFileId().isBlank()) {
+            photoUrl = "/api/auth/v1/users/" + user.getId() + "/photo";
+        } else if (user.getTelegramPhotoUrl() != null && !user.getTelegramPhotoUrl().isBlank()) {
+            photoUrl = user.getTelegramPhotoUrl();
+        }
         return new UserSummaryResponse(
                 user.getId(),
                 user.displayName(),
@@ -28,7 +35,8 @@ public record UserSummaryResponse(
                 user.getTelegramId(),
                 user.verified(),
                 user.getCreatedAt(),
-                user.getTelegramPhotoFileId() != null || user.getTelegramPhotoUrl() != null
+                user.getTelegramPhotoFileId() != null || user.getTelegramPhotoUrl() != null,
+                photoUrl
         );
     }
 }

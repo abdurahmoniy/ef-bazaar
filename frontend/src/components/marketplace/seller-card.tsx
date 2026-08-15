@@ -4,13 +4,14 @@ import { BadgeCheck, IdCard, MessageCircle, ShieldAlert, Star } from 'lucide-rea
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import type { SellerSummary } from '@/lib/marketplace-types';
 import type { User } from '@/lib/types';
 
 interface SellerCardProps {
-  seller: Pick<
-    User,
-    'id' | 'displayName' | 'telegramPhotoUrl' | 'telegramUsername' | 'verified' | 'createdAt'
-  > | null;
+  seller:
+    | Pick<User, 'id' | 'displayName' | 'telegramPhotoUrl' | 'telegramUsername' | 'verified' | 'createdAt'>
+    | SellerSummary
+    | null;
   isViewerOwner?: boolean;
   /** Trust module: seller is on the public blacklist — show the red warning. */
   blacklisted?: boolean;

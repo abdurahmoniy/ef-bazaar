@@ -9,6 +9,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,6 +22,7 @@ import uz.efbazaar.auth.service.UserService;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -45,7 +47,21 @@ public class UserController {
      */
     @GetMapping("/me/photo")
     public ResponseEntity<byte[]> mePhoto(@AuthenticationPrincipal AuthenticatedUser principal) {
-        User user = userService.getById(principal.userId());
+        return streamPhoto(principal.userId(), false);
+    }
+
+    @GetMapping("/{id}/photo")
+    public ResponseEntity<byte[]> userPhoto(@PathVariable UUID id) {
+        return streamPhoto(id, true);
+    }
+
+    private ResponseEntity<byte[]> streamPhoto(UUID userId, boolean isPublic) {
+        User user;
+        try {
+            user = userService.getById(userId);
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
 
         if (user.getTelegramPhotoFileId() == null || user.getTelegramPhotoFileId().isBlank()) {
             return ResponseEntity.notFound().build();
@@ -56,9 +72,13 @@ public class UserController {
             return ResponseEntity.notFound().build();
         }
 
+        CacheControl cacheControl = isPublic
+                ? CacheControl.maxAge(Duration.ofHours(1)).cachePublic()
+                : CacheControl.maxAge(Duration.ofHours(1)).cachePrivate();
+
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_JPEG)
-                .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePrivate())
+                .cacheControl(cacheControl)
                 .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(bytes.get().length))
                 .body(bytes.get());
     }
