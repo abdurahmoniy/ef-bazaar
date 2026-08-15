@@ -9,6 +9,7 @@ import { isFeatureEnabled } from '@/lib/feature-flags';
 import {
   getActiveInvoiceSSR,
   getWallet,
+  getWalletHistorySSR,
 } from '@/lib/payment-server';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function WalletPage() {
+export default async function WalletPage({
+  searchParams,
+}: {
+  // `toldirish` carries the exact shortfall from wherever the user was turned
+  // away — accepting a proposal the wallet cannot cover sends them here with
+  // the missing amount already in the box.
+  searchParams: Promise<{ toldirish?: string }>;
+}) {
   // The gate runs before auth and before the fetches, unlike /tournaments,
   // which can gate around its rendered tree. This page redirects a signed-out
   // visitor to login and makes two payment-service calls — while the flag is
@@ -35,15 +43,27 @@ export default async function WalletPage() {
   const user = await getMe();
   if (!user) redirect('/auth/login?from=/hamyon');
 
-  const [wallet, activeInvoice] = await Promise.all([
+  const requested = Number((await searchParams).toldirish);
+  const topUpAmount = Number.isFinite(requested) && requested > 0
+    ? Math.ceil(requested)
+    : undefined;
+
+  const [wallet, activeInvoice, history] = await Promise.all([
     getWallet(),
     getActiveInvoiceSSR(),
+    getWalletHistorySSR(),
   ]);
 
   return (
     <MarketplaceShell user={user} activeTab="wallet" hideSearch backHref="/profile">
       {wallet ? (
-        <WalletView wallet={wallet} initialInvoice={activeInvoice} />
+        <WalletView
+          wallet={wallet}
+          initialInvoice={activeInvoice}
+          history={history}
+          telegramUsername={user.telegramUsername}
+          topUpAmount={topUpAmount}
+        />
       ) : (
         <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-16 text-center shadow-xs">
           <h1 className="text-base font-bold text-foreground">

@@ -13,4 +13,7 @@ public interface BotClient {
     OptionalLong postPaymentNotice(String html);
 
     void deletePaymentNotice(long messageId);
+
+    /** A direct message to one person's Telegram chat. */
+    OptionalLong sendDirectMessage(long chatId, String html);
 }

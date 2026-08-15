@@ -20,6 +20,12 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByGoogleId(String googleId);
 
+    /**
+     * Everyone holding a role, for services that need to reach a group rather
+     * than a person — a payout waiting for whoever is on duty, say.
+     */
+    List<User> findByRole(uz.efbazaar.auth.domain.Role role);
+
     boolean existsByGoogleId(String googleId);
 
     /** Case-insensitive contains-search over the admin-visible identity fields. */

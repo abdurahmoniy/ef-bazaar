@@ -69,6 +69,10 @@ class DeadBotStillCreditsIT extends AbstractIntegrationIT {
     static class SwitchableBot implements BotClient {
         static volatile BotClient delegate;
 
+        @Override public OptionalLong sendDirectMessage(long chatId, String html) {
+            return postPaymentNotice(html);
+        }
+
         @Override public OptionalLong postPaymentNotice(String html) {
             return delegate.postPaymentNotice(html);
         }

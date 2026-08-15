@@ -82,6 +82,39 @@ public class AdminTelegramNotifier {
         }
     }
 
+    /**
+     * A withdrawal ticket nobody has paid yet.
+     *
+     * <p>The money is already frozen by the time this posts, so the topic is
+     * the queue: nothing else tells an admin a payout is waiting, and the card
+     * owners watch Telegram rather than the admin panel.
+     */
+    public void withdrawalOpened(WithdrawalNotice n) {
+        if (!enabled) return;
+        try {
+            bot.postPaymentNotice(renderWithdrawal(n));
+        } catch (Exception e) {
+            log.warn("Withdrawal {} was not announced: {}", n.ticketId(), e.toString());
+        }
+    }
+
+    /**
+     * Tells the wallet owner how their payout ended, in their own chat.
+     *
+     * <p>Silently does nothing without a chat id: an account with no Telegram
+     * linked still gets the in-app notification, and a payout that already
+     * happened must not be held up by a nudge that cannot be delivered.
+     */
+    public void withdrawalClosedToOwner(Long chatId, long amountTiyin,
+                                        boolean paid, String note) {
+        if (!enabled || chatId == null) return;
+        try {
+            bot.sendDirectMessage(chatId, renderWithdrawalOutcome(amountTiyin, paid, note));
+        } catch (Exception e) {
+            log.warn("Could not tell {} about their payout: {}", chatId, e.toString());
+        }
+    }
+
     /** Deletes an announcement with no replacement — an expiry is not news. */
     public void invoiceExpired(Long messageId) {
         if (!enabled || messageId == null) return;
@@ -117,6 +150,30 @@ public class AdminTelegramNotifier {
                 .formatted(mask(n.cardLast4()), esc(n.holderName()),
                         uzs(n.transferAmountTiyin()), uzs(n.requestedAmountTiyin()),
                         n.userId(), CLOCK.format(at));
+    }
+
+    private String renderWithdrawalOutcome(long amountTiyin, boolean paid, String note) {
+        String tail = note == null || note.isBlank() ? "" : "\n\uD83D\uDCAC " + note;
+        return paid
+                ? ("\u2705 <b>Pul yechildi</b>\n\uD83D\uDCB5 <b>%s so'm</b> kartangizga o'tkazildi." + tail)
+                        .formatted(exactUzs(amountTiyin))
+                : ("\u274C <b>Pul yechish rad etildi</b>\n\uD83D\uDCB5 <b>%s so'm</b> hamyoningizga qaytarildi." + tail)
+                        .formatted(exactUzs(amountTiyin));
+    }
+
+    private String renderWithdrawal(WithdrawalNotice n) {
+        return """
+               \uD83D\uDCE4 <b>Pul yechish so'rovi</b>
+               \uD83D\uDCB5 Summa: <b>%s so'm</b>
+               \uD83D\uDCB3 Karta: %s
+               \uD83D\uDC64 %s
+               \uD83D\uDCDE %s%s
+               \uD83C\uDD94 <code>%s</code>
+               \u27A1\uFE0F Karta raqami admin panelida"""
+                .formatted(exactUzs(n.amountTiyin()), mask(n.cardLast4()),
+                        n.holderName(), n.phone(),
+                        n.telegramUsername() == null ? "" : " \u00B7 @" + n.telegramUsername(),
+                        n.userId());
     }
 
     private String renderUnmatched(UnmatchedNotice n) {

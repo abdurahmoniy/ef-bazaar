@@ -6,6 +6,8 @@ public final class PaymentTopics {
     public static final String CARD_CREDIT_OBSERVED = "efbazaar.payment.card-credit-observed";
     public static final String USERBOT_HEARTBEAT    = "efbazaar.payment.userbot-heartbeat";
     public static final String DEPOSIT_CREDITED     = "efbazaar.payment.deposit-credited";
+    public static final String WITHDRAWAL_REQUESTED = "efbazaar.payment.withdrawal-requested";
+    public static final String WITHDRAWAL_CLOSED    = "efbazaar.payment.withdrawal-closed";
 
     /**
      * Where a record this service cannot process is parked. Spring Kafka's own

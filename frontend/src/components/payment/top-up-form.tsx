@@ -16,6 +16,13 @@ import {
 
 interface TopUpFormProps {
   onCreated: (invoice: InvoiceResponse) => void;
+  /**
+   * Pre-filled so'm amount. Set when the user was sent here by something that
+   * knows what they are short — accepting a proposal the wallet cannot cover
+   * arrives with exactly the missing amount, so they do not have to work it
+   * out themselves.
+   */
+  initialAmount?: number;
 }
 
 /**
@@ -23,8 +30,10 @@ interface TopUpFormProps {
  * here only to save an obvious round trip — payment-service enforces the real
  * floor and answers with its own Uzbek message, which is what gets shown.
  */
-export function TopUpForm({ onCreated }: TopUpFormProps) {
-  const [amount, setAmount] = useState('');
+export function TopUpForm({ onCreated, initialAmount }: TopUpFormProps) {
+  const [amount, setAmount] = useState(
+    initialAmount && initialAmount > 0 ? String(initialAmount) : '',
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -123,17 +132,6 @@ export function TopUpForm({ onCreated }: TopUpFormProps) {
           {error}
         </p>
       )}
-
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/60 pt-3 text-[11.5px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-          Avtomatik tasdiqlash
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-          Uzcard & Humo
-        </span>
-      </div>
     </section>
   );
 }

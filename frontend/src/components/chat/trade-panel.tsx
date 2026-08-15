@@ -34,7 +34,9 @@ import { Select } from '@/components/ui/select';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
 import { isHumanProposal, isHumanTrade, validateAdminFee } from '@/lib/trade-human';
+import { createInvoice } from '@/lib/payment-client';
 import { planPollTick } from '@/lib/trade-poll-plan';
+import { isInsufficientFunds, shortfallSom, topUpHref } from '@/lib/wallet-shortfall';
 import {
   isTerminalState,
   TRADE_STATE_LABEL_UZ,
@@ -1674,6 +1676,10 @@ function AcceptModal({
     startSubmit(async () => {
       const result = await postProposalAccept(proposal.id, payload);
       if (!result.ok) {
+        if (isInsufficientFunds(result.error)) {
+          await sendToTopUp(proposal.priceUzs, setError);
+          return;
+        }
         setError(result.error);
         return;
       }
@@ -1764,6 +1770,53 @@ function ModalShell({
       </div>
     </div>
   );
+}
+
+/**
+ * Turns "you cannot afford this" into an invoice for exactly the difference.
+ *
+ * The buyer is not asked to work out what they are short, open the wallet and
+ * type it in: the invoice is created here, for the shortfall alone, and the
+ * wallet page renders its panel with the card to pay. "Payment pending" then
+ * means what it says.
+ *
+ * Navigates either way. If the invoice could not be created — a live one
+ * already occupies the slot is the usual reason — the amount rides along in the
+ * URL so the wallet still opens with the right number in the box.
+ */
+async function sendToTopUp(priceUzs: number, onError: (msg: string) => void) {
+  const wallet = await fetchWalletBalance();
+  if (wallet === null) {
+    onError('Hamyon holatini o‘qib bo‘lmadi — hamyon bo‘limidan to‘ldiring');
+    return;
+  }
+  const missing = shortfallSom(priceUzs, wallet.availableTiyin);
+  if (missing <= 0) {
+    // The balance covers it after all: something else refused the accept, and
+    // sending the buyer to top up money they already have would be nonsense.
+    onError('Hamyonda mablag‘ bor — qaytadan urinib ko‘ring');
+    return;
+  }
+  try {
+    await createInvoice(missing);
+  } catch {
+    // Fall through: the wallet page shows whatever invoice is already live,
+    // and topUpHref carries the amount if there is none.
+  }
+  window.location.href = topUpHref(missing);
+}
+
+async function fetchWalletBalance(): Promise<{ availableTiyin: number } | null> {
+  try {
+    const response = await fetch('/api/payment/v1/payments/wallet', {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as { availableTiyin: number };
+  } catch {
+    return null;
+  }
 }
 
 // -------------------- client-side fetchers --------------------
