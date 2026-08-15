@@ -177,28 +177,28 @@ export function PlayerFilterDialog({
           id="marketplace-player-filter"
           type="button"
           className={cn(
-            'tap-press relative flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold sm:px-3',
+            'tap-press relative inline-flex min-h-8 sm:min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold',
             'border border-amber-400/60 bg-gradient-to-br from-amber-400/20 via-amber-300/10 to-transparent',
             'text-amber-600 dark:text-amber-300',
-            'shadow-[0_0_16px_-3px_rgba(251,191,36,0.65)] transition',
-            'hover:border-amber-400 hover:shadow-[0_0_22px_-2px_rgba(251,191,36,0.85)]',
+            'shadow-[0_0_12px_-3px_rgba(251,191,36,0.5)] transition',
+            'hover:border-amber-400 hover:shadow-[0_0_18px_-2px_rgba(251,191,36,0.7)]',
           )}
         >
           <span
             aria-hidden
-            className="pointer-events-none absolute inset-0 animate-pulse rounded-lg ring-1 ring-amber-400/40 motion-reduce:animate-none"
+            className="pointer-events-none absolute inset-0 animate-pulse rounded-full ring-1 ring-amber-400/40 motion-reduce:animate-none"
           />
-          <Flame className="h-4 w-4" />
+          <Flame className="h-3.5 w-3.5" />
           <span>O‘yinchilar</span>
           {activeCount > 0 && (
-            <span className="grid h-5 min-w-5 place-items-center rounded-full bg-amber-400 px-1 text-[11px] font-black text-amber-950">
+            <span className="grid h-4 min-w-4 place-items-center rounded-full bg-amber-400 px-1 text-[10px] font-black text-amber-950">
               {activeCount}
             </span>
           )}
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 animate-fade-in bg-black/60 backdrop-blur-sm motion-reduce:animate-none" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out motion-reduce:animate-none" />
         <Dialog.Content
           onFocusOutside={(event) => event.preventDefault()}
           onCloseAutoFocus={(event) => {
@@ -207,7 +207,7 @@ export function PlayerFilterDialog({
             triggerRef.current.focus();
           }}
           className={cn(
-            'fixed inset-x-0 bottom-0 z-50 flex max-h-[min(92dvh,var(--tg-viewport-height,92dvh))] animate-sheet-up flex-col rounded-t-2xl bg-card shadow-2xl outline-none motion-reduce:animate-none',
+            'fixed inset-x-0 bottom-0 z-50 flex max-h-[min(92dvh,var(--tg-viewport-height,92dvh))] flex-col rounded-t-2xl bg-card shadow-2xl outline-none data-[state=open]:animate-sheet-up data-[state=closed]:animate-sheet-down motion-reduce:animate-none',
             'sm:inset-0 sm:m-auto sm:h-[86vh] sm:max-w-4xl sm:rounded-2xl',
           )}
         >

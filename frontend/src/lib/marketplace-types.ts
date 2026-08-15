@@ -92,6 +92,7 @@ export interface ListingBrowseParams {
   maxPrice?: number;
   priceNegotiable?: boolean;
   search?: string;
+  q?: string;
   /** Repeatable typed matcher criteria: efhubId:playerId:N|P. */
   matchCards?: string[];
   matchStrictness?: number;

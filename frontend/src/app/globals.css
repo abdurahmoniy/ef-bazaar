@@ -261,22 +261,13 @@
   }
 
   .marketplace-toolbar-actions {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
-    gap: 8px;
+    display: flex;
     align-items: center;
+    gap: 6px;
   }
 
   .marketplace-toolbar-actions > * {
     min-width: 0;
-  }
-
-  .marketplace-toolbar-actions > :nth-child(3) {
-    justify-self: end;
-  }
-
-  .marketplace-toolbar-actions > :nth-child(4) {
-    justify-self: start;
   }
 
   .marketplace-results-container {
@@ -325,17 +316,6 @@
   @container (min-width: 696px) {
     .marketplace-listings:not([data-view='list']) {
       grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
-
-  @media (min-width: 360px) {
-    .marketplace-toolbar-actions {
-      grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr) 44px 44px;
-    }
-
-    .marketplace-toolbar-actions > :nth-child(3),
-    .marketplace-toolbar-actions > :nth-child(4) {
-      justify-self: stretch;
     }
   }
 

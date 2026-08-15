@@ -115,7 +115,7 @@ export function MarketplaceFilterSheet({
     triggerRef.current?.focus();
   }, [open]);
 
-  function changeOpen(nextOpen: boolean) {
+  const changeOpen = React.useCallback((nextOpen: boolean) => {
     if (nextOpen) {
       setDraft(filterDraftFromBrowseParams(filters));
       setPreview({ status: 'idle' });
@@ -124,7 +124,23 @@ export function MarketplaceFilterSheet({
       restoreFocusRef.current = true;
     }
     setOpen(nextOpen);
-  }
+  }, [filters]);
+
+  React.useEffect(() => {
+    const handleOpenFilters = () => changeOpen(true);
+    const handleHash = () => {
+      if (window.location.hash === '#marketplace-filters' || window.location.hash === '#filters') {
+        changeOpen(true);
+      }
+    };
+    handleHash();
+    window.addEventListener('open-marketplace-filters', handleOpenFilters);
+    window.addEventListener('hashchange', handleHash);
+    return () => {
+      window.removeEventListener('open-marketplace-filters', handleOpenFilters);
+      window.removeEventListener('hashchange', handleHash);
+    };
+  }, [changeOpen]);
 
   function apply() {
     if (!valid || applyStartedRef.current) return;
@@ -164,13 +180,13 @@ export function MarketplaceFilterSheet({
       </Dialog.Trigger>
 
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 animate-fade-in bg-black/55 backdrop-blur-sm motion-reduce:animate-none" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/55 backdrop-blur-sm data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out motion-reduce:animate-none" />
         <Dialog.Content
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             triggerRef.current?.focus();
           }}
-          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[min(92dvh,var(--tg-viewport-height,92dvh))] flex-col overflow-hidden rounded-t-2xl border-t border-border bg-card shadow-2xl outline-none motion-reduce:animate-none lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[min(92dvh,var(--tg-viewport-height,92dvh))] flex-col overflow-hidden rounded-t-2xl border-t border-border bg-card shadow-2xl outline-none data-[state=open]:animate-sheet-up data-[state=closed]:animate-sheet-down motion-reduce:animate-none lg:hidden"
         >
           <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
             <div className="min-w-0">
