@@ -50,9 +50,11 @@ public class TradeProposalController {
     public ResponseEntity<TradeResponse> accept(
             @AuthenticationPrincipal AuthenticatedUser me,
             @PathVariable UUID proposalId,
-            @Valid @RequestBody ProposalAcceptRequest req) {
+            // Optional body: accepting takes no input now that the money is
+            // frozen from the buyer's wallet, so a bare POST has to work.
+            @Valid @RequestBody(required = false) ProposalAcceptRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
-                proposals.accept(me.userId(), proposalId, req.cardId()));
+                proposals.accept(me.userId(), proposalId, req == null ? null : req.cardId()));
     }
 
     @PostMapping("/{proposalId}/reject")
