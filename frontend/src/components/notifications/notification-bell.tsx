@@ -97,16 +97,18 @@ export function NotificationBell({ className, dropdownAlign = 'right' }: Notific
         type="button"
         variant="ghost"
         size="sm"
-        className="relative h-9 w-9 p-0"
+        className="h-9 w-9 p-0"
         onClick={toggleOpen}
         aria-label={unread > 0 ? `Bildirishnomalar (${unread} o'qilmagan)` : 'Bildirishnomalar'}
       >
-        <Bell className="h-5 w-5" />
-        {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 grid min-w-4 place-items-center rounded-full bg-destructive px-1 text-[9.5px] font-bold leading-4 text-destructive-foreground">
-            {unread > 99 ? '99+' : unread}
-          </span>
-        )}
+        <span className="relative">
+          <Bell className="h-5 w-5" />
+          {unread > 0 && (
+            <span className="absolute -right-1.5 -top-1 grid min-w-4 place-items-center rounded-full bg-destructive px-1 text-[9.5px] font-bold leading-4 text-destructive-foreground">
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
+        </span>
       </Button>
 
       {open && (

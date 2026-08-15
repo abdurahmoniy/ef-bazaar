@@ -14,18 +14,20 @@ interface ProfileListingsProps {
 export function ProfileListings({ listings, favorites = false }: ProfileListingsProps) {
   if (listings.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card px-4 py-12 text-center shadow-card">
-        <Package2 className="mx-auto h-8 w-8 text-muted-foreground/50" />
-        <h2 className="mt-2 text-sm font-bold text-foreground">
+      <div className="rounded-2xl border border-dashed border-border/80 bg-card px-4 py-16 text-center shadow-xs min-h-[50vh] flex flex-col items-center justify-center">
+        <div className="grid h-16 w-16 place-items-center rounded-3xl bg-muted/50 text-muted-foreground ring-1 ring-border/50">
+          <Package2 className="h-8 w-8 opacity-60" />
+        </div>
+        <h2 className="mt-3 text-base font-bold text-foreground">
           {favorites ? "Sevimlilarga qo'shilganlar yo'q" : "Sizda hali e'lon yo'q"}
         </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-xs text-muted-foreground max-w-xs leading-relaxed">
           {favorites
             ? "Bozorda yoqqan e'lonlarni yurakcha bilan belgilang."
-            : 'Birinchi akkountingizni sotishga qo\'ying.'}
+            : "Birinchi akkountingizni sotuvga qo'ying."}
         </p>
         {!favorites && (
-          <Button asChild size="sm" className="mt-3">
+          <Button asChild size="sm" className="mt-4 rounded-full px-5 font-semibold shadow-xs">
             <Link href="/marketplace/new">
               <Plus className="h-4 w-4" /> Akkount joylash
             </Link>
