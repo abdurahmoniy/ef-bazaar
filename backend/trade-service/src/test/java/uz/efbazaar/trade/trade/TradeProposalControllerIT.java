@@ -78,4 +78,35 @@ class TradeProposalControllerIT extends AbstractIntegrationIT {
                         .content(json.writeValueAsString(Map.of("cardId", UUID.randomUUID()))))
                 .andExpect(status().isBadRequest());
     }
+
+    /**
+     * Accepting takes no input any more.
+     *
+     * <p>The buyer's money is frozen from their wallet the moment they accept,
+     * so there is no card to charge and the client stopped sending one — but
+     * {@code cardId} kept its {@code @NotNull} and rejected every accept with a
+     * 400 before the request reached the service. Every existing test sent a
+     * card, so the whole suite stayed green while the button was dead in
+     * production.
+     *
+     * <p>Asserted as 404, not 2xx: a real accept would call payment-service to
+     * place the hold. Reaching "proposal not found" is proof enough that
+     * validation let the request through, which is the thing that broke.
+     */
+    @Test
+    void acceptingWithoutACardGetsPastValidation() throws Exception {
+        mvc.perform(post("/api/v1/trades/proposals/" + UUID.randomUUID() + "/accept")
+                        .with(asUser(UUID.randomUUID()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isNotFound());
+    }
+
+    /** A client that sends no body at all is equally valid now. */
+    @Test
+    void acceptingWithNoBodyAtAllGetsPastValidation() throws Exception {
+        mvc.perform(post("/api/v1/trades/proposals/" + UUID.randomUUID() + "/accept")
+                        .with(asUser(UUID.randomUUID())))
+                .andExpect(status().isNotFound());
+    }
 }
