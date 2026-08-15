@@ -16,9 +16,9 @@ export default function MarketplaceLoading() {
             <Skeleton className="h-7 w-52 max-w-[72%] rounded-lg sm:h-8 sm:w-64" />
             <div className="marketplace-toolbar-actions">
               <Skeleton className="h-11 w-full rounded-lg" />
-              <Skeleton className="h-11 w-full rounded-lg" />
-              <Skeleton className="h-11 w-full rounded-lg" />
-              <Skeleton className="h-11 w-full rounded-lg" />
+              <Skeleton className="hidden h-11 w-full rounded-lg sm:block" />
+              <Skeleton className="hidden h-11 w-full rounded-lg sm:block" />
+              <Skeleton className="hidden h-11 w-full rounded-lg sm:block" />
             </div>
             <div className="flex items-center justify-between gap-3">
               <Skeleton className="h-4 w-20 rounded" />

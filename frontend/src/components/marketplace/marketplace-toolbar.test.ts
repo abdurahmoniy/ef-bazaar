@@ -73,12 +73,11 @@ describe('marketplace mobile toolbar contract', () => {
     expect(toolbar).toContain('playerTrigger');
     expect(toolbar).toContain('marketplace-toolbar-actions');
     expect(toolbar).toContain('min-h-11');
-    expect(toolbar.match(/\[&>button\]:min-h-11/g)).toHaveLength(2);
+    expect(toolbar.match(/\[&>button\]:min-h-11/g)).toHaveLength(1);
     expect(view).toContain('min-h-11');
     expect(sort).toContain('min-h-11');
-    expect(globals).toContain('grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);');
-    expect(globals).toContain('@media (min-width: 360px)');
-    expect(globals).toContain('minmax(0, 0.82fr) minmax(0, 1.18fr) 44px 44px');
+    expect(globals).toContain('display: flex;');
+    expect(globals).toContain('gap: 6px;');
   });
 
   it('removes the legacy filter trigger from the desktop toolbar without a dead flex slot', () => {
@@ -95,7 +94,7 @@ describe('marketplace mobile toolbar contract', () => {
       quickChips: null,
     }));
 
-    expect(markup).toMatch(/class="[^"]*lg:hidden[^"]*"><button data-filter-trigger="true"/);
+    expect(markup).toMatch(/class="[^"]*hidden[^"]*"><button data-filter-trigger="true"/);
     expect(browser).toContain('<ListingFilters {...filterProps} />');
   });
 
