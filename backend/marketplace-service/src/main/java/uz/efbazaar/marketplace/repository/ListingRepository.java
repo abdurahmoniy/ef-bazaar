@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.domain.ListingStatus;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface ListingRepository extends JpaRepository<Listing, UUID>,
@@ -18,6 +19,9 @@ public interface ListingRepository extends JpaRepository<Listing, UUID>,
     Page<Listing> findBySellerId(UUID sellerId, Pageable pageable);
 
     Page<Listing> findBySellerIdAndStatusNot(UUID sellerId, ListingStatus excludedStatus, Pageable pageable);
+
+    /** Unpaged on purpose — this fills the in-chat account picker, which shows the lot. */
+    List<Listing> findBySellerIdAndStatusOrderByCreatedAtDesc(UUID sellerId, ListingStatus status);
 
     Page<Listing> findByStatus(ListingStatus status, Pageable pageable);
 

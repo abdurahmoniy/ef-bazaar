@@ -37,6 +37,7 @@ class ChatServiceTest {
     @Mock NotificationService notifications;
 
     @Mock uz.efbazaar.marketplace.trust.BlacklistGuard blacklistGuard;
+    @Mock ChatAccountRequestService accountRequests;
     @InjectMocks ChatService service;
 
     private UUID sellerId;
@@ -60,8 +61,8 @@ class ChatServiceTest {
     @Test
     void start_createsChat() {
         when(listings.findById(listingId)).thenReturn(Optional.of(activeListing));
-        when(chats.findByBuyerIdAndListingIdAndStatus(buyerId, listingId, ChatStatus.ACTIVE))
-                .thenReturn(Optional.empty());
+        when(chats.findBetween(buyerId, sellerId, ChatStatus.ACTIVE))
+                .thenReturn(java.util.List.of());
         when(chats.save(any(Chat.class))).thenAnswer(inv -> {
             Chat c = inv.getArgument(0);
             c.setId(UUID.randomUUID());
@@ -78,8 +79,8 @@ class ChatServiceTest {
     @Test
     void start_snapshotsBuyerAndSellerDisplayNames() {
         when(listings.findById(listingId)).thenReturn(Optional.of(activeListing));
-        when(chats.findByBuyerIdAndListingIdAndStatus(buyerId, listingId, ChatStatus.ACTIVE))
-                .thenReturn(Optional.empty());
+        when(chats.findBetween(buyerId, sellerId, ChatStatus.ACTIVE))
+                .thenReturn(java.util.List.of());
         when(authNameClient.resolveNames(any()))
                 .thenReturn(Map.of(buyerId, "Aziz Rahmatov", sellerId, "Sardor Karimov"));
         when(chats.save(any(Chat.class))).thenAnswer(inv -> {
@@ -96,8 +97,8 @@ class ChatServiceTest {
     @Test
     void start_leavesNamesNullWhenAuthClientReturnsEmpty() {
         when(listings.findById(listingId)).thenReturn(Optional.of(activeListing));
-        when(chats.findByBuyerIdAndListingIdAndStatus(buyerId, listingId, ChatStatus.ACTIVE))
-                .thenReturn(Optional.empty());
+        when(chats.findBetween(buyerId, sellerId, ChatStatus.ACTIVE))
+                .thenReturn(java.util.List.of());
         when(authNameClient.resolveNames(any())).thenReturn(Map.of());
         when(chats.save(any(Chat.class))).thenAnswer(inv -> {
             Chat c = inv.getArgument(0);
@@ -120,8 +121,8 @@ class ChatServiceTest {
                 .status(ChatStatus.ACTIVE)
                 .build();
         when(listings.findById(listingId)).thenReturn(Optional.of(activeListing));
-        when(chats.findByBuyerIdAndListingIdAndStatus(buyerId, listingId, ChatStatus.ACTIVE))
-                .thenReturn(Optional.of(existing));
+        when(chats.findBetween(buyerId, sellerId, ChatStatus.ACTIVE))
+                .thenReturn(java.util.List.of(existing));
 
         Chat chat = service.start(buyerId, listingId);
         assertThat(chat).isSameAs(existing);

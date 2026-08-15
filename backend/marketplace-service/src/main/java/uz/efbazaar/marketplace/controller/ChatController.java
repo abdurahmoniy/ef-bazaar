@@ -11,11 +11,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uz.efbazaar.marketplace.domain.Chat;
+import uz.efbazaar.marketplace.dto.AccountRequestCreateRequest;
+import uz.efbazaar.marketplace.dto.AccountRequestResponse;
+import uz.efbazaar.marketplace.dto.ChatListingOptionResponse;
 import uz.efbazaar.marketplace.dto.ChatResponse;
 import uz.efbazaar.marketplace.dto.PageResponse;
 import uz.efbazaar.marketplace.dto.StartChatRequest;
 import uz.efbazaar.marketplace.mapper.ChatMapper;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
+import uz.efbazaar.marketplace.service.ChatAccountRequestService;
 import uz.efbazaar.marketplace.service.ChatService;
 
 import java.util.List;
@@ -27,6 +31,7 @@ import java.util.UUID;
 public class ChatController {
 
     private final ChatService chatService;
+    private final ChatAccountRequestService accountRequests;
     private final ChatMapper mapper;
 
     @PostMapping
@@ -105,6 +110,47 @@ public class ChatController {
     public ChatResponse close(@AuthenticationPrincipal AuthenticatedUser user,
                               @PathVariable UUID id) {
         return enrich(chatService.close(id, user.userId()), user.userId());
+    }
+
+    // ----- account requests: which listing this chat is currently about -----
+
+    /**
+     * The partner's active listings. Either participant may ask, because either
+     * may be the one buying next.
+     */
+    @GetMapping("/{id}/partner-listings")
+    public List<ChatListingOptionResponse> partnerListings(
+            @AuthenticationPrincipal AuthenticatedUser user,
+            @PathVariable UUID id) {
+        return accountRequests.partnerListings(user.userId(), id).stream()
+                .map(ChatListingOptionResponse::of)
+                .toList();
+    }
+
+    /** Null body when nothing is being negotiated — an empty chat is not an error. */
+    @GetMapping("/{id}/account-request")
+    public AccountRequestResponse currentRequest(@AuthenticationPrincipal AuthenticatedUser user,
+                                                 @PathVariable UUID id) {
+        return accountRequests.current(user.userId(), id)
+                .map(accountRequests::describe)
+                .orElse(null);
+    }
+
+    /** Picking an account: the caller becomes the buyer, the partner the seller. */
+    @PostMapping("/{id}/account-request")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AccountRequestResponse openRequest(@AuthenticationPrincipal AuthenticatedUser user,
+                                              @PathVariable UUID id,
+                                              @Valid @RequestBody AccountRequestCreateRequest body) {
+        return accountRequests.describe(
+                accountRequests.open(user.userId(), id, body.listingId()));
+    }
+
+    @DeleteMapping("/{id}/account-request")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancelRequest(@AuthenticationPrincipal AuthenticatedUser user,
+                              @PathVariable UUID id) {
+        accountRequests.cancel(user.userId(), id);
     }
 
     // ----- internal -----

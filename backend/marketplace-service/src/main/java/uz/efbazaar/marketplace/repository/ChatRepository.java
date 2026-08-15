@@ -19,6 +19,25 @@ public interface ChatRepository extends JpaRepository<Chat, UUID> {
     Optional<Chat> findByBuyerIdAndListingIdAndStatus(UUID buyerId, UUID listingId, ChatStatus status);
 
     /**
+     * The pair's conversation, whichever way round the roles were recorded.
+     *
+     * <p>Returns a list, not an Optional, on purpose: {@code
+     * uk_chats_active_buyer_listing} only ever kept one active chat per
+     * (buyer, listing), so a pair that talked about two listings before V32
+     * legitimately has two active rows. Newest wins — that is the conversation
+     * they are actually in — and the older ones stay reachable from the chat
+     * list rather than being merged or closed behind the user's back.
+     */
+    @Query("""
+            SELECT c FROM Chat c
+            WHERE c.status = :status
+              AND ((c.buyerId = :a AND c.sellerId = :b)
+                OR (c.buyerId = :b AND c.sellerId = :a))
+            ORDER BY c.lastMessageAt DESC
+            """)
+    List<Chat> findBetween(@Param("a") UUID a, @Param("b") UUID b, @Param("status") ChatStatus status);
+
+    /**
      * Chats visible in the user's list — participant row exists and the user
      * has not hidden ("deleted for me") the conversation.
      */
