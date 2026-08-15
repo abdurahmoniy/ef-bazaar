@@ -21,6 +21,7 @@ interface WithdrawFormProps {
   /** Contact hint sent with the ticket; the server treats userId as authority. */
   telegramUsername?: string | null;
   onCreated: (ticket: WithdrawalTicket) => void;
+  defaultOpen?: boolean;
 }
 
 /**
@@ -33,8 +34,9 @@ export function WithdrawForm({
   availableTiyin,
   telegramUsername,
   onCreated,
+  defaultOpen = false,
 }: WithdrawFormProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [som, setSom] = useState('');
   const [pan, setPan] = useState('');
   const [holderName, setHolderName] = useState('');

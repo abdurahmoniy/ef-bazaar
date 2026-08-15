@@ -156,7 +156,7 @@ describe('ListingCard', () => {
     expect(markup).toContain('100');
     expect(markup).toContain('iOS');
     expect(markup).toContain('50');
-    expect((markup.match(/data-efootball-coin-icon/g) ?? [])).toHaveLength(2);
+    expect((markup.match(/data-efootball-coin-icon/g) ?? [])).toHaveLength(1);
 
     expect(markup).not.toContain('2/3 mos · 58%');
     expect(markup).not.toContain('Lionel Messi');
@@ -171,7 +171,7 @@ describe('ListingCard', () => {
     expect(markup).not.toContain('META');
   });
 
-  it('renders each linked identity provider as its own amber warning chip', () => {
+  it('renders linked identity providers with +1 shorthand when both are linked', () => {
     const gameCenterMarkup = renderToStaticMarkup(createElement(ListingCard, {
       listing: listing({
         attributes: {
@@ -204,16 +204,16 @@ describe('ListingCard', () => {
     expect(gameCenterMarkup).toContain('lucide-triangle-alert');
     expect(gameCenterMarkup).toContain('bg-secondary/30');
     expect(gameCenterMarkup).toContain('text-secondary-foreground');
-    expect((bothLinkedMarkup.match(/data-linked-service-warning=/g) ?? [])).toHaveLength(2);
+    expect((bothLinkedMarkup.match(/data-linked-service-warning=/g) ?? [])).toHaveLength(1);
     expect(bothLinkedMarkup).toContain('data-linked-service-warning="google-play"');
-    expect(bothLinkedMarkup).toContain('Google Play');
-    expect(bothLinkedMarkup).toContain('Game Center');
+    expect(bothLinkedMarkup).toContain('Google Play +1');
+    expect(bothLinkedMarkup).not.toContain('Game Center');
     expect(bothLinkedMarkup).not.toContain('/icons/google.svg');
     expect(bothLinkedMarkup).not.toContain('/icons/apple.svg');
     expect(unlinkedMarkup).not.toContain('data-linked-service-warning');
   });
 
-  it('requires exact boolean true for linked services and labels explicit no-exchange', () => {
+  it('requires exact boolean true for linked services and omits trade icon for NONE exchange', () => {
     const markup = renderToStaticMarkup(createElement(ListingCard, {
       listing: listing({
         attributes: {
@@ -225,7 +225,42 @@ describe('ListingCard', () => {
     }));
 
     expect(markup).not.toContain('data-linked-service-warning');
-    expect(markup).toContain('Obmen yo‘q');
+    expect(markup).not.toContain('data-exchange-badge');
+  });
+
+  it('renders green Toza badge on clean listings without links or negative coins', () => {
+    const cleanMarkup = renderToStaticMarkup(createElement(ListingCard, {
+      listing: listing({
+        attributes: {
+          has_google_play_link: false,
+          has_game_center_link: false,
+          android_coins: 500,
+        },
+      }),
+    }));
+    const linkedMarkup = renderToStaticMarkup(createElement(ListingCard, {
+      listing: listing({
+        attributes: {
+          has_google_play_link: true,
+          has_game_center_link: false,
+        },
+      }),
+    }));
+    const negativeCoinMarkup = renderToStaticMarkup(createElement(ListingCard, {
+      listing: listing({
+        attributes: {
+          has_google_play_link: false,
+          has_game_center_link: false,
+          ios_coins: -100,
+        },
+      }),
+    }));
+
+    expect(cleanMarkup).toContain('data-clean-account-badge="true"');
+    expect(cleanMarkup).toContain('Toza');
+    expect(cleanMarkup).toContain('text-emerald-700');
+    expect(linkedMarkup).not.toContain('data-clean-account-badge');
+    expect(negativeCoinMarkup).not.toContain('data-clean-account-badge');
   });
 
   it('renders negative coin balances in red', () => {
@@ -237,7 +272,7 @@ describe('ListingCard', () => {
 
     expect(markup).toContain('Android');
     expect(markup).toContain('900');
-    expect(markup).toContain('aria-label="iOS coin: -900"');
+    expect(markup).toContain('aria-label="Android coin: 900, iOS coin: -900"');
     expect(markup).toContain('-900');
     expect(markup).toContain('text-destructive');
   });

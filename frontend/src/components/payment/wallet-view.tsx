@@ -4,9 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowDownLeft,
+  ArrowDownToLine,
   ArrowLeftRight,
+  ArrowUpFromLine,
   ArrowUpRight,
   CheckCircle2,
+  History,
   Lock,
   RotateCcw,
   ShieldAlert,
@@ -15,6 +18,7 @@ import {
   XCircle,
 } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { InvoicePanel } from '@/components/payment/invoice-panel';
 import { TopUpForm } from '@/components/payment/top-up-form';
 import { WithdrawForm } from '@/components/payment/withdraw-form';
@@ -39,6 +43,7 @@ interface WalletViewProps {
   topUpAmount?: number;
 }
 
+type WalletTab = 'topup' | 'withdraw' | 'history';
 type HistoryFilter = 'all' | 'in' | 'out';
 
 function getTransactionIcon(label: string, incoming: boolean) {
@@ -103,6 +108,7 @@ export function WalletView({
   topUpAmount,
 }: WalletViewProps) {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<WalletTab>('topup');
   const [invoice, setInvoice] = useState<InvoiceResponse | null>(initialInvoice);
   const [entries, setEntries] = useState<WalletEntryResponse[] | null>(
     initialHistory ?? legacyHistory ?? null,
@@ -145,6 +151,7 @@ export function WalletView({
 
   const handleCreated = useCallback((created: InvoiceResponse) => {
     setInvoice(created);
+    setActiveTab('topup');
   }, []);
 
   const handleExpired = useCallback(() => {
@@ -157,7 +164,7 @@ export function WalletView({
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 sm:space-y-5">
-      {/* 1. Clean Balance Card */}
+      {/* 1. Hero Balance Card */}
       <section className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs sm:p-7">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -187,7 +194,7 @@ export function WalletView({
             {wallet.heldTiyin > 0 && (
               <div className="flex items-center justify-between rounded-xl bg-amber-500/10 px-3.5 py-2.5 text-xs">
                 <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
-                  <Lock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <Snowflake className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                   <span>Savdoda muzlatilgan — savdo yakunlangach ochiladi</span>
                 </div>
                 <span className="font-bold tabular-nums text-amber-900 dark:text-amber-200">
@@ -208,143 +215,207 @@ export function WalletView({
             )}
           </div>
         )}
+
+        {/* 3 Quick Action Buttons */}
+        <div className="mt-5 grid grid-cols-3 gap-2 border-t border-border/60 pt-4">
+          <Button
+            type="button"
+            variant={activeTab === 'topup' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('topup')}
+            className={cn(
+              'h-11 rounded-xl text-xs sm:text-sm font-semibold transition active:scale-95 flex items-center justify-center gap-1.5',
+              activeTab !== 'topup' && 'border-border/80 text-foreground hover:bg-muted/50',
+            )}
+          >
+            <ArrowDownToLine className="h-4 w-4" />
+            To‘ldirish
+          </Button>
+
+          <Button
+            type="button"
+            variant={activeTab === 'withdraw' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('withdraw')}
+            className={cn(
+              'h-11 rounded-xl text-xs sm:text-sm font-semibold transition active:scale-95 flex items-center justify-center gap-1.5',
+              activeTab !== 'withdraw' && 'border-border/80 text-foreground hover:bg-muted/50',
+            )}
+          >
+            <ArrowUpFromLine className="h-4 w-4" />
+            Pul yechish
+          </Button>
+
+          <Button
+            type="button"
+            variant={activeTab === 'history' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('history')}
+            className={cn(
+              'h-11 rounded-xl text-xs sm:text-sm font-semibold transition active:scale-95 flex items-center justify-center gap-1.5',
+              activeTab !== 'history' && 'border-border/80 text-foreground hover:bg-muted/50',
+            )}
+          >
+            <History className="h-4 w-4" />
+            Tarix
+            {rows.length > 0 && (
+              <span
+                className={cn(
+                  'ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none',
+                  activeTab === 'history'
+                    ? 'bg-primary-foreground/20 text-primary-foreground'
+                    : 'bg-muted text-muted-foreground',
+                )}
+              >
+                {rows.length}
+              </span>
+            )}
+          </Button>
+        </div>
       </section>
 
-      {/* 2. Top-Up Form or Active Invoice */}
-      {invoice ? (
-        <InvoicePanel
-          invoice={invoice}
-          onExpired={handleExpired}
-          onDismiss={handleDismissed}
-        />
-      ) : (
-        <TopUpForm onCreated={handleCreated} initialAmount={topUpAmount} />
+      {/* 2. Active Tab Content: Top-up */}
+      {activeTab === 'topup' && (
+        invoice ? (
+          <InvoicePanel
+            invoice={invoice}
+            onExpired={handleExpired}
+            onDismiss={handleDismissed}
+          />
+        ) : (
+          <TopUpForm onCreated={handleCreated} initialAmount={topUpAmount} />
+        )
       )}
 
-      {/* 3. Withdraw Form */}
-      <WithdrawForm
-        availableTiyin={wallet.availableTiyin}
-        telegramUsername={telegramUsername}
-        onCreated={() => router.refresh()}
-      />
+      {/* 3. Active Tab Content: Withdraw */}
+      {activeTab === 'withdraw' && (
+        <WithdrawForm
+          availableTiyin={wallet.availableTiyin}
+          telegramUsername={telegramUsername}
+          defaultOpen={true}
+          onCreated={() => {
+            router.refresh();
+            setActiveTab('history');
+          }}
+        />
+      )}
 
-      {/* 4. Transaction History */}
-      <section className="overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs sm:p-7">
-        <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-4">
-          <h2 className="text-base font-bold text-foreground sm:text-lg">Amaliyotlar</h2>
+      {/* 4. Active Tab Content: History */}
+      {activeTab === 'history' && (
+        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-xs sm:p-7">
+          <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-4">
+            <h2 className="text-base font-bold text-foreground sm:text-lg">Amaliyotlar</h2>
 
-          {rows.length > 0 && (
-            <div className="flex items-center gap-1 rounded-xl bg-muted/60 p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => setFilter('all')}
-                className={cn(
-                  'rounded-lg px-2.5 py-1 font-semibold transition active:scale-95',
-                  filter === 'all'
-                    ? 'bg-card text-foreground shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                Barchasi ({rows.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilter('in')}
-                className={cn(
-                  'rounded-lg px-2.5 py-1 font-semibold transition active:scale-95',
-                  filter === 'in'
-                    ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                Kirim
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilter('out')}
-                className={cn(
-                  'rounded-lg px-2.5 py-1 font-semibold transition active:scale-95',
-                  filter === 'out'
-                    ? 'bg-card text-foreground shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                Chiqim
-              </button>
-            </div>
-          )}
-        </div>
-
-        {loadingHistory ? (
-          <div className="space-y-3 py-3 animate-pulse">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center justify-between gap-3 py-2">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-muted" />
-                  <div className="space-y-1.5">
-                    <div className="h-3.5 w-24 rounded bg-muted" />
-                    <div className="h-2.5 w-16 rounded bg-muted/60" />
-                  </div>
-                </div>
-                <div className="h-4 w-16 rounded bg-muted" />
-              </div>
-            ))}
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="py-10 text-center">
-            <p className="text-sm font-semibold text-foreground">
-              Hozircha amaliyot yo‘q.
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Barcha o‘tkazmalar va savdo amaliyotlari shu yerda ko‘rinadi.
-            </p>
-          </div>
-        ) : filteredRows.length === 0 ? (
-          <div className="py-8 text-center">
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Ushbu filtr bo‘yicha amaliyot topilmadi.
-            </p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-border/60">
-            {filteredRows.map((row, index) => {
-              const { icon, bg } = getTransactionIcon(row.label, row.incoming);
-
-              return (
-                <li
-                  key={`${row.transactionId}-${index}`}
-                  className="flex items-center justify-between gap-3 py-3.5 first:pt-3.5 last:pb-0"
+            {rows.length > 0 && (
+              <div className="flex items-center gap-1 rounded-xl bg-muted/60 p-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setFilter('all')}
+                  className={cn(
+                    'rounded-lg px-2.5 py-1 font-semibold transition active:scale-95',
+                    filter === 'all'
+                      ? 'bg-card text-foreground shadow-2xs'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', bg)}>
-                      {icon}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-foreground">{row.label}</p>
-                      <p className="text-xs text-muted-foreground">{row.when}</p>
+                  Barchasi ({rows.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter('in')}
+                  className={cn(
+                    'rounded-lg px-2.5 py-1 font-semibold transition active:scale-95',
+                    filter === 'in'
+                      ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-2xs'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  Kirim
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter('out')}
+                  className={cn(
+                    'rounded-lg px-2.5 py-1 font-semibold transition active:scale-95',
+                    filter === 'out'
+                      ? 'bg-card text-foreground shadow-2xs'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  Chiqim
+                </button>
+              </div>
+            )}
+          </div>
+
+          {loadingHistory ? (
+            <div className="space-y-3 py-3 animate-pulse">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center justify-between gap-3 py-2">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-muted" />
+                    <div className="space-y-1.5">
+                      <div className="h-3.5 w-24 rounded bg-muted" />
+                      <div className="h-2.5 w-16 rounded bg-muted/60" />
                     </div>
                   </div>
-                  <span
-                    className={cn(
-                      'flex shrink-0 items-center gap-1 text-sm font-bold tabular-nums',
-                      row.movement === 'in' && 'text-emerald-600 dark:text-emerald-400',
-                      row.movement === 'out' && 'text-foreground',
-                      // Muted and signless: the owner still has this money, it
-                      // just moved between their own piles.
-                      row.movement === 'internal' && 'text-muted-foreground',
-                    )}
+                  <div className="h-4 w-16 rounded bg-muted" />
+                </div>
+              ))}
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-sm font-semibold text-foreground">
+                Hozircha amaliyot yo‘q.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Barcha o‘tkazmalar va savdo amaliyotlari shu yerda ko‘rinadi.
+              </p>
+            </div>
+          ) : filteredRows.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Ushbu filtr bo‘yicha amaliyot topilmadi.
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-border/60">
+              {filteredRows.map((row, index) => {
+                const { icon, bg } = getTransactionIcon(row.label, row.incoming);
+
+                return (
+                  <li
+                    key={`${row.transactionId}-${index}`}
+                    className="flex items-center justify-between gap-3 py-3.5 first:pt-3.5 last:pb-0"
                   >
-                    {row.movement === 'internal' && (
-                      <Snowflake className="h-3.5 w-3.5" aria-hidden="true" />
-                    )}
-                    {row.amount}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', bg)}>
+                        {icon}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{row.label}</p>
+                        <p className="text-xs text-muted-foreground">{row.when}</p>
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        'flex shrink-0 items-center gap-1 text-sm font-bold tabular-nums',
+                        row.movement === 'in' && 'text-emerald-600 dark:text-emerald-400',
+                        row.movement === 'out' && 'text-foreground',
+                        // Muted and signless: the owner still has this money, it
+                        // just moved between their own piles.
+                        row.movement === 'internal' && 'text-muted-foreground',
+                      )}
+                    >
+                      {row.movement === 'internal' && (
+                        <Snowflake className="h-3.5 w-3.5" aria-hidden="true" />
+                      )}
+                      {row.amount}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   );
 }

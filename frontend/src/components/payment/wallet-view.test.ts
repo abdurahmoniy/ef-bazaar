@@ -177,6 +177,9 @@ describe('WalletView — history', () => {
     const warn = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await renderView(null, [entry(), entry({ amountTiyin: -5_000_000 })]);
+    await act(async () => {
+      buttonLabelled('Tarix')?.click();
+    });
 
     const collisions = warn.mock.calls.filter((args) =>
       args.some((arg) => typeof arg === 'string' && arg.includes('same key')),

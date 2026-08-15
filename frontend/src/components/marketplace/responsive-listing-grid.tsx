@@ -24,7 +24,7 @@ export function ResponsiveListingGrid({
     <div className="marketplace-results-container">
       <ul className="marketplace-listings m-0 list-none p-0" data-view={view}>
         {listings.map((listing, index) => (
-          <li key={listing.id} className="min-w-0">
+          <li key={listing.id} className="flex min-w-0 flex-col">
             <ListingCard
               listing={listing}
               layout={layout}
