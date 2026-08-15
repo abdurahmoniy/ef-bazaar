@@ -154,6 +154,17 @@ public class ListingController {
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 
+    @GetMapping("/user/{userId}")
+    public PageResponse<ListingResponse> byUser(@AuthenticationPrincipal AuthenticatedUser viewer,
+                                                @PathVariable UUID userId,
+                                                @PageableDefault(size = 20, sort = "createdAt,desc") Pageable pageable) {
+        Page<Listing> page = listingService.findBySeller(userId, pageable);
+        UUID viewerId = viewer == null ? null : viewer.userId();
+        return new PageResponse<>(
+                assembler.assembleAll(page.getContent(), viewerId),
+                page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+    }
+
     @GetMapping("/liked")
     public PageResponse<ListingResponse> liked(@AuthenticationPrincipal AuthenticatedUser user,
                                                @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {

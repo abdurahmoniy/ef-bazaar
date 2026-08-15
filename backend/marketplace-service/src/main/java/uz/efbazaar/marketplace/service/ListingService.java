@@ -249,6 +249,11 @@ public class ListingService {
     }
 
     @Transactional(readOnly = true)
+    public Page<Listing> findBySeller(UUID sellerId, Pageable pageable) {
+        return listings.findBySellerIdAndStatusNot(sellerId, ListingStatus.DELETED, pageable);
+    }
+
+    @Transactional(readOnly = true)
     public Page<Listing> findLiked(UUID userId, Pageable pageable) {
         return listings.findLikedByUser(userId, pageable);
     }
