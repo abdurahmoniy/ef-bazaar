@@ -6,6 +6,7 @@ import { Lock, Wallet as WalletIcon } from 'lucide-react';
 
 import { InvoicePanel } from '@/components/payment/invoice-panel';
 import { TopUpForm } from '@/components/payment/top-up-form';
+import { WithdrawForm } from '@/components/payment/withdraw-form';
 import { formatTiyin } from '@/lib/money';
 import type {
   InvoiceResponse,
@@ -19,9 +20,19 @@ interface WalletViewProps {
   wallet: WalletResponse;
   initialInvoice: InvoiceResponse | null;
   history: WalletEntryResponse[];
+  /** Contact hint passed on to withdrawal tickets. */
+  telegramUsername?: string | null;
+  /** Pre-fills the top-up box; see TopUpForm.initialAmount. */
+  topUpAmount?: number;
 }
 
-export function WalletView({ wallet, initialInvoice, history }: WalletViewProps) {
+export function WalletView({
+  wallet,
+  initialInvoice,
+  history,
+  telegramUsername,
+  topUpAmount,
+}: WalletViewProps) {
   const router = useRouter();
   const [invoice, setInvoice] = useState<InvoiceResponse | null>(initialInvoice);
   const rows = walletHistoryRows(history);
@@ -97,7 +108,13 @@ export function WalletView({ wallet, initialInvoice, history }: WalletViewProps)
             onDismiss={handleDismissed}
           />
         )
-        : <TopUpForm onCreated={handleCreated} />}
+        : <TopUpForm onCreated={handleCreated} initialAmount={topUpAmount} />}
+
+      <WithdrawForm
+        availableTiyin={wallet.availableTiyin}
+        telegramUsername={telegramUsername}
+        onCreated={() => router.refresh()}
+      />
 
       <section className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
         <h2 className="text-base font-black text-foreground">Amaliyotlar</h2>
