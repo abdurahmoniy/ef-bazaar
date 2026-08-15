@@ -15,6 +15,14 @@ import {
   XCircle,
 } from 'lucide-react';
 
+import {
+  fetchAccountRequest,
+  fetchPartnerListings,
+  openAccountRequest,
+  roleInRequest,
+  type AccountRequest,
+  type ChatListingOption,
+} from '@/lib/account-request';
 import { CountdownText } from '@/components/trade-admin/countdown-text';
 import { HumanPartyTradePanel } from '@/components/trade-admin/human-party-trade-panel';
 import { TradeAdminPicker } from '@/components/trade-admin/trade-admin-picker';
@@ -77,8 +85,19 @@ export function TradePanel({
   initialPendingProposal = null,
 }: TradePanelProps) {
   const router = useRouter();
-  const isSeller = chat.sellerId === viewerId;
-  const otherPartyId = isSeller ? chat.buyerId : chat.sellerId;
+  const otherPartyId = chat.sellerId === viewerId ? chat.buyerId : chat.sellerId;
+
+  /**
+   * Which account is being negotiated, and therefore who sells it.
+   *
+   * `chat.sellerId` only records who opened the conversation. Once the pair
+   * trades a second time — possibly the other way round — it stops describing
+   * the trade in hand, so the role comes from the account request instead.
+   */
+  const [accountRequest, setAccountRequest] = useState<AccountRequest | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const role = roleInRequest(accountRequest, viewerId);
+  const isSeller = role === 'SELLER';
 
   const [trades, setTrades] = useState<TradeResponse[] | null>(null);
   const [proposal, setProposal] = useState<PendingProposal | null>(
@@ -107,8 +126,15 @@ export function TradePanel({
     reloadInFlight.current = true;
     setRefreshing(true);
     try {
-      const list = await fetchTradesByChat(chat.id);
+      // Fetched together: the request decides which panel the trade renders in,
+      // so loading them apart lets one arrive without the other and flashes the
+      // counterparty's screen.
+      const [list, request] = await Promise.all([
+        fetchTradesByChat(chat.id),
+        fetchAccountRequest(chat.id),
+      ]);
       setTrades(list);
+      setAccountRequest(request);
     } finally {
       setRefreshing(false);
       reloadInFlight.current = false;
@@ -253,10 +279,23 @@ export function TradePanel({
             Savdo
           </p>
           <p className="text-sm font-semibold text-foreground">
-            {isSeller ? 'Xaridorga taklif yuboring' : 'Sotuvchi taklifini kuting'}
+            {role === null
+              ? 'Qaysi akkount?'
+              : isSeller
+                ? 'Xaridorga taklif yuboring'
+                : 'Sotuvchi taklifini kuting'}
           </p>
         </div>
       </div>
+
+      {accountRequest && (
+        <SelectedAccountCard
+          request={accountRequest}
+          isSeller={isSeller}
+          onChange={() => setShowPicker(true)}
+        />
+      )}
+
       {isSeller ? (
         <>
           <Button
@@ -272,17 +311,150 @@ export function TradePanel({
               viewerId={viewerId}
               listing={listing}
               otherPartyId={otherPartyId}
+              accountRequest={accountRequest}
               onClose={() => setShowProposeModal(false)}
               onCreated={handleProposalCreated}
             />
           )}
         </>
-      ) : (
+      ) : role === 'BUYER' ? (
         <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           Sotuvchi hali taklif yubormagan.
         </p>
+      ) : null}
+
+      {/* Both sides get this. Either may be the one buying next, and a pair who
+          already traded should not have to open a second chat to trade again. */}
+      <Button
+        type="button"
+        variant={role === null ? 'default' : 'outline'}
+        className="mt-2 w-full"
+        onClick={() => setShowPicker(true)}
+      >
+        {role === null ? 'Akkount so’rash' : 'Boshqa akkount so’rash'}
+      </Button>
+
+      {showPicker && (
+        <AccountPickerModal
+          chatId={chat.id}
+          onClose={() => setShowPicker(false)}
+          onPicked={(req) => {
+            setAccountRequest(req);
+            setShowPicker(false);
+          }}
+        />
       )}
     </div>
+  );
+}
+
+/** What the pair agreed to trade — shown to both, so neither has to guess. */
+function SelectedAccountCard({
+  request,
+  isSeller,
+  onChange,
+}: {
+  request: AccountRequest;
+  isSeller: boolean;
+  onChange: () => void;
+}) {
+  const listing = request.listing;
+  return (
+    <div className="mb-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+      <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary">
+        {isSeller ? 'So’ralgan akkount' : 'Siz so’ragan akkount'}
+      </p>
+      {listing ? (
+        <>
+          <p className="line-clamp-2 text-xs text-foreground">{listing.description}</p>
+          <p className="mt-1 text-sm font-semibold text-foreground">
+            {formatPriceUZS(listing.price)}
+          </p>
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">E’lon o’chirilgan.</p>
+      )}
+      <button
+        type="button"
+        onClick={onChange}
+        className="mt-1 text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+      >
+        O’zgartirish
+      </button>
+    </div>
+  );
+}
+
+/** The partner's active listings. Picking one makes the picker the buyer. */
+function AccountPickerModal({
+  chatId,
+  onClose,
+  onPicked,
+}: {
+  chatId: string;
+  onClose: () => void;
+  onPicked: (request: AccountRequest) => void;
+}) {
+  const [options, setOptions] = useState<ChatListingOption[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, startSave] = useTransition();
+
+  useEffect(() => {
+    void (async () => setOptions(await fetchPartnerListings(chatId)))();
+  }, [chatId]);
+
+  function pick(listingId: string) {
+    setError(null);
+    startSave(async () => {
+      const r = await openAccountRequest(chatId, listingId);
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
+      onPicked(r.data);
+    });
+  }
+
+  return (
+    <ModalShell title="Akkount tanlang" onClose={onClose}>
+      {error && (
+        <p className="mb-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {error}
+        </p>
+      )}
+      {options === null ? (
+        <p className="text-xs text-muted-foreground">Yuklanmoqda…</p>
+      ) : options.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Suhbatdoshingizda hozir aktiv e’lon yo’q.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {options.map((option) => (
+            <li key={option.id}>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => pick(option.id)}
+                className="w-full rounded-lg border border-border px-3 py-2 text-left transition hover:border-primary hover:bg-primary/5 disabled:opacity-60"
+              >
+                <span className="line-clamp-2 block text-xs text-foreground">
+                  {option.description}
+                </span>
+                <span className="mt-1 block text-sm font-semibold text-foreground">
+                  {formatPriceUZS(option.price)}
+                  {option.priceNegotiable && (
+                    <span className="ml-1 text-[11px] font-normal text-muted-foreground">
+                      · kelishiladi
+                    </span>
+                  )}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ModalShell>
   );
 }
 
@@ -1281,6 +1453,7 @@ function ProposeModal({
   viewerId,
   listing,
   otherPartyId,
+  accountRequest,
   onClose,
   onCreated,
 }: {
@@ -1288,6 +1461,8 @@ function ProposeModal({
   viewerId: string;
   listing: ListingResponse | null;
   otherPartyId: string;
+  /** Decides which account is sold and who buys it; null only on legacy chats. */
+  accountRequest: AccountRequest | null;
   onClose: () => void;
   onCreated: (p: ProposalResponse, priceUzs: number, mode: TradeMode, adminFeeUzs?: number) => void;
 }) {
@@ -1319,14 +1494,17 @@ function ProposeModal({
         return;
       }
     }
+    // The account request is the authority on both halves: which listing is
+    // being sold, and who is buying it. `listing` here is only the page the
+    // chat was opened from, which need not be the account under negotiation.
     const payload: ProposalCreateRequest = {
       marketplaceChatId: chat.id,
-      otherPartyUserId: otherPartyId,
+      otherPartyUserId: accountRequest?.requesterId ?? otherPartyId,
       sellerId: viewerId,
-      buyerId: otherPartyId,
+      buyerId: accountRequest?.requesterId ?? otherPartyId,
       amountUzs: priceUzs,
       mode,
-      listingId: listing?.id ?? null,
+      listingId: accountRequest?.listingId ?? listing?.id ?? null,
     };
     if (mode === 'HUMAN' && selectedAdmin) {
       payload.adminId = selectedAdmin.userId;
