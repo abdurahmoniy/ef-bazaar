@@ -303,6 +303,7 @@
   .listing-card[data-layout='vertical'] {
     display: flex;
     flex-direction: column;
+    height: 100%;
   }
 
   @container (min-width: 360px) {

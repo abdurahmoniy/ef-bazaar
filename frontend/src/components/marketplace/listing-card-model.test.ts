@@ -196,4 +196,36 @@ describe('listing card model', () => {
       iosCoins: 75,
     });
   });
+
+  it('determines clean accounts based on links and coin balances', () => {
+    expect(buildListingCardModel(listing({
+      attributes: {
+        has_google_play_link: false,
+        has_game_center_link: false,
+        android_coins: 100,
+      },
+    }), []).clean).toBe(true);
+
+    expect(buildListingCardModel(listing({
+      attributes: {
+        has_google_play_link: true,
+        has_game_center_link: false,
+      },
+    }), []).clean).toBe(false);
+
+    expect(buildListingCardModel(listing({
+      attributes: {
+        has_google_play_link: false,
+        has_game_center_link: true,
+      },
+    }), []).clean).toBe(false);
+
+    expect(buildListingCardModel(listing({
+      attributes: {
+        has_google_play_link: false,
+        has_game_center_link: false,
+        ios_coins: -500,
+      },
+    }), []).clean).toBe(false);
+  });
 });
