@@ -79,12 +79,7 @@ export function SellerCard({ seller, isViewerOwner, blacklisted }: SellerCardPro
             <span className="inline-flex items-center gap-1">
               <Star className="h-3 w-3" /> A'zo: {memberSinceLabel}
             </span>
-            <Link
-              href={`/gamers/${seller.id}`}
-              className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
-            >
-              <IdCard className="h-3 w-3" /> Gamer Card
-            </Link>
+
           </div>
         </div>
       </div>

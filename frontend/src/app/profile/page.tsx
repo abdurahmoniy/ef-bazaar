@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
-import { MyGamerCardSection } from '@/components/gamer/my-gamer-card-section';
+
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { LogoutButton } from '@/components/profile/logout-button';
 import { ProfileAccount } from '@/components/profile/profile-account';
@@ -68,9 +68,8 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
       <div className="space-y-4">
         {/* Admin panel used to be a trailing button here; it lives in the header
             user menu now, alongside the other account-level entries. */}
-        <MyGamerCardSection
-          email={user.email ?? null}
-          navSlot={
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
             <ProfileTabs
               active={activeTab}
               counts={{
@@ -78,8 +77,8 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                 favorites: favorites.length,
               }}
             />
-          }
-        />
+          </div>
+        </div>
 
         {/* Keyed on the tab so each switch remounts and replays panel-in. */}
         <section key={activeTab} className="animate-panel-in">

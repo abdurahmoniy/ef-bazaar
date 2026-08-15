@@ -138,23 +138,17 @@ export function AdminTrust({ complaints, activeStatus }: AdminTrustProps) {
                   <div className="flex flex-wrap gap-1.5">
                     <dt className="font-semibold">Ayblanuvchi:</dt>
                     <dd>
-                      <Link
-                        href={`/gamers/${c.accusedId}`}
-                        className="font-mono text-xs text-primary hover:underline"
-                      >
+                      <span className="font-mono text-xs text-foreground">
                         {c.accusedId}
-                      </Link>
+                      </span>
                     </dd>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     <dt className="font-semibold">Shikoyatchi:</dt>
                     <dd>
-                      <Link
-                        href={`/gamers/${c.complainantId}`}
-                        className="font-mono text-xs text-primary hover:underline"
-                      >
+                      <span className="font-mono text-xs text-foreground">
                         {c.complainantId}
-                      </Link>
+                      </span>
                     </dd>
                   </div>
                   {evidenceCount > 0 && (
