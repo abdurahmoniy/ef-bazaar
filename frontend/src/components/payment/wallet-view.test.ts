@@ -12,13 +12,18 @@ import type {
 } from '@/lib/payment-types';
 
 const routerMocks = vi.hoisted(() => ({ refresh: vi.fn() }));
+const clientMocks = vi.hoisted(() => ({
+  createInvoice: vi.fn(),
+  getWalletHistory: vi.fn().mockResolvedValue([]),
+}));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: routerMocks.refresh }),
 }));
 
 vi.mock('@/lib/payment-client', () => ({
-  createInvoice: vi.fn(),
+  createInvoice: clientMocks.createInvoice,
+  getWalletHistory: clientMocks.getWalletHistory,
 }));
 
 const NOW = '2026-08-13T09:00:00Z';
@@ -60,6 +65,8 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   routerMocks.refresh.mockReset();
+  clientMocks.createInvoice.mockReset();
+  clientMocks.getWalletHistory.mockReset().mockResolvedValue([]);
 });
 
 afterEach(async () => {
