@@ -4,6 +4,7 @@ import type { WalletEntryResponse } from './payment-types';
 import {
   WALLET_KIND_LABELS,
   formatSignedTiyin,
+  movementOf,
   walletHistoryRows,
 } from './wallet-history';
 
@@ -45,8 +46,12 @@ describe('walletHistoryRows', () => {
   });
 
   it('reads a debit as money leaving', () => {
+    // Was written with TRADE_HOLD, which is not a debit at all — the money
+    // moves to the owner's own frozen pile. Printing it with a minus is what
+    // made one trade look like two losses; the signless case now has its own
+    // block below. A completed payout is a real departure.
     const [row] = walletHistoryRows([
-      entry({ kind: 'TRADE_HOLD', amountTiyin: 5_000_000 }),
+      entry({ kind: 'WITHDRAW_FULFIL', amountTiyin: 5_000_000 }),
     ]);
     expect(row.signedTiyin).toBe(-5_000_000);
     expect(row.amount).toBe(`-50${NBSP}000`);
@@ -182,4 +187,75 @@ describe('walletHistoryRows — a trade that completed', () => {
     expect(row.label).toBe('Savdodan qaytdi');
   });
 });
+
+/**
+ * A hold is not a loss.
+ *
+ * Found on screen: a completed 5 000 so'm trade showed "Savdoda muzlatildi
+ * -5 000" and then "Sotuvchiga o'tkazildi -5 000". Read down the column, one
+ * trade looked like 10 000 so'm gone. Only the second line is money leaving —
+ * the first moved it from the spendable pile to the frozen one, and both are
+ * the owner's.
+ */
+describe('walletHistoryRows — signs', () => {
+  function rowFor(kind: WalletEntryResponse['kind'], amountTiyin: number) {
+    return walletHistoryRows([
+      entry({ kind, account: 'USER_AVAILABLE', amountTiyin }),
+    ])[0];
+  }
+
+  it('shows a hold without a sign', () => {
+    const row = rowFor('TRADE_HOLD', 500_000);   // available drops
+    expect(row.movement).toBe('internal');
+    expect(row.amount).not.toContain('-');
+    expect(row.amount).not.toContain('+');
+  });
+
+  it('shows the settle as money actually leaving', () => {
+    const row = walletHistoryRows([
+      entry({ kind: 'TRADE_SETTLE', account: 'USER_HELD', amountTiyin: 500_000 }),
+    ])[0];
+    expect(row.movement).toBe('out');
+    expect(row.amount).toContain('-');
+  });
+
+  it('does not double-count one trade', () => {
+    // The screenshot, as data: only one of these two lines may carry a minus.
+    const rows = walletHistoryRows([
+      entry({
+        transactionId: 'settle-tx',
+        kind: 'TRADE_SETTLE',
+        account: 'USER_HELD',
+        amountTiyin: 500_000,
+      }),
+      entry({
+        transactionId: 'hold-tx',
+        kind: 'TRADE_HOLD',
+        account: 'USER_AVAILABLE',
+        amountTiyin: 500_000,
+      }),
+    ]);
+
+    expect(rows.filter((r) => r.amount.includes('-'))).toHaveLength(1);
+  });
+
+  it('treats a release as internal too', () => {
+    // Otherwise a frozen-then-returned trade reads as money appearing from
+    // nowhere: a signless hold followed by a +30 000 return.
+    expect(rowFor('TRADE_RELEASE', -3_000_000).movement).toBe('internal');
+  });
+
+  it('keeps real arrivals and departures signed', () => {
+    expect(rowFor('DEPOSIT', -10_000_000).movement).toBe('in');
+    expect(rowFor('WITHDRAW_FULFIL', 1_000_000).movement).toBe('out');
+  });
+
+  it('treats reserving a payout as internal and paying it as a departure', () => {
+    // Reserve freezes; only fulfil takes the money off the platform.
+    expect(movementOf('WITHDRAW_RESERVE', false)).toBe('internal');
+    expect(movementOf('WITHDRAW_CANCEL', true)).toBe('internal');
+    expect(movementOf('WITHDRAW_FULFIL', false)).toBe('out');
+  });
+});
+
 

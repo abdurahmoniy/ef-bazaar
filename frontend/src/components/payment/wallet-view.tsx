@@ -10,6 +10,7 @@ import {
   Lock,
   RotateCcw,
   ShieldAlert,
+  Snowflake,
   Wallet as WalletIcon,
   XCircle,
 } from 'lucide-react';
@@ -325,12 +326,17 @@ export function WalletView({
                   </div>
                   <span
                     className={cn(
-                      'shrink-0 text-sm font-bold tabular-nums',
-                      row.incoming
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-foreground',
+                      'flex shrink-0 items-center gap-1 text-sm font-bold tabular-nums',
+                      row.movement === 'in' && 'text-emerald-600 dark:text-emerald-400',
+                      row.movement === 'out' && 'text-foreground',
+                      // Muted and signless: the owner still has this money, it
+                      // just moved between their own piles.
+                      row.movement === 'internal' && 'text-muted-foreground',
                     )}
                   >
+                    {row.movement === 'internal' && (
+                      <Snowflake className="h-3.5 w-3.5" aria-hidden="true" />
+                    )}
                     {row.amount}
                   </span>
                 </li>

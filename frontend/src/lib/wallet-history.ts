@@ -16,15 +16,38 @@ export const WALLET_KIND_LABELS: Record<TransactionKind, string> = {
 /** Shown when payment-service grows a kind this frontend build predates. */
 const UNKNOWN_KIND_LABEL = 'Amaliyot';
 
+/**
+ * Money crossing the wallet's boundary, or moving inside it.
+ *
+ * A hold does not cost anything — it moves so'm from the spendable pile to the
+ * frozen one, both of which are the owner's. Printing it as `-5 000` next to
+ * the settle's `-5 000` made one 5 000 so'm trade read as 10 000 so'm gone.
+ */
+export type WalletMovement = 'in' | 'out' | 'internal';
+
+/** Kinds that only shuffle the owner's own buckets. */
+const INTERNAL_KINDS: ReadonlySet<TransactionKind> = new Set<TransactionKind>([
+  'TRADE_HOLD',       // available → held
+  'TRADE_RELEASE',    // held → available
+  'WITHDRAW_RESERVE', // available → withdraw-pending
+  'WITHDRAW_CANCEL',  // withdraw-pending → available
+]);
+
 export interface WalletHistoryRow {
   transactionId: string;
   label: string;
   /** Display sign, already flipped: positive is money arriving. */
   signedTiyin: number;
-  /** Ready to render: `+100 000` / `-50 000`. */
+  /** Ready to render: `+100 000`, `-50 000`, or `5 000` when internal. */
   amount: string;
   when: string;
   incoming: boolean;
+  movement: WalletMovement;
+}
+
+export function movementOf(kind: TransactionKind, incoming: boolean): WalletMovement {
+  if (INTERNAL_KINDS.has(kind)) return 'internal';
+  return incoming ? 'in' : 'out';
 }
 
 /** `+100 000` / `-50 000`. Zero carries no sign. */
@@ -86,13 +109,19 @@ export function walletHistoryRows(
   return visible.map((entry) => {
     const signedTiyin = -entry.amountTiyin;
     const incoming = signedTiyin > 0;
+    const movement = movementOf(entry.kind, incoming);
     return {
       transactionId: entry.transactionId,
       label: walletEntryLabel(entry.kind, incoming),
       signedTiyin,
-      amount: formatSignedTiyin(signedTiyin),
+      // No sign on an internal move: the owner still has the money, and a
+      // minus here is read as a loss on top of the one that follows it.
+      amount: movement === 'internal'
+        ? formatTiyin(Math.abs(signedTiyin))
+        : formatSignedTiyin(signedTiyin),
       when: formatListingDate(entry.createdAt),
       incoming,
+      movement,
     };
   });
 }
