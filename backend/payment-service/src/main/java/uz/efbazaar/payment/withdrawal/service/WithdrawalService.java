@@ -54,7 +54,8 @@ public class WithdrawalService {
 
     @Transactional
     public WithdrawalTicket open(UUID userId, long amountTiyin, String pan,
-                                 String holderName, String phone, String telegramUsername) {
+                                 String holderName, String phone, String telegramUsername,
+                                 Long telegramId) {
         String digits = pan == null ? "" : pan.replaceAll("\\D", "");
         if (digits.length() != 16) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -93,6 +94,7 @@ public class WithdrawalService {
                 .holderName(holderName.trim().toUpperCase())
                 .phone(phone.trim())
                 .telegramUsername(telegramUsername)
+                .telegramId(telegramId)
                 .status(WithdrawalStatus.OPEN)
                 .build());
 

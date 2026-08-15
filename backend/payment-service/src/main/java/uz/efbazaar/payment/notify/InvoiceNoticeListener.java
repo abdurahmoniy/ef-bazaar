@@ -66,10 +66,14 @@ public class InvoiceNoticeListener {
     @TransactionalEventListener
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onWithdrawalClosed(InvoiceNoticeEvents.WithdrawalClosed event) {
-        withdrawals.findById(event.ticketId()).ifPresent(t -> paymentEvents.withdrawalClosed(
-                t.getId(), t.getUserId(), t.getAmountTiyin(),
-                t.getStatus() == uz.efbazaar.payment.withdrawal.domain.WithdrawalStatus.PAID,
-                t.getCloseNote()));
+        withdrawals.findById(event.ticketId()).ifPresent(t -> {
+            boolean paid = t.getStatus()
+                    == uz.efbazaar.payment.withdrawal.domain.WithdrawalStatus.PAID;
+            paymentEvents.withdrawalClosed(t.getId(), t.getUserId(),
+                    t.getAmountTiyin(), paid, t.getCloseNote());
+            notifier.withdrawalClosedToOwner(t.getTelegramId(), t.getAmountTiyin(),
+                    paid, t.getCloseNote());
+        });
     }
 
     @TransactionalEventListener

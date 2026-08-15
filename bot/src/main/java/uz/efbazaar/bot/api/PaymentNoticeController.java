@@ -45,6 +45,8 @@ public class PaymentNoticeController {
 
     public record DeleteRequest(@NotNull Long messageId) {}
 
+    public record DirectMessageRequest(@NotNull Long chatId, @NotBlank String text) {}
+
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record NoticeResponse(Long messageId) {}
 
@@ -55,6 +57,21 @@ public class PaymentNoticeController {
             return new NoticeResponse(null);
         }
         return telegram.sendMessage(props.groupChatId(), topic, req.text())
+                .map(id -> new NoticeResponse(id.longValue()))
+                .orElseGet(() -> new NoticeResponse(null));
+    }
+
+    /**
+     * A direct message to one person.
+     *
+     * <p>No thread id: a DM is not a topic. Telegram refuses if the recipient
+     * has never started the bot, which is reported as a null message id rather
+     * than an error — the caller's own record of the event is already written
+     * and a failed nudge must not undo it.
+     */
+    @PostMapping("/dm")
+    public NoticeResponse dm(@Valid @RequestBody DirectMessageRequest req) {
+        return telegram.sendMessage(String.valueOf(req.chatId()), null, req.text())
                 .map(id -> new NoticeResponse(id.longValue()))
                 .orElseGet(() -> new NoticeResponse(null));
     }

@@ -41,7 +41,7 @@ class WithdrawalServiceIT extends AbstractPostgresIT {
     }
 
     private WithdrawalTicket open(UUID user, long tiyin) {
-        return withdrawals.open(user, tiyin, PAN, "ali valiyev", "+998901234567", "ali");
+        return withdrawals.open(user, tiyin, PAN, "ali valiyev", "+998901234567", "ali", 42L);
     }
 
     @Test

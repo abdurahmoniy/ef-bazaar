@@ -60,6 +60,14 @@ public class WithdrawalTicket {
     @Column(name = "telegram_username", length = 64, updatable = false)
     private String telegramUsername;
 
+    /**
+     * Numeric chat id, from the session rather than the request body — it is
+     * what a direct message is addressed to, and a username the user typed
+     * would let them point the notice at somebody else.
+     */
+    @Column(name = "telegram_id", updatable = false)
+    private Long telegramId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     @Builder.Default

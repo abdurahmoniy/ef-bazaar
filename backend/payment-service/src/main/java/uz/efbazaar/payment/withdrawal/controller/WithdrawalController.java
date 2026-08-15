@@ -26,7 +26,7 @@ public class WithdrawalController {
                                          @Valid @RequestBody WithdrawalCreateRequest req) {
         return WithdrawalTicketResponse.of(withdrawals.open(
                 me.userId(), req.amountTiyin(), req.pan(),
-                req.holderName(), req.phone(), req.telegramUsername()));
+                req.holderName(), req.phone(), req.telegramUsername(), me.telegramId()));
     }
 
     /** Own tickets only — there is no endpoint for reading somebody else's. */

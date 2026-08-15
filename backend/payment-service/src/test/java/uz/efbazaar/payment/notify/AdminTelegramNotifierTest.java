@@ -25,6 +25,15 @@ class AdminTelegramNotifierTest {
         boolean explode;
         long nextId = 1;
 
+        /** Direct messages, in order. Recorded so a test can assert the wording. */
+        final java.util.List<String> dms = new java.util.ArrayList<>();
+
+        @Override public OptionalLong sendDirectMessage(long chatId, String html) {
+            if (explode) throw new IllegalStateException("bot is down");
+            dms.add(chatId + ":" + html);
+            return OptionalLong.of(nextId++);
+        }
+
         @Override public OptionalLong postPaymentNotice(String html) {
             if (explode) throw new IllegalStateException("bot is down");
             posted.add(html);

@@ -98,6 +98,23 @@ public class AdminTelegramNotifier {
         }
     }
 
+    /**
+     * Tells the wallet owner how their payout ended, in their own chat.
+     *
+     * <p>Silently does nothing without a chat id: an account with no Telegram
+     * linked still gets the in-app notification, and a payout that already
+     * happened must not be held up by a nudge that cannot be delivered.
+     */
+    public void withdrawalClosedToOwner(Long chatId, long amountTiyin,
+                                        boolean paid, String note) {
+        if (!enabled || chatId == null) return;
+        try {
+            bot.sendDirectMessage(chatId, renderWithdrawalOutcome(amountTiyin, paid, note));
+        } catch (Exception e) {
+            log.warn("Could not tell {} about their payout: {}", chatId, e.toString());
+        }
+    }
+
     /** Deletes an announcement with no replacement — an expiry is not news. */
     public void invoiceExpired(Long messageId) {
         if (!enabled || messageId == null) return;
@@ -133,6 +150,15 @@ public class AdminTelegramNotifier {
                 .formatted(mask(n.cardLast4()), esc(n.holderName()),
                         uzs(n.transferAmountTiyin()), uzs(n.requestedAmountTiyin()),
                         n.userId(), CLOCK.format(at));
+    }
+
+    private String renderWithdrawalOutcome(long amountTiyin, boolean paid, String note) {
+        String tail = note == null || note.isBlank() ? "" : "\n\uD83D\uDCAC " + note;
+        return paid
+                ? ("\u2705 <b>Pul yechildi</b>\n\uD83D\uDCB5 <b>%s so'm</b> kartangizga o'tkazildi." + tail)
+                        .formatted(exactUzs(amountTiyin))
+                : ("\u274C <b>Pul yechish rad etildi</b>\n\uD83D\uDCB5 <b>%s so'm</b> hamyoningizga qaytarildi." + tail)
+                        .formatted(exactUzs(amountTiyin));
     }
 
     private String renderWithdrawal(WithdrawalNotice n) {
