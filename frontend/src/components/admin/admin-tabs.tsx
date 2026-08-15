@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  ArrowUpFromLine,
   ClipboardCheck,
   CreditCard,
   Flag,
@@ -33,6 +34,7 @@ const TABS: Array<{ href: string; label: string; icon: React.ReactNode }> = [
   // are fine: neither `/cards` nor `/unmatched` is a prefix of the other.
   { href: '/admin/payments/cards', label: 'Kartalar', icon: <CreditCard className="h-4 w-4" /> },
   { href: '/admin/payments/unmatched', label: 'Tushumlar', icon: <Inbox className="h-4 w-4" /> },
+  { href: '/admin/payments/withdrawals', label: 'Yechishlar', icon: <ArrowUpFromLine className="h-4 w-4" /> },
   { href: '/admin/human-trades', label: 'Inson admin', icon: <UserCog className="h-4 w-4" /> },
   { href: '/admin/players', label: "O'yinchilar", icon: <Sparkles className="h-4 w-4" /> },
   { href: '/admin/attributes', label: 'Atributlar', icon: <SlidersHorizontal className="h-4 w-4" /> },

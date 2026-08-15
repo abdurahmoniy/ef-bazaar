@@ -35,29 +35,64 @@ export function formatSignedTiyin(signedTiyin: number): string {
 }
 
 /**
+ * Names a settle from the side the reader is on.
+ *
+ * The buyer and the seller share one transaction and read it oppositely: the
+ * money leaves one wallet and lands in the other. "Savdodan tushdi" on the
+ * paying side would say their escrow came back to them.
+ */
+export function walletEntryLabel(kind: TransactionKind, incoming: boolean): string {
+  if (kind === 'TRADE_SETTLE') {
+    return incoming ? 'Savdodan tushdi' : "Sotuvchiga o'tkazildi";
+  }
+  return WALLET_KIND_LABELS[kind] ?? UNKNOWN_KIND_LABEL;
+}
+
+/**
  * Ledger entries into rows a user can read.
  *
- * Two things happen here. The sign is flipped — the ledger writes a credit to
- * the user as negative, and a deposit must read `+100 000`. And the list is
- * narrowed to one account: a hold writes both a USER_AVAILABLE debit and a
- * USER_HELD credit, and showing both makes one action look like two. The held
- * and withdraw-pending totals are already visible as balances above.
+ * The sign is flipped — the ledger writes a credit to the user as negative, and
+ * a deposit must read `+100 000`.
+ *
+ * One row per transaction, preferring the spendable-balance leg. A hold writes
+ * both a USER_AVAILABLE debit and a USER_HELD credit, and showing both makes
+ * one action look like two — but filtering to USER_AVAILABLE outright dropped
+ * the event the buyer most needs to see. A settle credits the seller's
+ * USER_AVAILABLE and only touches the buyer's USER_HELD, so the buyer's history
+ * ended at "Savdoda muzlatildi" and stayed there: the money left the visible
+ * list with nothing to say where it went. A release writes both legs, which is
+ * why the same hole never showed on a cancelled trade.
  */
 export function walletHistoryRows(
   entries: WalletEntryResponse[],
   account: LedgerAccount = 'USER_AVAILABLE',
 ): WalletHistoryRow[] {
-  return entries
-    .filter((entry) => entry.account === account)
-    .map((entry) => {
-      const signedTiyin = -entry.amountTiyin;
-      return {
-        transactionId: entry.transactionId,
-        label: WALLET_KIND_LABELS[entry.kind] ?? UNKNOWN_KIND_LABEL,
-        signedTiyin,
-        amount: formatSignedTiyin(signedTiyin),
-        when: formatListingDate(entry.createdAt),
-        incoming: signedTiyin > 0,
-      };
-    });
+  const perTransaction = new Map<string, WalletEntryResponse[]>();
+  for (const entry of entries) {
+    const group = perTransaction.get(entry.transactionId);
+    if (group) group.push(entry);
+    else perTransaction.set(entry.transactionId, [entry]);
+  }
+
+  // Per transaction: the spendable-balance legs if there are any, otherwise
+  // whatever legs this user has. Keeps every leg of the preferred account
+  // rather than one, so a transaction that ever posts twice to it stays
+  // fully visible.
+  const visible = [...perTransaction.values()].flatMap((group) => {
+    const preferred = group.filter((entry) => entry.account === account);
+    return preferred.length > 0 ? preferred : group;
+  });
+
+  return visible.map((entry) => {
+    const signedTiyin = -entry.amountTiyin;
+    const incoming = signedTiyin > 0;
+    return {
+      transactionId: entry.transactionId,
+      label: walletEntryLabel(entry.kind, incoming),
+      signedTiyin,
+      amount: formatSignedTiyin(signedTiyin),
+      when: formatListingDate(entry.createdAt),
+      incoming,
+    };
+  });
 }

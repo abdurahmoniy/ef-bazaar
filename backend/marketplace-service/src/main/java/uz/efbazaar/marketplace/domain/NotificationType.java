@@ -12,5 +12,11 @@ public enum NotificationType {
     /** Trust: block lifted (expired or revoked). */
     TRUST_UNBLOCKED,
     /** A seller invited me to run their trade as a human trade admin. */
-    TRADE_ADMIN_INVITED
+    TRADE_ADMIN_INVITED,
+    /** Admin-facing: somebody asked to withdraw and the money is frozen. */
+    WITHDRAWAL_REQUESTED,
+    /** My payout was sent. */
+    WITHDRAWAL_PAID,
+    /** My payout was declined and the money is back in my wallet. */
+    WITHDRAWAL_REJECTED
 }

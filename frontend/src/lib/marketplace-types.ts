@@ -444,7 +444,13 @@ export interface MessageResponse {
   createdAt: string;
 }
 
-export type NotificationType = 'CHAT_CREATED' | 'CHAT_MESSAGE' | 'TRADE_ADMIN_INVITED';
+export type NotificationType =
+  | 'CHAT_CREATED'
+  | 'CHAT_MESSAGE'
+  | 'TRADE_ADMIN_INVITED'
+  | 'WITHDRAWAL_REQUESTED'
+  | 'WITHDRAWAL_PAID'
+  | 'WITHDRAWAL_REJECTED';
 
 export interface NotificationResponse {
   id: string;
@@ -452,6 +458,8 @@ export interface NotificationResponse {
   chatId?: string | null;
   listingId?: string | null;
   tradeId?: string | null;
+  /** Payout ticket, for WITHDRAWAL_* rows. */
+  withdrawalId?: string | null;
   actorDisplayName?: string | null;
   readAt?: string | null;
   createdAt: string;

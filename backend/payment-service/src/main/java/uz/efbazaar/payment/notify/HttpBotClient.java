@@ -23,6 +23,7 @@ public class HttpBotClient implements BotClient {
 
     private static final String NOTICE = "/bot/internal/payments/notice";
     private static final String DELETE = "/bot/internal/payments/notice/delete";
+    private static final String DM     = "/bot/internal/payments/dm";
 
     private final RestClient http;
 
@@ -31,6 +32,19 @@ public class HttpBotClient implements BotClient {
     }
 
     public record NoticeResponse(Long messageId) {}
+
+    @Override
+    public OptionalLong sendDirectMessage(long chatId, String html) {
+        NoticeResponse res = http.post()
+                .uri(DM)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("chatId", chatId, "text", html))
+                .retrieve()
+                .body(NoticeResponse.class);
+        return res == null || res.messageId() == null
+                ? OptionalLong.empty()
+                : OptionalLong.of(res.messageId());
+    }
 
     @Override
     public OptionalLong postPaymentNotice(String html) {

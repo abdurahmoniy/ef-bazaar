@@ -13,6 +13,7 @@ import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.repository.NotificationRepository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.UUID;
 
 /**
@@ -92,6 +93,45 @@ public class NotificationService {
                 .userId(adminId)
                 .type(NotificationType.TRADE_ADMIN_INVITED)
                 .tradeId(tradeId)
+                .build());
+    }
+
+    /**
+     * Tells every admin a payout is waiting.
+     *
+     * <p>One row each, because notifications are per-user — there is no
+     * broadcast. Replays are dropped per admin rather than per event, so an
+     * admin added after the first delivery still gets told on redelivery.
+     */
+    @Transactional
+    public void withdrawalRequested(Collection<UUID> adminIds, UUID withdrawalId) {
+        for (UUID adminId : adminIds) {
+            if (notifications.existsByUserIdAndTypeAndWithdrawalId(
+                    adminId, NotificationType.WITHDRAWAL_REQUESTED, withdrawalId)) {
+                continue;
+            }
+            notifications.save(Notification.builder()
+                    .userId(adminId)
+                    .type(NotificationType.WITHDRAWAL_REQUESTED)
+                    .withdrawalId(withdrawalId)
+                    .build());
+        }
+    }
+
+    /** Tells the wallet owner how their payout ended. */
+    @Transactional
+    public void withdrawalClosed(UUID userId, UUID withdrawalId, boolean paid) {
+        NotificationType type = paid
+                ? NotificationType.WITHDRAWAL_PAID
+                : NotificationType.WITHDRAWAL_REJECTED;
+        if (notifications.existsByUserIdAndTypeAndWithdrawalId(userId, type, withdrawalId)) {
+            log.debug("withdrawal-closed replay for user={} ticket={}, skipping", userId, withdrawalId);
+            return;
+        }
+        notifications.save(Notification.builder()
+                .userId(userId)
+                .type(type)
+                .withdrawalId(withdrawalId)
                 .build());
     }
 

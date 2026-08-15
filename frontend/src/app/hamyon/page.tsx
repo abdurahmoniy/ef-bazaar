@@ -19,7 +19,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function WalletPage() {
+export default async function WalletPage({
+  searchParams,
+}: {
+  // `toldirish` carries the exact shortfall from wherever the user was turned
+  // away — accepting a proposal the wallet cannot cover sends them here with
+  // the missing amount already in the box.
+  searchParams: Promise<{ toldirish?: string }>;
+}) {
   // The gate runs before auth and before the fetches, unlike /tournaments,
   // which can gate around its rendered tree. This page redirects a signed-out
   // visitor to login and makes three payment-service calls — while the flag is
@@ -36,6 +43,11 @@ export default async function WalletPage() {
   const user = await getMe();
   if (!user) redirect('/auth/login?from=/hamyon');
 
+  const requested = Number((await searchParams).toldirish);
+  const topUpAmount = Number.isFinite(requested) && requested > 0
+    ? Math.ceil(requested)
+    : undefined;
+
   const [wallet, activeInvoice, history] = await Promise.all([
     getWallet(),
     getActiveInvoiceSSR(),
@@ -45,7 +57,13 @@ export default async function WalletPage() {
   return (
     <MarketplaceShell user={user} hideSearch backHref="/profile">
       {wallet ? (
-        <WalletView wallet={wallet} initialInvoice={activeInvoice} history={history} />
+        <WalletView
+          wallet={wallet}
+          initialInvoice={activeInvoice}
+          history={history}
+          telegramUsername={user.telegramUsername}
+          topUpAmount={topUpAmount}
+        />
       ) : (
         <div className="rounded-xl border border-dashed border-border bg-card px-4 py-12 text-center shadow-card">
           <h1 className="text-base font-black text-foreground">

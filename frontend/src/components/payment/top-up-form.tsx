@@ -16,6 +16,13 @@ import {
 
 interface TopUpFormProps {
   onCreated: (invoice: InvoiceResponse) => void;
+  /**
+   * Pre-filled so'm amount. Set when the user was sent here by something that
+   * knows what they are short — accepting a proposal the wallet cannot cover
+   * arrives with exactly the missing amount, so they do not have to work it
+   * out themselves.
+   */
+  initialAmount?: number;
 }
 
 /**
@@ -23,8 +30,10 @@ interface TopUpFormProps {
  * here only to save an obvious round trip — payment-service enforces the real
  * floor and answers with its own Uzbek message, which is what gets shown.
  */
-export function TopUpForm({ onCreated }: TopUpFormProps) {
-  const [amount, setAmount] = useState('');
+export function TopUpForm({ onCreated, initialAmount }: TopUpFormProps) {
+  const [amount, setAmount] = useState(
+    initialAmount && initialAmount > 0 ? String(initialAmount) : '',
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

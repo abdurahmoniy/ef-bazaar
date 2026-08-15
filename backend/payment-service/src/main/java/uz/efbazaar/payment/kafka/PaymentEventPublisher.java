@@ -39,4 +39,28 @@ public class PaymentEventPublisher {
         kafka.send(PaymentTopics.DEPOSIT_CREDITED, userId.toString(),
                 new DepositCredited(userId, amountTiyin, invoiceId, Instant.now()));
     }
+
+    // ----- withdrawals -----
+
+    /** A payout is waiting for whoever is on admin duty. */
+    public record WithdrawalRequested(UUID ticketId, UUID userId, long amountTiyin,
+                                      String cardLast4, Instant occurredAt) {}
+
+    /**
+     * How it ended. {@code paid} rather than a status string so a consumer
+     * cannot mistake a refund for a payout by matching the wrong constant.
+     */
+    public record WithdrawalClosed(UUID ticketId, UUID userId, long amountTiyin,
+                                   boolean paid, String note, Instant occurredAt) {}
+
+    public void withdrawalRequested(UUID ticketId, UUID userId, long amountTiyin, String last4) {
+        kafka.send(PaymentTopics.WITHDRAWAL_REQUESTED, ticketId.toString(),
+                new WithdrawalRequested(ticketId, userId, amountTiyin, last4, Instant.now()));
+    }
+
+    public void withdrawalClosed(UUID ticketId, UUID userId, long amountTiyin,
+                                 boolean paid, String note) {
+        kafka.send(PaymentTopics.WITHDRAWAL_CLOSED, ticketId.toString(),
+                new WithdrawalClosed(ticketId, userId, amountTiyin, paid, note, Instant.now()));
+    }
 }

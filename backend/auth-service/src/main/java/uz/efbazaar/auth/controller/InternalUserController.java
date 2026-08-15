@@ -2,10 +2,12 @@ package uz.efbazaar.auth.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import uz.efbazaar.auth.domain.Role;
 import uz.efbazaar.auth.domain.User;
 import uz.efbazaar.auth.dto.UserNamesBatchRequest;
 import uz.efbazaar.auth.dto.UserSummaryBatchRequest;
@@ -35,6 +37,23 @@ import java.util.UUID;
 public class InternalUserController {
 
     private final UserRepository userRepository;
+
+    /**
+     * Platform admins, as identity summaries.
+     *
+     * <p>Exists because notifications are per-user rows: a service that needs
+     * to tell "the admins" something has no way to address them without a
+     * roster, and roles live only here. Returns the same public projection as
+     * {@code summary/batch} — ids and Telegram handles, no tokens or emails —
+     * so a caller can write a notification row and send a direct message
+     * without a second round trip.
+     */
+    @GetMapping("/admins")
+    public List<UserSummaryResponse> admins() {
+        return userRepository.findByRole(Role.ADMIN).stream()
+                .map(UserSummaryResponse::from)
+                .toList();
+    }
 
     @PostMapping("/names/batch")
     public Map<UUID, String> resolveNames(@Valid @RequestBody UserNamesBatchRequest request) {

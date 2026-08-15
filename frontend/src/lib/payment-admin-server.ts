@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { apiFetch, ApiException } from './api';
+import type { WithdrawalTicket } from './withdrawal';
 import type {
   ObservationResponse,
   PlatformCardResponse,
@@ -42,6 +43,21 @@ export async function listUnmatchedSSR(): Promise<ObservationResponse[] | null> 
   const path = `${PREFIX}/observations/unmatched`;
   try {
     return await apiFetch<ObservationResponse[]>(path);
+  } catch (error) {
+    return report(path, error);
+  }
+}
+
+/**
+ * The payout queue, oldest first.
+ *
+ * Lives under a different prefix from the rest of this file: withdrawals are
+ * their own admin surface (`/admin/withdrawals`), not part of the card rail.
+ */
+export async function listWithdrawalsSSR(): Promise<WithdrawalTicket[] | null> {
+  const path = '/payment/v1/admin/withdrawals';
+  try {
+    return await apiFetch<WithdrawalTicket[]>(path);
   } catch (error) {
     return report(path, error);
   }

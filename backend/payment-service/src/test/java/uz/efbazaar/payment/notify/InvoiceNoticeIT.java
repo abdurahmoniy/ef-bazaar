@@ -68,6 +68,10 @@ class InvoiceNoticeIT extends AbstractIntegrationIT {
         volatile boolean explode;
         long nextId = 100;
 
+        @Override public OptionalLong sendDirectMessage(long chatId, String html) {
+            return postPaymentNotice(html);
+        }
+
         @Override public OptionalLong postPaymentNotice(String html) {
             if (explode) throw new IllegalStateException("bot is down");
             posted.add(html);

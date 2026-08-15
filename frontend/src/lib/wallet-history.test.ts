@@ -93,3 +93,93 @@ describe('walletHistoryRows', () => {
     expect(walletHistoryRows([])).toEqual([]);
   });
 });
+
+/**
+ * The buyer's side of a completed trade.
+ *
+ * A settle credits the seller's USER_AVAILABLE and only touches the buyer's
+ * USER_HELD. Filtering the history to USER_AVAILABLE therefore dropped the
+ * event entirely: the buyer's last word on their own money stayed "Savdoda
+ * muzlatildi" long after it had gone to the seller. A release writes both legs,
+ * which is why a cancelled trade never showed the hole.
+ */
+describe('walletHistoryRows — a trade that completed', () => {
+  const HOLD_TX = '22222222-2222-4222-8222-222222222222';
+  const SETTLE_TX = '33333333-3333-4333-8333-333333333333';
+
+  const buyerHistory = (): WalletEntryResponse[] => [
+    // Newest first, as the endpoint returns them.
+    entry({
+      transactionId: SETTLE_TX,
+      kind: 'TRADE_SETTLE',
+      account: 'USER_HELD',
+      amountTiyin: 5_000_000,          // held drains
+      createdAt: '2026-08-14T10:00:00Z',
+    }),
+    entry({
+      transactionId: HOLD_TX,
+      kind: 'TRADE_HOLD',
+      account: 'USER_AVAILABLE',
+      amountTiyin: 5_000_000,          // available drops
+      createdAt: '2026-08-13T09:00:00Z',
+    }),
+    entry({
+      transactionId: HOLD_TX,
+      kind: 'TRADE_HOLD',
+      account: 'USER_HELD',
+      amountTiyin: -5_000_000,         // held rises
+      createdAt: '2026-08-13T09:00:00Z',
+    }),
+  ];
+
+  it('shows the settle instead of ending at the hold', () => {
+    const rows = walletHistoryRows(buyerHistory());
+
+    expect(rows.map((r) => r.transactionId)).toEqual([SETTLE_TX, HOLD_TX]);
+  });
+
+  it('says where the money went, not that it is still frozen', () => {
+    const [settle] = walletHistoryRows(buyerHistory());
+
+    expect(settle.label).toBe("Sotuvchiga o'tkazildi");
+    expect(settle.incoming).toBe(false);
+  });
+
+  it('still collapses the hold into one row', () => {
+    // The reason the filter existed: two legs of one action must not read as
+    // two separate things happening to the wallet.
+    const rows = walletHistoryRows(buyerHistory());
+
+    expect(rows.filter((r) => r.transactionId === HOLD_TX)).toHaveLength(1);
+    expect(rows.find((r) => r.transactionId === HOLD_TX)?.label)
+      .toBe('Savdoda muzlatildi');
+  });
+
+  it('reads the same transaction as income on the seller side', () => {
+    const [row] = walletHistoryRows([
+      entry({
+        transactionId: SETTLE_TX,
+        kind: 'TRADE_SETTLE',
+        account: 'USER_AVAILABLE',
+        amountTiyin: -4_625_000,       // seller is credited
+      }),
+    ]);
+
+    expect(row.label).toBe('Savdodan tushdi');
+    expect(row.incoming).toBe(true);
+  });
+
+  it('still shows a cancelled trade coming back', () => {
+    const [row] = walletHistoryRows([
+      entry({
+        transactionId: SETTLE_TX,
+        kind: 'TRADE_RELEASE',
+        account: 'USER_AVAILABLE',
+        amountTiyin: -5_000_000,
+      }),
+    ]);
+
+    expect(row.label).toBe('Savdodan qaytdi');
+  });
+});
+
