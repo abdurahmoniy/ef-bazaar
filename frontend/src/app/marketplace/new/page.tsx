@@ -24,13 +24,13 @@ export default async function NewListingPage() {
     remoteDefinitions.length > 0 ? remoteDefinitions : SEEDED_LISTING_ATTRIBUTE_DEFINITIONS;
 
   return (
-    <MarketplaceShell user={user} activeTab="sell" hideSearch backHref="/marketplace" backLabel="Bozor">
+    <MarketplaceShell user={user} activeTab="sell" hideSearch hideBottomNav backHref="/marketplace" backLabel="Bozor">
       <section className="mx-auto w-full max-w-3xl space-y-4">
-        <header>
-          <p className="text-xs font-bold uppercase tracking-wide text-primary">Marketplace</p>
-          <h1 className="mt-1 text-3xl font-black text-foreground">Akkount joylash</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Bir necha daqiqada e'longizni yarating — rasm, tavsif, narx.
+        <header className="hidden sm:block">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-primary">Marketplace</p>
+          <h1 className="mt-0.5 text-2xl sm:text-3xl font-black text-foreground">Akkount joylash</h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
+            Bir necha daqiqada e&apos;loningizni yarating — rasm, tavsif, narx.
           </p>
         </header>
         <ListingForm attributeDefinitions={definitions} />

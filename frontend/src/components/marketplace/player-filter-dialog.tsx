@@ -21,6 +21,7 @@ import {
   type PlayerFilterTab,
   type PlayerMatchSelection,
 } from '@/lib/player-filter-selection';
+import { isFeatureEnabled } from '@/lib/feature-flags';
 import { getTelegramWebApp } from '@/lib/telegram';
 import { telegramHaptic } from '@/lib/telegram-shell';
 import { cn } from '@/lib/utils';
@@ -220,9 +221,11 @@ export function PlayerFilterDialog({
                   onToggle={toggle}
                 />
               </Tabs.Content>
-              <Tabs.Content value="team" className="outline-none">
-                <TeamTab team={teams[0] ?? null} authenticated={authenticated} />
-              </Tabs.Content>
+              {isFeatureEnabled('dreamTeam') && (
+                <Tabs.Content value="team" className="outline-none">
+                  <TeamTab team={teams[0] ?? null} authenticated={authenticated} />
+                </Tabs.Content>
+              )}
             </div>
 
             <DialogFooter
@@ -241,10 +244,11 @@ export function PlayerFilterDialog({
 }
 
 function DialogHeader() {
+  const dreamTeamEnabled = isFeatureEnabled('dreamTeam');
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
     { id: 'meta', label: 'META', icon: <Flame className="h-4 w-4" /> },
     { id: 'search', label: 'Qidiruv', icon: <Search className="h-4 w-4" /> },
-    { id: 'team', label: 'Mening jamoam', icon: <Users className="h-4 w-4" /> },
+    ...(dreamTeamEnabled ? [{ id: 'team' as const, label: 'Mening jamoam', icon: <Users className="h-4 w-4" /> }] : []),
   ];
   return (
     <div className="shrink-0 border-b border-border">
