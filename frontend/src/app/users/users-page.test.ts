@@ -75,12 +75,10 @@ describe('UserProfilePage', () => {
     expect(html).toContain('Lionel Messi');
     expect(html).toContain('@leomessi');
     expect(html).toContain('tasdiqlangan');
-    expect(html).toContain('Professional eFootball player');
-    expect(html).toContain('FC Barcelona');
-    expect(html).toContain('MOBILE');
-    expect(html).toContain('1450');
-    expect(html).toContain('ELITE');
-    expect(html).toContain('81%');
+    expect(html).toContain("Faol e&#x27;lonlar");
+    expect(html).toContain('Sotilgan');
+    expect(html).toContain('100% Xavfsiz');
+    expect(html).toContain('Kafillik tizimi');
     expect(html).toContain('Stacked epics account');
   });
 });

@@ -70,12 +70,66 @@ export function emptySlots(formation: string): DreamTeamSlot[] {
  * Re-lay a squad onto a different formation, keeping the cards. Positions come
  * from the new shape; anything past its 11 slots is dropped.
  */
+function positionCategory(pos: string): string {
+  if (pos === 'GK') return 'GK';
+  if (['CB', 'LB', 'RB'].includes(pos)) return 'DEF';
+  if (['DMF', 'CMF', 'AMF', 'LMF', 'RMF'].includes(pos)) return 'MID';
+  if (['CF', 'SS', 'LWF', 'RWF'].includes(pos)) return 'FWD';
+  return 'OTHER';
+}
+
+/**
+ * Re-lay a squad onto a different formation, preserving players by position affinity.
+ */
 export function reshape(slots: DreamTeamSlot[], formation: string): DreamTeamSlot[] {
-  return emptySlots(formation).map((slot, index) => ({
-    ...slot,
-    card: slots.find((candidate) => candidate.index === index)?.card,
-    w: slots.find((candidate) => candidate.index === index)?.w ?? 1,
-  }));
+  const targetSlots = emptySlots(formation);
+  const filledSlots = slots.filter((slot) => slot.card);
+  if (filledSlots.length === 0) return targetSlots;
+
+  const result: DreamTeamSlot[] = targetSlots.map((slot) => ({ ...slot }));
+  const assignedSlotIndices = new Set<number>();
+  const unplaced = [...filledSlots];
+
+  // 1. First pass: exact position matches
+  for (let i = unplaced.length - 1; i >= 0; i--) {
+    const item = unplaced[i];
+    const candidateIdx = result.findIndex((target, idx) =>
+      !assignedSlotIndices.has(idx) && target.position === item.position);
+    if (candidateIdx !== -1) {
+      result[candidateIdx].card = item.card;
+      result[candidateIdx].w = item.w ?? 1;
+      assignedSlotIndices.add(candidateIdx);
+      unplaced.splice(i, 1);
+    }
+  }
+
+  // 2. Second pass: same position category (DEF to DEF, MID to MID, FWD to FWD)
+  for (let i = unplaced.length - 1; i >= 0; i--) {
+    const item = unplaced[i];
+    const itemCategory = positionCategory(item.position);
+    const candidateIdx = result.findIndex((target, idx) =>
+      !assignedSlotIndices.has(idx) && positionCategory(target.position) === itemCategory);
+    if (candidateIdx !== -1) {
+      result[candidateIdx].card = item.card;
+      result[candidateIdx].w = item.w ?? 1;
+      assignedSlotIndices.add(candidateIdx);
+      unplaced.splice(i, 1);
+    }
+  }
+
+  // 3. Third pass: any remaining empty slot
+  for (let i = unplaced.length - 1; i >= 0; i--) {
+    const item = unplaced[i];
+    const candidateIdx = result.findIndex((_, idx) => !assignedSlotIndices.has(idx));
+    if (candidateIdx !== -1) {
+      result[candidateIdx].card = item.card;
+      result[candidateIdx].w = item.w ?? 1;
+      assignedSlotIndices.add(candidateIdx);
+      unplaced.splice(i, 1);
+    }
+  }
+
+  return result;
 }
 
 interface DreamTeamPitchProps {
@@ -103,7 +157,7 @@ export function DreamTeamPitch({
   return (
     <div
       className={cn(
-        'relative w-full overflow-hidden rounded-2xl border border-emerald-900/40 shadow-card',
+        'relative w-full overflow-hidden rounded-2xl border border-emerald-900/40 shadow-card select-none',
         // Mown-grass stripes; the gradient overlay keeps cards readable near the top.
         'bg-[linear-gradient(180deg,rgba(0,0,0,0.35),transparent_35%),repeating-linear-gradient(180deg,#14532d_0px,#14532d_9%,#166534_9%,#166534_18%)]',
         className,
@@ -113,7 +167,8 @@ export function DreamTeamPitch({
       <PitchMarkings />
 
       {layout.map((spot, index) => {
-        const slot = slots[index];
+        const slot = slots.find((candidate) => candidate.index === index)
+          ?? (slots[index]?.index === undefined ? slots[index] : undefined);
         return (
           <div
             key={index}
@@ -178,13 +233,14 @@ function PitchSlot({
         onClick={readOnly ? undefined : onClick}
         disabled={readOnly}
         className={cn(
-          'grid h-12 w-12 place-items-center rounded-full border-2 border-dashed border-white/40',
-          'bg-black/25 text-[10px] font-black text-white/70 backdrop-blur-sm transition',
-          !readOnly && 'hover:border-white hover:bg-black/40 hover:text-white',
+          'tap-press flex h-12 w-12 flex-col items-center justify-center rounded-full border-2 border-dashed border-white/50',
+          'bg-black/35 text-[10px] font-black text-white/90 backdrop-blur-sm transition',
+          !readOnly && 'hover:border-white hover:bg-black/50 hover:scale-105 active:scale-95 cursor-pointer',
         )}
         aria-label={`${position} tanlash`}
       >
-        {readOnly ? position : <Plus className="h-4 w-4" />}
+        <span className="text-[10px] font-extrabold leading-none">{position}</span>
+        {!readOnly && <Plus className="mt-0.5 h-3 w-3 text-white/80" />}
       </button>
     );
   }
@@ -192,14 +248,14 @@ function PitchSlot({
   const rating = cardRating(card);
 
   return (
-    <div className="relative">
+    <div className="relative group">
       <button
         type="button"
         onClick={readOnly ? undefined : onClick}
         disabled={readOnly}
         className={cn(
-          'block w-14 rounded-lg border-2 bg-black/50 p-0.5 backdrop-blur-sm transition',
-          mustHave ? 'border-amber-400' : 'border-white/50',
+          'tap-press block w-14 rounded-lg border-2 bg-black/60 p-0.5 backdrop-blur-sm transition cursor-pointer',
+          mustHave ? 'border-amber-400 ring-2 ring-amber-400/30' : 'border-white/60',
           !readOnly && 'hover:scale-105 hover:border-white',
         )}
         title={card.name}
@@ -228,18 +284,25 @@ function PitchSlot({
         <>
           <button
             type="button"
-            onClick={onClear}
-            className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-destructive text-destructive-foreground shadow"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear();
+            }}
+            className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-destructive text-destructive-foreground shadow hover:scale-110 active:scale-90 transition z-10"
             aria-label={`${card.name} olib tashlash`}
+            title="Olib tashlash"
           >
             <X className="h-3 w-3" />
           </button>
           <button
             type="button"
-            onClick={onToggleWeight}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleWeight();
+            }}
             className={cn(
-              'absolute -left-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full shadow transition',
-              mustHave ? 'bg-amber-400 text-amber-950' : 'bg-white/80 text-black/60',
+              'absolute -left-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full shadow transition hover:scale-110 active:scale-90 z-10',
+              mustHave ? 'bg-amber-400 text-amber-950 ring-1 ring-amber-500' : 'bg-white/80 text-black/60',
             )}
             aria-label={mustHave ? 'Oddiy slot qilish' : 'Muhim slot qilish'}
             title={mustHave ? 'Muhim — 3x vazn' : 'Oddiy — 1x vazn'}

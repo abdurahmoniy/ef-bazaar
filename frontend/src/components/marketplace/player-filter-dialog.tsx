@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Check, Flame, Loader2, Search, Sparkles, Star, Users, X } from 'lucide-react';
+import { Check, Flame, Loader2, Search, Sparkles, Users, X } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Tabs from '@radix-ui/react-tabs';
 
@@ -21,7 +21,6 @@ import {
   type PlayerFilterTab,
   type PlayerMatchSelection,
 } from '@/lib/player-filter-selection';
-import { strictnessLabel, strictnessMinimumPercent } from '@/lib/player-match-query';
 import { getTelegramWebApp } from '@/lib/telegram';
 import { telegramHaptic } from '@/lib/telegram-shell';
 import { cn } from '@/lib/utils';
@@ -138,18 +137,6 @@ export function PlayerFilterDialog({
     telegramHaptic(getTelegramWebApp(), 'selection', reducedMotion);
   }
 
-  function togglePriority(playerId: string | undefined) {
-    if (!playerId) return;
-    const current = pickedRef.current;
-    if (!current.some((card) => card.playerId === playerId)) return;
-    const next = current.map((card) => card.playerId === playerId
-      ? { ...card, priority: !card.priority }
-      : card);
-    pickedRef.current = next;
-    setPicked(next);
-    telegramHaptic(getTelegramWebApp(), 'selection', reducedMotion);
-  }
-
   function apply() {
     if (applyStartedRef.current) return;
     applyStartedRef.current = true;
@@ -177,21 +164,16 @@ export function PlayerFilterDialog({
           id="marketplace-player-filter"
           type="button"
           className={cn(
-            'tap-press relative inline-flex min-h-8 sm:min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold',
-            'border border-amber-400/60 bg-gradient-to-br from-amber-400/20 via-amber-300/10 to-transparent',
-            'text-amber-600 dark:text-amber-300',
-            'shadow-[0_0_12px_-3px_rgba(251,191,36,0.5)] transition',
-            'hover:border-amber-400 hover:shadow-[0_0_18px_-2px_rgba(251,191,36,0.7)]',
+            'tap-press relative inline-flex min-h-8 sm:min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors',
+            activeCount > 0
+              ? 'border-amber-400 bg-amber-400 text-amber-950 shadow-sm hover:bg-amber-300 hover:border-amber-300'
+              : 'border-amber-400/40 bg-amber-400/10 text-amber-600 hover:border-amber-400/70 hover:bg-amber-400/20 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-200',
           )}
         >
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-0 animate-pulse rounded-full ring-1 ring-amber-400/40 motion-reduce:animate-none"
-          />
           <Flame className="h-3.5 w-3.5" />
           <span>O‘yinchilar</span>
           {activeCount > 0 && (
-            <span className="grid h-4 min-w-4 place-items-center rounded-full bg-amber-400 px-1 text-[10px] font-black text-amber-950">
+            <span className="grid h-4 min-w-4 place-items-center rounded-full bg-amber-950 px-1 text-[10px] font-black text-amber-200">
               {activeCount}
             </span>
           )}
@@ -207,7 +189,7 @@ export function PlayerFilterDialog({
             triggerRef.current.focus();
           }}
           className={cn(
-            'fixed inset-x-0 bottom-0 z-50 flex max-h-[min(92dvh,var(--tg-viewport-height,92dvh))] flex-col rounded-t-2xl bg-card shadow-2xl outline-none data-[state=open]:animate-sheet-up data-[state=closed]:animate-sheet-down motion-reduce:animate-none',
+            'fixed inset-x-0 bottom-0 z-50 flex h-[min(92dvh,var(--tg-viewport-height,92dvh))] flex-col rounded-t-2xl bg-card shadow-2xl outline-none data-[state=open]:animate-sheet-up data-[state=closed]:animate-sheet-down motion-reduce:animate-none',
             'sm:inset-0 sm:m-auto sm:h-[86vh] sm:max-w-4xl sm:rounded-2xl',
           )}
         >
@@ -245,12 +227,11 @@ export function PlayerFilterDialog({
 
             <DialogFooter
               chosenCount={chosenCount}
-              selected={tab === 'team' ? [] : picked}
               minMatch={minMatch}
               setMinMatch={setMinMatch}
-              onTogglePriority={togglePriority}
               onApply={apply}
               onClear={clearAll}
+              reducedMotion={reducedMotion}
             />
           </Tabs.Root>
         </Dialog.Content>
@@ -576,78 +557,105 @@ function CardGrid({
   );
 }
 
+interface StrictnessOption {
+  value: number;
+  label: string;
+  description: string;
+}
+
+const STRICTNESS_OPTIONS: StrictnessOption[] = [
+  {
+    value: 2,
+    label: 'Moslashuvchan',
+    description: 'Kamida 1+ o‘yinchi mos kelsa bo‘ladi (ko‘proq natijalar).',
+  },
+  {
+    value: 4,
+    label: 'Muvozanatli',
+    description: 'Tavsiya etiladi. Tanlangan o‘yinchilarning aksariyati bo‘lishi kerak.',
+  },
+  {
+    value: 8,
+    label: 'Qat’iy',
+    description: 'Deyarli barcha tanlangan o‘yinchilar akkountda bo‘lishi shart.',
+  },
+];
+
+function getActiveStrictnessOption(minMatch: number): StrictnessOption {
+  if (minMatch <= 3) return STRICTNESS_OPTIONS[0];
+  if (minMatch >= 7) return STRICTNESS_OPTIONS[2];
+  return STRICTNESS_OPTIONS[1];
+}
+
 function DialogFooter({
   chosenCount,
-  selected,
   minMatch,
   setMinMatch,
-  onTogglePriority,
   onApply,
   onClear,
+  reducedMotion,
 }: {
   chosenCount: number;
-  selected: PlayerMatchSelection[];
   minMatch: number;
   setMinMatch: (value: number) => void;
-  onTogglePriority: (playerId: string | undefined) => void;
   onApply: () => void;
   onClear: () => void;
+  reducedMotion: boolean;
 }) {
+  const activeOption = getActiveStrictnessOption(minMatch);
+
   return (
     <div className="shrink-0 space-y-3 border-t border-border bg-card px-4 pb-[calc(0.75rem+var(--app-content-safe-bottom))] pt-3">
-      {selected.length > 0 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar" aria-label="Tanlangan o‘yinchilar ustuvorligi">
-          {selected.map((card) => (
-            <button
-              key={card.efhubId}
-              type="button"
-              onClick={() => onTogglePriority(card.playerId)}
-              aria-pressed={card.priority === true}
-              aria-label={`${card.name}: Muhim o‘yinchi`}
-              className={cn(
-                'inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg border px-2 text-xs font-bold',
-                card.priority
-                  ? 'border-amber-400 bg-amber-400/15 text-amber-700 dark:text-amber-300'
-                  : 'border-border text-muted-foreground',
-              )}
-            >
-              <Star className={cn('h-3.5 w-3.5', card.priority && 'fill-current')} />
-              {card.name}
-              <span className="text-[10px]">Muhim o‘yinchi</span>
-            </button>
-          ))}
-        </div>
-      )}
       {chosenCount >= MAX_MATCH_PLAYERS && (
         <p className="text-xs font-bold text-amber-700 dark:text-amber-300" role="status">
           Ko&apos;pi bilan 11 ta o&apos;yinchi tanlash mumkin. Boshqasini tanlash uchun bittasini olib tashlang.
         </p>
       )}
+
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs font-bold">
           <span>Qidiruv qat’iyligi</span>
-          <span className="text-primary">{strictnessLabel(minMatch)}</span>
+          <span className="text-primary">{activeOption.label}</span>
         </div>
-        <input
-          type="range"
-          min={1}
-          max={10}
-          step={1}
-          value={minMatch}
-          onChange={(event) => setMinMatch(Number(event.target.value))}
-          className="w-full accent-primary"
-          aria-label="Qidiruv qat’iyligi 1 dan 10 gacha"
-        />
-        <p className="text-[11px] font-semibold text-muted-foreground">
-          Kamida {strictnessMinimumPercent(minMatch)}% moslik. Muhim o&apos;yinchi reytingga
-          ko&apos;proq ta&apos;sir qiladi, ammo majburiy emas. Boshqa karta nashri 75% kredit oladi.
+        <div
+          role="radiogroup"
+          aria-label="Qidiruv qat’iyligi"
+          className="grid grid-cols-3 gap-1 rounded-lg bg-muted/70 p-1"
+        >
+          {STRICTNESS_OPTIONS.map((opt) => {
+            const isActive = activeOption.value === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="radio"
+                aria-checked={isActive}
+                onClick={() => {
+                  setMinMatch(opt.value);
+                  telegramHaptic(getTelegramWebApp(), 'selection', reducedMotion);
+                }}
+                className={cn(
+                  'tap-press flex min-h-8 items-center justify-center rounded-md px-2 py-1 text-xs font-bold transition',
+                  isActive
+                    ? 'border border-border/80 bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[11px] font-medium text-muted-foreground leading-snug">
+          {activeOption.description}
         </p>
       </div>
+
       <div className="flex gap-2">
-        <Button onClick={onApply} disabled={chosenCount === 0} className="flex-1">
+        <Button onClick={onApply} disabled={chosenCount === 0} className="flex-1 font-bold">
           {chosenCount === 0 ? 'O‘yinchi tanlang' : `${chosenCount} o‘yinchi bo‘yicha qidirish`}
         </Button>
-        <Button variant="outline" onClick={onClear}>
+        <Button variant="outline" onClick={onClear} className="font-semibold">
           Tozalash
         </Button>
       </div>
