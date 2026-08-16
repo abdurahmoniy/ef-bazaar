@@ -259,7 +259,6 @@ describe('PlayerFilterDialog accessibility contract', () => {
 
   it('uses the approved buyer-facing copy and Telegram sheet semantics', () => {
     expect(source).toContain('O‘yinchilar');
-    expect(source).toContain('Muhim o‘yinchi');
     expect(source).toContain('o‘yinchi bo‘yicha qidirish');
     expect(source).toContain('META kartalar hozircha yo‘q');
     expect(source).toContain('useTelegramBackLayer');
@@ -503,7 +502,7 @@ describe('PlayerFilterDialog Telegram interactions', () => {
     expect(buttonNamed('2 o‘yinchi bo‘yicha qidirish')).toBeTruthy();
   });
 
-  it('preserves a priority-only user edit during late metadata hydration', async () => {
+  it('preserves user selection during late metadata hydration', async () => {
     const props = {
       open: true,
       onOpenChange: vi.fn(),
@@ -515,10 +514,9 @@ describe('PlayerFilterDialog Telegram interactions', () => {
     };
     await renderWithProviders(React.createElement(PlayerFilterDialog, {
       ...props,
-      selected: [{ efhubId: 101, playerId, name: 'Tanlangan karta', priority: false }],
+      selected: [{ efhubId: 101, playerId, name: 'Tanlangan karta' }],
     }));
-    await click(buttonNamed('Muhim o‘yinchi'));
-    expect(buttonNamed('Muhim o‘yinchi').getAttribute('aria-pressed')).toBe('true');
+    expect(buttonNamed('1 o‘yinchi bo‘yicha qidirish')).toBeTruthy();
 
     await act(async () => root.render(React.createElement(TelegramBackProvider, null,
       React.createElement(PlayerFilterDialog, {
@@ -528,11 +526,10 @@ describe('PlayerFilterDialog Telegram interactions', () => {
           playerId,
           name: 'Lionel Messi',
           imageUrl: '/messi.png',
-          priority: false,
         }],
       }))));
 
-    expect(buttonNamed('Muhim o‘yinchi').getAttribute('aria-pressed')).toBe('true');
+    expect(buttonNamed('1 o‘yinchi bo‘yicha qidirish')).toBeTruthy();
     expect(document.body.textContent).toContain('Lionel Messi');
   });
 
@@ -634,9 +631,9 @@ describe('PlayerFilterDialog Telegram interactions', () => {
 
     await click(buttonNamed('Lionel Messi'));
     expect(telegram.webApp.HapticFeedback?.selectionChanged).toHaveBeenCalledTimes(1);
-    await click(buttonNamed('Muhim o‘yinchi'));
+    await click(buttonNamed('Neymar Jr'));
     expect(telegram.webApp.HapticFeedback?.selectionChanged).toHaveBeenCalledTimes(2);
-    const apply = buttonNamed('1 o‘yinchi bo‘yicha qidirish');
+    const apply = buttonNamed('2 o‘yinchi bo‘yicha qidirish');
     await act(async () => {
       apply.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
       apply.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));

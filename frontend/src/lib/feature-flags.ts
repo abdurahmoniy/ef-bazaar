@@ -50,7 +50,7 @@ export const FEATURES = {
   /** Tournament brackets & registration. */
   tournaments: false,
   /** Dream team builder. */
-  dreamTeam: false,
+  dreamTeam: true,
   /** Community gamer profiles & directory. */
   gamers: false,
 } as const;

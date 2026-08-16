@@ -3,14 +3,13 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   BadgeCheck,
+  Calendar,
   CheckCircle2,
-  ExternalLink,
-  Gamepad2,
+  Layers,
   MessageCircle,
   Package,
   ShieldAlert,
-  Star,
-  Trophy,
+  ShieldCheck,
   UserCheck,
 } from 'lucide-react';
 
@@ -23,7 +22,6 @@ import { getMe } from '@/lib/auth';
 import { getGamerCard, isUserBlacklisted } from '@/lib/gamer-server';
 import { getUserListings } from '@/lib/marketplace-server';
 import { resolveOptionalUser } from '@/lib/optional-auth';
-import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +35,7 @@ export async function generateMetadata({ params }: UserPageProps): Promise<Metad
   const name = card?.displayName || 'Foydalanuvchi';
   return {
     title: `${name} — Profil`,
-    description: card?.bio || `${name} ning EfBazaar dagi profili va e'lonlari`,
+    description: `${name} ning EfBazaar dagi profili va e'lonlari`,
   };
 }
 
@@ -96,7 +94,7 @@ export default async function UserProfilePage({ params }: UserPageProps) {
           </div>
         )}
 
-        {/* Profile Card Header */}
+        {/* Profile Header */}
         <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:text-left">
@@ -105,7 +103,7 @@ export default async function UserProfilePage({ params }: UserPageProps) {
                 <AvatarFallback className="text-2xl font-black">{initials}</AvatarFallback>
               </Avatar>
 
-              <div className="min-w-0 space-y-1.5">
+              <div className="min-w-0 space-y-2">
                 <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                   <h1 className="text-xl font-black text-foreground sm:text-2xl">{displayName}</h1>
                   {isVerified ? (
@@ -128,31 +126,18 @@ export default async function UserProfilePage({ params }: UserPageProps) {
                 </div>
 
                 {telegramUsername && (
-                  <p className="text-sm font-medium text-muted-foreground">
+                  <p className="text-sm font-semibold text-primary">
                     @{telegramUsername}
                   </p>
                 )}
 
-                {card?.bio && (
-                  <p className="max-w-md text-xs text-foreground/90 sm:text-sm">
-                    {card.bio}
-                  </p>
-                )}
-
-                <div className="flex flex-wrap items-center justify-center gap-3 pt-1 text-xs text-muted-foreground sm:justify-start">
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-0.5 text-xs text-muted-foreground sm:justify-start">
                   <span className="inline-flex items-center gap-1">
-                    <Star className="h-3.5 w-3.5 text-amber-500" /> A&apos;zo: {memberSinceYear}-yildan
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" /> A&apos;zo: {memberSinceYear}-yildan
                   </span>
-                  {card?.favoriteTeam && (
-                    <span className="inline-flex items-center gap-1 font-medium">
-                      ⚽ {card.favoriteTeam}
-                    </span>
-                  )}
-                  {card?.platform && (
-                    <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                      {card.platform}
-                    </span>
-                  )}
+                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Xavfsiz bitimlar
+                  </span>
                 </div>
               </div>
             </div>
@@ -177,25 +162,17 @@ export default async function UserProfilePage({ params }: UserPageProps) {
                   </Link>
                 </Button>
               ) : null}
-
-              <Button asChild variant="outline" size="sm" className="rounded-xl">
-                <Link href={`/gamers/${id}`}>
-                  <Gamepad2 className="h-4 w-4" />
-                  Gamer Card
-                  <ExternalLink className="h-3 w-3 opacity-60" />
-                </Link>
-              </Button>
             </div>
           </div>
 
-          {/* Quick Stats Grid */}
+          {/* Marketplace Stats Grid */}
           <div className="mt-6 grid grid-cols-2 gap-3 border-t border-border pt-4 sm:grid-cols-4">
             <div className="rounded-xl bg-muted/40 p-3 text-center sm:text-left">
               <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground sm:justify-start">
                 <Package className="h-3.5 w-3.5 text-primary" /> Faol e&apos;lonlar
               </div>
               <div className="mt-1 text-lg font-black text-foreground">
-                {card?.activeListings ?? activeListings.length}
+                {activeListings.length}
               </div>
             </div>
 
@@ -204,51 +181,40 @@ export default async function UserProfilePage({ params }: UserPageProps) {
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Sotilgan
               </div>
               <div className="mt-1 text-lg font-black text-emerald-600 dark:text-emerald-400">
-                {card?.soldListings ?? soldListings.length}
+                {soldListings.length}
               </div>
             </div>
 
             <div className="rounded-xl bg-muted/40 p-3 text-center sm:text-left">
               <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground sm:justify-start">
-                <Trophy className="h-3.5 w-3.5 text-amber-500" /> ELO reyting
+                <Layers className="h-3.5 w-3.5 text-blue-500" /> Jami e&apos;lonlar
               </div>
               <div className="mt-1 text-lg font-black text-foreground">
-                {card?.elo ?? 1000}{' '}
-                {card?.tier && (
-                  <span className="text-xs font-bold uppercase text-primary">
-                    ({card.tier})
-                  </span>
-                )}
+                {listings.length}
               </div>
             </div>
 
             <div className="rounded-xl bg-muted/40 p-3 text-center sm:text-left">
               <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground sm:justify-start">
-                <Gamepad2 className="h-3.5 w-3.5 text-blue-500" /> G&apos;alabalar
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Kafolat
               </div>
-              <div className="mt-1 text-lg font-black text-foreground">
-                {card?.winRatePercent != null ? `${card.winRatePercent}%` : '—'}{' '}
-                <span className="text-xs font-normal text-muted-foreground">
-                  ({card?.matchesCount ?? 0} o&apos;yin)
-                </span>
+              <div className="mt-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                100% Xavfsiz
               </div>
             </div>
           </div>
         </section>
 
-        {/* User's Listings Section */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-black text-foreground sm:text-xl">
-                Sotuvchining e&apos;lonlari
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                {activeListings.length} ta faol, {soldListings.length} ta sotilgan e&apos;lon
-              </p>
-            </div>
-          </div>
+        {/* Safe Trade Notice */}
+        <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-xs font-medium text-foreground/90">
+          <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
+          <span>
+            Barcha savdolar <b>EfBazaar Kafillik tizimi</b> orqali amalga oshiriladi. Hisob tekshirilib qabul qilinmaguncha to&apos;lov sotuvchiga o&apos;tkazilmaydi.
+          </span>
+        </div>
 
+        {/* User's Listings Section */}
+        <section className="space-y-6">
           {listings.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
               <Package className="mx-auto h-10 w-10 text-muted-foreground/50" />
@@ -260,11 +226,37 @@ export default async function UserProfilePage({ params }: UserPageProps) {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {listings.map((entry) => (
-                <ListingCard key={entry.id} listing={entry} />
-              ))}
-            </div>
+            <>
+              {activeListings.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-bold text-foreground sm:text-lg">
+                      Faol e&apos;lonlar ({activeListings.length})
+                    </h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {activeListings.map((entry) => (
+                      <ListingCard key={entry.id} listing={entry} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {soldListings.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-bold text-muted-foreground sm:text-lg">
+                      Sotilgan e&apos;lonlar ({soldListings.length})
+                    </h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {soldListings.map((entry) => (
+                      <ListingCard key={entry.id} listing={entry} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>

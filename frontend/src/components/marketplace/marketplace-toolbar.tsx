@@ -55,10 +55,8 @@ export function MarketplaceToolbar({
       <div className="marketplace-toolbar-actions snap-rail flex items-center gap-1.5 overflow-x-auto pb-0.5 sm:gap-2">
         {playerTrigger}
         {quickChips}
-        <div className="hidden sm:block">
+        <div className="hidden sm:flex sm:items-center sm:gap-2 sm:ml-auto shrink-0">
           <SortMenu options={sortOptions} activeId={activeSortId} compact />
-        </div>
-        <div className="hidden sm:block">
           <MarketplaceViewMenu rawQuery={rawQuery} view={view} />
         </div>
       </div>
