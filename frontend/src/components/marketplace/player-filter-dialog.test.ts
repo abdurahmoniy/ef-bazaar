@@ -13,6 +13,14 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: routerPush }),
 }));
 
+vi.mock('@/lib/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/feature-flags')>();
+  return {
+    ...actual,
+    isFeatureEnabled: (key: string) => (key === 'dreamTeam' ? true : actual.isFeatureEnabled(key as never)),
+  };
+});
+
 import { TelegramBackProvider } from '@/components/telegram/telegram-back-provider';
 import { PLAYER_FILTER_CACHE_KEY } from '@/lib/player-filter-cache';
 import type { DreamTeam } from '@/lib/marketplace-types';

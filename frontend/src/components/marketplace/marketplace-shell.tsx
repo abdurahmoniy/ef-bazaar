@@ -56,6 +56,8 @@ interface MarketplaceShellProps {
    * action within thumb reach, not two stacked bars eating the viewport.
    */
   mobileActionBar?: React.ReactNode;
+  /** Hides the bottom navigation tab bar on mobile completely (e.g. for multi-step creation flows). */
+  hideBottomNav?: boolean;
 }
 
 export type MarketplaceTab =
@@ -176,6 +178,7 @@ export function MarketplaceShell({
   backHref,
   backLabel,
   mobileActionBar,
+  hideBottomNav = false,
 }: MarketplaceShellProps) {
   const items = buildNavItems(user);
   const desktopLinks = buildDesktopLinks();
@@ -296,7 +299,7 @@ export function MarketplaceShell({
             {mobileActionBar}
           </div>
         </MeasuredBottomBar>
-      ) : (
+      ) : hideBottomNav ? null : (
         <MeasuredBottomBar
           key="marketplace-tab-bar"
           as="nav"
@@ -320,9 +323,6 @@ export function MarketplaceShell({
 }
 
 function MobileNavLink({ item, active }: { item: NavItem; active: boolean }) {
-  // The primary slot is a filled circle, not a fourth identical icon+label.
-  // Five equal tabs left nothing marking the one action the marketplace exists
-  // for; the raised puck is the standard tell and costs no extra bar height.
   if (item.primary) {
     return (
       <Link
