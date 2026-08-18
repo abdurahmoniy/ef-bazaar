@@ -2,7 +2,7 @@ package uz.efbazaar.payment.wallet.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,38 +33,62 @@ public class InternalTradeEscrowController {
 
     private final TradeEscrowService escrow;
 
-    public record HoldRequest(@NotNull UUID buyerId, @NotNull @Positive Long priceTiyin) {}
+    /**
+     * {@code buyerId} is the accepter, {@code sellerId} the proposer.
+     *
+     * <p>{@code feeBaseTiyin} is what the commission is worked out from, which
+     * is not always what changes hands: on a swap it is the listing price. It
+     * and {@code sellerId} are optional so a caller that predates swaps keeps
+     * working — a sale's fee base is its price, and its proposer is never
+     * charged, so the old payload still describes it exactly.
+     */
+    public record HoldRequest(@NotNull UUID buyerId, UUID sellerId,
+                              @NotNull @PositiveOrZero Long priceTiyin,
+                              Long feeBaseTiyin) {}
 
     public record SettleRequest(@NotNull UUID buyerId, @NotNull UUID sellerId,
-                                @NotNull @Positive Long priceTiyin) {}
+                                @NotNull @PositiveOrZero Long priceTiyin,
+                                Long feeBaseTiyin) {}
 
-    public record ReleaseRequest(@NotNull UUID buyerId, @NotNull @Positive Long priceTiyin) {}
+    public record ReleaseRequest(@NotNull UUID buyerId, UUID sellerId,
+                                 @NotNull @PositiveOrZero Long priceTiyin,
+                                 Long feeBaseTiyin) {}
 
-    /** What the seller will actually receive, so the caller can show it. */
+    /** What the proposer will actually receive, so the caller can show it. */
     public record EscrowResult(long priceTiyin, long feeTiyin, long sellerProceedsTiyin) {}
+
+    private static long feeBase(Long declared, long priceTiyin) {
+        return declared != null ? declared : priceTiyin;
+    }
 
     @PostMapping("/hold")
     public EscrowResult hold(@PathVariable UUID tradeId, @Valid @RequestBody HoldRequest req) {
-        escrow.hold(tradeId, req.buyerId(), req.priceTiyin());
-        return quote(req.priceTiyin());
+        long base = feeBase(req.feeBaseTiyin(), req.priceTiyin());
+        escrow.hold(tradeId, req.buyerId(), req.sellerId(), req.priceTiyin(), base);
+        return quote(req.priceTiyin(), base);
     }
 
     @PostMapping("/settle")
     public EscrowResult settle(@PathVariable UUID tradeId, @Valid @RequestBody SettleRequest req) {
-        escrow.settle(tradeId, req.buyerId(), req.sellerId(), req.priceTiyin());
-        return quote(req.priceTiyin());
+        long base = feeBase(req.feeBaseTiyin(), req.priceTiyin());
+        escrow.settle(tradeId, req.buyerId(), req.sellerId(), req.priceTiyin(), base);
+        return quote(req.priceTiyin(), base);
     }
 
     @PostMapping("/release")
     public EscrowResult release(@PathVariable UUID tradeId, @Valid @RequestBody ReleaseRequest req) {
-        escrow.release(tradeId, req.buyerId(), req.priceTiyin());
+        long base = feeBase(req.feeBaseTiyin(), req.priceTiyin());
+        escrow.release(tradeId, req.buyerId(), req.sellerId(), req.priceTiyin(), base);
         // No fee is taken on a release; report it as zero rather than quoting
         // one that was never charged.
         return new EscrowResult(req.priceTiyin(), 0, req.priceTiyin());
     }
 
-    private static EscrowResult quote(long priceTiyin) {
-        long fee = TradeCommission.feeTiyin(priceTiyin);
+    private static EscrowResult quote(long priceTiyin, long feeBaseTiyin) {
+        long fee = TradeCommission.feeTiyin(feeBaseTiyin);
+        // May be negative on a swap whose fee outruns the surcharge: the
+        // proposer funds the difference, and reporting it as zero would hide
+        // that from the caller's confirmation screen.
         return new EscrowResult(priceTiyin, fee, priceTiyin - fee);
     }
 }
