@@ -47,6 +47,7 @@ public class TradeService {
     private final TradeMessageRepository messages;
     private final TradeStateMachine sm;
     private final TradeStateHandler handler;
+    private final TradeSideService sideService;
     private final TradeAuditService audit;
     private final MailboxService mailboxes;
     private final TradeBroadcaster broadcaster;
@@ -112,6 +113,10 @@ public class TradeService {
         // (Task 14) overwrites the email + password once it "provisions" Mailcow
         // in response to the email-provision-request event.
         UUID mailboxId = allocatePlaceholderMailbox();
+        // A swap needs a second box: both parties move an account out, and at
+        // the end the two are handed over crossed. A sale allocates one, since
+        // the buyer transfers nothing.
+        UUID buyerMailboxId = kind.isSwap() ? allocatePlaceholderMailbox() : null;
 
         Trade t = Trade.builder()
                 .id(tradeId)
@@ -132,6 +137,12 @@ public class TradeService {
                 .expiresAt(Instant.now().plus(Duration.ofHours(
                         mode == TradeMode.HUMAN ? humanExpiresAfterHours : 24)))
                 .build();
+
+        // Saved and flushed before the sides: trade_sides carries a foreign key
+        // to this row, and onEnter below reads the sides to decide how many
+        // mailboxes to have provisioned.
+        trades.saveAndFlush(t);
+        sideService.open(tradeId, mailboxId, buyerMailboxId);
 
         handler.onEnter(t, TradeState.INITIATED, ActorType.SYSTEM, null, null);
         trades.save(t);
@@ -186,6 +197,16 @@ public class TradeService {
     /** Canonical mutation. Every action goes through here. */
     @Transactional
     public Trade transition(UUID tradeId, TradeEvent event, ActorType actor, UUID actorId) {
+        return transition(tradeId, event, actor, actorId, null);
+    }
+
+    /**
+     * As above, for a caller that knows which side acted when the actor id does
+     * not say — a worker reporting on one of a swap's two mailboxes.
+     */
+    @Transactional
+    public Trade transition(UUID tradeId, TradeEvent event, ActorType actor, UUID actorId,
+                            ParticipantRole actingSide) {
         Trade t = trades.findById(tradeId)
                 .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
         TradeState from = t.getState();
@@ -196,6 +217,26 @@ public class TradeService {
         if (event == TradeEvent.MAILBOX_PROVISIONED && actor != ActorType.WORKER) {
             throw new InvalidTradeTransitionException(from, event);
         }
+        // Record this party's own progress before deciding whether the trade
+        // may move. On a swap both parties do every step, so one party's
+        // "done" is not the trade's.
+        ParticipantRole side = actingSide != null ? actingSide
+                : (actorId != null && t.isParticipant(actorId) ? t.roleFor(actorId) : null);
+        if (side != null) {
+            sideService.stamp(tradeId, side, event);
+        }
+        if (!sideService.bothSidesCleared(t, event)) {
+            // Validate the event anyway: an out-of-order one must still be
+            // refused rather than quietly stored against the side.
+            sm.transition(t.getMode(), from, event);
+            audit.record(t.getId(), actor, actorId, "SIDE_PROGRESS",
+                    Map.of("event", event.name(), "side", String.valueOf(side)));
+            // The panel re-reads side progress from this, which is how each
+            // party sees the other one move.
+            broadcaster.publishStateChange(t.getId(), toResponse(t, null));
+            return t;
+        }
+
         TradeState to = sm.transition(t.getMode(), from, event);
         t.setState(to);
         handler.onEnter(t, to, actor, actorId, event);
