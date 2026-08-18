@@ -1,9 +1,11 @@
 package uz.efbazaar.trade.trade.dto;
 
 import uz.efbazaar.trade.trade.domain.ParticipantRole;
+import uz.efbazaar.trade.trade.domain.TradeKind;
 import uz.efbazaar.trade.trade.domain.TradeState;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record TradeResponse(
@@ -24,6 +26,14 @@ public record TradeResponse(
         UUID passwordMessageId,
         /** Konami email-change verification code (6 digits). Populated by
          * KonamiEmailChangeCodeConsumer during WAITING_EMAIL_CHANGE. */
-        String emailChangeVerificationCode
+        String emailChangeVerificationCode,
+        /** SALE, SWAP or SWAP_SURCHARGE — decides what the panel asks for. */
+        TradeKind kind,
+        /**
+         * Both parties' progress, so each can see where the other has got to.
+         * On a sale the buyer's entry stays empty: they are asked for none of
+         * those steps.
+         */
+        List<TradeSideResponse> sides
 ) {}
 

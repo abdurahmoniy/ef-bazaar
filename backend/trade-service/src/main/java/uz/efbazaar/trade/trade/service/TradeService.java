@@ -26,6 +26,7 @@ import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.dto.TradePage;
 import uz.efbazaar.trade.trade.dto.TradeResponse;
+import uz.efbazaar.trade.trade.dto.TradeSideResponse;
 import uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException;
 import uz.efbazaar.trade.trade.repository.TradeChatRepository;
 import uz.efbazaar.trade.trade.repository.TradeMessageRepository;
@@ -258,7 +259,9 @@ public class TradeService {
                 t.getSellerId(), t.getBuyerId(), t.getPriceUzs(),
                 t.getMailboxId(), mailboxEmail, t.getChatId(), t.getCreatedAt(), t.getExpiresAt(),
                 t.getStateDeadline(), role, passwordMessageId,
-                t.getEmailChangeVerificationCode());
+                t.getEmailChangeVerificationCode(),
+                t.getKind(),
+                sideService.of(t.getId()).stream().map(TradeSideResponse::of).toList());
     }
 
     /**
