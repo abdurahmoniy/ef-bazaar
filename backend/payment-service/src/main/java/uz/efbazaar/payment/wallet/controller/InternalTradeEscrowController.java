@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import uz.efbazaar.payment.wallet.service.TradeCommission;
+import uz.efbazaar.payment.wallet.service.TradeCommissionService;
 import uz.efbazaar.payment.wallet.service.TradeEscrowService;
 
 import java.util.UUID;
