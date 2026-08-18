@@ -173,7 +173,7 @@ export function AdminCommissionForm({ initialConfig }: AdminCommissionFormProps)
                 type="number"
                 inputMode="numeric"
                 min={1000}
-                step={10000}
+                step="any"
                 value={bandSom}
                 onChange={(e) => setBandSom(e.target.value)}
                 className="h-10 rounded-xl font-bold text-sm"
@@ -199,7 +199,7 @@ export function AdminCommissionForm({ initialConfig }: AdminCommissionFormProps)
                     <Input
                       id="lowRatePercent"
                       type="number"
-                      step="0.1"
+                      step="any"
                       min="0"
                       max="100"
                       value={lowRatePercent}
@@ -218,7 +218,7 @@ export function AdminCommissionForm({ initialConfig }: AdminCommissionFormProps)
                     id="lowMinSom"
                     type="number"
                     min="0"
-                    step="1000"
+                    step="any"
                     value={lowMinSom}
                     onChange={(e) => setLowMinSom(e.target.value)}
                     className="h-9 rounded-xl text-xs font-black"
@@ -243,7 +243,7 @@ export function AdminCommissionForm({ initialConfig }: AdminCommissionFormProps)
                     <Input
                       id="highRatePercent"
                       type="number"
-                      step="0.1"
+                      step="any"
                       min="0"
                       max="100"
                       value={highRatePercent}
@@ -262,7 +262,7 @@ export function AdminCommissionForm({ initialConfig }: AdminCommissionFormProps)
                     id="highMinSom"
                     type="number"
                     min="0"
-                    step="1000"
+                    step="any"
                     value={highMinSom}
                     onChange={(e) => setHighMinSom(e.target.value)}
                     className="h-9 rounded-xl text-xs font-black"
@@ -330,7 +330,7 @@ export function AdminCommissionForm({ initialConfig }: AdminCommissionFormProps)
                 id="testPrice"
                 type="number"
                 inputMode="numeric"
-                step="10000"
+                step="any"
                 min="0"
                 value={testPrice}
                 onChange={(e) => setTestPrice(e.target.value)}
