@@ -1,51 +1,60 @@
+import type { TradeCommissionConfig } from './payment-types';
+
 /**
  * The platform's share of a smart-admin trade, mirrored from
  * payment-service's TradeCommission.
  *
+ * Configurable via the Admin Panel and stored in payment-service's DB.
+ * When no dynamic config is provided, falls back to standard default rates:
  *   price < 100 000 so'm   →  10%,  at least  5 000 so'm
  *   price ≥ 100 000 so'm   →  7.5%, at least 10 000 so'm
- *
- * The seller pays it: the buyer is charged the listed price and the seller
- * receives that price minus this fee.
- *
- * This is a copy, and copies drift. It exists because the seller has to see
- * what they will be paid *while typing a price*, before any trade or proposal
- * exists to ask the server about. The authoritative number is always the one
- * payment-service computes at settlement; if they ever disagree, that one is
- * right and this one is the bug.
- *
- * Everything here is whole so'm, not tiyin — a listing price is entered in
- * so'm and this is only ever shown, never sent.
  */
 
-const BAND_SOM = 100_000;
+export const DEFAULT_TRADE_COMMISSION_CONFIG: TradeCommissionConfig = {
+  id: 'DEFAULT',
+  bandSom: 100_000,
+  lowRatePercent: 10.0,
+  highRatePercent: 7.5,
+  lowMinSom: 5_000,
+  highMinSom: 10_000,
+  active: true,
+  updatedAt: new Date().toISOString(),
+};
 
 /** @param priceSom the listed price in so'm */
-export function tradeFeeSom(priceSom: number): number {
+export function tradeFeeSom(
+  priceSom: number,
+  config?: TradeCommissionConfig | null
+): number {
   if (!Number.isFinite(priceSom) || priceSom <= 0) return 0;
 
-  const low = priceSom < BAND_SOM;
-  const rate = low ? 0.1 : 0.075;
-  const floor = low ? 5_000 : 10_000;
+  const cfg = config ?? DEFAULT_TRADE_COMMISSION_CONFIG;
+  const low = priceSom < cfg.bandSom;
+  const ratePercent = low ? cfg.lowRatePercent : cfg.highRatePercent;
+  const floor = low ? cfg.lowMinSom : cfg.highMinSom;
 
-  // Floor, not round: payment-service divides integers, which truncates, and a
-  // preview that rounds up would quote the seller a worse number than they get.
-  const fee = Math.max(Math.floor(priceSom * rate), floor);
+  // Floor calculation in whole so'm: truncates to match backend integer arithmetic
+  const calculated = Math.floor((priceSom * ratePercent) / 100);
+  const fee = Math.max(calculated, floor);
 
-  // Below the floor the fee would exceed the price. payment-service refuses
-  // such a trade outright; here it clamps, so the preview shows zero proceeds
-  // rather than a negative number.
   return Math.min(fee, priceSom);
 }
 
 /** What the seller actually receives. */
-export function sellerProceedsSom(priceSom: number): number {
+export function sellerProceedsSom(
+  priceSom: number,
+  config?: TradeCommissionConfig | null
+): number {
   if (!Number.isFinite(priceSom) || priceSom <= 0) return 0;
-  return priceSom - tradeFeeSom(priceSom);
+  return priceSom - tradeFeeSom(priceSom, config);
 }
 
-/**
- * Below this the fee swallows the price entirely and payment-service will not
- * open the trade, so the form warns instead of quoting zero.
- */
+export function minimumViablePriceSom(
+  config?: TradeCommissionConfig | null
+): number {
+  const cfg = config ?? DEFAULT_TRADE_COMMISSION_CONFIG;
+  return cfg.lowMinSom;
+}
+
+/** Legacy constant for backwards compatibility */
 export const MIN_TRADE_PRICE_SOM = 5_000;

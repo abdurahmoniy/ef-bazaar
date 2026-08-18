@@ -32,6 +32,7 @@ import java.util.UUID;
 public class InternalTradeEscrowController {
 
     private final TradeEscrowService escrow;
+    private final TradeCommissionService commissionService;
 
     public record HoldRequest(@NotNull UUID buyerId, @NotNull @Positive Long priceTiyin) {}
 
@@ -63,8 +64,8 @@ public class InternalTradeEscrowController {
         return new EscrowResult(req.priceTiyin(), 0, req.priceTiyin());
     }
 
-    private static EscrowResult quote(long priceTiyin) {
-        long fee = TradeCommission.feeTiyin(priceTiyin);
+    private EscrowResult quote(long priceTiyin) {
+        long fee = commissionService.feeTiyin(priceTiyin);
         return new EscrowResult(priceTiyin, fee, priceTiyin - fee);
     }
 }

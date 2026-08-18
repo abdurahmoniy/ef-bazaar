@@ -5,6 +5,7 @@ import type { WithdrawalTicket } from './withdrawal';
 import type {
   ObservationResponse,
   PlatformCardResponse,
+  TradeCommissionConfig,
   UserbotStatusResponse,
 } from './payment-types';
 
@@ -67,6 +68,15 @@ export async function getUserbotStatusSSR(): Promise<UserbotStatusResponse | nul
   const path = `${PREFIX}/userbot`;
   try {
     return await apiFetch<UserbotStatusResponse>(path);
+  } catch (error) {
+    return report(path, error);
+  }
+}
+
+export async function getTradeCommissionConfigSSR(): Promise<TradeCommissionConfig | null> {
+  const path = `${PREFIX}/commission`;
+  try {
+    return await apiFetch<TradeCommissionConfig>(path);
   } catch (error) {
     return report(path, error);
   }

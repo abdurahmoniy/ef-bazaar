@@ -34,6 +34,7 @@ import java.util.UUID;
 public class TradeEscrowService {
 
     private final LedgerService ledger;
+    private final TradeCommissionService commissionService;
 
     /**
      * Moves the price from the buyer's spendable balance into escrow.
@@ -45,10 +46,10 @@ public class TradeEscrowService {
     @Transactional
     public void hold(UUID tradeId, UUID buyerId, long priceTiyin) {
         requirePositive(priceTiyin);
-        if (priceTiyin < TradeCommission.minimumViablePriceTiyin()) {
+        if (priceTiyin < commissionService.minimumViablePriceTiyin()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Savdo summasi juda kichik — eng kami "
-                            + TradeCommission.minimumViablePriceTiyin() / 100 + " so'm");
+                            + commissionService.minimumViablePriceTiyin() / 100 + " so'm");
         }
 
         WalletAccount w = ledger.balanceOf(buyerId);
@@ -75,7 +76,7 @@ public class TradeEscrowService {
     public void settle(UUID tradeId, UUID buyerId, UUID sellerId, long priceTiyin) {
         requirePositive(priceTiyin);
         if (neverHeld(tradeId, "settle")) return;
-        long fee = TradeCommission.feeTiyin(priceTiyin);
+        long fee = commissionService.feeTiyin(priceTiyin);
         long proceeds = priceTiyin - fee;
 
         var postings = new java.util.ArrayList<Posting>(3);

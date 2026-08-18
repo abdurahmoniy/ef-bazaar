@@ -58,4 +58,25 @@ describe('tradeFeeSom', () => {
   it('exposes the price below which a trade cannot be opened', () => {
     expect(MIN_TRADE_PRICE_SOM).toBe(5_000);
   });
+
+  it('calculates fees with custom dynamic TradeCommissionConfig', () => {
+    const customConfig = {
+      id: 'DEFAULT',
+      bandSom: 200_000,
+      lowRatePercent: 8.0,
+      highRatePercent: 5.0,
+      lowMinSom: 4_000,
+      highMinSom: 8_000,
+      active: true,
+      updatedAt: '2026-08-18T12:00:00Z',
+    };
+
+    // 100 000 is below 200 000 band -> 8% (8 000 som)
+    expect(tradeFeeSom(100_000, customConfig)).toBe(8_000);
+    expect(sellerProceedsSom(100_000, customConfig)).toBe(92_000);
+
+    // 500 000 is above 200 000 band -> 5% (25 000 som)
+    expect(tradeFeeSom(500_000, customConfig)).toBe(25_000);
+    expect(sellerProceedsSom(500_000, customConfig)).toBe(475_000);
+  });
 });
