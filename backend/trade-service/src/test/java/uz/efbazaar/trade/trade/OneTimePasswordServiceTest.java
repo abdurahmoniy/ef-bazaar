@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
 import uz.efbazaar.trade.trade.domain.ActorType;
+import uz.efbazaar.trade.trade.domain.Trade;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.exception.PasswordAlreadyRevealedException;
@@ -24,6 +25,7 @@ class OneTimePasswordServiceTest extends AbstractIntegrationIT {
     @Autowired TradeService trades;
     @Autowired TradeMessageRepository messages;
     @Autowired uz.efbazaar.trade.trade.repository.TradeRepository tradeRepo;
+    @Autowired uz.efbazaar.trade.trade.repository.TradeSideRepository sideRepo;
 
     @Test
     void revealYieldsPlaintextOnceThenIsGone() {
@@ -71,17 +73,38 @@ class OneTimePasswordServiceTest extends AbstractIntegrationIT {
      * it means: get to WAITING_PASSWORD, however it happens.
      */
     private void driveToWaitingPassword(UUID tradeId, UUID seller, UUID buyer) {
-        applyIfPending(tradeId, TradeState.INITIATED,
-                TradeEvent.MAILBOX_PROVISIONED, ActorType.WORKER, null);
-        applyIfPending(tradeId, TradeState.WAITING_PAYMENT,
-                TradeEvent.PAYMENT_CONFIRMED, ActorType.USER, buyer);
-        applyIfPending(tradeId, TradeState.WAITING_EMAIL_CHANGE,
-                TradeEvent.EMAIL_CHANGED, ActorType.USER, seller);
-        applyIfPending(tradeId, TradeState.VERIFYING_KONAMI_LINK,
-                TradeEvent.KONAMI_EMAIL_RECEIVED, ActorType.WORKER, null);
-        assertThat(tradeRepo.findById(tradeId).orElseThrow().getState())
-                .as("setup must reach the state the assertions are about")
-                .isEqualTo(TradeState.WAITING_PASSWORD);
+        // Loops rather than running a fixed sequence: MockWorker may advance a
+        // step between two of ours, and the next event then depends on where
+        // the trade actually is, not on where the script thinks it is. Bounded,
+        // so a genuinely stuck trade fails loudly instead of hanging.
+        for (int attempt = 0; attempt < 12; attempt++) {
+            TradeState now = tradeRepo.findById(tradeId).orElseThrow().getState();
+            if (now == TradeState.WAITING_PASSWORD) return;
+            switch (now) {
+                case INITIATED -> applyIfPending(tradeId, now,
+                        TradeEvent.MAILBOX_PROVISIONED, ActorType.WORKER, null);
+                case WAITING_PAYMENT -> applyIfPending(tradeId, now,
+                        TradeEvent.PAYMENT_CONFIRMED, ActorType.USER, buyer);
+                case WAITING_EMAIL_CHANGE -> applyIfPending(tradeId, now,
+                        TradeEvent.EMAIL_CHANGED, ActorType.USER, seller);
+                case VERIFYING_KONAMI_LINK -> applyIfPending(tradeId, now,
+                        TradeEvent.KONAMI_EMAIL_RECEIVED, ActorType.WORKER, null);
+                default -> throw new AssertionError(
+                        "Trade wandered off the smart path: " + describe(tradeId));
+            }
+        }
+        throw new AssertionError("Setup never reached WAITING_PASSWORD: " + describe(tradeId));
+    }
+
+    /** Everything needed to tell a stuck trade from a racing one. */
+    private String describe(UUID tradeId) {
+        Trade t = tradeRepo.findById(tradeId).orElseThrow();
+        return "state=" + t.getState() + " kind=" + t.getKind() + " mode=" + t.getMode()
+                + " sides=" + sideRepo.findByIdTradeId(tradeId).stream()
+                .map(x -> x.role() + "{mailbox=" + (x.getMailboxId() != null)
+                        + ",email=" + (x.getEmailChangedAt() != null)
+                        + ",konami=" + (x.getKonamiVerifiedAt() != null) + "}")
+                .toList();
     }
 
     /** Fires the event only if the trade is still waiting on it. */

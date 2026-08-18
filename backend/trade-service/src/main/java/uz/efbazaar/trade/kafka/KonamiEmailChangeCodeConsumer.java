@@ -38,14 +38,12 @@ public class KonamiEmailChangeCodeConsumer {
     )
     @Transactional
     public void onCode(TradeEvents.KonamiEmailChangeCodeReceived e) {
-        Trade t = trades.findById(e.tradeId()).orElse(null);
-        if (t == null) {
+        int updated = trades.recordEmailChangeCode(
+                e.tradeId(), e.verificationCode(), e.receivedAt());
+        if (updated == 0) {
             log.warn("konami-email-change-code for unknown trade {}", e.tradeId());
             return;
         }
-        t.setEmailChangeVerificationCode(e.verificationCode());
-        t.setEmailChangeVerificationCodeAt(e.receivedAt());
-        trades.save(t);
         log.info("Recorded Konami email-change verification code for trade {}", e.tradeId());
     }
 }
