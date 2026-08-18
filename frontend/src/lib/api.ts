@@ -79,11 +79,31 @@ export async function apiFetch<T = unknown>(
     const rawBody = await res.text().catch(() => '');
     let payload: ApiError;
     try {
-      payload = JSON.parse(rawBody) as ApiError;
+      const parsed = JSON.parse(rawBody);
+      if (typeof parsed === 'object' && parsed !== null) {
+        payload = {
+          status: typeof parsed.status === 'number' ? parsed.status : res.status,
+          error: typeof parsed.error === 'string' ? parsed.error : (res.statusText || 'Error'),
+          message:
+            typeof parsed.message === 'string' && parsed.message.trim()
+              ? parsed.message
+              : typeof parsed.error === 'string' && parsed.error.trim()
+                ? parsed.error
+                : res.statusText || `Request failed with ${res.status}`,
+          code: typeof parsed.code === 'string' ? parsed.code : undefined,
+          details: parsed.details,
+        };
+      } else {
+        payload = {
+          status: res.status,
+          error: res.statusText || 'Error',
+          message: String(parsed) || `Request failed with ${res.status}`,
+        };
+      }
     } catch {
       payload = {
         status: res.status,
-        error: res.statusText,
+        error: res.statusText || 'Error',
         message: rawBody
           ? `Request failed with ${res.status}: ${rawBody.slice(0, 500)}`
           : `Request failed with ${res.status} (empty body)`,
