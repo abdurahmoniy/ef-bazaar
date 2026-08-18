@@ -158,16 +158,39 @@ class SwapTradeIT extends AbstractIntegrationIT {
                 .isEqualTo(buyer);
     }
 
+    @Test
+    void theWorkerReportingOnceIsNotBothMailboxes() {
+        // KonamiEmailReceived names only the trade, so on a swap its two
+        // reports look identical. Each one must still count once: advancing on
+        // the first would ask a party for a password whose reset link had not
+        // arrived yet.
+        Trade t = openSwap();
+        provision(t);
+        trades.transition(t.getId(), TradeEvent.EMAIL_CHANGED, ActorType.USER, seller);
+        trades.transition(t.getId(), TradeEvent.EMAIL_CHANGED, ActorType.USER, buyer);
+
+        trades.transition(t.getId(), TradeEvent.KONAMI_EMAIL_RECEIVED, ActorType.WORKER, null);
+
+        assertThat(tradeRepo.findById(t.getId()).orElseThrow().getState())
+                .as("one mailbox has its link; the other has not")
+                .isEqualTo(TradeState.VERIFYING_KONAMI_LINK);
+
+        trades.transition(t.getId(), TradeEvent.KONAMI_EMAIL_RECEIVED, ActorType.WORKER, null);
+
+        assertThat(tradeRepo.findById(t.getId()).orElseThrow().getState())
+                .isEqualTo(TradeState.WAITING_PASSWORD);
+    }
+
     /** Walks a freshly opened swap to a terminal state, both sides in step. */
     private void drive(Trade t, TradeState terminal) {
         provision(t);
-        for (TradeEvent step : new TradeEvent[]{
-                TradeEvent.EMAIL_CHANGED,
-                TradeEvent.KONAMI_EMAIL_RECEIVED,
-                TradeEvent.PASSWORD_SENT}) {
-            trades.transition(t.getId(), step, ActorType.USER, seller);
-            trades.transition(t.getId(), step, ActorType.USER, buyer);
-        }
+        trades.transition(t.getId(), TradeEvent.EMAIL_CHANGED, ActorType.USER, seller);
+        trades.transition(t.getId(), TradeEvent.EMAIL_CHANGED, ActorType.USER, buyer);
+        // Worker-driven, one report per mailbox.
+        trades.transition(t.getId(), TradeEvent.KONAMI_EMAIL_RECEIVED, ActorType.WORKER, null);
+        trades.transition(t.getId(), TradeEvent.KONAMI_EMAIL_RECEIVED, ActorType.WORKER, null);
+        trades.transition(t.getId(), TradeEvent.PASSWORD_SENT, ActorType.USER, seller);
+        trades.transition(t.getId(), TradeEvent.PASSWORD_SENT, ActorType.USER, buyer);
         TradeEvent decision = terminal == TradeState.SUCCESS
                 ? TradeEvent.BUYER_CONFIRM : TradeEvent.BUYER_REJECT;
         trades.transition(t.getId(), decision, ActorType.USER, seller);

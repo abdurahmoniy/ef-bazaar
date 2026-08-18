@@ -104,6 +104,28 @@ public class TradeSideService {
     }
 
     /**
+     * Records a step reported by the worker, which does not say which mailbox
+     * it is about.
+     *
+     * <p>{@code KonamiEmailReceived} carries only a trade id, so on a swap the
+     * two reports — one per mailbox — are indistinguishable. Each is stamped
+     * against whichever side is still outstanding. The attribution is therefore
+     * approximate, but the gate is exact, which is what matters: the trade
+     * advances only once as many reports have arrived as there are mailboxes.
+     *
+     * <p>Making it exact needs an address on the event, which is a
+     * smart-admin-worker change.
+     */
+    @Transactional
+    public void stampNextPending(UUID tradeId, TradeEvent event) {
+        sides.findByIdTradeId(tradeId).stream()
+                .filter(s -> s.getMailboxId() != null)
+                .filter(s -> !cleared(s, event))
+                .findFirst()
+                .ifPresent(s -> stamp(tradeId, s.role(), event));
+    }
+
+    /**
      * Whether the trade may now move on this event.
      *
      * <p>Only a swap has a second side to wait for. On a sale the counterpart

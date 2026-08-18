@@ -224,6 +224,10 @@ public class TradeService {
                 : (actorId != null && t.isParticipant(actorId) ? t.roleFor(actorId) : null);
         if (side != null) {
             sideService.stamp(tradeId, side, event);
+        } else if (actor == ActorType.WORKER) {
+            // The worker reports per mailbox but names only the trade, so the
+            // report is stamped against whichever side is still outstanding.
+            sideService.stampNextPending(tradeId, event);
         }
         if (!sideService.bothSidesCleared(t, event)) {
             // Validate the event anyway: an out-of-order one must still be
