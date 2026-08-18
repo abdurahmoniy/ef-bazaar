@@ -239,7 +239,8 @@ public class TradeStateHandler {
      */
     private void settleEscrow(Trade trade) {
         if (trade.getMode() != TradeMode.SMART) return;
-        escrow.settle(trade.getId(), trade.getBuyerId(), trade.getSellerId(), trade.getPriceUzs());
+        escrow.settle(trade.getId(), trade.getBuyerId(), trade.getSellerId(),
+                trade.getPriceUzs(), trade.feeBaseOrPrice());
         trade.setEscrowResolvedAt(Instant.now());
     }
 
@@ -256,7 +257,8 @@ public class TradeStateHandler {
     private void releaseEscrow(Trade trade) {
         if (trade.getMode() != TradeMode.SMART) return;
         try {
-            escrow.release(trade.getId(), trade.getBuyerId(), trade.getPriceUzs());
+            escrow.release(trade.getId(), trade.getBuyerId(), trade.getSellerId(),
+                    trade.getPriceUzs(), trade.feeBaseOrPrice());
             trade.setEscrowResolvedAt(Instant.now());
         } catch (RuntimeException e) {
             // Left unresolved on purpose: escrow_resolved_at stays NULL and

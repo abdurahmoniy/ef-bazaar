@@ -33,7 +33,7 @@ class TradeProposalControllerIT extends AbstractIntegrationIT {
         UUID other = UUID.randomUUID();
         ProposalCreateRequest req = new ProposalCreateRequest(
                 UUID.randomUUID(), other, proposer, other, 500_000L, UUID.randomUUID(), null,
-                TradeMode.SMART, null, null);
+                TradeMode.SMART, null, null, null);
 
         mvc.perform(post("/api/v1/trades/proposals")
                         .contentType(APPLICATION_JSON)
@@ -62,7 +62,7 @@ class TradeProposalControllerIT extends AbstractIntegrationIT {
         UUID other = UUID.randomUUID();
         ProposalCreateRequest req = new ProposalCreateRequest(
                 UUID.randomUUID(), other, proposer, other, 500_000L, UUID.randomUUID(), null,
-                TradeMode.SMART, null, null);
+                TradeMode.SMART, null, null, null);
 
         var createResult = mvc.perform(post("/api/v1/trades/proposals")
                         .contentType(APPLICATION_JSON)

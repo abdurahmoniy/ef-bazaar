@@ -2,6 +2,7 @@ package uz.efbazaar.trade.trade.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import uz.efbazaar.trade.trade.domain.TradeKind;
 import uz.efbazaar.trade.trade.domain.TradeMode;
 
 import java.util.UUID;
@@ -22,7 +23,11 @@ public record ProposalCreateRequest(
         @NotNull UUID otherPartyUserId,
         @NotNull UUID sellerId,
         @NotNull UUID buyerId,
-        @NotNull @Min(1) Long amountUzs,
+        /**
+         * Money the accepter pays: the price on a sale, the surcharge on a swap
+         * that has one. Zero on a plain swap, which is why the floor is 0.
+         */
+        @NotNull @Min(0) Long amountUzs,
         UUID cardId,
         UUID listingId,
         /** {@code null} is treated as {@link TradeMode#SMART}. */
@@ -30,8 +35,14 @@ public record ProposalCreateRequest(
         /** Required when {@code mode == HUMAN}. */
         UUID adminId,
         /** Required when {@code mode == HUMAN}; must sit inside the admin's band. */
-        @Min(1) Long adminFeeUzs
+        @Min(1) Long adminFeeUzs,
+        /** {@code null} is treated as {@link TradeKind#SALE}. */
+        TradeKind kind
 ) {
+    public TradeKind kindOrDefault() {
+        return kind == null ? TradeKind.SALE : kind;
+    }
+
     public TradeMode modeOrDefault() {
         return mode == null ? TradeMode.SMART : mode;
     }

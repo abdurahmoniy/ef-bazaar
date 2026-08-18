@@ -46,6 +46,8 @@ app:
   auth:
     internal-base-url: ${AUTH_INTERNAL_BASE_URL:http://auth-service:8081}
     internal-secret: ${INTERNAL_API_SECRET:}
+  marketplace:
+    internal-base-url: ${MARKETPLACE_INTERNAL_BASE_URL:http://marketplace-service:8082}
 
 server:
   port: 8085

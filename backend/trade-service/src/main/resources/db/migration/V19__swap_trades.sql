@@ -37,6 +37,14 @@ ALTER TABLE trades ADD COLUMN proposer_fee_uzs BIGINT;
 ALTER TABLE trades ADD CONSTRAINT chk_trades_proposer_fee
     CHECK (proposer_fee_uzs IS NULL OR proposer_fee_uzs >= 0);
 
+-- Komissiya QAYSI summadan hisoblanishi. Sotishda narxning o'zi, obmenda
+-- e'lon narxi. Saqlanadi, chunki savdo ochilgandan keyin e'lon narxi
+-- o'zgarsa, yakunda boshqa komissiya chiqib qolardi — taraflarga
+-- ko'rsatilganidan farqli.
+ALTER TABLE trades ADD COLUMN fee_base_uzs BIGINT;
+
+UPDATE trades SET fee_base_uzs = price_uzs WHERE fee_base_uzs IS NULL;
+
 -- ==============================================================
 -- Tomonlar. Sotishda ham, obmenda ham har taraf uchun bitta qator:
 -- bitta yo'l, ikkita emas.

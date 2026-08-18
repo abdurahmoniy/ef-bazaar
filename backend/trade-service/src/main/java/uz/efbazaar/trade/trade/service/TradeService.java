@@ -21,6 +21,7 @@ import uz.efbazaar.trade.trade.domain.TradeChat;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.domain.TradeMessage;
 import uz.efbazaar.trade.trade.domain.TradeMessageType;
+import uz.efbazaar.trade.trade.domain.TradeKind;
 import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.dto.TradePage;
@@ -90,6 +91,18 @@ public class TradeService {
                                    UUID sellerCardId, UUID buyerCardId, UUID listingId,
                                    UUID chatId, TradeMode mode,
                                    UUID assignedAdminId, Long adminFeeUzs) {
+        return openTrade(tradeId, sellerId, buyerId, priceUzs, sellerCardId, buyerCardId,
+                listingId, chatId, mode, assignedAdminId, adminFeeUzs,
+                TradeKind.SALE, priceUzs);
+    }
+
+    /** As above, for a caller that knows the deal's shape and its fee base. */
+    @Transactional
+    public TradeResponse openTrade(UUID tradeId, UUID sellerId, UUID buyerId, long priceUzs,
+                                   UUID sellerCardId, UUID buyerCardId, UUID listingId,
+                                   UUID chatId, TradeMode mode,
+                                   UUID assignedAdminId, Long adminFeeUzs,
+                                   TradeKind kind, long feeBaseUzs) {
         if (mode == TradeMode.HUMAN && assignedAdminId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Inson admin savdosi uchun admin tanlanishi kerak");
@@ -112,6 +125,8 @@ public class TradeService {
                 .sellerCardId(sellerCardId)
                 .buyerCardId(buyerCardId)
                 .mode(mode)
+                .kind(kind)
+                .feeBaseUzs(feeBaseUzs)
                 .assignedAdminId(assignedAdminId)
                 .adminFeeUzs(adminFeeUzs)
                 .expiresAt(Instant.now().plus(Duration.ofHours(
