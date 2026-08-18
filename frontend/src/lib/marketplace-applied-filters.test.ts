@@ -222,4 +222,12 @@ describe('applied marketplace filters', () => {
     );
     expect(players?.href).toBe('/marketplace?q=Messi&attr.team_strength.min=3000&attr.team_strength.max=4000&view=grid&tag=one&tag=two');
   });
+
+  it('describes includeSold filter and removes it on click', () => {
+    const params = new URLSearchParams('includeSold=true&page=2&view=grid');
+    const items = buildAppliedMarketplaceFilters(params);
+
+    expect(items.map((item) => item.label)).toEqual(['Sotilganlar ham ko‘rsatilsin']);
+    expect(items[0]?.href).toBe('/marketplace?view=grid');
+  });
 });

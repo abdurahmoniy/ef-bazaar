@@ -141,4 +141,15 @@ describe('marketplace formatting helpers', () => {
     expect(params.get('view')).toBe('list')
     expect(params.getAll('matchCard')).toHaveLength(2)
   })
+
+  it('parses and builds includeSold boolean param', () => {
+    const parsedTrue = parseListingSearchParams({ includeSold: 'true' })
+    expect(parsedTrue.includeSold).toBe(true)
+
+    const parsedFalse = parseListingSearchParams({ includeSold: 'false' })
+    expect(parsedFalse.includeSold).toBe(false)
+
+    const rebuilt = buildListingSearchParams({ includeSold: true })
+    expect(rebuilt.get('includeSold')).toBe('true')
+  })
 })

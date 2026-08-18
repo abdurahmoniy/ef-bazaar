@@ -197,6 +197,7 @@ export function parseListingSearchParams(input: SearchParamInput = {}): ListingB
   const minPrice = numberParam(input.minPrice, 0);
   const maxPrice = numberParam(input.maxPrice, 0);
   const priceNegotiable = booleanParam(input.priceNegotiable);
+  const includeSold = booleanParam(input.includeSold);
   const search = textParam(input.q) ?? textParam(input.search);
   const sort = textParam(input.sort);
   const rawMatchCards = Array.isArray(input.matchCard)
@@ -209,6 +210,7 @@ export function parseListingSearchParams(input: SearchParamInput = {}): ListingB
   if (minPrice !== undefined) params.minPrice = minPrice;
   if (maxPrice !== undefined) params.maxPrice = maxPrice;
   if (priceNegotiable !== undefined) params.priceNegotiable = priceNegotiable;
+  if (includeSold !== undefined) params.includeSold = includeSold;
   if (search) params.search = search;
   if (sort) params.sort = sort;
   if (match.criteria.length) {
@@ -242,6 +244,7 @@ export function buildListingSearchParams(input: ListingBrowseParams = {}) {
   appendDefined(params, 'minPrice', input.minPrice);
   appendDefined(params, 'maxPrice', input.maxPrice);
   appendDefined(params, 'priceNegotiable', input.priceNegotiable);
+  appendDefined(params, 'includeSold', input.includeSold);
   appendDefined(params, 'search', input.search);
   for (const criterion of input.matchCards ?? []) {
     params.append('matchCard', criterion);

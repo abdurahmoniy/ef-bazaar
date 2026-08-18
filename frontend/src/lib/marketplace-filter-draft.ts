@@ -19,6 +19,7 @@ export interface MarketplaceFilterDraft {
   minPrice: string;
   maxPrice: string;
   priceNegotiable: boolean;
+  includeSold: boolean;
   division: MarketplaceDivision;
   teamStrengthMin: string;
   teamStrengthMax: string;
@@ -69,6 +70,7 @@ const OWNED_FILTER_KEYS = [
   'minPrice',
   'maxPrice',
   'priceNegotiable',
+  'includeSold',
   'attr.platform',
   'attr.highest_division_level',
   'attr.team_strength.min',
@@ -153,6 +155,7 @@ export function clearMarketplaceFilterDraft(): MarketplaceFilterDraft {
     minPrice: '',
     maxPrice: '',
     priceNegotiable: false,
+    includeSold: false,
     division: '',
     teamStrengthMin: '',
     teamStrengthMax: '',
@@ -183,6 +186,7 @@ export function filterDraftFromBrowseParams(filters: ListingBrowseParams): Marke
     minPrice: numericText(filters.minPrice),
     maxPrice: numericText(filters.maxPrice),
     priceNegotiable: filters.priceNegotiable === true,
+    includeSold: filters.includeSold === true,
     division: validDivision(division) ? division : '',
     teamStrengthMin: attributeText(filters, 'team_strength.min'),
     teamStrengthMax: attributeText(filters, 'team_strength.max'),
@@ -281,6 +285,7 @@ export function applyMarketplaceFilterDraft(
     setInteger(next, 'maxPrice', maxPrice);
   }
   if (draft.priceNegotiable) next.set('priceNegotiable', 'true');
+  if (draft.includeSold) next.set('includeSold', 'true');
   if (validDivision(draft.division) && draft.division) {
     next.set('attr.highest_division_level', draft.division);
   }

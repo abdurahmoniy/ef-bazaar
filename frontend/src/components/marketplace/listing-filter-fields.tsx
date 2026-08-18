@@ -82,6 +82,7 @@ export function ListingFilterFields({
   const maxPriceErrorId = id('max-price-error');
   const priceErrorId = id('price-error');
   const negotiableId = id('negotiable');
+  const includeSoldId = id('include-sold');
   const divisionId = id('division');
   const divisionErrorId = id('division-error');
   const teamStrengthMinId = id('team-strength-min');
@@ -195,6 +196,13 @@ export function ListingFilterFields({
           checked={draft.priceNegotiable}
           onChange={(event) => update('priceNegotiable', event.target.checked)}
           label="Savdolashish mumkin"
+        />
+
+        <Checkbox
+          id={includeSoldId}
+          checked={draft.includeSold}
+          onChange={(event) => update('includeSold', event.target.checked)}
+          label="Sotilganlarni ham ko‘rsatish"
         />
 
         <div>
