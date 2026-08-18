@@ -53,6 +53,7 @@ public class ListingController {
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) Boolean priceNegotiable,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) Boolean includeSold,
             @RequestParam(name = "matchCard", required = false) List<String> matchCards,
             @RequestParam(name = "matchStrictness", required = false) Integer matchStrictness,
             @RequestParam Map<String, String> allParams,
@@ -62,7 +63,7 @@ public class ListingController {
         String legacyDreamTeam = removeString(attributeFilters, ListingSpecifications.DREAM_TEAM_KEY);
         String legacyMinimum = removeString(attributeFilters, ListingSpecifications.MIN_MATCH_KEY);
         ListingFilter filter = new ListingFilter(
-                minPrice, maxPrice, priceNegotiable, search, attributeFilters);
+                minPrice, maxPrice, priceNegotiable, search, attributeFilters, includeSold);
         Optional<MatchRequest> typedMatch = matchRequestParser.parse(matchCards, matchStrictness);
         Optional<MatchRequest> match = typedMatch.isPresent()
                 ? typedMatch

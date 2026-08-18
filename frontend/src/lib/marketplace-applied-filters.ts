@@ -182,6 +182,16 @@ export function buildAppliedMarketplaceFilters(params: URLSearchParams) {
     ));
   }
 
+  if (effective.includeSold === true) {
+    items.push(descriptor(
+      params,
+      'includeSold',
+      'general',
+      'Sotilganlar ham ko‘rsatilsin',
+      ['includeSold'],
+    ));
+  }
+
   const division = finiteNumber(effective.attributes?.highest_division_level);
   if (division !== undefined && Number.isInteger(division) && division >= 1) {
     items.push(descriptor(

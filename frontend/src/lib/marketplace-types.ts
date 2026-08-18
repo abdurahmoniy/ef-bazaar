@@ -101,6 +101,7 @@ export interface ListingBrowseParams {
   minPrice?: number;
   maxPrice?: number;
   priceNegotiable?: boolean;
+  includeSold?: boolean;
   search?: string;
   q?: string;
   /** Repeatable typed matcher criteria: efhubId:playerId:N|P. */

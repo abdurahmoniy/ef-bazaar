@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.multipart.MultipartFile;
@@ -229,6 +230,37 @@ class ListingServiceTest {
                 .containsExactly(firstId, secondId);
         assertThat(result.details().get(firstId).percent()).isEqualTo(75);
         assertThat(result.totalElements()).isEqualTo(7);
+    }
+
+    @Test
+    void browse_withoutIncludeSold_usesPageableSortDirectly() {
+        ListingFilter filter = new ListingFilter(null, null, null, null, Map.of(), false);
+        PageRequest pageable = PageRequest.of(0, 10, org.springframework.data.domain.Sort.by("createdAt").descending());
+        when(repository.findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Listing>>any(), org.mockito.ArgumentMatchers.eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        Page<Listing> result = service.browse(filter, pageable);
+
+        assertThat(result).isNotNull();
+        verify(repository).findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Listing>>any(), org.mockito.ArgumentMatchers.eq(pageable));
+    }
+
+    @Test
+    void browse_withIncludeSold_prependsStatusAsc() {
+        ListingFilter filter = new ListingFilter(null, null, null, null, Map.of(), true);
+        PageRequest pageable = PageRequest.of(0, 10, org.springframework.data.domain.Sort.by("createdAt").descending());
+        org.springframework.data.domain.Sort expectedSort = org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Order.asc("status"))
+                .and(pageable.getSort());
+        PageRequest expectedPageable = PageRequest.of(0, 10, expectedSort);
+
+        when(repository.findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Listing>>any(), org.mockito.ArgumentMatchers.eq(expectedPageable)))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        Page<Listing> result = service.browse(filter, pageable);
+
+        assertThat(result).isNotNull();
+        verify(repository).findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Listing>>any(), org.mockito.ArgumentMatchers.eq(expectedPageable));
     }
 
     private static AttributeDefinition definition(String key, AttributeType type) {
