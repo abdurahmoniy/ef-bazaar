@@ -23,9 +23,28 @@ export type ParticipantRole = 'SELLER' | 'BUYER';
 export type TradeMode = 'SMART' | 'HUMAN';
 export type HumanTradeState = 'WAITING_ADMIN' | 'IN_PROGRESS' | 'WAITING_CLOSE_CONFIRM';
 
+/** What is being exchanged. Absent on responses from before swaps shipped. */
+export type TradeKind = 'SALE' | 'SWAP' | 'SWAP_SURCHARGE';
+
+export interface TradeSideProgress {
+  role: ParticipantRole;
+  emailChanged: boolean;
+  konamiVerified: boolean;
+  passwordSent: boolean;
+  confirmed: boolean;
+  rejected: boolean;
+  lastStepAt: string | null;
+}
+
 export interface TradeResponse {
   id: string;
   state: TradeState;
+  kind?: TradeKind | null;
+  /**
+   * Both parties' progress. A swap advances only when both have cleared a
+   * step, so this is what tells each party what the other is waiting on.
+   */
+  sides?: TradeSideProgress[] | null;
   /** Added by the human-admin feature. Older backend DTOs may omit it. */
   mode?: TradeMode | null;
   sellerId: string;
@@ -85,6 +104,8 @@ export interface ProposalResponse {
  * without any real-time channel.
  */
 export interface PendingProposalResponse {
+  /** What the accepter is agreeing to. Absent from older backends. */
+  kind?: TradeKind | null;
   proposalId: string;
   marketplaceChatId: string;
   sellerId: string;
@@ -117,6 +138,8 @@ export interface CardResponse {
 }
 
 export interface ProposalCreateRequest {
+  /** Omitted by older clients; the server then treats it as a sale. */
+  kind?: TradeKind;
   marketplaceChatId: string;
   otherPartyUserId: string;
   sellerId: string;

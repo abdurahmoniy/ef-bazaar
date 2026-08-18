@@ -173,6 +173,7 @@ public class TradeProposalService {
         return Optional.of(new ProposalDetailsResponse(
                 proposalId, marketplaceChatId, sellerId, buyerId,
                 proposerUserId, amountUzs, listingId, expiresAt,
+                TradeKind.valueOf(orDefault((String) raw.get("kind"), TradeKind.SALE.name())),
                 mode, adminId, adminFeeUzs));
     }
 
