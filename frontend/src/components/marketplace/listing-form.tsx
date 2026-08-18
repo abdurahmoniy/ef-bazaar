@@ -53,6 +53,8 @@ import { getTelegramWebApp } from '@/lib/telegram';
 import { telegramHaptic } from '@/lib/telegram-shell';
 import { cn } from '@/lib/utils';
 import { MIN_TRADE_PRICE_SOM, sellerProceedsSom, tradeFeeSom } from '@/lib/trade-commission';
+import { getPublicTradeCommissionConfig } from '@/lib/payment-client';
+import type { TradeCommissionConfig } from '@/lib/payment-types';
 
 interface ListingFormProps {
 	attributeDefinitions?: readonly ListingAttributeDefinition[];
@@ -161,7 +163,14 @@ export function ListingForm({
 	});
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
+	const [commissionConfig, setCommissionConfig] = useState<TradeCommissionConfig | null>(null);
 	const submittedAt = useRef(0);
+
+	useEffect(() => {
+		getPublicTradeCommissionConfig()
+			.then((cfg) => setCommissionConfig(cfg))
+			.catch(() => {});
+	}, []);
 
 	useEffect(() => {
 		if (attributeDefinitions) return;
@@ -428,6 +437,7 @@ export function ListingForm({
 						state={state}
 						setState={setState}
 						errors={showErrors ? stepErrors : []}
+						commissionConfig={commissionConfig}
 					/>
 				)}
 				{step === 'review' && (
@@ -437,6 +447,7 @@ export function ListingForm({
 						definitions={definitions}
 						existingMediaUrls={existingMediaUrls}
 						onEditStep={goToStep}
+						commissionConfig={commissionConfig}
 					/>
 				)}
 
@@ -1475,10 +1486,12 @@ function PricingStep({
 	state,
 	setState,
 	errors,
+	commissionConfig,
 }: {
 	state: WizardState;
 	setState: React.Dispatch<React.SetStateAction<WizardState>>;
 	errors: string[];
+	commissionConfig?: TradeCommissionConfig | null;
 }) {
 	const parsed = Number(state.price);
 	const hasValue = Number.isFinite(parsed) && parsed > 0;
@@ -1575,13 +1588,13 @@ function PricingStep({
 								<ShieldCheck className='h-3 w-3 text-emerald-500' /> Smart xizmat haqi
 							</span>
 							<span className='font-semibold text-foreground'>
-								−{formatPriceUZS(tradeFeeSom(parsed))}
+								−{formatPriceUZS(tradeFeeSom(parsed, commissionConfig))}
 							</span>
 						</div>
 						<div className='border-t border-border/60 pt-1.5 flex items-center justify-between'>
 							<span className='font-bold text-foreground text-xs'>Sof summa:</span>
 							<span className='text-sm font-black text-emerald-600 dark:text-emerald-400'>
-								{formatPriceUZS(sellerProceedsSom(parsed))}
+								{formatPriceUZS(sellerProceedsSom(parsed, commissionConfig))}
 							</span>
 						</div>
 					</div>
@@ -1640,12 +1653,14 @@ function ReviewStep({
 	definitions,
 	existingMediaUrls,
 	onEditStep,
+	commissionConfig,
 }: {
 	state: WizardState;
 	photos: PhotoEntry[];
 	definitions: readonly ListingAttributeDefinition[];
 	existingMediaUrls: string[];
 	onEditStep: (step: StepId) => void;
+	commissionConfig?: TradeCommissionConfig | null;
 }) {
 	const priceNum = Number(state.price);
 	const hasPrice = Number.isFinite(priceNum) && priceNum > 0;
@@ -1829,7 +1844,7 @@ function ReviewStep({
 						Sotilganda sof tushum:
 					</span>
 					<span className='font-black text-emerald-700 dark:text-emerald-300 text-xs'>
-						{formatPriceUZS(sellerProceedsSom(priceNum))}
+						{formatPriceUZS(sellerProceedsSom(priceNum, commissionConfig))}
 					</span>
 				</div>
 			)}

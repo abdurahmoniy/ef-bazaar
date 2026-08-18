@@ -4,6 +4,8 @@ import type { PlatformCardCreateRequest } from './platform-card-draft';
 import type {
   ObservationResponse,
   PlatformCardResponse,
+  TradeCommissionConfig,
+  UpdateTradeCommissionConfigRequest,
   UserbotStatusResponse,
 } from './payment-types';
 
@@ -111,4 +113,17 @@ export function ignoreObservation(id: string, note?: string): Promise<Observatio
 
 export function getUserbotStatus(): Promise<UserbotStatusResponse> {
   return call<UserbotStatusResponse>('/userbot');
+}
+
+export function getTradeCommissionConfig(): Promise<TradeCommissionConfig> {
+  return call<TradeCommissionConfig>('/commission');
+}
+
+export function updateTradeCommissionConfig(
+  req: UpdateTradeCommissionConfigRequest
+): Promise<TradeCommissionConfig> {
+  return call<TradeCommissionConfig>('/commission', {
+    method: 'PUT',
+    body: JSON.stringify(req),
+  });
 }

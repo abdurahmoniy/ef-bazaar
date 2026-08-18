@@ -52,10 +52,12 @@ export function MarketplaceToolbar({
         {filterTrigger}
       </div>
 
-      <div className="marketplace-toolbar-actions snap-rail flex items-center gap-1.5 overflow-x-auto pb-0.5 sm:gap-2">
-        {playerTrigger}
-        {quickChips}
-        <div className="hidden sm:flex sm:items-center sm:gap-2 sm:ml-auto shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="marketplace-toolbar-actions snap-rail flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 sm:gap-2">
+          {playerTrigger}
+          {quickChips}
+        </div>
+        <div className="hidden sm:flex sm:items-center sm:gap-2 shrink-0">
           <SortMenu options={sortOptions} activeId={activeSortId} compact />
           <MarketplaceViewMenu rawQuery={rawQuery} view={view} />
         </div>

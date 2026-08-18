@@ -2,6 +2,7 @@
 
 import type {
   InvoiceResponse,
+  TradeCommissionConfig,
   WalletEntryResponse,
   WalletResponse,
 } from './payment-types';
@@ -45,4 +46,8 @@ export function createInvoice(amountUzs: number): Promise<InvoiceResponse> {
     method: 'POST',
     body: JSON.stringify({ amountUzs }),
   });
+}
+
+export function getPublicTradeCommissionConfig(): Promise<TradeCommissionConfig> {
+  return call<TradeCommissionConfig>('/commission');
 }
