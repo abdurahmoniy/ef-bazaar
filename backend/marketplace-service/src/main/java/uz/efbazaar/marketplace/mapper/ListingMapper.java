@@ -40,5 +40,6 @@ public interface ListingMapper {
 
     @Mapping(target = "likeCount", ignore = true)
     @Mapping(target = "likedByMe", ignore = true)
+    @Mapping(target = "seller", ignore = true)
     ListingResponse toResponse(Listing listing);
 }

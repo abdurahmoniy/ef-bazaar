@@ -33,6 +33,7 @@ import {
   attributeString,
   listingAcceptsExchange,
   type ListingResponse,
+  type SellerSummary,
 } from '@/lib/marketplace-types';
 import type { User } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -40,7 +41,7 @@ import { cn } from '@/lib/utils';
 interface MarketplaceListingDetailProps {
   listing: ListingResponse;
   viewer: User | null;
-  seller: User | null;
+  seller: SellerSummary | User | null;
   sellerBlacklisted?: boolean;
   similarListings: ListingResponse[];
 }
@@ -109,7 +110,7 @@ export function MarketplaceListingDetail({
                   <p className="text-xs font-bold uppercase tracking-wide text-primary">
                     {divisionLabel(division)}
                   </p>
-                  <h1 className="mt-1 text-xl font-black leading-tight text-foreground sm:text-2xl">
+                  <h1 className="mt-1 line-clamp-3 text-lg font-bold leading-tight text-foreground sm:text-xl sm:font-black">
                     {title}
                   </h1>
                   {/* On phones the price card is replaced by the sticky action
@@ -240,7 +241,7 @@ export function MarketplaceListingDetail({
 
         {/* Media leads on mobile; the price + CTA live in the sticky bottom bar
             there, so this panel is desktop-only. */}
-        <aside className="min-w-0 space-y-4 lg:sticky lg:top-32 lg:self-start lg:space-y-0">
+        <aside className="min-w-0 flex flex-col gap-4 lg:sticky lg:top-32 lg:self-start">
           <div className="hidden rounded-xl border border-border bg-card p-4 shadow-card sm:p-5 lg:block">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-2xl font-black text-[hsl(var(--price))] sm:text-3xl">
@@ -264,12 +265,11 @@ export function MarketplaceListingDetail({
               isOwner={isOwner}
               initialLiked={listing.likedByMe}
               initialLikeCount={listing.likeCount}
+              status={listing.status}
             />
           </div>
 
-          <div className="lg:mt-4">
-            <SellerCard seller={seller} isViewerOwner={isOwner} blacklisted={sellerBlacklisted} />
-          </div>
+          <SellerCard seller={seller} isViewerOwner={isOwner} blacklisted={sellerBlacklisted} />
         </aside>
       </div>
 

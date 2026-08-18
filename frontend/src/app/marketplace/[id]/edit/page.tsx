@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 
 import { DeleteListingButton } from '@/components/marketplace/delete-listing-button';
 import { ListingForm } from '@/components/marketplace/listing-form';
+import { MarkSoldButton } from '@/components/marketplace/mark-sold-button';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
 import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
@@ -36,16 +37,21 @@ export default async function EditListingPage({ params }: EditPageProps) {
     remoteDefinitions.length > 0 ? remoteDefinitions : SEEDED_LISTING_ATTRIBUTE_DEFINITIONS;
 
   return (
-    <MarketplaceShell user={user} activeTab="profile" hideSearch backHref={`/marketplace/${id}`} backLabel="E'lon">
+    <MarketplaceShell user={user} activeTab="profile" hideSearch hideBottomNav backHref={`/marketplace/${id}`} backLabel="E'lon">
       <section className="mx-auto w-full max-w-3xl space-y-4">
-        <header>
-          <p className="text-xs font-bold uppercase tracking-wide text-primary">Marketplace</p>
-          <h1 className="mt-1 text-3xl font-black text-foreground">E'lonni tahrirlash</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <header className="hidden sm:block">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-primary">Marketplace</p>
+          <h1 className="mt-0.5 text-2xl sm:text-3xl font-black text-foreground">E&apos;lonni tahrirlash</h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
             Yangi rasm yuklamasangiz, joriy rasmlar saqlanadi.
           </p>
         </header>
         <ListingForm attributeDefinitions={definitions} initialListing={result.data} />
+        {result.data.status === 'ACTIVE' && (
+          <div className="pt-2">
+            <MarkSoldButton listingId={id} />
+          </div>
+        )}
         <DeleteListingButton listingId={id} />
       </section>
     </MarketplaceShell>

@@ -84,11 +84,13 @@ public final class ListingSpecifications {
     public static Specification<Listing> withFilter(ListingFilter f) {
         return (root, query, cb) -> {
             List<Predicate> ps = new ArrayList<>();
-            // Browse default: ACTIVE + SOLD (DELETED is hidden). SOLD stays
-            // visible so buyers can see historical entries — the ListingService
-            // sorts ACTIVE first via a prepended Sort in Pageable so SOLD sinks
-            // to the bottom of the results.
-            ps.add(root.get("status").in(ListingStatus.ACTIVE, ListingStatus.SOLD));
+            // Browse default: ACTIVE only. When includeSold is true, SOLD stays
+            // visible so buyers can compare historical pricing.
+            if (Boolean.TRUE.equals(f.includeSold())) {
+                ps.add(root.get("status").in(ListingStatus.ACTIVE, ListingStatus.SOLD));
+            } else {
+                ps.add(cb.equal(root.get("status"), ListingStatus.ACTIVE));
+            }
 
             if (f.minPrice() != null) {
                 ps.add(cb.greaterThanOrEqualTo(root.get("price"), f.minPrice()));

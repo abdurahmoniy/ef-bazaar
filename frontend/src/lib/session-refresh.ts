@@ -10,7 +10,7 @@
  * shuning uchun bir xil token uchun in-flight promise'ni bo'lishamiz.
  */
 
-const BASE = process.env.INTERNAL_API_BASE_URL || 'http://nginx/api';
+const BASE = process.env.INTERNAL_API_BASE_URL || 'http://nginx:8080/api';
 const REFRESH_TIMEOUT_MS = 5_000;
 
 export interface RefreshedTokens {

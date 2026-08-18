@@ -34,20 +34,21 @@ import java.util.UUID;
 public class TradeEscrowService {
 
     private final LedgerService ledger;
+    private final TradeCommissionService commissionService;
 
     /**
      * Freezes what each party owes.
      *
      * <p>Two amounts, one transaction. The accepter owes {@code accepterTiyin}
      * — the price on a sale, the surcharge on a swap that has one, nothing on a
-     * plain swap. The proposer owes the platform's fee, and pays it out of
-     * their own wallet only for the part the accepter's money does not cover:
-     * on a sale it covers all of it, on a plain swap none of it.
+     * plain swap. The proposer owes the platform's fee, and pays it from their
+     * own wallet only for the part the accepter's money does not cover: on a
+     * sale all of it is covered, on a plain swap none of it.
      *
      * <p>{@code feeBaseTiyin} is what the fee is calculated from, and is not
      * always what changes hands: on a swap it is the listing price, the value
      * of the account being given up. Basing it on the surcharge instead would
-     * let a token 1 000 so'm top-up turn a 37 500 fee into 5 000.
+     * let a token 1 000 so'm top-up turn a 37 500 fee into the floor.
      *
      * <p>Refuses rather than overdrawing. {@code chk_wallet_non_negative} would
      * catch it too, but a constraint violation dooms the transaction and the
@@ -60,13 +61,13 @@ public class TradeEscrowService {
             throw new IllegalArgumentException("Accepter amount cannot be negative");
         }
         requirePositive(feeBaseTiyin);
-        if (feeBaseTiyin < TradeCommission.minimumViablePriceTiyin()) {
+        if (feeBaseTiyin < commissionService.minimumViablePriceTiyin()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Savdo summasi juda kichik — eng kami "
-                            + TradeCommission.minimumViablePriceTiyin() / 100 + " so'm");
+                            + commissionService.minimumViablePriceTiyin() / 100 + " so'm");
         }
 
-        long fee = TradeCommission.feeTiyin(feeBaseTiyin);
+        long fee = commissionService.feeTiyin(feeBaseTiyin);
         long proposerOwes = Math.max(0, fee - accepterTiyin);
 
         requireFunds(accepterId, accepterTiyin);
@@ -84,8 +85,7 @@ public class TradeEscrowService {
             postings.add(new Posting(LedgerAccount.USER_HELD, proposerId, -proposerOwes));
         }
         // Never empty: a zero accepter amount forces proposerOwes to the whole
-        // fee, which is positive by construction. A zero posting would fail
-        // chk_entry_non_zero anyway.
+        // fee, which is positive by construction.
 
         ledger.post(TransactionKind.TRADE_HOLD, key("hold", tradeId), null,
                 "trade " + tradeId + " fee " + fee, postings);
@@ -116,7 +116,7 @@ public class TradeEscrowService {
         requirePositive(feeBaseTiyin);
         if (neverHeld(tradeId, "settle")) return;
 
-        long fee = TradeCommission.feeTiyin(feeBaseTiyin);
+        long fee = commissionService.feeTiyin(feeBaseTiyin);
         long proposerOwes = Math.max(0, fee - accepterTiyin);
         long proceeds = Math.max(0, accepterTiyin - fee);
 
@@ -152,7 +152,7 @@ public class TradeEscrowService {
         requirePositive(feeBaseTiyin);
         if (neverHeld(tradeId, "release")) return;
 
-        long proposerOwes = Math.max(0, TradeCommission.feeTiyin(feeBaseTiyin) - accepterTiyin);
+        long proposerOwes = Math.max(0, commissionService.feeTiyin(feeBaseTiyin) - accepterTiyin);
 
         var postings = new java.util.ArrayList<Posting>(4);
         if (accepterTiyin > 0) {

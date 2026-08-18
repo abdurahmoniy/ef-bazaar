@@ -42,6 +42,7 @@ describe('marketplace filter draft', () => {
       minPrice: '',
       maxPrice: '',
       priceNegotiable: false,
+      includeSold: false,
       division: '',
       teamStrengthMin: '',
       teamStrengthMax: '',
@@ -367,5 +368,23 @@ describe('marketplace filter draft', () => {
     }));
 
     expect(next.has('minPrice')).toBe(false);
+  });
+
+  it('hydrates and applies includeSold filter correctly', () => {
+    const hydrated = filterDraftFromBrowseParams({
+      includeSold: true,
+    });
+    expect(hydrated.includeSold).toBe(true);
+
+    const next = applyMarketplaceFilterDraft(new URLSearchParams('page=2'), draft({
+      includeSold: true,
+    }));
+    expect(next.get('includeSold')).toBe('true');
+    expect(next.get('page')).toBeNull();
+
+    const cleared = applyMarketplaceFilterDraft(new URLSearchParams('includeSold=true'), draft({
+      includeSold: false,
+    }));
+    expect(cleared.get('includeSold')).toBeNull();
   });
 });

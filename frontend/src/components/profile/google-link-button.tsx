@@ -37,23 +37,24 @@ export function GoogleLinkButton({
 		},
 		[router],
 	)
-
 	if (alreadyLinked) {
 		return (
-			<div className='flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-accent px-4 py-3'>
-				<div className='flex items-center gap-2 min-w-0'>
-					<Check className='h-4 w-4 text-primary shrink-0' />
-					<div className='min-w-0'>
-						<p className='text-sm font-medium text-primary'>Google ulangan</p>
+			<div className='flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-muted/30 px-4 py-3 min-w-0'>
+				<div className='flex items-center gap-2.5 min-w-0 flex-1'>
+					<div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+						<Check className='h-4 w-4' />
+					</div>
+					<div className='min-w-0 flex-1'>
+						<p className='text-sm font-semibold text-foreground truncate'>Google ulangan</p>
 						{email && (
-							<p className='text-xs text-primary/70 truncate'>{email}</p>
+							<p className='text-xs text-muted-foreground truncate'>{email}</p>
 						)}
 					</div>
 				</div>
-				{/* <span className='text-[10px] uppercase tracking-wider font-bold text-emerald-300/80'>
-					linked
-				</span> */}
-				<Badge variant='verified'>tasdiqlangan</Badge>
+				<span className='inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 shrink-0'>
+					<Check className="h-3 w-3" />
+					Tasdiqlangan
+				</span>
 			</div>
 		)
 	}

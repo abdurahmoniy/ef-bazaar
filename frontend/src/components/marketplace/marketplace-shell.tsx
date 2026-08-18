@@ -34,6 +34,8 @@ interface MarketplaceShellProps {
   activeTab?: MarketplaceTab;
   /** Hides top-bar search — useful on the create form / profile edit flows. */
   hideSearch?: boolean;
+  /** Hides top header on mobile (e.g. for profile hub). */
+  hideHeader?: boolean;
   /** Current search text — populates the top-bar input on marketplace listing routes. */
   initialQuery?: string;
   /** Raw public marketplace query; search rewrites only its owned keys. */
@@ -54,6 +56,8 @@ interface MarketplaceShellProps {
    * action within thumb reach, not two stacked bars eating the viewport.
    */
   mobileActionBar?: React.ReactNode;
+  /** Hides the bottom navigation tab bar on mobile completely (e.g. for multi-step creation flows). */
+  hideBottomNav?: boolean;
 }
 
 export type MarketplaceTab =
@@ -97,10 +101,15 @@ function buildNavItems(user: User | null): NavItem[] {
       requiresAuth: false,
     },
     {
-      id: 'wallet',
-      href: user ? '/hamyon' : '/auth/login?from=/hamyon',
-      label: 'Hamyon',
-      icon: <Wallet className="h-5 w-5" />,
+      id: 'chats',
+      href: user ? '/chats' : '/auth/login?from=/chats',
+      label: 'Chatlar',
+      icon: (
+        <span className="relative">
+          <MessageCircle className="h-5 w-5" />
+          {user && <ChatsUnreadBadge />}
+        </span>
+      ),
       requiresAuth: true,
     },
     {
@@ -112,15 +121,10 @@ function buildNavItems(user: User | null): NavItem[] {
       primary: true,
     },
     {
-      id: 'chats',
-      href: user ? '/chats' : '/auth/login?from=/chats',
-      label: 'Chatlar',
-      icon: (
-        <span className="relative">
-          <MessageCircle className="h-5 w-5" />
-          {user && <ChatsUnreadBadge />}
-        </span>
-      ),
+      id: 'wallet',
+      href: user ? '/hamyon' : '/auth/login?from=/hamyon',
+      label: 'Hamyon',
+      icon: <Wallet className="h-5 w-5" />,
       requiresAuth: true,
     },
     {
@@ -167,12 +171,14 @@ export function MarketplaceShell({
   children,
   activeTab,
   hideSearch = false,
+  hideHeader = false,
   initialQuery,
   marketplaceQuery = '',
   collapsibleSearch = false,
   backHref,
   backLabel,
   mobileActionBar,
+  hideBottomNav = false,
 }: MarketplaceShellProps) {
   const items = buildNavItems(user);
   const desktopLinks = buildDesktopLinks();
@@ -182,7 +188,10 @@ export function MarketplaceShell({
       data-marketplace-shell
       className="min-h-app bg-background"
     >
-      <header className="relative z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)] md:sticky md:top-0">
+      <header className={cn(
+        "relative z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)] md:sticky md:top-0",
+        hideHeader && "hidden md:block"
+      )}>
         <div className={cn(
           "mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center gap-x-2 px-4 sm:h-14 sm:flex-nowrap sm:gap-3",
           activeTab === 'home' && "pt-3 sm:pt-0"
@@ -260,7 +269,7 @@ export function MarketplaceShell({
 
       </header>
 
-      {user && !user.verified && (
+      {user && !user.verified && activeTab !== 'profile' && (
         <div className="border-b border-border/70 bg-amber-50/70 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
           <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-1.5 text-[11px] font-semibold">
             <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
@@ -290,7 +299,7 @@ export function MarketplaceShell({
             {mobileActionBar}
           </div>
         </MeasuredBottomBar>
-      ) : (
+      ) : hideBottomNav ? null : (
         <MeasuredBottomBar
           key="marketplace-tab-bar"
           as="nav"
@@ -314,9 +323,6 @@ export function MarketplaceShell({
 }
 
 function MobileNavLink({ item, active }: { item: NavItem; active: boolean }) {
-  // The primary slot is a filled circle, not a fourth identical icon+label.
-  // Five equal tabs left nothing marking the one action the marketplace exists
-  // for; the raised puck is the standard tell and costs no extra bar height.
   if (item.primary) {
     return (
       <Link

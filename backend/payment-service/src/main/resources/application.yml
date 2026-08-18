@@ -52,6 +52,9 @@ spring:
 
 server:
   port: 8087
+  # Nginx (proxy-common.inc) sends X-Forwarded-Proto/Host — honor them so springdoc
+  # generates https://api.efbazaar.uz in OpenAPI servers[] instead of plain http.
+  forward-headers-strategy: framework
 
 app:
   internal:
@@ -83,3 +86,11 @@ payment:
   admin-telegram:
     enabled: ${PAYMENT_ADMIN_TELEGRAM_ENABLED:true}
     bot-base-url: ${BOT_INTERNAL_BASE_URL:http://bot:8084}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    enabled: false      # UI auth-service'da aggregated, faqat api-docs JSON beradi
+  show-actuator: false

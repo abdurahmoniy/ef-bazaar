@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Mail,
   Package,
+  Percent,
   ShieldAlert,
   SlidersHorizontal,
   Sparkles,
@@ -32,6 +33,7 @@ const TABS: Array<{ href: string; label: string; icon: React.ReactNode }> = [
   // The active check below is `startsWith`, so no `/admin/payments` parent
   // entry may be added — it would light up on both children. Sibling routes
   // are fine: neither `/cards` nor `/unmatched` is a prefix of the other.
+  { href: '/admin/payments/commission', label: 'Komissiya', icon: <Percent className="h-4 w-4" /> },
   { href: '/admin/payments/cards', label: 'Kartalar', icon: <CreditCard className="h-4 w-4" /> },
   { href: '/admin/payments/unmatched', label: 'Tushumlar', icon: <Inbox className="h-4 w-4" /> },
   { href: '/admin/payments/withdrawals', label: 'Yechishlar', icon: <ArrowUpFromLine className="h-4 w-4" /> },

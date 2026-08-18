@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { Check, TriangleAlert } from 'lucide-react';
+import { ArrowLeftRight, ShieldCheck, TriangleAlert } from 'lucide-react';
 
 import { ListingCardMedia } from '@/components/marketplace/listing-card-media';
 import { buildListingCardModel } from '@/components/marketplace/listing-card-model';
@@ -40,6 +40,15 @@ export function ListingCard({
   const coverUrl = listingMediaUrls(listing, 1)[0];
   const authenticated = listing.likedByMe !== undefined && listing.likedByMe !== null;
   const titleId = `marketplace-listing-${listing.id}-title`;
+  const linkedWarning =
+    model.googlePlayLinked && model.gameCenterLinked
+      ? { service: 'google-play' as const, label: 'Google Play +1' }
+      : model.googlePlayLinked
+        ? { service: 'google-play' as const, label: 'Google Play' }
+        : model.gameCenterLinked
+          ? { service: 'game-center' as const, label: 'Game Center' }
+          : null;
+  const hasCoins = model.androidCoins !== undefined || model.iosCoins !== undefined;
 
   return (
     <article
@@ -47,7 +56,7 @@ export function ListingCard({
       aria-labelledby={titleId}
       data-marketplace-listing-id={listing.id}
       data-layout={resolvedLayout}
-      className="listing-card group relative overflow-hidden rounded-xl border border-border bg-card shadow-card transition focus-within:ring-2 focus-within:ring-ring/40 hover:border-primary/40 hover:shadow-card-hover"
+      className="listing-card group relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-card transition focus-within:ring-2 focus-within:ring-ring/40 hover:border-primary/40 hover:shadow-card-hover"
     >
       <MarketplaceListingLink
         listingId={listing.id}
@@ -77,44 +86,31 @@ export function ListingCard({
         />
       )}
 
-      <div className="listing-card__content pointer-events-none flex min-w-0 flex-1 flex-col gap-2 p-3">
-        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-          <span className="whitespace-nowrap text-lg font-black leading-none text-[hsl(var(--price))]">
+      <div className="listing-card__content pointer-events-none flex min-w-0 flex-col gap-1.5 p-2.5 sm:gap-2 sm:p-3">
+        <div className="flex items-center justify-between gap-1.5">
+          <span className="truncate whitespace-nowrap text-sm font-extrabold leading-tight text-[hsl(var(--price))] sm:text-base">
             {model.price}
           </span>
-          {model.exchangeLabel && <ExchangeTag label={model.exchangeLabel} />}
+          {model.exchange && <ExchangeBadge label={model.exchangeLabel} />}
         </div>
 
         <h2 id={titleId} className="sr-only">
           {model.title}
         </h2>
 
-        <div className="listing-card__facts grid gap-2">
-          {(model.googlePlayLinked || model.gameCenterLinked) && (
-            <div
-              data-listing-linked-services
-              className="flex min-w-0 flex-wrap gap-1.5"
-            >
-              {model.googlePlayLinked && (
-                <LinkedServiceWarning
-                  service="google-play"
-                  label="Google Play"
-                />
-              )}
-              {model.gameCenterLinked && (
-                <LinkedServiceWarning
-                  service="game-center"
-                  label="Game Center"
-                />
-              )}
-            </div>
+        <div className="listing-card__facts flex flex-wrap items-center gap-1 pt-0.5 sm:gap-1.5">
+          {model.clean && <CleanBadge />}
+          {linkedWarning && (
+            <LinkedServiceWarning
+              service={linkedWarning.service}
+              label={linkedWarning.label}
+            />
           )}
-
-          {(model.androidCoins !== undefined || model.iosCoins !== undefined) && (
-            <div className="flex min-w-0 flex-wrap gap-1.5 pt-0.5">
-              {model.androidCoins !== undefined && <CoinPill platform="Android" value={model.androidCoins} />}
-              {model.iosCoins !== undefined && <CoinPill platform="iOS" value={model.iosCoins} />}
-            </div>
+          {hasCoins && (
+            <CoinsPill
+              androidCoins={model.androidCoins}
+              iosCoins={model.iosCoins}
+            />
           )}
         </div>
       </div>
@@ -122,11 +118,27 @@ export function ListingCard({
   );
 }
 
-function ExchangeTag({ label }: { label: string }) {
+function CleanBadge() {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">
-      <Check className="h-3.5 w-3.5" aria-hidden="true" />
-      {label}
+    <div
+      data-clean-account-badge="true"
+      className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[10px]"
+    >
+      <ShieldCheck className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
+      <span className="truncate">Toza</span>
+    </div>
+  );
+}
+
+function ExchangeBadge({ label }: { label: string | null }) {
+  return (
+    <span
+      data-exchange-badge="true"
+      title={label ?? 'Obmen'}
+      aria-label={label ?? 'Obmen'}
+      className="inline-flex shrink-0 items-center justify-center rounded-full bg-primary/10 p-1 text-primary dark:bg-primary/25"
+    >
+      <ArrowLeftRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
     </span>
   );
 }
@@ -141,35 +153,70 @@ function LinkedServiceWarning({
   return (
     <div
       data-linked-service-warning={service}
-      className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-secondary/30 px-2.5 py-1 text-[10px] font-bold text-secondary-foreground"
+      className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-secondary/30 px-2 py-0.5 text-[9px] font-semibold text-secondary-foreground dark:bg-secondary/20 dark:text-secondary sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[10px]"
     >
-      <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <TriangleAlert className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
       <span className="truncate">{label}</span>
     </div>
   );
 }
 
+function CoinsPill({
+  androidCoins,
+  iosCoins,
+}: {
+  androidCoins?: number;
+  iosCoins?: number;
+}) {
+  if (androidCoins === undefined && iosCoins === undefined) {
+    return null;
+  }
 
-function CoinPill({ platform, value }: { platform: 'Android' | 'iOS'; value: number }) {
+  const ariaLabel =
+    androidCoins !== undefined && iosCoins !== undefined
+      ? `Android coin: ${androidCoins}, iOS coin: ${iosCoins}`
+      : androidCoins !== undefined
+        ? `Android coin: ${androidCoins}`
+        : `iOS coin: ${iosCoins}`;
+
   return (
     <div
       role="group"
-      aria-label={`${platform} coin: ${value}`}
-      className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold text-accent-foreground"
+      aria-label={ariaLabel}
+      className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[9px] font-semibold text-accent-foreground sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[10px]"
     >
       <Image
         data-efootball-coin-icon
         src="/icons/efootball-coin.png"
         alt=""
-        width={14}
-        height={14}
+        width={12}
+        height={12}
         unoptimized
-        className="h-3.5 w-3.5 shrink-0 object-contain"
+        className="h-3 w-3 shrink-0 object-contain sm:h-3.5 sm:w-3.5"
       />
-      <span className="truncate">
-        <span className="font-semibold text-muted-foreground mr-1">{platform}</span>
-        <span className={cn(value < 0 && 'text-destructive')}>{formatCompactNumber(value)}</span>
-      </span>
+      <div className="flex min-w-0 items-center truncate">
+        {androidCoins !== undefined && (
+          <span className="truncate">
+            <span className="mr-0.5 font-medium text-muted-foreground sm:mr-1">Android</span>
+            <span className={cn(androidCoins < 0 && 'text-destructive')}>
+              {formatCompactNumber(androidCoins)}
+            </span>
+          </span>
+        )}
+        {androidCoins !== undefined && iosCoins !== undefined && (
+          <span className="mx-0.5 text-muted-foreground/60 sm:mx-1" aria-hidden="true">
+            ·
+          </span>
+        )}
+        {iosCoins !== undefined && (
+          <span className="truncate">
+            <span className="mr-0.5 font-medium text-muted-foreground sm:mr-1">iOS</span>
+            <span className={cn(iosCoins < 0 && 'text-destructive')}>
+              {formatCompactNumber(iosCoins)}
+            </span>
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -180,7 +227,7 @@ function SoldOverlay() {
       role="status"
       className="absolute inset-0 z-[1] flex items-center justify-center bg-black/55"
     >
-      <span className="rounded-md bg-white/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-destructive">
+      <span className="rounded-md bg-white/90 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-destructive sm:px-3 sm:py-1 sm:text-xs">
         Sotilgan
       </span>
     </div>

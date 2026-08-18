@@ -50,9 +50,19 @@ export interface PageResponse<T> {
  */
 export type ListingAttributes = Record<string, unknown>;
 
+export interface SellerSummary {
+  id: string;
+  displayName: string;
+  telegramUsername?: string | null;
+  telegramPhotoUrl?: string | null;
+  verified?: boolean;
+  createdAt: string;
+}
+
 export interface ListingResponse {
   id: string;
   sellerId: string;
+  seller?: SellerSummary | null;
   description: string;
   price: number | string;
   priceNegotiable: boolean;
@@ -91,7 +101,9 @@ export interface ListingBrowseParams {
   minPrice?: number;
   maxPrice?: number;
   priceNegotiable?: boolean;
+  includeSold?: boolean;
   search?: string;
+  q?: string;
   /** Repeatable typed matcher criteria: efhubId:playerId:N|P. */
   matchCards?: string[];
   matchStrictness?: number;

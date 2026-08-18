@@ -7,6 +7,7 @@ import { Check, AlertCircle, ExternalLink, Send } from 'lucide-react';
 import { TelegramLogin } from '@/components/auth/telegram-login';
 import { linkTelegramAction } from '@/app/auth/actions';
 import type { TelegramAuthData } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
 
 interface LinkTelegramButtonProps {
   botUsername: string;
@@ -48,18 +49,21 @@ export function LinkTelegramButton({
 
   if (alreadyLinked) {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <Check className="h-4 w-4 text-emerald-400 shrink-0" />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-emerald-300">Telegram ulangan</p>
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-muted/30 px-4 py-3 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <Check className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-foreground truncate">Telegram ulangan</p>
             {telegramUsername && (
-              <p className="text-xs text-emerald-200/70 truncate">@{telegramUsername}</p>
+              <p className="text-xs text-muted-foreground truncate">@{telegramUsername}</p>
             )}
           </div>
         </div>
-        <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-300/80">
-          linked
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 shrink-0">
+          <Check className="h-3 w-3" />
+          Tasdiqlangan
         </span>
       </div>
     );

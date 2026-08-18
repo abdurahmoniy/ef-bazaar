@@ -172,11 +172,12 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
   }
 
   const listing = result.data;
-  const [seller, similar, sellerBlacklisted] = await Promise.all([
-    getUserProfile(listing.sellerId),
+  const [similar, sellerBlacklisted, fallbackSeller] = await Promise.all([
     getSimilarListings(listing),
     isUserBlacklisted(listing.sellerId),
+    listing.seller ? Promise.resolve(null) : getUserProfile(listing.sellerId),
   ]);
+  const seller = listing.seller ?? fallbackSeller;
 
   const jsonLd = JSON.stringify(buildListingJsonLd(listing)).replace(/</g, '\\u003c');
 
@@ -195,6 +196,7 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
           isOwner={viewer?.id === listing.sellerId}
           initialLiked={listing.likedByMe}
           initialLikeCount={listing.likeCount}
+          status={listing.status}
         />
       }
     >

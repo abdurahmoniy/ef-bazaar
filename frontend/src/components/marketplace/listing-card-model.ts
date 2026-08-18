@@ -18,6 +18,7 @@ export interface ListingCardModel {
   exchangeLabel: string | null;
   googlePlayLinked: boolean;
   gameCenterLinked: boolean;
+  clean: boolean;
   division?: number;
   teamStrength?: number;
   androidCoins?: number;
@@ -42,7 +43,7 @@ function booleanAttribute(value: unknown) {
 function exchangeLabel(listing: ListingResponse): string | null {
   switch (attributeString(listing, 'exchange_mode')) {
     case 'NONE':
-      return 'Obmen yo‘q';
+      return null;
     case 'EXCHANGE_ONLY':
       return 'Faqat obmen';
     case 'EXCHANGE_WITH_SURCHARGE':
@@ -102,6 +103,15 @@ export function buildListingCardModel(
     && gameCenterLink !== undefined
     && transferLimit !== undefined;
 
+  const androidCoins = nonZeroNumberAttribute(listing, 'android_coins');
+  const iosCoins = nonZeroNumberAttribute(listing, 'ios_coins');
+  const googlePlayLinked = listing.attributes.has_google_play_link === true;
+  const gameCenterLinked = listing.attributes.has_game_center_link === true;
+  const hasNegativeCoins =
+    (androidCoins !== undefined && androidCoins < 0) ||
+    (iosCoins !== undefined && iosCoins < 0);
+  const clean = !googlePlayLinked && !gameCenterLinked && !hasNegativeCoins;
+
   return {
     title: listing.description.split('\n')[0]?.trim() || 'eFootball akkount',
     price: formatPriceUZS(listing.price),
@@ -110,12 +120,13 @@ export function buildListingCardModel(
     negotiable: listing.priceNegotiable,
     exchange: listingAcceptsExchange(listing),
     exchangeLabel: exchangeLabel(listing),
-    googlePlayLinked: listing.attributes.has_google_play_link === true,
-    gameCenterLinked: listing.attributes.has_game_center_link === true,
+    googlePlayLinked,
+    gameCenterLinked,
+    clean,
     division: attributeNumber(listing, 'highest_division_level'),
     teamStrength: attributeNumber(listing, 'team_strength'),
-    androidCoins: nonZeroNumberAttribute(listing, 'android_coins'),
-    iosCoins: nonZeroNumberAttribute(listing, 'ios_coins'),
+    androidCoins,
+    iosCoins,
     valuableCount: valuable.length,
     hasMetaCard: valuable.some((card) => card.metaTier === 'META'),
     matchLabel: details

@@ -177,7 +177,11 @@ public class JdbcListingMatchRepository implements ListingMatchRepository {
 
     private static String baseWhere(ListingFilter filter, List<Object> args) {
         List<String> predicates = new ArrayList<>();
-        predicates.add("listing.status IN ('ACTIVE', 'SOLD')");
+        if (Boolean.TRUE.equals(filter.includeSold())) {
+            predicates.add("listing.status IN ('ACTIVE', 'SOLD')");
+        } else {
+            predicates.add("listing.status = 'ACTIVE'");
+        }
         if (filter.minPrice() != null) {
             predicates.add("listing.price >= ?");
             args.add(filter.minPrice());

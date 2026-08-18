@@ -1,3 +1,8 @@
+import {
+  paramToSortId,
+  sortIdToParam,
+  type ListingSortId,
+} from './marketplace-sort';
 import type { ListingBrowseParams } from './marketplace-types';
 
 export type MarketplacePlatform = 'MOBILE' | 'STEAM' | 'PLAYSTATION';
@@ -14,6 +19,7 @@ export interface MarketplaceFilterDraft {
   minPrice: string;
   maxPrice: string;
   priceNegotiable: boolean;
+  includeSold: boolean;
   division: MarketplaceDivision;
   teamStrengthMin: string;
   teamStrengthMax: string;
@@ -24,6 +30,8 @@ export interface MarketplaceFilterDraft {
   googlePlayDisconnected: boolean;
   gameCenterDisconnected: boolean;
   valuablePlayer: { efhubId: number; name: string } | null;
+  sort?: ListingSortId;
+  query?: string;
 }
 
 export type MarketplaceFilterDraftErrorKey =
@@ -62,6 +70,7 @@ const OWNED_FILTER_KEYS = [
   'minPrice',
   'maxPrice',
   'priceNegotiable',
+  'includeSold',
   'attr.platform',
   'attr.highest_division_level',
   'attr.team_strength.min',
@@ -146,6 +155,7 @@ export function clearMarketplaceFilterDraft(): MarketplaceFilterDraft {
     minPrice: '',
     maxPrice: '',
     priceNegotiable: false,
+    includeSold: false,
     division: '',
     teamStrengthMin: '',
     teamStrengthMax: '',
@@ -167,6 +177,8 @@ export function filterDraftFromBrowseParams(filters: ListingBrowseParams): Marke
   const platform = attributes.platform;
   const division = attributeText(filters, 'highest_division_level');
   const exchangeMode = attributeText(filters, 'exchange_mode');
+  const sort = filters.sort ? paramToSortId(filters.sort) : undefined;
+  const query = filters.q ?? filters.search ?? undefined;
 
   return {
     ...clearMarketplaceFilterDraft(),
@@ -174,6 +186,7 @@ export function filterDraftFromBrowseParams(filters: ListingBrowseParams): Marke
     minPrice: numericText(filters.minPrice),
     maxPrice: numericText(filters.maxPrice),
     priceNegotiable: filters.priceNegotiable === true,
+    includeSold: filters.includeSold === true,
     division: validDivision(division) ? division : '',
     teamStrengthMin: attributeText(filters, 'team_strength.min'),
     teamStrengthMax: attributeText(filters, 'team_strength.max'),
@@ -184,6 +197,8 @@ export function filterDraftFromBrowseParams(filters: ListingBrowseParams): Marke
     googlePlayDisconnected: attributes.has_google_play_link === 'false',
     gameCenterDisconnected: attributes.has_game_center_link === 'false',
     valuablePlayer: id !== undefined && name ? { efhubId: id, name } : null,
+    sort,
+    query,
   };
 }
 
@@ -270,6 +285,7 @@ export function applyMarketplaceFilterDraft(
     setInteger(next, 'maxPrice', maxPrice);
   }
   if (draft.priceNegotiable) next.set('priceNegotiable', 'true');
+  if (draft.includeSold) next.set('includeSold', 'true');
   if (validDivision(draft.division) && draft.division) {
     next.set('attr.highest_division_level', draft.division);
   }
@@ -297,6 +313,20 @@ export function applyMarketplaceFilterDraft(
   if (valuableId !== undefined && Number.isSafeInteger(valuableId) && valuableId > 0 && valuableName) {
     next.set('attr.valuable_players_id', String(valuableId));
     next.set('attr.valuable_players_name', valuableName);
+  }
+  if (draft.sort !== undefined) {
+    const sortParam = sortIdToParam(draft.sort);
+    if (sortParam) next.set('sort', sortParam);
+  }
+  if (draft.query !== undefined) {
+    const q = draft.query.trim();
+    if (q) {
+      next.set('q', q);
+      next.delete('search');
+    } else {
+      next.delete('q');
+      next.delete('search');
+    }
   }
   return next;
 }

@@ -24,5 +24,14 @@ public record ListingFilter(
          * {@link uz.efbazaar.marketplace.domain.Listing#getAttributes()} via
          * {@code jsonb_extract_path_text}.
          */
-        Map<String, Object> attributes
-) {}
+        Map<String, Object> attributes,
+        Boolean includeSold
+) {
+    public ListingFilter(BigDecimal minPrice,
+                         BigDecimal maxPrice,
+                         Boolean priceNegotiable,
+                         String search,
+                         Map<String, Object> attributes) {
+        this(minPrice, maxPrice, priceNegotiable, search, attributes, false);
+    }
+}

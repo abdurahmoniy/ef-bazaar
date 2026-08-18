@@ -63,12 +63,9 @@ export default async function BlacklistPage({ searchParams }: BlacklistPageProps
                 className="rounded-xl border border-red-200/70 bg-card p-4 shadow-card"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <Link
-                    href={`/gamers/${entry.userId}`}
-                    className="truncate text-sm font-bold text-foreground hover:text-primary"
-                  >
+                  <span className="truncate text-sm font-bold text-foreground">
                     {entry.displayName ?? "Noma'lum foydalanuvchi"}
-                  </Link>
+                  </span>
                   <Badge variant="warn" className="shrink-0">
                     {permanent ? (
                       <>

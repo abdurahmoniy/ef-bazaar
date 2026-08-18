@@ -31,6 +31,22 @@ class TradeEscrowServiceIT extends AbstractPostgresIT {
     private static final UUID PROPOSER = UUID.randomUUID();
 
     @Autowired TradeEscrowService escrow;
+    @Autowired uz.efbazaar.payment.wallet.service.TradeCommissionService commission;
+
+    /**
+     * Pins the commission table before every case.
+     *
+     * <p>The rates moved into the database and the whole suite shares one
+     * container, so a test that edits them leaves them edited — and this class
+     * asserts exact so'm. Without this, whether these pass depends on which
+     * test ran first, which is not a property worth having.
+     */
+    @org.junit.jupiter.api.BeforeEach
+    void pinCommissionRates() {
+        commission.updateConfig(UUID.randomUUID(),
+                new uz.efbazaar.payment.wallet.dto.UpdateTradeCommissionConfigRequest(
+                        100_000L, 10.0, 7.5, 5_000L, 10_000L));
+    }
     @Autowired LedgerService ledger;
 
     /** Puts real money in a wallet the only way the ledger allows. */

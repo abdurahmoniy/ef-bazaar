@@ -21,6 +21,7 @@ interface WithdrawFormProps {
   /** Contact hint sent with the ticket; the server treats userId as authority. */
   telegramUsername?: string | null;
   onCreated: (ticket: WithdrawalTicket) => void;
+  defaultOpen?: boolean;
 }
 
 /**
@@ -33,8 +34,9 @@ export function WithdrawForm({
   availableTiyin,
   telegramUsername,
   onCreated,
+  defaultOpen = false,
 }: WithdrawFormProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [som, setSom] = useState('');
   const [pan, setPan] = useState('');
   const [holderName, setHolderName] = useState('');
@@ -72,7 +74,7 @@ export function WithdrawForm({
       <Button
         type="button"
         variant="outline"
-        className="w-full"
+        className="w-full min-h-11 rounded-xl border-border/80 font-semibold text-foreground transition hover:border-primary/40 hover:bg-primary/5 active:scale-95"
         onClick={() => setOpen(true)}
         disabled={availableTiyin <= 0}
       >
@@ -83,26 +85,33 @@ export function WithdrawForm({
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
-      <h2 className="mb-3 text-sm font-bold text-foreground">Pul yechish so‘rovi</h2>
-
-      <div className="space-y-3">
+    <section className="overflow-hidden rounded-2xl border border-border/80 bg-card p-4 shadow-sm sm:p-6 transition-all">
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="grid h-9 w-9 place-items-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400">
+          <ArrowUpFromLine className="h-4.5 w-4.5" />
+        </div>
         <div>
-          <Label htmlFor="wd-amount">Summa (so‘m)</Label>
-          <div className="flex gap-2">
+          <h2 className="text-base font-bold text-foreground">Pul yechish so‘rovi</h2>
+        </div>
+      </div>
+
+      <div className="space-y-3.5">
+        <div>
+          <Label htmlFor="wd-amount" className="text-xs font-semibold text-muted-foreground">Summa (so‘m)</Label>
+          <div className="mt-1 flex gap-2">
             <Input
               id="wd-amount"
               inputMode="numeric"
               value={som}
               onChange={(e) => setSom(e.target.value.replace(/[^\d]/g, ''))}
               placeholder="0"
+              className="h-11 rounded-xl font-semibold tabular-nums border-border/80"
             />
-            {/* Fills the whole spendable balance — the "magnet" that saves
-                typing a number the form would then have to bounce. */}
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               onClick={() => setSom(String(Math.floor(availableTiyin / 100)))}
+              className="h-11 rounded-xl px-3 font-semibold text-xs border-border/80"
             >
               Hammasi
             </Button>
@@ -113,7 +122,7 @@ export function WithdrawForm({
         </div>
 
         <div>
-          <Label htmlFor="wd-pan">Karta raqami</Label>
+          <Label htmlFor="wd-pan" className="text-xs font-semibold text-muted-foreground">Karta raqami</Label>
           <Input
             id="wd-pan"
             inputMode="numeric"
@@ -121,21 +130,23 @@ export function WithdrawForm({
             value={pan}
             onChange={(e) => setPan(formatPan(e.target.value))}
             placeholder="8600 0000 0000 0000"
+            className="mt-1 h-11 rounded-xl font-mono font-medium border-border/80"
           />
         </div>
 
         <div>
-          <Label htmlFor="wd-holder">Karta egasi</Label>
+          <Label htmlFor="wd-holder" className="text-xs font-semibold text-muted-foreground">Karta egasi</Label>
           <Input
             id="wd-holder"
             value={holderName}
             onChange={(e) => setHolderName(normalizeHolderName(e.target.value))}
             placeholder="ALI VALIYEV"
+            className="mt-1 h-11 rounded-xl border-border/80 uppercase font-medium"
           />
         </div>
 
         <div>
-          <Label htmlFor="wd-phone">Telefon raqam</Label>
+          <Label htmlFor="wd-phone" className="text-xs font-semibold text-muted-foreground">Telefon raqam</Label>
           <Input
             id="wd-phone"
             inputMode="tel"
@@ -143,6 +154,7 @@ export function WithdrawForm({
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+998 90 123 45 67"
+            className="mt-1 h-11 rounded-xl border-border/80 font-medium"
           />
           <p className="mt-1 text-xs text-muted-foreground">
             Admin siz bilan bog‘lanishi uchun
@@ -151,21 +163,21 @@ export function WithdrawForm({
       </div>
 
       {error && (
-        <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+        <p role="alert" className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs sm:text-sm font-semibold text-destructive">
           {error}
         </p>
       )}
 
-      <p className="mt-3 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+      <p className="mt-3 rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground leading-relaxed">
         So‘rov yuborilgach summa hamyoningizda muzlatiladi va admin kartangizga
         o‘tkazgach yechiladi. Rad etilsa to‘liq qaytariladi.
       </p>
 
-      <div className="mt-3 flex gap-2">
-        <Button type="button" className="flex-1" onClick={submit} disabled={submitting}>
+      <div className="mt-4 flex gap-2">
+        <Button type="button" className="flex-1 min-h-11 rounded-xl font-semibold active:scale-95" onClick={submit} disabled={submitting}>
           {submitting ? 'Yuborilmoqda…' : 'So‘rov yuborish'}
         </Button>
-        <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={submitting}>
+        <Button type="button" variant="outline" className="min-h-11 rounded-xl border-border/80 font-semibold" onClick={() => setOpen(false)} disabled={submitting}>
           Bekor
         </Button>
       </div>

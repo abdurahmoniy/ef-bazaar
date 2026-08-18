@@ -47,6 +47,18 @@ class InternalTradeEscrowControllerIT extends AbstractPostgresIT {
         return user;
     }
 
+    /** See TradeEscrowServiceIT: the rates live in the database now, and the
+     *  suite shares one container, so a class asserting exact so'm has to pin
+     *  them or inherit whatever the last test left behind. */
+    @Autowired uz.efbazaar.payment.wallet.service.TradeCommissionService commissionService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void pinCommissionRates() {
+        commissionService.updateConfig(java.util.UUID.randomUUID(),
+                new uz.efbazaar.payment.wallet.dto.UpdateTradeCommissionConfigRequest(
+                        100_000L, 10.0, 7.5, 5_000L, 10_000L));
+    }
+
     @Test
     void aCallWithoutTheSecretMovesNothing() throws Exception {
         UUID buyer = fundedUser(50_000_000L);

@@ -45,22 +45,42 @@ public class AuthSummaryClient {
             Long telegramId,
             boolean verified,
             Instant createdAt,
-            boolean photoAvailable) {}
+            boolean photoAvailable,
+            String telegramPhotoUrl) {
+        public UserSummary(UUID id, String displayName, String telegramUsername, Long telegramId,
+                           boolean verified, Instant createdAt, boolean photoAvailable) {
+            this(id, displayName, telegramUsername, telegramId, verified, createdAt, photoAvailable, null);
+        }
+    }
 
     public Optional<UserSummary> resolve(UUID userId) {
-        if (userId == null || secret == null || secret.isBlank()) return Optional.empty();
+        if (userId == null) return Optional.empty();
+        return Optional.ofNullable(resolveAll(List.of(userId)).get(userId));
+    }
+
+    public Map<UUID, UserSummary> resolveAll(java.util.Collection<UUID> userIds) {
+        if (userIds == null || userIds.isEmpty() || secret == null || secret.isBlank()) {
+            return Map.of();
+        }
         try {
             List<UserSummary> result = http.post()
                     .uri(PATH)
                     .header(HEADER, secret)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("ids", List.of(userId)))
+                    .body(Map.of("ids", List.copyOf(userIds)))
                     .retrieve()
                     .body(RESPONSE_TYPE);
-            return result == null || result.isEmpty() ? Optional.empty() : Optional.of(result.get(0));
+            if (result == null) return Map.of();
+            Map<UUID, UserSummary> map = new java.util.LinkedHashMap<>();
+            for (UserSummary summary : result) {
+                if (summary.id() != null) {
+                    map.put(summary.id(), summary);
+                }
+            }
+            return map;
         } catch (Exception e) {
-            log.warn("Failed to resolve user summary from auth-service: {}", e.toString());
-            return Optional.empty();
+            log.warn("Failed to resolve user summaries from auth-service: {}", e.toString());
+            return Map.of();
         }
     }
 }

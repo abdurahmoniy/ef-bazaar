@@ -218,9 +218,9 @@ export function SlidingNav({
               title={collapsed ? item.label : undefined}
               className={cn(
                 'relative z-10 inline-flex h-8 items-center gap-1.5 rounded-full text-[13px] font-semibold transition-colors',
-                collapsed ? 'w-10 justify-center px-0 sm:w-auto sm:px-3' : 'px-3',
-                // Equal shares of the rail on a phone; content width from sm up.
-                fullWidthOnMobile && 'min-w-0 flex-1 justify-center sm:flex-none sm:justify-start',
+                collapsed ? 'justify-center px-0 sm:px-3' : 'px-3',
+                // Give active tab exact space, let inactive tabs share the remainder on mobile.
+                fullWidthOnMobile && (isActive ? 'flex-none sm:justify-start' : 'min-w-0 flex-1 sm:flex-none sm:justify-start'),
                 isActive
                   ? isPill
                     ? 'text-primary-foreground'

@@ -16,6 +16,7 @@ import type {
   ListingResponse,
   ListingStatus,
   MessageResponse,
+  NotificationResponse,
   PageResponse,
   ReportStatus,
 } from './marketplace-types';
@@ -139,6 +140,13 @@ export async function getChatMessages(
 export async function getMyFavorites(): Promise<ListingResponse[]> {
   const result = await safeFetch<PageResponse<ListingResponse>>(
     `${MARKETPLACE_PREFIX}/listings/liked?size=100`,
+  );
+  return result.ok ? result.data.content : [];
+}
+
+export async function getUserListings(userId: string, page = 0, size = 50): Promise<ListingResponse[]> {
+  const result = await safeFetch<PageResponse<ListingResponse>>(
+    `${MARKETPLACE_PREFIX}/listings/user/${encodeURIComponent(userId)}?page=${page}&size=${size}&sort=createdAt,desc`,
   );
   return result.ok ? result.data.content : [];
 }
@@ -275,3 +283,12 @@ export async function getSimilarListings(
   if (!result.ok) return [];
   return result.data.content.filter((entry) => entry.id !== listing.id).slice(0, limit);
 }
+
+export async function getMyNotifications(size = 50): Promise<NotificationResponse[]> {
+  const result = await safeFetch<PageResponse<NotificationResponse>>(
+    `${MARKETPLACE_PREFIX}/notifications?size=${size}`,
+  );
+  if (!result.ok) return [];
+  return result.data.content ?? [];
+}
+

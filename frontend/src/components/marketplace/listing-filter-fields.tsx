@@ -6,7 +6,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { Search } from 'lucide-react';
 import { PLATFORM_FILTER_OPTIONS } from '@/lib/marketplace-format';
+import { LISTING_SORT_OPTIONS, type ListingSortId } from '@/lib/marketplace-sort';
 import type {
   MarketplaceFilterDraft,
   MarketplaceFilterErrors,
@@ -70,6 +72,8 @@ export function ListingFilterFields({
     value: MarketplaceFilterDraft[Key],
   ) => onChange({ ...draft, [key]: value });
 
+  const queryId = id('query');
+  const sortId = id('sort');
   const platformId = id('platform');
   const platformErrorId = id('platform-error');
   const minPriceId = id('min-price');
@@ -78,6 +82,7 @@ export function ListingFilterFields({
   const maxPriceErrorId = id('max-price-error');
   const priceErrorId = id('price-error');
   const negotiableId = id('negotiable');
+  const includeSoldId = id('include-sold');
   const divisionId = id('division');
   const divisionErrorId = id('division-error');
   const teamStrengthMinId = id('team-strength-min');
@@ -99,6 +104,37 @@ export function ListingFilterFields({
   return (
     <div className="space-y-3">
       <FilterGroup title="Asosiy">
+        <div>
+          <Label htmlFor={queryId}>Qidiruv</Label>
+          <div className="relative mt-1.5">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id={queryId}
+              type="text"
+              placeholder="Masalan: Messi, Neymar, D1..."
+              value={draft.query ?? ''}
+              onChange={(event) => update('query', event.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
+
+        <div>
+          <Label htmlFor={sortId}>Saralash</Label>
+          <Select
+            id={sortId}
+            value={draft.sort ?? 'newest'}
+            onChange={(event) => update('sort', event.target.value as ListingSortId)}
+            className="mt-1.5"
+          >
+            {LISTING_SORT_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+
         <div>
           <Label htmlFor={platformId}>Platforma</Label>
           <Select
@@ -160,6 +196,13 @@ export function ListingFilterFields({
           checked={draft.priceNegotiable}
           onChange={(event) => update('priceNegotiable', event.target.checked)}
           label="Savdolashish mumkin"
+        />
+
+        <Checkbox
+          id={includeSoldId}
+          checked={draft.includeSold}
+          onChange={(event) => update('includeSold', event.target.checked)}
+          label="Sotilganlarni ham ko‘rsatish"
         />
 
         <div>

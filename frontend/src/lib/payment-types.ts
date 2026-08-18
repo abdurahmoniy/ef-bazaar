@@ -88,3 +88,23 @@ export interface UserbotStatusResponse {
   lastSeenAt?: string;
   timeoutSeconds: number;
 }
+
+export interface TradeCommissionConfig {
+  id: string;
+  bandSom: number;
+  lowRatePercent: number;
+  highRatePercent: number;
+  lowMinSom: number;
+  highMinSom: number;
+  active: boolean;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
+export interface UpdateTradeCommissionConfigRequest {
+  bandSom: number;
+  lowRatePercent: number;
+  highRatePercent: number;
+  lowMinSom: number;
+  highMinSom: number;
+}

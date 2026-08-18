@@ -133,6 +133,7 @@ public class ListingService {
     public Listing markSold(UUID id, UUID sellerId) {
         Listing listing = getActiveOwned(id, sellerId);
         listing.setStatus(ListingStatus.SOLD);
+        listing.setSoldAt(java.time.Instant.now());
         Listing saved = listings.save(listing);
         events.listingDeleted(saved.getId(), sellerId, ListingStatus.SOLD);
         return saved;
@@ -145,18 +146,20 @@ public class ListingService {
 
     @Transactional(readOnly = true)
     public Page<Listing> browse(ListingFilter filter, Pageable pageable) {
-        // Prepend "status ASC" so ACTIVE (alphabetically less than SOLD) is
-        // always ranked ahead of SOLD, then the caller's sort takes over.
-        // Buyers see live inventory first without SOLD entries disappearing.
-        org.springframework.data.domain.Sort combined =
-                org.springframework.data.domain.Sort.by(
-                        org.springframework.data.domain.Sort.Order.asc("status"))
-                        .and(pageable.getSort());
-        org.springframework.data.domain.Pageable ranked =
-                org.springframework.data.domain.PageRequest.of(
-                        pageable.getPageNumber(), pageable.getPageSize(), combined);
+        // When includeSold is true, prepend "status ASC" so ACTIVE (alphabetically
+        // less than SOLD) is always ranked ahead of SOLD. When includeSold is false,
+        // all matched listings are ACTIVE so pageable sort applies directly.
+        Pageable effectivePageable = pageable;
+        if (Boolean.TRUE.equals(filter.includeSold())) {
+            org.springframework.data.domain.Sort combined =
+                    org.springframework.data.domain.Sort.by(
+                            org.springframework.data.domain.Sort.Order.asc("status"))
+                            .and(pageable.getSort());
+            effectivePageable = org.springframework.data.domain.PageRequest.of(
+                    pageable.getPageNumber(), pageable.getPageSize(), combined);
+        }
         return listings.findAll(
-                ListingSpecifications.withFilter(sanitizeRangeFilters(filter)), ranked);
+                ListingSpecifications.withFilter(sanitizeRangeFilters(filter)), effectivePageable);
     }
 
     @Transactional(readOnly = true)
@@ -239,11 +242,16 @@ public class ListingService {
             }
         }
         return new ListingFilter(filter.minPrice(), filter.maxPrice(),
-                filter.priceNegotiable(), filter.search(), cleaned);
+                filter.priceNegotiable(), filter.search(), cleaned, filter.includeSold());
     }
 
     @Transactional(readOnly = true)
     public Page<Listing> findMine(UUID sellerId, Pageable pageable) {
+        return listings.findBySellerIdAndStatusNot(sellerId, ListingStatus.DELETED, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Listing> findBySeller(UUID sellerId, Pageable pageable) {
         return listings.findBySellerIdAndStatusNot(sellerId, ListingStatus.DELETED, pageable);
     }
 

@@ -42,8 +42,9 @@ class JwtServiceTest {
         assertThat(claims.getSubject()).isEqualTo(userId.toString());
         assertThat(claims.get(JwtService.CLAIM_TYPE)).isEqualTo(JwtService.TYPE_ACCESS);
         assertThat(claims.get(JwtService.CLAIM_TELEGRAM_ID, Long.class)).isEqualTo(123456789L);
-        assertThat(claims.get(JwtService.CLAIM_ROLES, java.util.List.class))
-                .containsExactly("ROLE_USER");
+        @SuppressWarnings("unchecked")
+        java.util.List<String> roles = (java.util.List<String>) claims.get(JwtService.CLAIM_ROLES, java.util.List.class);
+        assertThat(roles).containsExactly("ROLE_USER");
     }
 
     @Test

@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import uz.efbazaar.payment.wallet.service.TradeCommission;
+import uz.efbazaar.payment.wallet.service.TradeCommissionService;
 import uz.efbazaar.payment.wallet.service.TradeEscrowService;
 
 import java.util.UUID;
@@ -32,6 +32,7 @@ import java.util.UUID;
 public class InternalTradeEscrowController {
 
     private final TradeEscrowService escrow;
+    private final TradeCommissionService commissionService;
 
     /**
      * {@code buyerId} is the accepter, {@code sellerId} the proposer.
@@ -84,8 +85,8 @@ public class InternalTradeEscrowController {
         return new EscrowResult(req.priceTiyin(), 0, req.priceTiyin());
     }
 
-    private static EscrowResult quote(long priceTiyin, long feeBaseTiyin) {
-        long fee = TradeCommission.feeTiyin(feeBaseTiyin);
+    private EscrowResult quote(long priceTiyin, long feeBaseTiyin) {
+        long fee = commissionService.feeTiyin(feeBaseTiyin);
         // May be negative on a swap whose fee outruns the surcharge: the
         // proposer funds the difference, and reporting it as zero would hide
         // that from the caller's confirmation screen.
