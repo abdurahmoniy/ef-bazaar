@@ -31,6 +31,45 @@ export type RefreshResult =
 
 const inflight = new Map<string, Promise<RefreshResult>>();
 
+/**
+ * Tokens already issued for a refresh token that has since been rotated away.
+ *
+ * Sharing the in-flight promise is not enough on its own. A request that was
+ * already travelling when the refresh completed still carries the old cookie —
+ * the browser only learns the new one from a response it has not received yet.
+ * It then asks to refresh a token the backend has just blacklisted, is refused,
+ * and the user sees a bare 401 on whatever they clicked. That is how accepting
+ * a proposal failed while a four-second poll ran alongside it.
+ *
+ * Answering those stragglers from here keeps them on the same session. The
+ * window is deliberately short: this is a replay of a spent token, and it is
+ * only tolerable because it never leaves this process and lasts seconds.
+ */
+const RECENT_TTL_MS = 30_000;
+const recent = new Map<string, { result: RefreshResult; at: number }>();
+
+function rememberedFor(refreshToken: string): RefreshResult | null {
+  const hit = recent.get(refreshToken);
+  if (!hit) return null;
+  if (Date.now() - hit.at > RECENT_TTL_MS) {
+    recent.delete(refreshToken);
+    return null;
+  }
+  return hit.result;
+}
+
+function remember(refreshToken: string, result: RefreshResult) {
+  // Only successes. A failure must stay repeatable — a network blip should not
+  // pin the session to "broken" for half a minute.
+  if (!result.ok) return;
+  recent.set(refreshToken, { result, at: Date.now() });
+  // Bounded without a timer: every write sweeps what has expired, and the map
+  // only ever holds tokens rotated in the last few seconds.
+  for (const [token, entry] of recent) {
+    if (Date.now() - entry.at > RECENT_TTL_MS) recent.delete(token);
+  }
+}
+
 export function refreshSession(
   refreshToken: string,
   fetchImpl: typeof fetch = fetch,
@@ -38,11 +77,25 @@ export function refreshSession(
   const existing = inflight.get(refreshToken);
   if (existing) return existing;
 
-  const promise = doRefresh(refreshToken, fetchImpl).finally(() => {
-    inflight.delete(refreshToken);
-  });
+  const already = rememberedFor(refreshToken);
+  if (already) return Promise.resolve(already);
+
+  const promise = doRefresh(refreshToken, fetchImpl)
+    .then((result) => {
+      remember(refreshToken, result);
+      return result;
+    })
+    .finally(() => {
+      inflight.delete(refreshToken);
+    });
   inflight.set(refreshToken, promise);
   return promise;
+}
+
+/** Test seam — the maps outlive a single case otherwise. */
+export function __resetRefreshCaches() {
+  inflight.clear();
+  recent.clear();
 }
 
 async function doRefresh(
