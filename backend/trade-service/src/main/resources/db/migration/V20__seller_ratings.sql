@@ -1,5 +1,5 @@
 -- ==============================================================
--- trade-service V19 — 1–5 star ratings of a seller after successful trade.
+-- trade-service V20 — 1–5 star ratings of a seller after successful trade.
 --
 -- Only buyers may rate sellers within a configured window after SUCCESS.
 -- Unique constraint ensures at most one rating per trade.
