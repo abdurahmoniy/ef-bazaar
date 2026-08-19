@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import jakarta.servlet.DispatcherType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -34,6 +35,14 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        // The ERROR dispatch, or every unhandled failure comes
+                        // back as a 401. Spring re-dispatches an exception to
+                        // /error, the chain runs again on that dispatch, and
+                        // /error matches nothing below — so the status the
+                        // caller needs is replaced by one about authentication.
+                        // payment-service turned a "not enough money" 409 into
+                        // a 401 exactly this way, and no trade could be accepted.
+                        .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()
                         // Public — Telegram register/login, Google login, token refresh.
                         // /telegram/link is protected (needs the caller's user id) so it
                         // stays under the default authenticated matcher below.
