@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { proxyInternalApiRequest } from './internal-api-proxy';
+import { __resetRefreshCaches } from './session-refresh';
 
 const refreshPayload = {
   accessToken: 'new-access',
@@ -15,6 +16,13 @@ function request(path: string, init: ConstructorParameters<typeof NextRequest>[1
 }
 
 describe('proxyInternalApiRequest', () => {
+  // refreshSession remembers a rotated token for half a minute so requests
+  // already in flight are not logged out. That memory is process-wide, so it
+  // outlives a case unless cleared.
+  beforeEach(() => {
+    __resetRefreshCaches();
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
