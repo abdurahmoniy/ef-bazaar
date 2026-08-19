@@ -107,11 +107,20 @@ class OneTimePasswordServiceTest extends AbstractIntegrationIT {
                 .toList();
     }
 
-    /** Fires the event only if the trade is still waiting on it. */
+    /**
+     * Fires the event, treating "already past it" as done.
+     *
+     * <p>Reading the state and then acting on it cannot be atomic: MockWorker
+     * drives the same trade over Kafka and may advance it in the gap. The
+     * caller's loop re-reads and carries on; a trade that genuinely cannot move
+     * still fails on the loop's bound.
+     */
     private void applyIfPending(UUID tradeId, TradeState expected,
                                 TradeEvent event, ActorType actor, UUID actorId) {
-        if (tradeRepo.findById(tradeId).orElseThrow().getState() == expected) {
+        try {
             trades.transition(tradeId, event, actor, actorId);
+        } catch (uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException alreadyMoved) {
+            // Someone else got there first, which is the outcome we wanted.
         }
     }
 }
