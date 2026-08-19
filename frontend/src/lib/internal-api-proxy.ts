@@ -134,8 +134,27 @@ export async function proxyInternalApiRequest(
           return jsonError(502, 'bad_gateway', `${options.serviceName} API unreachable`, result.tokens);
         }
       } else if (result.definitive) {
+        // The session is genuinely over: the refresh token is expired, already
+        // spent, or the user is gone. Cookies are cleared below.
+        console.warn(
+          `[api-proxy] ${request.method} ${upstreamUrl} -> 401 and the refresh was ` +
+            `refused; clearing the session`,
+        );
         clearCookies = true;
+      } else {
+        // Transient — auth-service was unreachable or answered 5xx. The 401
+        // goes back as-is and the cookies are left alone to retry.
+        console.warn(
+          `[api-proxy] ${request.method} ${upstreamUrl} -> 401 and the refresh ` +
+            `could not be completed; leaving the session alone`,
+        );
       }
+    } else {
+      // No refresh cookie at all: nothing to recover from, and worth saying so
+      // rather than reporting a bare 401 that looks like a backend fault.
+      console.warn(
+        `[api-proxy] ${request.method} ${upstreamUrl} -> 401 with no refresh cookie`,
+      );
     }
   }
 
