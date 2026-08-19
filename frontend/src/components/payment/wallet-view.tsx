@@ -20,6 +20,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { InvoicePanel } from '@/components/payment/invoice-panel';
+import { TipCallout } from '@/components/help/tip-callout';
 import { TopUpForm } from '@/components/payment/top-up-form';
 import { WithdrawForm } from '@/components/payment/withdraw-form';
 import { getWalletHistory } from '@/lib/payment-client';
@@ -416,6 +417,17 @@ export function WalletView({
           )}
         </section>
       )}
+
+      <TipCallout
+        variant="info"
+        dismissible
+        dismissKey="wallet_info_callout"
+        learnMoreHref="/help#wallet"
+        learnMoreLabel="Hamyon qo‘llanmasi"
+        className="mt-2"
+      >
+        Mablag‘lar xavfsizligi kafolatlanadi. Balans to‘ldirish lahzali amalga oshadi, pul yechish so‘rovlari esa odatda 15-60 daqiqa ichida kartangizga o‘tkazib beriladi.
+      </TipCallout>
     </div>
   );
 }

@@ -54,4 +54,30 @@ describe('SellerCard', () => {
     expect(html).not.toContain('Telegramda yozish');
     expect(html).toContain('tasdiqlanmagan');
   });
+
+  it('renders rating summary metrics when present', () => {
+    const summary: SellerSummary = {
+      id: '123e4567-e89b-12d3-a456-426614174000',
+      displayName: 'Top Seller',
+      telegramUsername: 'top_seller',
+      verified: true,
+      createdAt: '2025-01-01T00:00:00Z',
+    };
+
+    const html = renderToStaticMarkup(
+      createElement(SellerCard, {
+        seller: summary,
+        ratingSummary: {
+          sellerId: summary.id,
+          averageRating: 4.8,
+          ratingCount: 15,
+          ratingSum: 72,
+          starCounts: { 5: 12, 4: 3, 3: 0, 2: 0, 1: 0 },
+        },
+      }),
+    );
+
+    expect(html).toContain('4.8');
+    expect(html).toContain('15 baho');
+  });
 });

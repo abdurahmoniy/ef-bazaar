@@ -27,6 +27,8 @@ import {
 import { CountdownText } from '@/components/trade-admin/countdown-text';
 import { HumanPartyTradePanel } from '@/components/trade-admin/human-party-trade-panel';
 import { TradeAdminPicker } from '@/components/trade-admin/trade-admin-picker';
+import { SellerRatingForm } from '@/components/chat/seller-rating-form';
+import { TipCallout } from '@/components/help/tip-callout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -304,6 +306,15 @@ export function TradePanel({
           </p>
         </div>
       </div>
+
+      <TipCallout
+        variant="security"
+        learnMoreHref="/help#100-percent-secure-trade-guarantee"
+        learnMoreLabel="Kafolat shartlari"
+        className="mb-3"
+      >
+        <strong>100% Kafolatlangan va Xavfsiz Bitim:</strong> Mablag‘ to‘liq platforma depozitida muzlatiladi. Akkount topshirilmaguncha pul berilmaydi, to‘lov qilinmaguncha akkount o‘tmaydi.
+      </TipCallout>
 
       {accountRequest && (
         <SelectedAccountCard
@@ -662,7 +673,7 @@ function TradeStateActions({
         <InfoBox>Xaridor tasdiqlashini kutmoqda.</InfoBox>
       );
     case 'SUCCESS':
-      return <SuccessPanel trade={trade} />;
+      return <SuccessPanel trade={trade} isBuyer={isBuyer} />;
     case 'REJECTED':
       return (
         <TerminalBanner tone="destructive" icon={<XCircle className="h-4 w-4" />}>
@@ -1239,17 +1250,26 @@ function WaitingBuyerVerifyBuyerPanel({
   );
 }
 
-function SuccessPanel({ trade }: { trade: TradeResponse }) {
+function SuccessPanel({
+  trade,
+  isBuyer,
+}: {
+  trade: TradeResponse;
+  isBuyer: boolean;
+}) {
   return (
-    <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-3 text-xs text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-100">
-      <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
-        <CheckCircle2 className="h-4 w-4" />
-        Savdo muvaffaqiyatli yakunlandi
+    <div className="space-y-2.5">
+      <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-3 text-xs text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-100">
+        <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
+          <CheckCircle2 className="h-4 w-4" />
+          Savdo muvaffaqiyatli yakunlandi
+        </div>
+        <p>
+          {formatPriceUZS(trade.priceUzs)} to&apos;landi va Konami akkaunti
+          o&apos;tkazildi. Tabriklaymiz!
+        </p>
       </div>
-      <p>
-        {formatPriceUZS(trade.priceUzs)} to&apos;landi va Konami akkaunti
-        o&apos;tkazildi. Tabriklaymiz!
-      </p>
+      <SellerRatingForm tradeId={trade.id} isBuyer={isBuyer} />
     </div>
   );
 }

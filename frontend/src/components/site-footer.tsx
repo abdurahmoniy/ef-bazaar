@@ -56,6 +56,9 @@ export function SiteFooter({ embedded = false }: SiteFooterProps) {
               />
             </li>
             <li>
+              <FooterLink href="/help">Yordam va Qo‘llanma</FooterLink>
+            </li>
+            <li>
               <FooterLink href={siteConfig.links.telegram}>Telegram bot</FooterLink>
             </li>
           </FooterColumn>

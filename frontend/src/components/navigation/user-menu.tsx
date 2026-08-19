@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Heart, LogOut, Mail, Moon, Package, ShieldCheck, Sun, UserCog, UserRound, Wallet } from 'lucide-react';
+import { Heart, HelpCircle, LogOut, Mail, Moon, Package, ShieldCheck, Sun, UserCog, UserRound, Wallet } from 'lucide-react';
 
 import { FEATURES } from '@/lib/feature-flags';
 
@@ -131,6 +131,10 @@ export function UserMenu({ user, className }: UserMenuProps) {
                 Hamyon
               </Link>
             )}
+            <Link href="/help" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
+              <HelpCircle className="h-4 w-4 text-muted-foreground" />
+              Yordam va Qo‘llanma
+            </Link>
 
             <button
               type="button"

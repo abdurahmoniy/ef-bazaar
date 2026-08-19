@@ -7,6 +7,7 @@ import { CountdownText } from '@/components/trade-admin/countdown-text';
 import { HumanTradeChecklist } from '@/components/trade-admin/human-trade-checklist';
 import { HumanTradeMessages } from '@/components/trade-admin/human-trade-messages';
 import { TradeAdminPicker } from '@/components/trade-admin/trade-admin-picker';
+import { SellerRatingForm } from '@/components/chat/seller-rating-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -138,7 +139,12 @@ export function HumanPartyTradePanel({
         />
       )}
 
-      {trade.state === 'SUCCESS' && <RatingBox tradeId={trade.id} />}
+      {trade.state === 'SUCCESS' && (
+        <div className="space-y-3">
+          <SellerRatingForm tradeId={trade.id} isBuyer={!isSeller} />
+          <RatingBox tradeId={trade.id} />
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">

@@ -10,7 +10,7 @@ import { ProfileListings } from '@/components/profile/profile-listings';
 import { ProfileTrades } from '@/components/profile/profile-trades';
 import { getMe } from '@/lib/auth';
 import { getMyFavorites, getMyListings } from '@/lib/marketplace-server';
-import { getMyCards, getMyTrades } from '@/lib/trade-server';
+import { getMyCards, getMyTrades, getSellerRatingSummary } from '@/lib/trade-server';
 import { getMyTradeAdminApplication } from '@/lib/trade-admin-applications-server';
 
 export const dynamic = 'force-dynamic';
@@ -49,12 +49,13 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
 
   // Fetch tab data server-side.
-  const [listings, favorites, cards, tradePage, tradeAdminApplication] = await Promise.all([
+  const [listings, favorites, cards, tradePage, tradeAdminApplication, sellerRatingSummary] = await Promise.all([
     getMyListings(),
     getMyFavorites(),
     activeTab === 'kartalar' ? getMyCards() : Promise.resolve([]),
     activeTab === 'trades' ? getMyTrades() : Promise.resolve(null),
     activeTab === 'account' ? getMyTradeAdminApplication() : Promise.resolve(null),
+    activeTab === 'account' ? getSellerRatingSummary(user.id) : Promise.resolve(null),
   ]);
 
   const getSubpageHeader = () => {
@@ -140,6 +141,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               tradeAdminApplication={tradeAdminApplication}
               listingsCount={listings.length}
               favoritesCount={favorites.length}
+              ratingSummary={sellerRatingSummary}
             />
           )}
         </section>
