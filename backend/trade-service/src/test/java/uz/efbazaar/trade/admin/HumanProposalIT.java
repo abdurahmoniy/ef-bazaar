@@ -41,7 +41,7 @@ class HumanProposalIT extends AbstractIntegrationIT {
 
     private ProposalCreateRequest human(UUID seller, UUID buyer, UUID admin, Long fee) {
         return new ProposalCreateRequest(UUID.randomUUID(), buyer, seller, buyer,
-                80_000L, null, null, TradeMode.HUMAN, admin, fee);
+                80_000L, null, null, TradeMode.HUMAN, admin, fee, null);
     }
 
     @Test
@@ -168,7 +168,7 @@ class HumanProposalIT extends AbstractIntegrationIT {
         // it — accepting without one has to work.
         UUID seller = UUID.randomUUID(), buyer = UUID.randomUUID();
         var req = new ProposalCreateRequest(UUID.randomUUID(), buyer, seller, buyer,
-                80_000L, null, null, TradeMode.SMART, null, null);
+                80_000L, null, null, TradeMode.SMART, null, null, null);
 
         var created = proposals.create(seller, req);
         var trade = proposals.accept(buyer, created.proposalId(), null);
@@ -182,7 +182,7 @@ class HumanProposalIT extends AbstractIntegrationIT {
         UUID admin = hireableAdmin();
         UUID chatId = UUID.randomUUID();
         var req = new ProposalCreateRequest(chatId, buyer, seller, buyer,
-                80_000L, null, null, TradeMode.HUMAN, admin, 20_000L);
+                80_000L, null, null, TradeMode.HUMAN, admin, 20_000L, null);
         proposals.create(seller, req);
 
         var found = proposals.findActiveProposalByChatId(chatId, buyer).orElseThrow();

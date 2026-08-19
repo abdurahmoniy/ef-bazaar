@@ -21,10 +21,12 @@ import uz.efbazaar.trade.trade.domain.TradeChat;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.domain.TradeMessage;
 import uz.efbazaar.trade.trade.domain.TradeMessageType;
+import uz.efbazaar.trade.trade.domain.TradeKind;
 import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.dto.TradePage;
 import uz.efbazaar.trade.trade.dto.TradeResponse;
+import uz.efbazaar.trade.trade.dto.TradeSideResponse;
 import uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException;
 import uz.efbazaar.trade.trade.repository.TradeChatRepository;
 import uz.efbazaar.trade.trade.repository.TradeMessageRepository;
@@ -46,6 +48,7 @@ public class TradeService {
     private final TradeMessageRepository messages;
     private final TradeStateMachine sm;
     private final TradeStateHandler handler;
+    private final TradeSideService sideService;
     private final TradeAuditService audit;
     private final MailboxService mailboxes;
     private final TradeBroadcaster broadcaster;
@@ -90,6 +93,18 @@ public class TradeService {
                                    UUID sellerCardId, UUID buyerCardId, UUID listingId,
                                    UUID chatId, TradeMode mode,
                                    UUID assignedAdminId, Long adminFeeUzs) {
+        return openTrade(tradeId, sellerId, buyerId, priceUzs, sellerCardId, buyerCardId,
+                listingId, chatId, mode, assignedAdminId, adminFeeUzs,
+                TradeKind.SALE, priceUzs);
+    }
+
+    /** As above, for a caller that knows the deal's shape and its fee base. */
+    @Transactional
+    public TradeResponse openTrade(UUID tradeId, UUID sellerId, UUID buyerId, long priceUzs,
+                                   UUID sellerCardId, UUID buyerCardId, UUID listingId,
+                                   UUID chatId, TradeMode mode,
+                                   UUID assignedAdminId, Long adminFeeUzs,
+                                   TradeKind kind, long feeBaseUzs) {
         if (mode == TradeMode.HUMAN && assignedAdminId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Inson admin savdosi uchun admin tanlanishi kerak");
@@ -99,6 +114,10 @@ public class TradeService {
         // (Task 14) overwrites the email + password once it "provisions" Mailcow
         // in response to the email-provision-request event.
         UUID mailboxId = allocatePlaceholderMailbox();
+        // A swap needs a second box: both parties move an account out, and at
+        // the end the two are handed over crossed. A sale allocates one, since
+        // the buyer transfers nothing.
+        UUID buyerMailboxId = kind.isSwap() ? allocatePlaceholderMailbox() : null;
 
         Trade t = Trade.builder()
                 .id(tradeId)
@@ -112,11 +131,19 @@ public class TradeService {
                 .sellerCardId(sellerCardId)
                 .buyerCardId(buyerCardId)
                 .mode(mode)
+                .kind(kind)
+                .feeBaseUzs(feeBaseUzs)
                 .assignedAdminId(assignedAdminId)
                 .adminFeeUzs(adminFeeUzs)
                 .expiresAt(Instant.now().plus(Duration.ofHours(
                         mode == TradeMode.HUMAN ? humanExpiresAfterHours : 24)))
                 .build();
+
+        // Saved and flushed before the sides: trade_sides carries a foreign key
+        // to this row, and onEnter below reads the sides to decide how many
+        // mailboxes to have provisioned.
+        trades.saveAndFlush(t);
+        sideService.open(tradeId, mailboxId, buyerMailboxId);
 
         handler.onEnter(t, TradeState.INITIATED, ActorType.SYSTEM, null, null);
         trades.save(t);
@@ -171,6 +198,16 @@ public class TradeService {
     /** Canonical mutation. Every action goes through here. */
     @Transactional
     public Trade transition(UUID tradeId, TradeEvent event, ActorType actor, UUID actorId) {
+        return transition(tradeId, event, actor, actorId, null);
+    }
+
+    /**
+     * As above, for a caller that knows which side acted when the actor id does
+     * not say — a worker reporting on one of a swap's two mailboxes.
+     */
+    @Transactional
+    public Trade transition(UUID tradeId, TradeEvent event, ActorType actor, UUID actorId,
+                            ParticipantRole actingSide) {
         Trade t = trades.findById(tradeId)
                 .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
         TradeState from = t.getState();
@@ -181,6 +218,30 @@ public class TradeService {
         if (event == TradeEvent.MAILBOX_PROVISIONED && actor != ActorType.WORKER) {
             throw new InvalidTradeTransitionException(from, event);
         }
+        // Record this party's own progress before deciding whether the trade
+        // may move. On a swap both parties do every step, so one party's
+        // "done" is not the trade's.
+        ParticipantRole side = actingSide != null ? actingSide
+                : (actorId != null && t.isParticipant(actorId) ? t.roleFor(actorId) : null);
+        if (side != null) {
+            sideService.stamp(tradeId, side, event);
+        } else if (actor == ActorType.WORKER) {
+            // The worker reports per mailbox but names only the trade, so the
+            // report is stamped against whichever side is still outstanding.
+            sideService.stampNextPending(tradeId, event);
+        }
+        if (!sideService.bothSidesCleared(t, event)) {
+            // Validate the event anyway: an out-of-order one must still be
+            // refused rather than quietly stored against the side.
+            sm.transition(t.getMode(), from, event);
+            audit.record(t.getId(), actor, actorId, "SIDE_PROGRESS",
+                    Map.of("event", event.name(), "side", String.valueOf(side)));
+            // The panel re-reads side progress from this, which is how each
+            // party sees the other one move.
+            broadcaster.publishStateChange(t.getId(), toResponse(t, null));
+            return t;
+        }
+
         TradeState to = sm.transition(t.getMode(), from, event);
         t.setState(to);
         handler.onEnter(t, to, actor, actorId, event);
@@ -198,7 +259,9 @@ public class TradeService {
                 t.getSellerId(), t.getBuyerId(), t.getPriceUzs(),
                 t.getMailboxId(), mailboxEmail, t.getChatId(), t.getCreatedAt(), t.getExpiresAt(),
                 t.getStateDeadline(), role, passwordMessageId,
-                t.getEmailChangeVerificationCode());
+                t.getEmailChangeVerificationCode(),
+                t.getKind(),
+                sideService.of(t.getId()).stream().map(TradeSideResponse::of).toList());
     }
 
     /**

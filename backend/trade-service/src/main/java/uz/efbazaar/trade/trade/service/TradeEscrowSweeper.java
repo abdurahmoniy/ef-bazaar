@@ -70,11 +70,13 @@ public class TradeEscrowSweeper {
         if (t.getMode() != TradeMode.SMART || t.getEscrowResolvedAt() != null) return;
 
         if (t.getState() == TradeState.SUCCESS) {
-            escrow.settle(t.getId(), t.getBuyerId(), t.getSellerId(), t.getPriceUzs());
+            escrow.settle(t.getId(), t.getBuyerId(), t.getSellerId(),
+                    t.getPriceUzs(), t.feeBaseOrPrice());
         } else {
             // REJECTED and ORPHANED alike: nobody completed the trade, so the
             // buyer gets everything back.
-            escrow.release(t.getId(), t.getBuyerId(), t.getPriceUzs());
+            escrow.release(t.getId(), t.getBuyerId(), t.getSellerId(),
+                    t.getPriceUzs(), t.feeBaseOrPrice());
         }
         t.setEscrowResolvedAt(Instant.now());
         trades.save(t);

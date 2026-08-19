@@ -14,6 +14,7 @@ import uz.efbazaar.trade.kafka.TradeEvents;
 import uz.efbazaar.trade.payment.EscrowClient;
 import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
+import uz.efbazaar.trade.trade.domain.TradeKind;
 import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.dto.ProposalCreateRequest;
 import uz.efbazaar.trade.trade.dto.ProposalDetailsResponse;
@@ -68,6 +69,7 @@ public class TradeProposalService {
     private final TradeAuditService audit;
     private final TradeAdminProfileService adminProfiles;
     private final EscrowClient escrow;
+    private final uz.efbazaar.trade.marketplace.ListingTermsClient listings;
 
     @Value("${trade.proposal.ttl-seconds:600}")
     private long ttlSeconds;
@@ -110,6 +112,7 @@ public class TradeProposalService {
         hash.put("buyerId",           req.buyerId().toString());
         hash.put("amountUzs",         req.amountUzs().toString());
         hash.put("listingId",         req.listingId() != null ? req.listingId().toString() : "");
+        hash.put("kind",              req.kindOrDefault().name());
         hash.put("proposerCardId",    req.cardId() != null ? req.cardId().toString() : "");
         hash.put("mode",              mode.name());
         hash.put("adminId",           req.adminId() != null ? req.adminId().toString() : "");
@@ -170,6 +173,7 @@ public class TradeProposalService {
         return Optional.of(new ProposalDetailsResponse(
                 proposalId, marketplaceChatId, sellerId, buyerId,
                 proposerUserId, amountUzs, listingId, expiresAt,
+                TradeKind.valueOf(orDefault((String) raw.get("kind"), TradeKind.SALE.name())),
                 mode, adminId, adminFeeUzs));
     }
 
@@ -227,6 +231,30 @@ public class TradeProposalService {
 
         UUID listingId = optionalUuid(raw.get("listingId"));
         UUID chatId    = optionalUuid(raw.get("marketplaceChatId"));
+        TradeKind kind = TradeKind.valueOf(
+                orDefault((String) raw.get("kind"), TradeKind.SALE.name()));
+
+        // What the platform's cut is worked out from. On a sale that is the
+        // price; on a swap it is the listing price, read from marketplace
+        // rather than taken from the proposal, because a proposer who could
+        // name it would name whatever lands on the cheapest band.
+        long feeBaseUzs = amountUzs;
+        if (kind.isSwap()) {
+            if (listingId == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Obmen uchun e'lon ko'rsatilishi shart");
+            }
+            var terms = listings.fetch(listingId);
+            if (!terms.allowsSwap()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Bu e'lon obmenga qo'yilmagan");
+            }
+            if (kind == TradeKind.SWAP_SURCHARGE && !terms.allowsSurcharge()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Bu e'lon doplatali obmenga qo'yilmagan");
+            }
+            feeBaseUzs = terms.priceUzs();
+        }
 
         // Hold the money BEFORE the trade exists. A trade with nothing behind
         // it must not be creatable at all: openTrade allocates a mailbox and
@@ -239,20 +267,21 @@ public class TradeProposalService {
         // own 409 and nothing is created.
         UUID tradeId = UUID.randomUUID();
         if (mode == TradeMode.SMART) {
-            escrow.hold(tradeId, buyerId, amountUzs);
+            escrow.hold(tradeId, buyerId, sellerId, amountUzs, feeBaseUzs);
         }
 
         TradeResponse trade;
         try {
             trade = trades.openTrade(tradeId, sellerId, buyerId, amountUzs,
-                    sellerCardId, buyerCardId, listingId, chatId, mode, adminId, adminFee);
+                    sellerCardId, buyerCardId, listingId, chatId, mode, adminId, adminFee,
+                    kind, feeBaseUzs);
         } catch (RuntimeException e) {
             // The money is already frozen and there is no trade to release it.
             // Give it straight back rather than stranding it; release is keyed
             // by the same id, so a retry is harmless.
             if (mode == TradeMode.SMART) {
                 try {
-                    escrow.release(tradeId, buyerId, amountUzs);
+                    escrow.release(tradeId, buyerId, sellerId, amountUzs, feeBaseUzs);
                 } catch (RuntimeException releaseFailed) {
                     log.error("Trade {} could not be opened AND its hold could not be "
                             + "released — buyer {} has {} so'm frozen with no trade",

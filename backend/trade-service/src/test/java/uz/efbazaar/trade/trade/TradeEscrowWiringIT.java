@@ -53,7 +53,7 @@ class TradeEscrowWiringIT extends AbstractIntegrationIT {
     private ProposalResponse propose(UUID seller, UUID buyer, long amountUzs) {
         return proposals.create(seller, new ProposalCreateRequest(
                 UUID.randomUUID(), buyer, seller, buyer, amountUzs,
-                UUID.randomUUID(), null, TradeMode.SMART, null, null));
+                UUID.randomUUID(), null, TradeMode.SMART, null, null, null));
     }
 
     @Test
@@ -64,7 +64,7 @@ class TradeEscrowWiringIT extends AbstractIntegrationIT {
 
         var trade = proposals.accept(buyer, pr.proposalId(), UUID.randomUUID());
 
-        verify(escrow).hold(eq(trade.id()), eq(buyer), eq(500_000L));
+        verify(escrow).hold(eq(trade.id()), eq(buyer), any(), eq(500_000L), anyLong());
     }
 
     @Test
@@ -73,7 +73,7 @@ class TradeEscrowWiringIT extends AbstractIntegrationIT {
         UUID buyer = UUID.randomUUID();
         doThrow(new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
                 "Hamyonda mablag' yetarli emas"))
-                .when(escrow).hold(any(), any(), anyLong());
+                .when(escrow).hold(any(), any(), any(), anyLong(), anyLong());
         var pr = propose(seller, buyer, 500_000L);
         long before = trades.count();
 

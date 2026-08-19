@@ -68,7 +68,7 @@ class TradeEscrowSweeperIT extends AbstractIntegrationIT {
 
         sweeper.sweep();
 
-        verify(escrow).release(eq(t.getId()), eq(t.getBuyerId()), eq(500_000L));
+        verify(escrow).release(eq(t.getId()), eq(t.getBuyerId()), any(), eq(500_000L), anyLong());
         assertThat(trades.findById(t.getId()).orElseThrow().getEscrowResolvedAt())
                 .as("resolved, so the next sweep leaves it alone")
                 .isNotNull();
@@ -80,7 +80,7 @@ class TradeEscrowSweeperIT extends AbstractIntegrationIT {
 
         sweeper.sweep();
 
-        verify(escrow).settle(eq(t.getId()), any(), any(), eq(500_000L));
+        verify(escrow).settle(eq(t.getId()), any(), any(), eq(500_000L), anyLong());
         assertThat(trades.findById(t.getId()).orElseThrow().getEscrowResolvedAt()).isNotNull();
     }
 
@@ -92,7 +92,7 @@ class TradeEscrowSweeperIT extends AbstractIntegrationIT {
 
         // A live trade is SUPPOSED to be holding money. Sweeping it would
         // refund a buyer mid-trade and hand the seller nothing.
-        verify(escrow, never()).release(eq(t.getId()), any(), anyLong());
+        verify(escrow, never()).release(eq(t.getId()), any(), any(), anyLong(), anyLong());
         assertThat(trades.findById(t.getId()).orElseThrow().getEscrowResolvedAt()).isNull();
     }
 
@@ -102,14 +102,14 @@ class TradeEscrowSweeperIT extends AbstractIntegrationIT {
 
         sweeper.sweep();
 
-        verify(escrow, never()).release(eq(t.getId()), any(), anyLong());
+        verify(escrow, never()).release(eq(t.getId()), any(), any(), anyLong(), anyLong());
     }
 
     @Test
     void aWalletStillDownLeavesTheTradeForTheNextSweep() {
         Trade t = stranded(TradeState.REJECTED, TradeMode.SMART);
         doThrow(new IllegalStateException("wallet down"))
-                .when(escrow).release(eq(t.getId()), any(), anyLong());
+                .when(escrow).release(eq(t.getId()), any(), any(), anyLong(), anyLong());
 
         sweeper.sweep();   // must not throw — one stuck trade cannot stop the rest
 
@@ -128,7 +128,7 @@ class TradeEscrowSweeperIT extends AbstractIntegrationIT {
 
         sweeper.sweep();
 
-        verify(escrow).release(eq(t.getId()), eq(t.getBuyerId()), eq(500_000L));
+        verify(escrow).release(eq(t.getId()), eq(t.getBuyerId()), any(), eq(500_000L), anyLong());
         assertThat(trades.findById(t.getId()).orElseThrow().getEscrowResolvedAt()).isNotNull();
     }
 

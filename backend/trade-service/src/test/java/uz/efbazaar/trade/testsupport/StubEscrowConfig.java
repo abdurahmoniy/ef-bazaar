@@ -35,11 +35,11 @@ public class StubEscrowConfig {
     public EscrowClient stubEscrowClient() {
         EscrowClient stub = mock(EscrowClient.class);
         doAnswer(i -> calls.add("hold:" + i.getArgument(0)))
-                .when(stub).hold(any(), any(), anyLong());
+                .when(stub).hold(any(), any(), any(), anyLong(), anyLong());
         doAnswer(i -> calls.add("settle:" + i.getArgument(0)))
-                .when(stub).settle(any(), any(), any(), anyLong());
+                .when(stub).settle(any(), any(), any(), anyLong(), anyLong());
         doAnswer(i -> calls.add("release:" + i.getArgument(0)))
-                .when(stub).release(any(), any(), anyLong());
+                .when(stub).release(any(), any(), any(), anyLong(), anyLong());
         return stub;
     }
 }

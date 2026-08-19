@@ -12,11 +12,14 @@ import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.Trade;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.payment.EscrowClient;
+import uz.efbazaar.trade.trade.domain.ParticipantRole;
 import uz.efbazaar.trade.trade.domain.TradeMode;
+import uz.efbazaar.trade.trade.domain.TradeSide;
 import uz.efbazaar.trade.trade.domain.TradeState;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -33,6 +36,7 @@ public class TradeStateHandler {
 
     private final TradeEventPublisher events;
     private final MailboxService mailboxes;
+    private final TradeSideService sides;
     private final TradeAuditService audit;
     private final TradeAdminStats adminStats;
     private final EscrowClient escrow;
@@ -62,13 +66,59 @@ public class TradeStateHandler {
      *              the controller and must not re-trigger a Konami
      *              forgot-password rotation.
      */
+    /**
+     * Every escrow mailbox this trade is moving an account through.
+     *
+     * <p>One on a sale, two on a swap. Falls back to the trade's own column for
+     * rows written before sides existed, so an in-flight trade mid-upgrade
+     * still finds its mailbox.
+     */
+    private List<UUID> mailboxesOf(Trade trade) {
+        List<UUID> boxes = sides.of(trade.getId()).stream()
+                .map(TradeSide::getMailboxId)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        return boxes.isEmpty() ? List.of(trade.getMailboxId()) : boxes;
+    }
+
+    /**
+     * Gives each escrow mailbox to whoever should end up with it.
+     *
+     * <p>{@code crossed} is the whole point of a swap: on success each party
+     * receives the account the OTHER one put in. Every other ending — a
+     * rejection, a silent party, a deadline — hands each account back to the
+     * person who put it up, which is also what a failed sale does.
+     */
+    private void handOver(Trade trade, boolean crossed) {
+        List<TradeSide> both = sides.of(trade.getId());
+        if (both.isEmpty()) {
+            // Pre-sides trade: the old single-mailbox rule.
+            events.mailboxRotateRequest(trade.getMailboxId());
+            mailboxes.assignOwner(trade.getMailboxId(),
+                    crossed ? trade.getBuyerId() : trade.getSellerId());
+            return;
+        }
+        for (TradeSide side : both) {
+            if (side.getMailboxId() == null) continue;   // the buyer's, on a sale
+            UUID putItUp = side.role() == ParticipantRole.SELLER
+                    ? trade.getSellerId() : trade.getBuyerId();
+            UUID theOther = side.role() == ParticipantRole.SELLER
+                    ? trade.getBuyerId() : trade.getSellerId();
+            UUID receives = crossed ? theOther : putItUp;
+            events.mailboxRotateRequest(side.getMailboxId());
+            mailboxes.assignOwner(side.getMailboxId(), receives);
+        }
+    }
+
     public void onEnter(Trade trade, TradeState newState, ActorType actor, UUID actorId, TradeEvent event) {
         switch (newState) {
             case INITIATED -> {
                 trade.setStateDeadline(null);
                 // Both modes need an escrow mailbox — only the Konami/IMAP
                 // automation is smart-only. Spec §3.2.
-                events.emailProvisionRequest(trade.getId(), trade.getMailboxId());
+                for (UUID box : mailboxesOf(trade)) {
+                    events.emailProvisionRequest(trade.getId(), box);
+                }
             }
             case WAITING_PAYMENT -> trade.setStateDeadline(now(twpS));
             case WAITING_EMAIL_CHANGE -> {
@@ -79,17 +129,21 @@ public class TradeStateHandler {
                     // flow. Start polling now so the code lands in the trade panel
                     // as soon as it arrives — seller can't read the escrow inbox
                     // themselves during WAITING_EMAIL_CHANGE.
-                    var mb = mailboxes.getRaw(trade.getMailboxId());
-                    events.imapPollRequest(trade.getId(), mb.getEmail(),
-                            TradeEvents.ImapPurpose.WAIT_EMAIL_CHANGE_CODE);
+                    for (UUID box : mailboxesOf(trade)) {
+                        var mb = mailboxes.getRaw(box);
+                        events.imapPollRequest(trade.getId(), mb.getEmail(),
+                                TradeEvents.ImapPurpose.WAIT_EMAIL_CHANGE_CODE);
+                    }
                 }
             }
             case VERIFYING_KONAMI_LINK -> {
                 trade.setStateDeadline(now(tvklS));
                 if (trade.getMode() == TradeMode.SMART && event != TradeEvent.RECHECK) {
                     // fire-and-forget forgot-password. The mailbox email is stored on the mailbox row.
-                    var mb = mailboxes.getRaw(trade.getMailboxId());
-                    events.forgotPasswordRequest(trade.getId(), mb.getEmail(), null);
+                    for (UUID box : mailboxesOf(trade)) {
+                        var mb = mailboxes.getRaw(box);
+                        events.forgotPasswordRequest(trade.getId(), mb.getEmail(), null);
+                    }
                 }
             }
             case WAITING_PASSWORD     -> trade.setStateDeadline(now(twpwS));
@@ -149,8 +203,7 @@ public class TradeStateHandler {
                 settleEscrow(trade);
                 trade.setTerminalReason(trade.getMode() == TradeMode.HUMAN
                         ? "ADMIN_CLOSED_CONFIRMED" : "BUYER_CONFIRMED");
-                events.mailboxRotateRequest(trade.getMailboxId());
-                mailboxes.assignOwner(trade.getMailboxId(), trade.getBuyerId());
+                handOver(trade, true);
                 // Notify marketplace-service so the listing sinks to the end
                 // of browse results and picks up the "Sotildi" badge. Skip
                 // if this trade was opened from a spec (no listing context).
@@ -189,8 +242,7 @@ public class TradeStateHandler {
                 trade.setEscalationReason(null);
                 trade.setTerminalReason(event == TradeEvent.ADMIN_CANCELLED
                         ? "ADMIN_CANCELLED" : "BUYER_REJECTED_OR_TIMEOUT");
-                events.mailboxRotateRequest(trade.getMailboxId());
-                mailboxes.assignOwner(trade.getMailboxId(), trade.getSellerId());
+                handOver(trade, false);
                 audit.record(trade.getId(), actor, actorId, "TRADE_REJECTED",
                         Map.of("mailboxHandedTo", trade.getSellerId().toString()));
 
@@ -239,7 +291,8 @@ public class TradeStateHandler {
      */
     private void settleEscrow(Trade trade) {
         if (trade.getMode() != TradeMode.SMART) return;
-        escrow.settle(trade.getId(), trade.getBuyerId(), trade.getSellerId(), trade.getPriceUzs());
+        escrow.settle(trade.getId(), trade.getBuyerId(), trade.getSellerId(),
+                trade.getPriceUzs(), trade.feeBaseOrPrice());
         trade.setEscrowResolvedAt(Instant.now());
     }
 
@@ -256,7 +309,8 @@ public class TradeStateHandler {
     private void releaseEscrow(Trade trade) {
         if (trade.getMode() != TradeMode.SMART) return;
         try {
-            escrow.release(trade.getId(), trade.getBuyerId(), trade.getPriceUzs());
+            escrow.release(trade.getId(), trade.getBuyerId(), trade.getSellerId(),
+                    trade.getPriceUzs(), trade.feeBaseOrPrice());
             trade.setEscrowResolvedAt(Instant.now());
         } catch (RuntimeException e) {
             // Left unresolved on purpose: escrow_resolved_at stays NULL and

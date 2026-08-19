@@ -62,9 +62,16 @@ public class OneTimePasswordService {
     @Transactional
     public UUID sendPassword(UUID tradeId, String password, UUID senderUserId) {
         Trade t = trades.get(tradeId, senderUserId);
-        if (t.roleFor(senderUserId) != ParticipantRole.SELLER) {
+        ParticipantRole senderRole = t.roleFor(senderUserId);
+        // On a sale only the seller hands an account over. On a swap both do,
+        // so either party may send — each sending the password to the account
+        // THEY are giving up.
+        if (!t.getKind().isSwap() && senderRole != ParticipantRole.SELLER) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only seller may send password");
         }
+        // The password is for the other party to use, so it lands in their chat.
+        ParticipantRole recipientRole = senderRole == ParticipantRole.SELLER
+                ? ParticipantRole.BUYER : ParticipantRole.SELLER;
 
         byte[] key = new byte[32];
         rng.nextBytes(key);
@@ -86,13 +93,13 @@ public class OneTimePasswordService {
 
         UUID messageId = UUID.randomUUID();
 
-        var buyerChat = chats.findByTradeIdAndParticipant(tradeId, ParticipantRole.BUYER)
-                .orElseThrow(() -> new EntityNotFoundException("buyer chat"));
+        var recipientChat = chats.findByTradeIdAndParticipant(tradeId, recipientRole)
+                .orElseThrow(() -> new EntityNotFoundException(recipientRole + " chat"));
 
-        // Buyer's copy carries the recoverable ciphertext.
+        // The recipient's copy carries the recoverable ciphertext.
         TradeMessage buyerMsg = TradeMessage.builder()
                 .id(messageId)
-                .tradeChatId(buyerChat.getId())
+                .tradeChatId(recipientChat.getId())
                 .senderType(TradeSenderType.USER)
                 .messageType(TradeMessageType.PASSWORD_ONETIME)
                 .encryptedBody(ciphertext)
@@ -102,12 +109,13 @@ public class OneTimePasswordService {
                 .build();
         messages.save(buyerMsg);
 
-        // Seller's copy is a status marker (no body). Same id space (different chat).
-        var sellerChat = chats.findByTradeIdAndParticipant(tradeId, ParticipantRole.SELLER)
-                .orElseThrow(() -> new EntityNotFoundException("seller chat"));
+        // The sender's own copy is a status marker (no body): they typed it, so
+        // they do not need it back, but their panel needs to show it went.
+        var senderChat = chats.findByTradeIdAndParticipant(tradeId, senderRole)
+                .orElseThrow(() -> new EntityNotFoundException(senderRole + " chat"));
         TradeMessage sellerMarker = TradeMessage.builder()
                 .id(UUID.randomUUID())
-                .tradeChatId(sellerChat.getId())
+                .tradeChatId(senderChat.getId())
                 .senderType(TradeSenderType.SMART_ADMIN)
                 .messageType(TradeMessageType.STATUS)
                 .metadata(Map.of("code", "PASSWORD_SENT", "groupId", messageId.toString()))
@@ -150,12 +158,16 @@ public class OneTimePasswordService {
     @Transactional
     public String reveal(UUID tradeId, UUID messageId, UUID viewerUserId) {
         Trade t = trades.get(tradeId, viewerUserId);
-        if (t.roleFor(viewerUserId) != ParticipantRole.BUYER) {
+        ParticipantRole viewerRole = t.roleFor(viewerUserId);
+        if (!t.getKind().isSwap() && viewerRole != ParticipantRole.BUYER) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only buyer may reveal");
         }
 
-        var buyerChat = chats.findByTradeIdAndParticipant(tradeId, ParticipantRole.BUYER)
-                .orElseThrow(() -> new EntityNotFoundException("buyer chat"));
+        // Whichever chat is the viewer's own. The message only exists in the
+        // recipient's chat, so this filter is also the authorisation: a party
+        // cannot reveal the password to the account they themselves gave up.
+        var buyerChat = chats.findByTradeIdAndParticipant(tradeId, viewerRole)
+                .orElseThrow(() -> new EntityNotFoundException(viewerRole + " chat"));
         var msg = messages.findById(messageId)
                 .filter(m -> m.getTradeChatId().equals(buyerChat.getId()))
                 .filter(m -> m.getMessageType() == TradeMessageType.PASSWORD_ONETIME)

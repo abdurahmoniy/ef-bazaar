@@ -2,6 +2,7 @@ package uz.efbazaar.payment.security;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -46,6 +47,11 @@ public class SecurityConfig {
                         // caller is trade-service, which has no user identity.
                         // permitAll here would be wrong without that filter.
                         .requestMatchers("/internal/**").permitAll()
+                        // The fee schedule is quoted on the listing form and the
+                        // proposal dialog, both reachable before signing in, and
+                        // there is nothing private about what the platform
+                        // charges. Read-only — the admin path below writes it.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/payments/commission").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class)
