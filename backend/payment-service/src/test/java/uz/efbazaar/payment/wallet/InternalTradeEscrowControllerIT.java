@@ -47,13 +47,25 @@ class InternalTradeEscrowControllerIT extends AbstractPostgresIT {
         return user;
     }
 
+    /** See TradeEscrowServiceIT: the rates live in the database now, and the
+     *  suite shares one container, so a class asserting exact so'm has to pin
+     *  them or inherit whatever the last test left behind. */
+    @Autowired uz.efbazaar.payment.wallet.service.TradeCommissionService commissionService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void pinCommissionRates() {
+        commissionService.updateConfig(java.util.UUID.randomUUID(),
+                new uz.efbazaar.payment.wallet.dto.UpdateTradeCommissionConfigRequest(
+                        100_000L, 10.0, 7.5, 5_000L, 10_000L));
+    }
+
     @Test
     void aCallWithoutTheSecretMovesNothing() throws Exception {
         UUID buyer = fundedUser(50_000_000L);
 
         mvc.perform(post("/internal/trades/{id}/escrow/hold", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(new HoldRequest(buyer, 50_000_000L))))
+                        .content(json.writeValueAsString(new HoldRequest(buyer, null, 50_000_000L, null))))
                 .andExpect(status().isForbidden());
 
         assertThat(ledger.balanceOf(buyer).getHeldTiyin())
@@ -67,7 +79,7 @@ class InternalTradeEscrowControllerIT extends AbstractPostgresIT {
                         .header("X-Internal-Secret", "not-the-secret")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(
-                                new HoldRequest(UUID.randomUUID(), 50_000_000L))))
+                                new HoldRequest(UUID.randomUUID(), null, 50_000_000L, null))))
                 .andExpect(status().isForbidden());
     }
 
@@ -78,7 +90,7 @@ class InternalTradeEscrowControllerIT extends AbstractPostgresIT {
         mvc.perform(post("/internal/trades/{id}/escrow/hold", UUID.randomUUID())
                         .header("X-Internal-Secret", secret)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(new HoldRequest(buyer, 50_000_000L))))
+                        .content(json.writeValueAsString(new HoldRequest(buyer, null, 50_000_000L, null))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.feeTiyin").value(3_750_000))
                 .andExpect(jsonPath("$.sellerProceedsTiyin").value(46_250_000));
@@ -93,7 +105,7 @@ class InternalTradeEscrowControllerIT extends AbstractPostgresIT {
         mvc.perform(post("/internal/trades/{id}/escrow/hold", UUID.randomUUID())
                         .header("X-Internal-Secret", secret)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(new HoldRequest(buyer, 50_000_000L))))
+                        .content(json.writeValueAsString(new HoldRequest(buyer, null, 50_000_000L, null))))
                 .andExpect(status().isConflict());
     }
 }

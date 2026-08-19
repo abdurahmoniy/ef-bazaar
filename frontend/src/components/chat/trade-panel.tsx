@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ShieldCheck,
   UserCog,
+  Users,
   X,
   XCircle,
 } from 'lucide-react';
@@ -38,6 +39,16 @@ import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
 import { isHumanProposal, isHumanTrade, validateAdminFee } from '@/lib/trade-human';
 import { createInvoice } from '@/lib/payment-client';
 import { planPollTick } from '@/lib/trade-poll-plan';
+import {
+  allowedKinds,
+  counterpartStatus,
+  isSwap,
+  isWaitingForCounterpart,
+  needsAmount,
+  TRADE_KIND_HINT_UZ,
+  TRADE_KIND_LABEL_UZ,
+  type ExchangeMode,
+} from '@/lib/trade-swap';
 import { isInsufficientFunds, shortfallSom, topUpHref } from '@/lib/wallet-shortfall';
 import {
   isTerminalState,
@@ -47,6 +58,8 @@ import {
   type ProposalCreateRequest,
   type ProposalResponse,
   type TradeAdminCardResponse,
+  type ParticipantRole,
+  type TradeKind,
   type TradeMode,
   type TradeResponse,
 } from '@/lib/trade-types';
@@ -113,6 +126,7 @@ export function TradePanel({
             mode: initialPendingProposal.mode ?? undefined,
             adminId: initialPendingProposal.adminId ?? undefined,
             adminFeeUzs: initialPendingProposal.adminFeeUzs ?? undefined,
+            kind: initialPendingProposal.kind ?? undefined,
           }
         : null,
   );
@@ -189,6 +203,7 @@ export function TradePanel({
               mode: p.mode ?? undefined,
               adminId: p.adminId ?? undefined,
               adminFeeUzs: p.adminFeeUzs ?? undefined,
+              kind: p.kind ?? undefined,
             });
             return;
           }
@@ -528,6 +543,11 @@ function ActiveTradeCard({
         </div>
       </div>
 
+      {/* On a swap the trade only advances when both parties have done the
+          step, so a party who finished first would otherwise stare at a panel
+          that looks stuck. */}
+      <CounterpartLine trade={trade} viewerRole={trade.role ?? null} />
+
       <TradeStateActions
         trade={trade}
         isBuyer={isBuyer}
@@ -588,6 +608,8 @@ function TradeStateActions({
   onActionError,
   onRefresh,
 }: StateActionProps) {
+  // A swap asks both sides for the transfer steps; a sale asks only the seller.
+  const acts = isSeller || isSwap(trade.kind);
   switch (trade.state) {
     case 'INITIATED':
       return <InitiatedPanel />;
@@ -606,8 +628,10 @@ function TradeStateActions({
           hamyoningizga tushadi.
         </InfoBox>
       );
+    // On a swap every step is asked of both parties, so the action panel is
+    // not the seller's alone: `acts` is true for whoever still has to do it.
     case 'WAITING_EMAIL_CHANGE':
-      return isSeller ? (
+      return acts ? (
         <WaitingEmailChangeSellerPanel
           trade={trade}
           onActionError={onActionError}
@@ -617,7 +641,7 @@ function TradeStateActions({
         <InfoBox>Sotuvchi email o&apos;zgartirishini kutmoqda.</InfoBox>
       );
     case 'VERIFYING_KONAMI_LINK':
-      return isSeller ? (
+      return acts ? (
         <VerifyingKonamiSellerPanel
           trade={trade}
           onActionError={onActionError}
@@ -627,7 +651,7 @@ function TradeStateActions({
         <InfoBox>Konami tekshirilmoqda…</InfoBox>
       );
     case 'WAITING_PASSWORD':
-      return isSeller ? (
+      return acts ? (
         <WaitingPasswordSellerPanel
           trade={trade}
           onActionError={onActionError}
@@ -637,7 +661,7 @@ function TradeStateActions({
         <InfoBox>Sotuvchi Konami parolini yuborishini kutmoqda.</InfoBox>
       );
     case 'WAITING_BUYER_VERIFY':
-      return isBuyer ? (
+      return isBuyer || isSwap(trade.kind) ? (
         <WaitingBuyerVerifyBuyerPanel
           trade={trade}
           revealedPassword={revealedPassword}
@@ -665,6 +689,35 @@ function TradeStateActions({
     default:
       return null;
   }
+}
+
+/** Where the other party has got to, and whether we are the ones waiting. */
+function CounterpartLine({
+  trade,
+  viewerRole,
+}: {
+  trade: TradeResponse;
+  viewerRole: ParticipantRole | null;
+}) {
+  const status = counterpartStatus(trade, viewerRole);
+  if (!status) return null;
+  const waiting = isWaitingForCounterpart(trade, viewerRole);
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-2 rounded-lg px-3 py-2 text-[11.5px]',
+        waiting ? 'bg-primary/5 text-foreground' : 'bg-muted/40 text-muted-foreground',
+      )}
+    >
+      <Users className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span>
+        {status}
+        {waiting && (
+          <b className="ml-1 text-primary">— sizning qismingiz bajarildi</b>
+        )}
+      </span>
+    </div>
+  );
 }
 
 // -------------------- per-state panels --------------------
@@ -1406,6 +1459,8 @@ interface PendingProposal {
   mode?: TradeMode;
   adminId?: string;
   adminFeeUzs?: number;
+  /** Absent on a sale and on responses from before swaps shipped. */
+  kind?: TradeKind;
 }
 
 function PendingProposalCard({
@@ -1489,6 +1544,11 @@ function ProposeModal({
   onCreated: (p: ProposalResponse, priceUzs: number, mode: TradeMode, adminFeeUzs?: number) => void;
 }) {
   const initialPrice = listing ? String(Math.trunc(Number(listing.price))) : '';
+  // What the seller published this account under. The picker only offers what
+  // they allowed, and the server refuses anything else regardless.
+  const exchangeMode = (listing?.attributes?.exchange_mode ?? null) as ExchangeMode | null;
+  const kinds = allowedKinds(exchangeMode);
+  const [kind, setKind] = useState<TradeKind>(kinds[0]);
   const [mode, setMode] = useState<TradeMode>('SMART');
   const [price, setPrice] = useState(initialPrice);
   const [selectedAdmin, setSelectedAdmin] = useState<TradeAdminCardResponse | null>(null);
@@ -1503,9 +1563,13 @@ function ProposeModal({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const priceUzs = Number(price);
-    if (!Number.isFinite(priceUzs) || priceUzs <= 0) {
-      setError("Narx musbat butun son bo'lishi kerak");
+    // A plain swap moves no money, so there is no number to check and none
+    // to send: the accepter's wallet is charged nothing.
+    const priceUzs = needsAmount(kind) ? Number(price) : 0;
+    if (needsAmount(kind) && (!Number.isFinite(priceUzs) || priceUzs <= 0)) {
+      setError(kind === 'SWAP_SURCHARGE'
+        ? "Doplata musbat butun son bo'lishi kerak"
+        : "Narx musbat butun son bo'lishi kerak");
       return;
     }
     const feeUzs = Number(adminFee);
@@ -1526,6 +1590,7 @@ function ProposeModal({
       buyerId: accountRequest?.requesterId ?? otherPartyId,
       amountUzs: priceUzs,
       mode,
+      kind,
       listingId: accountRequest?.listingId ?? listing?.id ?? null,
     };
     if (mode === 'HUMAN' && selectedAdmin) {
@@ -1590,8 +1655,42 @@ function ProposeModal({
         </div>
         )}
 
+        {kinds.length > 1 && (
+          <div>
+            <Label>Savdo turi</Label>
+            <div className="grid gap-2" role="radiogroup" aria-label="Savdo turi">
+              {kinds.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={kind === option}
+                  onClick={() => setKind(option)}
+                  className={cn(
+                    'rounded-lg border px-3 py-2 text-left text-sm transition',
+                    kind === option
+                      ? 'border-primary bg-primary/10 text-foreground'
+                      : 'border-border bg-card text-muted-foreground hover:border-primary/40',
+                  )}
+                >
+                  <span className="block font-black">{TRADE_KIND_LABEL_UZ[option]}</span>
+                  <span className="text-[10.5px]">{TRADE_KIND_HINT_UZ[option]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!needsAmount(kind) ? (
+          <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            Toza obmenda pul o&apos;tmaydi. Ikkala taraf ham akkountini
+            platforma pochtasiga o&apos;tkazadi va yakunda ular almashtiriladi.
+          </p>
+        ) : (
         <div>
-          <Label htmlFor="trade-price">Narx (UZS)</Label>
+          <Label htmlFor="trade-price">
+            {kind === 'SWAP_SURCHARGE' ? 'Doplata (UZS)' : 'Narx (UZS)'}
+          </Label>
           <Input
             id="trade-price"
             type="number"
@@ -1603,7 +1702,12 @@ function ProposeModal({
             placeholder="500000"
             required
           />
-          {Number(price) > 0 && (
+          {kind === 'SWAP_SURCHARGE' && (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Akkountlar almashinadi, xaridor ustiga shu summani to&apos;laydi.
+            </p>
+          )}
+          {Number(price) > 0 && kind === 'SALE' && (
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               Xaridor <b className="text-foreground">{formatPriceUZS(Number(price))}</b> to&apos;laydi ·
               smart-admin xizmati <b className="text-foreground">−{formatPriceUZS(tradeFeeSom(Number(price)))}</b> ·
@@ -1611,6 +1715,24 @@ function ProposeModal({
             </p>
           )}
         </div>
+        )}
+
+        {/* On a swap the fee comes off the listing price, not the surcharge —
+            so quoting it against the amount typed above would understate it,
+            often by a lot. */}
+        {isSwap(kind) && listing && (
+          <p className="rounded-lg bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+            Platforma xizmati e&apos;lon narxidan hisoblanadi:{' '}
+            <b className="text-foreground">
+              −{formatPriceUZS(tradeFeeSom(Number(listing.price)))}
+            </b>{' '}
+            · sizning hamyoningizdan
+            {kind === 'SWAP_SURCHARGE' && Number(price) > 0
+              ? `, doplatadan qoplanadi (${formatPriceUZS(Number(price))})`
+              : ''}
+          </p>
+        )}
+
         {mode === 'SMART' ? (
           <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
             To&apos;lov xaridorning hamyonidan yechiladi va savdo yakunlangunicha
@@ -1711,10 +1833,29 @@ function AcceptModal({
     <ModalShell title="Taklifni qabul qilish" onClose={onClose}>
       <form className="space-y-3" onSubmit={handleSubmit}>
         <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          {/* The format comes first: agreeing to hand over an account is a
+              different decision from agreeing to pay, and the old card showed
+              only a price. */}
           <p>
-            <span className="font-semibold text-foreground">Narx:</span>{' '}
-            {formatPriceUZS(proposal.priceUzs)}
+            <span className="font-semibold text-foreground">Savdo turi:</span>{' '}
+            <b className="text-foreground">
+              {TRADE_KIND_LABEL_UZ[proposal.kind ?? 'SALE']}
+            </b>
           </p>
+          {isSwap(proposal.kind) && (
+            <p className="mt-0.5">
+              Siz ham o&apos;z akkountingizni platforma pochtasiga
+              o&apos;tkazasiz. Ikkalangiz tasdiqlagach akkountlar almashinadi.
+            </p>
+          )}
+          {proposal.priceUzs > 0 && (
+            <p className="mt-0.5">
+              <span className="font-semibold text-foreground">
+                {proposal.kind === 'SWAP_SURCHARGE' ? 'Doplata:' : 'Narx:'}
+              </span>{' '}
+              {formatPriceUZS(proposal.priceUzs)}
+            </p>
+          )}
           {isHumanProposal(proposal) ? (
             <p className="mt-0.5">
               Tasdiqlagach inson admin taklifni qabul qiladi. Admin to'lovi

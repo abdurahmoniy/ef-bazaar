@@ -90,7 +90,7 @@ class TradeE2EIT extends AbstractIntegrationIT {
 
         // Step 2: Seller creates a proposal.
         var createReq = new ProposalCreateRequest(chatId, buyer, seller, buyer, 500_000L, sellerCardId, null,
-                TradeMode.SMART, null, null);
+                TradeMode.SMART, null, null, null);
         var createResult = mvc.perform(post("/api/v1/trades/proposals")
                         .with(asUser(seller))
                         .contentType(MediaType.APPLICATION_JSON)

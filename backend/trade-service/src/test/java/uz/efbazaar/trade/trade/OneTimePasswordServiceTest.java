@@ -5,7 +5,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
 import uz.efbazaar.trade.trade.domain.ActorType;
+import uz.efbazaar.trade.trade.domain.Trade;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
+import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.exception.PasswordAlreadyRevealedException;
 import uz.efbazaar.trade.trade.repository.TradeMessageRepository;
 import uz.efbazaar.trade.trade.service.OneTimePasswordService;
@@ -22,6 +24,8 @@ class OneTimePasswordServiceTest extends AbstractIntegrationIT {
     @Autowired OneTimePasswordService otp;
     @Autowired TradeService trades;
     @Autowired TradeMessageRepository messages;
+    @Autowired uz.efbazaar.trade.trade.repository.TradeRepository tradeRepo;
+    @Autowired uz.efbazaar.trade.trade.repository.TradeSideRepository sideRepo;
 
     @Test
     void revealYieldsPlaintextOnceThenIsGone() {
@@ -31,10 +35,7 @@ class OneTimePasswordServiceTest extends AbstractIntegrationIT {
         var trade = trades.openTrade(seller, buyer, 500_000L,
                 UUID.randomUUID(), UUID.randomUUID(), null);
         // Fast-forward to WAITING_PASSWORD.
-        trades.transition(trade.id(), TradeEvent.MAILBOX_PROVISIONED, ActorType.WORKER, null);
-        trades.transition(trade.id(), TradeEvent.PAYMENT_CONFIRMED,  ActorType.USER, buyer);
-        trades.transition(trade.id(), TradeEvent.EMAIL_CHANGED,       ActorType.USER, seller);
-        trades.transition(trade.id(), TradeEvent.KONAMI_EMAIL_RECEIVED, ActorType.WORKER, null);
+        driveToWaitingPassword(trade.id(), seller, buyer);
 
         UUID msgId = otp.sendPassword(trade.id(), "SuperSecret42", seller);
 
@@ -51,13 +52,75 @@ class OneTimePasswordServiceTest extends AbstractIntegrationIT {
 
         var trade = trades.openTrade(seller, buyer, 500_000L,
                 UUID.randomUUID(), UUID.randomUUID(), null);
-        trades.transition(trade.id(), TradeEvent.MAILBOX_PROVISIONED, ActorType.WORKER, null);
-        trades.transition(trade.id(), TradeEvent.PAYMENT_CONFIRMED,  ActorType.USER, buyer);
-        trades.transition(trade.id(), TradeEvent.EMAIL_CHANGED,       ActorType.USER, seller);
-        trades.transition(trade.id(), TradeEvent.KONAMI_EMAIL_RECEIVED, ActorType.WORKER, null);
+        driveToWaitingPassword(trade.id(), seller, buyer);
 
         UUID msgId = otp.sendPassword(trade.id(), "topsecret", seller);
         assertThatThrownBy(() -> otp.reveal(trade.id(), msgId, seller))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+    }
+
+    /**
+     * Walks the trade to WAITING_PASSWORD without racing MockWorker.
+     *
+     * <p>MockWorker is live under the {@code test} profile and drives the same
+     * trade over Kafka: entering VERIFYING_KONAMI_LINK fires a forgot-password
+     * request, and MockWorker answers it with konami-email-received. So the
+     * trade can arrive at the next state on its own, and a hard-coded sequence
+     * of transitions is a race — whichever thread gets there first wins, and
+     * the loser throws InvalidTradeTransition.
+     *
+     * <p>Skipping events the trade has already passed makes the setup say what
+     * it means: get to WAITING_PASSWORD, however it happens.
+     */
+    private void driveToWaitingPassword(UUID tradeId, UUID seller, UUID buyer) {
+        // Loops rather than running a fixed sequence: MockWorker may advance a
+        // step between two of ours, and the next event then depends on where
+        // the trade actually is, not on where the script thinks it is. Bounded,
+        // so a genuinely stuck trade fails loudly instead of hanging.
+        for (int attempt = 0; attempt < 12; attempt++) {
+            TradeState now = tradeRepo.findById(tradeId).orElseThrow().getState();
+            if (now == TradeState.WAITING_PASSWORD) return;
+            switch (now) {
+                case INITIATED -> applyIfPending(tradeId, now,
+                        TradeEvent.MAILBOX_PROVISIONED, ActorType.WORKER, null);
+                case WAITING_PAYMENT -> applyIfPending(tradeId, now,
+                        TradeEvent.PAYMENT_CONFIRMED, ActorType.USER, buyer);
+                case WAITING_EMAIL_CHANGE -> applyIfPending(tradeId, now,
+                        TradeEvent.EMAIL_CHANGED, ActorType.USER, seller);
+                case VERIFYING_KONAMI_LINK -> applyIfPending(tradeId, now,
+                        TradeEvent.KONAMI_EMAIL_RECEIVED, ActorType.WORKER, null);
+                default -> throw new AssertionError(
+                        "Trade wandered off the smart path: " + describe(tradeId));
+            }
+        }
+        throw new AssertionError("Setup never reached WAITING_PASSWORD: " + describe(tradeId));
+    }
+
+    /** Everything needed to tell a stuck trade from a racing one. */
+    private String describe(UUID tradeId) {
+        Trade t = tradeRepo.findById(tradeId).orElseThrow();
+        return "state=" + t.getState() + " kind=" + t.getKind() + " mode=" + t.getMode()
+                + " sides=" + sideRepo.findByIdTradeId(tradeId).stream()
+                .map(x -> x.role() + "{mailbox=" + (x.getMailboxId() != null)
+                        + ",email=" + (x.getEmailChangedAt() != null)
+                        + ",konami=" + (x.getKonamiVerifiedAt() != null) + "}")
+                .toList();
+    }
+
+    /**
+     * Fires the event, treating "already past it" as done.
+     *
+     * <p>Reading the state and then acting on it cannot be atomic: MockWorker
+     * drives the same trade over Kafka and may advance it in the gap. The
+     * caller's loop re-reads and carries on; a trade that genuinely cannot move
+     * still fails on the loop's bound.
+     */
+    private void applyIfPending(UUID tradeId, TradeState expected,
+                                TradeEvent event, ActorType actor, UUID actorId) {
+        try {
+            trades.transition(tradeId, event, actor, actorId);
+        } catch (uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException alreadyMoved) {
+            // Someone else got there first, which is the outcome we wanted.
+        }
     }
 }

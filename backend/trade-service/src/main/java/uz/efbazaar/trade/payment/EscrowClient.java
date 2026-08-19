@@ -45,30 +45,43 @@ public class EscrowClient {
     }
 
     /**
-     * Freezes the price in the buyer's wallet.
+     * Freezes what each party owes.
      *
-     * @throws ResponseStatusException 409 when the buyer cannot cover it — the
-     *         caller must not open the trade
+     * <p>{@code accepterUzs} is the money changing hands — the price on a sale,
+     * the surcharge on a swap that has one, zero on a plain swap.
+     * {@code feeBaseUzs} is what the platform's cut is worked out from, which
+     * on a swap is the listing price rather than anything paid.
+     *
+     * @throws ResponseStatusException 409 when either wallet cannot cover its
+     *         share — the caller must not open the trade
      */
-    public void hold(UUID tradeId, UUID buyerId, long priceUzs) {
+    public void hold(UUID tradeId, UUID accepterId, UUID proposerId,
+                     long accepterUzs, long feeBaseUzs) {
         call(tradeId, "hold", Map.of(
-                "buyerId", buyerId.toString(),
-                "priceTiyin", priceUzs * TIYIN_PER_SOM));
+                "buyerId", accepterId.toString(),
+                "sellerId", proposerId.toString(),
+                "priceTiyin", accepterUzs * TIYIN_PER_SOM,
+                "feeBaseTiyin", feeBaseUzs * TIYIN_PER_SOM));
     }
 
-    /** Pays the seller, less the platform's share. */
-    public void settle(UUID tradeId, UUID buyerId, UUID sellerId, long priceUzs) {
+    /** Pays the proposer, less the platform's share. */
+    public void settle(UUID tradeId, UUID accepterId, UUID proposerId,
+                       long accepterUzs, long feeBaseUzs) {
         call(tradeId, "settle", Map.of(
-                "buyerId", buyerId.toString(),
-                "sellerId", sellerId.toString(),
-                "priceTiyin", priceUzs * TIYIN_PER_SOM));
+                "buyerId", accepterId.toString(),
+                "sellerId", proposerId.toString(),
+                "priceTiyin", accepterUzs * TIYIN_PER_SOM,
+                "feeBaseTiyin", feeBaseUzs * TIYIN_PER_SOM));
     }
 
-    /** Returns the whole escrow to the buyer. */
-    public void release(UUID tradeId, UUID buyerId, long priceUzs) {
+    /** Returns every hold to whoever put it up. */
+    public void release(UUID tradeId, UUID accepterId, UUID proposerId,
+                        long accepterUzs, long feeBaseUzs) {
         call(tradeId, "release", Map.of(
-                "buyerId", buyerId.toString(),
-                "priceTiyin", priceUzs * TIYIN_PER_SOM));
+                "buyerId", accepterId.toString(),
+                "sellerId", proposerId.toString(),
+                "priceTiyin", accepterUzs * TIYIN_PER_SOM,
+                "feeBaseTiyin", feeBaseUzs * TIYIN_PER_SOM));
     }
 
     private void call(UUID tradeId, String action, Map<String, Object> body) {

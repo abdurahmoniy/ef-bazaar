@@ -40,6 +40,11 @@ public class Trade {
     @Column(name = "chat_id", updatable = false)
     private UUID chatId;
 
+    /**
+     * Money the ACCEPTER's wallet is charged: the price on a sale, the
+     * surcharge on a swap that has one, zero on a plain swap. One meaning, so
+     * escrow takes the same path in all three and a zero skips it entirely.
+     */
     @Column(name = "price_uzs", nullable = false, updatable = false)
     private long priceUzs;
 
@@ -97,6 +102,35 @@ public class Trade {
     @Column(name = "mode", nullable = false, length = 8)
     @Builder.Default
     private TradeMode mode = TradeMode.SMART;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kind", nullable = false, length = 20)
+    @Builder.Default
+    private TradeKind kind = TradeKind.SALE;
+
+    /**
+     * The platform's cut, charged to the PROPOSER.
+     *
+     * <p>Stored rather than recomputed so a later change to the commission
+     * table cannot rewrite the arithmetic of a trade that already closed. On a
+     * swap it is worked out from the listing price — the value of the account
+     * being given up — so a token surcharge cannot buy a cheaper trade.
+     */
+    @Column(name = "proposer_fee_uzs")
+    private Long proposerFeeUzs;
+
+    /**
+     * What the commission is worked out from: the price on a sale, the listing
+     * price on a swap. Frozen at open, because a listing edited mid-trade would
+     * otherwise change the fee the parties were quoted.
+     */
+    @Column(name = "fee_base_uzs")
+    private Long feeBaseUzs;
+
+    /** Falls back to the price for trades opened before swaps existed. */
+    public long feeBaseOrPrice() {
+        return feeBaseUzs != null ? feeBaseUzs : priceUzs;
+    }
 
     @Column(name = "assigned_admin_id")
     private UUID assignedAdminId;

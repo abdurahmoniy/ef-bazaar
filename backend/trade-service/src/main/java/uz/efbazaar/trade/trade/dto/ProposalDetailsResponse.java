@@ -3,6 +3,7 @@ package uz.efbazaar.trade.trade.dto;
 import java.time.Instant;
 import java.util.UUID;
 
+import uz.efbazaar.trade.trade.domain.TradeKind;
 import uz.efbazaar.trade.trade.domain.TradeMode;
 
 /**
@@ -24,6 +25,8 @@ public record ProposalDetailsResponse(
         long amountUzs,
         UUID listingId,
         Instant expiresAt,
+        /** What the accepter is agreeing to: a sale, a swap, or a swap plus money. */
+        TradeKind kind,
         /** SMART unless the seller hired a human admin. */
         TradeMode mode,
         UUID adminId,

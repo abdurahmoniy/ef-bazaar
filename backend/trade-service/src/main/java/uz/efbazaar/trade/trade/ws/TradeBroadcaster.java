@@ -56,6 +56,6 @@ public class TradeBroadcaster {
         return new TradeResponse(r.id(), r.state(), r.sellerId(), r.buyerId(),
                 r.priceUzs(), r.mailboxId(), r.mailboxEmail(), r.chatId(), r.createdAt(),
                 r.expiresAt(), r.stateDeadline(), role, r.passwordMessageId(),
-                r.emailChangeVerificationCode());
+                r.emailChangeVerificationCode(), r.kind(), r.sides());
     }
 }

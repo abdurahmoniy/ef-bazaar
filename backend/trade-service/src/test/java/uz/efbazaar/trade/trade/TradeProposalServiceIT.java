@@ -36,7 +36,7 @@ class TradeProposalServiceIT extends AbstractIntegrationIT {
 
         ProposalCreateRequest req = new ProposalCreateRequest(
                 UUID.randomUUID(), other, proposer, other,
-                500_000L, UUID.randomUUID(), null, TradeMode.SMART, null, null);
+                500_000L, UUID.randomUUID(), null, TradeMode.SMART, null, null, null);
         ProposalResponse res = svc.create(proposer, req);
 
         String key = "trade:proposal:" + res.proposalId();
@@ -53,7 +53,7 @@ class TradeProposalServiceIT extends AbstractIntegrationIT {
 
         ProposalCreateRequest req = new ProposalCreateRequest(
                 chatId, other, proposer, other, 500_000L, UUID.randomUUID(), null,
-                TradeMode.SMART, null, null);
+                TradeMode.SMART, null, null, null);
         ProposalResponse res = svc.create(proposer, req);
 
         String indexKey = "trade:proposal:by-chat:" + chatId;
@@ -69,7 +69,7 @@ class TradeProposalServiceIT extends AbstractIntegrationIT {
 
         ProposalCreateRequest req = new ProposalCreateRequest(
                 chatId, buyer, seller, buyer, 500_000L, UUID.randomUUID(), null,
-                TradeMode.SMART, null, null);
+                TradeMode.SMART, null, null, null);
         ProposalResponse res = svc.create(seller, req);
 
         Optional<ProposalDetailsResponse> sellerView = svc.findActiveProposalByChatId(chatId, seller);
@@ -93,7 +93,7 @@ class TradeProposalServiceIT extends AbstractIntegrationIT {
 
         ProposalCreateRequest req = new ProposalCreateRequest(
                 chatId, buyer, seller, buyer, 500_000L, UUID.randomUUID(), null,
-                TradeMode.SMART, null, null);
+                TradeMode.SMART, null, null, null);
         svc.create(seller, req);
 
         assertThat(svc.findActiveProposalByChatId(chatId, stranger)).isEmpty();
@@ -112,7 +112,7 @@ class TradeProposalServiceIT extends AbstractIntegrationIT {
 
         ProposalCreateRequest req = new ProposalCreateRequest(
                 chatId, buyer, seller, buyer, 500_000L, UUID.randomUUID(), null,
-                TradeMode.SMART, null, null);
+                TradeMode.SMART, null, null, null);
         ProposalResponse res = svc.create(seller, req);
 
         svc.reject(buyer, res.proposalId());
@@ -140,7 +140,7 @@ class TradeProposalServiceIT extends AbstractIntegrationIT {
 
         ProposalCreateRequest req = new ProposalCreateRequest(
                 UUID.randomUUID(), buyer, seller, buyer, 500_000L,
-                sellerCard, null, TradeMode.SMART, null, null);
+                sellerCard, null, TradeMode.SMART, null, null, null);
         ProposalResponse pr = svc.create(seller, req);
 
         var trade = svc.accept(buyer, pr.proposalId(), buyerCard);
@@ -156,7 +156,7 @@ class TradeProposalServiceIT extends AbstractIntegrationIT {
 
         ProposalCreateRequest req = new ProposalCreateRequest(
                 chatId, buyer, seller, buyer, 500_000L,
-                UUID.randomUUID(), null, TradeMode.SMART, null, null);
+                UUID.randomUUID(), null, TradeMode.SMART, null, null, null);
         ProposalResponse pr = svc.create(seller, req);
 
         svc.accept(buyer, pr.proposalId(), UUID.randomUUID());

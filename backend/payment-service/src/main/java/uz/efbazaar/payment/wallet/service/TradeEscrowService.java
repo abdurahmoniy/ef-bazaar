@@ -37,97 +37,137 @@ public class TradeEscrowService {
     private final TradeCommissionService commissionService;
 
     /**
-     * Moves the price from the buyer's spendable balance into escrow.
+     * Freezes what each party owes.
+     *
+     * <p>Two amounts, one transaction. The accepter owes {@code accepterTiyin}
+     * — the price on a sale, the surcharge on a swap that has one, nothing on a
+     * plain swap. The proposer owes the platform's fee, and pays it from their
+     * own wallet only for the part the accepter's money does not cover: on a
+     * sale all of it is covered, on a plain swap none of it.
+     *
+     * <p>{@code feeBaseTiyin} is what the fee is calculated from, and is not
+     * always what changes hands: on a swap it is the listing price, the value
+     * of the account being given up. Basing it on the surcharge instead would
+     * let a token 1 000 so'm top-up turn a 37 500 fee into the floor.
      *
      * <p>Refuses rather than overdrawing. {@code chk_wallet_non_negative} would
      * catch it too, but a constraint violation dooms the transaction and the
      * caller gets a 409 about nothing instead of a clear "not enough money".
      */
     @Transactional
-    public void hold(UUID tradeId, UUID buyerId, long priceTiyin) {
-        requirePositive(priceTiyin);
-        if (priceTiyin < commissionService.minimumViablePriceTiyin()) {
+    public void hold(UUID tradeId, UUID accepterId, UUID proposerId,
+                     long accepterTiyin, long feeBaseTiyin) {
+        if (accepterTiyin < 0) {
+            throw new IllegalArgumentException("Accepter amount cannot be negative");
+        }
+        requirePositive(feeBaseTiyin);
+        if (feeBaseTiyin < commissionService.minimumViablePriceTiyin()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Savdo summasi juda kichik — eng kami "
                             + commissionService.minimumViablePriceTiyin() / 100 + " so'm");
         }
 
-        WalletAccount w = ledger.balanceOf(buyerId);
-        if (w.getAvailableTiyin() < priceTiyin) {
+        long fee = commissionService.feeTiyin(feeBaseTiyin);
+        long proposerOwes = Math.max(0, fee - accepterTiyin);
+
+        requireFunds(accepterId, accepterTiyin);
+        // Checked separately so the message names the wallet that is short.
+        // On a sale this is always zero and the proposer is never consulted.
+        requireFunds(proposerId, proposerOwes);
+
+        var postings = new java.util.ArrayList<Posting>(4);
+        if (accepterTiyin > 0) {
+            postings.add(new Posting(LedgerAccount.USER_AVAILABLE, accepterId, accepterTiyin));
+            postings.add(new Posting(LedgerAccount.USER_HELD, accepterId, -accepterTiyin));
+        }
+        if (proposerOwes > 0) {
+            postings.add(new Posting(LedgerAccount.USER_AVAILABLE, proposerId, proposerOwes));
+            postings.add(new Posting(LedgerAccount.USER_HELD, proposerId, -proposerOwes));
+        }
+        // Never empty: a zero accepter amount forces proposerOwes to the whole
+        // fee, which is positive by construction.
+
+        ledger.post(TransactionKind.TRADE_HOLD, key("hold", tradeId), null,
+                "trade " + tradeId + " fee " + fee, postings);
+    }
+
+    private void requireFunds(UUID userId, long tiyin) {
+        if (tiyin <= 0) return;
+        if (ledger.balanceOf(userId).getAvailableTiyin() < tiyin) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Hamyonda mablag' yetarli emas");
         }
-
-        ledger.post(TransactionKind.TRADE_HOLD, key("hold", tradeId), null,
-                "trade " + tradeId,
-                List.of(new Posting(LedgerAccount.USER_AVAILABLE, buyerId, priceTiyin),
-                        new Posting(LedgerAccount.USER_HELD, buyerId, -priceTiyin)));
     }
 
     /**
-     * Ends the trade in the seller's favour: escrow drains to the seller, less
-     * the platform's share.
+     * Ends the trade in the proposer's favour: escrow drains, less the
+     * platform's share.
      *
-     * <p>The three postings are one transaction. The seller cannot be credited
-     * without the buyer's hold being released, and the platform cannot take a
-     * fee without both.
+     * <p>One transaction. The proposer cannot be credited without both holds
+     * being released, and the platform cannot take a fee without either.
+     *
+     * <p>The proposer's own hold exists only when the fee outran what the
+     * accepter paid — a swap of a dear account for a token surcharge. It is
+     * consumed here rather than returned: it is the fee.
      */
     @Transactional
-    public void settle(UUID tradeId, UUID buyerId, UUID sellerId, long priceTiyin) {
-        requirePositive(priceTiyin);
+    public void settle(UUID tradeId, UUID accepterId, UUID proposerId,
+                       long accepterTiyin, long feeBaseTiyin) {
+        requirePositive(feeBaseTiyin);
         if (neverHeld(tradeId, "settle")) return;
-        long fee = commissionService.feeTiyin(priceTiyin);
-        long proceeds = priceTiyin - fee;
 
-        var postings = new java.util.ArrayList<Posting>(3);
-        postings.add(new Posting(LedgerAccount.USER_HELD, buyerId, priceTiyin));
+        long fee = commissionService.feeTiyin(feeBaseTiyin);
+        long proposerOwes = Math.max(0, fee - accepterTiyin);
+        long proceeds = Math.max(0, accepterTiyin - fee);
+
+        var postings = new java.util.ArrayList<Posting>(4);
+        if (accepterTiyin > 0) {
+            postings.add(new Posting(LedgerAccount.USER_HELD, accepterId, accepterTiyin));
+        }
+        if (proposerOwes > 0) {
+            postings.add(new Posting(LedgerAccount.USER_HELD, proposerId, proposerOwes));
+        }
         if (proceeds > 0) {
-            postings.add(new Posting(LedgerAccount.USER_AVAILABLE, sellerId, -proceeds));
+            postings.add(new Posting(LedgerAccount.USER_AVAILABLE, proposerId, -proceeds));
         }
-        if (fee > 0) {
-            // Omitted when zero rather than written as zero: chk_entry_non_zero
-            // rejects a zero posting. fee is only zero if the price is, which
-            // requirePositive already refused.
-            postings.add(new Posting(LedgerAccount.PLATFORM_REVENUE, null, -fee));
-        }
+        // Omitted when zero rather than written as zero: chk_entry_non_zero
+        // rejects a zero posting. fee is positive whenever feeBase is.
+        postings.add(new Posting(LedgerAccount.PLATFORM_REVENUE, null, -fee));
 
         ledger.post(TransactionKind.TRADE_SETTLE, key("settle", tradeId), null,
                 "trade " + tradeId + " fee " + fee, postings);
-        log.info("Trade {} settled: seller {} received {} tiyin, platform kept {}",
-                tradeId, sellerId, proceeds, fee);
+        log.info("Trade {} settled: proposer {} received {} tiyin, platform kept {}",
+                tradeId, proposerId, proceeds, fee);
     }
 
     /**
-     * Ends the trade without a sale: escrow goes back to the buyer, whole.
+     * Ends the trade without a deal: every hold goes back, whole.
      *
-     * <p>No fee. The platform charges for a completed trade, and this is not
-     * one — a service that was not delivered is not billed for.
+     * <p>No fee, on either side. The platform charges for a completed trade and
+     * this is not one — a service that was not delivered is not billed for.
      */
     @Transactional
-    public void release(UUID tradeId, UUID buyerId, long priceTiyin) {
-        requirePositive(priceTiyin);
+    public void release(UUID tradeId, UUID accepterId, UUID proposerId,
+                        long accepterTiyin, long feeBaseTiyin) {
+        requirePositive(feeBaseTiyin);
         if (neverHeld(tradeId, "release")) return;
+
+        long proposerOwes = Math.max(0, commissionService.feeTiyin(feeBaseTiyin) - accepterTiyin);
+
+        var postings = new java.util.ArrayList<Posting>(4);
+        if (accepterTiyin > 0) {
+            postings.add(new Posting(LedgerAccount.USER_HELD, accepterId, accepterTiyin));
+            postings.add(new Posting(LedgerAccount.USER_AVAILABLE, accepterId, -accepterTiyin));
+        }
+        if (proposerOwes > 0) {
+            postings.add(new Posting(LedgerAccount.USER_HELD, proposerId, proposerOwes));
+            postings.add(new Posting(LedgerAccount.USER_AVAILABLE, proposerId, -proposerOwes));
+        }
+
         ledger.post(TransactionKind.TRADE_RELEASE, key("release", tradeId), null,
-                "trade " + tradeId,
-                List.of(new Posting(LedgerAccount.USER_HELD, buyerId, priceTiyin),
-                        new Posting(LedgerAccount.USER_AVAILABLE, buyerId, -priceTiyin)));
+                "trade " + tradeId, postings);
     }
 
-    /**
-     * True when this trade never had money frozen, in which case there is
-     * nothing to settle or release and the caller is done.
-     *
-     * <p>Trades that predate escrow are exactly this: the sweeper sees them as
-     * terminal with no resolution recorded and asks for a movement, and posting
-     * one would drive the buyer's held balance negative — which is what
-     * chk_wallet_non_negative caught in production, once a minute per trade,
-     * as a 409 the sweeper could never satisfy.
-     *
-     * <p>Checked against the hold transaction rather than the balance, which
-     * cannot tell "never held" from "already released". Under the current code
-     * a SMART trade cannot exist without a successful hold, so a missing one
-     * always means the trade came from before this feature.
-     */
     private boolean neverHeld(UUID tradeId, String action) {
         if (ledger.hasPosted(key("hold", tradeId))) return false;
         log.info("Trade {} has no escrow hold — nothing to {}; it predates the wallet",

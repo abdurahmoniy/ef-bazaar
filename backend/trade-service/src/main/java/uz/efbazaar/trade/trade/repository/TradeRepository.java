@@ -155,6 +155,26 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
      * <p>Bulk JPQL bypasses {@code @PreUpdate}, so {@code updatedAt} is set
      * explicitly.
      */
+    /**
+     * Writes only the verification code.
+     *
+     * <p>Deliberately not a read-mutate-save: the code arrives from the worker
+     * while the seller may be clicking "email changed" in the same second, and
+     * saving a whole Trade loaded before that click reverts the state to what
+     * it was when the entity was read. Two columns, one statement, nothing else
+     * touched.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Trade t
+               SET t.emailChangeVerificationCode = :code,
+                   t.emailChangeVerificationCodeAt = :receivedAt
+             WHERE t.id = :tradeId
+            """)
+    int recordEmailChangeCode(@Param("tradeId") UUID tradeId,
+                              @Param("code") String code,
+                              @Param("receivedAt") Instant receivedAt);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Trade t

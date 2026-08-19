@@ -1,0 +1,118 @@
+/**
+ * Swaps: what the deal is, and where each side has got to.
+ *
+ * A swap moves two accounts in opposite directions. Both parties change an
+ * email, run forgot-password and submit a password, at their own pace — so the
+ * panel has to say not only "what do I do next" but "what is the other person
+ * still doing", or a party who has finished their half sees a screen that looks
+ * stuck.
+ */
+
+import type { ParticipantRole, TradeKind, TradeResponse, TradeSideProgress } from './trade-types';
+
+/** What the listing allows, as stored in the `exchange_mode` attribute. */
+export type ExchangeMode = 'NONE' | 'EXCHANGE_ONLY' | 'EXCHANGE_WITH_SURCHARGE' | 'BOTH';
+
+export const TRADE_KIND_LABEL_UZ: Record<TradeKind, string> = {
+  SALE: 'Sotish',
+  SWAP: 'Obmen',
+  SWAP_SURCHARGE: 'Obmen + doplata',
+};
+
+export const TRADE_KIND_HINT_UZ: Record<TradeKind, string> = {
+  SALE: 'Xaridor pul to‘laydi, sotuvchi akkountni beradi',
+  SWAP: 'Ikkala taraf ham akkountini beradi, pul o‘tmaydi',
+  SWAP_SURCHARGE: 'Akkountlar almashinadi, ustiga doplata to‘lanadi',
+};
+
+/**
+ * Which formats a listing may be traded under.
+ *
+ * Returned in the order they are offered, so the picker is stable. An
+ * exchange-only listing cannot be bought outright — that is the seller's own
+ * published term, and the server refuses it too.
+ */
+export function allowedKinds(mode: ExchangeMode | null | undefined): TradeKind[] {
+  switch (mode) {
+    case 'EXCHANGE_ONLY':
+      return ['SWAP'];
+    case 'EXCHANGE_WITH_SURCHARGE':
+      return ['SALE', 'SWAP_SURCHARGE'];
+    case 'BOTH':
+      return ['SALE', 'SWAP', 'SWAP_SURCHARGE'];
+    default:
+      return ['SALE'];
+  }
+}
+
+/** Whether the format asks the accepter for money at all. */
+export function needsAmount(kind: TradeKind): boolean {
+  return kind !== 'SWAP';
+}
+
+export function isSwap(kind: TradeKind | null | undefined): boolean {
+  return kind === 'SWAP' || kind === 'SWAP_SURCHARGE';
+}
+
+export type SwapStep =
+  | 'email'
+  | 'konami'
+  | 'password'
+  | 'decision'
+  | 'done';
+
+/** The furthest step this party has completed. */
+export function stepOf(side: TradeSideProgress): SwapStep {
+  if (side.confirmed || side.rejected) return 'done';
+  if (side.passwordSent) return 'decision';
+  if (side.konamiVerified) return 'password';
+  if (side.emailChanged) return 'konami';
+  return 'email';
+}
+
+export const SWAP_STEP_LABEL_UZ: Record<SwapStep, string> = {
+  email: 'Email o‘zgartirilmoqda',
+  konami: 'Konami tekshiruvi kutilmoqda',
+  password: 'Parol kutilmoqda',
+  decision: 'Tasdiqlash kutilmoqda',
+  done: 'Yakunlandi',
+};
+
+export function sideOf(
+  trade: TradeResponse,
+  role: ParticipantRole,
+): TradeSideProgress | null {
+  return trade.sides?.find((s) => s.role === role) ?? null;
+}
+
+/**
+ * The other party's progress, phrased for the reader.
+ *
+ * Null when there is nothing useful to say — a sale, or a response from a
+ * backend that predates sides.
+ */
+export function counterpartStatus(
+  trade: TradeResponse,
+  viewerRole: ParticipantRole | null,
+): string | null {
+  if (!isSwap(trade.kind) || !viewerRole) return null;
+  const other = sideOf(trade, viewerRole === 'SELLER' ? 'BUYER' : 'SELLER');
+  if (!other) return null;
+  if (other.rejected) return 'Ikkinchi taraf savdoni rad etdi';
+  return `Ikkinchi taraf: ${SWAP_STEP_LABEL_UZ[stepOf(other)]}`;
+}
+
+/** Whether this party has already done the current step and is now waiting. */
+export function isWaitingForCounterpart(
+  trade: TradeResponse,
+  viewerRole: ParticipantRole | null,
+): boolean {
+  if (!isSwap(trade.kind) || !viewerRole) return false;
+  const mine = sideOf(trade, viewerRole);
+  const other = sideOf(trade, viewerRole === 'SELLER' ? 'BUYER' : 'SELLER');
+  if (!mine || !other) return false;
+  // Steps are ordered, so "further along" is enough — no need to know which
+  // state the trade itself is in.
+  const order: SwapStep[] = ['email', 'konami', 'password', 'decision', 'done'];
+  return order.indexOf(stepOf(mine)) > order.indexOf(stepOf(other));
+}
