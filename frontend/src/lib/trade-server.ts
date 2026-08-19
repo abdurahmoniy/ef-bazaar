@@ -5,6 +5,8 @@ import type {
   CardResponse,
   EscalatedTradeResponse,
   PendingProposalResponse,
+  SellerRatingResponse,
+  SellerRatingSummaryResponse,
   TradeAdminCardResponse,
   TradeAdminProfileResponse,
   TradeAdminRatingResponse,
@@ -156,3 +158,30 @@ export async function getPendingProposal(
     `${TRADE_PREFIX}/trades/proposals?chatId=${encoded}`,
   );
 }
+
+export async function getSellerRatings(
+  sellerId: string,
+): Promise<SellerRatingResponse[]> {
+  return (
+    (await safeGet<SellerRatingResponse[]>(
+      `${TRADE_PREFIX}/sellers/${encodeURIComponent(sellerId)}/ratings`,
+    )) ?? []
+  );
+}
+
+export async function getSellerRatingSummary(
+  sellerId: string,
+): Promise<SellerRatingSummaryResponse | null> {
+  return await safeGet<SellerRatingSummaryResponse>(
+    `${TRADE_PREFIX}/sellers/${encodeURIComponent(sellerId)}/rating-summary`,
+  );
+}
+
+export async function getTradeSellerRating(
+  tradeId: string,
+): Promise<SellerRatingResponse | null> {
+  return await safeGet<SellerRatingResponse>(
+    `${TRADE_PREFIX}/trades/${encodeURIComponent(tradeId)}/seller-rating`,
+  );
+}
+

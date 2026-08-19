@@ -33,6 +33,7 @@ import {
 	DivisionBadge,
 	toDivisionLevel,
 } from '@/components/marketplace/division-badge';
+import { TipCallout } from '@/components/help/tip-callout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -890,6 +891,16 @@ function BasicsStep({
 					}
 				/>
 			</div>
+
+			<TipCallout
+				variant='tip'
+				dismissible
+				dismissKey='listing_form_players_tip'
+				learnMoreHref='/help#buyer'
+				learnMoreLabel='Yulduz kartalar qo‘llanmasi'
+			>
+				Akkountingizdagi eng muhim Epic, Big Time va Show Time kartalarni tanlang. Bu xaridorlar qidiruvida e‘loningizni 3-5 barobar ko‘proq ko‘rsatadi.
+			</TipCallout>
 		</div>
 	);
 }
@@ -1064,6 +1075,16 @@ function GameplayStep({
 					))}
 				</div>
 			)}
+
+			<TipCallout
+				variant='info'
+				dismissible
+				dismissKey='listing_form_coins_tip'
+				learnMoreHref='/help#faq-coins-split'
+				learnMoreLabel='Tangalar haqida'
+			>
+				Android va iOS tangalari Konami qoidalariga ko‘ra bir-biriga o‘tmaydi. Shu sababli ikkala platforma tangalarini to‘g‘ri va alohida kiriting.
+			</TipCallout>
 		</div>
 	);
 }
@@ -1640,6 +1661,14 @@ function PricingStep({
 					/>
 				</div>
 			</button>
+
+			<TipCallout
+				variant='security'
+				learnMoreHref='/help#transparent-pricing-commission'
+				learnMoreLabel='Komissiya va sof summa haqida'
+			>
+				<strong>Shaffof hisob-kitob va 100% kafolat:</strong> Xizmat haqi Garov (Escrow) tizimi orqali to‘lovni xavfsiz muzlatish va tekshirish uchun ushlab qolinadi. Hisoblangan <strong>Sof summa</strong> to‘liq hamyoningizga o‘tkaziladi — hech qanday yashirin to‘lovlarsiz.
+			</TipCallout>
 		</div>
 	);
 }

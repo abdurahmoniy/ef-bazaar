@@ -23,6 +23,7 @@ import {
   type ListingResponse,
 } from '@/lib/marketplace-types';
 import { isUserBlacklisted } from '@/lib/gamer-server';
+import { getSellerRatingSummary } from '@/lib/trade-server';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 
@@ -172,10 +173,11 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
   }
 
   const listing = result.data;
-  const [similar, sellerBlacklisted, fallbackSeller] = await Promise.all([
+  const [similar, sellerBlacklisted, fallbackSeller, sellerRatingSummary] = await Promise.all([
     getSimilarListings(listing),
     isUserBlacklisted(listing.sellerId),
     listing.seller ? Promise.resolve(null) : getUserProfile(listing.sellerId),
+    getSellerRatingSummary(listing.sellerId),
   ]);
   const seller = listing.seller ?? fallbackSeller;
 
@@ -209,6 +211,7 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
         viewer={viewer}
         seller={seller}
         sellerBlacklisted={sellerBlacklisted}
+        sellerRatingSummary={sellerRatingSummary}
         similarListings={similar}
       />
     </MarketplaceShell>

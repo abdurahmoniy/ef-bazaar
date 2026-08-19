@@ -237,6 +237,37 @@ export interface RateAdminRequest {
   comment?: string;
 }
 
+export interface RateSellerRequest {
+  stars: number;
+  comment?: string;
+}
+
+export interface SellerRatingResponse {
+  id: string;
+  tradeId: string;
+  sellerId: string;
+  raterId: string;
+  raterDisplayName: string | null;
+  raterUsername: string | null;
+  raterPhotoUrl: string | null;
+  stars: number;
+  comment: string | null;
+  hidden: boolean;
+  createdAt: string;
+}
+
+export interface SellerRatingSummaryResponse {
+  sellerId: string;
+  averageRating: number;
+  ratingCount: number;
+  ratingSum: number;
+  starCounts: Record<number, number>;
+}
+
+export interface BatchSellerRatingSummaryRequest {
+  sellerIds: string[];
+}
+
 export interface EscalatedTradeResponse {
   id: string;
   sellerId: string;
@@ -277,3 +308,4 @@ export const TERMINAL_TRADE_STATES: ReadonlyArray<TradeState> = [
 export function isTerminalState(state: TradeState): boolean {
   return TERMINAL_TRADE_STATES.includes(state);
 }
+
