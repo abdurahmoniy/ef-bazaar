@@ -9,7 +9,7 @@ Konami issued for somebody else's account.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 from uuid import UUID
 
@@ -25,7 +25,7 @@ class _Hit:
     """What the detector hands the callback."""
 
     verification_code = "482913"
-    received_at = datetime(2026, 8, 20, 12, 0, tzinfo=timezone.utc)
+    received_at = datetime(2026, 8, 20, 12, 0, tzinfo=UTC)
     sender = "noreply@konami.net"
 
 
