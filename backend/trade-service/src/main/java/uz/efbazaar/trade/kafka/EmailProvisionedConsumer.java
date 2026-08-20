@@ -43,8 +43,13 @@ public class EmailProvisionedConsumer {
             log.warn("email-provisioned for unknown trade {}", e.tradeId());
             return;
         }
-        UUID placeholderId = t.getMailboxId();
         UUID workerId = e.mailboxId();
+        // The row to write is the one the worker was asked about, which it
+        // echoes back. Reading it off the trade instead meant every response
+        // pointed at trades.mailbox_id — the seller's box — so on a swap the
+        // second mailbox's address was written over the first one's row and
+        // the buyer's stayed on its "pending-" placeholder for ever.
+        UUID placeholderId = workerId != null ? workerId : t.getMailboxId();
         if (workerId == null) {
             // Legacy wire (worker built before this field existed). Fall back
             // to the placeholder id we already assigned — rotate will still

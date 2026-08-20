@@ -156,7 +156,9 @@ public final class TradeEvents {
             UUID tradeId,
             String verificationCode,
             Instant receivedAt,
-            String sender) {}
+            String sender,
+            /** Which escrow mailbox it landed in — a swap has two. */
+            String mailboxEmail) {}
 
     /**
      * A seller invited this admin to run a trade. marketplace-service turns it

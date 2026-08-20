@@ -13,7 +13,13 @@ import uz.efbazaar.trade.trade.repository.TradeRepository;
 import uz.efbazaar.trade.trade.service.TradeService;
 import uz.efbazaar.trade.trade.service.TradeSideService;
 
+import uz.efbazaar.trade.kafka.TradeEvents;
+
+import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.await;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,6 +38,7 @@ class SwapTradeIT extends AbstractIntegrationIT {
     @Autowired TradeSideService sides;
     @Autowired TradeRepository tradeRepo;
     @Autowired MailboxRepository mailboxes;
+    @Autowired uz.efbazaar.trade.kafka.KonamiEmailChangeCodeConsumer codeConsumer;
 
     private UUID seller;
     private UUID buyer;
@@ -97,6 +104,78 @@ class SwapTradeIT extends AbstractIntegrationIT {
         assertThat(forBuyer.mailboxId())
                 .as("unchanged from before swaps existed")
                 .isEqualTo(forSeller.mailboxId());
+    }
+
+    /**
+     * Konami mints a code per account, so a swap has two of them.
+     *
+     * <p>Reported from production: the party was never shown a code at all.
+     * Both codes were landing in one column on the trade, last write winning,
+     * so a party saw either nothing or — worse — the code Konami issued for
+     * the other person's account, which their own Konami form rejects.
+     */
+    @Test
+    void eachPartySeesTheCodeMintedForTheirOwnAccount() {
+        Trade t = openSwap();
+        UUID sellerBox = sides.of(t.getId(), ParticipantRole.SELLER).orElseThrow().getMailboxId();
+        UUID buyerBox = sides.of(t.getId(), ParticipantRole.BUYER).orElseThrow().getMailboxId();
+        String sellerAddress = provisionedAddress(sellerBox);
+        String buyerAddress = provisionedAddress(buyerBox);
+        assertThat(buyerAddress)
+                .as("two boxes on one trade must not share an address")
+                .isNotEqualTo(sellerAddress);
+
+        // Two arrivals, one per mailbox, in the order the poller happened to
+        // see them. The second must not displace the first.
+        codeConsumer.onCode(new TradeEvents.KonamiEmailChangeCodeReceived(
+                t.getId(), "111111", Instant.now(), "noreply@konami.net", sellerAddress));
+        codeConsumer.onCode(new TradeEvents.KonamiEmailChangeCodeReceived(
+                t.getId(), "222222", Instant.now(), "noreply@konami.net", buyerAddress));
+
+        assertThat(trades.toResponseFor(t.getId(), seller).emailChangeVerificationCode())
+                .as("the code Konami sent to the seller's own escrow mailbox")
+                .isEqualTo("111111");
+        assertThat(trades.toResponseFor(t.getId(), buyer).emailChangeVerificationCode())
+                .as("the buyer must not be handed the seller's code — Konami "
+                        + "issued it for a different account")
+                .isEqualTo("222222");
+    }
+
+    /**
+     * That a party is shown nothing rather than somebody else's code.
+     *
+     * <p>The trade-level column is still written for the sale path, so a naive
+     * read would fall back to it and quietly show the wrong six digits.
+     */
+    @Test
+    void aPartyWhoseCodeHasNotArrivedIsShownNoCode() {
+        Trade t = openSwap();
+        UUID sellerBox = sides.of(t.getId(), ParticipantRole.SELLER).orElseThrow().getMailboxId();
+        String sellerAddress = provisionedAddress(sellerBox);
+
+        codeConsumer.onCode(new TradeEvents.KonamiEmailChangeCodeReceived(
+                t.getId(), "333333", Instant.now(), "noreply@konami.net", sellerAddress));
+
+        assertThat(trades.toResponseFor(t.getId(), seller).emailChangeVerificationCode())
+                .isEqualTo("333333");
+        assertThat(trades.toResponseFor(t.getId(), buyer).emailChangeVerificationCode())
+                .as("waiting is honest; the seller's code would only fail on Konami")
+                .isNull();
+    }
+
+    /**
+     * The box's real address, once provisioning has given it one.
+     *
+     * <p>Waited for rather than written: MockWorker is live under the test
+     * profile and overwrites the address itself a moment later, so a test that
+     * sets its own would have it pulled out from under the assertion.
+     */
+    private String provisionedAddress(UUID boxId) {
+        await().atMost(20, TimeUnit.SECONDS).until(() ->
+                mailboxes.findById(boxId)
+                        .map(m -> m.getEmail() != null && !m.getEmail().startsWith("pending-"))
+                        .orElse(false));
+        return mailboxes.findById(boxId).orElseThrow().getEmail();
     }
 
     /**

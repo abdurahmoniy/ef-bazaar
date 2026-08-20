@@ -68,6 +68,7 @@ class ImapPollHandler:
                     verification_code=hit.verification_code,
                     received_at=hit.received_at,
                     sender=hit.sender,
+                    mailbox_email=event.mailbox_email,
                 ),
             )
 

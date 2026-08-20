@@ -273,17 +273,29 @@ public class TradeService {
                 t.getSellerId(), t.getBuyerId(), t.getPriceUzs(),
                 ownMailbox, mailboxEmail, t.getChatId(), t.getCreatedAt(), t.getExpiresAt(),
                 t.getStateDeadline(), role, passwordMessageId,
-                t.getEmailChangeVerificationCode(),
+                emailChangeCodeFor(t, role),
                 t.getKind(),
                 sideService.of(t.getId()).stream().map(TradeSideResponse::of).toList(),
                 counterpartMailboxEmail);
     }
 
     /**
-     * Escrow-mailbox address is exposed on the trade so the seller sees which
-     * address to enter on Konami — the mailbox row itself is not owned by the
-     * seller yet (MailboxService.getOwned would reject them).
+     * The verification code this party should type into Konami.
+     *
+     * <p>On a swap, strictly their own — null until it arrives. Falling back to
+     * the trade-level column would hand them the other party's code, which
+     * Konami issued for a different account and which simply will not work.
+     * A sale has one code and keeps reading it from the trade.
      */
+    private String emailChangeCodeFor(Trade t, ParticipantRole role) {
+        if (role != null && t.getKind() != null && t.getKind().isSwap()) {
+            return sideService.of(t.getId(), role)
+                    .map(TradeSide::getEmailChangeCode)
+                    .orElse(null);
+        }
+        return t.getEmailChangeVerificationCode();
+    }
+
     private static ParticipantRole other(ParticipantRole role) {
         return role == ParticipantRole.SELLER ? ParticipantRole.BUYER : ParticipantRole.SELLER;
     }

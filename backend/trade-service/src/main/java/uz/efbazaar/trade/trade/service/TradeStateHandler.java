@@ -110,6 +110,24 @@ public class TradeStateHandler {
         }
     }
 
+    /**
+     * Whether this address is something the worker can actually log into.
+     *
+     * <p>Until provisioning reports back, a mailbox row carries a
+     * "pending-…@efbazaar.uz" placeholder that exists in no mail server. Sending
+     * the worker at it produces a login failure and nothing else — the party
+     * waits on a Konami code that can never arrive, with no trace of why. We
+     * should be past provisioning by these states, so reaching here is a fault
+     * worth a loud line rather than a silent chase.
+     */
+    private boolean askWorkerFor(Trade trade, String email, String what) {
+        if (email != null && !email.startsWith("pending-")) return true;
+        log.error("{} skipped for trade {}: mailbox is still the placeholder {} — "
+                + "provisioning never reported this box back",
+                what, trade.getId(), email);
+        return false;
+    }
+
     public void onEnter(Trade trade, TradeState newState, ActorType actor, UUID actorId, TradeEvent event) {
         switch (newState) {
             case INITIATED -> {
@@ -131,6 +149,7 @@ public class TradeStateHandler {
                     // themselves during WAITING_EMAIL_CHANGE.
                     for (UUID box : mailboxesOf(trade)) {
                         var mb = mailboxes.getRaw(box);
+                        if (!askWorkerFor(trade, mb.getEmail(), "imap-poll")) continue;
                         events.imapPollRequest(trade.getId(), mb.getEmail(),
                                 TradeEvents.ImapPurpose.WAIT_EMAIL_CHANGE_CODE);
                     }
@@ -142,6 +161,7 @@ public class TradeStateHandler {
                     // fire-and-forget forgot-password. The mailbox email is stored on the mailbox row.
                     for (UUID box : mailboxesOf(trade)) {
                         var mb = mailboxes.getRaw(box);
+                        if (!askWorkerFor(trade, mb.getEmail(), "forgot-password")) continue;
                         events.forgotPasswordRequest(trade.getId(), mb.getEmail(), null);
                     }
                 }
