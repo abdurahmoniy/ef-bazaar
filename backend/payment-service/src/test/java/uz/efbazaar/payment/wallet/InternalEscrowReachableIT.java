@@ -82,4 +82,25 @@ class InternalEscrowReachableIT extends AbstractPostgresIT {
         assertThat(post(escrowUrl(), null).getStatusCode())
                 .isEqualTo(HttpStatus.FORBIDDEN);
     }
+
+    /**
+     * That the reason survives the trip.
+     *
+     * <p>trade-service reads {@code detail} out of the body and shows it to the
+     * user. Spring drops a ResponseStatusException's reason unless problem
+     * details are on, so every refusal arrived as "the wallet refused the
+     * operation" — true, useless, and identical whether the buyer was short by
+     * a hundred so'm or the seller could not cover the fee.
+     */
+    @Test
+    void aRefusalSaysWhichWalletAndHowMuch() {
+        ResponseEntity<String> response = post(escrowUrl(), SECRET);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody())
+                .as("trade-service parses this field; without it the user is told nothing")
+                .contains("\"detail\"")
+                .contains("yetarli emas")
+                .contains("so'm yetishmayapti");
+    }
 }

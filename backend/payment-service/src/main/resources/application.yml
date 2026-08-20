@@ -1,4 +1,11 @@
 spring:
+  mvc:
+    # ResponseStatusException carries a reason the caller shows the user —
+    # "not enough money", and whose wallet. Without this Spring answers with
+    # the default error body, which drops it, and trade-service falls back to
+    # "the wallet refused the operation". Every escrow refusal read like that.
+    problemdetails:
+      enabled: true
   application:
     name: payment-service
   profiles:
