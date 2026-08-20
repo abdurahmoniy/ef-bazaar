@@ -1041,7 +1041,10 @@ function WaitingBuyerVerifyBuyerPanel({
   const [rejecting, startReject] = useTransition();
   const [copied, setCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
-  const mailboxEmail = trade.mailboxEmail ?? '';
+  // The account being received. On a sale that is the trade's one mailbox; on
+  // a swap the boxes cross over, so it is the other party's — showing your own
+  // here would hand you back the account you just gave away.
+  const mailboxEmail = trade.counterpartMailboxEmail ?? trade.mailboxEmail ?? '';
 
   function reveal() {
     if (!trade.passwordMessageId) {

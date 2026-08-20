@@ -34,6 +34,12 @@ public record TradeResponse(
          * On a sale the buyer's entry stays empty: they are asked for none of
          * those steps.
          */
-        List<TradeSideResponse> sides
+        List<TradeSideResponse> sides,
+        /**
+         * The address of the account this viewer is RECEIVING. Equals
+         * {@code mailboxEmail} on a sale, where one box changes hands; on a
+         * swap it is the other party's, because the boxes cross over.
+         */
+        String counterpartMailboxEmail
 ) {}
 

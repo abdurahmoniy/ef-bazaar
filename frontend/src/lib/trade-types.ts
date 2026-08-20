@@ -45,6 +45,11 @@ export interface TradeResponse {
    * step, so this is what tells each party what the other is waiting on.
    */
   sides?: TradeSideProgress[] | null;
+  /**
+   * Address of the account this viewer is RECEIVING. Same as `mailboxEmail` on
+   * a sale; on a swap it is the other party's, because the boxes cross over.
+   */
+  counterpartMailboxEmail?: string | null;
   /** Added by the human-admin feature. Older backend DTOs may omit it. */
   mode?: TradeMode | null;
   sellerId: string;

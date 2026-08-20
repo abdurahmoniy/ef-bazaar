@@ -23,6 +23,7 @@ import uz.efbazaar.trade.trade.domain.TradeMessage;
 import uz.efbazaar.trade.trade.domain.TradeMessageType;
 import uz.efbazaar.trade.trade.domain.TradeKind;
 import uz.efbazaar.trade.trade.domain.TradeMode;
+import uz.efbazaar.trade.trade.domain.TradeSide;
 import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.dto.TradePage;
 import uz.efbazaar.trade.trade.dto.TradeResponse;
@@ -165,7 +166,8 @@ public class TradeService {
                 "priceUzs", String.valueOf(priceUzs),
                 "mode", mode.name()
         ));
-        broadcaster.publishStateChange(t.getId(), toResponse(t, null));
+        broadcaster.publishStateChange(t.getId(),
+                toResponse(t, ParticipantRole.SELLER), toResponse(t, ParticipantRole.BUYER));
         // Hold the marketplace chat open for as long as the trade lives.
         if (chatId != null) {
             events.tradeOpened(t);
@@ -182,6 +184,13 @@ public class TradeService {
     public Trade get(UUID tradeId, UUID viewerUserId) {
         return trades.findByIdAndParticipant(tradeId, viewerUserId)
                 .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
+    }
+
+    /** The trade as one participant sees it — their own mailbox, their own role. */
+    @Transactional(readOnly = true)
+    public TradeResponse toResponseFor(UUID tradeId, UUID viewerUserId) {
+        Trade t = get(tradeId, viewerUserId);
+        return toResponse(t, t.roleFor(viewerUserId));
     }
 
     /**
@@ -238,7 +247,8 @@ public class TradeService {
                     Map.of("event", event.name(), "side", String.valueOf(side)));
             // The panel re-reads side progress from this, which is how each
             // party sees the other one move.
-            broadcaster.publishStateChange(t.getId(), toResponse(t, null));
+            broadcaster.publishStateChange(t.getId(),
+                toResponse(t, ParticipantRole.SELLER), toResponse(t, ParticipantRole.BUYER));
             return t;
         }
 
@@ -248,20 +258,25 @@ public class TradeService {
         trades.save(t);
         audit.record(t.getId(), actor, actorId, "STATE_TRANSITION",
                 Map.of("from", from.name(), "to", to.name(), "event", event.name()));
-        broadcaster.publishStateChange(t.getId(), toResponse(t, null));
+        broadcaster.publishStateChange(t.getId(),
+                toResponse(t, ParticipantRole.SELLER), toResponse(t, ParticipantRole.BUYER));
         return t;
     }
 
     public TradeResponse toResponse(Trade t, ParticipantRole role) {
-        String mailboxEmail = resolveMailboxEmail(t);
+        UUID ownMailbox = mailboxFor(t, role);
+        String mailboxEmail = resolveMailboxEmail(t, ownMailbox);
+        String counterpartMailboxEmail = resolveMailboxEmail(t,
+                mailboxFor(t, role == null ? null : other(role)));
         UUID passwordMessageId = resolvePasswordMessageId(t);
         return new TradeResponse(t.getId(), t.getState(),
                 t.getSellerId(), t.getBuyerId(), t.getPriceUzs(),
-                t.getMailboxId(), mailboxEmail, t.getChatId(), t.getCreatedAt(), t.getExpiresAt(),
+                ownMailbox, mailboxEmail, t.getChatId(), t.getCreatedAt(), t.getExpiresAt(),
                 t.getStateDeadline(), role, passwordMessageId,
                 t.getEmailChangeVerificationCode(),
                 t.getKind(),
-                sideService.of(t.getId()).stream().map(TradeSideResponse::of).toList());
+                sideService.of(t.getId()).stream().map(TradeSideResponse::of).toList(),
+                counterpartMailboxEmail);
     }
 
     /**
@@ -269,10 +284,34 @@ public class TradeService {
      * address to enter on Konami — the mailbox row itself is not owned by the
      * seller yet (MailboxService.getOwned would reject them).
      */
-    private String resolveMailboxEmail(Trade t) {
-        if (t.getMailboxId() == null) return null;
+    private static ParticipantRole other(ParticipantRole role) {
+        return role == ParticipantRole.SELLER ? ParticipantRole.BUYER : ParticipantRole.SELLER;
+    }
+
+    /**
+     * The escrow mailbox this party moves their own account through.
+     *
+     * <p>On a swap the two parties have different boxes, and showing one of
+     * them to both is how a swap sent both accounts to the same address. On a
+     * sale the buyer has no box of their own, so they fall back to the trade's
+     * — which is the one they are receiving, and what their panel has always
+     * shown.
+     */
+    private UUID mailboxFor(Trade t, ParticipantRole role) {
+        if (role != null) {
+            UUID own = sideService.of(t.getId(), role)
+                    .map(TradeSide::getMailboxId)
+                    .orElse(null);
+            if (own != null) return own;
+        }
+        return t.getMailboxId();
+    }
+
+    private String resolveMailboxEmail(Trade t, UUID mailboxId) {
+        if (mailboxId == null) return null;
+
         try {
-            Mailbox mb = mailboxes.getRaw(t.getMailboxId());
+            Mailbox mb = mailboxes.getRaw(mailboxId);
             String email = mb.getEmail();
             // Suppress the "pending-…@efbazaar.uz" placeholder — the frontend
             // renders a spinner while INITIATED so no address should leak.
