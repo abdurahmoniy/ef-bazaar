@@ -41,6 +41,8 @@ interface WalletViewProps {
   telegramUsername?: string | null;
   /** Pre-fills the top-up box; see TopUpForm.initialAmount. */
   topUpAmount?: number;
+  /** Same-origin path the user was sent here from, if any. */
+  returnTo?: string;
 }
 
 type WalletTab = 'topup' | 'withdraw' | 'history';
@@ -106,6 +108,7 @@ export function WalletView({
   history: legacyHistory,
   telegramUsername,
   topUpAmount,
+  returnTo,
 }: WalletViewProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<WalletTab>('topup');
