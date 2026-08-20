@@ -49,7 +49,12 @@ import {
   TRADE_KIND_LABEL_UZ,
   type ExchangeMode,
 } from '@/lib/trade-swap';
-import { isInsufficientFunds, shortfallSom, topUpHref } from '@/lib/wallet-shortfall';
+import {
+  isInsufficientFunds,
+  proposerShortfallSom,
+  shortfallSom,
+  topUpHref,
+} from '@/lib/wallet-shortfall';
 import {
   isTerminalState,
   TRADE_STATE_LABEL_UZ,
@@ -1598,6 +1603,16 @@ function ProposeModal({
       payload.adminFeeUzs = feeUzs;
     }
     startSubmit(async () => {
+      // A swap's fee comes out of the proposer's wallet. Checked here rather
+      // than at accept, where the refusal lands on the other party over a
+      // balance they can neither see nor top up.
+      if (isSwap(kind) && listing) {
+        const short = await proposerShortfall(Number(listing.price), priceUzs);
+        if (short > 0) {
+          await sendToTopUp(short, `/chats/${chat.id}`, setError);
+          return;
+        }
+      }
       const result = await postProposal(payload);
       if (!result.ok) {
         setError(result.error);
@@ -1819,7 +1834,7 @@ function AcceptModal({
       const result = await postProposalAccept(proposal.id, payload);
       if (!result.ok) {
         if (isInsufficientFunds(result.error)) {
-          await sendToTopUp(proposal.priceUzs, setError);
+          await sendBuyerToTopUp(proposal.priceUzs, setError);
           return;
         }
         setError(result.error);
@@ -1945,16 +1960,27 @@ function ModalShell({
  * already occupies the slot is the usual reason — the amount rides along in the
  * URL so the wallet still opens with the right number in the box.
  */
-async function sendToTopUp(priceUzs: number, onError: (msg: string) => void) {
+/** What the proposer still has to fund, or 0 if their wallet covers it. */
+async function proposerShortfall(listingPriceUzs: number, surchargeUzs: number) {
   const wallet = await fetchWalletBalance();
-  if (wallet === null) {
-    onError('Hamyon holatini o‘qib bo‘lmadi — hamyon bo‘limidan to‘ldiring');
-    return;
-  }
-  const missing = shortfallSom(priceUzs, wallet.availableTiyin);
+  if (wallet === null) return 0;   // let the server be the judge
+  return proposerShortfallSom(
+    tradeFeeSom(listingPriceUzs), surchargeUzs, wallet.availableTiyin);
+}
+
+/**
+ * Creates an invoice for exactly what is missing and goes to pay it.
+ *
+ * Nobody is asked to work out the difference themselves, and `returnTo` brings
+ * them back to where they were once it is paid — otherwise a proposer who left
+ * to top up has to find the chat again and rebuild the proposal from memory.
+ */
+async function sendToTopUp(
+  missing: number,
+  returnTo: string | undefined,
+  onError: (msg: string) => void,
+) {
   if (missing <= 0) {
-    // The balance covers it after all: something else refused the accept, and
-    // sending the buyer to top up money they already have would be nonsense.
     onError('Hamyonda mablag‘ bor — qaytadan urinib ko‘ring');
     return;
   }
@@ -1964,7 +1990,17 @@ async function sendToTopUp(priceUzs: number, onError: (msg: string) => void) {
     // Fall through: the wallet page shows whatever invoice is already live,
     // and topUpHref carries the amount if there is none.
   }
-  window.location.href = topUpHref(missing);
+  window.location.href = topUpHref(missing, returnTo);
+}
+
+/** The accepter's side: they owe the price or the surcharge. */
+async function sendBuyerToTopUp(priceUzs: number, onError: (msg: string) => void) {
+  const wallet = await fetchWalletBalance();
+  if (wallet === null) {
+    onError('Hamyon holatini o‘qib bo‘lmadi — hamyon bo‘limidan to‘ldiring');
+    return;
+  }
+  await sendToTopUp(shortfallSom(priceUzs, wallet.availableTiyin), undefined, onError);
 }
 
 async function fetchWalletBalance(): Promise<{ availableTiyin: number } | null> {

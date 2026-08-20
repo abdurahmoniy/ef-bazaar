@@ -70,10 +70,11 @@ public class TradeEscrowService {
         long fee = commissionService.feeTiyin(feeBaseTiyin);
         long proposerOwes = Math.max(0, fee - accepterTiyin);
 
-        requireFunds(accepterId, accepterTiyin);
-        // Checked separately so the message names the wallet that is short.
+        requireFunds(accepterId, accepterTiyin, "Hamyoningizda");
         // On a sale this is always zero and the proposer is never consulted.
-        requireFunds(proposerId, proposerOwes);
+        // On a swap it is the platform's fee, and the accepter cannot do
+        // anything about it — so the message has to say whose wallet it is.
+        requireFunds(proposerId, proposerOwes, "Taklif yuboruvchining hamyonida");
 
         var postings = new java.util.ArrayList<Posting>(4);
         if (accepterTiyin > 0) {
@@ -91,11 +92,15 @@ public class TradeEscrowService {
                 "trade " + tradeId + " fee " + fee, postings);
     }
 
-    private void requireFunds(UUID userId, long tiyin) {
+    private void requireFunds(UUID userId, long tiyin, String whose) {
         if (tiyin <= 0) return;
-        if (ledger.balanceOf(userId).getAvailableTiyin() < tiyin) {
+        long available = ledger.balanceOf(userId).getAvailableTiyin();
+        if (available < tiyin) {
+            // Names the amount as well as the wallet: "not enough" without a
+            // number leaves the user to work out what to top up.
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Hamyonda mablag' yetarli emas");
+                    whose + " mablag' yetarli emas — " + ((tiyin - available) / 100)
+                            + " so'm yetishmayapti");
         }
     }
 

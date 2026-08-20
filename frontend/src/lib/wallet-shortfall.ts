@@ -26,8 +26,34 @@ export function shortfallSom(priceSom: number, availableTiyin: number): number {
  * invoice could not be created — a live invoice already renders its own panel,
  * so the parameter is a fallback rather than the mechanism.
  */
-export function topUpHref(shortfall: number): string {
-  return `/hamyon?toldirish=${encodeURIComponent(String(shortfall))}`;
+/**
+ * What the proposer must have in their wallet before sending a swap.
+ *
+ * The platform's fee comes out of their side, and only the part the
+ * accepter's surcharge does not cover is taken from their balance. Checked
+ * when the proposal is sent rather than when it is accepted, because at
+ * accept time it is the other party who gets turned away — by a balance they
+ * cannot see and cannot fix.
+ */
+export function proposerShortfallSom(
+  feeSom: number,
+  surchargeSom: number,
+  availableTiyin: number,
+): number {
+  const owes = Math.max(0, feeSom - surchargeSom);
+  if (owes === 0) return 0;
+  return shortfallSom(owes, availableTiyin);
+}
+
+export function topUpHref(shortfall: number, returnTo?: string): string {
+  const params = new URLSearchParams({ toldirish: String(shortfall) });
+  // Where to send them once the invoice is paid. Without it a proposer who
+  // went to top up has to find their way back to the chat and start the
+  // proposal again from memory.
+  if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+    params.set('keyin', returnTo);
+  }
+  return `/hamyon?${params.toString()}`;
 }
 
 /**

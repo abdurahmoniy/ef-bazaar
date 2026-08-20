@@ -25,7 +25,7 @@ export default async function WalletPage({
   // `toldirish` carries the exact shortfall from wherever the user was turned
   // away — accepting a proposal the wallet cannot cover sends them here with
   // the missing amount already in the box.
-  searchParams: Promise<{ toldirish?: string }>;
+  searchParams: Promise<{ toldirish?: string; keyin?: string }>;
 }) {
   // The gate runs before auth and before the fetches, unlike /tournaments,
   // which can gate around its rendered tree. This page redirects a signed-out
@@ -43,7 +43,13 @@ export default async function WalletPage({
   const user = await getMe();
   if (!user) redirect('/auth/login?from=/hamyon');
 
-  const requested = Number((await searchParams).toldirish);
+  const params = await searchParams;
+  const requested = Number(params.toldirish);
+  // Where the user came from, so they can get back once the invoice is paid.
+  // Same-origin only: this ends up in a link, and an absolute or
+  // protocol-relative value would walk them off the site.
+  const returnTo = params.keyin && params.keyin.startsWith('/')
+    && !params.keyin.startsWith('//') ? params.keyin : undefined;
   const topUpAmount = Number.isFinite(requested) && requested > 0
     ? Math.ceil(requested)
     : undefined;
@@ -63,6 +69,7 @@ export default async function WalletPage({
           history={history}
           telegramUsername={user.telegramUsername}
           topUpAmount={topUpAmount}
+          returnTo={returnTo}
         />
       ) : (
         <div className="rounded-2xl border border-dashed border-border bg-card px-4 py-16 text-center shadow-xs">
