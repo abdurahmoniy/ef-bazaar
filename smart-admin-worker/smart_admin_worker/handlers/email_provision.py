@@ -59,7 +59,7 @@ class EmailProvisionHandler:
         self._notifier = notifier
 
     async def handle(self, event: e.EmailProvisionRequest) -> None:
-        local_part = self._local_part_for(event.trade_id)
+        local_part = self._local_part_for(event.mailbox_id)
         password = self._generate_password()
         # Echo back the mailbox id trade-service supplied in the request.
         # Aligning the id here means MailboxService.adoptWorkerMailboxId takes
@@ -140,8 +140,17 @@ class EmailProvisionHandler:
             return None
 
     @staticmethod
-    def _local_part_for(trade_id: UUID) -> str:
-        return "trade-" + str(trade_id)[:8]
+    def _local_part_for(mailbox_id: UUID) -> str:
+        """Address for one mailbox.
+
+        Derived from the mailbox id, not the trade id. A swap asks for two
+        mailboxes on the same trade, and naming them after the trade produced
+        the same address twice: the first was created, the second collided with
+        the unique address column and its row stayed on its ``pending-``
+        placeholder for ever. Both parties were then shown whichever one had
+        been provisioned.
+        """
+        return "trade-" + str(mailbox_id)[:8]
 
     @staticmethod
     def _generate_password() -> str:

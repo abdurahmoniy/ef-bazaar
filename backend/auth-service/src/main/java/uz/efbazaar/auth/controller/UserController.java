@@ -47,6 +47,12 @@ public class UserController {
      */
     @GetMapping("/me/photo")
     public ResponseEntity<byte[]> mePhoto(@AuthenticationPrincipal AuthenticatedUser principal) {
+        if (principal == null) {
+            // Belt and braces behind the security rule: a config that lets an
+            // anonymous request through here should answer 401, not crash on a
+            // null principal and report it as a server fault.
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         return streamPhoto(principal.userId(), false);
     }
 

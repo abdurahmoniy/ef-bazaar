@@ -57,6 +57,12 @@ public class SecurityConfig {
                         // anonymous marketplace browsing correctly. Kept OUT of the default
                         // authenticated bucket so Spring's own 401 response can't interfere.
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/verify").permitAll()
+                        // "me" is a single path segment, so it matches the
+                        // public avatar pattern below and the endpoint was
+                        // being reached with no principal at all — a 500 from
+                        // a null dereference where a 401 belonged. Claimed
+                        // first, so the wildcard cannot swallow it.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users/me/photo").authenticated()
                         // Public — profile photo proxy (cached publicly for avatars)
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/*/photo").permitAll()
                         // Public — health/metrics (nginx blocks externally)

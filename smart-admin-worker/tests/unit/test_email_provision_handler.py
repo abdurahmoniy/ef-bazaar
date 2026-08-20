@@ -207,3 +207,35 @@ async def test_notifier_skipped_when_disabled(encryptor):
         await _asyncio.sleep(0)
 
     notifier.notify_mailbox_created.assert_not_awaited()
+
+
+async def test_two_mailboxes_on_one_trade_get_different_addresses(encryptor):
+    """A swap asks for two mailboxes on the same trade.
+
+    The address used to be derived from the trade id, so both requests
+    produced the same local part: the first mailbox was created and the second
+    collided with the unique address column on the trade-service side, leaving
+    its row stuck on the ``pending-`` placeholder. Both parties were then shown
+    whichever one had been provisioned, and told to move their account there.
+    """
+    mailcow = AsyncMock()
+    mailcow.create_mailbox.return_value = Mailbox(email="trade-abc@efbazaar.uz")
+    handler = EmailProvisionHandler(
+        mailcow=mailcow,
+        encryptor=encryptor,
+        producer=AsyncMock(),
+        mailcow_domain="efbazaar.uz",
+    )
+    trade_id = uuid4()
+
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
+    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
+
+    locals_asked = [
+        (c.kwargs.get("local_part") or c.args[0])
+        for c in mailcow.create_mailbox.await_args_list
+    ]
+    assert len(locals_asked) == 2
+    assert locals_asked[0] != locals_asked[1], (
+        "one trade, two mailboxes — the same address cannot serve both"
+    )

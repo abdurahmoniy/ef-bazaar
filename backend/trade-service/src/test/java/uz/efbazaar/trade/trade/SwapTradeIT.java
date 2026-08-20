@@ -45,6 +45,60 @@ class SwapTradeIT extends AbstractIntegrationIT {
         return tradeRepo.findById(response.id()).orElseThrow();
     }
 
+    @Test
+    void eachPartyIsShownTheirOwnMailboxNotTheOthers() {
+        // Reported from production: both users were handed the same address
+        // and told to move their account there. Two boxes were being created;
+        // the response only ever carried the seller's.
+        Trade t = openSwap();
+
+        // By id, not address: the worker has not provisioned them yet, and a
+        // placeholder address is deliberately hidden until it is real.
+        UUID sellerSees = trades.toResponseFor(t.getId(), seller).mailboxId();
+        UUID buyerSees = trades.toResponseFor(t.getId(), buyer).mailboxId();
+
+        assertThat(sellerSees).isNotNull();
+        assertThat(buyerSees).isNotNull();
+        assertThat(buyerSees)
+                .as("a swap gives each side its own escrow mailbox")
+                .isNotEqualTo(sellerSees);
+    }
+
+    @Test
+    void eachPartyIsToldWhichAccountTheyAreReceiving() {
+        // The boxes cross over at the end, so the address of the account you
+        // get is the other party's — not the one you moved your own into.
+        Trade t = openSwap();
+
+        var forSeller = trades.toResponseFor(t.getId(), seller);
+        var forBuyer = trades.toResponseFor(t.getId(), buyer);
+        UUID sellerBox = sides.of(t.getId(), ParticipantRole.SELLER).orElseThrow().getMailboxId();
+        UUID buyerBox = sides.of(t.getId(), ParticipantRole.BUYER).orElseThrow().getMailboxId();
+
+        assertThat(forSeller.mailboxId()).isEqualTo(sellerBox);
+        assertThat(forBuyer.mailboxId()).isEqualTo(buyerBox);
+        // Addresses are still placeholders here; the crossing is asserted on
+        // the boxes themselves, which is what the addresses will follow.
+        assertThat(forSeller.mailboxId()).isNotEqualTo(forBuyer.mailboxId());
+    }
+
+    @Test
+    void aSaleShowsTheBuyerTheBoxTheyAreReceiving() {
+        // The buyer transfers nothing, so they have no box of their own and
+        // must keep seeing the seller's — which is what they are buying.
+        var response = trades.openTrade(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                500_000L, null, null, UUID.randomUUID(), null, TradeMode.SMART, null, null,
+                TradeKind.SALE, 500_000L);
+        Trade sale = tradeRepo.findById(response.id()).orElseThrow();
+
+        var forBuyer = trades.toResponseFor(sale.getId(), sale.getBuyerId());
+        var forSeller = trades.toResponseFor(sale.getId(), sale.getSellerId());
+
+        assertThat(forBuyer.mailboxId())
+                .as("unchanged from before swaps existed")
+                .isEqualTo(forSeller.mailboxId());
+    }
+
     /**
      * Gets the trade to WAITING_EMAIL_CHANGE.
      *

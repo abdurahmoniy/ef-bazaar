@@ -17,13 +17,18 @@ public class TradeBroadcaster {
 
     private final SimpMessagingTemplate ws;
 
-    /** Publish the same TradeResponse to both role topics — clients render only their own actions. */
-    public void publishStateChange(UUID tradeId, TradeResponse response) {
+    /**
+     * Each party gets a response built for them.
+     *
+     * <p>Not one response with the role swapped, which is what this used to
+     * do: a swap gives the two sides different escrow mailboxes, and cloning
+     * one view for both sent each party the other's address — so both were
+     * told to move their account into the same box.
+     */
+    public void publishStateChange(UUID tradeId, TradeResponse forSeller, TradeResponse forBuyer) {
         runAfterCommitIfActive(() -> {
-            ws.convertAndSend("/topic/trades/" + tradeId + "/seller",
-                    response.role() == ParticipantRole.SELLER ? response : withRole(response, ParticipantRole.SELLER));
-            ws.convertAndSend("/topic/trades/" + tradeId + "/buyer",
-                    response.role() == ParticipantRole.BUYER ? response : withRole(response, ParticipantRole.BUYER));
+            ws.convertAndSend("/topic/trades/" + tradeId + "/seller", forSeller);
+            ws.convertAndSend("/topic/trades/" + tradeId + "/buyer", forBuyer);
         });
     }
 
@@ -52,10 +57,4 @@ public class TradeBroadcaster {
         }
     }
 
-    private static TradeResponse withRole(TradeResponse r, ParticipantRole role) {
-        return new TradeResponse(r.id(), r.state(), r.sellerId(), r.buyerId(),
-                r.priceUzs(), r.mailboxId(), r.mailboxEmail(), r.chatId(), r.createdAt(),
-                r.expiresAt(), r.stateDeadline(), role, r.passwordMessageId(),
-                r.emailChangeVerificationCode(), r.kind(), r.sides());
-    }
 }
