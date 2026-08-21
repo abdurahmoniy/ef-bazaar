@@ -80,6 +80,17 @@ public class TradeEventPublisher {
                 new TradeEvents.TradeChatPin(trade.getId(), trade.getChatId(), Instant.now()));
     }
 
+    /**
+     * Keyed by user, not trade: a swap sends one per party and they are
+     * independent — neither has to wait behind the other's delivery.
+     */
+    public void mailboxHandedOver(UUID tradeId, UUID userId, String mailboxEmail,
+                                  TradeEvents.HandoverOutcome outcome) {
+        send(TradeEvents.TOPIC_MAILBOX_HANDED_BACK, userId.toString(),
+                new TradeEvents.MailboxHandedOver(tradeId, userId, mailboxEmail,
+                        outcome, Instant.now()));
+    }
+
     public void tradeClosed(Trade trade) {
         send(TradeEvents.TOPIC_TRADE_CLOSED, trade.getId().toString(),
                 new TradeEvents.TradeChatPin(trade.getId(), trade.getChatId(), Instant.now()));

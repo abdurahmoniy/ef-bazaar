@@ -31,6 +31,7 @@ public final class TradeEvents {
     public static final String TOPIC_ADMIN_INVITED         = "efbazaar.trade.admin-invited";
     public static final String TOPIC_TRADE_OPENED          = "efbazaar.trade.trade-opened";
     public static final String TOPIC_TRADE_CLOSED          = "efbazaar.trade.trade-closed";
+    public static final String TOPIC_MAILBOX_HANDED_BACK   = "efbazaar.trade.mailbox-handed-over";
 
     public enum ProposalOutcome { ACCEPTED, REJECTED, EXPIRED }
     public enum ImapPurpose      { VERIFY_LINK, WAIT_2FA_CODE, WAIT_EMAIL_CHANGE_CODE }
@@ -159,6 +160,30 @@ public final class TradeEvents {
             String sender,
             /** Which escrow mailbox it landed in — a swap has two. */
             String mailboxEmail) {}
+
+    /** Why a party ended up with an escrow mailbox. */
+    public enum HandoverOutcome {
+        /** The trade completed: this is the account they were given. */
+        RECEIVED,
+        /** The trade did not complete: this is their own account, back. */
+        RETURNED
+    }
+
+    /**
+     * An escrow mailbox now belongs to a party, and they need telling.
+     *
+     * <p>Sent for every ending. On a completed trade it is the account they
+     * bought or swapped into; on any other it is the box they were told to move
+     * their own account through, which they may already have done — without a
+     * word from us, an account they still own sits behind an address they have
+     * no reason to think is theirs.
+     */
+    public record MailboxHandedOver(
+            UUID tradeId,
+            UUID userId,
+            String mailboxEmail,
+            HandoverOutcome outcome,
+            Instant occurredAt) {}
 
     /**
      * A seller invited this admin to run a trade. marketplace-service turns it

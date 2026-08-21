@@ -97,6 +97,26 @@ public class NotificationService {
     }
 
     /**
+     * An escrow inbox is now this user's.
+     *
+     * <p>Replays are dropped on (user, type, trade): a swap sends one per
+     * party and Kafka may deliver either more than once, but a trade hands a
+     * given party a given kind of inbox exactly once.
+     */
+    @Transactional
+    public void tradeMailboxHandedOver(UUID userId, UUID tradeId, NotificationType type) {
+        if (notifications.existsByUserIdAndTypeAndTradeId(userId, type, tradeId)) {
+            log.debug("mailbox-handed-over replay for user={} trade={}, skipping", userId, tradeId);
+            return;
+        }
+        notifications.save(Notification.builder()
+                .userId(userId)
+                .type(type)
+                .tradeId(tradeId)
+                .build());
+    }
+
+    /**
      * Tells every admin a payout is waiting.
      *
      * <p>One row each, because notifications are per-user — there is no
