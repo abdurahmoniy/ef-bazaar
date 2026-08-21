@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
+import uz.efbazaar.trade.trade.domain.ParticipantRole;
 import uz.efbazaar.trade.trade.exception.RateLimitedException;
 
 import java.time.Duration;
@@ -19,13 +20,20 @@ public class RecheckRateLimiter {
     @Value("${trade.recheck.min-interval-seconds}") private long minIntervalSec;
 
     /**
-     * Enforces spec §3.3: max clicks / trade, min interval between clicks.
-     * Uses two Redis keys, both scoped to trade id and expiring together with
-     * the state-4 window (30 min).
+     * Enforces spec §3.3: max clicks, min interval between clicks.
+     *
+     * <p>Counted per party, not per trade. A sale has one Konami flow in it and
+     * the two read the same; a swap has two — separate mailboxes, separate
+     * password resets — and sharing one budget meant the first party to press
+     * the button spent the other's allowance. Reported from testing as two
+     * users clicking once each and the second being told to wait five minutes.
+     *
+     * <p>Both keys expire with the state-4 window (30 min).
      */
-    public void reserve(UUID tradeId) {
-        String countKey = "trade:" + tradeId + ":recheck:count";
-        String lastKey  = "trade:" + tradeId + ":recheck:last-at";
+    public void reserve(UUID tradeId, ParticipantRole role) {
+        String scope = "trade:" + tradeId + ":" + role + ":recheck";
+        String countKey = scope + ":count";
+        String lastKey  = scope + ":last-at";
 
         Long last = readLong(lastKey);
         long now = System.currentTimeMillis();
