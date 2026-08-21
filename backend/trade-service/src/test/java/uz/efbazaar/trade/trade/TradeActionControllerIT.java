@@ -203,6 +203,34 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
                 .andExpect(status().isTooManyRequests());
     }
 
+    /**
+     * A swap's two parties do not share one re-check budget.
+     *
+     * <p>Reported from testing: two users, one click each, and the second was
+     * told "Recheck too soon". The limiter is keyed by trade alone, which was
+     * right when a trade had one Konami flow in it. A swap has two — separate
+     * mailboxes, separate resets — so one party's click was spending the
+     * other's allowance and locking them out for five minutes.
+     */
+    @Test
+    void eachPartyOfASwapHasTheirOwnRecheckAllowance() throws Exception {
+        UUID seller = UUID.randomUUID();
+        UUID buyer = UUID.randomUUID();
+        var t = trades.openTrade(UUID.randomUUID(), seller, buyer, 0L, null, null,
+                UUID.randomUUID(), null, uz.efbazaar.trade.trade.domain.TradeMode.SMART,
+                null, null, uz.efbazaar.trade.trade.domain.TradeKind.SWAP, 500_000L);
+        reachEmailChange(t.id());
+        seedVerifyingKonamiLink(t.id());
+
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/recheck").with(asUser(seller)))
+                .andExpect(status().isOk());
+        seedVerifyingKonamiLink(t.id());
+
+        // The buyer has not re-checked at all yet, so this must go through.
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/recheck").with(asUser(buyer)))
+                .andExpect(status().isOk());
+    }
+
     private void seedVerifyingKonamiLink(UUID tradeId) {
         var trade = repo.findById(tradeId).orElseThrow();
         trade.setState(uz.efbazaar.trade.trade.domain.TradeState.VERIFYING_KONAMI_LINK);

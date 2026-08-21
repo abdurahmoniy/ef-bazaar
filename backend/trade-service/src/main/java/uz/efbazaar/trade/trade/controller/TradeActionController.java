@@ -65,7 +65,7 @@ public class TradeActionController {
                                  @PathVariable UUID id) {
         Trade t = trades.get(id, me.userId());
         ParticipantRole mine = actingRole(t, me.userId(), ParticipantRole.SELLER);
-        recheckLimiter.reserve(id);
+        recheckLimiter.reserve(id, mine);
         // Their own box, not the trade's: on a swap the trade's is the seller's,
         // and re-checking it would report on an inbox this caller is not using.
         var mb = mailboxes.getRaw(trades.mailboxFor(t, mine));
