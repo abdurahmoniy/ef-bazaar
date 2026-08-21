@@ -217,7 +217,16 @@ public class TradeService {
     @Transactional
     public Trade transition(UUID tradeId, TradeEvent event, ActorType actor, UUID actorId,
                             ParticipantRole actingSide) {
-        Trade t = trades.findById(tradeId)
+        // Locked, not merely read. This method loads the trade, computes the
+        // next state and saves the whole row, so two transitions running at
+        // once each compute from their own snapshot and the slower one commits
+        // a state the faster one has already moved past. A swap makes that
+        // routine: the worker reports one provisioned mailbox per side and the
+        // second report enables a PAYMENT_CONFIRMED that races the first — a
+        // paid-for trade dropped back to waiting for payment, and the parties'
+        // next click came back as an illegal event. The lock makes the loser
+        // re-read, so it either moves the trade forward or is refused.
+        Trade t = trades.findByIdForUpdate(tradeId)
                 .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
         TradeState from = t.getState();
         // MAILBOX_PROVISIONED must only be driven by the worker's
@@ -273,17 +282,29 @@ public class TradeService {
                 t.getSellerId(), t.getBuyerId(), t.getPriceUzs(),
                 ownMailbox, mailboxEmail, t.getChatId(), t.getCreatedAt(), t.getExpiresAt(),
                 t.getStateDeadline(), role, passwordMessageId,
-                t.getEmailChangeVerificationCode(),
+                emailChangeCodeFor(t, role),
                 t.getKind(),
                 sideService.of(t.getId()).stream().map(TradeSideResponse::of).toList(),
                 counterpartMailboxEmail);
     }
 
     /**
-     * Escrow-mailbox address is exposed on the trade so the seller sees which
-     * address to enter on Konami — the mailbox row itself is not owned by the
-     * seller yet (MailboxService.getOwned would reject them).
+     * The verification code this party should type into Konami.
+     *
+     * <p>On a swap, strictly their own — null until it arrives. Falling back to
+     * the trade-level column would hand them the other party's code, which
+     * Konami issued for a different account and which simply will not work.
+     * A sale has one code and keeps reading it from the trade.
      */
+    private String emailChangeCodeFor(Trade t, ParticipantRole role) {
+        if (role != null && t.getKind() != null && t.getKind().isSwap()) {
+            return sideService.of(t.getId(), role)
+                    .map(TradeSide::getEmailChangeCode)
+                    .orElse(null);
+        }
+        return t.getEmailChangeVerificationCode();
+    }
+
     private static ParticipantRole other(ParticipantRole role) {
         return role == ParticipantRole.SELLER ? ParticipantRole.BUYER : ParticipantRole.SELLER;
     }

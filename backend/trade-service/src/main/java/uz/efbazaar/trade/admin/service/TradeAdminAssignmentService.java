@@ -56,6 +56,14 @@ public class TradeAdminAssignmentService {
     public void accept(UUID adminId, UUID tradeId) {
         Trade t = requireInvited(adminId, tradeId);
 
+        // Trade first, then profile — the order every path has to take.
+        // TradeService.transition locks the trade and its onEnter writes the
+        // admin's profile through TradeAdminStats, so locking the profile first
+        // here and the trade second would be the opposite order and the two
+        // could sit waiting on each other.
+        trades.findByIdForUpdate(tradeId).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Savdo topilmadi"));
+
         // Lock the profile so two concurrent accepts serialise on this row.
         TradeAdminProfile p = profiles.findByIdForUpdate(adminId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN,

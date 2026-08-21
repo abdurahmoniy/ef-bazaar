@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
 import uz.efbazaar.trade.trade.domain.*;
 import uz.efbazaar.trade.trade.repository.TradeSideRepository;
 
@@ -32,6 +33,7 @@ import java.util.UUID;
 public class TradeSideService {
 
     private final TradeSideRepository sides;
+    private final MailboxRepository mailboxes;
 
     /**
      * Creates the two rows a trade is tracked by.
@@ -68,6 +70,23 @@ public class TradeSideService {
         if (mailboxId == null) return Optional.empty();
         return sides.findByIdTradeId(tradeId).stream()
                 .filter(s -> mailboxId.equals(s.getMailboxId()))
+                .findFirst();
+    }
+
+    /**
+     * Which side owns the mailbox at this address.
+     *
+     * <p>How a worker report finds its party when it names an address rather
+     * than an id — which is what the Konami code carries.
+     */
+    @Transactional(readOnly = true)
+    public Optional<TradeSide> byMailboxEmail(UUID tradeId, String email) {
+        if (email == null || email.isBlank()) return Optional.empty();
+        return sides.findByIdTradeId(tradeId).stream()
+                .filter(s -> s.getMailboxId() != null)
+                .filter(s -> mailboxes.findById(s.getMailboxId())
+                        .map(m -> email.equalsIgnoreCase(m.getEmail()))
+                        .orElse(false))
                 .findFirst();
     }
 

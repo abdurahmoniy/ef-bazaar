@@ -46,13 +46,19 @@ public class MockWorker {
             properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$EmailProvisionRequest"}
     )
     public void onProvisionRequest(TradeEvents.EmailProvisionRequest req) {
-        String email = "trade-" + req.tradeId().toString().substring(0, 8) + "@efbazaar.uz";
+        // Named after the mailbox, not the trade. A swap asks for two boxes on
+        // one trade, and naming them after the trade gave both the same address
+        // — mailboxes.email is unique, so the second insert threw inside the
+        // listener and the partition spent its retries on a record that could
+        // never succeed, stalling every trade behind it. The real worker names
+        // them the same way; this is the mock catching up.
+        UUID mailboxId = req.mailboxId();
+        String email = "trade-" + mailboxId.toString().substring(0, 8) + "@efbazaar.uz";
         String pw = randomPassword();
         // Echo back the placeholder id trade-service supplied. Encryption
         // context stays on the mock-specific prefix so MailboxPasswordResolver's
         // fallback (`mbox-mock-{tradeId}`) still decrypts these rows for local
         // dev / integration tests.
-        UUID mailboxId = req.mailboxId();
         EncryptedField enc = crypto.encrypt("mbox-mock-" + req.tradeId(), pw.getBytes());
         kafka.send(TradeEvents.TOPIC_EMAIL_PROVISIONED, req.tradeId().toString(),
                 new TradeEvents.EmailProvisioned(req.tradeId(), mailboxId, email,

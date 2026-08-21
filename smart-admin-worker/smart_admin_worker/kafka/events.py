@@ -114,6 +114,9 @@ class KonamiEmailChangeCodeReceived:
     verification_code: str
     received_at: datetime
     sender: str
+    # Which escrow mailbox it landed in. A swap has two, each with its own
+    # code, and without this trade-service cannot tell whose is whose.
+    mailbox_email: str
 
 
 # ---------- Backpressure DTOs (worker produces, NEW) ----------

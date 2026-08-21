@@ -43,6 +43,13 @@ public class TradeSide {
     @Column(name = "password_sent_at")
     private Instant passwordSentAt;
 
+    /** Konami's six digits for THIS party's account. */
+    @Column(name = "email_change_code", length = 16)
+    private String emailChangeCode;
+
+    @Column(name = "email_change_code_at")
+    private Instant emailChangeCodeAt;
+
     @Column(name = "confirmed_at")
     private Instant confirmedAt;
 
