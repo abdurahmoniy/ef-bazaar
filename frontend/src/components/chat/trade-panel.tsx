@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Copy,
   Handshake,
+  History,
   Loader2,
   RefreshCw,
   ShieldCheck,
@@ -56,6 +57,7 @@ import {
 } from '@/lib/wallet-shortfall';
 import {
   isTerminalState,
+  splitTrades,
   TRADE_STATE_LABEL_UZ,
   type PendingProposalResponse,
   type ProposalAcceptRequest,
@@ -134,6 +136,16 @@ export function TradePanel({
           }
         : null,
   );
+  /**
+   * Whether the pair have asked to move past a trade that has ended.
+   *
+   * A finished trade stays on screen — it is how the parties see what happened
+   * and, on a swap, that the accounts crossed over. But it must not be the last
+   * thing this chat can ever show: without a way past it a pair whose trade
+   * timed out could not start another for the same account, and the chat looked
+   * used up.
+   */
+  const [startingNew, setStartingNew] = useState(false);
   const [showProposeModal, setShowProposeModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -141,7 +153,10 @@ export function TradePanel({
   const reloadInFlight = useRef(false);
   const proposalPollInFlight = useRef(false);
 
-  const activeTrade = trades && trades.length > 0 ? trades[0] : null;
+  // A finished trade is not the trade in hand. Holding on to it left a pair
+  // whose trade timed out staring at it with no way back to asking for the
+  // account again — as though the chat had been used up.
+  const { active: activeTrade, lastFinished } = splitTrades(trades);
 
   const reload = useCallback(async () => {
     if (reloadInFlight.current) return;
@@ -275,6 +290,28 @@ export function TradePanel({
     );
   }
 
+  // ---- a trade that has ended, still on screen until they move past it ----
+  if (lastFinished && !startingNew && !proposal) {
+    return (
+      <div className="space-y-2">
+        <ActiveTradeCard
+          trade={lastFinished}
+          viewerId={viewerId}
+          onRefresh={reload}
+          refreshing={refreshing}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          className="mx-auto block w-full max-w-md"
+          onClick={() => setStartingNew(true)}
+        >
+          Yangi savdo boshlash
+        </Button>
+      </div>
+    );
+  }
+
   // ---- pending proposal (post-create, pre-accept) ----
   if (proposal) {
     return (
@@ -293,6 +330,7 @@ export function TradePanel({
   // ---- no trade, no pending proposal ----
   return (
     <div className="mx-auto max-w-md rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
+      {lastFinished && <LastTradeLine trade={lastFinished} />}
       <div className="mb-2 flex items-center gap-2">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
           <Handshake className="h-4 w-4" />
@@ -367,6 +405,29 @@ export function TradePanel({
           }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * How the previous trade ended, above the controls for starting another.
+ *
+ * The pair are back to choosing an account, and without this the panel would
+ * simply have forgotten the trade they were in the middle of a moment ago.
+ */
+function LastTradeLine({ trade }: { trade: TradeResponse }) {
+  const ended =
+    trade.state === 'SUCCESS'
+      ? { text: 'Oxirgi savdo muvaffaqiyatli yakunlandi', tone: 'text-emerald-700 dark:text-emerald-400' }
+      : trade.state === 'REJECTED'
+        ? { text: 'Oxirgi savdo rad etildi', tone: 'text-destructive' }
+        : { text: 'Oxirgi savdo muddati tugadi', tone: 'text-muted-foreground' };
+  return (
+    <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2 text-[11.5px]">
+      <History className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <span className={ended.tone}>
+        {ended.text}. Quyidan yangisini boshlashingiz mumkin.
+      </span>
     </div>
   );
 }

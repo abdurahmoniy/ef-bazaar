@@ -305,3 +305,22 @@ export const TERMINAL_TRADE_STATES: ReadonlyArray<TradeState> = [
 export function isTerminalState(state: TradeState): boolean {
   return TERMINAL_TRADE_STATES.includes(state);
 }
+
+/**
+ * The trade the panel should be showing, and the last one that ended.
+ *
+ * A trade that has finished is not the trade in hand. Treating the newest one
+ * as current regardless left a pair whose trade timed out looking at it for
+ * ever, with no way back to asking for the account again — the chat appeared to
+ * have been used up. How it ended is still worth showing, so it comes back
+ * alongside rather than being dropped.
+ */
+export function splitTrades(trades: TradeResponse[] | null): {
+  active: TradeResponse | null;
+  lastFinished: TradeResponse | null;
+} {
+  if (!trades || trades.length === 0) return { active: null, lastFinished: null };
+  // Newest first, as the API returns them.
+  const active = trades.find((t) => !isTerminalState(t.state)) ?? null;
+  return { active, lastFinished: active ? null : trades[0] };
+}
