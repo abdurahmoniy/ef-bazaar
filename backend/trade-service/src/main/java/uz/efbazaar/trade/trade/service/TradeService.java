@@ -277,7 +277,7 @@ public class TradeService {
         String mailboxEmail = resolveMailboxEmail(t, ownMailbox);
         String counterpartMailboxEmail = resolveMailboxEmail(t,
                 mailboxFor(t, role == null ? null : other(role)));
-        UUID passwordMessageId = resolvePasswordMessageId(t);
+        UUID passwordMessageId = resolvePasswordMessageId(t, role);
         return new TradeResponse(t.getId(), t.getState(),
                 t.getSellerId(), t.getBuyerId(), t.getPriceUzs(),
                 ownMailbox, mailboxEmail, t.getChatId(), t.getCreatedAt(), t.getExpiresAt(),
@@ -352,10 +352,20 @@ public class TradeService {
      * PASSWORD_ONETIME message in their chat so the reveal endpoint can
      * decrypt it. There is at most one such message per trade (spec §6).
      */
-    private UUID resolvePasswordMessageId(Trade t) {
+    /**
+     * The password message this viewer may open — the one addressed to them.
+     *
+     * <p>A password lands in the recipient's chat, and the reveal authorises by
+     * finding it there. Resolving it from the buyer's chat whoever asked handed
+     * the seller of a swap an id from a chat they are not in, so their reveal
+     * could only be refused. On a sale the seller is sent nothing and gets
+     * null, which is what their panel already assumes.
+     */
+    private UUID resolvePasswordMessageId(Trade t, ParticipantRole role) {
         TradeState s = t.getState();
         if (s != TradeState.WAITING_BUYER_VERIFY && s != TradeState.SUCCESS) return null;
-        return chats.findByTradeIdAndParticipant(t.getId(), ParticipantRole.BUYER)
+        if (role == null) return null;
+        return chats.findByTradeIdAndParticipant(t.getId(), role)
                 .flatMap(c -> messages.findByTradeChatIdOrderByCreatedAtAsc(c.getId()).stream()
                         .filter(m -> m.getMessageType() == TradeMessageType.PASSWORD_ONETIME)
                         .map(TradeMessage::getId)
