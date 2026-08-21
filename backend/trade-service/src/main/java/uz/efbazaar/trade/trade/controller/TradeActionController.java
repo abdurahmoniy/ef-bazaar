@@ -55,43 +55,41 @@ public class TradeActionController {
     public TradeResponse emailChanged(@AuthenticationPrincipal AuthenticatedUser me,
                                       @PathVariable UUID id) {
         Trade t = trades.get(id, me.userId());
-        requireRole(t, me.userId(), ParticipantRole.SELLER);
-        Trade after = trades.transition(id, TradeEvent.EMAIL_CHANGED,
-                ActorType.USER, me.userId());
-        return trades.toResponse(after, ParticipantRole.SELLER);
+        actingRole(t, me.userId(), ParticipantRole.SELLER);
+        trades.transition(id, TradeEvent.EMAIL_CHANGED, ActorType.USER, me.userId());
+        return trades.toResponseFor(id, me.userId());
     }
 
     @PostMapping("/recheck")
     public TradeResponse recheck(@AuthenticationPrincipal AuthenticatedUser me,
                                  @PathVariable UUID id) {
         Trade t = trades.get(id, me.userId());
-        requireRole(t, me.userId(), ParticipantRole.SELLER);
+        ParticipantRole mine = actingRole(t, me.userId(), ParticipantRole.SELLER);
         recheckLimiter.reserve(id);
-        var mb = mailboxes.getRaw(t.getMailboxId());
+        // Their own box, not the trade's: on a swap the trade's is the seller's,
+        // and re-checking it would report on an inbox this caller is not using.
+        var mb = mailboxes.getRaw(trades.mailboxFor(t, mine));
         events.imapPollRequest(id, mb.getEmail(), TradeEvents.ImapPurpose.VERIFY_LINK);
-        Trade after = trades.transition(id, TradeEvent.RECHECK,
-                ActorType.USER, me.userId());
-        return trades.toResponse(after, ParticipantRole.SELLER);
+        trades.transition(id, TradeEvent.RECHECK, ActorType.USER, me.userId());
+        return trades.toResponseFor(id, me.userId());
     }
 
     @PostMapping("/confirm")
     public TradeResponse buyerConfirm(@AuthenticationPrincipal AuthenticatedUser me,
                                       @PathVariable UUID id) {
         Trade t = trades.get(id, me.userId());
-        requireRole(t, me.userId(), ParticipantRole.BUYER);
-        Trade after = trades.transition(id, TradeEvent.BUYER_CONFIRM,
-                ActorType.USER, me.userId());
-        return trades.toResponse(after, ParticipantRole.BUYER);
+        actingRole(t, me.userId(), ParticipantRole.BUYER);
+        trades.transition(id, TradeEvent.BUYER_CONFIRM, ActorType.USER, me.userId());
+        return trades.toResponseFor(id, me.userId());
     }
 
     @PostMapping("/reject")
     public TradeResponse buyerReject(@AuthenticationPrincipal AuthenticatedUser me,
                                      @PathVariable UUID id) {
         Trade t = trades.get(id, me.userId());
-        requireRole(t, me.userId(), ParticipantRole.BUYER);
-        Trade after = trades.transition(id, TradeEvent.BUYER_REJECT,
-                ActorType.USER, me.userId());
-        return trades.toResponse(after, ParticipantRole.BUYER);
+        actingRole(t, me.userId(), ParticipantRole.BUYER);
+        trades.transition(id, TradeEvent.BUYER_REJECT, ActorType.USER, me.userId());
+        return trades.toResponseFor(id, me.userId());
     }
 
     @PostMapping("/assign-admin")
@@ -114,5 +112,31 @@ public class TradeActionController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Only " + required + " may perform this action");
         }
+    }
+
+    /**
+     * The role this caller is acting as for a step that a swap asks of both.
+     *
+     * <p>On a sale each transfer step belongs to one side and the other has
+     * nothing to do, so {@code soleOwner} still guards it. A swap asks the same
+     * step of both parties, and the answer there is simply whichever one you
+     * are — these endpoints were written before swaps existed, and the fixed
+     * role turned the other party's own half of the trade into "Only SELLER may
+     * perform this action".
+     */
+    private static ParticipantRole actingRole(Trade t, UUID userId, ParticipantRole soleOwner) {
+        ParticipantRole mine = t.roleFor(userId);
+        if (mine == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Not a participant in this trade");
+        }
+        if (t.getKind() != null && t.getKind().isSwap()) {
+            return mine;
+        }
+        if (mine != soleOwner) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only " + soleOwner + " may perform this action");
+        }
+        return mine;
     }
 }

@@ -317,8 +317,12 @@ public class TradeService {
      * sale the buyer has no box of their own, so they fall back to the trade's
      * — which is the one they are receiving, and what their panel has always
      * shown.
+     *
+     * <p>Public because a caller acting for one party must not reach for
+     * {@code trade.mailboxId}: on a swap that is the seller's box, and pointing
+     * the other party's worker request at it watches the wrong inbox.
      */
-    private UUID mailboxFor(Trade t, ParticipantRole role) {
+    public UUID mailboxFor(Trade t, ParticipantRole role) {
         if (role != null) {
             UUID own = sideService.of(t.getId(), role)
                     .map(TradeSide::getMailboxId)
