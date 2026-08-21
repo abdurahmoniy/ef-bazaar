@@ -27,6 +27,8 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
     @Autowired ObjectMapper json;
     @Autowired TradeService trades;
     @Autowired TradeRepository repo;
+    @Autowired uz.efbazaar.trade.trade.service.TradeSideService sideService;
+    @Autowired uz.efbazaar.trade.mailbox.repository.MailboxRepository mailboxRepo;
 
     @Test
     void buyerCanConfirmPayment_thenSellerChangesEmail() throws Exception {
@@ -47,6 +49,105 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
                 .andExpect(status().isOk());
         assertThat(repo.findById(t.id()).orElseThrow().getState())
                 .isEqualTo(TradeState.VERIFYING_KONAMI_LINK);
+    }
+
+    /**
+     * A swap asks every transfer step of both parties.
+     *
+     * <p>Reported from testing: the buyer changed their account's email, and
+     * pressing the button came back "Only SELLER may perform this action".
+     * These endpoints were written when only a sale existed, where each step
+     * belongs to one side; on a swap the same step belongs to whoever is
+     * doing it, and hard-coding the sale's owner locks the other party out of
+     * their own half of the trade.
+     */
+    @Test
+    void bothPartiesOfASwapMayDoTheirOwnTransferSteps() throws Exception {
+        UUID seller = UUID.randomUUID();
+        UUID buyer = UUID.randomUUID();
+        var t = trades.openTrade(UUID.randomUUID(), seller, buyer, 0L, null, null,
+                UUID.randomUUID(), null, uz.efbazaar.trade.trade.domain.TradeMode.SMART,
+                null, null, uz.efbazaar.trade.trade.domain.TradeKind.SWAP, 500_000L);
+        reachEmailChange(t.id());
+
+        // The party who happens to be the buyer is changing their own account's
+        // email, exactly as the seller is changing theirs.
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/email-changed").with(asUser(buyer)))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/email-changed").with(asUser(seller)))
+                .andExpect(status().isOk());
+
+        assertThat(repo.findById(t.id()).orElseThrow().getState())
+                .as("both sides have done it, so the trade moves on")
+                .isEqualTo(TradeState.VERIFYING_KONAMI_LINK);
+    }
+
+    /**
+     * The other half of the same mistake, at the end of the trade.
+     *
+     * <p>A swap only crosses the accounts over when both parties say yes, and
+     * the confirm endpoint was the buyer's alone — so the seller could never
+     * give their half of the answer and no swap could ever complete.
+     */
+    @Test
+    void theSellerOfASwapMayConfirmTheirHalf() throws Exception {
+        UUID seller = UUID.randomUUID();
+        UUID buyer = UUID.randomUUID();
+        var t = trades.openTrade(UUID.randomUUID(), seller, buyer, 0L, null, null,
+                UUID.randomUUID(), null, uz.efbazaar.trade.trade.domain.TradeMode.SMART,
+                null, null, uz.efbazaar.trade.trade.domain.TradeKind.SWAP, 500_000L);
+        reachEmailChange(t.id());
+        for (UUID who : new UUID[]{seller, buyer}) {
+            drive(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.EMAIL_CHANGED, who);
+        }
+        seed(t.id(), TradeState.WAITING_BUYER_VERIFY);
+
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/confirm").with(asUser(seller)))
+                .andExpect(status().isOk());
+    }
+
+    /** Drives the trade to WAITING_EMAIL_CHANGE without leaning on Kafka timing. */
+    private void reachEmailChange(UUID tradeId) {
+        for (var side : sideService.of(tradeId)) {
+            if (side.getMailboxId() == null) continue;
+            var box = mailboxRepo.findById(side.getMailboxId()).orElseThrow();
+            if (box.getEmail() == null || box.getEmail().startsWith("pending-")) {
+                box.setEmail("trade-" + side.getMailboxId().toString().substring(0, 8)
+                        + "@efbazaar.uz");
+                box.setProvisionedAt(Instant.now());
+                mailboxRepo.saveAndFlush(box);
+            }
+        }
+        for (int i = 0; i < 20; i++) {
+            TradeState now = repo.findById(tradeId).orElseThrow().getState();
+            if (now == TradeState.WAITING_EMAIL_CHANGE) return;
+            switch (now) {
+                case INITIATED -> drive(tradeId,
+                        uz.efbazaar.trade.trade.domain.TradeEvent.MAILBOX_PROVISIONED, null);
+                case WAITING_PAYMENT -> drive(tradeId,
+                        uz.efbazaar.trade.trade.domain.TradeEvent.PAYMENT_CONFIRMED, null);
+                default -> throw new AssertionError("Unexpected state in setup: " + now);
+            }
+        }
+        throw new AssertionError("Setup never reached WAITING_EMAIL_CHANGE");
+    }
+
+    /** MockWorker shares this trade over Kafka, so "already past it" is a pass. */
+    private void drive(UUID tradeId, uz.efbazaar.trade.trade.domain.TradeEvent event, UUID actor) {
+        try {
+            trades.transition(tradeId, event,
+                    actor == null ? uz.efbazaar.trade.trade.domain.ActorType.WORKER
+                            : uz.efbazaar.trade.trade.domain.ActorType.USER,
+                    actor);
+        } catch (uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException alreadyMoved) {
+            // Someone else got there first, which is the outcome we wanted.
+        }
+    }
+
+    private void seed(UUID tradeId, TradeState state) {
+        var trade = repo.findById(tradeId).orElseThrow();
+        trade.setState(state);
+        repo.saveAndFlush(trade);
     }
 
     @Test

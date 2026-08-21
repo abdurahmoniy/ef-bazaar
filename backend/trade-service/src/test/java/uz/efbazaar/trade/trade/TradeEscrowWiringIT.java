@@ -46,8 +46,11 @@ class TradeEscrowWiringIT extends AbstractIntegrationIT {
 
     @BeforeEach
     void resetStub() {
-        Mockito.reset(escrow);
-        StubEscrowConfig.calls.clear();
+        // Not Mockito.reset: this mock is shared and other threads are calling
+        // it. Recorded invocations still have to go, or a verify() here counts
+        // a call another test made.
+        Mockito.clearInvocations(escrow);
+        StubEscrowConfig.clear();
     }
 
     private ProposalResponse propose(UUID seller, UUID buyer, long amountUzs) {
@@ -71,9 +74,11 @@ class TradeEscrowWiringIT extends AbstractIntegrationIT {
     void aBuyerWhoCannotAffordItGetsNoTradeAtAll() {
         UUID seller = UUID.randomUUID();
         UUID buyer = UUID.randomUUID();
-        doThrow(new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
-                "Hamyonda mablag' yetarli emas"))
-                .when(escrow).hold(any(), any(), any(), anyLong(), anyLong());
+        // Armed through the stub rather than by re-stubbing the mock: the
+        // trade id does not exist yet, so this has to apply to any hold.
+        StubEscrowConfig.failNext("hold", null,
+                () -> new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                        "Hamyonda mablag' yetarli emas"));
         var pr = propose(seller, buyer, 500_000L);
         long before = trades.count();
 

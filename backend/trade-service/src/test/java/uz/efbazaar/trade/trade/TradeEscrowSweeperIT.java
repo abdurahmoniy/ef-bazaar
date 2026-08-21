@@ -40,8 +40,10 @@ class TradeEscrowSweeperIT extends AbstractIntegrationIT {
 
     @BeforeEach
     void resetStub() {
-        Mockito.reset(escrow);
-        StubEscrowConfig.calls.clear();
+        // Not Mockito.reset: it drops the stub's answers along with the
+        // recorded calls, and it races the threads still using this mock.
+        Mockito.clearInvocations(escrow);
+        StubEscrowConfig.clear();
     }
 
     private Trade stranded(TradeState state, TradeMode mode) {
@@ -108,8 +110,8 @@ class TradeEscrowSweeperIT extends AbstractIntegrationIT {
     @Test
     void aWalletStillDownLeavesTheTradeForTheNextSweep() {
         Trade t = stranded(TradeState.REJECTED, TradeMode.SMART);
-        doThrow(new IllegalStateException("wallet down"))
-                .when(escrow).release(eq(t.getId()), any(), any(), anyLong(), anyLong());
+        StubEscrowConfig.failNext("release", t.getId(),
+                () -> new IllegalStateException("wallet down"));
 
         sweeper.sweep();   // must not throw — one stuck trade cannot stop the rest
 
@@ -138,7 +140,7 @@ class TradeEscrowSweeperIT extends AbstractIntegrationIT {
         // rather than the two that happened to be remembered.
         for (TradeState terminal : TradeState.values()) {
             if (!terminal.isTerminal()) continue;
-            Mockito.reset(escrow);
+            Mockito.clearInvocations(escrow);
             Trade t = stranded(terminal, TradeMode.SMART);
 
             sweeper.sweep();
