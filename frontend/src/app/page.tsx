@@ -320,6 +320,12 @@ function LandingHeader() {
 					>
 						Qanday ishlaydi
 					</Link>
+					<Link
+						href='/help'
+						className='rounded-lg px-3 py-2 transition hover:bg-card hover:text-foreground'
+					>
+						Yordam
+					</Link>
 				</nav>
 
 				<div className='flex items-center gap-2'>
@@ -885,7 +891,11 @@ function Faq() {
 						Tez-tez so&apos;raladigan savollar.
 					</h2>
 					<p className='mt-3 max-w-md leading-7 text-muted-foreground'>
-						Boshqa savolingiz bo&apos;lsa, Telegram bot orqali yozib qoldiring.
+						Barcha qo‘llanmalar va batafsil ma‘lumotlar uchun{' '}
+						<Link href='/help' className='font-bold text-primary hover:underline'>
+							Yordam markazi
+						</Link>
+						ga o‘ting.
 					</p>
 				</div>
 

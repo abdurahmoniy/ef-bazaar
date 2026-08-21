@@ -19,6 +19,7 @@ import {
 import { ChatPinnedHeader } from '@/components/chat/chat-pinned-header';
 import { MessageActionSheet } from '@/components/chat/message-action-sheet';
 import { TradePanel } from '@/components/chat/trade-panel';
+import { TipCallout } from '@/components/help/tip-callout';
 import { MessageAttachment, formatBytes } from '@/components/chat/message-attachment';
 import { VoiceRecorder } from '@/components/chat/voice-recorder';
 import { Badge } from '@/components/ui/badge';
@@ -335,6 +336,16 @@ export function ChatView({
           listing={listing}
           initialPendingProposal={initialPendingProposal}
         />
+        <TipCallout
+          variant="security"
+          dismissible
+          dismissKey="chat_safety_banner"
+          learnMoreHref="/help#safety"
+          learnMoreLabel="Xavfsizlik qoidalari"
+          className="my-2"
+        >
+          Firibgarlikdan saqlaning: parollarni yoki bank karta ma‘lumotlarini ochiq chatda yubormang. Garov tizimi orqali xavfsiz bitim tuzing.
+        </TipCallout>
         {messages.length === 0 && (
           <p className="pt-4 text-center text-xs text-muted-foreground">
             Hali xabarlar yo'q. Birinchi bo'lib salom bering.

@@ -5,6 +5,7 @@ import { ArrowDownToLine, CheckCircle2, Loader2, ShieldCheck, Zap } from 'lucide
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TipCallout } from '@/components/help/tip-callout';
 import { formatTiyin, uzsToTiyin } from '@/lib/money';
 import { createInvoice } from '@/lib/payment-client';
 import type { InvoiceResponse } from '@/lib/payment-types';
@@ -132,6 +133,15 @@ export function TopUpForm({ onCreated, initialAmount }: TopUpFormProps) {
           {error}
         </p>
       )}
+
+      <TipCallout
+        variant="security"
+        learnMoreHref="/help#how-to-top-up-wallet"
+        learnMoreLabel="Batafsil"
+        className="mt-4"
+      >
+        <strong>100% xavfsiz to‘lov:</strong> Balans to‘ldirish Uzcard va Humo orqali 0% komissiyada lahzali amalga oshadi. Barcha mablag‘lar efBazaar kafolatida xavfsiz saqlanadi.
+      </TipCallout>
     </section>
   );
 }

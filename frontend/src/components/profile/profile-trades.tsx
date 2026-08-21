@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Clock, Handshake, ShoppingCart, Store } from 'lucide-react';
+import { ArrowRight, Clock, Handshake, ShoppingCart, Star, Store } from 'lucide-react';
 
 import { formatListingDate, formatPriceUZS } from '@/lib/marketplace-format';
 import {
@@ -95,6 +95,12 @@ export function ProfileTrades({ trades }: ProfileTradesProps) {
                   <span className="text-[10.5px] text-muted-foreground">
                     {formatListingDate(trade.createdAt)}
                   </span>
+                  {trade.state === 'SUCCESS' && buying && (
+                    <span className="inline-flex items-center gap-0.5 text-[10.5px] font-bold text-amber-600 dark:text-amber-400">
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                      Baholash
+                    </span>
+                  )}
                 </div>
               </div>
 

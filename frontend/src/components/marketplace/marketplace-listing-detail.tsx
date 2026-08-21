@@ -17,6 +17,7 @@ import { MatchBreakdown } from '@/components/marketplace/match-breakdown';
 import { PlayerCardTile } from '@/components/marketplace/player-card-tile';
 import { SellerCard } from '@/components/marketplace/seller-card';
 import { ShareListingButton } from '@/components/marketplace/share-listing-button';
+import { TipCallout } from '@/components/help/tip-callout';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -35,6 +36,7 @@ import {
   type ListingResponse,
   type SellerSummary,
 } from '@/lib/marketplace-types';
+import type { SellerRatingSummaryResponse } from '@/lib/trade-types';
 import type { User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +45,7 @@ interface MarketplaceListingDetailProps {
   viewer: User | null;
   seller: SellerSummary | User | null;
   sellerBlacklisted?: boolean;
+  sellerRatingSummary?: SellerRatingSummaryResponse | null;
   similarListings: ListingResponse[];
 }
 
@@ -51,6 +54,7 @@ export function MarketplaceListingDetail({
   viewer,
   seller,
   sellerBlacklisted,
+  sellerRatingSummary,
   similarListings,
 }: MarketplaceListingDetailProps) {
   const title = listing.description.split('\n')[0]?.trim() || 'eFootball account';
@@ -237,6 +241,16 @@ export function MarketplaceListingDetail({
             exchangeMode={exchangeMode}
             priceNegotiable={listing.priceNegotiable}
           />
+
+          <TipCallout
+            variant="security"
+            dismissible
+            dismissKey="listing_detail_escrow_security"
+            learnMoreHref="/help#how-escrow-works"
+            learnMoreLabel="Garov qanday ishlaydi?"
+          >
+            Xavfsiz xarid: Hech qachon to‘g‘ridan-to‘g‘ri karta orqali pul o‘tkazmang. Bitimni sotuvchi bilan chatda &quot;Garov&quot; ochish orqali amalga oshiring.
+          </TipCallout>
         </div>
 
         {/* Media leads on mobile; the price + CTA live in the sticky bottom bar
@@ -269,7 +283,12 @@ export function MarketplaceListingDetail({
             />
           </div>
 
-          <SellerCard seller={seller} isViewerOwner={isOwner} blacklisted={sellerBlacklisted} />
+          <SellerCard
+            seller={seller}
+            isViewerOwner={isOwner}
+            blacklisted={sellerBlacklisted}
+            ratingSummary={sellerRatingSummary}
+          />
         </aside>
       </div>
 

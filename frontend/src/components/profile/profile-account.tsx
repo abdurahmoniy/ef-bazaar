@@ -19,6 +19,7 @@ import {
   Settings,
   ShieldAlert,
   ShieldCheck,
+  Star,
   Sun,
   Trash2,
   UserCog,
@@ -28,6 +29,7 @@ import {
 import { DeleteAccountButton } from '@/components/profile/delete-account-button';
 import { GoogleLinkButton } from '@/components/profile/google-link-button';
 import { LinkTelegramButton } from '@/components/profile/link-telegram-button';
+import { TipCallout } from '@/components/help/tip-callout';
 import { TradeAdminApplicationPanel } from '@/components/profile/trade-admin-application-panel';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,6 +40,7 @@ import { isAdmin } from '@/lib/admin';
 import { isTradeAdmin } from '@/lib/trade-human';
 import { cn } from '@/lib/utils';
 import type { TradeAdminApplicationResponse } from '@/lib/trade-admin-applications';
+import type { SellerRatingSummaryResponse } from '@/lib/trade-types';
 import type { User } from '@/lib/types';
 import { logoutAction } from '@/app/auth/actions';
 
@@ -48,6 +51,7 @@ interface ProfileAccountProps {
   tradeAdminApplication: TradeAdminApplicationResponse | null;
   listingsCount?: number;
   favoritesCount?: number;
+  ratingSummary?: SellerRatingSummaryResponse | null;
 }
 
 export function ProfileAccount({
@@ -57,6 +61,7 @@ export function ProfileAccount({
   tradeAdminApplication,
   listingsCount = 0,
   favoritesCount = 0,
+  ratingSummary,
 }: ProfileAccountProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -228,6 +233,17 @@ export function ProfileAccount({
                   @{user.telegramUsername}
                 </p>
               )}
+
+              {ratingSummary && ratingSummary.ratingCount > 0 && (
+                <Link
+                  href={`/users/${user.id}`}
+                  className="inline-flex items-center gap-1.5 pt-0.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                >
+                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                  <span>{ratingSummary.averageRating.toFixed(1)}</span>
+                  <span className="font-normal text-muted-foreground">({ratingSummary.ratingCount} ta baho)</span>
+                </Link>
+              )}
             </div>
           </div>
 
@@ -328,6 +344,13 @@ export function ProfileAccount({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 pt-0">
+          <TipCallout
+            variant="tip"
+            learnMoreHref="/help#why-link-telegram-google"
+            learnMoreLabel="Nega bu muhim?"
+          >
+            <strong>Xaridorlar ishonchini oshiring:</strong> Telegram va Google hisoblaringizni ulab, profilingizga rasmiy <span className="font-bold text-emerald-600 dark:text-emerald-400">Tasdiqlangan</span> belgisini oling. Xaridorlar tasdiqlangan sotuvchilardan 3 barobar ko‘proq xarid qilishadi.
+          </TipCallout>
           <GoogleLinkButton
             googleClientId={googleClientId}
             alreadyLinked={user.googleLinked}
