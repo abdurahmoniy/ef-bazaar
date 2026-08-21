@@ -217,7 +217,16 @@ public class TradeService {
     @Transactional
     public Trade transition(UUID tradeId, TradeEvent event, ActorType actor, UUID actorId,
                             ParticipantRole actingSide) {
-        Trade t = trades.findById(tradeId)
+        // Locked, not merely read. This method loads the trade, computes the
+        // next state and saves the whole row, so two transitions running at
+        // once each compute from their own snapshot and the slower one commits
+        // a state the faster one has already moved past. A swap makes that
+        // routine: the worker reports one provisioned mailbox per side and the
+        // second report enables a PAYMENT_CONFIRMED that races the first — a
+        // paid-for trade dropped back to waiting for payment, and the parties'
+        // next click came back as an illegal event. The lock makes the loser
+        // re-read, so it either moves the trade forward or is refused.
+        Trade t = trades.findByIdForUpdate(tradeId)
                 .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
         TradeState from = t.getState();
         // MAILBOX_PROVISIONED must only be driven by the worker's
