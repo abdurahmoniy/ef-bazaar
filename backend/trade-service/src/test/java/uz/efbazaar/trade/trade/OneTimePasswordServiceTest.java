@@ -27,6 +27,40 @@ class OneTimePasswordServiceTest extends AbstractIntegrationIT {
     @Autowired uz.efbazaar.trade.trade.repository.TradeRepository tradeRepo;
     @Autowired uz.efbazaar.trade.trade.repository.TradeSideRepository sideRepo;
 
+    /**
+     * After a password is sent again, the panel must point at the new one.
+     *
+     * <p>There is no way to re-send inside the state machine, so recovering a
+     * trade whose password was lost means putting it back to WAITING_PASSWORD
+     * by hand and asking the sender to type it again. That leaves two
+     * PASSWORD_ONETIME rows in the recipient's chat, and the panel took the
+     * oldest of them — the dead one, whose key is already gone. The recipient
+     * would press reveal and get "already revealed or expired" all over again,
+     * with no way to tell that anything had been done for them.
+     */
+    @Test
+    void aResentPasswordIsTheOneTheRecipientIsOffered() {
+        UUID seller = UUID.randomUUID();
+        UUID buyer = UUID.randomUUID();
+        var trade = trades.openTrade(seller, buyer, 500_000L,
+                UUID.randomUUID(), UUID.randomUUID(), null);
+        driveToWaitingPassword(trade.id(), seller, buyer);
+
+        UUID dead = otp.sendPassword(trade.id(), "FirstAttempt1", seller);
+        otp.reveal(trade.id(), dead, buyer);   // key consumed, ciphertext now junk
+
+        // The recovery: put it back and let the seller send a fresh one.
+        var t = tradeRepo.findById(trade.id()).orElseThrow();
+        t.setState(TradeState.WAITING_PASSWORD);
+        tradeRepo.saveAndFlush(t);
+        UUID fresh = otp.sendPassword(trade.id(), "SecondAttempt2", seller);
+
+        assertThat(trades.toResponseFor(trade.id(), buyer).passwordMessageId())
+                .as("the older row's key is gone; offering it again just repeats the failure")
+                .isEqualTo(fresh);
+        assertThat(otp.reveal(trade.id(), fresh, buyer)).isEqualTo("SecondAttempt2");
+    }
+
     @Test
     void revealYieldsPlaintextOnceThenIsGone() {
         UUID seller = UUID.randomUUID();

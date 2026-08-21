@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -31,10 +32,18 @@ import java.util.UUID;
  *
  * <p>Unlike other encrypted messages (which are decryptable with the master
  * key + HKDF context), a PASSWORD_ONETIME message is encrypted with a random
- * 32-byte key that lives only in Redis with a 30-minute TTL. On the FIRST
- * successful reveal the key is deleted. After that the ciphertext is
- * mathematically unrecoverable — not by admins, not by us with the master
- * key, not by anyone. Spec §6 §12 mandate this exactly.
+ * 32-byte key that lives only in Redis. On the FIRST successful reveal the key
+ * is deleted. After that the ciphertext is mathematically unrecoverable — not
+ * by admins, not by us with the master key, not by anyone. Spec §6 §12 mandate
+ * this exactly.
+ *
+ * <p>The key expires with the window the recipient is actually given, not on a
+ * fixed 30 minutes of its own. It was the latter while WAITING_BUYER_VERIFY
+ * runs for 24 hours, and the panel counts those hours down on screen: a party
+ * who waited longer than half an hour was told the password had already been
+ * revealed or expired, could not be sent another — PASSWORD_SENT exists only
+ * out of WAITING_PASSWORD — and had already handed their own account over. The
+ * one-time property is untouched by this; only an unopened key lives longer.
  */
 @Slf4j
 @Service
@@ -43,7 +52,16 @@ public class OneTimePasswordService {
 
     private static final int GCM_TAG_BITS = 128;
     private static final int GCM_IV_BYTES = 12;
-    private static final long REDIS_TTL_SECONDS = 1800;
+    /**
+     * How long an unopened key survives. Read from the same setting that sets
+     * the deadline the panel shows, plus a margin, so the two cannot drift
+     * apart — that gap is what cost a party their account.
+     */
+    @Value("${trade.timeouts.waiting-buyer-verify-seconds}")
+    private long revealWindowSeconds;
+
+    /** Covers the clock between the password being sent and the state's own deadline. */
+    private static final long REVEAL_TTL_MARGIN_SECONDS = 3600;
 
     private final StringRedisTemplate redis;
     private final TradeService trades;
@@ -142,11 +160,11 @@ public class OneTimePasswordService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    redis.opsForValue().set(redisKey, encodedKey, Duration.ofSeconds(REDIS_TTL_SECONDS));
+                    redis.opsForValue().set(redisKey, encodedKey, Duration.ofSeconds(revealTtlSeconds()));
                 }
             });
         } else {
-            redis.opsForValue().set(redisKey, encodedKey, Duration.ofSeconds(REDIS_TTL_SECONDS));
+            redis.opsForValue().set(redisKey, encodedKey, Duration.ofSeconds(revealTtlSeconds()));
         }
     }
 
@@ -210,6 +228,10 @@ public class OneTimePasswordService {
                     tradeId, messageId, viewerUserId, e);
         }
         return plaintext;
+    }
+
+    long revealTtlSeconds() {
+        return revealWindowSeconds + REVEAL_TTL_MARGIN_SECONDS;
     }
 
     private static String redisKey(UUID tradeId, UUID messageId) {

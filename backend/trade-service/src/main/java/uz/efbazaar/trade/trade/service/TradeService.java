@@ -369,7 +369,12 @@ public class TradeService {
                 .flatMap(c -> messages.findByTradeChatIdOrderByCreatedAtAsc(c.getId()).stream()
                         .filter(m -> m.getMessageType() == TradeMessageType.PASSWORD_ONETIME)
                         .map(TradeMessage::getId)
-                        .findFirst())
+                        // The newest. A password can only be sent again by
+                        // putting the trade back to WAITING_PASSWORD by hand,
+                        // and that is done precisely because the older one is
+                        // beyond recovery — offering it again would repeat the
+                        // failure the recovery was for.
+                        .reduce((older, newer) -> newer))
                 .orElse(null);
     }
 
