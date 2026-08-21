@@ -1,4 +1,5 @@
 const DEFAULT_SITE_URL = 'https://efbazaar.uz';
+const DEFAULT_MAIL_URL = 'https://mail.efbazaar.uz';
 const DEFAULT_BOT_USERNAME = 'EfBazaarBot';
 
 function normalizeSiteUrl(value?: string) {
@@ -22,6 +23,9 @@ export const siteConfig = {
   locale: 'uz_UZ',
   language: 'uz',
   url: normalizeSiteUrl(process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL),
+  // The webmail lives on its own host, so a link to an inbox cannot be a
+  // relative path the way every other destination here is.
+  mailUrl: normalizeSiteUrl(process.env.NEXT_PUBLIC_MAIL_URL || DEFAULT_MAIL_URL),
   keywords: [
     'eFBazaar',
     'efbazaar.uz',

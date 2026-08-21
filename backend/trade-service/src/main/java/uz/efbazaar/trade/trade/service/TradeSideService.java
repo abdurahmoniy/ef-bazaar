@@ -162,7 +162,28 @@ public class TradeSideService {
                     trade.getId(), both.size());
             return true;
         }
+        if (event == TradeEvent.MAILBOX_PROVISIONED) {
+            // Not a side timestamp — the fact lives on the mailbox row, and
+            // the worker's report writes it before driving this transition.
+            // Advancing on the first report left the second box a placeholder,
+            // and the state we advance into is the one that asks the worker to
+            // watch both boxes for Konami's verification code. A placeholder
+            // exists in no mail server, so that party's code arrived and was
+            // never read, and they were left waiting on six digits nobody was
+            // looking for.
+            return both.stream().allMatch(s -> mailboxIsReal(s.getMailboxId()));
+        }
         return both.stream().allMatch(s -> cleared(s, event));
+    }
+
+    /** Whether this box has been created for real, not just reserved. */
+    private boolean mailboxIsReal(UUID mailboxId) {
+        if (mailboxId == null) return false;
+        return mailboxes.findById(mailboxId)
+                .map(m -> m.getProvisionedAt() != null
+                        && m.getEmail() != null
+                        && !m.getEmail().startsWith("pending-"))
+                .orElse(false);
     }
 
     private static boolean cleared(TradeSide side, TradeEvent event) {

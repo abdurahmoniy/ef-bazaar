@@ -8,6 +8,7 @@ import {
   CheckCheck,
   ChevronLeft,
   ChevronRight,
+  Mail,
   MessageCircle,
   ShieldCheck,
   Sparkles,
@@ -77,6 +78,18 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
         return {
           action: 'Xavfsiz bitim moderatsiyasiga taklif',
           icon: <ShieldCheck className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
+          bg: 'bg-amber-500/10 dark:bg-amber-400/10',
+        };
+      case 'TRADE_MAILBOX_RECEIVED':
+        return {
+          action: 'Qo\u2018lga kiritilgan akkount emaili sizniki',
+          icon: <Mail className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />,
+          bg: 'bg-emerald-500/10 dark:bg-emerald-400/10',
+        };
+      case 'TRADE_MAILBOX_RETURNED':
+        return {
+          action: 'Savdo yakunlanmadi \u2014 email sizga biriktirildi',
+          icon: <Mail className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
           bg: 'bg-amber-500/10 dark:bg-amber-400/10',
         };
       case 'CHAT_MESSAGE':

@@ -1,3 +1,4 @@
+import { siteConfig } from './site';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import type { NotificationResponse, PageResponse } from '@/lib/marketplace-types';
 
@@ -67,6 +68,10 @@ export function notificationLabel(n: NotificationResponse): string {
       return 'Pul yechish tasdiqlandi \u2014 kartangizga o\u2019tkazildi';
     case 'WITHDRAWAL_REJECTED':
       return 'Pul yechish rad etildi \u2014 mablag\u2018 hamyoningizga qaytarildi';
+    case 'TRADE_MAILBOX_RECEIVED':
+      return 'Savdo yakunlandi \u2014 akkount emaili profilingizga qo\u2019shildi';
+    case 'TRADE_MAILBOX_RETURNED':
+      return 'Savdo yakunlanmadi \u2014 sizga berilgan email profilingizga biriktirildi';
     default:
       return actor;
   }
@@ -79,6 +84,13 @@ export function notificationHref(n: NotificationResponse): string | null {
     return `/admin/payments/withdrawals?ticket=${encodeURIComponent(n.withdrawalId ?? '')}`;
   }
   if (n.type === 'WITHDRAWAL_PAID' || n.type === 'WITHDRAWAL_REJECTED') return '/hamyon';
+  // The inbox itself, not the trade: the trade is over, and what the reader
+  // needs is the mail — Konami's codes arrive there if they want to move the
+  // account on to an address of their own. Absolute because the webmail is a
+  // separate host.
+  if (n.type === 'TRADE_MAILBOX_RECEIVED' || n.type === 'TRADE_MAILBOX_RETURNED') {
+    return siteConfig.mailUrl;
+  }
   if (n.tradeId) return `/trade-admin?tradeId=${encodeURIComponent(n.tradeId)}`;
   if (n.chatId) return `/chats/${encodeURIComponent(n.chatId)}`;
   if (n.listingId) return `/marketplace/${encodeURIComponent(n.listingId)}`;

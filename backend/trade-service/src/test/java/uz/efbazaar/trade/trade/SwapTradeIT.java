@@ -107,6 +107,36 @@ class SwapTradeIT extends AbstractIntegrationIT {
     }
 
     /**
+     * A party who moved their account in keeps it when the trade dies.
+     *
+     * <p>Reported from testing: one party transferred their account into their
+     * escrow mailbox, the other went quiet, the deadline passed — and the
+     * account was left in a mailbox belonging to nobody. The trade failing is
+     * not a reason to take somebody's account away from them; every ending
+     * short of a completed swap hands each box back to whoever put it up.
+     */
+    @Test
+    void atimedOutSwapGivesEachPartyTheirOwnMailboxBack() {
+        Trade t = openSwap();
+        provision(t);
+        // One party has moved their account across; the other never shows up.
+        fire(t.getId(), TradeEvent.EMAIL_CHANGED, ActorType.USER, seller);
+        UUID sellerBox = sides.of(t.getId(), ParticipantRole.SELLER).orElseThrow().getMailboxId();
+        UUID buyerBox = sides.of(t.getId(), ParticipantRole.BUYER).orElseThrow().getMailboxId();
+
+        trades.transition(t.getId(), TradeEvent.TIMEOUT, ActorType.SYSTEM, null);
+
+        assertThat(tradeRepo.findById(t.getId()).orElseThrow().getState())
+                .isEqualTo(TradeState.ORPHANED);
+        assertThat(mailboxes.findById(sellerBox).orElseThrow().getOwnerUserId())
+                .as("the account they transferred is theirs, not the platform's")
+                .isEqualTo(seller);
+        assertThat(mailboxes.findById(buyerBox).orElseThrow().getOwnerUserId())
+                .as("and the box the other party never used goes back to them too")
+                .isEqualTo(buyer);
+    }
+
+    /**
      * Konami mints a code per account, so a swap has two of them.
      *
      * <p>Reported from production: the party was never shown a code at all.
@@ -181,12 +211,30 @@ class SwapTradeIT extends AbstractIntegrationIT {
     /**
      * Gets the trade to WAITING_EMAIL_CHANGE.
      *
-     * <p>State-driven, not a fixed script: MockWorker is live under the test
-     * profile and answers the same trade over Kafka, so it may already have
-     * done one of these steps. Firing an event the trade has passed throws.
+     * <p>A swap does not leave INITIATED until both escrow mailboxes exist for
+     * real — the gate reads the mailbox rows, not the event — so the rows are
+     * filled in here for any box MockWorker has not reached. Waiting on it
+     * instead would tie every one of these tests to Kafka timing: its consumer
+     * may still be joining the group when the request is published, and the
+     * first test to run would hang for a reason that has nothing to do with
+     * what it asserts. Same addresses MockWorker would write, so the two agree
+     * whichever gets there first.
+     *
+     * <p>The rest is state-driven rather than a fixed script, because
+     * MockWorker answers the same trade and may already have done a step.
      */
     private void provision(Trade t) {
-        for (int attempt = 0; attempt < 8; attempt++) {
+        for (TradeSide side : sides.of(t.getId())) {
+            if (side.getMailboxId() == null) continue;
+            var box = mailboxes.findById(side.getMailboxId()).orElseThrow();
+            if (box.getEmail() == null || box.getEmail().startsWith("pending-")) {
+                box.setEmail("trade-" + side.getMailboxId().toString().substring(0, 8)
+                        + "@efbazaar.uz");
+                box.setProvisionedAt(Instant.now());
+                mailboxes.saveAndFlush(box);
+            }
+        }
+        for (int attempt = 0; attempt < 20; attempt++) {
             TradeState now = tradeRepo.findById(t.getId()).orElseThrow().getState();
             if (now == TradeState.WAITING_EMAIL_CHANGE) return;
             switch (now) {

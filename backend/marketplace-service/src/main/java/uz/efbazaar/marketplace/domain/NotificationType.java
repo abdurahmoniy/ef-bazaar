@@ -18,5 +18,9 @@ public enum NotificationType {
     /** My payout was sent. */
     WITHDRAWAL_PAID,
     /** My payout was declined and the money is back in my wallet. */
-    WITHDRAWAL_REJECTED
+    WITHDRAWAL_REJECTED,
+    /** A trade completed and the account I received now sits in my own inbox. */
+    TRADE_MAILBOX_RECEIVED,
+    /** A trade ended without completing; the inbox I was given is mine to keep. */
+    TRADE_MAILBOX_RETURNED
 }

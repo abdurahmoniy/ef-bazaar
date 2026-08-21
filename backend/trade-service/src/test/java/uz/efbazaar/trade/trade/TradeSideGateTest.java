@@ -34,6 +34,7 @@ import static org.mockito.Mockito.when;
 class TradeSideGateTest {
 
     @Mock TradeSideRepository sides;
+    @Mock uz.efbazaar.trade.mailbox.repository.MailboxRepository mailboxes;
     @InjectMocks TradeSideService service;
 
     private UUID tradeId;
@@ -106,6 +107,56 @@ class TradeSideGateTest {
         assertThat(service.bothSidesCleared(trade(TradeKind.SWAP),
                 TradeEvent.KONAMI_EMAIL_RECEIVED))
                 .isTrue();
+    }
+
+    /**
+     * A swap must have both escrow mailboxes before it moves off INITIATED.
+     *
+     * <p>Reported from testing: one party was shown their Konami verification
+     * code and the other never was, though the code was sitting in their
+     * mailbox. The trade had advanced on the first provisioned report, so when
+     * it asked the worker to watch the mailboxes for codes, the second one was
+     * still the "pending-…" placeholder that exists in no mail server — no
+     * watcher was ever started for it, and the code arrived unread.
+     */
+    @Test
+    void aSwapWaitsForBothMailboxesBeforeItMoves() {
+        provisioned(sellerSide, "trade-1a2b3c4d@efbazaar.uz");
+        stillAPlaceholder(buyerSide);
+
+        assertThat(service.bothSidesCleared(trade(TradeKind.SWAP),
+                TradeEvent.MAILBOX_PROVISIONED))
+                .as("the buyer's box does not exist yet")
+                .isFalse();
+    }
+
+    @Test
+    void aSwapMovesOnceBothMailboxesAreReal() {
+        provisioned(sellerSide, "trade-1a2b3c4d@efbazaar.uz");
+        provisioned(buyerSide, "trade-5e6f7a8b@efbazaar.uz");
+
+        assertThat(service.bothSidesCleared(trade(TradeKind.SWAP),
+                TradeEvent.MAILBOX_PROVISIONED))
+                .isTrue();
+    }
+
+    /** Gives the side's box a real address, as the worker's report does. */
+    private void provisioned(TradeSide side, String address) {
+        when(mailboxes.findById(side.getMailboxId())).thenReturn(Optional.of(
+                uz.efbazaar.trade.mailbox.domain.Mailbox.builder()
+                        .id(side.getMailboxId())
+                        .email(address)
+                        .provisionedAt(Instant.now())
+                        .build()));
+    }
+
+    /** The row trade-service allocates before the worker has answered. */
+    private void stillAPlaceholder(TradeSide side) {
+        when(mailboxes.findById(side.getMailboxId())).thenReturn(Optional.of(
+                uz.efbazaar.trade.mailbox.domain.Mailbox.builder()
+                        .id(side.getMailboxId())
+                        .email("pending-" + UUID.randomUUID() + "@efbazaar.uz")
+                        .build()));
     }
 
     @Test

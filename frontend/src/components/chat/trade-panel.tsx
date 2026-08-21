@@ -43,6 +43,7 @@ import {
   allowedKinds,
   counterpartStatus,
   isSwap,
+  hasClearedCurrentStep,
   isWaitingForCounterpart,
   needsAmount,
   TRADE_KIND_HINT_UZ,
@@ -615,6 +616,12 @@ function TradeStateActions({
 }: StateActionProps) {
   // A swap asks both sides for the transfer steps; a sale asks only the seller.
   const acts = isSeller || isSwap(trade.kind);
+  // ...but only until they have done it. The trade waits for the other party,
+  // so without this the one who finished first is left looking at the code
+  // they already used and the button they already pressed.
+  if (hasClearedCurrentStep(trade, trade.role ?? null)) {
+    return <WaitingForCounterpartPanel trade={trade} />;
+  }
   switch (trade.state) {
     case 'INITIATED':
       return <InitiatedPanel />;
@@ -694,6 +701,30 @@ function TradeStateActions({
     default:
       return null;
   }
+}
+
+/**
+ * Shown to the party who has finished this step, in place of the controls.
+ *
+ * Their half is done and the trade cannot move until the other party catches
+ * up, so leaving the action panel up would only invite them to press it again.
+ */
+function WaitingForCounterpartPanel({ trade }: { trade: TradeResponse }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+        <div>
+          <p className="font-semibold text-foreground">Sizning qismingiz bajarildi</p>
+          <p className="mt-0.5 text-muted-foreground">
+            {counterpartStatus(trade, trade.role ?? null)
+              ?? 'Ikkinchi taraf o‘z qismini bajarishini kutmoqda'}
+            . Ikkala taraf ham tugatgach savdo keyingi bosqichga o‘tadi.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** Where the other party has got to, and whether we are the ones waiting. */

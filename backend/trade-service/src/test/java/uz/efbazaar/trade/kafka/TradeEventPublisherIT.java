@@ -27,6 +27,50 @@ class TradeEventPublisherIT extends AbstractIntegrationIT {
     @Autowired
     private TradeEventPublisher publisher;
 
+    /**
+     * Both endings announce the inbox, and say which ending it was.
+     *
+     * <p>The failed one is the reason this exists: a party who had already
+     * moved their account into the escrow address has no way of learning the
+     * address is now theirs, and reads the trade's collapse as having lost the
+     * account.
+     */
+    @Test
+    void mailboxHandoverSaysWhoGotItAndWhy() {
+        UUID tradeId = UUID.randomUUID();
+        UUID received = UUID.randomUUID();
+        UUID returned = UUID.randomUUID();
+
+        publisher.mailboxHandedOver(tradeId, received, "trade-aaaa1111@efbazaar.uz",
+                TradeEvents.HandoverOutcome.RECEIVED);
+        publisher.mailboxHandedOver(tradeId, returned, "trade-bbbb2222@efbazaar.uz",
+                TradeEvents.HandoverOutcome.RETURNED);
+
+        try (Consumer<String, TradeEvents.MailboxHandedOver> consumer =
+                     consumer(TradeEvents.MailboxHandedOver.class)) {
+            consumer.subscribe(List.of(TradeEvents.TOPIC_MAILBOX_HANDED_BACK));
+
+            var win = pollUntil(consumer, v -> received.equals(v.userId()));
+            assertThat(win).as("record for user %s", received).isNotNull();
+            assertThat(win.key())
+                    .as("keyed by user, so a swap's two parties do not queue behind each other")
+                    .isEqualTo(received.toString());
+            assertThat(win.value().mailboxEmail()).isEqualTo("trade-aaaa1111@efbazaar.uz");
+            assertThat(win.value().outcome()).isEqualTo(TradeEvents.HandoverOutcome.RECEIVED);
+        }
+
+        try (Consumer<String, TradeEvents.MailboxHandedOver> consumer =
+                     consumer(TradeEvents.MailboxHandedOver.class)) {
+            consumer.subscribe(List.of(TradeEvents.TOPIC_MAILBOX_HANDED_BACK));
+
+            var lose = pollUntil(consumer, v -> returned.equals(v.userId()));
+            assertThat(lose).as("record for user %s", returned).isNotNull();
+            assertThat(lose.value().outcome())
+                    .as("the reader is told to go and recover their account, not congratulated")
+                    .isEqualTo(TradeEvents.HandoverOutcome.RETURNED);
+        }
+    }
+
     @Test
     void proposalCreatedRoundTrip() {
         UUID proposalId = UUID.randomUUID();

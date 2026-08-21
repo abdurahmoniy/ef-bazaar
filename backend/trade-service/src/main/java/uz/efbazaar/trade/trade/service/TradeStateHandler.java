@@ -93,9 +93,10 @@ public class TradeStateHandler {
         List<TradeSide> both = sides.of(trade.getId());
         if (both.isEmpty()) {
             // Pre-sides trade: the old single-mailbox rule.
+            UUID receives = crossed ? trade.getBuyerId() : trade.getSellerId();
             events.mailboxRotateRequest(trade.getMailboxId());
-            mailboxes.assignOwner(trade.getMailboxId(),
-                    crossed ? trade.getBuyerId() : trade.getSellerId());
+            mailboxes.assignOwner(trade.getMailboxId(), receives);
+            tell(trade, trade.getMailboxId(), receives, crossed);
             return;
         }
         for (TradeSide side : both) {
@@ -107,6 +108,35 @@ public class TradeStateHandler {
             UUID receives = crossed ? theOther : putItUp;
             events.mailboxRotateRequest(side.getMailboxId());
             mailboxes.assignOwner(side.getMailboxId(), receives);
+            tell(trade, side.getMailboxId(), receives, crossed);
+        }
+    }
+
+    /**
+     * Tells the party the inbox is theirs now.
+     *
+     * <p>Worth saying on every ending, for opposite reasons. On a completed
+     * trade it is the account they were given, and they may want to move it on
+     * to an address of their own — for which Konami's codes arrive here. On any
+     * other ending it is the box they were told to move their own account
+     * through: if they already did, that account is behind an address they
+     * have no reason to think still belongs to them, and silence is how people
+     * lose accounts.
+     *
+     * <p>Best-effort. A trade must not fail to close because a notification
+     * could not be sent.
+     */
+    private void tell(Trade trade, UUID mailboxId, UUID recipient, boolean crossed) {
+        if (recipient == null) return;
+        try {
+            String address = mailboxes.getRaw(mailboxId).getEmail();
+            if (address == null || address.startsWith("pending-")) return;
+            events.mailboxHandedOver(trade.getId(), recipient, address,
+                    crossed ? TradeEvents.HandoverOutcome.RECEIVED
+                            : TradeEvents.HandoverOutcome.RETURNED);
+        } catch (RuntimeException e) {
+            log.warn("Could not announce mailbox {} handover on trade {}: {}",
+                    mailboxId, trade.getId(), e.getMessage());
         }
     }
 
@@ -288,9 +318,17 @@ public class TradeStateHandler {
                 // nobody completed, with no state left that could ever free it.
                 releaseEscrow(trade);
                 trade.setTerminalReason("TIMEOUT_ORPHAN");
-                mailboxes.stripFromTrade(trade.getMailboxId());
+                // Hand the boxes back rather than cutting them loose. A party
+                // may already have moved their account into theirs, and
+                // stripping the owner left that account sitting in a mailbox
+                // belonging to nobody — the trade running out of time is not a
+                // reason to take somebody's account away from them. Same
+                // ending as every other failure: each box goes to whoever put
+                // it up, with its password rotated so the platform's copy is
+                // no longer the one that works.
+                handOver(trade, false);
                 audit.record(trade.getId(), actor, actorId, "TRADE_ORPHANED",
-                        Map.of("actor", actor.name()));
+                        Map.of("actor", actor.name(), "mailboxesHandedBack", "true"));
                 if (trade.getChatId() != null) {
                     events.tradeClosed(trade);
                 }

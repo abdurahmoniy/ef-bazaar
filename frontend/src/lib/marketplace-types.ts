@@ -462,7 +462,9 @@ export type NotificationType =
   | 'TRADE_ADMIN_INVITED'
   | 'WITHDRAWAL_REQUESTED'
   | 'WITHDRAWAL_PAID'
-  | 'WITHDRAWAL_REJECTED';
+  | 'WITHDRAWAL_REJECTED'
+  | 'TRADE_MAILBOX_RECEIVED'
+  | 'TRADE_MAILBOX_RETURNED';
 
 export interface NotificationResponse {
   id: string;

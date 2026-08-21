@@ -182,13 +182,19 @@ class TradeEscalationIT extends AbstractIntegrationIT {
 
     /**
      * The exit nobody covered: the reassigned-to admin never answers, the
-     * WAITING_ADMIN deadline lapses, and the trade orphans. Before the fix
-     * {@code stripFromTrade} only nulled {@code trade_id}, so
-     * {@code owner_user_id} stayed on the departed admin — permanently, with no
-     * later code path that would ever clear it.
+     * WAITING_ADMIN deadline lapses, and the trade orphans. An admin who has
+     * left the trade must lose the inbox — {@code MailService} authorises on
+     * ownership alone, so leaving {@code owner_user_id} on them is permanent
+     * read access to Konami password-reset mail for somebody else's account.
+     *
+     * <p>It goes to the seller rather than to nobody. The account in that
+     * inbox is theirs, and a trade running out of time is not a reason to take
+     * it away from them — a party who had already moved their account across
+     * was otherwise locked out of it for good. Same ending as a rejected
+     * trade, which has always handed the box back this way.
      */
     @Test
-    void orphaningLeavesNobodyOwningTheEscrowMailbox() {
+    void orphaningTakesTheEscrowMailboxOffTheAdminAndGivesItToTheSeller() {
         UUID oldAdmin = adminWithProfile();
         Trade t = acceptedTrade(oldAdmin);
         makeIdle(t.getId());
@@ -202,8 +208,13 @@ class TradeEscalationIT extends AbstractIntegrationIT {
                 .isEqualTo(TradeState.ORPHANED);
         var mb = mailboxes.getRaw(t.getMailboxId());
         assertThat(mb.getOwnerUserId())
-                .as("an orphaned escrow inbox must belong to nobody, least of all the old admin")
-                .isNull();
+                .as("never the admin, who has no claim on the account inside")
+                .isNotEqualTo(oldAdmin);
+        assertThat(mb.getOwnerUserId())
+                .as("the account is the seller's, whatever became of the trade "
+                        + "(trade=%s mailbox=%s handedOffAt=%s)",
+                        t.getId(), t.getMailboxId(), mb.getHandedOffAt())
+                .isEqualTo(t.getSellerId());
         assertThat(mb.getTradeId()).isNull();
     }
 

@@ -99,18 +99,13 @@ public class MailboxService {
     @Transactional
     public void overwriteAddressAndPassword(UUID mailboxId, String email,
                                             byte[] encPass, byte[] iv, byte[] tag) {
-        Mailbox m = mailboxes.findById(mailboxId)
-                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
-        if (email != null) {
-            m.setEmail(email);
+        Instant now = Instant.now();
+        int updated = email != null
+                ? mailboxes.applyAddressAndCredentials(mailboxId, email, encPass, iv, tag, now)
+                : mailboxes.applyCredentials(mailboxId, encPass, iv, tag, now);
+        if (updated == 0) {
+            throw new EntityNotFoundException("Mailbox " + mailboxId);
         }
-        m.setEncryptedPassword(encPass);
-        m.setPasswordIv(iv);
-        m.setPasswordTag(tag);
-        if (m.getProvisionedAt() == null) {
-            m.setProvisionedAt(Instant.now());
-        }
-        mailboxes.save(m);
     }
 
     /**
