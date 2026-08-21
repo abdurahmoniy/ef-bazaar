@@ -211,7 +211,9 @@ class TradeEscalationIT extends AbstractIntegrationIT {
                 .as("never the admin, who has no claim on the account inside")
                 .isNotEqualTo(oldAdmin);
         assertThat(mb.getOwnerUserId())
-                .as("the account is the seller's, whatever became of the trade")
+                .as("the account is the seller's, whatever became of the trade "
+                        + "(trade=%s mailbox=%s handedOffAt=%s)",
+                        t.getId(), t.getMailboxId(), mb.getHandedOffAt())
                 .isEqualTo(t.getSellerId());
         assertThat(mb.getTradeId()).isNull();
     }
