@@ -8,7 +8,13 @@
  * stuck.
  */
 
-import type { ParticipantRole, TradeKind, TradeResponse, TradeSideProgress } from './trade-types';
+import type {
+  ParticipantRole,
+  TradeKind,
+  TradeResponse,
+  TradeSideProgress,
+  TradeState,
+} from './trade-types';
 
 /** What the listing allows, as stored in the `exchange_mode` attribute. */
 export type ExchangeMode = 'NONE' | 'EXCHANGE_ONLY' | 'EXCHANGE_WITH_SURCHARGE' | 'BOTH';
@@ -115,4 +121,35 @@ export function isWaitingForCounterpart(
   // state the trade itself is in.
   const order: SwapStep[] = ['email', 'konami', 'password', 'decision', 'done'];
   return order.indexOf(stepOf(mine)) > order.indexOf(stepOf(other));
+}
+
+/** What each state asks a party to do, so we can tell if they have done it. */
+const CLEARED_BY_STATE: Partial<
+  Record<TradeState, (side: TradeSideProgress) => boolean>
+> = {
+  WAITING_EMAIL_CHANGE: (s) => s.emailChanged,
+  VERIFYING_KONAMI_LINK: (s) => s.konamiVerified,
+  WAITING_PASSWORD: (s) => s.passwordSent,
+  WAITING_BUYER_VERIFY: (s) => s.confirmed || s.rejected,
+};
+
+/**
+ * Whether this party has already done what the current state asks of them.
+ *
+ * A swap only advances once both parties have, so the one who finished first
+ * stays on the same state — and, without this, on the same screen: the same
+ * verification code, the same button they just pressed, no sign their click
+ * registered. Asked per state rather than by comparing progress with the other
+ * party, because the question here is "is there anything left for me to do",
+ * which is true even when the other party is somehow further ahead.
+ */
+export function hasClearedCurrentStep(
+  trade: TradeResponse,
+  viewerRole: ParticipantRole | null,
+): boolean {
+  if (!isSwap(trade.kind) || !viewerRole) return false;
+  const cleared = CLEARED_BY_STATE[trade.state];
+  if (!cleared) return false;
+  const mine = sideOf(trade, viewerRole);
+  return mine ? cleared(mine) : false;
 }

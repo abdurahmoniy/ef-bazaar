@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   allowedKinds,
   counterpartStatus,
+  hasClearedCurrentStep,
   isWaitingForCounterpart,
   needsAmount,
   stepOf,
@@ -22,6 +23,9 @@ const side = (over: Partial<TradeSideProgress> = {}): TradeSideProgress => ({
 
 const swap = (sides: TradeSideProgress[]): TradeResponse =>
   ({ kind: 'SWAP', sides } as unknown as TradeResponse);
+
+const swapAt = (state: string, sides: TradeSideProgress[]): TradeResponse =>
+  ({ kind: 'SWAP', state, sides } as unknown as TradeResponse);
 
 describe('allowedKinds', () => {
   it('offers only a sale when the seller did not opt into swaps', () => {
@@ -111,5 +115,69 @@ describe('isWaitingForCounterpart', () => {
       side({ role: 'BUYER', emailChanged: true }),
     ]);
     expect(isWaitingForCounterpart(trade, 'SELLER')).toBe(false);
+  });
+});
+
+/**
+ * Whether there is anything left for this party to do in the current state.
+ *
+ * Reported from testing: the party changed their email, entered the Konami
+ * code, pressed "email o'zgartirdim" — and the screen did not change. It could
+ * not: a swap waits for both parties, so the state stayed put and the panel
+ * re-rendered the same code and the same button, with nothing to say the click
+ * had registered.
+ */
+describe('hasClearedCurrentStep', () => {
+  const seller = (over = {}) => side({ role: 'SELLER', ...over });
+  const buyer = (over = {}) => side({ role: 'BUYER', ...over });
+
+  it('is true once this party has changed their email', () => {
+    const trade = swapAt('WAITING_EMAIL_CHANGE', [
+      seller({ emailChanged: true }),
+      buyer(),
+    ]);
+    expect(hasClearedCurrentStep(trade, 'SELLER')).toBe(true);
+  });
+
+  it('is false for the party who still has to do it', () => {
+    const trade = swapAt('WAITING_EMAIL_CHANGE', [
+      seller({ emailChanged: true }),
+      buyer(),
+    ]);
+    expect(hasClearedCurrentStep(trade, 'BUYER')).toBe(false);
+  });
+
+  it('follows the state, not the furthest step reached', () => {
+    // Email is behind them; the trade is now asking for the password, which
+    // this party has not sent — so the controls must stay up.
+    const trade = swapAt('WAITING_PASSWORD', [
+      seller({ emailChanged: true, konamiVerified: true }),
+      buyer({ emailChanged: true, konamiVerified: true }),
+    ]);
+    expect(hasClearedCurrentStep(trade, 'SELLER')).toBe(false);
+  });
+
+  it('counts a rejection as an answer given', () => {
+    const trade = swapAt('WAITING_BUYER_VERIFY', [
+      seller({ rejected: true }),
+      buyer(),
+    ]);
+    expect(hasClearedCurrentStep(trade, 'SELLER')).toBe(true);
+  });
+
+  it('never hides a sale\'s controls', () => {
+    // A sale advances on the seller alone, so there is no waiting to describe
+    // and the panel must keep working exactly as it did.
+    const sale = {
+      kind: 'SALE',
+      state: 'WAITING_EMAIL_CHANGE',
+      sides: [seller({ emailChanged: true })],
+    } as unknown as TradeResponse;
+    expect(hasClearedCurrentStep(sale, 'SELLER')).toBe(false);
+  });
+
+  it('is false in a state that asks nobody for anything', () => {
+    const trade = swapAt('WAITING_PAYMENT', [seller({ emailChanged: true }), buyer()]);
+    expect(hasClearedCurrentStep(trade, 'SELLER')).toBe(false);
   });
 });
