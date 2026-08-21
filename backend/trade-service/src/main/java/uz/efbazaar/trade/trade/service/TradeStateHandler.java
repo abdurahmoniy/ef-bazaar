@@ -288,9 +288,17 @@ public class TradeStateHandler {
                 // nobody completed, with no state left that could ever free it.
                 releaseEscrow(trade);
                 trade.setTerminalReason("TIMEOUT_ORPHAN");
-                mailboxes.stripFromTrade(trade.getMailboxId());
+                // Hand the boxes back rather than cutting them loose. A party
+                // may already have moved their account into theirs, and
+                // stripping the owner left that account sitting in a mailbox
+                // belonging to nobody — the trade running out of time is not a
+                // reason to take somebody's account away from them. Same
+                // ending as every other failure: each box goes to whoever put
+                // it up, with its password rotated so the platform's copy is
+                // no longer the one that works.
+                handOver(trade, false);
                 audit.record(trade.getId(), actor, actorId, "TRADE_ORPHANED",
-                        Map.of("actor", actor.name()));
+                        Map.of("actor", actor.name(), "mailboxesHandedBack", "true"));
                 if (trade.getChatId() != null) {
                     events.tradeClosed(trade);
                 }
