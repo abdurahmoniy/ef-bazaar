@@ -30,6 +30,8 @@ import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.security.AuthenticatedUser;
 
+import java.util.Map;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -42,6 +44,7 @@ import java.util.UUID;
  * read-only — there is no admin {@code markRead}, so opening a message from the
  * panel never changes what the mailbox owner sees as unread.
  */
+@lombok.extern.slf4j.Slf4j
 @RestController
 @RequestMapping("/api/v1/admin/mailboxes")
 @PreAuthorize("hasAuthority('ROLE_ADMIN')")
@@ -53,9 +56,42 @@ public class AdminMailboxController {
     private final MailboxMapper mapper;
     private final MailService mail;
     private final TradeEventPublisher events;
+    private final uz.efbazaar.trade.mail.service.MailboxPasswordResolver passwords;
 
     @Value("${trade.mailbox.domain:efbazaar.uz}")
     private String mailboxDomain;
+
+    /**
+     * The mailbox's current password, for handing to whoever ends up with it.
+     *
+     * <p>Its own endpoint rather than a field on the list, for the same reason
+     * the card number is: it keeps the password out of every other response,
+     * and makes each disclosure one line in the log rather than a side effect
+     * of opening a page.
+     *
+     * <p>Reads the stored value rather than a remembered one, so it stays
+     * right across the rotation that happens when a trade hands the mailbox
+     * over — the password announced when the mailbox was created stops working
+     * at that moment, and this is what replaces it.
+     *
+     * <p>The password itself is never logged. Only the fact of the disclosure.
+     */
+    @GetMapping("/{id}/password")
+    public Map<String, String> revealPassword(@AuthenticationPrincipal AuthenticatedUser me,
+                                              @PathVariable UUID id) {
+        Mailbox mbox = service.getRaw(id);
+        // A reserved row carries a dummy password until the worker answers, so
+        // decrypting it fails with a stack trace that says nothing useful. The
+        // honest answer is that the mailbox does not exist yet.
+        if (mbox.getProvisionedAt() == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "Pochta qutisi hali yaratilmagan — paroli ham yo'q");
+        }
+        String password = new String(passwords.decryptPassword(mbox), java.nio.charset.StandardCharsets.UTF_8);
+        log.info("Admin {} revealed the password of mailbox {}", me.userId(), id);
+        return Map.of("email", mbox.getEmail(), "password", password);
+    }
 
     /**
      * Every mailbox, newest first. All filters optional: address substring,

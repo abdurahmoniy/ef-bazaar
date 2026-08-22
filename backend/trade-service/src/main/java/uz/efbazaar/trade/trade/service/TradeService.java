@@ -54,6 +54,7 @@ public class TradeService {
     private final MailboxService mailboxes;
     private final TradeBroadcaster broadcaster;
     private final TradeEventPublisher events;
+    private final uz.efbazaar.trade.plan.service.MailboxSlotService slots;
 
     @Value("${trade.human.expires-after-hours:168}")
     private long humanExpiresAfterHours;
@@ -109,6 +110,16 @@ public class TradeService {
         if (mode == TradeMode.HUMAN && assignedAdminId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Inson admin savdosi uchun admin tanlanishi kerak");
+        }
+
+        // Checked before anything is created, and per party: a swap makes a
+        // mailbox for each of them, and charging both to whoever opened the
+        // trade would let one user spend the other's allowance. Refusing here
+        // rather than later also means a trade that cannot have its mailboxes
+        // is never written at all.
+        slots.assertCanAllocate(sellerId);
+        if (kind.isSwap()) {
+            slots.assertCanAllocate(buyerId);
         }
 
         // The mailbox row is created up-front with a synthetic email; the worker

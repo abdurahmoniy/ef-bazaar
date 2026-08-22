@@ -70,6 +70,13 @@ public class SecurityConfig {
                         // there is nothing private about what the platform
                         // charges. Read-only — the admin path below writes it.
                         .requestMatchers(HttpMethod.GET, "/api/v1/payments/commission").permitAll()
+                        // "/me" first: the catalogue rule below is a prefix of
+                        // it, and a wildcard that swallows "me" is how an
+                        // endpoint that needs a principal ends up without one.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/payments/plans/me").authenticated()
+                        // The tariffs themselves are a shop window — comparing
+                        // them before signing in is the point of having them.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/payments/plans").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
                         .anyRequest().authenticated())
                 // Inside the chain, as marketplace-service registers it. Left to

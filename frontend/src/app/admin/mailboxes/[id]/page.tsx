@@ -12,6 +12,7 @@ import {
   UserRound,
 } from 'lucide-react';
 
+import { MailboxPasswordReveal } from '@/components/admin/mailbox-password-reveal';
 import { MailboxStatusBadge } from '@/components/admin/mailbox-status-badge';
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
@@ -84,6 +85,12 @@ export default async function AdminMailboxPage({ params, searchParams }: AdminMa
                   {summary.unreadCount} o&apos;qilmagan
                 </span>
               )}
+            </div>
+            {/* The password the mailbox has now, which is not the one announced
+                when it was created: handing it over at the end of a trade
+                rotates it. */}
+            <div className="pt-1">
+              <MailboxPasswordReveal mailboxId={mailbox.id} />
             </div>
           </div>
 
