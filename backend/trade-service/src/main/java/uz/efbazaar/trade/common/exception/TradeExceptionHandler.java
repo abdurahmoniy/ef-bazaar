@@ -38,6 +38,27 @@ public class TradeExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body(HttpStatus.BAD_REQUEST, "card_invalid"));
     }
 
+    /**
+     * Out of mailbox slots.
+     *
+     * <p>Answered with the numbers, not just a sentence: there are two ways out
+     * — free one up, or move up a tier — and the screen has to offer both
+     * without reading prose to work out which.
+     */
+    @ExceptionHandler(uz.efbazaar.trade.plan.exception.MailboxSlotsExhaustedException.class)
+    ResponseEntity<Map<String, Object>> onSlotsExhausted(
+            uz.efbazaar.trade.plan.exception.MailboxSlotsExhaustedException e) {
+        // Built here rather than by adding to body(): that returns Map.of,
+        // which throws the moment anything is put into it.
+        Map<String, Object> body = new java.util.LinkedHashMap<>(
+                body(HttpStatus.CONFLICT, "mailbox_slots_exhausted"));
+        body.put("detail", e.getMessage());
+        body.put("plan", e.getPlanCode());
+        body.put("used", e.getUsed());
+        body.put("limit", e.getLimit());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @ExceptionHandler(ProposalNotFoundException.class)
     ResponseEntity<Map<String, Object>> onProposalNotFound(ProposalNotFoundException e) {
         return status(HttpStatus.NOT_FOUND, e.getMessage());

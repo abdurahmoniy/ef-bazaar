@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.domain.MailboxSource;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,6 +23,33 @@ public interface MailboxRepository
         extends JpaRepository<Mailbox, UUID>, JpaSpecificationExecutor<Mailbox> {
 
     Optional<Mailbox> findByEmail(String email);
+
+    /**
+     * How many escrow mailboxes this user is holding onto.
+     *
+     * <p>Counts both what they own and what a live trade has reserved for their
+     * side. Counting only ownership would let somebody open trades and walk
+     * away from them: each one creates a real mailbox on the mail server, and
+     * none of them would ever be owned by anybody.
+     *
+     * <p>Terminal states come in as a parameter rather than being spelled out
+     * here, so the SQL cannot fall out of step with {@code TradeState}.
+     */
+    @Query(value = """
+            SELECT COUNT(DISTINCT m.id) FROM mailboxes m
+             WHERE m.deleted_at IS NULL
+               AND (m.owner_user_id = :userId
+                    OR m.id IN (
+                        SELECT s.mailbox_id
+                          FROM trade_sides s
+                          JOIN trades t ON t.id = s.trade_id
+                         WHERE s.mailbox_id IS NOT NULL
+                           AND t.state NOT IN (:terminalStates)
+                           AND ((s.role = 'SELLER' AND t.seller_id = :userId)
+                             OR (s.role = 'BUYER'  AND t.buyer_id  = :userId))))
+            """, nativeQuery = true)
+    long countHeldBy(@Param("userId") UUID userId,
+                     @Param("terminalStates") Collection<String> terminalStates);
 
     /**
      * Writes the credentials and nothing else.
