@@ -52,3 +52,38 @@ export async function createMailboxAction(
     return { ok: false, error: "Trade-service bilan bog'lanib bo'lmadi" };
   }
 }
+
+export interface RevealPasswordResult {
+  ok: boolean;
+  email?: string;
+  password?: string;
+  error?: string;
+}
+
+/**
+ * Fetches a mailbox's current password.
+ *
+ * <p>Its own request rather than a field on the list, so the password is not
+ * sitting in the page source of every mailbox screen and each disclosure is one
+ * line in trade-service's log.
+ *
+ * Reads what is stored rather than what was announced when the mailbox was
+ * created: handing a mailbox over at the end of a trade rotates the password,
+ * so the one in the Telegram notice stops working at that moment and this is
+ * what replaces it.
+ */
+export async function revealMailboxPasswordAction(
+  mailboxId: string,
+): Promise<RevealPasswordResult> {
+  try {
+    const body = await apiFetch<{ email: string; password: string }>(
+      `/trade/v1/admin/mailboxes/${encodeURIComponent(mailboxId)}/password`,
+    );
+    return { ok: true, email: body.email, password: body.password };
+  } catch (error) {
+    if (error instanceof ApiException) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: false, error: "Trade-service bilan bog'lanib bo'lmadi" };
+  }
+}
