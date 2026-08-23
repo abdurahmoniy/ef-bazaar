@@ -71,6 +71,22 @@ services:
     networks:
       - efbazaar-net
 
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: efbazaar-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    mem_limit: 384m
+    memswap_limit: 512m
+    networks:
+      - efbazaar-net
+
   kafka:
     image: apache/kafka:3.7.0
     container_name: efbazaar-kafka
@@ -539,6 +555,7 @@ volumes:
   postgres_data:
   redis_data:
   kafka_data:
+  prometheus_data:
   letsencrypt_data:
   acme_challenge:
   nginx_auth:
