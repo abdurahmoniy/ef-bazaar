@@ -95,6 +95,7 @@ services:
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
+      - ./infra/prometheus/rules:/etc/prometheus/rules:ro
     mem_limit: 384m
     memswap_limit: 512m
     networks:
