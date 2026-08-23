@@ -90,6 +90,21 @@ management:
     # Kafka holatini kuzatish uchun /actuator/metrics yoki alohida endpoint ishlatish kerak.
     kafka:
       enabled: false
+  # Javob vaqti uchun histogram bucket'lari — p95/p99 shusiz hisoblanmaydi.
+  # Standart holatda Micrometer faqat count va sum beradi, ya'ni faqat
+  # o'rtachani; o'rtacha esa kam sonli sekin so'rovlarni yashiradi.
+  #
+  # Chegaralar ataylab: bucket soni oraliqqa bog'liq, chegarasiz histogram
+  # har bir endpoint uchun ~70 qator chiqaradi va Prometheus xotirasi
+  # endpointlar soniga ko'payib o'sadi.
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      minimum-expected-value:
+        http.server.requests: 10ms
+      maximum-expected-value:
+        http.server.requests: 5s
 
 app:
   # Requests-per-minute per client IP. Set enabled=false to disable in dev if
