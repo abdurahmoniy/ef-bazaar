@@ -137,7 +137,14 @@ write_env() {
   upsert_env .env INTERNAL_API_SECRET "$INTERNAL_API_SECRET"
 
   # Grafana admin password
-  upsert_env .env GRAFANA_ADMIN_PASSWORD "$GRAFANA_ADMIN_PASSWORD"
+  # ${VAR:-default} — `set -u` ostida shart. Usiz CI'da bu secret yo'qligi
+  # butun deploy'ni to'xtatadi, va sabab Grafana'ga aloqasi yo'q joyda
+  # ko'rinadi.
+  #
+  # Bo'sh emas, "admin": bo'sh parol bilan Grafana ko'tarilmaydi. Bu vaqtinchalik
+  # qiymat — CI'ga GRAFANA_ADMIN_PASSWORD secret'ini qo'shguningizcha ishlaydi,
+  # va Grafana birinchi kirishda uni almashtirishni so'raydi.
+  upsert_env .env GRAFANA_ADMIN_PASSWORD "${GRAFANA_ADMIN_PASSWORD:-admin}"
 
   chmod 600 .env
   echo "==> .env written ($(wc -l < .env) lines)"
