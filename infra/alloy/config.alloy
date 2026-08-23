@@ -27,6 +27,25 @@ discovery.docker "containers" {
 discovery.relabel "containers" {
   targets = discovery.docker.containers.targets
 
+  // FAQAT efBazaar konteynerlari.
+  //
+  // Docker socket hostdagi HAMMA konteynerni ko'rsatadi — bu yerda Mailcow
+  // steki ham, `chempionat` loyihasi ham bor. Ularning log fayllarida
+  // haftalar oldingi yozuvlar turibdi va Loki ularni "timestamp too old"
+  // deb rad etadi, Alloy esa shu ishga soatlab band bo'ladi.
+  //
+  // `keep` — mos kelmagan HAMMA narsani tashlaydi. `drop` dan farqi shu:
+  // istisnolarni sanab chiqish o'rniga ruxsatnoma ro'yxati. Yangi begona
+  // stek qo'shilsa, u o'z-o'zidan tashqarida qoladi.
+  //
+  // Mailcow loglari kerak bo'lsa keyinroq ATAYLAB qo'shamiz — hajmi va
+  // cardinality'si ko'rib chiqilgandan keyin.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "efbazaar"
+    action        = "keep"
+  }
+
   // Alloy o'z loglarini o'zi yig'masin. Loki'ga uzatishda xato chiqsa,
   // Alloy bu haqda log yozadi, u logni yana yig'adi, yana xato chiqadi —
   // teskari aloqa halqasi. KafkaLogForwarder'dagi re-entrancy guard bilan
