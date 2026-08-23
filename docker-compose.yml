@@ -188,7 +188,7 @@ services:
       # Test uchun EFHUB_SYNC_CRON'ni .env'da vaqtincha "0 */5 * * * *"
       # (har 5 daqiqada) qilib qo'yish mumkin, keyin qaytariladi.
       EFHUB_SYNC_ENABLED: ${EFHUB_SYNC_ENABLED:-true}
-      EFHUB_SYNC_CRON: ${EFHUB_SYNC_CRON:-0 0 6 * * *}
+      EFHUB_SYNC_CRON: ${EFHUB_SYNC_CRON:-0 0 9 * * *}
       # Repair listings created before normalized player-card inventory existed.
       # The job skips listings that are already normalized, so it is safe to leave enabled.
       LISTING_CARD_BACKFILL_ENABLED: ${LISTING_CARD_BACKFILL_ENABLED:-true}

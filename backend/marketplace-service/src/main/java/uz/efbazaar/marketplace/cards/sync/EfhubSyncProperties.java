@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties(prefix = "app.cards.sync")
 public record EfhubSyncProperties(
         @DefaultValue("false") boolean enabled,
-        @DefaultValue("0 0 6 * * *") String cron,
+        @DefaultValue("0 0 9 * * *") String cron,
         @DefaultValue("5000") long delayMs,
         @DefaultValue("50") int batchLimit,
         @DefaultValue("https://efhub.com") String baseUrl,

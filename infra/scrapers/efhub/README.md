@@ -137,7 +137,7 @@ Environment variables:
 Env'lar:
 ```
 EFHUB_SYNC_ENABLED=true
-EFHUB_SYNC_CRON="0 0 6 * * *"
+EFHUB_SYNC_CRON="0 0 9 * * *"   # 09:00 UTC = 14:00 Toshkent
 EFHUB_SYNC_DELAY_MS=5000
 EFHUB_SYNC_BATCH_LIMIT=50
 ```
