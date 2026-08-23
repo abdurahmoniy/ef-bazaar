@@ -82,6 +82,30 @@ send_telegram_message() {
         -d "$payload" >/dev/null
 }
 
+# Kod va stderr'ni TOZALASHDAN OLDIN oladi.
+#
+# Avval shunday edi:
+#     trap 'rm -f "$TMP_ENC"; alert_fail "... exit $?"' ERR
+# `rm -f` birinchi ishlab, muvaffaqiyatli tugaydi va `$?` ni 0 qilib qo'yadi.
+# Natijada HAR QANDAY nosozlik "exit 0" bo'lib kelardi — ya'ni alert nima
+# yiqilganini hech qachon ayta olmasdi.
+# PIPESTATUS argument sifatida keladi: funksiyaga kirgunimizcha u allaqachon
+# funksiya chaqiruvining o'z holatiga almashib bo'lgan bo'ladi.
+on_pipeline_error() {
+    local code=$?
+    local line=$1
+    local stages="${2:-}"
+    local detail=""
+    if [[ -s "${TMP_ERR:-}" ]]; then
+        detail=$'\n'"$(tail -c 300 "$TMP_ERR")"
+    fi
+    # `|| true`: tozalash yiqilsa (masalan fayl tizimi read-only) `set -e`
+    # skriptni shu yerda to'xtatadi va alert UMUMAN yuborilmaydi — ya'ni eng
+    # kerak paytda jim qolamiz.
+    rm -f "${TMP_ENC:-}" "${TMP_ERR:-}" || true
+    alert_fail "backup-db.sh line $line exit $code (pipe: $stages)$detail"
+}
+
 alert_fail() {
     local msg="$1"
     # printf'da haqiqiy \n bo'ladi (bash string double-quote'da esa literal backslash-n).
@@ -115,12 +139,19 @@ echo "==> Starting DB backup $TS"
 echo "==> pg_dumpall → gzip → aes-256-cbc"
 mkdir -p "$BACKUP_ROOT/tmp"
 TMP_ENC="$(mktemp -p "$BACKUP_ROOT/tmp" backup.XXXXXX.enc)"
-trap 'rm -f "$TMP_ENC"; alert_fail "backup-db.sh line $LINENO exit $?"' ERR
+# Quvurning stderr'i faylga: usiz pg_dumpall'ning "FATAL: ..." yoki
+# openssl'ning "no space left on device" xabari journald'da qolib ketadi va
+# Telegram'dagi alertda faqat qator raqami bo'ladi.
+TMP_ERR="$(mktemp -p "$BACKUP_ROOT/tmp" backup.XXXXXX.err)"
+trap 'on_pipeline_error $LINENO "${PIPESTATUS[*]}"' ERR
 
-docker exec -i "$POSTGRES_CONTAINER" pg_dumpall -U "$POSTGRES_USER" \
-    | gzip -9 \
-    | openssl enc -aes-256-cbc -pbkdf2 -salt -pass "pass:$PASSPHRASE" \
-    > "$TMP_ENC"
+{
+    docker exec -i "$POSTGRES_CONTAINER" pg_dumpall -U "$POSTGRES_USER" \
+        | gzip -9 \
+        | openssl enc -aes-256-cbc -pbkdf2 -salt -pass "pass:$PASSPHRASE" \
+        > "$TMP_ENC"
+} 2> "$TMP_ERR"
+rm -f "$TMP_ERR"
 
 SIZE=$(stat -c '%s' "$TMP_ENC")
 if [[ "$SIZE" -lt 512 ]]; then
