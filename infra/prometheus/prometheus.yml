@@ -29,3 +29,17 @@ scrape_configs:
           - bot:8084
           - trade-service:8085
           - payment-service:8087
+
+    # `instance` standart holatda manzilning o'zi bo'ladi — `auth-service:8081`.
+    # Port bu yerda hech narsa qo'shmaydi: har servisda bittadan port bor va u
+    # hech qachon o'zgarmaydi. Uni olib tashlaymiz, shunda yorliq grafiklarda
+    # ham, alert xabarlarida ham o'qilishi oson bo'ladi.
+    #
+    # Diqqat: bu yorliq QIYMATINI o'zgartiradi, ya'ni Prometheus uchun eski
+    # seriyalar tugab, yangilari boshlanadi. O'zgarish paytida grafiklar uziladi
+    # va uzilishdan oldingi ma'lumot eski nom ostida qoladi.
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):\d+'
+        target_label: instance
+        replacement: '$1'

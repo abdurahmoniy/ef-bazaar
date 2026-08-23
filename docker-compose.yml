@@ -173,6 +173,61 @@ services:
     networks:
       - efbazaar-net
 
+  loki:
+    image: grafana/loki:3.3.0
+    container_name: efbazaar-loki
+    restart: unless-stopped
+    # Loopback'ga bog'langan. Loki'da autentifikatsiya YO'Q
+    # (`auth_enabled: false`) va u barcha loglaringizni — parol
+    # o'zgartirish izlarini, xato stacktrace'larini, ichki manzillarni —
+    # so'ragan har kimga beradi. Internetdan ochiq qolishi mumkin emas.
+    ports:
+      - "127.0.0.1:3100:3100"
+    command:
+      - "-config.file=/etc/loki/loki-config.yml"
+    volumes:
+      # Papka mount'i, bitta fayl emas — prometheus'dagi bilan bir xil sabab:
+      # `git pull` faylni almashtiradi va fayl mount'i o'chirilgan inode'ni
+      # ushlab qoladi.
+      - ./infra/loki:/etc/loki:ro
+      - loki_data:/loki
+    mem_limit: 384m
+    memswap_limit: 512m
+    networks:
+      - efbazaar-net
+
+  alloy:
+    image: grafana/alloy:v1.5.0
+    container_name: efbazaar-alloy
+    restart: unless-stopped
+    command:
+      - "run"
+      - "--server.http.listen-addr=0.0.0.0:12345"
+      - "--storage.path=/var/lib/alloy/data"
+      - "/etc/alloy/config.alloy"
+    volumes:
+      - ./infra/alloy:/etc/alloy:ro
+      # DOCKER SOCKET — bu jiddiy imtiyoz. Socket'ga kirish huquqi bo'lgan
+      # jarayon konteyner yarata oladi, ya'ni amalda hostni to'liq boshqara
+      # oladi. `:ro` faqat mount'ni himoya qiladi, API'ni emas.
+      #
+      # Nega baribir shunday: Alloy shu socket orqali qaysi konteyner qaysi
+      # compose servisi ekanini biladi. Bo'lmasa loglar faqat konteyner id
+      # bilan kelardi va har deploy'da yorliqlar butunlay o'zgarardi.
+      #
+      # Xavfni cheklaydigan narsa — Alloy rasmiy Grafana obrazi va tashqi
+      # tarmoqdan hech qanday kirish qabul qilmaydi.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Qayerdan o'qishni to'xtatganini eslab qoladi. Busiz har restartda
+      # loglar boshidan qayta yuboriladi va Loki'da nusxalar paydo bo'ladi.
+      - alloy_data:/var/lib/alloy/data
+    depends_on:
+      - loki
+    mem_limit: 192m
+    memswap_limit: 256m
+    networks:
+      - efbazaar-net
+
   kafka:
     image: apache/kafka:3.7.0
     container_name: efbazaar-kafka
@@ -611,7 +666,11 @@ volumes:
   kafka_data:
   prometheus_data:
   alertmanager_data:
-  grafana_data: 
+  grafana_data:
+  loki_data:
+  # Alloy'ning "qayerdan o'qishni to'xtatdim" belgilari. Yo'qolsa loglar
+  # boshidan qayta yuboriladi — Loki'da nusxa, lekin falokat emas.
+  alloy_data:
   letsencrypt_data:
   acme_challenge:
   nginx_auth:
