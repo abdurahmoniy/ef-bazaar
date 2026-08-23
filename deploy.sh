@@ -501,11 +501,16 @@ receivers:
 ${thread_line}
         parse_mode: HTML
         send_resolved: true
+        # Ikki holat uchun ikki xil matn. Ilgari faqat emoji o'zgarardi va
+        # "hal bo'ldi" xabari ham "javob bermayapti" deb turardi — o'qigan odam
+        # muammo davom etyapti deb o'ylaydi.
         message: |
-          {{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} <b>{{ .CommonLabels.alertname }}</b>
+          {{ if eq .Status "firing" }}🔴 <b>{{ .CommonLabels.alertname }}</b>
           {{ range .Alerts }}{{ .Annotations.summary }}
           {{ .Annotations.description }}
-          {{ end }}
+          {{ end }}{{ else }}✅ <b>{{ .CommonLabels.alertname }}</b> — hal bo'ldi
+          {{ range .Alerts }}{{ .Labels.instance }} tiklandi
+          {{ end }}{{ end }}
 EOF
   # master_key bilan bir xil naqsh (yuqoriga qarang): fayl 644, papka 700.
   #
