@@ -464,7 +464,8 @@ route:
 receivers:
   - name: devnull
 EOF
-    chmod 600 infra/alertmanager/alertmanager.yml
+    chmod 644 infra/alertmanager/alertmanager.yml
+    chmod 700 infra/alertmanager 2>/dev/null || true
     return 0
   fi
 
@@ -502,7 +503,16 @@ ${thread_line}
           {{ .Annotations.description }}
           {{ end }}
 EOF
-  chmod 600 infra/alertmanager/alertmanager.yml
+  # master_key bilan bir xil naqsh (yuqoriga qarang): fayl 644, papka 700.
+  #
+  # 600 ishlamaydi — Alertmanager konteyner ichida `nobody` sifatida ishlaydi,
+  # bu host foydalanuvchingiz emas, va u o'z faylini o'qiy olmay yiqiladi.
+  # Huquqlar konteyner ichidagi foydalanuvchi nuqtai nazaridan tekshiriladi.
+  #
+  # Papka 700 esa hostda himoyani saqlaydi: fayl mode'i faqat Docker mount'i
+  # uchun ahamiyatli, host'da esa papkani ochish huquqi hal qiladi.
+  chmod 644 infra/alertmanager/alertmanager.yml
+  chmod 700 infra/alertmanager 2>/dev/null || true
 }
 
 # ─── Main flow ──────────────────────────────────────────────────────────────
