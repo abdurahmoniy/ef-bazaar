@@ -148,6 +148,31 @@ services:
     networks:
       - efbazaar-net
 
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: efbazaar-grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: http://localhost:3001
+    volumes:
+      - grafana_data:/var/lib/grafana
+      # ./ — nuqtadan keyin slash SHART. ".infra" deb yozilsa Docker uni shu
+      # nomli papkaga nisbiy yo'l deb o'qiydi, topolmaydi va o'sha joyda BO'SH
+      # papka yaratadi. Grafana esa hech qanday xato bermaydi — datasource
+      # shunchaki paydo bo'lmaydi.
+      #
+      # Yo'l `datasources` emas, `provisioning` — dashboardlar ham shu papka
+      # ichiga tushadi va o'shanda mount'ni qayta yozish kerak bo'lmaydi.
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+    mem_limit: 256m
+    memswap_limit: 384m
+    networks:
+      - efbazaar-net
+
   kafka:
     image: apache/kafka:3.7.0
     container_name: efbazaar-kafka
@@ -586,6 +611,7 @@ volumes:
   kafka_data:
   prometheus_data:
   alertmanager_data:
+  grafana_data: 
   letsencrypt_data:
   acme_challenge:
   nginx_auth:
