@@ -29,8 +29,19 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_MULTIPLE_DATABASES: ${AUTH_DB_NAME},${MARKETPLACE_DB_NAME},${RECOMMENDATION_DB_NAME},${TRADE_DB_NAME},${PAYMENT_DB_NAME},${EFBAZAAR_DB_NAME:-efbazaar}
+    # 127.0.0.1 ga bog'langan — serverning o'zidan ko'rinadi, internetdan yo'q.
+    #
+    # Ilgari "${POSTGRES_PORT_HOST:-5432}:5432" edi, ya'ni 0.0.0.0 — va
+    # `nc -zv <server-ip> 5432` tashqaridan ulanardi. Docker port chiqarganda
+    # o'z iptables qoidalarini qo'shadi va ular ufw'ni CHETLAB O'TADI, ya'ni
+    # host firewall'iga tayanish yetarli emas: bog'lanish manzilining o'zi
+    # to'g'ri bo'lishi kerak.
+    #
+    # Hech nima buzilmaydi: servislar Postgres'ga Docker tarmog'i orqali
+    # boradi, backup va psql esa `docker exec` ishlatadi. Tashqaridan ulanish
+    # kerak bo'lsa SSH tunnel: ssh -L 5432:localhost:5432 user@server
     ports:
-      - "${POSTGRES_PORT_HOST:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT_HOST:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh:ro,z
