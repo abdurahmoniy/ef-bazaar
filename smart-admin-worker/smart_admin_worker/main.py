@@ -24,6 +24,7 @@ from smart_admin_worker.crypto.field_encryptor import FieldEncryptor
 from smart_admin_worker.handlers.email_provision import EmailProvisionHandler
 from smart_admin_worker.handlers.forgot_password import ForgotPasswordHandler
 from smart_admin_worker.handlers.imap_poll import ImapPollHandler
+from smart_admin_worker.handlers.mailbox_delete import MailboxDeleteHandler
 from smart_admin_worker.handlers.mailbox_provision import MailboxProvisionHandler
 from smart_admin_worker.handlers.mailbox_rotate import MailboxRotateHandler
 from smart_admin_worker.http import health
@@ -37,6 +38,7 @@ from smart_admin_worker.kafka.topics import (
     TOPIC_EMAIL_PROVISION_REQ,
     TOPIC_FORGOT_PW_REQ,
     TOPIC_IMAP_POLL_REQ,
+    TOPIC_MAILBOX_DELETE_REQ,
     TOPIC_MAILBOX_PROVISION_REQ,
     TOPIC_MAILBOX_ROTATE_REQ,
 )
@@ -158,6 +160,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             mailcow=mailcow, encryptor=encryptor, producer=producer,
             email_provider=email_provider,
         ).handle,
+        TOPIC_MAILBOX_DELETE_REQ: MailboxDeleteHandler(mailcow=mailcow).handle,
     }
 
     # Wrap each handler so any exception fires a Telegram error notification
@@ -169,6 +172,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         TOPIC_FORGOT_PW_REQ: "forgot_password",
         TOPIC_IMAP_POLL_REQ: "imap_poll",
         TOPIC_MAILBOX_ROTATE_REQ: "mailbox_rotate",
+        TOPIC_MAILBOX_DELETE_REQ: "mailbox_delete",
     }
 
     def _wrap(

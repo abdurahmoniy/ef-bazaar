@@ -63,6 +63,19 @@ class MailboxRotateRequest:
     mailbox_id: UUID
 
 
+@dataclass(frozen=True)
+class MailboxDeleteRequest:
+    """An admin is clearing out a mailbox nobody holds.
+
+    Carries the address rather than only the id: trade-service marks its own
+    row deleted before publishing, so by the time this arrives there is nothing
+    left here to look the address up from.
+    """
+
+    mailbox_id: UUID
+    mailbox_email: str
+
+
 # ---------- Response DTOs (worker produces) ----------
 
 
@@ -182,6 +195,7 @@ _TOPIC_TO_TYPE: dict[str, type] = {
     topics.TOPIC_FORGOT_PW_REQ: ForgotPasswordRequest,
     topics.TOPIC_IMAP_POLL_REQ: ImapPollRequest,
     topics.TOPIC_MAILBOX_ROTATE_REQ: MailboxRotateRequest,
+    topics.TOPIC_MAILBOX_DELETE_REQ: MailboxDeleteRequest,
     topics.TOPIC_MAILBOX_PROVISION_REQ: MailboxProvisionRequest,
 }
 

@@ -87,3 +87,30 @@ export async function revealMailboxPasswordAction(
     return { ok: false, error: "Trade-service bilan bog'lanib bo'lmadi" };
   }
 }
+
+export interface DeleteMailboxResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Clears out a mailbox nobody holds.
+ *
+ * <p>trade-service refuses anything with an owner or a live trade behind it,
+ * and its refusal is the message shown — that mailbox is somebody's account,
+ * and the reason matters more than the fact.
+ */
+export async function deleteMailboxAction(mailboxId: string): Promise<DeleteMailboxResult> {
+  try {
+    await apiFetch<void>(`/trade/v1/admin/mailboxes/${encodeURIComponent(mailboxId)}`, {
+      method: 'DELETE',
+    });
+    revalidatePath('/admin/mailboxes');
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof ApiException) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: false, error: "Trade-service bilan bog'lanib bo'lmadi" };
+  }
+}

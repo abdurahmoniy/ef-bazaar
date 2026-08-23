@@ -10,6 +10,7 @@ TOPIC_MAILBOX_PROVISION_REQ = "efbazaar.trade.mailbox-provision-request"
 TOPIC_MAILBOX_PROVISIONED = "efbazaar.trade.mailbox-provisioned"
 TOPIC_MAILBOX_ROTATE_REQ = "efbazaar.trade.mailbox-rotate-request"
 TOPIC_MAILBOX_ROTATED = "efbazaar.trade.mailbox-rotated"
+TOPIC_MAILBOX_DELETE_REQ = "efbazaar.trade.mailbox-delete-request"
 
 # NEW in Plan C — backpressure UX
 TOPIC_WORKER_QUEUED = "efbazaar.trade.worker-queued"
@@ -27,4 +28,5 @@ REQUEST_TOPICS = (
     TOPIC_FORGOT_PW_REQ,
     TOPIC_IMAP_POLL_REQ,
     TOPIC_MAILBOX_ROTATE_REQ,
+    TOPIC_MAILBOX_DELETE_REQ,
 )
