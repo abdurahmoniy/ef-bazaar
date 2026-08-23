@@ -102,7 +102,9 @@ services:
       - efbazaar-net
 
   alertmanager:
-    image: prom/alertmanager:v0.27.0
+    # v0.28.0: message_thread_id (Telegram topic) shu versiyada qo'shilgan.
+    # v0.27.0 da u yo'q va konfiguratsiya "field not found" bilan yiqiladi.
+    image: prom/alertmanager:v0.28.0
     container_name: efbazaar-alertmanager
     restart: unless-stopped
     # Loopback'ga bog'langan: SSH tunnel bilan ko'rish mumkin, internetdan yo'q.
