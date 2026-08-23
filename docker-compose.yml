@@ -93,9 +93,17 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=15d"
     volumes:
-      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # PAPKA ulanadi, bitta fayl emas. Fayl mount'i inode'ga bog'lanadi, va
+      # `git pull` yoki muharrir faylni o'zgartirmasdan ALMASHTIRADI — eskisini
+      # o'chirib yangisini yaratadi. O'shanda konteyner o'chirilgan inode'ni
+      # ushlab qoladi va yangi mazmunni ko'rmaydi: SIGHUP muvaffaqiyatli
+      # o'tadi, lekin eski konfiguratsiya qayta o'qiladi va tashqaridan
+      # "hech nima o'zgarmadi" bo'lib ko'rinadi.
+      #
+      # Papka mount'ida bu muammo yo'q — ichidagi fayllar har doim joriy.
+      # rules/ ham shu papka ichida, ya'ni alohida mount kerak emas.
+      - ./infra/prometheus:/etc/prometheus:ro
       - prometheus_data:/prometheus
-      - ./infra/prometheus/rules:/etc/prometheus/rules:ro
     mem_limit: 384m
     memswap_limit: 512m
     networks:
@@ -119,7 +127,8 @@ services:
       # Bu fayl git'da YO'Q — uni deploy.sh serverda CI secret'laridan yozadi,
       # chunki ichida bot tokeni va chat id bo'ladi. Alertmanager esa
       # konfiguratsiyasida ${...} o'qimaydi, shuning uchun tayyor holda kerak.
-      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      # Papka, bitta fayl emas — prometheus bilan bir xil sababdan.
+      - ./infra/alertmanager:/etc/alertmanager:ro
       # Yuborilgan alertlar holati: qaysi biri allaqachon jo'natilgan,
       # qaysi biri jim qilingan. Busiz har restartda takroriy xabar keladi.
       - alertmanager_data:/alertmanager
