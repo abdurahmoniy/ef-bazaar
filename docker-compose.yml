@@ -127,8 +127,19 @@ services:
       # Bu fayl git'da YO'Q — uni deploy.sh serverda CI secret'laridan yozadi,
       # chunki ichida bot tokeni va chat id bo'ladi. Alertmanager esa
       # konfiguratsiyasida ${...} o'qimaydi, shuning uchun tayyor holda kerak.
-      # Papka, bitta fayl emas — prometheus bilan bir xil sababdan.
-      - ./infra/alertmanager:/etc/alertmanager:ro
+      # FAYL mount'i, papka emas — prometheus'dan farqli, va sababi bor.
+      #
+      # Papka mount'i prometheus'da kerak, chunki uning konfiguratsiyasi
+      # git'dan keladi va `git pull` faylni ALMASHTIRADI: mount o'chirilgan
+      # inode'ga bog'lanib qoladi. Bu fayl esa git'da yo'q — uni deploy.sh
+      # `cat >` bilan yozadi, u faylni joyida kesib qayta yozadi va inode
+      # saqlanadi. Ya'ni bu yerda o'sha muammo yo'q.
+      #
+      # Buning evaziga papkani 700 qoldira olamiz: hostda faqat egasi ochadi,
+      # konteyner esa faylni to'g'ridan-to'g'ri oladi. Papkani ulasak, uning
+      # 700 rejimi konteynerga ham o'tadi va `nobody` ichkariga kira olmaydi —
+      # fayl 644 bo'lsa ham unga yetib bormaydi.
+      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       # Yuborilgan alertlar holati: qaysi biri allaqachon jo'natilgan,
       # qaysi biri jim qilingan. Busiz har restartda takroriy xabar keladi.
       - alertmanager_data:/alertmanager
