@@ -570,6 +570,28 @@ if docker compose ps --services --filter status=running | grep -q '^nginx$'; the
   docker compose exec -T nginx nginx -t || true
 fi
 
+# Prometheus konfiguratsiyasini qayta o'qitish.
+#
+# prometheus.yml bind-mount orqali ulangan, ya'ni uni o'zgartirish konteynerni
+# qayta yaratmaydi va Compose "hech nima o'zgarmadi" deb o'tib ketadi.
+# Prometheus esa faylni o'zi kuzatmaydi. Natijada yangi target yoki yangi alert
+# qoidasi deploy'dan keyin ham JIM ravishda kuchga kirmaydi — bugun bu uch
+# marta takrorlandi va har safar qo'lda eslash kerak bo'ldi.
+#
+# SIGHUP konteynerni o'chirmasdan konfiguratsiyani qayta o'qitadi, ya'ni
+# yig'ilgan ma'lumot saqlanadi. Ishlamayotgan bo'lsa deploy to'xtamaydi.
+if docker compose ps --services --filter status=running | grep -q '^prometheus$'; then
+  echo "==> Reloading Prometheus config (SIGHUP)"
+  docker kill -s HUP efbazaar-prometheus >/dev/null 2>&1 || true
+fi
+
+# Alertmanager ham xuddi shunday: uning konfiguratsiyasini yuqorida
+# write_alertmanager_config qayta yozadi, lekin o'qitish alohida ish.
+if docker compose ps --services --filter status=running | grep -q '^alertmanager$'; then
+  echo "==> Reloading Alertmanager config (SIGHUP)"
+  docker kill -s HUP efbazaar-alertmanager >/dev/null 2>&1 || true
+fi
+
 echo "==> Pruning dangling images"
 docker image prune -f >/dev/null || true
 
