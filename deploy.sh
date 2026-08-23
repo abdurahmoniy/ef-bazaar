@@ -469,6 +469,10 @@ EOF
     return 0
   fi
 
+  # message_thread_id — Telegram topic. Alertmanager v0.28.0 dan boshlab
+  # qo'llab-quvvatlanadi; eskiroq versiyada "field not found" xatosi chiqadi.
+  # Topic berilmagan bo'lsa qator umuman yozilmaydi va xabar guruhning umumiy
+  # bo'limiga tushadi.
   local thread_line=""
   if [[ -n "${TELEGRAM_TOPIC_HEALTH:-}" ]]; then
     thread_line="        message_thread_id: ${TELEGRAM_TOPIC_HEALTH}"
