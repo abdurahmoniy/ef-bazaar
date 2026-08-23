@@ -1,6 +1,8 @@
 package uz.efbazaar.trade.mailbox.service;
 
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -31,6 +33,7 @@ public class MailboxService {
     private final MailboxRepository mailboxes;
     private final TradeRepository trades;
     private final TradeCrypto crypto;
+    private final uz.efbazaar.trade.kafka.TradeEventPublisher events;
 
     @Transactional
     public Mailbox create(String email, UUID ownerUserId, UUID tradeId, byte[] initialPassword) {
@@ -66,6 +69,45 @@ public class MailboxService {
     public Mailbox getRaw(UUID mailboxId) {
         return mailboxes.findById(mailboxId)
                 .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
+    }
+
+    /**
+     * Clears out a mailbox nobody holds.
+     *
+     * <p>Only an unheld one. A mailbox with an owner is somebody's account:
+     * if their Konami address still points at it, deleting it takes the
+     * account with it, and no password reset can bring either back. A mailbox
+     * in a live trade is worse still — it is the trade's instrument.
+     *
+     * <p>Soft-deleted here and removed from Mailcow by the worker. The row
+     * stays because audit rows and closed trades point at it, and a deleted
+     * mailbox that leaves dangling references behind is not tidier.
+     *
+     * <p>Idempotent: deleting one that is already gone does nothing rather
+     * than failing, so a double-click is not an error.
+     */
+    @Transactional
+    public void deleteUnheld(UUID mailboxId) {
+        Mailbox m = mailboxes.findById(mailboxId)
+                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
+        if (m.getDeletedAt() != null) {
+            return;
+        }
+        if (m.getOwnerUserId() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Bu pochta qutisi foydalanuvchiga biriktirilgan — o'chirib bo'lmaydi");
+        }
+        if (m.getTradeId() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Bu pochta qutisi savdoda ishlatilmoqda — o'chirib bo'lmaydi");
+        }
+        String email = m.getEmail();
+        m.setDeletedAt(Instant.now());
+        mailboxes.save(m);
+        // Published after the row is marked, so a worker that acts instantly
+        // cannot delete a box we then fail to mark.
+        events.mailboxDeleteRequest(mailboxId, email);
+        log.info("Mailbox {} marked deleted and queued for removal from Mailcow", mailboxId);
     }
 
     /**

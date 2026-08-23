@@ -23,6 +23,7 @@ public final class TradeEvents {
     public static final String TOPIC_MAILBOX_PROVISION_REQ = "efbazaar.trade.mailbox-provision-request";
     public static final String TOPIC_MAILBOX_PROVISIONED   = "efbazaar.trade.mailbox-provisioned";
     public static final String TOPIC_MAILBOX_ROTATE_REQ   = "efbazaar.trade.mailbox-rotate-request";
+    public static final String TOPIC_MAILBOX_DELETE_REQ   = "efbazaar.trade.mailbox-delete-request";
     public static final String TOPIC_MAILBOX_ROTATED      = "efbazaar.trade.mailbox-rotated";
     public static final String TOPIC_WORKER_QUEUED        = "efbazaar.trade.worker-queued";
     public static final String TOPIC_WORKER_STARTED       = "efbazaar.trade.worker-started";
@@ -160,6 +161,15 @@ public final class TradeEvents {
             String sender,
             /** Which escrow mailbox it landed in — a swap has two. */
             String mailboxEmail) {}
+
+    /**
+     * An admin cleared out a mailbox nobody holds.
+     *
+     * <p>Carries the address as well as the id: our own row is marked deleted
+     * before this goes out, so the worker has nothing left here to look the
+     * address up from.
+     */
+    public record MailboxDeleteRequest(UUID mailboxId, String mailboxEmail) {}
 
     /** Why a party ended up with an escrow mailbox. */
     public enum HandoverOutcome {

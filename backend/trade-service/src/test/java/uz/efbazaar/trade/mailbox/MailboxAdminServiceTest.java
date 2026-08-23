@@ -40,7 +40,8 @@ class MailboxAdminServiceTest {
     @BeforeEach
     void setUp() {
         repo = mock(MailboxRepository.class);
-        svc = new MailboxService(repo, mock(TradeRepository.class), mock(TradeCrypto.class));
+        svc = new MailboxService(repo, mock(TradeRepository.class), mock(TradeCrypto.class),
+                mock(uz.efbazaar.trade.kafka.TradeEventPublisher.class));
     }
 
     @Test

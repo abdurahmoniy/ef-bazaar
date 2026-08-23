@@ -91,6 +91,11 @@ public class TradeEventPublisher {
                         outcome, Instant.now()));
     }
 
+    public void mailboxDeleteRequest(UUID mailboxId, String mailboxEmail) {
+        send(TradeEvents.TOPIC_MAILBOX_DELETE_REQ, mailboxId.toString(),
+                new TradeEvents.MailboxDeleteRequest(mailboxId, mailboxEmail));
+    }
+
     public void tradeClosed(Trade trade) {
         send(TradeEvents.TOPIC_TRADE_CLOSED, trade.getId().toString(),
                 new TradeEvents.TradeChatPin(trade.getId(), trade.getChatId(), Instant.now()));

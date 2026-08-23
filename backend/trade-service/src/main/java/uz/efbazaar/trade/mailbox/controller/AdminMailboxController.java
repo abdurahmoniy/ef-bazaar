@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import uz.efbazaar.trade.common.PageResponse;
 import uz.efbazaar.trade.kafka.TradeEventPublisher;
 import uz.efbazaar.trade.mail.controller.MailController;
@@ -60,6 +62,24 @@ public class AdminMailboxController {
 
     @Value("${trade.mailbox.domain:efbazaar.uz}")
     private String mailboxDomain;
+
+    /**
+     * Clears out a mailbox nobody holds.
+     *
+     * <p>For the leftovers: an address reserved by a trade that never got off
+     * the ground, or one created by hand and never handed out. Anything with an
+     * owner or a live trade behind it is refused — that mailbox is somebody's
+     * account, and if their Konami address still points at it, deleting it
+     * takes the account with it for good.
+     *
+     * <p>Marked deleted here; the worker removes it from Mailcow.
+     */
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable UUID id) {
+        service.deleteUnheld(id);
+        log.info("Admin {} deleted mailbox {}", me.userId(), id);
+    }
 
     /**
      * The mailbox's current password, for handing to whoever ends up with it.
