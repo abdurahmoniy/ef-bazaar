@@ -87,7 +87,7 @@ services:
     container_name: efbazaar-prometheus
     restart: unless-stopped
     ports:
-      - "127.0.0.1:9090"
+      - "127.0.0.1:9090:9090"
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
