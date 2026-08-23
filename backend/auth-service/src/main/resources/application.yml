@@ -23,11 +23,10 @@ spring:
     # Hikari'da maximum-pool-size sozlanmasa 10 bo'ladi, minimum-idle esa
     # maximum-pool-size'ga tenglashadi — ya'ni har hovuz bo'sh turganda ham
     # 10 ta ulanishni ochib USHLAB turadi. Beshta servis + marketplace'ning
-    # ikkinchi (cards) datasource'i = 6 hovuz × 10 = 60. Sig'im 50.
+    # ikkinchi (cards) datasource'i = 5 hovuz × 10 = 50. Sig'im 50.
     #
-    # Joriy taqsimot (jami 36, qolgan 14 — admin, backup, psql uchun):
-    #   auth 6 | marketplace 8 (+cards 4) | recommendation 4
-    #   trade 8 | payment 6
+    # Joriy taqsimot (jami 32, qolgan 18 — admin, backup, psql uchun):
+    #   auth 6 | marketplace 8 (+cards 4) | trade 8 | payment 6
     #
     # Yangi servis yoki datasource qo'shsangiz, shu jadvalni yangilang va
     # yig'indi 50 dan past qolishiga ishonch hosil qiling.
@@ -81,7 +80,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
       base-path: /actuator
   endpoint:
     health:

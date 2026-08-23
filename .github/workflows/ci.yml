@@ -40,7 +40,6 @@ jobs:
     outputs:
       auth: ${{ steps.filter.outputs.auth }}
       marketplace: ${{ steps.filter.outputs.marketplace }}
-      recommendation: ${{ steps.filter.outputs.recommendation }}
       trade: ${{ steps.filter.outputs.trade }}
       payment: ${{ steps.filter.outputs.payment }}
       bot: ${{ steps.filter.outputs.bot }}
@@ -85,6 +84,27 @@ jobs:
                   continue
                 fi
                 echo "::error::$path edited (checksum will diverge from prod). Migrations are append-only."
+                FAIL=1
+                ;;
+              D)
+                # Butun servis o'chirilayotgan bo'lsa ruxsat.
+                #
+                # Guard checksum mos kelmasligidan himoya qiladi: Flyway
+                # allaqachon qo'llagan faylni yo'qotsa, u bazadagi versiyani
+                # tekshira olmaydi va deploy yiqiladi. Lekin servis butunlay
+                # ketayotgan bo'lsa, o'sha migratsiyani o'qiydigan Flyway ham
+                # qolmaydi — himoya qiladigan narsa yo'q.
+                #
+                # "Butun servis" mezoni — uning pom.xml i ham shu diff'da
+                # o'chirilgan. Bitta migratsiyani yakka o'zini o'chirish
+                # avvalgidek taqiqlangan.
+                svc_dir=$(printf "%s" "$path" | sed -E 's|^(backend/[^/]+)/.*|\1|')
+                if git diff --name-status "$BASE_SHA...HEAD" -- "$svc_dir/pom.xml" \
+                     | grep -q '^D'; then
+                  echo "service removal OK — $svc_dir/pom.xml ham o'chirilgan"
+                  continue
+                fi
+                echo "::error::$path deleted (Flyway bazadagi versiyani tekshira olmaydi)."
                 FAIL=1
                 ;;
               *)
@@ -177,7 +197,6 @@ jobs:
           }
           set_output auth           'backend/auth-service/'
           set_output marketplace    'backend/marketplace-service/'
-          set_output recommendation 'backend/recommendation-service/'
           set_output trade          'backend/trade-service/'
           set_output payment        'backend/payment-service/'
           set_output bot            'bot/'
@@ -199,9 +218,6 @@ jobs:
           - name: marketplace-service
             path: backend/marketplace-service
             changed: ${{ needs.precheck.outputs.marketplace }}
-          - name: recommendation-service
-            path: backend/recommendation-service
-            changed: ${{ needs.precheck.outputs.recommendation }}
           - name: trade-service
             path: backend/trade-service
             changed: ${{ needs.precheck.outputs.trade }}

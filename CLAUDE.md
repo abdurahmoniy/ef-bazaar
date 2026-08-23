@@ -14,7 +14,6 @@ efBazaar/
 ├── backend/
 │   ├── auth-service/           # JWT, SSO — Spring Boot, port 8081
 │   ├── marketplace-service/    # E'lonlar, like, savat, chat — Spring Boot, port 8082
-│   ├── recommendation-service/ # Recommendation engine — Spring Boot, port 8083
 │   └── trade-service/          # Escrow trade lifecycle: proposals, state machine, encrypted per-role chats, one-time password passthrough, WSS live push, Kafka boundary to smart-admin-worker — Spring Boot, port 8085
 ├── frontend/                   # Next.js — asosiy sayt (efbazaar.uz)
 ├── mail/                       # Next.js — read-only webmail (mail.efbazaar.uz), trade-service mail API frontendi
@@ -47,7 +46,6 @@ efBazaar/
 |--------|--------------|------------|
 | auth-service | 8081 | /api/auth/** |
 | marketplace-service | 8082 | /api/marketplace/** |
-| recommendation-service | 8083 | /api/rec/** |
 | bot | 8084 | /bot/webhook |
 | trade-service | 8085 | /api/v1/trades/** |
 | smart-admin-worker | 8086 | — (internal only) |
@@ -65,7 +63,7 @@ efBazaar/
 
 1. Foydalanuvchi login → `auth-service` access token + refresh token beradi.
 2. Har bir himoyalangan so'rov: `nginx` → `auth-service /api/v1/auth/verify` subrequest.
-3. `marketplace-service`, `recommendation-service`, `bot` tokenni o'zlari tekshirmaydi.
+3. `marketplace-service`, `trade-service`, `payment-service`, `bot` tokenni o'zlari tekshirmaydi.
 4. Servis ichida faqat nginx uzatgan `X-User-Id` va `X-User-Roles` headerlaridan foydalanadi.
 5. JWT secret faqat `auth-service` da — boshqa servislar bu secretni bilmaydi.
 6. Tashqi loyihalar ham shu `auth-service` ga ulana oladi — SSO prinsipi.

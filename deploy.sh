@@ -74,7 +74,6 @@ write_env() {
   upsert_env .env POSTGRES_PORT              5432
   upsert_env .env AUTH_DB_NAME               auth_db
   upsert_env .env MARKETPLACE_DB_NAME        marketplace_db
-  upsert_env .env RECOMMENDATION_DB_NAME     recommendation_db
   upsert_env .env TRADE_DB_NAME              trade_db
   upsert_env .env PAYMENT_DB_NAME            payment_db
 
@@ -136,6 +135,9 @@ write_env() {
   # their /internal/** with it. Blank → header-auth fail-closed. Must equal
   # Chempionat-X's EFBAZAAR_INTERNAL_SECRET.
   upsert_env .env INTERNAL_API_SECRET "$INTERNAL_API_SECRET"
+
+  # Grafana admin password
+  upsert_env .env GRAFANA_ADMIN_PASSWORD "$GRAFANA_ADMIN_PASSWORD"
 
   chmod 600 .env
   echo "==> .env written ($(wc -l < .env) lines)"
@@ -501,11 +503,16 @@ receivers:
 ${thread_line}
         parse_mode: HTML
         send_resolved: true
+        # Ikki holat uchun ikki xil matn. Ilgari faqat emoji o'zgarardi va
+        # "hal bo'ldi" xabari ham "javob bermayapti" deb turardi — o'qigan odam
+        # muammo davom etyapti deb o'ylaydi.
         message: |
-          {{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} <b>{{ .CommonLabels.alertname }}</b>
+          {{ if eq .Status "firing" }}🔴 <b>{{ .CommonLabels.alertname }}</b>
           {{ range .Alerts }}{{ .Annotations.summary }}
           {{ .Annotations.description }}
-          {{ end }}
+          {{ end }}{{ else }}✅ <b>{{ .CommonLabels.alertname }}</b> — hal bo'ldi
+          {{ range .Alerts }}{{ .Labels.instance }} tiklandi
+          {{ end }}{{ end }}
 EOF
   # master_key bilan bir xil naqsh (yuqoriga qarang): fayl 644, papka 700.
   #

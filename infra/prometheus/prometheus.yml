@@ -21,5 +21,11 @@ scrape_configs:
   - job_name: efbazaar
     metrics_path: /actuator/prometheus
     static_configs:
+      # Compose servis nomi + ichki port. Prometheus shu tarmoqda turadi,
+      # shuning uchun nomlar bo'yicha topadi — nginx ham, IP ham kerak emas.
       - targets:
+          - auth-service:8081
+          - marketplace-service:8082
+          - bot:8084
           - trade-service:8085
+          - payment-service:8087
