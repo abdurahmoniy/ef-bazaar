@@ -438,9 +438,77 @@ verify_internal_api_secret() {
   echo "==> trade/payment INTERNAL_API_SECRET present and matching"
 }
 
+# ─── Alertmanager config from CI secrets ────────────────────────────────────
+#
+# Bu fayl git'da yo'q va bo'lmasligi kerak: ichida bot tokeni, chat id va
+# topic id bo'ladi. Alertmanager esa konfiguratsiyasida ${...} kengaytmasini
+# QO'LLAMAYDI — .env unga yordam bermaydi. Shuning uchun uni .env kabi shu
+# yerda, serverda yozamiz.
+#
+# Token yo'q bo'lsa ham fayl YOZILADI, faqat hech qayerga yubormaydigan
+# qilib. Sababi Docker'ning tuzog'i: bind-mount manbasi mavjud bo'lmasa, u
+# o'sha joyda bo'sh PAPKA yaratadi, Alertmanager esa "is a directory" deb
+# yiqiladi — va sabab konfiguratsiyada emasligi tushunarsiz bo'ladi.
+write_alertmanager_config() {
+  echo "==> Writing infra/alertmanager/alertmanager.yml"
+  mkdir -p infra/alertmanager
+
+  if [[ -z "${TELEGRAM_BOT_TOKEN:-}" || -z "${TELEGRAM_GROUP_CHAT_ID:-}" ]]; then
+    echo "==> Alertmanager: TELEGRAM_BOT_TOKEN yoki TELEGRAM_GROUP_CHAT_ID yo'q — alertlar HECH QAYERGA yuborilmaydi"
+    cat > infra/alertmanager/alertmanager.yml <<'EOF'
+# Telegram sozlanmagan: Alertmanager ishlaydi, lekin xabar yubormaydi.
+# Alertlarni web UI'dan ko'rish mumkin. Tuzatish uchun CI'da
+# TELEGRAM_BOT_TOKEN va TELEGRAM_GROUP_CHAT_ID ni bering.
+route:
+  receiver: devnull
+receivers:
+  - name: devnull
+EOF
+    chmod 600 infra/alertmanager/alertmanager.yml
+    return 0
+  fi
+
+  local thread_line=""
+  if [[ -n "${TELEGRAM_TOPIC_HEALTH:-}" ]]; then
+    thread_line="        message_thread_id: ${TELEGRAM_TOPIC_HEALTH}"
+  fi
+
+  cat > infra/alertmanager/alertmanager.yml <<EOF
+route:
+  # Bir xil alertlar birga guruhlanadi: oltita servis bir vaqtda yiqilsa
+  # oltita xabar emas, bittasi keladi.
+  group_by: ['alertname']
+  # Birinchi xabardan oldin shuncha kutadi — hamma yiqilganini bir xabarga
+  # yig'ish uchun.
+  group_wait: 30s
+  # Guruhga yangi alert qo'shilsa, shuncha kutib qayta yuboradi.
+  group_interval: 5m
+  # Muammo hal bo'lmasa, shuncha vaqtdan keyin eslatadi. Qisqa bo'lsa
+  # spam, uzoq bo'lsa unutiladi.
+  repeat_interval: 4h
+  receiver: telegram
+
+receivers:
+  - name: telegram
+    telegram_configs:
+      - bot_token: ${TELEGRAM_BOT_TOKEN}
+        chat_id: ${TELEGRAM_GROUP_CHAT_ID}
+${thread_line}
+        parse_mode: HTML
+        send_resolved: true
+        message: |
+          {{ if eq .Status "firing" }}🔴{{ else }}✅{{ end }} <b>{{ .CommonLabels.alertname }}</b>
+          {{ range .Alerts }}{{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+EOF
+  chmod 600 infra/alertmanager/alertmanager.yml
+}
+
 # ─── Main flow ──────────────────────────────────────────────────────────────
 
 write_env
+write_alertmanager_config
 ghcr_login
 
 echo "==> Pulling latest images (idempotent — only changed layers downloaded)"

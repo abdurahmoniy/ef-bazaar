@@ -101,6 +101,31 @@ services:
     networks:
       - efbazaar-net
 
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: efbazaar-alertmanager
+    restart: unless-stopped
+    # Loopback'ga bog'langan: SSH tunnel bilan ko'rish mumkin, internetdan yo'q.
+    # Alertmanager'da ham autentifikatsiya yo'q, va u alertlaringizni —
+    # ya'ni nima buzilayotganini — ochiq aytib beradi.
+    ports:
+      - "127.0.0.1:9093:9093"
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    volumes:
+      # Bu fayl git'da YO'Q — uni deploy.sh serverda CI secret'laridan yozadi,
+      # chunki ichida bot tokeni va chat id bo'ladi. Alertmanager esa
+      # konfiguratsiyasida ${...} o'qimaydi, shuning uchun tayyor holda kerak.
+      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      # Yuborilgan alertlar holati: qaysi biri allaqachon jo'natilgan,
+      # qaysi biri jim qilingan. Busiz har restartda takroriy xabar keladi.
+      - alertmanager_data:/alertmanager
+    mem_limit: 128m
+    memswap_limit: 192m
+    networks:
+      - efbazaar-net
+
   kafka:
     image: apache/kafka:3.7.0
     container_name: efbazaar-kafka
@@ -570,6 +595,7 @@ volumes:
   redis_data:
   kafka_data:
   prometheus_data:
+  alertmanager_data:
   letsencrypt_data:
   acme_challenge:
   nginx_auth:
