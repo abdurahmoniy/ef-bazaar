@@ -74,7 +74,6 @@ write_env() {
   upsert_env .env POSTGRES_PORT              5432
   upsert_env .env AUTH_DB_NAME               auth_db
   upsert_env .env MARKETPLACE_DB_NAME        marketplace_db
-  upsert_env .env RECOMMENDATION_DB_NAME     recommendation_db
   upsert_env .env TRADE_DB_NAME              trade_db
   upsert_env .env PAYMENT_DB_NAME            payment_db
 
@@ -136,6 +135,9 @@ write_env() {
   # their /internal/** with it. Blank → header-auth fail-closed. Must equal
   # Chempionat-X's EFBAZAAR_INTERNAL_SECRET.
   upsert_env .env INTERNAL_API_SECRET "$INTERNAL_API_SECRET"
+
+  # Grafana admin password
+  upsert_env .env GRAFANA_ADMIN_PASSWORD "$GRAFANA_ADMIN_PASSWORD"
 
   chmod 600 .env
   echo "==> .env written ($(wc -l < .env) lines)"

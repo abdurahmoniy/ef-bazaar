@@ -28,7 +28,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_MULTIPLE_DATABASES: ${AUTH_DB_NAME},${MARKETPLACE_DB_NAME},${RECOMMENDATION_DB_NAME},${TRADE_DB_NAME},${PAYMENT_DB_NAME},${EFBAZAAR_DB_NAME:-efbazaar}
+      POSTGRES_MULTIPLE_DATABASES: ${AUTH_DB_NAME},${MARKETPLACE_DB_NAME},${TRADE_DB_NAME},${PAYMENT_DB_NAME},${EFBAZAAR_DB_NAME:-efbazaar}
     # 127.0.0.1 ga bog'langan — serverning o'zidan ko'rinadi, internetdan yo'q.
     #
     # Ilgari "${POSTGRES_PORT_HOST:-5432}:5432" edi, ya'ni 0.0.0.0 — va
@@ -278,38 +278,6 @@ services:
         condition: service_started
     mem_limit: 420m
     memswap_limit: 580m
-    networks:
-      - efbazaar-net
-
-  # NOTE: recommendation-service `extra` profile'da — default'da ishga tushmaydi.
-  # Yoqish uchun:  docker compose --profile extra up -d
-  # Hozir placeholder, MVP'da kerak emas. Nginx /api/rec/ → 503.
-  recommendation-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-recommendation-service:${IMAGE_TAG:-latest}
-    container_name: efbazaar-rec
-    profiles: ["extra"]
-    restart: unless-stopped
-    environment:
-      JAVA_OPTS: "-Xms64m -Xmx160m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError"
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${RECOMMENDATION_DB_NAME}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT}
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_started
-    mem_limit: 260m
-    memswap_limit: 384m
     networks:
       - efbazaar-net
 
