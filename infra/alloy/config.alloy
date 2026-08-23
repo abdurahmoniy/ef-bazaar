@@ -1,0 +1,91 @@
+// ==============================================================
+// Grafana Alloy — konteyner loglarini yig'ib Loki'ga uzatadi.
+//
+// PROMTAIL EMAS. Promtail Loki'ning eski yig'uvchisi edi va endi
+// qo'llab-quvvatlanmaydi. Internetdagi qo'llanmalarning ko'pchiligi hali
+// Promtail haqida — ko'rsangiz, eskirgan deb biling.
+//
+// Konfiguratsiya tili — quvur (pipeline) shaklida o'qiladi:
+//   discovery → relabel → source → process → write
+// Har blok o'zidan keyingisiga `forward_to` orqali uzatadi.
+// ==============================================================
+
+// 1-BOSQICH — Docker'dan qanday konteynerlar ishlayotganini bilib olish.
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "15s"
+}
+
+// 2-BOSQICH — yorliqlarni tozalash.
+//
+// Docker xom holda `__meta_docker_*` ko'rinishidagi o'nlab yorliq beradi.
+// Ularning hammasini Loki'ga o'tkazish CARDINALITY FALOKATI bo'lardi:
+// konteyner id har qayta yaratilganda o'zgaradi, ya'ni har deploy butunlay
+// yangi stream'lar to'plamini tug'dirardi.
+//
+// Shuning uchun faqat ikkitasini saqlaymiz va ikkalasi ham barqaror.
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // Alloy o'z loglarini o'zi yig'masin. Loki'ga uzatishda xato chiqsa,
+  // Alloy bu haqda log yozadi, u logni yana yig'adi, yana xato chiqadi —
+  // teskari aloqa halqasi. KafkaLogForwarder'dagi re-entrancy guard bilan
+  // bir xil muammo, bir xil yechim.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "alloy"
+    action        = "drop"
+  }
+
+  // Docker konteyner nomini oldingi "/" bilan beradi: "/efbazaar-trade".
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // Compose servis nomi — `docker-compose.yml` dagi kalit. Konteyner
+  // qayta yaratilsa ham o'zgarmaydi, shuning uchun yorliq sifatida
+  // konteyner nomidan ham ishonchliroq.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+// 3-BOSQICH — log oqimini Docker API orqali o'qish.
+loki.source.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.containers.output
+  labels           = { job = "docker" }
+  refresh_interval = "15s"
+  forward_to       = [loki.process.level.receiver]
+}
+
+// 4-BOSQICH — matndan log darajasini ajratib olish.
+//
+// BU VAQTINCHALIK YECHIM. Servislar oddiy matn chiqaradi, shuning uchun
+// darajani regexp bilan qidiramiz. Naqsh qatorning istalgan joyidan mos
+// keladi, ya'ni "ERROR" so'zi xabar matnida uchrasa ham yorliq qo'yiladi —
+// noto'g'ri.
+//
+// To'g'ri yechim — servislar JSON chiqarishi va darajani maydondan o'qish.
+// Keyingi bosqichda shunga o'tamiz.
+loki.process "level" {
+  stage.regex {
+    expression = "(?P<level>TRACE|DEBUG|INFO|WARN|ERROR|FATAL)"
+  }
+
+  stage.labels {
+    values = { level = "" }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+// 5-BOSQICH — Loki'ga yuborish.
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

@@ -1,0 +1,92 @@
+# ==============================================================
+# Loki — bitta jarayonli ("single binary") rejim.
+#
+# Loki tarqatilgan tizim sifatida ishlab chiqilgan: ingester, querier,
+# distributor va boshqalar alohida jarayon bo'lishi mumkin. Bitta serverda
+# esa hammasi bitta konteynerda ishlaydi va quyidagi konfiguratsiya aynan
+# shuni tanlaydi — `replication_factor: 1` va `kvstore: inmemory`.
+#
+# ELASTICSEARCH'DAN FARQI. Loki log MATNINI indekslamaydi. Faqat yorliqlar
+# indeksga tushadi, matn esa siqilgan bo'laklarda yotadi. Shuning uchun
+# indeks kichik va RAM talabi past — lekin har so'rov yorliq selektoridan
+# boshlanishi SHART, aks holda Loki hamma bo'lakni ketma-ket o'qiydi.
+# ==============================================================
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  # Loki o'z loglarini ham stdout'ga yozadi, ularni esa Alloy yig'adi.
+  # `info` da bu sezilarli shovqin beradi — har so'rov, har compaction.
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    # `from` — shu sanadan boshlab qaysi sxema ishlatiladi. Sxemani keyinchalik
+    # o'zgartirsangiz, ESKI yozuvni tahrirlamang: kelajakdagi sana bilan YANGI
+    # blok qo'shiladi. Eski bo'laklar eski sxema bilan o'qilishi kerak, aks
+    # holda ular yo'qoladi. Flyway'dagi V-migratsiya qoidasi bilan bir xil
+    # mantiq: o'tmish immutable.
+    - from: 2026-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  # 30 kun. Diskda 30 kunlik siqilgan log ~1-3 GB atrofida bo'ladi.
+  retention_period: 720h
+
+  # Alloy birinchi ishga tushganda mavjud log fayllarni ham quvadi — bu
+  # bir necha yuz megabaytlik portlash bo'lishi mumkin. Limit tor bo'lsa
+  # Loki hammasini rad etadi va tashqaridan "Loki ishlamayapti" bo'lib
+  # ko'rinadi. Shuning uchun boshlanishiga kengroq qo'yilgan.
+  ingestion_rate_mb: 16
+  ingestion_burst_size_mb: 32
+
+  # Stream = yorliqlarning noyob kombinatsiyasi. Bu chegara yuqori
+  # cardinality'dan himoya: kimdir yorliqqa trade id qo'shib yuborsa,
+  # Loki cheksiz o'sish o'rniga xato qaytaradi va siz buni darrov bilasiz.
+  max_streams_per_user: 5000
+
+  # Bir haftadan eski yozuvlar rad etiladi. Backfill'ni cheklaydi va
+  # noto'g'ri sozlangan soat tarixni buzishining oldini oladi.
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+
+  allow_structured_metadata: true
+  # Grafana'dagi "Logs volume" grafigi shuni talab qiladi.
+  volume_enabled: true
+
+compactor:
+  working_directory: /loki/compactor
+  delete_request_store: filesystem
+  # Bu YOQILMASA retention_period e'tiborsiz qoladi va disk cheksiz o'sadi.
+  # Loki bu haqda ogohlantirmaydi — shunchaki hech narsani o'chirmaydi.
+  retention_enabled: true
+  retention_delete_delay: 2h
+  compaction_interval: 10m
+
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+
+analytics:
+  reporting_enabled: false

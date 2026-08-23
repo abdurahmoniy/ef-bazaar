@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    # Compose tarmog'idagi servis nomi. Grafana brauzerdan emas, o'z
+    # konteyneridan so'raydi (`access: proxy`), shuning uchun localhost emas.
+    url: http://loki:3100
+    # Prometheus asosiy datasource bo'lib qoladi — dashboardlar unga tayanadi.
+    isDefault: false
+    editable: false
+    jsonData:
+      # Grafana bir so'rovda shuncha log qatorini oladi. Ko'proq qilish
+      # brauzerni qotiradi; kerak bo'lsa so'rovni toraytirish to'g'riroq.
+      maxLines: 1000
