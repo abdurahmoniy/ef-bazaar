@@ -15,6 +15,24 @@ spring:
     username: ${POSTGRES_USER:efbazaar}
     password: ${POSTGRES_PASSWORD:efbazaar}
     driver-class-name: org.postgresql.Driver
+    # ── Ulanish byudjeti ────────────────────────────────────────────
+    # Postgres'da max_connections=50 (docker-compose.yml). Hovuzlar
+    # yig'indisi undan OSHMASLIGI kerak — 2026-08-22 kechasi backup aynan
+    # shu sababdan yiqilgan: "FATAL: sorry, too many clients already".
+    #
+    # Hikari'da maximum-pool-size sozlanmasa 10 bo'ladi, minimum-idle esa
+    # maximum-pool-size'ga tenglashadi — ya'ni har hovuz bo'sh turganda ham
+    # 10 ta ulanishni ochib USHLAB turadi. Beshta servis + marketplace'ning
+    # ikkinchi (cards) datasource'i = 6 hovuz × 10 = 60. Sig'im 50.
+    #
+    # Joriy taqsimot (jami 36, qolgan 14 — admin, backup, psql uchun):
+    #   auth 6 | marketplace 8 (+cards 4) | recommendation 4
+    #   trade 8 | payment 6
+    #
+    # Yangi servis yoki datasource qo'shsangiz, shu jadvalni yangilang va
+    # yig'indi 50 dan past qolishiga ishonch hosil qiling.
+    hikari:
+      maximum-pool-size: 6
 
   jpa:
     hibernate:

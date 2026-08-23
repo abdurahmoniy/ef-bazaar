@@ -102,12 +102,21 @@ public class MailboxService {
                     "Bu pochta qutisi savdoda ishlatilmoqda — o'chirib bo'lmaydi");
         }
         String email = m.getEmail();
+        boolean everMade = m.getProvisionedAt() != null;
         m.setDeletedAt(Instant.now());
         mailboxes.save(m);
-        // Published after the row is marked, so a worker that acts instantly
-        // cannot delete a box we then fail to mark.
-        events.mailboxDeleteRequest(mailboxId, email);
-        log.info("Mailbox {} marked deleted and queued for removal from Mailcow", mailboxId);
+        if (everMade) {
+            // Published after the row is marked, so a worker that acts
+            // instantly cannot delete a box we then fail to mark.
+            events.mailboxDeleteRequest(mailboxId, email);
+            log.info("Mailbox {} marked deleted and queued for removal from Mailcow", mailboxId);
+        } else {
+            // Reserved but never created — there is nothing on the mail server
+            // to remove. Asking anyway got Mailcow's access_denied (which is
+            // what it answers for a mailbox that does not exist), and that is
+            // not a failure the worker can ever retry its way out of.
+            log.info("Mailbox {} was never provisioned; nothing to remove from Mailcow", mailboxId);
+        }
     }
 
     /**

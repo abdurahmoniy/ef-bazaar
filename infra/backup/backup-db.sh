@@ -82,6 +82,37 @@ send_telegram_message() {
         -d "$payload" >/dev/null
 }
 
+# Kod va stderr'ni TOZALASHDAN OLDIN oladi.
+#
+# Avval shunday edi:
+#     trap 'rm -f "$TMP_ENC"; alert_fail "... exit $?"' ERR
+# `rm -f` birinchi ishlab, muvaffaqiyatli tugaydi va `$?` ni 0 qilib qo'yadi.
+# Natijada HAR QANDAY nosozlik "exit 0" bo'lib kelardi — ya'ni alert nima
+# yiqilganini hech qachon ayta olmasdi.
+# PIPESTATUS argument sifatida keladi: funksiyaga kirgunimizcha u allaqachon
+# funksiya chaqiruvining o'z holatiga almashib bo'lgan bo'ladi.
+# on_pipeline_error LINE STAGES [CODE]
+#
+# CODE berilmasa `$?` dan olinadi — ERR trap uchun shunday. Qo'lda
+# chaqirilganda esa uni ALBATTA bering: o'sha paytda `$?` chaqiruvdan oldingi
+# buyruqniki bo'ladi (odatda muvaffaqiyatli `echo`), ya'ni alert yana "exit 0"
+# deb yolg'on gapiradi. Shu skriptda bu tuzoq uch marta chiqdi.
+on_pipeline_error() {
+    local code=$?
+    local line=$1
+    local stages="${2:-}"
+    if [[ -n "${3:-}" ]]; then code="$3"; fi
+    local detail=""
+    if [[ -s "${TMP_ERR:-}" ]]; then
+        detail=$'\n'"$(tail -c 300 "$TMP_ERR")"
+    fi
+    # `|| true`: tozalash yiqilsa (masalan fayl tizimi read-only) `set -e`
+    # skriptni shu yerda to'xtatadi va alert UMUMAN yuborilmaydi — ya'ni eng
+    # kerak paytda jim qolamiz.
+    rm -f "${TMP_ENC:-}" "${TMP_ERR:-}" || true
+    alert_fail "backup-db.sh line $line exit $code (pipe: $stages)$detail"
+}
+
 alert_fail() {
     local msg="$1"
     # printf'da haqiqiy \n bo'ladi (bash string double-quote'da esa literal backslash-n).
@@ -115,12 +146,55 @@ echo "==> Starting DB backup $TS"
 echo "==> pg_dumpall → gzip → aes-256-cbc"
 mkdir -p "$BACKUP_ROOT/tmp"
 TMP_ENC="$(mktemp -p "$BACKUP_ROOT/tmp" backup.XXXXXX.enc)"
-trap 'rm -f "$TMP_ENC"; alert_fail "backup-db.sh line $LINENO exit $?"' ERR
+# Quvurning stderr'i faylga: usiz pg_dumpall'ning "FATAL: ..." yoki
+# openssl'ning "no space left on device" xabari journald'da qolib ketadi va
+# Telegram'dagi alertda faqat qator raqami bo'ladi.
+TMP_ERR="$(mktemp -p "$BACKUP_ROOT/tmp" backup.XXXXXX.err)"
+# Bir necha marta urinadi. Baza bir lahza band bo'lgani uchun kechasi backup
+# UMUMAN bo'lmasligi — eng yomon natija; ertasiga tiklash kerak bo'lsa qo'lda
+# qoladi. 2026-08-22 da aynan shunday bo'ldi: "too many clients already".
+#
+# Bu hovuz cheklovlarining o'rnini bosmaydi — u yerda talab sig'imdan oshib
+# ketgan edi va asosiy tuzatish o'sha. Bu shunchaki ikkinchi qatlam: qisqa
+# tirbandlik backupni yo'q qilmasin.
+BACKUP_ATTEMPTS="${BACKUP_ATTEMPTS:-3}"
+BACKUP_RETRY_DELAY="${BACKUP_RETRY_DELAY:-120}"
 
-docker exec -i "$POSTGRES_CONTAINER" pg_dumpall -U "$POSTGRES_USER" \
-    | gzip -9 \
-    | openssl enc -aes-256-cbc -pbkdf2 -salt -pass "pass:$PASSPHRASE" \
-    > "$TMP_ENC"
+trap 'on_pipeline_error $LINENO "${PIPESTATUS[*]}"' ERR
+
+attempt=1
+while true; do
+    # Trap shu blok uchun o'chiriladi: urinish yiqilishi hali nosozlik emas,
+    # va alert oxirgi urinishdan keyin yuborilishi kerak.
+    set +e
+    trap - ERR
+    {
+        docker exec -i "$POSTGRES_CONTAINER" pg_dumpall -U "$POSTGRES_USER" \
+            | gzip -9 \
+            | openssl enc -aes-256-cbc -pbkdf2 -salt -pass "pass:$PASSPHRASE" \
+            > "$TMP_ENC"
+    } 2> "$TMP_ERR"
+    # Ikkalasi BITTA satrda: alohida yozilsa, birinchi o'zlashtirish `$?` ni
+    # nolga tushiradi va yiqilish muvaffaqiyat bo'lib o'qiladi. Bash avval
+    # o'ng tomonlarni yoyadi, shuning uchun ikkalasi ham asl qiymatni ko'radi.
+    rc=$? stages="${PIPESTATUS[*]}"
+    set -e
+    trap 'on_pipeline_error $LINENO "${PIPESTATUS[*]}"' ERR
+
+    if [[ "$rc" -eq 0 ]]; then
+        break
+    fi
+    if [[ "$attempt" -ge "$BACKUP_ATTEMPTS" ]]; then
+        echo "❌ $attempt ta urinishdan keyin ham yiqildi"
+        on_pipeline_error "$LINENO" "$stages" "$rc"
+        exit 1
+    fi
+    echo "⚠️  Urinish $attempt yiqildi (exit $rc, pipe: $stages) — ${BACKUP_RETRY_DELAY}s kutib qayta urinaman"
+    tail -c 300 "$TMP_ERR" || true
+    attempt=$((attempt + 1))
+    sleep "$BACKUP_RETRY_DELAY"
+done
+rm -f "$TMP_ERR"
 
 SIZE=$(stat -c '%s' "$TMP_ENC")
 if [[ "$SIZE" -lt 512 ]]; then

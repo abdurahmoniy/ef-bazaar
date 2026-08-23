@@ -38,16 +38,21 @@ class AdminMailboxDeleteIT extends AbstractIntegrationIT {
 
     /** Standalone, so MockWorker has no reason to touch it. */
     private UUID mailbox(UUID owner, UUID tradeId) {
+        return mailbox(owner, tradeId, "cleanup-", true);
+    }
+
+    private UUID mailbox(UUID owner, UUID tradeId, String prefix, boolean provisioned) {
         UUID id = UUID.randomUUID();
         mailboxes.saveAndFlush(Mailbox.builder()
                 .id(id)
-                .email("cleanup-" + id.toString().substring(0, 8) + "@efbazaar.uz")
+                .email(prefix + id + "@efbazaar.uz")
                 .ownerUserId(owner)
                 .tradeId(tradeId)
                 .encryptedPassword(new byte[]{1})
                 .passwordIv(new byte[12])
                 .passwordTag(new byte[16])
                 .createdAt(Instant.now())
+                .provisionedAt(provisioned ? Instant.now() : null)
                 .build());
         return id;
     }

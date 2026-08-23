@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 class MailboxAdminServiceTest {
 
     private MailboxRepository repo;
+    private uz.efbazaar.trade.kafka.TradeEventPublisher events;
     private MailboxService svc;
 
     private final Pageable page = PageRequest.of(0, 20);
@@ -40,8 +41,8 @@ class MailboxAdminServiceTest {
     @BeforeEach
     void setUp() {
         repo = mock(MailboxRepository.class);
-        svc = new MailboxService(repo, mock(TradeRepository.class), mock(TradeCrypto.class),
-                mock(uz.efbazaar.trade.kafka.TradeEventPublisher.class));
+        events = mock(uz.efbazaar.trade.kafka.TradeEventPublisher.class);
+        svc = new MailboxService(repo, mock(TradeRepository.class), mock(TradeCrypto.class), events);
     }
 
     @Test
@@ -120,5 +121,46 @@ class MailboxAdminServiceTest {
         assertThat(stats.admin()).isEqualTo(2);
         assertThat(stats.pending()).isEqualTo(1);
         assertThat(stats.unassigned()).isEqualTo(3);
+    }
+
+    private Mailbox unheld(java.time.Instant provisionedAt) {
+        return Mailbox.builder()
+                .id(java.util.UUID.randomUUID())
+                .email("box@efbazaar.uz")
+                .provisionedAt(provisionedAt)
+                .build();
+    }
+
+    /**
+     * A mailbox that was reserved and never created has nothing to remove.
+     *
+     * <p>Seen in production: the worker was asked to delete a "pending-…"
+     * address, Mailcow answered access_denied — which is what it says for a
+     * mailbox that does not exist, not object_dne — and the request went round
+     * Kafka firing the same Telegram alert on every pass. Three arrived inside
+     * a minute.
+     */
+    @Test
+    void deletingAnUnprovisionedMailboxAsksTheWorkerForNothing() {
+        Mailbox box = unheld(null);
+        when(repo.findById(box.getId())).thenReturn(java.util.Optional.of(box));
+
+        svc.deleteUnheld(box.getId());
+
+        org.mockito.Mockito.verify(events, org.mockito.Mockito.never())
+                .mailboxDeleteRequest(any(), any());
+        org.assertj.core.api.Assertions.assertThat(box.getDeletedAt())
+                .as("still marked deleted on our side")
+                .isNotNull();
+    }
+
+    @Test
+    void deletingARealMailboxDoesAskTheWorker() {
+        Mailbox box = unheld(java.time.Instant.now());
+        when(repo.findById(box.getId())).thenReturn(java.util.Optional.of(box));
+
+        svc.deleteUnheld(box.getId());
+
+        org.mockito.Mockito.verify(events).mailboxDeleteRequest(box.getId(), "box@efbazaar.uz");
     }
 }
