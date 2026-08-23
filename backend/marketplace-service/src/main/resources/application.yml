@@ -87,7 +87,7 @@ app:
       # efhub.com'dan kunlik delta-sync. Faqat yangi card'larni tortib oladi.
       # Production: enabled=true, local dev: false (default) — efhub'ga ortiqcha so'rov ketmasin.
       enabled: ${EFHUB_SYNC_ENABLED:false}
-      cron: ${EFHUB_SYNC_CRON:0 0 6 * * *}   # har kuni 06:00 UTC
+      cron: ${EFHUB_SYNC_CRON:0 0 9 * * *}   # har kuni 09:00 UTC = 14:00 Toshkent
       delay-ms: ${EFHUB_SYNC_DELAY_MS:5000}  # so'rovlar orasi (robots.txt Crawl-delay: 5)
       batch-limit: ${EFHUB_SYNC_BATCH_LIMIT:50}
       base-url: ${EFHUB_BASE_URL:https://efhub.com}

@@ -18,7 +18,7 @@ public class EfhubSyncJob {
         this.props = props;
     }
 
-    @Scheduled(cron = "${app.cards.sync.cron:0 0 6 * * *}", zone = "UTC")
+    @Scheduled(cron = "${app.cards.sync.cron:0 0 9 * * *}", zone = "UTC")
     public void run() {
         if (!props.enabled()) {
             log.debug("efhub sync disabled (app.cards.sync.enabled=false)");
