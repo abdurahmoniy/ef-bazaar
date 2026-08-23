@@ -19,6 +19,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: read
+  actions: read      # oxirgi muvaffaqiyatli run'ni topish uchun
 
 jobs:
   # Bir job — ikki tekshiruv. Ilgari `guard-migrations` va `detect` alohida
@@ -103,10 +104,65 @@ jobs:
       # bilan 500 (Unicorn) qaytaradi — PR bloklanib qoladi. Endi to'g'ridan-
       # to'g'ri git diff bilan hisoblaymiz — fetch-depth: 0 allaqachon o'rnatilgan
       # (yuqorida migration guard uchun).
+      # Qayerdan boshlab solishtirish kerakligini aniqlaydi.
+      #
+      # Sukut bo'yicha PR butunlay main bilan solishtiriladi. Uzoq yashaydigan
+      # branch'da bu "bir marta tekkan har bir servis har push'da qayta test
+      # qilinadi" degani — bir hafta oldin o'zgargan va o'shanda yashil bo'lgan
+      # servis ham har safar runner oladi.
+      #
+      # Shuning uchun boshlang'ich nuqta — shu branch'da CI MUVAFFAQIYATLI
+      # o'tgan eng oxirgi commit. Undan beri fayllari qimirlamagan servis
+      # allaqachon aynan shu kod bilan tekshirilgan.
+      #
+      # Nega "oldingi push" (github.event.before) emas: yuqorida
+      # cancel-in-progress: true turibdi. Ketma-ket ikki push qilinsa birinchi
+      # run bekor qilinadi, va o'sha commit'dagi o'zgarishlar hech qachon
+      # test qilinmagan bo'ladi — oldingi push'dan solishtirsak, ular jimgina
+      # o'tib ketardi. Tugagan va yashil bo'lgan run esa haqiqiy kafolat.
+      #
+      # Topilmasa (birinchi run, tarix tozalangan) main'ga qaytamiz — ya'ni
+      # xatolik tomoni doim "ko'proq test qilish".
+      - name: Find the last commit this branch was green at
+        id: baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          REPO: ${{ github.repository }}
+        run: |
+          baseline=""
+          # Workflow'ning o'zi yoki umumiy infra o'zgarsa — hech nimaga
+          # ishonmaymiz, to'liq PR qayta tekshiriladi.
+          if git diff --name-only "$BASE_SHA...HEAD" \
+               | grep -qE '^(\.github/|docker-compose\.yml|infra/)'; then
+            echo "CI/infra changed — testing the whole PR"
+          else
+            # Bitta sahifa yetadi: bizga eng yangi ajdod kerak, hammasi emas.
+            # --paginate bilan bo'lsa gavjum repoda yuzlab run varaqlanardi.
+            shas=$(gh api \
+                     "repos/$REPO/actions/workflows/ci.yml/runs?branch=$BRANCH&status=success&per_page=30" \
+                     --jq '.workflow_runs[].head_sha' 2>/dev/null || true)
+            for sha in $shas; do
+              if git cat-file -e "${sha}^{commit}" 2>/dev/null \
+                 && git merge-base --is-ancestor "$sha" HEAD; then
+                baseline="$sha"
+                break
+              fi
+            done
+          fi
+          if [ -n "$baseline" ]; then
+            echo "Comparing against last green commit $baseline"
+          else
+            baseline="$BASE_SHA"
+            echo "No usable green run — comparing against main"
+          fi
+          echo "sha=$baseline" >> "$GITHUB_OUTPUT"
+
       - name: Detect changed services via git
         id: filter
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ steps.baseline.outputs.sha }}
         run: |
           files=$(git diff --name-only "$BASE_SHA...HEAD")
           echo "Changed files:"
