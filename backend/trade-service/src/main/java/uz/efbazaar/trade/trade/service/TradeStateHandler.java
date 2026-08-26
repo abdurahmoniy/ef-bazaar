@@ -279,6 +279,10 @@ public class TradeStateHandler {
                 if (trade.getChatId() != null) {
                     events.tradeClosed(trade);
                 }
+                events.tradeAction(trade.getId(), trade.getChatId(), trade.getSellerId(),
+                        TradeEvents.TradeActionType.TRADE_SUCCESS, trade.getPriceUzs(), null);
+                events.tradeAction(trade.getId(), trade.getChatId(), trade.getBuyerId(),
+                        TradeEvents.TradeActionType.TRADE_SUCCESS, trade.getPriceUzs(), null);
             }
             case REJECTED -> {
                 trade.setStateDeadline(null);
@@ -309,6 +313,10 @@ public class TradeStateHandler {
                 if (trade.getChatId() != null) {
                     events.tradeClosed(trade);
                 }
+                events.tradeAction(trade.getId(), trade.getChatId(), trade.getSellerId(),
+                        TradeEvents.TradeActionType.TRADE_REJECTED, trade.getPriceUzs(), null);
+                events.tradeAction(trade.getId(), trade.getChatId(), trade.getBuyerId(),
+                        TradeEvents.TradeActionType.TRADE_REJECTED, trade.getPriceUzs(), null);
             }
             case ORPHANED -> {
                 trade.setStateDeadline(null);
@@ -332,6 +340,10 @@ public class TradeStateHandler {
                 if (trade.getChatId() != null) {
                     events.tradeClosed(trade);
                 }
+                events.tradeAction(trade.getId(), trade.getChatId(), trade.getSellerId(),
+                        TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null);
+                events.tradeAction(trade.getId(), trade.getChatId(), trade.getBuyerId(),
+                        TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null);
             }
         }
     }

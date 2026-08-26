@@ -22,5 +22,19 @@ public enum NotificationType {
     /** A trade completed and the account I received now sits in my own inbox. */
     TRADE_MAILBOX_RECEIVED,
     /** A trade ended without completing; the inbox I was given is mine to keep. */
-    TRADE_MAILBOX_RETURNED
+    TRADE_MAILBOX_RETURNED,
+    /** A proposal was sent in chat. */
+    TRADE_PROPOSAL_CREATED,
+    /** A trade has been accepted and started. */
+    TRADE_STARTED,
+    /** Seller changed the Konami account email. */
+    TRADE_EMAIL_CHANGED,
+    /** Konami password was sent. */
+    TRADE_PASSWORD_SENT,
+    /** Trade completed successfully. */
+    TRADE_SUCCESS,
+    /** Trade was rejected. */
+    TRADE_REJECTED,
+    /** Trade timed out or was orphaned. */
+    TRADE_ORPHANED
 }

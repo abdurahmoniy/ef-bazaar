@@ -129,6 +129,10 @@ public class TradeProposalService {
         events.proposalCreated(proposalId, req.marketplaceChatId(),
                 proposerUserId, req.amountUzs());
 
+        UUID counterpartyId = proposerUserId.equals(req.sellerId()) ? req.buyerId() : req.sellerId();
+        events.tradeAction(null, req.marketplaceChatId(), counterpartyId,
+                TradeEvents.TradeActionType.PROPOSAL_CREATED, req.amountUzs(), null);
+
         return new ProposalResponse(proposalId,
                 Instant.now().plusSeconds(ttlSeconds));
     }
@@ -294,6 +298,10 @@ public class TradeProposalService {
         redis.delete(mainKey);
         if (chatId != null) redis.delete(chatIndexKey(chatId));
         events.proposalResolved(proposalId, TradeEvents.ProposalOutcome.ACCEPTED);
+        events.tradeAction(trade.id(), trade.chatId(), trade.sellerId(),
+                TradeEvents.TradeActionType.TRADE_STARTED, trade.priceUzs(), null);
+        events.tradeAction(trade.id(), trade.chatId(), trade.buyerId(),
+                TradeEvents.TradeActionType.TRADE_STARTED, trade.priceUzs(), null);
         audit.record(trade.id(), ActorType.USER, accepterUserId, "PROPOSAL_ACCEPTED",
                 Map.of("proposalId", proposalId.toString()));
         return trade;

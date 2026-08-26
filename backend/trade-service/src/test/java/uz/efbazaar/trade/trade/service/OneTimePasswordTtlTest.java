@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OneTimePasswordTtlTest {
 
     private static long ttlFor(long windowSeconds) {
-        OneTimePasswordService service = new OneTimePasswordService(null, null, null, null, null);
+        OneTimePasswordService service = new OneTimePasswordService(null, null, null, null, null, null);
         ReflectionTestUtils.setField(service, "revealWindowSeconds", windowSeconds);
         return service.revealTtlSeconds();
     }

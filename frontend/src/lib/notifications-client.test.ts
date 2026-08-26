@@ -74,4 +74,26 @@ describe('notification client helpers', () => {
     // saying nothing, so the two must not share wording.
     expect(returned).toContain('yakunlanmadi');
   });
+
+  it('formats labels and href for trade action notifications', () => {
+    const n = {
+      id: 'n6',
+      type: 'TRADE_PROPOSAL_CREATED',
+      chatId: 'chat-456',
+      tradeId: 'trade-456',
+      createdAt: '2026-08-26T00:00:00Z',
+    } satisfies NotificationResponse;
+
+    expect(notificationLabel(n)).toBe('Sizga yangi savdo taklifi yuborildi');
+    expect(notificationHref(n)).toBe('/trade-admin?tradeId=trade-456');
+
+    const chatNotification = {
+      id: 'n7',
+      type: 'TRADE_PROPOSAL_CREATED',
+      chatId: 'chat-456',
+      createdAt: '2026-08-26T00:00:00Z',
+    } satisfies NotificationResponse;
+
+    expect(notificationHref(chatNotification)).toBe('/chats/chat-456');
+  });
 });
