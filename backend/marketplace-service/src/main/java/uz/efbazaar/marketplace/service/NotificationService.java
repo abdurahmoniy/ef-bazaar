@@ -155,6 +155,16 @@ public class NotificationService {
                 .build());
     }
 
+    @Transactional
+    public void tradeAction(UUID userId, UUID tradeId, UUID chatId, NotificationType type) {
+        notifications.save(Notification.builder()
+                .userId(userId)
+                .type(type)
+                .tradeId(tradeId)
+                .chatId(chatId)
+                .build());
+    }
+
     @Transactional(readOnly = true)
     public Page<Notification> list(UUID userId, Pageable pageable) {
         return notifications.findByUserIdOrderByCreatedAtDesc(userId, pageable);

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import {
   AlertTriangle,
+  ArrowUpRight,
   CheckCircle2,
   Copy,
   Handshake,
@@ -39,7 +40,6 @@ import { formatPriceUZS } from '@/lib/marketplace-format';
 import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
 import { isHumanProposal, isHumanTrade, validateAdminFee } from '@/lib/trade-human';
 import { createInvoice } from '@/lib/payment-client';
-import { planPollTick } from '@/lib/trade-poll-plan';
 import {
   allowedKinds,
   counterpartStatus,
@@ -74,194 +74,98 @@ import {
 import { cn } from '@/lib/utils';
 import { FEATURES } from '@/lib/feature-flags';
 import { sellerProceedsSom, tradeFeeSom } from '@/lib/trade-commission';
+import { useTradeContext, type PendingProposal } from './trade-context';
 
-/** Polling cadence for both trade-state and pending-proposal watchers. */
-const POLL_INTERVAL_MS = 4000;
-
-interface TradePanelProps {
-  chat: ChatResponse;
-  viewerId: string;
-  listing: ListingResponse | null;
-  /**
-   * Server-fetched pending proposal for this chat, if any. Present for BOTH
-   * seller and buyer on first render — fixes the bug where the buyer's
-   * browser had no way to see a proposal the seller had already sent.
-   */
+export interface TradePanelProps {
+  chat?: ChatResponse;
+  viewerId?: string;
+  listing?: ListingResponse | null;
   initialPendingProposal?: PendingProposalResponse | null;
 }
 
 /**
- * Full-lifecycle trade driver rendered above the chat message stream.
- *
- * Phase 1 (propose/accept) is unchanged. Once a trade is active this panel
- * renders state-conditional buttons — the buyer confirms payment, the seller
- * confirms the Konami email change, either side can retrigger IMAP verify,
- * the seller submits the Konami password, the buyer reveals it, then either
- * confirms or rejects. Each mutation triggers an immediate `reload` and a
- * background 4-second poll keeps state fresh without WebSockets.
- *
- * Reveal is one-shot — the plaintext lives in this component's React state
- * for as long as the buyer stays on the page.
+ * Full-lifecycle trade driver rendered in the chat stream, synchronized with the pinned bar.
  */
-export function TradePanel({
-  chat,
-  viewerId,
-  listing,
-  initialPendingProposal = null,
-}: TradePanelProps) {
-  const router = useRouter();
-  const otherPartyId = chat.sellerId === viewerId ? chat.buyerId : chat.sellerId;
+export function TradePanel(_props?: TradePanelProps) {
+  const { isDrawerOpen } = useTradeContext();
 
-  /**
-   * Which account is being negotiated, and therefore who sells it.
-   *
-   * `chat.sellerId` only records who opened the conversation. Once the pair
-   * trades a second time — possibly the other way round — it stops describing
-   * the trade in hand, so the role comes from the account request instead.
-   */
-  const [accountRequest, setAccountRequest] = useState<AccountRequest | null>(null);
-  const [showPicker, setShowPicker] = useState(false);
-  const role = roleInRequest(accountRequest, viewerId);
-  const isSeller = role === 'SELLER';
-
-  const [trades, setTrades] = useState<TradeResponse[] | null>(null);
-  const [proposal, setProposal] = useState<PendingProposal | null>(
-    initialPendingProposal
-        ? {
-            id: initialPendingProposal.proposalId,
-            priceUzs: initialPendingProposal.amountUzs,
-            expiresAt: initialPendingProposal.expiresAt,
-            mode: initialPendingProposal.mode ?? undefined,
-            adminId: initialPendingProposal.adminId ?? undefined,
-            adminFeeUzs: initialPendingProposal.adminFeeUzs ?? undefined,
-            kind: initialPendingProposal.kind ?? undefined,
-          }
-        : null,
+  return (
+    <>
+      <div id="chat-trade-panel" className="scroll-mt-24 transition-all duration-300">
+        <TradePanelContent />
+      </div>
+      {isDrawerOpen && <TradeDrawerModal />}
+    </>
   );
-  /**
-   * Whether the pair have asked to move past a trade that has ended.
-   *
-   * A finished trade stays on screen — it is how the parties see what happened
-   * and, on a swap, that the accounts crossed over. But it must not be the last
-   * thing this chat can ever show: without a way past it a pair whose trade
-   * timed out could not start another for the same account, and the chat looked
-   * used up.
-   */
-  const [startingNew, setStartingNew] = useState(false);
-  const [showProposeModal, setShowProposeModal] = useState(false);
-  const [showAcceptModal, setShowAcceptModal] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  /** Guard against overlapping polls (setInterval fires while a fetch is in flight). */
-  const reloadInFlight = useRef(false);
-  const proposalPollInFlight = useRef(false);
+}
 
-  // A finished trade is not the trade in hand. Holding on to it left a pair
-  // whose trade timed out staring at it with no way back to asking for the
-  // account again — as though the chat had been used up.
-  const { active: activeTrade, lastFinished } = splitTrades(trades);
+function TradeDrawerModal() {
+  const { isDrawerOpen, setIsDrawerOpen, scrollToTradePanel } = useTradeContext();
 
-  const reload = useCallback(async () => {
-    if (reloadInFlight.current) return;
-    reloadInFlight.current = true;
-    setRefreshing(true);
-    try {
-      // Fetched together: the request decides which panel the trade renders in,
-      // so loading them apart lets one arrive without the other and flashes the
-      // counterparty's screen.
-      const [list, request] = await Promise.all([
-        fetchTradesByChat(chat.id),
-        fetchAccountRequest(chat.id),
-      ]);
-      setTrades(list);
-      setAccountRequest(request);
-    } finally {
-      setRefreshing(false);
-      reloadInFlight.current = false;
-    }
-  }, [chat.id]);
+  if (!isDrawerOpen) return null;
 
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  // ---- polling: trade state while non-terminal ----
-  // Key on primitives (id + state) so we don't tear down / re-create the
-  // interval on every 4-second refetch. The interval is only reset when
-  // the trade transitions to a new state or (rare) the trade id changes.
-  const activeTradeId = activeTrade?.id ?? null;
-  const activeTradeState = activeTrade?.state ?? null;
-  useEffect(() => {
-    if (!activeTradeId || !activeTradeState) return;
-    if (isTerminalState(activeTradeState)) return;
-    const id = window.setInterval(() => {
-      void reload();
-    }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [activeTradeId, activeTradeState, reload]);
-
-  // ---- polling: runs until a trade exists ----
-  // Deliberately keeps polling while a proposal is pending. The other party can
-  // accept at any moment, and the proposer has no action of their own to hang a
-  // refresh on — the accept happens on the other browser. Bailing out here left
-  // the seller parked on the pending-proposal card after the buyer accepted, so
-  // they never saw the escrow mailbox address they were supposed to move the
-  // account to, and the trade timed out unattended (trade 6c09400e).
-  const hasProposal = proposal !== null;
-  const hasActiveTrade = activeTrade !== null;
-  useEffect(() => {
-    if (planPollTick({ hasActiveTrade, hasProposal }) === 'stop') return;
-    const tick = async () => {
-      if (proposalPollInFlight.current) return;
-      proposalPollInFlight.current = true;
-      try {
-        if (planPollTick({ hasActiveTrade, hasProposal }) === 'find-proposal') {
-          const p = await fetchPendingProposal(chat.id);
-          if (p) {
-            setProposal({
-              id: p.proposalId,
-              priceUzs: p.amountUzs,
-              expiresAt: p.expiresAt,
-              mode: p.mode ?? undefined,
-              adminId: p.adminId ?? undefined,
-              adminFeeUzs: p.adminFeeUzs ?? undefined,
-              kind: p.kind ?? undefined,
-            });
-            return;
-          }
-        }
-        // Either the proposal was already known, or there is none to find —
-        // either way it may have been accepted since the last tick, which is
-        // what opens the trade.
-        await reload();
-      } finally {
-        proposalPollInFlight.current = false;
-      }
-    };
-    const id = window.setInterval(() => {
-      void tick();
-    }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [hasActiveTrade, hasProposal, chat.id, reload]);
-
-  const handleProposalCreated = useCallback(
-    (p: ProposalResponse, priceUzs: number, mode: TradeMode, adminFeeUzs?: number) => {
-      setProposal({ id: p.proposalId, priceUzs, expiresAt: p.expiresAt, mode, adminFeeUzs });
-      setShowProposeModal(false);
-      // A proposal being created doesn't open a trade yet (that happens on
-      // accept), so no trade to refetch — just close and show the pending card.
-    },
-    [],
+  return (
+    <ModalShell title="Savdo boshqaruvi" onClose={() => setIsDrawerOpen(false)}>
+      <div className="space-y-3">
+        <TradePanelContent isInsideDrawer />
+        <div className="flex items-center justify-between border-t border-border pt-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setIsDrawerOpen(false);
+              scrollToTradePanel();
+            }}
+            className="text-xs text-primary hover:text-primary"
+          >
+            Chatdagi joyiga o‘tish
+            <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsDrawerOpen(false)}
+          >
+            Yopish
+          </Button>
+        </div>
+      </div>
+    </ModalShell>
   );
+}
 
-  const handleProposalAccepted = useCallback(async () => {
-    setProposal(null);
-    setShowAcceptModal(false);
-    await reload();
-    router.refresh();
-  }, [reload, router]);
+function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolean }) {
+  const {
+    chat,
+    viewerId,
+    listing,
+    otherPartyId,
+    accountRequest,
+    setAccountRequest,
+    role,
+    isSeller,
+    trades,
+    activeTrade,
+    lastFinished,
+    proposal,
+    setProposal,
+    startingNew,
+    setStartingNew,
+    refreshing,
+    reload,
+    handleProposalCreated,
+    handleProposalAccepted,
+    showPicker,
+    setShowPicker,
+    showProposeModal,
+    setShowProposeModal,
+    showAcceptModal,
+    setShowAcceptModal,
+  } = useTradeContext();
 
-  // Nothing to render while the first fetch is in flight — avoid a
-  // seller-only flash before we know the trade state.
+  // Nothing to render while the first fetch is in flight
   if (trades === null) {
     return (
       <div className="mx-auto max-w-md rounded-2xl border border-border bg-muted/30 px-4 py-3 text-[11.5px] text-muted-foreground">
@@ -331,7 +235,12 @@ export function TradePanel({
 
   // ---- no trade, no pending proposal ----
   return (
-    <div className="mx-auto max-w-md rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
+    <div
+      className={cn(
+        'mx-auto max-w-md rounded-2xl border border-border bg-card px-4 py-3 shadow-card',
+        isInsideDrawer && 'border-none p-0 shadow-none',
+      )}
+    >
       {lastFinished && <LastTradeLine trade={lastFinished} />}
       <div className="mb-2 flex items-center gap-2">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
@@ -351,14 +260,16 @@ export function TradePanel({
         </div>
       </div>
 
-      <TipCallout
-        variant="security"
-        learnMoreHref="/help#100-percent-secure-trade-guarantee"
-        learnMoreLabel="Kafolat shartlari"
-        className="mb-3"
-      >
-        <strong>100% Kafolatlangan va Xavfsiz Bitim:</strong> Mablag‘ to‘liq platforma depozitida muzlatiladi. Akkount topshirilmaguncha pul berilmaydi, to‘lov qilinmaguncha akkount o‘tmaydi.
-      </TipCallout>
+      {!isInsideDrawer && (
+        <TipCallout
+          variant="security"
+          learnMoreHref="/help#100-percent-secure-trade-guarantee"
+          learnMoreLabel="Kafolat shartlari"
+          className="mb-3"
+        >
+          <strong>100% Kafolatlangan va Xavfsiz Bitim:</strong> Mablag‘ to‘liq platforma depozitida muzlatiladi. Akkount topshirilmaguncha pul berilmaydi, to‘lov qilinmaguncha akkount o‘tmaydi.
+        </TipCallout>
+      )}
 
       {accountRequest && (
         <SelectedAccountCard
@@ -395,8 +306,6 @@ export function TradePanel({
         </p>
       ) : null}
 
-      {/* Both sides get this. Either may be the one buying next, and a pair who
-          already traded should not have to open a second chat to trade again. */}
       <Button
         type="button"
         variant={role === null ? 'default' : 'outline'}
@@ -422,9 +331,6 @@ export function TradePanel({
 
 /**
  * How the previous trade ended, above the controls for starting another.
- *
- * The pair are back to choosing an account, and without this the panel would
- * simply have forgotten the trade they were in the middle of a moment ago.
  */
 function LastTradeLine({ trade }: { trade: TradeResponse }) {
   const ended =
@@ -569,15 +475,9 @@ function ActiveTradeCard({
   const isBuyer = trade.buyerId === viewerId;
   const isSeller = trade.sellerId === viewerId;
   const shortId = trade.id.slice(0, 8);
-  /**
-   * Reveal is one-shot per spec — server returns 410 Gone on the second
-   * call. We stash the plaintext in local state so the buyer can keep
-   * looking at it while deciding to confirm/reject.
-   */
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  // Clear any transient error when the state changes on its own.
   useEffect(() => {
     setActionError(null);
   }, [trade.state]);
@@ -598,10 +498,6 @@ function ActiveTradeCard({
         </div>
         <div className="flex shrink-0 flex-col items-end gap-0.5">
           <Badge variant="verified">{TRADE_STATE_LABEL_UZ[trade.state]}</Badge>
-          {/* Every non-terminal state runs on a stateDeadline the server set on
-              entry, and missing it ORPHANs the trade. Showing it only in the
-              human-admin panel meant a smart-trade seller had 30 minutes to
-              move the account with no clock anywhere on screen. */}
           {trade.stateDeadline && !isTerminalState(trade.state) && (
             <span className="text-[10px] text-muted-foreground">
               <CountdownText until={trade.stateDeadline} prefix="Qoldi:" />
@@ -610,9 +506,6 @@ function ActiveTradeCard({
         </div>
       </div>
 
-      {/* On a swap the trade only advances when both parties have done the
-          step, so a party who finished first would otherwise stare at a panel
-          that looks stuck. */}
       <CounterpartLine trade={trade} viewerRole={trade.role ?? null} />
 
       <TradeStateActions
@@ -675,11 +568,7 @@ function TradeStateActions({
   onActionError,
   onRefresh,
 }: StateActionProps) {
-  // A swap asks both sides for the transfer steps; a sale asks only the seller.
   const acts = isSeller || isSwap(trade.kind);
-  // ...but only until they have done it. The trade waits for the other party,
-  // so without this the one who finished first is left looking at the code
-  // they already used and the button they already pressed.
   if (hasClearedCurrentStep(trade, trade.role ?? null)) {
     return <WaitingForCounterpartPanel trade={trade} />;
   }
@@ -687,9 +576,6 @@ function TradeStateActions({
     case 'INITIATED':
       return <InitiatedPanel />;
     case 'WAITING_PAYMENT':
-      // Nobody acts here any more. The money was frozen when the buyer
-      // accepted, and the trade moves on by itself — both sides just get told
-      // where their money is.
       return isBuyer ? (
         <InfoBox>
           Pulingiz platformada saqlanmoqda. Savdo muvaffaqiyatli yakunlansa
@@ -701,8 +587,6 @@ function TradeStateActions({
           hamyoningizga tushadi.
         </InfoBox>
       );
-    // On a swap every step is asked of both parties, so the action panel is
-    // not the seller's alone: `acts` is true for whoever still has to do it.
     case 'WAITING_EMAIL_CHANGE':
       return acts ? (
         <WaitingEmailChangeSellerPanel
@@ -764,12 +648,6 @@ function TradeStateActions({
   }
 }
 
-/**
- * Shown to the party who has finished this step, in place of the controls.
- *
- * Their half is done and the trade cannot move until the other party catches
- * up, so leaving the action panel up would only invite them to press it again.
- */
 function WaitingForCounterpartPanel({ trade }: { trade: TradeResponse }) {
   return (
     <div className="space-y-2">
@@ -788,7 +666,6 @@ function WaitingForCounterpartPanel({ trade }: { trade: TradeResponse }) {
   );
 }
 
-/** Where the other party has got to, and whether we are the ones waiting. */
 function CounterpartLine({
   trade,
   viewerRole,
@@ -864,7 +741,7 @@ function WaitingEmailChangeSellerPanel({
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Clipboard access can fail (permissions, http). Silent — user can select manually.
+      // silent
     }
   }
 
@@ -909,10 +786,6 @@ function WaitingEmailChangeSellerPanel({
         </p>
       </div>
 
-      {/* Konami sends a 6-digit code to the escrow mailbox. Smart-admin's IMAP
-          detector picks it up and populates emailChangeVerificationCode. The
-          seller enters it on Konami to complete the email change, then presses
-          the button below. */}
       <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
         <p className="mb-1 font-semibold text-foreground">Konami tasdiqlash kodi</p>
         {code ? (
@@ -938,8 +811,7 @@ function WaitingEmailChangeSellerPanel({
           </p>
         )}
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Bu kodni Konami sahifasidagi email o&apos;zgartirish oynasiga
-          kiriting.
+          Bu kodni Konami sahifasidagi email o&apos;zgartirish oynasiga kiriting.
         </p>
       </div>
 
@@ -990,22 +862,17 @@ function VerifyingKonamiSellerPanel({
   const konamiTabRef = useRef<Window | null>(null);
 
   const mailboxEmail = trade.mailboxEmail ?? '';
-  // Try passing email as query param — Konami may auto-fill; if not seller pastes.
   const konamiHref = mailboxEmail
     ? `${KONAMI_FORGOT_URL}?email=${encodeURIComponent(mailboxEmail)}`
     : KONAMI_FORGOT_URL;
 
-  // When the panel unmounts (state transitioned to WAITING_PASSWORD after
-  // IMAP detected the reset email), close the Konami tab we opened. This
-  // matches the seller's mental model: "I sent forgot-password, it's done,
-  // I can go back to the trade panel."
   useEffect(() => {
     return () => {
       if (konamiTabRef.current && !konamiTabRef.current.closed) {
         try {
           konamiTabRef.current.close();
         } catch {
-          // browser may block close if we didn't open the window; harmless
+          // silent
         }
       }
     };
@@ -1018,14 +885,12 @@ function VerifyingKonamiSellerPanel({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // clipboard may be blocked — silent, seller can select manually
+      // silent
     }
   }
 
   function openKonami(ev: React.MouseEvent<HTMLButtonElement>) {
     ev.preventDefault();
-    // window.open() gives us a reference we can close later. noopener isolates
-    // the child window from ours (Konami cannot navigate/access this page).
     konamiTabRef.current = window.open(konamiHref, '_blank', 'noopener');
   }
 
@@ -1144,10 +1009,7 @@ function WaitingBuyerVerifyBuyerPanel({
   const [rejecting, startReject] = useTransition();
   const [copied, setCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
-  // The account being received. On a sale that is the trade's one mailbox; on
-  // a swap the boxes cross over, so it is the other party's — showing your own
-  // here would hand you back the account you just gave away.
-  const mailboxEmail = trade.counterpartMailboxEmail ?? trade.mailboxEmail ?? '';
+  const mailboxEmail = trade.mailboxEmail ?? '';
 
   function reveal() {
     if (!trade.passwordMessageId) {
@@ -1174,7 +1036,7 @@ function WaitingBuyerVerifyBuyerPanel({
       setEmailCopied(true);
       window.setTimeout(() => setEmailCopied(false), 1500);
     } catch {
-      // Silent — user can select manually.
+      // silent
     }
   }
 
@@ -1211,7 +1073,7 @@ function WaitingBuyerVerifyBuyerPanel({
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Silent — user can select manually.
+      // silent
     }
   }
 
@@ -1358,7 +1220,7 @@ function SuccessPanel({
   isBuyer: boolean;
 }) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-3 text-xs text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-100">
         <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
           <CheckCircle2 className="h-4 w-4" />
@@ -1369,7 +1231,13 @@ function SuccessPanel({
           o&apos;tkazildi. Tabriklaymiz!
         </p>
       </div>
-      <SellerRatingForm tradeId={trade.id} isBuyer={isBuyer} />
+
+      {isBuyer && (
+        <SellerRatingForm
+          tradeId={trade.id}
+          isBuyer={isBuyer}
+        />
+      )}
     </div>
   );
 }
@@ -1552,17 +1420,6 @@ function SendPasswordModal({
 
 // -------------------- pending proposal --------------------
 
-interface PendingProposal {
-  id: string;
-  priceUzs: number;
-  expiresAt: string;
-  mode?: TradeMode;
-  adminId?: string;
-  adminFeeUzs?: number;
-  /** Absent on a sale and on responses from before swaps shipped. */
-  kind?: TradeKind;
-}
-
 function PendingProposalCard({
   proposal,
   isSeller,
@@ -1588,10 +1445,21 @@ function PendingProposalCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-bold uppercase tracking-wider text-primary">
-            Taklif yuborildi
+            {isSwap(proposal.kind) ? 'Almashish taklifi' : 'Taklif yuborildi'}
           </p>
           <p className="text-sm font-semibold text-foreground">
-            {formatPriceUZS(proposal.priceUzs)}
+            {isSwap(proposal.kind) ? (
+              <>
+                <span>{TRADE_KIND_LABEL_UZ[proposal.kind ?? 'SWAP']}</span>
+                {proposal.priceUzs > 0 && (
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">
+                    · {formatPriceUZS(proposal.priceUzs)}
+                  </span>
+                )}
+              </>
+            ) : (
+              formatPriceUZS(proposal.priceUzs)
+            )}
           </p>
         </div>
       </div>
@@ -1638,19 +1506,19 @@ function ProposeModal({
   viewerId: string;
   listing: ListingResponse | null;
   otherPartyId: string;
-  /** Decides which account is sold and who buys it; null only on legacy chats. */
   accountRequest: AccountRequest | null;
   onClose: () => void;
-  onCreated: (p: ProposalResponse, priceUzs: number, mode: TradeMode, adminFeeUzs?: number) => void;
+  onCreated: (p: ProposalResponse, priceUzs: number, mode: TradeMode, adminFeeUzs?: number, kind?: TradeKind) => void;
 }) {
   const initialPrice = listing ? String(Math.trunc(Number(listing.price))) : '';
-  // What the seller published this account under. The picker only offers what
-  // they allowed, and the server refuses anything else regardless.
-  const exchangeMode = (listing?.attributes?.exchange_mode ?? null) as ExchangeMode | null;
-  const kinds = allowedKinds(exchangeMode);
-  const [kind, setKind] = useState<TradeKind>(kinds[0]);
+  const listingExchangeMode = listing?.attributes?.exchange_mode as ExchangeMode | undefined;
+  const availableKinds = useMemo(() => allowedKinds(listingExchangeMode), [listingExchangeMode]);
+  const [kind, setKind] = useState<TradeKind>(
+    availableKinds.includes('SALE') ? 'SALE' : (availableKinds[0] ?? 'SWAP'),
+  );
   const [mode, setMode] = useState<TradeMode>('SMART');
   const [price, setPrice] = useState(initialPrice);
+  const [surcharge, setSurcharge] = useState('');
   const [selectedAdmin, setSelectedAdmin] = useState<TradeAdminCardResponse | null>(null);
   const [adminFee, setAdminFee] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -1660,17 +1528,21 @@ function ProposeModal({
     if (selectedAdmin && !adminFee) setAdminFee(String(selectedAdmin.minFeeUzs));
   }, [selectedAdmin, adminFee]);
 
+  const effectiveAmountUzs =
+    kind === 'SALE'
+      ? Number(price)
+      : kind === 'SWAP_SURCHARGE'
+        ? Number(surcharge)
+        : 0;
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    // A plain swap moves no money, so there is no number to check and none
-    // to send: the accepter's wallet is charged nothing.
-    const priceUzs = needsAmount(kind) ? Number(price) : 0;
-    if (needsAmount(kind) && (!Number.isFinite(priceUzs) || priceUzs <= 0)) {
-      setError(kind === 'SWAP_SURCHARGE'
-        ? "Doplata musbat butun son bo'lishi kerak"
-        : "Narx musbat butun son bo'lishi kerak");
-      return;
+    if (needsAmount(kind)) {
+      if (!Number.isFinite(effectiveAmountUzs) || effectiveAmountUzs <= 0) {
+        setError("Miqdor musbat butun son bo'lishi kerak");
+        return;
+      }
     }
     const feeUzs = Number(adminFee);
     if (mode === 'HUMAN') {
@@ -1680,15 +1552,12 @@ function ProposeModal({
         return;
       }
     }
-    // The account request is the authority on both halves: which listing is
-    // being sold, and who is buying it. `listing` here is only the page the
-    // chat was opened from, which need not be the account under negotiation.
     const payload: ProposalCreateRequest = {
       marketplaceChatId: chat.id,
       otherPartyUserId: accountRequest?.requesterId ?? otherPartyId,
       sellerId: viewerId,
       buyerId: accountRequest?.requesterId ?? otherPartyId,
-      amountUzs: priceUzs,
+      amountUzs: effectiveAmountUzs,
       mode,
       kind,
       listingId: accountRequest?.listingId ?? listing?.id ?? null,
@@ -1698,13 +1567,13 @@ function ProposeModal({
       payload.adminFeeUzs = feeUzs;
     }
     startSubmit(async () => {
-      // A swap's fee comes out of the proposer's wallet. Checked here rather
-      // than at accept, where the refusal lands on the other party over a
-      // balance they can neither see nor top up.
-      if (isSwap(kind) && listing) {
-        const short = await proposerShortfall(Number(listing.price), priceUzs);
-        if (short > 0) {
-          await sendToTopUp(short, `/chats/${chat.id}`, setError);
+      if (mode === 'SMART') {
+        const listingPriceUzs = Number(listing?.price ?? 0);
+        const surchargeUzs = kind === 'SWAP_SURCHARGE' ? effectiveAmountUzs : 0;
+        const missing = await proposerShortfall(listingPriceUzs, surchargeUzs);
+        if (missing > 0) {
+          const returnTo = typeof window !== 'undefined' ? window.location.pathname : undefined;
+          await sendToTopUp(missing, returnTo, setError);
           return;
         }
       }
@@ -1713,134 +1582,124 @@ function ProposeModal({
         setError(result.error);
         return;
       }
-      onCreated(result.data, priceUzs, mode, mode === 'HUMAN' ? feeUzs : undefined);
+      onCreated(result.data, effectiveAmountUzs, mode, mode === 'HUMAN' ? feeUzs : undefined, kind);
     });
   }
 
   return (
     <ModalShell title="Taklif yuborish" onClose={onClose}>
       <form className="space-y-3" onSubmit={handleSubmit}>
-        {/* The whole chooser disappears when human admin is closed: SMART is
-            then the only mode, and a radio group with one option is noise.
-            setMode is never called, so `mode` stays at its 'SMART' default and
-            every branch below already handles that. */}
-        {FEATURES.humanAdmin && (
-        <div>
-          <Label>Admin turi</Label>
-          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Admin turi">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={mode === 'SMART'}
-              onClick={() => setMode('SMART')}
-              className={cn(
-                'rounded-lg border px-3 py-2 text-left text-sm transition',
-                mode === 'SMART'
-                  ? 'border-primary bg-primary/10 text-foreground'
-                  : 'border-border bg-card text-muted-foreground hover:border-primary/40',
-              )}
-            >
-              <span className="block font-black">Smart admin</span>
-              <span className="text-[10.5px]">Avtomatik escrow flow</span>
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={mode === 'HUMAN'}
-              onClick={() => setMode('HUMAN')}
-              className={cn(
-                'rounded-lg border px-3 py-2 text-left text-sm transition',
-                mode === 'HUMAN'
-                  ? 'border-primary bg-primary/10 text-foreground'
-                  : 'border-border bg-card text-muted-foreground hover:border-primary/40',
-              )}
-            >
-              <span className="flex items-center gap-1.5 font-black">
-                <UserCog className="h-4 w-4" />
-                Inson admin
-              </span>
-              <span className="text-[10.5px]">Platforma bepul</span>
-            </button>
-          </div>
-        </div>
-        )}
-
-        {kinds.length > 1 && (
+        {availableKinds.length > 1 && (
           <div>
             <Label>Savdo turi</Label>
-            <div className="grid gap-2" role="radiogroup" aria-label="Savdo turi">
-              {kinds.map((option) => (
+            <div className="mt-1 grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Savdo turi">
+              {availableKinds.map((k) => (
                 <button
-                  key={option}
+                  key={k}
                   type="button"
                   role="radio"
-                  aria-checked={kind === option}
-                  onClick={() => setKind(option)}
+                  aria-checked={kind === k}
+                  onClick={() => setKind(k)}
                   className={cn(
-                    'rounded-lg border px-3 py-2 text-left text-sm transition',
-                    kind === option
-                      ? 'border-primary bg-primary/10 text-foreground'
+                    'rounded-lg border px-2 py-1.5 text-center text-xs font-semibold transition',
+                    kind === k
+                      ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border bg-card text-muted-foreground hover:border-primary/40',
                   )}
                 >
-                  <span className="block font-black">{TRADE_KIND_LABEL_UZ[option]}</span>
-                  <span className="text-[10.5px]">{TRADE_KIND_HINT_UZ[option]}</span>
+                  {TRADE_KIND_LABEL_UZ[k]}
                 </button>
               ))}
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {TRADE_KIND_HINT_UZ[kind]}
+            </p>
+          </div>
+        )}
+
+        {FEATURES.humanAdmin && (
+          <div>
+            <Label>Admin turi</Label>
+            <div className="mt-1 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Admin turi">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === 'SMART'}
+                onClick={() => setMode('SMART')}
+                className={cn(
+                  'rounded-lg border px-3 py-2 text-left text-sm transition',
+                  mode === 'SMART'
+                    ? 'border-primary bg-primary/10 text-foreground'
+                    : 'border-border bg-card text-muted-foreground hover:border-primary/40',
+                )}
+              >
+                <span className="block font-black">Smart admin</span>
+                <span className="text-[10.5px]">Avtomatik escrow flow</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === 'HUMAN'}
+                onClick={() => setMode('HUMAN')}
+                className={cn(
+                  'rounded-lg border px-3 py-2 text-left text-sm transition',
+                  mode === 'HUMAN'
+                    ? 'border-primary bg-primary/10 text-foreground'
+                    : 'border-border bg-card text-muted-foreground hover:border-primary/40',
+                )}
+              >
+                <span className="flex items-center gap-1.5 font-black">
+                  <UserCog className="h-4 w-4" />
+                  Inson admin
+                </span>
+                <span className="text-[10.5px]">Platforma bepul</span>
+              </button>
             </div>
           </div>
         )}
 
-        {!needsAmount(kind) ? (
-          <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            Toza obmenda pul o&apos;tmaydi. Ikkala taraf ham akkountini
-            platforma pochtasiga o&apos;tkazadi va yakunda ular almashtiriladi.
-          </p>
-        ) : (
-        <div>
-          <Label htmlFor="trade-price">
-            {kind === 'SWAP_SURCHARGE' ? 'Doplata (UZS)' : 'Narx (UZS)'}
-          </Label>
-          <Input
-            id="trade-price"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            step={1}
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            placeholder="500000"
-            required
-          />
-          {kind === 'SWAP_SURCHARGE' && (
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
-              Akkountlar almashinadi, xaridor ustiga shu summani to&apos;laydi.
-            </p>
-          )}
-          {Number(price) > 0 && kind === 'SALE' && (
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
-              Xaridor <b className="text-foreground">{formatPriceUZS(Number(price))}</b> to&apos;laydi ·
-              smart-admin xizmati <b className="text-foreground">−{formatPriceUZS(tradeFeeSom(Number(price)))}</b> ·
-              sotuvchiga <b className="text-foreground">{formatPriceUZS(sellerProceedsSom(Number(price)))}</b>
-            </p>
-          )}
-        </div>
+        {kind === 'SALE' && (
+          <div>
+            <Label htmlFor="trade-price">Narx (UZS)</Label>
+            <Input
+              id="trade-price"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={1}
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="500000"
+              required
+            />
+            {Number(price) > 0 && (
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Xaridor <b className="text-foreground">{formatPriceUZS(Number(price))}</b> to&apos;laydi ·
+                smart-admin xizmati <b className="text-foreground">−{formatPriceUZS(tradeFeeSom(Number(price)))}</b> ·
+                sotuvchiga <b className="text-foreground">{formatPriceUZS(sellerProceedsSom(Number(price)))}</b>
+              </p>
+            )}
+          </div>
         )}
 
-        {/* On a swap the fee comes off the listing price, not the surcharge —
-            so quoting it against the amount typed above would understate it,
-            often by a lot. */}
-        {isSwap(kind) && listing && (
-          <p className="rounded-lg bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-            Platforma xizmati e&apos;lon narxidan hisoblanadi:{' '}
-            <b className="text-foreground">
-              −{formatPriceUZS(tradeFeeSom(Number(listing.price)))}
-            </b>{' '}
-            · sizning hamyoningizdan
-            {kind === 'SWAP_SURCHARGE' && Number(price) > 0
-              ? `, doplatadan qoplanadi (${formatPriceUZS(Number(price))})`
-              : ''}
-          </p>
+        {kind === 'SWAP_SURCHARGE' && (
+          <div>
+            <Label htmlFor="swap-surcharge">Doplata miqdori (UZS)</Label>
+            <Input
+              id="swap-surcharge"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={1}
+              value={surcharge}
+              onChange={(e) => setSurcharge(e.target.value)}
+              placeholder="100000"
+              required
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Qarshi taraf almashish uchun to&apos;lashi kerak bo&apos;lgan summa.
+            </p>
+          </div>
         )}
 
         {mode === 'SMART' ? (
@@ -1886,6 +1745,7 @@ function ProposeModal({
             </div>
           </div>
         )}
+
         {error && (
           <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
@@ -1922,8 +1782,6 @@ function AcceptModal({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    // No card: a smart trade is paid from the buyer's wallet balance, which
-    // is frozen the moment this accept succeeds.
     const payload: ProposalAcceptRequest = {};
     startSubmit(async () => {
       const result = await postProposalAccept(proposal.id, payload);
@@ -1943,9 +1801,6 @@ function AcceptModal({
     <ModalShell title="Taklifni qabul qilish" onClose={onClose}>
       <form className="space-y-3" onSubmit={handleSubmit}>
         <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          {/* The format comes first: agreeing to hand over an account is a
-              different decision from agreeing to pay, and the old card showed
-              only a price. */}
           <p>
             <span className="font-semibold text-foreground">Savdo turi:</span>{' '}
             <b className="text-foreground">
@@ -2023,14 +1878,14 @@ function ModalShell({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-4 shadow-card-hover">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-4 shadow-card-hover animate-in fade-in zoom-in-95 duration-150">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-black text-foreground">{title}</h2>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-11 w-11 p-0"
+            className="h-10 w-10 p-0"
             onClick={onClose}
             aria-label="Yopish"
           >
@@ -2043,33 +1898,13 @@ function ModalShell({
   );
 }
 
-/**
- * Turns "you cannot afford this" into an invoice for exactly the difference.
- *
- * The buyer is not asked to work out what they are short, open the wallet and
- * type it in: the invoice is created here, for the shortfall alone, and the
- * wallet page renders its panel with the card to pay. "Payment pending" then
- * means what it says.
- *
- * Navigates either way. If the invoice could not be created — a live one
- * already occupies the slot is the usual reason — the amount rides along in the
- * URL so the wallet still opens with the right number in the box.
- */
-/** What the proposer still has to fund, or 0 if their wallet covers it. */
 async function proposerShortfall(listingPriceUzs: number, surchargeUzs: number) {
   const wallet = await fetchWalletBalance();
-  if (wallet === null) return 0;   // let the server be the judge
+  if (wallet === null) return 0;
   return proposerShortfallSom(
     tradeFeeSom(listingPriceUzs), surchargeUzs, wallet.availableTiyin);
 }
 
-/**
- * Creates an invoice for exactly what is missing and goes to pay it.
- *
- * Nobody is asked to work out the difference themselves, and `returnTo` brings
- * them back to where they were once it is paid — otherwise a proposer who left
- * to top up has to find the chat again and rebuild the proposal from memory.
- */
 async function sendToTopUp(
   missing: number,
   returnTo: string | undefined,
@@ -2082,13 +1917,11 @@ async function sendToTopUp(
   try {
     await createInvoice(missing);
   } catch {
-    // Fall through: the wallet page shows whatever invoice is already live,
-    // and topUpHref carries the amount if there is none.
+    // silent
   }
   window.location.href = topUpHref(missing, returnTo);
 }
 
-/** The accepter's side: they owe the price or the surcharge. */
 async function sendBuyerToTopUp(priceUzs: number, onError: (msg: string) => void) {
   const wallet = await fetchWalletBalance();
   if (wallet === null) {
@@ -2106,33 +1939,6 @@ async function fetchWalletBalance(): Promise<{ availableTiyin: number } | null> 
     });
     if (!response.ok) return null;
     return (await response.json()) as { availableTiyin: number };
-  } catch {
-    return null;
-  }
-}
-
-// -------------------- client-side fetchers --------------------
-
-async function fetchTradesByChat(chatId: string): Promise<TradeResponse[]> {
-  const response = await fetch(
-    `/api/trade/v1/trades?chatId=${encodeURIComponent(chatId)}`,
-    { credentials: 'include', headers: { Accept: 'application/json' } },
-  );
-  if (!response.ok) return [];
-  return (await response.json()) as TradeResponse[];
-}
-
-async function fetchPendingProposal(
-  chatId: string,
-): Promise<PendingProposalResponse | null> {
-  const response = await fetch(
-    `/api/trade/v1/trades/proposals?chatId=${encodeURIComponent(chatId)}`,
-    { credentials: 'include', headers: { Accept: 'application/json' } },
-  );
-  if (response.status === 204 || response.status === 404) return null;
-  if (!response.ok) return null;
-  try {
-    return (await response.json()) as PendingProposalResponse;
   } catch {
     return null;
   }
@@ -2170,12 +1976,6 @@ async function postProposalAccept(
   return { ok: true, data: (await response.json()) as TradeResponse };
 }
 
-/**
- * Fires a state-transition action. `path` is one of the segments under
- * `/trades/{id}/actions/…` (payment-confirmed, email-changed, recheck,
- * confirm, reject). Response body is the updated TradeResponse but the
- * caller usually just reloads the list.
- */
 async function postTradeAction(
   tradeId: string,
   path: 'payment-confirmed' | 'email-changed' | 'recheck' | 'confirm' | 'reject',
@@ -2225,7 +2025,6 @@ async function postReveal(
     },
   );
   if (!response.ok) {
-    // 410 Gone means the one-shot Redis key has already been consumed.
     if (response.status === 410) {
       return { ok: false, error: 'Parol allaqachon ochilgan yoki muddati tugagan' };
     }

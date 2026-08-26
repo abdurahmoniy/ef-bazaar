@@ -101,6 +101,14 @@ public class TradeEventPublisher {
                 new TradeEvents.TradeChatPin(trade.getId(), trade.getChatId(), Instant.now()));
     }
 
+    public void tradeAction(UUID tradeId, UUID chatId, UUID recipientUserId,
+                            TradeEvents.TradeActionType actionType, long amountUzs, String details) {
+        if (recipientUserId == null) return;
+        send(TradeEvents.TOPIC_TRADE_ACTION, recipientUserId.toString(),
+                new TradeEvents.TradeActionNotification(tradeId, chatId, recipientUserId,
+                        actionType, amountUzs, details, Instant.now()));
+    }
+
     /**
      * Publishes are deferred to run after the enclosing transaction commits
      * when one is active. Several of these events (e.g. email-provision-request

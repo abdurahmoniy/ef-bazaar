@@ -33,9 +33,29 @@ public final class TradeEvents {
     public static final String TOPIC_TRADE_OPENED          = "efbazaar.trade.trade-opened";
     public static final String TOPIC_TRADE_CLOSED          = "efbazaar.trade.trade-closed";
     public static final String TOPIC_MAILBOX_HANDED_BACK   = "efbazaar.trade.mailbox-handed-over";
+    public static final String TOPIC_TRADE_ACTION          = "efbazaar.trade.action-notification";
 
     public enum ProposalOutcome { ACCEPTED, REJECTED, EXPIRED }
     public enum ImapPurpose      { VERIFY_LINK, WAIT_2FA_CODE, WAIT_EMAIL_CHANGE_CODE }
+
+    public enum TradeActionType {
+        PROPOSAL_CREATED,
+        TRADE_STARTED,
+        EMAIL_CHANGED,
+        PASSWORD_SENT,
+        TRADE_SUCCESS,
+        TRADE_REJECTED,
+        TRADE_ORPHANED
+    }
+
+    public record TradeActionNotification(
+            UUID tradeId,
+            UUID chatId,
+            UUID recipientUserId,
+            TradeActionType actionType,
+            long amountUzs,
+            String details,
+            Instant occurredAt) {}
 
     public record ProposalCreated(
             UUID proposalId,

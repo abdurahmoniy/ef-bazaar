@@ -18,6 +18,8 @@ import {
 
 import { ChatPinnedHeader } from '@/components/chat/chat-pinned-header';
 import { MessageActionSheet } from '@/components/chat/message-action-sheet';
+import { TradeProvider } from '@/components/chat/trade-context';
+import { TradePinnedBar } from '@/components/chat/trade-pinned-bar';
 import { TradePanel } from '@/components/chat/trade-panel';
 import { TipCallout } from '@/components/help/tip-callout';
 import { MessageAttachment, formatBytes } from '@/components/chat/message-attachment';
@@ -268,74 +270,77 @@ export function ChatView({
   }
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-background animate-in slide-in-from-right duration-300 md:animate-none">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-2 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] md:pt-2">
-        <Button asChild variant="ghost" size="sm" className="-ml-1 h-10 w-10 shrink-0 p-0 md:hidden">
-          <Link href="/chats" aria-label="Chatlar ro'yxatiga qaytish">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-        </Button>
-        <div
-          className={cn(
-            'grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold uppercase',
-            avatarTone(partnerId),
-          )}
-        >
-          {partnerInitial(name)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <p className="truncate text-sm font-black text-foreground">{name}</p>
-            {chat.important && <Badge variant="warn">Muhim</Badge>}
-            {isClosed && (
-              <Badge variant="muted" className="uppercase">
-                {chat.status.toLowerCase()}
-              </Badge>
+    <TradeProvider
+      chat={chat}
+      viewerId={viewerId}
+      listing={listing}
+      initialPendingProposal={initialPendingProposal}
+    >
+      <div className="flex h-full min-h-0 w-full flex-col bg-background animate-in slide-in-from-right duration-300 md:animate-none">
+        <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-2 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] md:pt-2">
+          <Button asChild variant="ghost" size="sm" className="-ml-1 h-10 w-10 shrink-0 p-0 md:hidden">
+            <Link href="/chats" aria-label="Chatlar ro'yxatiga qaytish">
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
+          </Button>
+          <div
+            className={cn(
+              'grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold uppercase',
+              avatarTone(partnerId),
             )}
+          >
+            {partnerInitial(name)}
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            {messages.length} xabar
-          </p>
-        </div>
-        <div className="flex items-center gap-0.5">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-10 w-10 p-0"
-            disabled={isUpdating}
-            onClick={handleToggleImportant}
-            title={chat.important ? "Muhimni olib tashlash" : 'Muhim deb belgilash'}
-            aria-label={chat.important ? "Muhimni olib tashlash" : 'Muhim deb belgilash'}
-          >
-            {chat.important ? <StarOff className="h-5 w-5" /> : <Star className="h-5 w-5" />}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-            disabled={isUpdating}
-            onClick={handleDelete}
-            title="Chatni o'chirish"
-            aria-label="Chatni o'chirish"
-          >
-            <Trash2 className="h-5 w-5" />
-          </Button>
-        </div>
-      </header>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <p className="truncate text-sm font-black text-foreground">{name}</p>
+              {chat.important && <Badge variant="warn">Muhim</Badge>}
+              {isClosed && (
+                <Badge variant="muted" className="uppercase">
+                  {chat.status.toLowerCase()}
+                </Badge>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {messages.length} xabar
+            </p>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-10 w-10 p-0"
+              disabled={isUpdating}
+              onClick={handleToggleImportant}
+              title={chat.important ? "Muhimni olib tashlash" : 'Muhim deb belgilash'}
+              aria-label={chat.important ? "Muhimni olib tashlash" : 'Muhim deb belgilash'}
+            >
+              {chat.important ? <StarOff className="h-5 w-5" /> : <Star className="h-5 w-5" />}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={isUpdating}
+              onClick={handleDelete}
+              title="Chatni o'chirish"
+              aria-label="Chatni o'chirish"
+            >
+              <Trash2 className="h-5 w-5" />
+            </Button>
+          </div>
+        </header>
 
-      <div
-        ref={listRef}
-        className="flex-1 space-y-2 overflow-y-auto px-3 py-4"
-      >
-        <ChatPinnedHeader listing={listing} />
-        <TradePanel
-          chat={chat}
-          viewerId={viewerId}
-          listing={listing}
-          initialPendingProposal={initialPendingProposal}
-        />
+        <TradePinnedBar />
+
+        <div
+          ref={listRef}
+          className="flex-1 space-y-2 overflow-y-auto px-3 py-4"
+        >
+          <ChatPinnedHeader listing={listing} />
+          <TradePanel />
         <TipCallout
           variant="security"
           dismissible
@@ -597,6 +602,7 @@ export function ChatView({
         />
       )}
     </div>
+  </TradeProvider>
   );
 }
 

@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
+import uz.efbazaar.trade.kafka.TradeEventPublisher;
+import uz.efbazaar.trade.kafka.TradeEvents;
 import uz.efbazaar.trade.trade.domain.*;
 import uz.efbazaar.trade.trade.exception.PasswordAlreadyRevealedException;
 import uz.efbazaar.trade.trade.repository.TradeChatRepository;
@@ -68,6 +70,7 @@ public class OneTimePasswordService {
     private final TradeChatRepository chats;
     private final TradeMessageRepository messages;
     private final TradeAuditService audit;
+    private final TradeEventPublisher events;
     private final SecureRandom rng = new SecureRandom();
 
     /**
@@ -144,6 +147,10 @@ public class OneTimePasswordService {
         // trade isn't in WAITING_PASSWORD this throws and the transaction
         // rolls back, so we never orphan a key with no reachable message row.
         trades.transition(tradeId, TradeEvent.PASSWORD_SENT, ActorType.USER, senderUserId);
+
+        UUID recipientUserId = recipientRole == ParticipantRole.BUYER ? t.getBuyerId() : t.getSellerId();
+        events.tradeAction(tradeId, t.getChatId(), recipientUserId,
+                TradeEvents.TradeActionType.PASSWORD_SENT, t.getPriceUzs(), null);
 
         // Defer the Redis put to afterCommit (same pattern as
         // TradeEventPublisher.send): if the transaction rolls back for any

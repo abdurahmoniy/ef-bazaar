@@ -72,6 +72,20 @@ export function notificationLabel(n: NotificationResponse): string {
       return 'Savdo yakunlandi \u2014 akkount emaili profilingizga qo\u2019shildi';
     case 'TRADE_MAILBOX_RETURNED':
       return 'Savdo yakunlanmadi \u2014 sizga berilgan email profilingizga biriktirildi';
+    case 'TRADE_PROPOSAL_CREATED':
+      return 'Sizga yangi savdo taklifi yuborildi';
+    case 'TRADE_STARTED':
+      return 'Savdo boshlandi';
+    case 'TRADE_EMAIL_CHANGED':
+      return 'Sotuvchi Konami emailini o‘zgartirdi';
+    case 'TRADE_PASSWORD_SENT':
+      return 'Konami paroli yuborildi \u2014 tekshirib tasdiqlang';
+    case 'TRADE_SUCCESS':
+      return 'Savdo muvaffaqiyatli yakunlandi';
+    case 'TRADE_REJECTED':
+      return 'Savdo rad etildi';
+    case 'TRADE_ORPHANED':
+      return 'Savdo muddati tugadi';
     default:
       return actor;
   }

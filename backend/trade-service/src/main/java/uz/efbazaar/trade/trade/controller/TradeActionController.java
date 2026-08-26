@@ -57,6 +57,8 @@ public class TradeActionController {
         Trade t = trades.get(id, me.userId());
         actingRole(t, me.userId(), ParticipantRole.SELLER);
         trades.transition(id, TradeEvent.EMAIL_CHANGED, ActorType.USER, me.userId());
+        events.tradeAction(id, t.getChatId(), t.getBuyerId(),
+                TradeEvents.TradeActionType.EMAIL_CHANGED, t.getPriceUzs(), null);
         return trades.toResponseFor(id, me.userId());
     }
 

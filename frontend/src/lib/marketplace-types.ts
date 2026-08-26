@@ -464,7 +464,14 @@ export type NotificationType =
   | 'WITHDRAWAL_PAID'
   | 'WITHDRAWAL_REJECTED'
   | 'TRADE_MAILBOX_RECEIVED'
-  | 'TRADE_MAILBOX_RETURNED';
+  | 'TRADE_MAILBOX_RETURNED'
+  | 'TRADE_PROPOSAL_CREATED'
+  | 'TRADE_STARTED'
+  | 'TRADE_EMAIL_CHANGED'
+  | 'TRADE_PASSWORD_SENT'
+  | 'TRADE_SUCCESS'
+  | 'TRADE_REJECTED'
+  | 'TRADE_ORPHANED';
 
 export interface NotificationResponse {
   id: string;
