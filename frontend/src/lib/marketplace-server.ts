@@ -20,6 +20,7 @@ import type {
   PageResponse,
   ReportStatus,
 } from './marketplace-types';
+import type { BotSettings } from './bot-settings';
 import type { TrustComplaint, TrustComplaintStatus } from './gamer-types';
 import type { User } from './types';
 
@@ -222,6 +223,10 @@ export async function getAdminCards(params: {
   return safeFetch<AdminCardPage>(
     `${MARKETPLACE_PREFIX}/admin/cards?${search.toString()}`,
   );
+}
+
+export async function getAdminBotSettings(): Promise<FetchResult<BotSettings>> {
+  return safeFetch<BotSettings>(`${MARKETPLACE_PREFIX}/admin/bot-settings`);
 }
 
 /** All definitions including inactive — the admin table shows the `active` flag. */

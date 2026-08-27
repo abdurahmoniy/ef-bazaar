@@ -285,6 +285,59 @@ public class TelegramApiClient {
         return postJson("getUpdates", body);
     }
 
+    /**
+     * sendMessage with a multi-row inline keyboard. Same rules as the
+     * single-button overload: {@code web_app} buttons are private-chat only.
+     */
+    public Optional<Integer> sendMessageWithKeyboard(String chatId, String text,
+                                                     List<List<WebAppButton>> rows) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("text", text)
+                .put("parse_mode", "HTML")
+                .put("disable_web_page_preview", true);
+        body.set("reply_markup", buildKeyboard(rows));
+        return postJson("sendMessage", body).map(this::extractMessageId);
+    }
+
+    /**
+     * sendPhoto by an already-uploaded {@code file_id}, with a caption and an
+     * inline keyboard. Nothing is re-uploaded — Telegram already holds the
+     * bytes, so this costs one API call regardless of image size.
+     *
+     * <p>Caption is capped at 1024 characters by Telegram (markup excluded).
+     * Over that, the API rejects the whole message and nothing is sent.
+     */
+    public Optional<Integer> sendPhotoWithKeyboard(String chatId, String fileId, String caption,
+                                                   List<List<WebAppButton>> rows) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("photo", fileId);
+        if (caption != null && !caption.isBlank()) {
+            body.put("caption", caption);
+            body.put("parse_mode", "HTML");
+        }
+        body.set("reply_markup", buildKeyboard(rows));
+        return postJson("sendPhoto", body).map(this::extractMessageId);
+    }
+
+    private ObjectNode buildKeyboard(List<List<WebAppButton>> rows) {
+        ArrayNode keyboard = objectMapper.createArrayNode();
+        for (List<WebAppButton> row : rows) {
+            ArrayNode jsonRow = objectMapper.createArrayNode();
+            for (WebAppButton button : row) {
+                ObjectNode webApp = objectMapper.createObjectNode().put("url", button.url());
+                ObjectNode node = objectMapper.createObjectNode().put("text", button.text());
+                node.set("web_app", webApp);
+                jsonRow.add(node);
+            }
+            keyboard.add(jsonRow);
+        }
+        ObjectNode markup = objectMapper.createObjectNode();
+        markup.set("inline_keyboard", keyboard);
+        return markup;
+    }
+
     // ----- internal -----
 
     private Optional<JsonNode> postJson(String method, JsonNode body) {

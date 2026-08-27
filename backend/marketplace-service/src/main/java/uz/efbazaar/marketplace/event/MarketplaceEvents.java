@@ -21,6 +21,7 @@ public final class MarketplaceEvents {
     public static final String TOPIC_CHAT_EXPIRED    = "efbazaar.marketplace.chat-expired";
     public static final String TOPIC_USER_BLACKLISTED   = "efbazaar.marketplace.user-blacklisted";
     public static final String TOPIC_USER_UNBLACKLISTED = "efbazaar.marketplace.user-unblacklisted";
+    public static final String TOPIC_BOT_SETTINGS_UPDATED = "efbazaar.marketplace.bot-settings-updated";
 
     private MarketplaceEvents() {}
 
@@ -53,4 +54,7 @@ public final class MarketplaceEvents {
 
     public record ChatExpired(UUID chatId, UUID listingId, UUID buyerId, UUID sellerId,
                               String reason, Instant occurredAt) {}
+
+    /** Bot /start xabari yangilandi — signal, matnni o'zi emas. */
+    public record BotSettingsUpdated(UUID updatedBy, Instant occurredAt) {}
 }

@@ -63,6 +63,20 @@ public class MarketplaceEventPublisher {
                         Instant.now()));
     }
 
+    /**
+     * Bot /start xabari o'zgardi — bot keshini darhol yangilashi kerak.
+     *
+     * <p>Payload'da matnning O'ZI yo'q, faqat "o'zgardi" signali. Bot uni
+     * eshitgach ichki API'dan qayta tortadi. Sabab: bitta manba qoladi.
+     * Matnni event ichida yuborsak, bot uni ikki yo'ldan olardi va ular
+     * bir-biriga zid bo'lishi mumkin edi — masalan event kechikib kelib
+     * yangiroq keshni eski matn bilan almashtirardi.
+     */
+    public void botSettingsUpdated(UUID adminId) {
+        send(MarketplaceEvents.TOPIC_BOT_SETTINGS_UPDATED, "bot-settings",
+                new MarketplaceEvents.BotSettingsUpdated(adminId, Instant.now()));
+    }
+
     private void send(String topic, String key, Object event) {
         kafkaTemplate.send(topic, key, event)
                 .whenComplete((r, ex) -> {

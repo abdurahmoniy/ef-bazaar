@@ -57,6 +57,13 @@ management:
 app:
   web:
     base-url: ${APP_BASE_URL:https://efbazaar.uz}
+  # /start matni va banneri marketplace-service'da saqlanadi — botda DB yo'q.
+  # Sir sozlanmagan bo'lsa bot standart matnga tushadi, lekin ishlashda davom
+  # etadi: bu bog'liqlik /start ni sindirmasligi kerak.
+  marketplace:
+    internal-base-url: ${MARKETPLACE_INTERNAL_BASE_URL:http://marketplace-service:8082}
+    # Docker tarmog'idagi servislar bitta umumiy sirni bo'lishadi.
+    secret: ${INTERNAL_API_SECRET:}
   telegram:
     bot-token: ${TELEGRAM_BOT_TOKEN:}
     bot-username: ${TELEGRAM_BOT_USERNAME:}
