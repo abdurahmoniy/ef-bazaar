@@ -4,6 +4,9 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
+import { existsSync, readdirSync } from 'node:fs';
+import path from 'node:path';
+
 import {
   ADMIN_NAV_GROUPS,
   AdminShell,
@@ -90,5 +93,41 @@ describe('AdminShell & Navigation', () => {
     expect(allHrefs).toContain('/admin/mailboxes');
     expect(allHrefs).toContain('/admin/players');
     expect(allHrefs).toContain('/admin/attributes');
+    expect(allHrefs).toContain('/admin/bot');
+  });
+
+  /**
+   * Sahifa bor, lekin menyuda yo'q — bu xato jimgina o'tadi: manzilni qo'lda
+   * yozgan odam sahifani ochadi va hammasi ishlaydi deb o'ylaydi, menyudan
+   * qidirgan odam esa uni umuman topa olmaydi. Aynan shu `/admin/bot` bilan
+   * sodir bo'ldi.
+   *
+   * Shuning uchun ro'yxatni qo'lda emas, fayl tizimidan o'qiymiz.
+   */
+  it('every admin page is reachable from the navigation', () => {
+    const adminDir = path.join(process.cwd(), 'src/app/admin');
+
+    const routes: string[] = [];
+    const walk = (dir: string, prefix: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        // Dinamik segment (`[id]`) — bu detal sahifasi, menyuda bo'lmaydi.
+        if (entry.name.startsWith('[')) continue;
+        const route = `${prefix}/${entry.name}`;
+        const child = path.join(dir, entry.name);
+        if (existsSync(path.join(child, 'page.tsx'))) routes.push(route);
+        walk(child, route);
+      }
+    };
+    walk(adminDir, '/admin');
+
+    const navHrefs = new Set(ADMIN_NAV_GROUPS.flatMap((g) => g.items.map((i) => i.href)));
+
+    // Bayroq ostidagi sahifalar: fayli turadi, menyu esa FEATURES ga qarab
+    // ularni chiqaradi yoki chiqarmaydi.
+    const featureFlagged = new Set(['/admin/human-trades', '/admin/trade-admin-applications']);
+
+    const orphaned = routes.filter((r) => !navHrefs.has(r) && !featureFlagged.has(r));
+    expect(orphaned).toEqual([]);
   });
 });

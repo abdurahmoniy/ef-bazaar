@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   ArrowUpFromLine,
+  Bot,
   ChevronRight,
   ClipboardCheck,
   CreditCard,
@@ -157,6 +158,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Atributlar & Filterlar',
         shortLabel: 'Atributlar',
         icon: SlidersHorizontal,
+      },
+      {
+        href: '/admin/bot',
+        label: 'Bot sozlamalari',
+        shortLabel: 'Bot',
+        icon: Bot,
       },
     ],
   },
