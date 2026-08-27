@@ -9,6 +9,8 @@ import uz.efbazaar.marketplace.event.MarketplaceEventPublisher;
 import uz.efbazaar.marketplace.service.MediaService;
 
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -16,7 +18,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -29,12 +34,13 @@ class BotSettingsServiceTest {
     private BotSettingsRepository repository;
     private BotSettingsService service;
     private BotSettings existing;
+    private MarketplaceEventPublisher events;
 
     @BeforeEach
     void setUp() {
         repository = mock(BotSettingsRepository.class);
-        service = new BotSettingsService(repository, mock(MediaService.class),
-                mock(MarketplaceEventPublisher.class));
+        events = mock(MarketplaceEventPublisher.class);
+        service = new BotSettingsService(repository, mock(MediaService.class), events);
 
         existing = new BotSettings();
         existing.setWelcomeText("eski matn");
@@ -48,6 +54,35 @@ class BotSettingsServiceTest {
 
     private BotSettings save(String text) {
         return service.updateWelcomeText(new UpdateBotSettingsRequest(text), UUID.randomUUID());
+    }
+
+    @Test
+    @DisplayName("Bot signali tranzaksiya YAKUNLANGANDAN keyin chiqadi")
+    void publishesAfterCommitNotDuringTransaction() {
+        // Tranzaksiya ochiq holatini taqlid qilamiz.
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            save("<b>yangi</b> matn");
+
+            // Commit hali bo'lmagan. Agar signal shu paytda ketsa, bot
+            // sozlamani so'rab ESKI matnni o'qiydi va uni 6 soatga keshlaydi —
+            // admin saqlagan matn olti soat ko'rinmay qoladi.
+            verify(events, never()).botSettingsUpdated(any());
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+
+            verify(events).botSettingsUpdated(any());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    @DisplayName("Tranzaksiyasiz chaqiruvda signal darhol chiqadi")
+    void publishesImmediatelyWithoutTransaction() {
+        save("matn");
+        verify(events).botSettingsUpdated(any());
     }
 
     @Test
