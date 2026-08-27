@@ -128,6 +128,7 @@ efbazaar.marketplace.like-toggled
 efbazaar.marketplace.chat-created
 efbazaar.marketplace.chat-expired
 efbazaar.marketplace.cards-added     # { occurredAt, totalAdded, cards: [{efhubId, type, name, overallRating}] }
+efbazaar.marketplace.bot-settings-updated  # marketplace → bot (/start matni o'zgardi, kesh yangilansin)
 efbazaar.bot.media-uploaded          # { listingId, telegramMessageId, mediaType }
 efbazaar.auth.user-role-changed      # auth → trade-service (deactivate trade-admin profile on role revoke)
 efbazaar.trade.admin-invited         # trade-service → marketplace-service (TRADE_ADMIN_INVITED notification)
