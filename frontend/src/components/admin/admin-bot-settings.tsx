@@ -29,8 +29,20 @@ export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
   // Belgi DB'da saqlanmaydi — u `bannerFileId != null` ning aksi. Shunda
   // "belgi yoqilgan, lekin banner yo'q" degan yarim holat bazaga tushmaydi.
   const [bannerEnabled, setBannerEnabled] = useState(initial.bannerFileId !== null);
+
+  // Tanlangan, lekin hali YUBORILMAGAN rasm.
+  //
+  // Ilgari rasm tanlangan zahoti serverga ketardi va "Saqlash" faqat matnga
+  // tegishli bo'lardi. Natijada bitta sahifada ikki xil saqlash modeli bor
+  // edi: banner o'z-o'zidan saqlanadi, matn esa tugma bilan. Admin uchun bu
+  // "o'zgartirdim, lekin Saqlash faolsiz" degan holat — o'zgarish saqlandimi
+  // yoki yo'qmi bilib bo'lmaydi. Endi hammasi bitta tugmadan o'tadi.
+  const [pendingBanner, setPendingBanner] = useState<File | null>(null);
+  const [pendingBannerUrl, setPendingBannerUrl] = useState<string | null>(null);
+  // Belgi o'chirildi, lekin saqlanmagan: server chaqiruvi Saqlashda bo'ladi.
+  const [bannerRemoved, setBannerRemoved] = useState(false);
+
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -41,60 +53,104 @@ export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
   // "sig'madi" degan xabar chiqmasin.
   const limit = effectiveLimit(bannerEnabled);
   const overLimit = length > limit;
-  const dirty = text !== settings.welcomeText;
-  const bannerUrl = settings.bannerFileId ? listingMediaUrl(settings.bannerFileId) : null;
+
+  const savedBannerUrl = settings.bannerFileId ? listingMediaUrl(settings.bannerFileId) : null;
+  const shownBannerUrl = pendingBannerUrl ?? (bannerRemoved ? null : savedBannerUrl);
+  const hasBanner = shownBannerUrl !== null;
+
+  const dirty =
+    text !== settings.welcomeText || pendingBanner !== null || bannerRemoved;
 
   function flash(message: string) {
     setSuccess(message);
     setTimeout(() => setSuccess(null), 4000);
   }
 
-  async function run(action: () => Promise<BotSettings>, done: string, busy: (v: boolean) => void) {
-    setError(null);
-    setSuccess(null);
-    busy(true);
-    try {
-      const updated = await action();
-      setSettings(updated);
-      setBannerEnabled(updated.bannerFileId !== null);
-      flash(done);
-      return updated;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Amal bajarilmadi');
+  function clearPendingBanner() {
+    setPendingBanner(null);
+    setPendingBannerUrl((url) => {
+      // Object URL brauzer xotirasida qoladi — uni qo'lda bo'shatish kerak.
+      if (url) URL.revokeObjectURL(url);
       return null;
-    } finally {
-      busy(false);
-    }
+    });
   }
 
-  async function handleSave() {
-    const updated = await run(
-      () => updateBotWelcomeText(text),
-      'Matn saqlandi. Bot darhol yangi matnga o’tdi.',
-      setSaving,
-    );
-    if (updated) setText(updated.welcomeText);
-  }
-
-  async function handleBannerPick(file: File | undefined) {
+  function handleBannerPick(file: File | undefined) {
     if (!file) return;
-    await run(() => uploadBotBanner(file), 'Banner yangilandi.', setUploading);
+    setError(null);
+    clearPendingBanner();
+    setPendingBanner(file);
+    setPendingBannerUrl(URL.createObjectURL(file));
+    setBannerRemoved(false);
+    setBannerEnabled(true);
     if (fileInput.current) fileInput.current.value = '';
   }
 
-  async function handleBannerToggle(next: boolean) {
+  function handleBannerToggle(next: boolean) {
+    setError(null);
     if (next) {
       setBannerEnabled(true);
-      return;
-    }
-    // Belgi o'chirildi. Banner saqlangan bo'lsa uni serverdan ham olib
-    // tashlaymiz — aks holda belgi o'chgan ko'rinadi, lekin bot rasm
-    // yuborishda davom etardi.
-    if (settings.bannerFileId) {
-      await run(() => removeBotBanner(), 'Banner olib tashlandi.', setUploading);
+      setBannerRemoved(false);
       return;
     }
     setBannerEnabled(false);
+    clearPendingBanner();
+    // Saqlangan banner bo'lsagina serverdan olib tashlash kerak bo'ladi.
+    setBannerRemoved(settings.bannerFileId !== null);
+  }
+
+  /**
+   * Uchala o'zgarishni bitta bosishda saqlaydi.
+   *
+   * <p>TARTIB MUHIM, chunki matn chegarasi bannerga bog'liq (bannersiz 4096,
+   * banner bilan 1024) va server har qadamda hozirgi holatni tekshiradi:
+   *
+   * <ol>
+   *   <li>banner olib tashlanadi — chegara kengayadi, shundan keyin uzunroq
+   *       matn qabul qilinadi;</li>
+   *   <li>matn saqlanadi — u qisqartirilgan bo'lishi mumkin;</li>
+   *   <li>banner yuklanadi — server allaqachon qisqargan matnni ko'radi.</li>
+   * </ol>
+   *
+   * <p>Teskari tartibda "avval matnni qisqartirdim, keyin banner qo'shdim"
+   * degan oddiy holat serverda rad etilardi.
+   */
+  async function handleSave() {
+    setError(null);
+    setSuccess(null);
+    setSaving(true);
+    try {
+      let updated: BotSettings = settings;
+
+      if (bannerRemoved) {
+        updated = await removeBotBanner();
+      }
+      if (text !== settings.welcomeText) {
+        updated = await updateBotWelcomeText(text);
+      }
+      if (pendingBanner) {
+        updated = await uploadBotBanner(pendingBanner);
+      }
+
+      setSettings(updated);
+      setText(updated.welcomeText);
+      setBannerEnabled(updated.bannerFileId !== null);
+      setBannerRemoved(false);
+      clearPendingBanner();
+      flash('Saqlandi. Bot darhol yangi xabarga o’tdi.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Saqlab bo’lmadi');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleReset() {
+    setError(null);
+    setText(settings.welcomeText);
+    clearPendingBanner();
+    setBannerRemoved(false);
+    setBannerEnabled(settings.bannerFileId !== null);
   }
 
   return (
@@ -163,7 +219,7 @@ export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
             </Button>
             <Button
               variant="outline"
-              onClick={() => setText(settings.welcomeText)}
+              onClick={handleReset}
               disabled={saving || !dirty}
               className="gap-2"
             >
@@ -177,7 +233,7 @@ export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
         <section className="space-y-3">
           <Checkbox
             checked={bannerEnabled}
-            disabled={uploading}
+            disabled={saving}
             onChange={(e) => handleBannerToggle(e.target.checked)}
             label="Banner rasmi bilan yuborilsin"
             description={`Yoqilsa xabar rasm + izoh bo'lib ketadi va matn chegarasi ${CAPTION_MAX_LENGTH} belgiga tushadi. O'chirilsa oddiy matn yuboriladi.`}
@@ -185,58 +241,46 @@ export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
 
           {bannerEnabled && (
             <div className="space-y-2 rounded-xl border border-border bg-card p-4">
-              {bannerUrl ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={bannerUrl}
-                    alt="Bot banneri"
-                    className="w-full rounded-lg border border-border"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInput.current?.click()}
-                      disabled={uploading}
-                      className="gap-2"
-                    >
-                      <ImagePlus className="h-4 w-4" />
-                      Boshqa rasm
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleBannerToggle(false)}
-                      disabled={uploading}
-                      className="gap-2 text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      O&apos;chirish
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    Rasm hali yuklanmagan — banner yuklanmaguncha bot oddiy matn yuboradi.
-                  </p>
+              {/*
+                Rasmning O'ZI bu yerda ko'rsatilmaydi — u pastdagi preview'da
+                bor. Ikki marta chizilsa preview ekrandan pastga surilib
+                ketadi va aynan u yerda matn bilan rasm birga qanday
+                ko'rinishini baholash kerak edi.
+              */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInput.current?.click()}
+                  disabled={saving}
+                  className="gap-2"
+                >
+                  <ImagePlus className="h-4 w-4" />
+                  {hasBanner ? 'Boshqa rasm' : 'Rasm tanlash'}
+                </Button>
+
+                {hasBanner && (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => fileInput.current?.click()}
-                    disabled={uploading}
-                    className="gap-2"
+                    onClick={() => handleBannerToggle(false)}
+                    disabled={saving}
+                    className="gap-2 text-destructive"
                   >
-                    {uploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ImagePlus className="h-4 w-4" />
-                    )}
-                    Banner yuklash
+                    <Trash2 className="h-4 w-4" />
+                    O&apos;chirish
                   </Button>
-                </>
-              )}
+                )}
+
+                <span className="text-xs text-muted-foreground">
+                  {pendingBanner
+                    ? 'Rasm tanlandi — Saqlash bosilganda yuboriladi.'
+                    : hasBanner
+                      ? 'Rasm saqlangan — pastdagi ko’rinishda.'
+                      : 'Rasm tanlanmaguncha bot oddiy matn yuboradi.'}
+                </span>
+              </div>
+
               <p className="text-xs text-muted-foreground">
                 Tavsiya: 1280&times;720. Rasm Telegram media topigiga yuboriladi, bizda faqat
                 uning <code>file_id</code> si saqlanadi.
@@ -254,7 +298,7 @@ export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
 
           <div>
             <h2 className="mb-2 text-sm font-semibold">Telegramda qanday ko&apos;rinadi</h2>
-            <TelegramPreview html={text} bannerUrl={bannerEnabled ? bannerUrl : null} />
+            <TelegramPreview html={text} bannerUrl={bannerEnabled ? shownBannerUrl : null} />
           </div>
         </section>
       </div>

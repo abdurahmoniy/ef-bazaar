@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.marketplace.botsettings.BotSettingsDtos.UpdateBotSettingsRequest;
@@ -140,11 +142,39 @@ public class BotSettingsService {
      *
      * <p>Event shu yerdan chiqadi, har chaqiruvchidan alohida emas — yangi
      * mutatsiya qo'shilganda uni yuborishni unutish mumkin bo'lmasin.
+     *
+     * <p>EVENT TRANZAKSIYA YAKUNLANGANDAN KEYIN CHIQADI. Bu yerda oddiy
+     * {@code send} qilib bo'lmaydi: bu metod {@code @Transactional} ichida
+     * ishlaydi, Kafka esa darhol yuboradi. Natijada poyga chiqadi —
+     *
+     * <pre>
+     *   1. matn o'zgartirildi (hali commit bo'lmagan)
+     *   2. event ketdi
+     *   3. bot eshitdi va sozlamani so'radi
+     *   4. bot ESKI matnni o'qidi — commit hali bo'lmagan
+     *   5. bot uni 6 SOATGA keshladi
+     *   6. tranzaksiya commit bo'ldi, lekin botga aytadigan hech kim yo'q
+     * </pre>
+     *
+     * <p>Ya'ni admin saqlagan matn olti soat ko'rinmay qolardi va buni hech
+     * narsa ko'rsatmasdi — zaxira sync aynan shu holatga qarshi qo'yilgan
+     * edi, bu yerda esa u nosozlikni yashirib qo'yardi.
      */
     private void touch(BotSettings settings, UUID adminId) {
         settings.setUpdatedAt(Instant.now());
         settings.setUpdatedBy(adminId);
-        events.botSettingsUpdated(adminId);
+
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            // Tranzaksiyasiz chaqiruv (masalan sinov) — kutadigan narsa yo'q.
+            events.botSettingsUpdated(adminId);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                events.botSettingsUpdated(adminId);
+            }
+        });
     }
 
     // ----- tekshiruvlar -----
