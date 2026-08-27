@@ -436,3 +436,45 @@
     display: none;
   }
 }
+
+/* ---------- Telegram tahrirlagichi va ko'rinishi ---------- */
+
+/*
+ * Spoiler Telegramda kulrang "shovqin" ostida yashiringan matn. Bu yerda
+ * uni to'liq taqlid qilmaymiz — admin nima yozganini ko'rishi kerak —
+ * lekin oddiy matndan farq qilib turishi shart.
+ */
+.tg-spoiler {
+  background-color: hsl(var(--muted-foreground) / 0.25);
+  border-radius: 0.25rem;
+  padding: 0 0.15rem;
+  box-decoration-break: clone;
+}
+
+.tg-editor code,
+.tg-preview code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background-color: hsl(var(--muted-foreground) / 0.15);
+  border-radius: 0.25rem;
+  padding: 0.05rem 0.25rem;
+}
+
+.tg-editor a,
+.tg-preview a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+}
+
+.tg-editor blockquote,
+.tg-preview blockquote {
+  border-left: 3px solid hsl(var(--primary) / 0.6);
+  padding-left: 0.625rem;
+  margin: 0.25rem 0;
+}
+
+/* contenteditable bo'sh bo'lganda balandligini yo'qotmasin */
+.tg-editor:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+}
