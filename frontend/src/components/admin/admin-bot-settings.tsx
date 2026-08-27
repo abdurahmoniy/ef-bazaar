@@ -185,58 +185,48 @@ export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
 
           {bannerEnabled && (
             <div className="space-y-2 rounded-xl border border-border bg-card p-4">
-              {bannerUrl ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={bannerUrl}
-                    alt="Bot banneri"
-                    className="w-full rounded-lg border border-border"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInput.current?.click()}
-                      disabled={uploading}
-                      className="gap-2"
-                    >
-                      <ImagePlus className="h-4 w-4" />
-                      Boshqa rasm
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleBannerToggle(false)}
-                      disabled={uploading}
-                      className="gap-2 text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      O&apos;chirish
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    Rasm hali yuklanmagan — banner yuklanmaguncha bot oddiy matn yuboradi.
-                  </p>
+              {/*
+                Rasmning O'ZI bu yerda ko'rsatilmaydi — u pastdagi preview'da
+                bor. Ikki marta chizilsa preview ekrandan pastga surilib
+                ketadi va aynan u yerda matn bilan rasm birga qanday
+                ko'rinishini baholash kerak edi.
+              */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInput.current?.click()}
+                  disabled={uploading}
+                  className="gap-2"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-4 w-4" />
+                  )}
+                  {bannerUrl ? 'Boshqa rasm' : 'Rasm tanlash'}
+                </Button>
+
+                {bannerUrl && (
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => fileInput.current?.click()}
+                    onClick={() => handleBannerToggle(false)}
                     disabled={uploading}
-                    className="gap-2"
+                    className="gap-2 text-destructive"
                   >
-                    {uploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ImagePlus className="h-4 w-4" />
-                    )}
-                    Banner yuklash
+                    <Trash2 className="h-4 w-4" />
+                    O&apos;chirish
                   </Button>
-                </>
-              )}
+                )}
+
+                <span className="text-xs text-muted-foreground">
+                  {bannerUrl
+                    ? 'Rasm yuklangan — pastdagi ko\u2019rinishda.'
+                    : "Rasm tanlanmaguncha bot oddiy matn yuboradi."}
+                </span>
+              </div>
+
               <p className="text-xs text-muted-foreground">
                 Tavsiya: 1280&times;720. Rasm Telegram media topigiga yuboriladi, bizda faqat
                 uning <code>file_id</code> si saqlanadi.
