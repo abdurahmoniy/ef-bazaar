@@ -58,6 +58,9 @@ public class AttributeValidator {
                 if (def.isRequired()) {
                     throw MarketplaceException.missingRequiredAttribute(def.getKey());
                 }
+                if ("android_coins".equals(def.getKey()) || "ios_coins".equals(def.getKey())) {
+                    normalized.put(def.getKey(), 0L);
+                }
                 continue;
             }
             normalized.put(def.getKey(), coerceAndCheck(def, raw));

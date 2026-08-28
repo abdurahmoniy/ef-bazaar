@@ -999,6 +999,7 @@ function GameplayStep({
 							label='Android Coin'
 							value={String(state.attributes[androidCoinDef.key] || '')}
 							onChange={(val) => updateAttr(androidCoinDef.key, val)}
+							error={errors.find((e) => e.includes(androidCoinDef.labelUz))}
 						/>
 					)}
 					{iosCoinDef && (
@@ -1006,6 +1007,7 @@ function GameplayStep({
 							label='iOS Coin'
 							value={String(state.attributes[iosCoinDef.key] || '')}
 							onChange={(val) => updateAttr(iosCoinDef.key, val)}
+							error={errors.find((e) => e.includes(iosCoinDef.labelUz))}
 						/>
 					)}
 				</div>
@@ -1366,10 +1368,12 @@ function CoinInput({
 	label,
 	value,
 	onChange,
+	error,
 }: {
 	label: string;
 	value: string;
 	onChange: (val: string) => void;
+	error?: string;
 }) {
 	return (
 		<div className='space-y-1'>
@@ -1382,9 +1386,18 @@ function CoinInput({
 					placeholder='0'
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
-					className='h-10 rounded-xl pl-8 pr-2 text-xs font-bold'
+					className={cn(
+						'h-10 rounded-xl pl-8 pr-2 text-xs font-bold',
+						error && 'border-destructive focus-visible:ring-destructive',
+					)}
 				/>
 			</div>
+			{error && (
+				<p className='flex items-center gap-1 text-[10px] font-bold text-destructive leading-tight'>
+					<AlertCircle className='h-3 w-3 shrink-0' />
+					{error}
+				</p>
+			)}
 		</div>
 	);
 }
@@ -2094,7 +2107,9 @@ function validateStep(
 			const value = state.attributes[def.key];
 			if (def.type === 'BOOLEAN') continue;
 			const raw = typeof value === 'string' ? value.trim() : '';
-			if (def.required && !raw) {
+			const isCoin = def.key === 'android_coins' || def.key === 'ios_coins';
+			const isRequired = def.required && !isCoin;
+			if (isRequired && !raw) {
 				errors.push(`${def.labelUz} maydonini to'ldiring.`);
 				continue;
 			}
@@ -2154,11 +2169,19 @@ function buildRequest(
 			if (cards.length > 0) attributes[def.key] = cards.map(cardToApiPayload);
 			continue;
 		}
-		if (typeof raw !== 'string' || !raw.trim()) continue;
+		if (typeof raw !== 'string' || !raw.trim()) {
+			if (def.key === 'android_coins' || def.key === 'ios_coins') {
+				attributes[def.key] = 0;
+			}
+			continue;
+		}
 		switch (def.type) {
 			case 'INT': {
 				const num = Number(raw);
 				if (Number.isInteger(num)) attributes[def.key] = num;
+				else if (def.key === 'android_coins' || def.key === 'ios_coins') {
+					attributes[def.key] = 0;
+				}
 				break;
 			}
 			case 'DECIMAL': {
@@ -2175,6 +2198,9 @@ function buildRequest(
 				attributes[def.key] = raw.trim();
 		}
 	}
+
+	if (attributes.android_coins === undefined) attributes.android_coins = 0;
+	if (attributes.ios_coins === undefined) attributes.ios_coins = 0;
 
 	return {
 		description: state.description.trim(),
@@ -2232,6 +2258,11 @@ function normalizeAttributeDefinitions(
 				typeof entry.labelUz === 'string' &&
 				typeof entry.required === 'boolean' &&
 				isAttributeType(entry.type),
+		)
+		.map((def) =>
+			def.key === 'android_coins' || def.key === 'ios_coins'
+				? { ...def, required: false }
+				: def,
 		)
 		.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 }

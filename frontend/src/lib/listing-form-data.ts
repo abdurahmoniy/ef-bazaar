@@ -229,6 +229,9 @@ function parseAttributeValue(
 
   const raw = attributeTextField(formData, definition)
   if (!raw) {
+    if (definition.key === 'android_coins' || definition.key === 'ios_coins') {
+      return { ok: true, value: 0 }
+    }
     return definition.required
       ? { ok: false, error: `${definition.labelUz} maydonini to'ldiring` }
       : { ok: true, omit: true }

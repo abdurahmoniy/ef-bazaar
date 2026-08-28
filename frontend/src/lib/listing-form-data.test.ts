@@ -146,6 +146,22 @@ describe('createListingRequestFromForm', () => {
     expect(result.attributes).not.toHaveProperty('valuable_players');
   });
 
+  it('defaults android_coins and ios_coins to 0 when fields are omitted or empty', () => {
+    const formData = new FormData();
+    formData.set('description', 'Solid account with default coins');
+    formData.set('highestDivisionLevel', '3');
+    formData.set('teamStrength', '2800');
+    formData.set('attr.platform', 'MOBILE');
+    formData.set('attr.device_transfer_limit', '10');
+    formData.set('price', '100000');
+
+    const result = createListingRequestFromForm(formData);
+    expect(typeof result).not.toBe('string');
+    if (typeof result === 'string') return;
+    expect(result.attributes.android_coins).toBe(0);
+    expect(result.attributes.ios_coins).toBe(0);
+  });
+
   it('blocks listings whose device transfer limit is below the sellable floor', () => {
     const formData = new FormData();
     formData.set('description', 'Strong account with rare players');
