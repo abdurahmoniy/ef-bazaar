@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { UserPicker } from '@/components/admin/user-picker';
+import type { FoundUser } from '@/lib/user-search';
 import { Textarea } from '@/components/ui/textarea';
 import { formatListingDate } from '@/lib/marketplace-format';
 import { formatTiyin } from '@/lib/money';
@@ -35,6 +36,7 @@ export function UnmatchedRow({ item, busy, onResolve, onIgnore }: UnmatchedRowPr
   const [mode, setMode] = useState<'none' | 'resolve' | 'ignore'>('none');
   const [confirming, setConfirming] = useState(false);
   const [userId, setUserId] = useState('');
+  const [picked, setPicked] = useState<FoundUser | null>(null);
   const [note, setNote] = useState('');
   const [ignoreNote, setIgnoreNote] = useState('');
 
@@ -108,16 +110,32 @@ export function UnmatchedRow({ item, busy, onResolve, onIgnore }: UnmatchedRowPr
 
           <div>
             <label htmlFor={`resolve-user-${item.id}`} className="sr-only">
-              Foydalanuvchi ID
+              Foydalanuvchi
             </label>
-            <Input
-              id={`resolve-user-${item.id}`}
-              autoComplete="off"
-              spellCheck={false}
-              value={userId}
-              onChange={(event) => setUserId(event.target.value)}
-              placeholder="Foydalanuvchi ID (UUID)"
-              className="font-mono text-sm"
+            {/*
+              Qidiruv, UUID maydoni emas. Qo'lda terilgan identifikator
+              to'g'ri SHAKLDA bo'lib, noto'g'ri ODAMNIKI bo'lishi mumkin —
+              bunday xatoni shakl tekshiruvi tutmaydi va bu yerda uni
+              qaytarib ham bo'lmaydi: pul darhol o'sha hisobga tushadi.
+
+              UUID tekshiruvi baribir qoladi: tanlangan odam yo'qolsa yoki
+              javob kutilmagan shaklda kelsa, tugma faol bo'lmaydi.
+            */}
+            <UserPicker
+              inputId={`resolve-user-${item.id}`}
+              selected={picked}
+              onChange={(user) => {
+                setPicked(user);
+                setUserId(user?.id ?? '');
+              }}
+              onQueryChange={(value) => {
+                // Ro'yxatdan tanlanmagan bo'lsa terilgan matnning o'zi
+                // qiymat bo'ladi — UUID ni yopishtirgan admin qidiruvni
+                // kutmasligi kerak. To'g'riligini `reviewResolveDraft`
+                // tekshiradi, ya'ni himoya joyida qoladi.
+                if (!picked) setUserId(value);
+              }}
+              placeholder="Username, ism, email, Telegram ID yoki UUID"
             />
             {resolve.userIdMessage && (
               <p className="mt-1 text-xs font-semibold text-destructive">
