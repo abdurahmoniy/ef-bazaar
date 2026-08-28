@@ -207,7 +207,7 @@ export function PartnershipFlow() {
           </div>
           {shortfall !== null && shortfall > 0 && (
             <Button asChild size="sm" variant="outline" className="gap-2">
-              <Link href={topUpHref(shortfall, '/hamkorlik')}>
+              <Link href={topUpHref(shortfall, '/partnership')}>
                 <Wallet className="h-4 w-4" />
                 Hamyonni to&apos;ldirish
               </Link>
