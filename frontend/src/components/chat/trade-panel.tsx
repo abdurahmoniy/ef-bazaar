@@ -4,14 +4,17 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import {
   AlertTriangle,
+  ArrowRight,
   ArrowUpRight,
   CheckCircle2,
+  Coins,
   Copy,
   Handshake,
   History,
   Loader2,
   RefreshCw,
   ShieldCheck,
+  Smartphone,
   UserCog,
   Users,
   X,
@@ -31,13 +34,17 @@ import { HumanPartyTradePanel } from '@/components/trade-admin/human-party-trade
 import { TradeAdminPicker } from '@/components/trade-admin/trade-admin-picker';
 import { SellerRatingForm } from '@/components/chat/seller-rating-form';
 import { TipCallout } from '@/components/help/tip-callout';
+import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { formatPriceUZS } from '@/lib/marketplace-format';
+import { listingMediaUrl, listingMediaUrls } from '@/lib/marketplace-media';
 import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
+import { getTelegramWebApp } from '@/lib/telegram';
+import { telegramHaptic } from '@/lib/telegram-shell';
 import { isHumanProposal, isHumanTrade, validateAdminFee } from '@/lib/trade-human';
 import { createInvoice } from '@/lib/payment-client';
 import {
@@ -1510,7 +1517,20 @@ function ProposeModal({
   onClose: () => void;
   onCreated: (p: ProposalResponse, priceUzs: number, mode: TradeMode, adminFeeUzs?: number, kind?: TradeKind) => void;
 }) {
-  const initialPrice = listing ? String(Math.trunc(Number(listing.price))) : '';
+  const effectiveListing = accountRequest?.listing ?? listing;
+  const originalPrice = effectiveListing ? Number(effectiveListing.price) : 0;
+  const initialPrice = originalPrice > 0 ? String(Math.trunc(originalPrice)) : '';
+  const coverUrl =
+    accountRequest?.listing?.coverMessageId
+      ? listingMediaUrl(accountRequest.listing.coverMessageId)
+      : listing
+        ? listingMediaUrls(listing, 1)[0]
+        : null;
+  const divLevel =
+    listing?.attributes?.highest_division_level
+      ? toDivisionLevel(listing.attributes.highest_division_level)
+      : undefined;
+
   const listingExchangeMode = listing?.attributes?.exchange_mode as ExchangeMode | undefined;
   const availableKinds = useMemo(() => allowedKinds(listingExchangeMode), [listingExchangeMode]);
   const [kind, setKind] = useState<TradeKind>(
@@ -1534,6 +1554,31 @@ function ProposeModal({
       : kind === 'SWAP_SURCHARGE'
         ? Number(surcharge)
         : 0;
+
+  const priceNum = Number(price);
+  const hasValidPrice = Number.isFinite(priceNum) && priceNum > 0;
+  const feeNum = hasValidPrice ? tradeFeeSom(priceNum) : 0;
+  const proceedsNum = hasValidPrice ? sellerProceedsSom(priceNum) : 0;
+
+  const presets = useMemo(() => {
+    if (!originalPrice || originalPrice <= 0) return [];
+    const p5 = Math.round((originalPrice * 0.95) / 1000) * 1000;
+    const p10 = Math.round((originalPrice * 0.9) / 1000) * 1000;
+    const p20k = originalPrice - 20000;
+    const list: Array<{ label: string; value: number }> = [
+      { label: 'Asl narx', value: originalPrice },
+      { label: '−5%', value: p5 },
+      { label: '−10%', value: p10 },
+    ];
+    if (p20k > 0 && p20k !== p5 && p20k !== p10) {
+      list.push({ label: '−20 ming', value: p20k });
+    }
+    return list.filter(
+      (p, idx, arr) =>
+        p.value > 0 &&
+        arr.findIndex((other) => other.value === p.value) === idx,
+    );
+  }, [originalPrice]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1568,7 +1613,7 @@ function ProposeModal({
     }
     startSubmit(async () => {
       if (mode === 'SMART') {
-        const listingPriceUzs = Number(listing?.price ?? 0);
+        const listingPriceUzs = Number(effectiveListing?.price ?? 0);
         const surchargeUzs = kind === 'SWAP_SURCHARGE' ? effectiveAmountUzs : 0;
         const missing = await proposerShortfall(listingPriceUzs, surchargeUzs);
         if (missing > 0) {
@@ -1589,9 +1634,40 @@ function ProposeModal({
   return (
     <ModalShell title="Taklif yuborish" onClose={onClose}>
       <form className="space-y-3" onSubmit={handleSubmit}>
+        {/* Context Preview Card */}
+        {effectiveListing && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 p-2.5 text-xs">
+            {coverUrl ? (
+              <img
+                src={coverUrl}
+                alt="Akkount"
+                className="h-11 w-11 shrink-0 rounded-lg object-cover border border-border/50"
+              />
+            ) : (
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground border border-border/50">
+                <Smartphone className="h-5 w-5" />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                {divLevel && (
+                  <DivisionBadge level={divLevel} size={16} />
+                )}
+                <p className="truncate font-bold text-foreground text-xs">
+                  {effectiveListing.description.slice(0, 60) || "Akkount"}
+                </p>
+              </div>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Asl narxi: <span className="font-semibold text-foreground">{formatPriceUZS(originalPrice)}</span>
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Kind Selector */}
         {availableKinds.length > 1 && (
           <div>
-            <Label>Savdo turi</Label>
+            <Label className="text-xs font-bold">Savdo turi</Label>
             <div className="mt-1 grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Savdo turi">
               {availableKinds.map((k) => (
                 <button
@@ -1599,11 +1675,14 @@ function ProposeModal({
                   type="button"
                   role="radio"
                   aria-checked={kind === k}
-                  onClick={() => setKind(k)}
+                  onClick={() => {
+                    setKind(k);
+                    telegramHaptic(getTelegramWebApp(), 'selection', false);
+                  }}
                   className={cn(
-                    'rounded-lg border px-2 py-1.5 text-center text-xs font-semibold transition',
+                    'rounded-xl border py-2 px-1 text-center text-xs font-bold transition select-none',
                     kind === k
-                      ? 'border-primary bg-primary/10 text-primary'
+                      ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30 font-black'
                       : 'border-border bg-card text-muted-foreground hover:border-primary/40',
                   )}
                 >
@@ -1617,104 +1696,192 @@ function ProposeModal({
           </div>
         )}
 
+        {/* Admin Mode Selector */}
         {FEATURES.humanAdmin && (
           <div>
-            <Label>Admin turi</Label>
+            <Label className="text-xs font-bold">Admin turi</Label>
             <div className="mt-1 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Admin turi">
               <button
                 type="button"
                 role="radio"
                 aria-checked={mode === 'SMART'}
-                onClick={() => setMode('SMART')}
+                onClick={() => {
+                  setMode('SMART');
+                  telegramHaptic(getTelegramWebApp(), 'selection', false);
+                }}
                 className={cn(
-                  'rounded-lg border px-3 py-2 text-left text-sm transition',
+                  'rounded-xl border p-2.5 text-left text-xs transition select-none',
                   mode === 'SMART'
-                    ? 'border-primary bg-primary/10 text-foreground'
+                    ? 'border-primary bg-primary/10 text-foreground ring-1 ring-primary/30'
                     : 'border-border bg-card text-muted-foreground hover:border-primary/40',
                 )}
               >
-                <span className="block font-black">Smart admin</span>
-                <span className="text-[10.5px]">Avtomatik escrow flow</span>
+                <span className="block font-black text-foreground">Smart admin</span>
+                <span className="text-[10.5px] text-muted-foreground">Avtomatik escrow flow</span>
               </button>
               <button
                 type="button"
                 role="radio"
                 aria-checked={mode === 'HUMAN'}
-                onClick={() => setMode('HUMAN')}
+                onClick={() => {
+                  setMode('HUMAN');
+                  telegramHaptic(getTelegramWebApp(), 'selection', false);
+                }}
                 className={cn(
-                  'rounded-lg border px-3 py-2 text-left text-sm transition',
+                  'rounded-xl border p-2.5 text-left text-xs transition select-none',
                   mode === 'HUMAN'
-                    ? 'border-primary bg-primary/10 text-foreground'
+                    ? 'border-primary bg-primary/10 text-foreground ring-1 ring-primary/30'
                     : 'border-border bg-card text-muted-foreground hover:border-primary/40',
                 )}
               >
-                <span className="flex items-center gap-1.5 font-black">
-                  <UserCog className="h-4 w-4" />
+                <span className="flex items-center gap-1.5 font-black text-foreground">
+                  <UserCog className="h-3.5 w-3.5" />
                   Inson admin
                 </span>
-                <span className="text-[10.5px]">Platforma bepul</span>
+                <span className="text-[10.5px] text-muted-foreground">Platforma bepul</span>
               </button>
             </div>
           </div>
         )}
 
+        {/* Sale Price Input & Presets */}
         {kind === 'SALE' && (
-          <div>
-            <Label htmlFor="trade-price">Narx (UZS)</Label>
-            <Input
-              id="trade-price"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              step={1}
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="500000"
-              required
-            />
-            {Number(price) > 0 && (
-              <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Xaridor <b className="text-foreground">{formatPriceUZS(Number(price))}</b> to&apos;laydi ·
-                smart-admin xizmati <b className="text-foreground">−{formatPriceUZS(tradeFeeSom(Number(price)))}</b> ·
-                sotuvchiga <b className="text-foreground">{formatPriceUZS(sellerProceedsSom(Number(price)))}</b>
-              </p>
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="trade-price" className="text-xs font-bold">
+                  Taklif narxi (so'm)
+                </Label>
+                {hasValidPrice && (
+                  <span className="text-[11px] font-black text-primary">
+                    {formatPriceUZS(priceNum)}
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <Coins className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-500" />
+                <Input
+                  id="trade-price"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="500000"
+                  className="h-10 rounded-xl pl-9 pr-3 text-xs font-bold"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Quick Discount Presets */}
+            {presets.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {presets.map((preset) => {
+                  const isSelected = Number(price) === preset.value;
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        setPrice(String(preset.value));
+                        telegramHaptic(getTelegramWebApp(), 'selection', false);
+                      }}
+                      className={cn(
+                        'tap-press rounded-lg border px-2 py-1 text-[10.5px] font-bold transition select-none',
+                        isSelected
+                          ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30 font-black'
+                          : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
+                      )}
+                    >
+                      {preset.label}: {formatPriceUZS(preset.value)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Financial Breakdown Card */}
+            {hasValidPrice && (
+              <div className="rounded-xl border border-border bg-card/70 p-3 space-y-2 text-xs shadow-xs">
+                <div className="flex items-center justify-between text-muted-foreground text-[11.5px]">
+                  <span>Xaridor to‘laydi:</span>
+                  <span className="font-bold text-foreground">{formatPriceUZS(priceNum)}</span>
+                </div>
+                <div className="flex items-center justify-between text-muted-foreground text-[11.5px]">
+                  <span>Smart-admin xizmati:</span>
+                  <span className="font-semibold text-destructive">
+                    −{formatPriceUZS(feeNum)}
+                  </span>
+                </div>
+                <div className="border-t border-border/60 pt-2 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-300 text-xs">
+                    <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500" />
+                    Sotuvchiga sof summa:
+                  </span>
+                  <span className="text-xs font-black text-emerald-700 dark:text-emerald-300">
+                    {formatPriceUZS(proceedsNum)}
+                  </span>
+                </div>
+              </div>
             )}
           </div>
         )}
 
+        {/* Swap Surcharge Input */}
         {kind === 'SWAP_SURCHARGE' && (
-          <div>
-            <Label htmlFor="swap-surcharge">Doplata miqdori (UZS)</Label>
-            <Input
-              id="swap-surcharge"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              step={1}
-              value={surcharge}
-              onChange={(e) => setSurcharge(e.target.value)}
-              placeholder="100000"
-              required
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Qarshi taraf almashish uchun to&apos;lashi kerak bo&apos;lgan summa.
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="swap-surcharge" className="text-xs font-bold">
+                Doplata miqdori (so'm)
+              </Label>
+              {Number(surcharge) > 0 && (
+                <span className="text-[11px] font-black text-primary">
+                  {formatPriceUZS(Number(surcharge))}
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <Coins className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-500" />
+              <Input
+                id="swap-surcharge"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step={1}
+                value={surcharge}
+                onChange={(e) => setSurcharge(e.target.value)}
+                placeholder="100000"
+                className="h-10 rounded-xl pl-9 pr-3 text-xs font-bold"
+                required
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Qarshi taraf akkountni almashish uchun to‘lashi kerak bo‘lgan summa.
             </p>
           </div>
         )}
 
+        {/* Escrow Guarantee Callout */}
         {mode === 'SMART' ? (
-          <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            To&apos;lov xaridorning hamyonidan yechiladi va savdo yakunlangunicha
-            platformada saqlanadi. Karta kerak emas.
+          <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2.5 text-xs">
+            <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-bold text-foreground text-[11.5px]">100% Xavfsiz Garov (Escrow)</p>
+              <p className="text-[11px] text-muted-foreground leading-normal">
+                To‘lov xaridorning hamyonidan yechiladi va savdo yakunlangunicha platformada saqlanadi. Karta ma‘lumotlari talab qilinmaydi.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
-              Inson admin savdosida xaridor admin bilan bevosita to'lov qiladi.
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+              Inson admin savdosida xaridor admin bilan bevosita to‘lov qiladi.
               Platforma pulni ushlab turmaydi va komissiya olmaydi.
             </div>
             <div>
-              <Label>Admin tanlash</Label>
+              <Label className="text-xs font-bold">Admin tanlash</Label>
               <TradeAdminPicker
                 value={selectedAdmin?.userId}
                 onSelect={(admin) => {
@@ -1724,7 +1891,7 @@ function ProposeModal({
               />
             </div>
             <div>
-              <Label htmlFor="human-admin-fee">Admin xizmati narxi (UZS)</Label>
+              <Label htmlFor="human-admin-fee" className="text-xs font-bold">Admin xizmati narxi (so'm)</Label>
               <Input
                 id="human-admin-fee"
                 type="number"
@@ -1734,6 +1901,7 @@ function ProposeModal({
                 value={adminFee}
                 onChange={(e) => setAdminFee(e.target.value)}
                 placeholder={selectedAdmin ? String(selectedAdmin.minFeeUzs) : '30000'}
+                className="h-10 rounded-xl text-xs font-bold"
                 required
               />
               {selectedAdmin && (
@@ -1747,17 +1915,40 @@ function ProposeModal({
         )}
 
         {error && (
-          <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="flex items-center gap-2 rounded-xl bg-destructive/10 p-2.5 text-xs text-destructive">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span>{error}</span>
           </div>
         )}
-        <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={submitting}
+            className="h-10 px-4 text-xs font-bold"
+          >
             Bekor qilish
           </Button>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? 'Yuborilmoqda…' : 'Yuborish'}
+          <Button
+            type="submit"
+            disabled={submitting || (needsAmount(kind) && (!effectiveAmountUzs || effectiveAmountUzs <= 0))}
+            className="h-10 flex-1 sm:flex-none px-4 text-xs sm:text-sm font-black shadow-md shadow-primary/20"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                Yuborilmoqda…
+              </>
+            ) : (
+              <>
+                Taklif yuborish
+                {effectiveAmountUzs > 0 && ` • ${formatPriceUZS(effectiveAmountUzs)}`}
+                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              </>
+            )}
           </Button>
         </div>
       </form>
