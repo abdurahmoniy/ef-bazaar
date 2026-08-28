@@ -8,6 +8,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -76,6 +77,33 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> onTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return build(HttpStatus.BAD_REQUEST, "bad_request",
                 "So'rov parametri noto'g'ri", null);
+    }
+
+    /**
+     * Kod ataylab qaytargan HTTP holati.
+     *
+     * <p>BUSIZ HAR BIRI 500 BO'LARDI. {@code ResponseStatusException} uchun
+     * handler bo'lmagani uchun u {@code Exception.class} ga tushib, mijozga
+     * "Ichki xatolik" qaytardi va Telegramga ERROR sifatida ketdi. Ya'ni
+     * servis ichida yozilgan har bir aniq xabar — "Matn 1200 belgi",
+     * "Hamyonda mablag' yetarli emas", "Bitta jo'natma ketayapti" — mijozga
+     * yetib bormay, o'rniga umumiy matn ko'rsatilgan.
+     *
+     * <p>Foydalanuvchi sababli chiqqan 4xx WARN sifatida yoziladi: u
+     * nosozlik emas va ERROR bo'lib Telegram kanalini to'ldirmasligi kerak.
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> onStatus(ResponseStatusException ex) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        if (status == null) status = HttpStatus.INTERNAL_SERVER_ERROR;
+
+        String message = ex.getReason() == null ? status.getReasonPhrase() : ex.getReason();
+        if (status.is5xxServerError()) {
+            log.error("{} {}", status.value(), message, ex);
+        } else {
+            log.warn("{} {}", status.value(), message);
+        }
+        return build(status, status.name().toLowerCase(java.util.Locale.ROOT), message, null);
     }
 
     @ExceptionHandler(Exception.class)

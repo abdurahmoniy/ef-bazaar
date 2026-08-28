@@ -58,4 +58,28 @@ public class WebClientConfig {
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .build();
     }
+
+    /**
+     * auth-service'ning ichki API'si — ommaviy xabar uchun manzillar ro'yxati.
+     *
+     * <p>Timeout marketplace klientinikidan uzunroq: bu so'rov foydalanuvchi
+     * kutib turgan yo'lda emas, fondagi jo'natishda ketadi va u yerda
+     * javobni kutish tez muvaffaqiyatsizlikdan afzal — ro'yxatsiz jo'natish
+     * umuman boshlanmaydi.
+     */
+    @Bean
+    public WebClient authWebClient(
+            @Value("${app.auth.internal-base-url:http://auth-service:8081}") String baseUrl) {
+        HttpClient httpClient = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5_000)
+                .responseTimeout(Duration.ofSeconds(20))
+                .doOnConnected(conn -> conn
+                        .addHandlerLast(new ReadTimeoutHandler(20))
+                        .addHandlerLast(new WriteTimeoutHandler(20)));
+
+        return WebClient.builder()
+                .baseUrl(baseUrl)
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .build();
+    }
 }

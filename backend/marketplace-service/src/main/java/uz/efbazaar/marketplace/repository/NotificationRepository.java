@@ -19,6 +19,22 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     long countByUserIdAndReadAtIsNull(UUID userId);
 
+    /**
+     * Admin panelidagi ishora uchun: pul yechish so'rovlari haqidagi
+     * o'qilmagan bildirishnomalar.
+     *
+     * <p>Alohida jadval yaratmaymiz — bu qatorlar allaqachon har admin
+     * uchun yoziladi ({@code WithdrawalConsumer}) va ularni ikkinchi marta
+     * sanash ikki manba orasida farq tug'dirardi.
+     *
+     * <p>Ikkita metod: `:since is null` bitta so'rovga qo'yilsa, Postgres
+     * qiymat null bo'lganda parametr turini aniqlay olmay 42P18 beradi.
+     */
+    long countByUserIdAndTypeAndReadAtIsNull(UUID adminId, NotificationType type);
+
+    long countByUserIdAndTypeAndReadAtIsNullAndCreatedAtAfter(
+            UUID adminId, NotificationType type, Instant since);
+
     Optional<Notification> findFirstByUserIdAndChatIdAndTypeAndReadAtIsNull(
             UUID userId, UUID chatId, NotificationType type);
 

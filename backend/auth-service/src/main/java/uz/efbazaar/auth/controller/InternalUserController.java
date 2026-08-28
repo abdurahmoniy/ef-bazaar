@@ -2,10 +2,16 @@ package uz.efbazaar.auth.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import uz.efbazaar.auth.domain.Role;
 import uz.efbazaar.auth.domain.User;
@@ -53,6 +59,56 @@ public class InternalUserController {
         return userRepository.findByRole(Role.ADMIN).stream()
                 .map(UserSummaryResponse::from)
                 .toList();
+    }
+
+    /**
+     * Telegram chat id lari — ommaviy xabar yuborish uchun.
+     *
+     * <p>DIQQAT: telegramId borligi botga xabar YUBORISH mumkinligini
+     * bildirmaydi. Telegram botga faqat o'zi bilan suhbat boshlagan odamga
+     * yozishga ruxsat beradi; saytda Telegram Login orqali kirgan, lekin
+     * botda /start bosmagan foydalanuvchi 403 qaytaradi. Ya'ni bu ro'yxat
+     * "kimga urinib ko'rish mumkin", "kimga yetadi" emas.
+     *
+     * <p>Sahifalab qaytariladi — ro'yxat o'n minglab bo'lishi mumkin va
+     * uni bitta javobga solish ikkala servisda ham xotirani band qiladi.
+     */
+    @GetMapping("/telegram-ids")
+    public Page<Long> telegramIds(@RequestParam(defaultValue = "ALL") Audience audience,
+                                  @PageableDefault(size = 500) Pageable pageable) {
+        return switch (audience) {
+            case ALL    -> userRepository.findTelegramIds(pageable);
+            case ADMINS -> userRepository.findTelegramIdsByRole(Role.ADMIN, pageable);
+            case USERS  -> userRepository.findTelegramIdsByRoleNot(Role.ADMIN, pageable);
+        };
+    }
+
+    /**
+     * Kimga yuborilsin.
+     *
+     * <p>Ajratish AYNAN SHU YERDA bo'ladi, chaqiruvchida emas: rollar
+     * auth-service'ga tegishli va ular o'zgarganda faqat shu fayl
+     * yangilanishi kerak. Bot rollar haqida hech narsa bilmaydi, u
+     * tayyor manzillar ro'yxatini oladi.
+     */
+    public enum Audience { ALL, USERS, ADMINS }
+
+    /**
+     * Telegram chat id bo'yicha foydalanuvchi.
+     *
+     * <p>Bot faqat Telegram identifikatorlarini biladi — kanalga kim
+     * qo'shganini `my_chat_member` shundan aytadi. Platformadagi arizani
+     * unga bog'lash uchun oradagi ko'prik shu endpoint.
+     *
+     * @return topilmasa 404 emas, bo'sh javob: chaqiruvchi uchun "bunday
+     *         foydalanuvchi yo'q" xatolik emas, oddiy natija.
+     */
+    @GetMapping("/by-telegram-id/{telegramId}")
+    public ResponseEntity<UserSummaryResponse> byTelegramId(@PathVariable Long telegramId) {
+        return userRepository.findByTelegramId(telegramId)
+                .map(UserSummaryResponse::from)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @PostMapping("/names/batch")

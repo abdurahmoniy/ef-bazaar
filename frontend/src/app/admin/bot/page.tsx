@@ -1,4 +1,4 @@
-import { AdminBotSettings } from '@/components/admin/admin-bot-settings';
+import { AdminBotPanel } from '@/components/admin/admin-bot-panel';
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { getAdminBotSettings } from '@/lib/marketplace-server';
 
@@ -11,5 +11,5 @@ export default async function AdminBotPage() {
     return <ApiErrorPanel title="Bot sozlamalari yuklanmadi" error={result.error} />;
   }
 
-  return <AdminBotSettings initial={result.data} />;
+  return <AdminBotPanel settings={result.data} />;
 }

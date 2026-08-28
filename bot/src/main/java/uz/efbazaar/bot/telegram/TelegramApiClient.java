@@ -231,6 +231,33 @@ public class TelegramApiClient {
         return postJson("sendPhoto", body).flatMap(this::extractOnePhoto);
     }
 
+    /**
+     * Kanaldagi obunachilar soni.
+     *
+     * <p>Bot kanalda ADMIN bo'lishi shart — oddiy a'zo bu ma'lumotni
+     * o'qiy olmaydi. Aynan shuning uchun hamkorlik oqimida botni admin
+     * qilib qo'shish talab qilinadi.
+     */
+    public Optional<Integer> getChatMemberCount(long chatId) {
+        ObjectNode body = objectMapper.createObjectNode().put("chat_id", chatId);
+        return postJson("getChatMemberCount", body).map(JsonNode::asInt);
+    }
+
+    /**
+     * Foydalanuvchining kanaldagi maqomi: {@code creator}, {@code administrator},
+     * {@code member}, {@code left}, {@code kicked}.
+     *
+     * <p>Hamkorlik uchun faqat {@code creator} yetarli: administrator kanal
+     * egasi emas va uni hamkor deb hisoblab bo'lmaydi.
+     */
+    public Optional<String> getChatMemberStatus(long chatId, long userId) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("user_id", userId);
+        return postJson("getChatMember", body)
+                .map(result -> result.path("status").asText(null));
+    }
+
     /** Returns a downloadable file path for a given file_id (call getFile then prepend api URL). */
     public Optional<String> getFilePath(String fileId) {
         ObjectNode body = objectMapper.createObjectNode().put("file_id", fileId);
@@ -271,6 +298,7 @@ public class TelegramApiClient {
         if (secret != null && !secret.isBlank()) {
             body.put("secret_token", secret);
         }
+        body.set("allowed_updates", allowedUpdates());
         postJson("setWebhook", body)
                 .ifPresentOrElse(
                         r -> log.info("Webhook set to '{}'", url),
@@ -282,7 +310,23 @@ public class TelegramApiClient {
         ObjectNode body = objectMapper.createObjectNode()
                 .put("offset", offset)
                 .put("timeout", timeoutSeconds);
+        body.set("allowed_updates", allowedUpdates());
         return postJson("getUpdates", body);
+    }
+
+    /**
+     * Qaysi yangilanishlar kerakligi.
+     *
+     * <p>{@code my_chat_member} ni ATAYLAB sanab o'tamiz: Telegram standart
+     * holatda uni YUBORMAYDI va ro'yxat berilmasa bot kanalga admin qilib
+     * qo'shilganini umuman bilmay qolardi. Ro'yxat berilgach, unda
+     * sanalmagan tur ham kelmaydi — shuning uchun `message` ham bu yerda.
+     */
+    private ArrayNode allowedUpdates() {
+        return objectMapper.createArrayNode()
+                .add("message")
+                .add("callback_query")
+                .add("my_chat_member");
     }
 
     /**
@@ -319,6 +363,114 @@ public class TelegramApiClient {
         }
         body.set("reply_markup", buildKeyboard(rows));
         return postJson("sendPhoto", body).map(this::extractMessageId);
+    }
+
+    /**
+     * Ommaviy xabar uchun yuborish — natijani AJRATIB qaytaradi.
+     *
+     * <p>Oddiy {@code sendMessage} xatolikni yutib {@code Optional.empty()}
+     * beradi va bu yerda yetarli emas: bloklagan foydalanuvchi (403) kutilgan
+     * holat va har jo'natishda uchraydi, tezlik chegarasi (429) esa kutish va
+     * qayta urinishni talab qiladi, qolgan xatoliklar esa tekshirilishi kerak.
+     * Uchalasini bitta "yuborilmadi" ga qo'shsak, nosozlik normal fonda
+     * ko'rinmay qolardi.
+     */
+    public SendOutcome sendBroadcast(String chatId, String text, String bannerFileId,
+                                     List<List<UrlButton>> keyboard) {
+        boolean withBanner = bannerFileId != null && !bannerFileId.isBlank();
+        ObjectNode body = objectMapper.createObjectNode().put("chat_id", chatId);
+
+        if (withBanner) {
+            body.put("photo", bannerFileId);
+            if (text != null && !text.isBlank()) {
+                body.put("caption", text);
+                body.put("parse_mode", "HTML");
+            }
+        } else {
+            body.put("text", text);
+            body.put("parse_mode", "HTML");
+            body.put("disable_web_page_preview", true);
+        }
+        if (keyboard != null && !keyboard.isEmpty()) {
+            body.set("reply_markup", buildUrlKeyboard(keyboard));
+        }
+
+        try {
+            telegramWebClient.post()
+                    .uri(withBanner ? "/sendPhoto" : "/sendMessage")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+            return SendOutcome.sent();
+        } catch (WebClientResponseException e) {
+            return classify(e);
+        } catch (Exception e) {
+            return SendOutcome.failed(e.getMessage());
+        }
+    }
+
+    private SendOutcome classify(WebClientResponseException e) {
+        int status = e.getStatusCode().value();
+        String body = e.getResponseBodyAsString();
+
+        if (status == 429) {
+            // Telegram qancha kutish kerakligini o'zi aytadi. Taxmin qilish
+            // o'rniga shuni o'qiymiz — kam kutsak yana chegaraga uriladi,
+            // ko'p kutsak jo'natish keraksiz cho'ziladi.
+            int retryAfter = 1;
+            try {
+                JsonNode parsed = objectMapper.readTree(body);
+                retryAfter = parsed.path("parameters").path("retry_after").asInt(1);
+            } catch (Exception ignored) {
+                // Javob kutilmagan shaklda — bir soniya kutamiz.
+            }
+            return SendOutcome.rateLimited(retryAfter);
+        }
+
+        // 403 — bot bloklangan, foydalanuvchi o'chirilgan, yoki u hech qachon
+        // /start bosmagan. Qayta urinish foyda bermaydi.
+        // 400 "chat not found" ham xuddi shunday yakuniy holat.
+        if (status == 403 || (status == 400 && body.contains("chat not found"))) {
+            return SendOutcome.blocked();
+        }
+        return SendOutcome.failed(status + " " + body);
+    }
+
+    /**
+     * Bitta oddiy havola tugmasi bilan xabar.
+     *
+     * <p>{@link #sendMessageWithKeyboard} dan farqi: u {@code web_app}
+     * tugmalarini yasaydi va ular Mini App'ni ochadi. Bu yerda esa
+     * Telegram'ning o'z chuqur havolasi kerak — u ilova ichida kanal
+     * tanlash oynasini ochadi, saytni emas.
+     */
+    public Optional<Integer> sendMessageWithUrlButton(String chatId, String text,
+                                                      UrlButton button) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("text", text)
+                .put("parse_mode", "HTML")
+                .put("disable_web_page_preview", true);
+        body.set("reply_markup", buildUrlKeyboard(List.of(List.of(button))));
+        return postJson("sendMessage", body).map(this::extractMessageId);
+    }
+
+    private ObjectNode buildUrlKeyboard(List<List<UrlButton>> rows) {
+        ArrayNode keyboard = objectMapper.createArrayNode();
+        for (List<UrlButton> row : rows) {
+            ArrayNode jsonRow = objectMapper.createArrayNode();
+            for (UrlButton button : row) {
+                jsonRow.add(objectMapper.createObjectNode()
+                        .put("text", button.text())
+                        .put("url", button.url()));
+            }
+            keyboard.add(jsonRow);
+        }
+        ObjectNode markup = objectMapper.createObjectNode();
+        markup.set("inline_keyboard", keyboard);
+        return markup;
     }
 
     private ObjectNode buildKeyboard(List<List<WebAppButton>> rows) {
@@ -433,6 +585,28 @@ public class TelegramApiClient {
 
     /** Single inline-keyboard button that opens a Telegram Mini App. */
     public record WebAppButton(String text, String url) {}
+
+    /**
+     * Ordinary inline-keyboard button that opens a URL.
+     *
+     * <p>Separate from {@link WebAppButton} because the two are different
+     * things to Telegram: a {@code web_app} button opens the Mini App inside
+     * Telegram and only works in private chats, while a {@code url} button
+     * hands the link to the browser. Broadcasts carry admin-supplied links
+     * to arbitrary destinations, so they use this one.
+     */
+    public record UrlButton(String text, String url) {}
+
+    /** Natijasi ajratilgan yuborish — {@link #sendBroadcast} uchun. */
+    public record SendOutcome(Result result, int retryAfterSeconds, String error) {
+
+        public enum Result { SENT, BLOCKED, RATE_LIMITED, FAILED }
+
+        public static SendOutcome sent()                  { return new SendOutcome(Result.SENT, 0, null); }
+        public static SendOutcome blocked()               { return new SendOutcome(Result.BLOCKED, 0, null); }
+        public static SendOutcome rateLimited(int after)  { return new SendOutcome(Result.RATE_LIMITED, after, null); }
+        public static SendOutcome failed(String error)    { return new SendOutcome(Result.FAILED, 0, error); }
+    }
 
     /** Result of {@link #sendDocument}. */
     public record UploadedDocument(int messageId, String fileId) {}

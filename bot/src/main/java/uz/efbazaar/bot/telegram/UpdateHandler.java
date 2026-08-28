@@ -5,8 +5,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import uz.efbazaar.bot.partner.ChannelVerifier;
 import uz.efbazaar.bot.settings.BotSettingsClient;
 import uz.efbazaar.bot.settings.BotSettingsClient.BotSettingsView;
+import uz.efbazaar.bot.telegram.TelegramApiClient.UrlButton;
 import uz.efbazaar.bot.telegram.TelegramApiClient.WebAppButton;
 
 import java.util.List;
@@ -22,11 +24,23 @@ public class UpdateHandler {
 
     private final TelegramApiClient telegram;
     private final BotSettingsClient settings;
+    private final ChannelVerifier channels;
 
     @Value("${app.web.base-url:https://efbazaar.uz}")
     private String webBaseUrl;
 
+    @Value("${app.telegram.bot-username:}")
+    private String botUsername;
+
     public void handle(JsonNode update) {
+        // Bot kanalga admin qilib qo'shildi (yoki maqomi o'zgardi) —
+        // hamkorlik oqimidagi kanal tekshiruvi shu yerdan boshlanadi.
+        JsonNode myChatMember = update.path("my_chat_member");
+        if (!myChatMember.isMissingNode()) {
+            channels.handle(myChatMember);
+            return;
+        }
+
         JsonNode message = update.path("message");
         if (message.isMissingNode()) return;
 
@@ -37,6 +51,8 @@ public class UpdateHandler {
             sendStart(chatId);
         } else if (text.startsWith("/help")) {
             sendHelp(chatId);
+        } else if (text.startsWith("/partner")) {
+            sendPartner(chatId);
         }
         // Boshqa xabarlar: ignore
     }
@@ -81,16 +97,53 @@ public class UpdateHandler {
                         new WebAppButton("❓ Yordam", url("/help"))));
     }
 
+    /** Bot username, "@" siz. Sozlanmagan bo'lsa bo'sh. */
+    private String safeUsername() {
+        String name = botUsername;
+        return name == null ? "" : name.replace("@", "").trim();
+    }
+
     private String url(String path) {
         String base = webBaseUrl == null ? "" : webBaseUrl;
         return base.endsWith("/") ? base.substring(0, base.length() - 1) + path : base + path;
+    }
+
+    /**
+     * Kanalni bog'lash uchun tayyor tugma.
+     *
+     * <p>Telegram'ning {@code ?startchannel} chuqur havolasi kanal tanlash
+     * oynasini ochadi va botni darhol administrator qilib tayinlaydi.
+     * Foydalanuvchi kanal sozlamalari ichida yo'l qidirmaydi — bu qadam
+     * aynan shu yerda adashib qolinadigan joy edi.
+     */
+    private void sendPartner(long chatId) {
+        String bot = safeUsername();
+        if (bot.isEmpty()) {
+            telegram.sendMessage(String.valueOf(chatId), null,
+                    "Bot nomi sozlanmagan. Administratorga xabar bering.");
+            return;
+        }
+
+        String text = "🤝 <b>Hamkorlik</b>\n\n"
+                + "Kanalingizni bog'lash uchun:\n\n"
+                + "1. Pastdagi tugmani bosing\n"
+                + "2. Ro'yxatdan kanalingizni tanlang\n"
+                + "3. \"Add Bot as Admin\" ni tasdiqlang\n\n"
+                + "Shundan keyin obunachilar soni va kanal egasi avtomatik tekshiriladi.\n\n"
+                + "⚠️ Botni <b>kanal egasi</b> qo'shishi kerak — administrator bo'lsangiz "
+                + "ham yetarli emas.";
+
+        telegram.sendMessageWithUrlButton(String.valueOf(chatId), text,
+                new UrlButton("📢 Kanalga qo'shish",
+                        "https://t.me/" + bot + "?startchannel&admin=post_messages"));
     }
 
     private void sendHelp(long chatId) {
         String text = "ℹ️ <b>Yordam</b>\n\n"
                 + "Bot orqali siz quyidagi amallarni bajarishingiz mumkin:\n"
                 + "• /start — botni qayta ishga tushirish\n"
-                + "• /help — yordam ko'rsatish\n\n"
+                + "• /help — yordam ko'rsatish\n"
+                + "• /partner — kanalingizni hamkorlikka bog'lash\n\n"
                 + "Aksariyat amallar saytda — pastdagi tugma orqali oching.";
         telegram.sendMessageWithKeyboard(String.valueOf(chatId), text, startKeyboard());
     }

@@ -12,7 +12,9 @@ public enum Role {
     USER,
     ADMIN,
     /** Runs escrow trades by hand for a fee. See the human trade-admin spec. */
-    TRADE_ADMIN;
+    TRADE_ADMIN,
+    /** Owner of a large Telegram channel, admitted through the partner flow. */
+    PARTNER;
 
     /**
      * Authorities put into the JWT {@code roles} claim and forwarded by nginx
@@ -24,6 +26,7 @@ public enum Role {
             case USER        -> List.of("ROLE_USER");
             case ADMIN       -> List.of("ROLE_USER", "ROLE_ADMIN");
             case TRADE_ADMIN -> List.of("ROLE_USER", "ROLE_TRADE_ADMIN");
+            case PARTNER     -> List.of("ROLE_USER", "ROLE_PARTNER");
         };
     }
 }
