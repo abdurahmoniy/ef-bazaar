@@ -26,15 +26,14 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
      * <p>Alohida jadval yaratmaymiz — bu qatorlar allaqachon har admin
      * uchun yoziladi ({@code WithdrawalConsumer}) va ularni ikkinchi marta
      * sanash ikki manba orasida farq tug'dirardi.
+     *
+     * <p>Ikkita metod: `:since is null` bitta so'rovga qo'yilsa, Postgres
+     * qiymat null bo'lganda parametr turini aniqlay olmay 42P18 beradi.
      */
-    @Query("""
-            select count(n) from Notification n
-             where n.userId = :adminId
-               and n.type = uz.efbazaar.marketplace.domain.NotificationType.WITHDRAWAL_REQUESTED
-               and n.readAt is null
-               and (:since is null or n.createdAt > :since)
-            """)
-    long countUnreadWithdrawalsSince(@Param("adminId") UUID adminId, @Param("since") Instant since);
+    long countByUserIdAndTypeAndReadAtIsNull(UUID adminId, NotificationType type);
+
+    long countByUserIdAndTypeAndReadAtIsNullAndCreatedAtAfter(
+            UUID adminId, NotificationType type, Instant since);
 
     Optional<Notification> findFirstByUserIdAndChatIdAndTypeAndReadAtIsNull(
             UUID userId, UUID chatId, NotificationType type);

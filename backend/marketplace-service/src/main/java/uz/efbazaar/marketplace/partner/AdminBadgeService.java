@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uz.efbazaar.marketplace.domain.NotificationType;
 import uz.efbazaar.marketplace.partner.PartnerApplication.Status;
 import uz.efbazaar.marketplace.partner.PartnerRepositories.AdminSectionViewRepository;
 import uz.efbazaar.marketplace.partner.PartnerRepositories.PartnerApplicationRepository;
@@ -46,8 +47,10 @@ public class AdminBadgeService {
                 .forEach(v -> seen.put(v.getSection(), v.getLastSeenAt()));
 
         Map<String, Long> counts = new HashMap<>();
-        counts.put(SECTION_PARTNER_APPLICATIONS, applications.countPending(
-                Status.AWAITING_REVIEW, seen.get(SECTION_PARTNER_APPLICATIONS)));
+        Instant partnersSeen = seen.get(SECTION_PARTNER_APPLICATIONS);
+        counts.put(SECTION_PARTNER_APPLICATIONS, partnersSeen == null
+                ? applications.countByStatus(Status.AWAITING_REVIEW)
+                : applications.countByStatusAndUpdatedAtAfter(Status.AWAITING_REVIEW, partnersSeen));
         counts.put(SECTION_WITHDRAWALS, countUnreadWithdrawals(adminId,
                 seen.get(SECTION_WITHDRAWALS)));
         return counts;
@@ -59,7 +62,11 @@ public class AdminBadgeService {
      * o'qilmagan qatorlarning o'zi kerakli sanoq.
      */
     private long countUnreadWithdrawals(UUID adminId, Instant since) {
-        return notifications.countUnreadWithdrawalsSince(adminId, since);
+        return since == null
+                ? notifications.countByUserIdAndTypeAndReadAtIsNull(
+                        adminId, NotificationType.WITHDRAWAL_REQUESTED)
+                : notifications.countByUserIdAndTypeAndReadAtIsNullAndCreatedAtAfter(
+                        adminId, NotificationType.WITHDRAWAL_REQUESTED, since);
     }
 
     /**

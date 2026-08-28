@@ -38,20 +38,22 @@ public final class PartnerRepositories {
                 Long channelId, Collection<Status> statuses);
 
         /**
-         * Ishora uchun sanoq: shu holatdagi va admin oxirgi ko'rgandan keyin
-         * o'zgargan arizalar.
+         * Ishora uchun sanoq: shu holatdagi arizalar.
+         *
+         * <p>IKKITA METOD, bitta emas. Bitta so'rovda `:since is null` yozilsa,
+         * Postgres qiymat null bo'lganda parametr turini aniqlay olmaydi —
+         * uni solishtiradigan hech narsa yo'q — va so'rov 42P18 bilan yiqiladi.
+         * Bu faqat haqiqiy bazada ko'rinadi: mock'li sinovlar SQL'ni umuman
+         * ishlatmaydi.
          *
          * <p>Sanoq {@code created_at} emas, {@code updated_at} bo'yicha:
          * ariza avval AWAITING_CHANNEL bo'lib yaratiladi va faqat to'lovdan
          * keyin admin ko'rishi kerak bo'ladi. Yaratilish vaqti bo'yicha
          * sanasak, to'lov ko'rilgandan keyin kelgan ariza ishorasiz qolardi.
          */
-        @Query("""
-                select count(a) from PartnerApplication a
-                 where a.status = :status
-                   and (:since is null or a.updatedAt > :since)
-                """)
-        long countPending(@Param("status") Status status, @Param("since") Instant since);
+        long countByStatus(Status status);
+
+        long countByStatusAndUpdatedAtAfter(Status status, Instant since);
 
         List<PartnerApplication> findByUserIdOrderByCreatedAtDesc(UUID userId);
     }

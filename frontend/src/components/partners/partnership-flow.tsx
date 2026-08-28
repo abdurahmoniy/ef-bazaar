@@ -8,6 +8,7 @@ import {
   Clock,
   Handshake,
   Loader2,
+  Send,
   Wallet,
   XCircle,
 } from 'lucide-react';
@@ -26,7 +27,20 @@ import {
 import { isInsufficientFunds, topUpHref } from '@/lib/wallet-shortfall';
 import { cn } from '@/lib/utils';
 
-const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT ?? '';
+/**
+ * Botni kanalga administrator qilib qo'shish uchun Telegram'ning tayyor
+ * havolasi.
+ *
+ * <p>`?startchannel` Telegram'da kanal tanlash oynasini ochadi va botni
+ * darhol administrator qilib tayinlaydi — foydalanuvchi sozlamalar ichida
+ * yo'l qidirmaydi. `admin=` da so'ralgan huquqlar ro'yxati bo'lishi shart;
+ * `post_messages` eng kami, chunki bittasiz Telegram havolani qabul
+ * qilmaydi. Obunachi sonini o'qish uchun qo'shimcha huquq kerak emas —
+ * administrator bo'lishning o'zi yetarli.
+ */
+function addToChannelLink(botUsername: string): string {
+  return `https://t.me/${botUsername}?startchannel&admin=post_messages`;
+}
 
 type StepState = 'done' | 'active' | 'todo';
 
@@ -87,7 +101,16 @@ function Step({ index, title, state, children }: {
  * Uchtasi bir xil "kutilmoqda" bo'lib ko'rinsa, foydalanuvchi nima
  * qilishini bilmaydi.
  */
-export function PartnershipFlow() {
+interface PartnershipFlowProps {
+  /**
+   * Serverdan keladi, `process.env` dan emas: `NEXT_PUBLIC_*` build paytida
+   * kodga yoziladi va konteynerga ish vaqtida berilgan qiymat bu yerga
+   * yetib kelmaydi.
+   */
+  botUsername: string;
+}
+
+export function PartnershipFlow({ botUsername }: PartnershipFlowProps) {
   const [settings, setSettings] = useState<PartnerSettings | null>(null);
   const [application, setApplication] = useState<PartnerApplication | null>(null);
   const [loading, setLoading] = useState(true);
@@ -237,16 +260,48 @@ export function PartnershipFlow() {
           )}
         </Step>
 
-        <Step index={2} title="Botni kanalga admin qilib qo'shing" state={stepState(application, 1)}>
-          <p>
-            Kanalingiz sozlamalarida{' '}
-            <b>{BOT_USERNAME ? `@${BOT_USERNAME.replace('@', '')}` : 'botimizni'}</b> ni
-            administrator qilib qo&apos;shing. Bot obunachilar sonini va kanal egasi kimligini
-            o&apos;zi tekshiradi.
-          </p>
-          <p className="text-xs">
-            Botni <b>kanal egasi</b> qo&apos;shishi kerak — administrator bo&apos;lsangiz ham
-            yetarli emas.
+        <Step index={2} title="Botni kanalga qo'shing" state={stepState(application, 1)}>
+          {botUsername ? (
+            <>
+              <ol className="ml-4 list-decimal space-y-1.5">
+                <li>
+                  Pastdagi tugmani bosing — Telegram ochiladi.
+                </li>
+                <li>
+                  Ro&apos;yxatdan <b>kanalingizni tanlang</b>.
+                </li>
+                <li>
+                  Telegram so&apos;raganda <b>&quot;Add Bot as Admin&quot;</b> (Botni admin
+                  sifatida qo&apos;shish) ni tasdiqlang.
+                </li>
+                <li>
+                  Shu sahifaga qayting — tekshiruv <b>avtomatik</b> o&apos;tadi, hech narsa
+                  kiritish shart emas.
+                </li>
+              </ol>
+
+              <Button asChild className="gap-2">
+                <a href={addToChannelLink(botUsername)} target="_blank" rel="noreferrer">
+                  <Send className="h-4 w-4" />
+                  Kanalga qo&apos;shish
+                </a>
+              </Button>
+
+              <p className="text-xs">
+                Tugma ishlamasa: Telegramda <b>@{botUsername}</b> ni oching va{' '}
+                <code className="rounded bg-muted px-1">/partner</code> yuboring — bot
+                o&apos;sha tugmani sizga yuboradi.
+              </p>
+            </>
+          ) : (
+            <p className="text-destructive">
+              Bot nomi sozlanmagan. Administratorga xabar bering.
+            </p>
+          )}
+
+          <p className="rounded-lg border border-border bg-muted/40 p-2.5 text-xs">
+            Botni <b>kanal egasi</b> qo&apos;shishi kerak. Administrator bo&apos;lsangiz ham
+            yetarli emas — hamkorlik kanal egasiga beriladi.
           </p>
 
           {application?.verificationError && (
