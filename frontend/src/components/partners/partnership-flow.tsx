@@ -12,7 +12,6 @@ import {
   Wallet,
   XCircle,
 } from 'lucide-react';
-import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { formatPriceUZS } from '@/lib/marketplace-format';
@@ -24,6 +23,7 @@ import {
   type PartnerApplication,
   type PartnerSettings,
 } from '@/lib/partners';
+import { createInvoice } from '@/lib/payment-client';
 import { isInsufficientFunds, topUpHref } from '@/lib/wallet-shortfall';
 import { cn } from '@/lib/utils';
 
@@ -116,7 +116,6 @@ export function PartnershipFlow({ botUsername }: PartnershipFlowProps) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [shortfall, setShortfall] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -157,21 +156,40 @@ export function PartnershipFlow({ botUsername }: PartnershipFlowProps) {
 
   async function pay() {
     setError(null);
-    setShortfall(null);
     setBusy(true);
     try {
       setApplication(await payPartnershipFee());
+      return;
     } catch (e) {
       const message = e instanceof Error ? e.message : "To'lov amalga oshmadi";
-      setError(message);
-      // Mablag' yetmasa summani hamyon sahifasiga olib o'tamiz — savdolarda
-      // ham shunday ishlaydi.
-      if (isInsufficientFunds(message)) {
-        const missing = message.match(/(\d+)\s*so['’]m/);
-        setShortfall(missing ? Number(missing[1]) : (settings?.priceSom ?? 0));
+
+      if (!isInsufficientFunds(message)) {
+        setError(message);
+        setBusy(false);
+        return;
       }
-    } finally {
-      setBusy(false);
+
+      // Mablag' yetmadi. Yetishmayotgan summa xabar matnida keladi —
+      // payment-service uni ataylab shunday yozadi.
+      const matched = message.match(/(\d+)\s*so['’]m/);
+      const missing = matched ? Number(matched[1]) : Math.ceil(settings?.priceSom ?? 0);
+      if (missing <= 0) {
+        setError(message);
+        setBusy(false);
+        return;
+      }
+
+      // Hisob-fakturani O'ZIMIZ ochamiz va foydalanuvchini to'g'ridan-to'g'ri
+      // to'lov sahifasiga olib o'tamiz. Faqat havola berish yetarli emas
+      // edi: u yerga borgan odam summani qo'lda kiritishi kerak bo'lardi va
+      // xato kiritsa yana shu yerga qaytardi. Savdolarda ham shunday.
+      try {
+        await createInvoice(missing);
+      } catch {
+        // Hisob-faktura ochilmadi — summa manzilda qoladi va hamyon
+        // sahifasi maydonni o'sha son bilan to'ldiradi.
+      }
+      window.location.href = topUpHref(missing, '/partnership');
     }
   }
 
@@ -228,14 +246,6 @@ export function PartnershipFlow({ botUsername }: PartnershipFlowProps) {
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
-          {shortfall !== null && shortfall > 0 && (
-            <Button asChild size="sm" variant="outline" className="gap-2">
-              <Link href={topUpHref(shortfall, '/partnership')}>
-                <Wallet className="h-4 w-4" />
-                Hamyonni to&apos;ldirish
-              </Link>
-            </Button>
-          )}
         </div>
       )}
 
