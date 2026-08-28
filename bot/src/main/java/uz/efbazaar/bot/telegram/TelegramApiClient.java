@@ -438,6 +438,25 @@ public class TelegramApiClient {
         return SendOutcome.failed(status + " " + body);
     }
 
+    /**
+     * Bitta oddiy havola tugmasi bilan xabar.
+     *
+     * <p>{@link #sendMessageWithKeyboard} dan farqi: u {@code web_app}
+     * tugmalarini yasaydi va ular Mini App'ni ochadi. Bu yerda esa
+     * Telegram'ning o'z chuqur havolasi kerak — u ilova ichida kanal
+     * tanlash oynasini ochadi, saytni emas.
+     */
+    public Optional<Integer> sendMessageWithUrlButton(String chatId, String text,
+                                                      UrlButton button) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("text", text)
+                .put("parse_mode", "HTML")
+                .put("disable_web_page_preview", true);
+        body.set("reply_markup", buildUrlKeyboard(List.of(List.of(button))));
+        return postJson("sendMessage", body).map(this::extractMessageId);
+    }
+
     private ObjectNode buildUrlKeyboard(List<List<UrlButton>> rows) {
         ArrayNode keyboard = objectMapper.createArrayNode();
         for (List<UrlButton> row : rows) {
