@@ -207,7 +207,8 @@ public class BotSettingsService {
      * <p>To'liq HTML tahlilchisi emas va bo'lishi ham shart emas: maqsad
      * Telegram rad etadigan matnni saqlanishidan oldin tutib qolish.
      */
-    private void validateHtml(String text) {
+    // Paket ichida ochiq: ommaviy xabar ham xuddi shu tekshiruvdan o'tadi.
+    void validateHtml(String text) {
         Matcher matcher = TAG.matcher(text);
         Deque<String> open = new ArrayDeque<>();
 

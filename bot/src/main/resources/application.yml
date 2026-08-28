@@ -60,6 +60,26 @@ app:
   # /start matni va banneri marketplace-service'da saqlanadi — botda DB yo'q.
   # Sir sozlanmagan bo'lsa bot standart matnga tushadi, lekin ishlashda davom
   # etadi: bu bog'liqlik /start ni sindirmasligi kerak.
+  auth:
+    internal-base-url: ${AUTH_INTERNAL_BASE_URL:http://auth-service:8081}
+  # Ommaviy xabar jo'natish tezligi.
+  #
+  # Telegram turli foydalanuvchilarga sekundiga ~30 xabarga ruxsat beradi.
+  # Chegaraga urilish jo'natishni tezlashtirmaydi — faqat 429 va kutish
+  # keltiradi, muntazam takrorlansa esa bot bloklanadi.
+  #
+  # 30 emas, 20: chegara BUTUN BOT uchun umumiy, bu jilov esa faqat ommaviy
+  # xabarlarni sanaydi. Bot ayni paytda chat bildirishnomalari, ro'yxatdan
+  # o'tish xabarlari va WARN/ERROR loglarini ham yuboradi. Ular shu 30 dan
+  # yeydi, lekin bu hisobga kirmaydi — shuning uchun 10 xabarlik zaxira
+  # qoldiramiz. 25 da zaxira 5 ta edi va jonli jo'natish paytida yetmasligi
+  # mumkin.
+  #
+  # To'g'ri yechim — botning HAMMA Telegram chaqiruvi uchun umumiy jilov.
+  # Foydalanuvchi soni o'sganda o'shanga o'tamiz; hozircha zaxira arzonroq.
+  broadcast:
+    messages-per-second: ${BROADCAST_MESSAGES_PER_SECOND:20}
+    progress-every: ${BROADCAST_PROGRESS_EVERY:50}
   marketplace:
     internal-base-url: ${MARKETPLACE_INTERNAL_BASE_URL:http://marketplace-service:8082}
     # Docker tarmog'idagi servislar bitta umumiy sirni bo'lishadi.

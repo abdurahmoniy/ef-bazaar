@@ -556,6 +556,12 @@ services:
       # Sirsiz bot standart matn bilan ishlaydi — bu yiqilish emas, degradatsiya.
       APP_BASE_URL: ${APP_BASE_URL}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
+      # Ommaviy xabar jo'natish tezligi. Telegram butun bot uchun sekundiga
+      # ~30 xabar beradi va bu jilov faqat ommaviy xabarlarni sanaydi —
+      # qolgani chat bildirishnomalari va loglar uchun zaxira.
+      # Real jo'natishda 429 ko'rinsa tushiring, toza ketsa ko'taring.
+      BROADCAST_MESSAGES_PER_SECOND: ${BROADCAST_MESSAGES_PER_SECOND:-20}
+      BROADCAST_PROGRESS_EVERY: ${BROADCAST_PROGRESS_EVERY:-50}
     depends_on:
       kafka:
         condition: service_started

@@ -1612,16 +1612,6 @@ function ProposeModal({
       payload.adminFeeUzs = feeUzs;
     }
     startSubmit(async () => {
-      if (mode === 'SMART') {
-        const listingPriceUzs = Number(effectiveListing?.price ?? 0);
-        const surchargeUzs = kind === 'SWAP_SURCHARGE' ? effectiveAmountUzs : 0;
-        const missing = await proposerShortfall(listingPriceUzs, surchargeUzs);
-        if (missing > 0) {
-          const returnTo = typeof window !== 'undefined' ? window.location.pathname : undefined;
-          await sendToTopUp(missing, returnTo, setError);
-          return;
-        }
-      }
       const result = await postProposal(payload);
       if (!result.ok) {
         setError(result.error);
@@ -1636,28 +1626,28 @@ function ProposeModal({
       <form className="space-y-3" onSubmit={handleSubmit}>
         {/* Context Preview Card */}
         {effectiveListing && (
-          <div className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 p-2.5 text-xs">
+          <div className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 p-2 sm:p-2.5 text-xs min-w-0">
             {coverUrl ? (
               <img
                 src={coverUrl}
                 alt="Akkount"
-                className="h-11 w-11 shrink-0 rounded-lg object-cover border border-border/50"
+                className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 rounded-lg object-cover border border-border/50"
               />
             ) : (
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground border border-border/50">
+              <div className="grid h-10 w-10 sm:h-11 sm:w-11 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground border border-border/50">
                 <Smartphone className="h-5 w-5" />
               </div>
             )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <div className="flex items-center gap-1.5 min-w-0">
                 {divLevel && (
-                  <DivisionBadge level={divLevel} size={16} />
+                  <DivisionBadge level={divLevel} size={15} className="shrink-0" />
                 )}
                 <p className="truncate font-bold text-foreground text-xs">
-                  {effectiveListing.description.slice(0, 60) || "Akkount"}
+                  {effectiveListing.description.slice(0, 50) || "Akkount"}
                 </p>
               </div>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
+              <p className="mt-0.5 text-[11px] text-muted-foreground truncate">
                 Asl narxi: <span className="font-semibold text-foreground">{formatPriceUZS(originalPrice)}</span>
               </p>
             </div>
@@ -1680,7 +1670,7 @@ function ProposeModal({
                     telegramHaptic(getTelegramWebApp(), 'selection', false);
                   }}
                   className={cn(
-                    'rounded-xl border py-2 px-1 text-center text-xs font-bold transition select-none',
+                    'rounded-xl border py-2 px-1 text-center text-xs font-bold transition select-none truncate',
                     kind === k
                       ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30 font-black'
                       : 'border-border bg-card text-muted-foreground hover:border-primary/40',
@@ -1710,14 +1700,14 @@ function ProposeModal({
                   telegramHaptic(getTelegramWebApp(), 'selection', false);
                 }}
                 className={cn(
-                  'rounded-xl border p-2.5 text-left text-xs transition select-none',
+                  'rounded-xl border p-2.5 text-left text-xs transition select-none min-w-0',
                   mode === 'SMART'
                     ? 'border-primary bg-primary/10 text-foreground ring-1 ring-primary/30'
                     : 'border-border bg-card text-muted-foreground hover:border-primary/40',
                 )}
               >
-                <span className="block font-black text-foreground">Smart admin</span>
-                <span className="text-[10.5px] text-muted-foreground">Avtomatik escrow flow</span>
+                <span className="block font-black text-foreground truncate">Smart admin</span>
+                <span className="text-[10.5px] text-muted-foreground truncate block">Avtomatik escrow flow</span>
               </button>
               <button
                 type="button"
@@ -1728,17 +1718,17 @@ function ProposeModal({
                   telegramHaptic(getTelegramWebApp(), 'selection', false);
                 }}
                 className={cn(
-                  'rounded-xl border p-2.5 text-left text-xs transition select-none',
+                  'rounded-xl border p-2.5 text-left text-xs transition select-none min-w-0',
                   mode === 'HUMAN'
                     ? 'border-primary bg-primary/10 text-foreground ring-1 ring-primary/30'
                     : 'border-border bg-card text-muted-foreground hover:border-primary/40',
                 )}
               >
-                <span className="flex items-center gap-1.5 font-black text-foreground">
-                  <UserCog className="h-3.5 w-3.5" />
+                <span className="flex items-center gap-1.5 font-black text-foreground truncate">
+                  <UserCog className="h-3.5 w-3.5 shrink-0" />
                   Inson admin
                 </span>
-                <span className="text-[10.5px] text-muted-foreground">Platforma bepul</span>
+                <span className="text-[10.5px] text-muted-foreground truncate block">Platforma bepul</span>
               </button>
             </div>
           </div>
@@ -1748,12 +1738,12 @@ function ProposeModal({
         {kind === 'SALE' && (
           <div className="space-y-2">
             <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="trade-price" className="text-xs font-bold">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="trade-price" className="text-xs font-bold shrink-0">
                   Taklif narxi (so'm)
                 </Label>
                 {hasValidPrice && (
-                  <span className="text-[11px] font-black text-primary">
+                  <span className="text-[11px] font-black text-primary truncate">
                     {formatPriceUZS(priceNum)}
                   </span>
                 )}
@@ -1775,9 +1765,9 @@ function ProposeModal({
               </div>
             </div>
 
-            {/* Quick Discount Presets */}
+            {/* Quick Discount Presets: Responsive 2-column or 4-column Grid */}
             {presets.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                 {presets.map((preset) => {
                   const isSelected = Number(price) === preset.value;
                   return (
@@ -1789,13 +1779,14 @@ function ProposeModal({
                         telegramHaptic(getTelegramWebApp(), 'selection', false);
                       }}
                       className={cn(
-                        'tap-press rounded-lg border px-2 py-1 text-[10.5px] font-bold transition select-none',
+                        'tap-press flex flex-col items-center justify-center rounded-xl border py-1.5 px-1 text-center transition select-none min-w-0',
                         isSelected
                           ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30 font-black'
                           : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
                       )}
                     >
-                      {preset.label}: {formatPriceUZS(preset.value)}
+                      <span className="text-[10px] font-semibold opacity-75">{preset.label}</span>
+                      <span className="text-[11px] font-bold truncate max-w-full">{formatPriceUZS(preset.value)}</span>
                     </button>
                   );
                 })}
@@ -1804,23 +1795,23 @@ function ProposeModal({
 
             {/* Financial Breakdown Card */}
             {hasValidPrice && (
-              <div className="rounded-xl border border-border bg-card/70 p-3 space-y-2 text-xs shadow-xs">
-                <div className="flex items-center justify-between text-muted-foreground text-[11.5px]">
-                  <span>Xaridor to‘laydi:</span>
-                  <span className="font-bold text-foreground">{formatPriceUZS(priceNum)}</span>
+              <div className="rounded-xl border border-border bg-muted/20 p-2.5 sm:p-3 space-y-1.5 text-xs min-w-0">
+                <div className="flex items-center justify-between gap-2 text-muted-foreground text-[11.5px]">
+                  <span className="shrink-0">Xaridor to‘laydi:</span>
+                  <span className="font-bold text-foreground truncate">{formatPriceUZS(priceNum)}</span>
                 </div>
-                <div className="flex items-center justify-between text-muted-foreground text-[11.5px]">
-                  <span>Smart-admin xizmati:</span>
-                  <span className="font-semibold text-destructive">
+                <div className="flex items-center justify-between gap-2 text-muted-foreground text-[11.5px]">
+                  <span className="shrink-0">Smart-admin xizmati:</span>
+                  <span className="font-semibold text-destructive truncate">
                     −{formatPriceUZS(feeNum)}
                   </span>
                 </div>
-                <div className="border-t border-border/60 pt-2 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-300 text-xs">
-                    <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500" />
-                    Sotuvchiga sof summa:
+                <div className="border-t border-border/60 pt-1.5 flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs shrink-0">
+                    <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    Sotuvchiga sof:
                   </span>
-                  <span className="text-xs font-black text-emerald-700 dark:text-emerald-300">
+                  <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300 truncate">
                     {formatPriceUZS(proceedsNum)}
                   </span>
                 </div>
@@ -1832,12 +1823,12 @@ function ProposeModal({
         {/* Swap Surcharge Input */}
         {kind === 'SWAP_SURCHARGE' && (
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="swap-surcharge" className="text-xs font-bold">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="swap-surcharge" className="text-xs font-bold shrink-0">
                 Doplata miqdori (so'm)
               </Label>
               {Number(surcharge) > 0 && (
-                <span className="text-[11px] font-black text-primary">
+                <span className="text-[11px] font-black text-primary truncate">
                   {formatPriceUZS(Number(surcharge))}
                 </span>
               )}
@@ -1865,17 +1856,17 @@ function ProposeModal({
 
         {/* Escrow Guarantee Callout */}
         {mode === 'SMART' ? (
-          <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2.5 text-xs">
+          <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2.5 text-xs min-w-0">
             <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
-            <div className="space-y-0.5">
+            <div className="space-y-0.5 min-w-0 flex-1">
               <p className="font-bold text-foreground text-[11.5px]">100% Xavfsiz Garov (Escrow)</p>
-              <p className="text-[11px] text-muted-foreground leading-normal">
-                To‘lov xaridorning hamyonidan yechiladi va savdo yakunlangunicha platformada saqlanadi. Karta ma‘lumotlari talab qilinmaydi.
+              <p className="text-[10.5px] sm:text-[11px] text-muted-foreground leading-normal break-words">
+                To‘lov xaridorning hamyonidan yechiladi va savdo yakunlangunicha platformada saqlanadi.
               </p>
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 min-w-0">
             <div className="rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
               Inson admin savdosida xaridor admin bilan bevosita to‘lov qiladi.
               Platforma pulni ushlab turmaydi va komissiya olmaydi.
@@ -1921,14 +1912,14 @@ function ProposeModal({
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-2 pt-1">
+        {/* Action Buttons: Responsive Layout */}
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-1">
           <Button
             type="button"
             variant="outline"
             onClick={onClose}
             disabled={submitting}
-            className="h-10 px-4 text-xs font-bold"
+            className="h-10 px-4 text-xs font-bold sm:w-auto"
           >
             Bekor qilish
           </Button>
@@ -1939,15 +1930,15 @@ function ProposeModal({
           >
             {submitting ? (
               <>
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                Yuborilmoqda…
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin shrink-0" />
+                <span className="truncate">Yuborilmoqda…</span>
               </>
             ) : (
-              <>
-                Taklif yuborish
-                {effectiveAmountUzs > 0 && ` • ${formatPriceUZS(effectiveAmountUzs)}`}
-                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-              </>
+              <span className="flex items-center justify-center gap-1 truncate w-full">
+                <span>Taklif yuborish</span>
+                {effectiveAmountUzs > 0 && <span className="font-extrabold truncate">• {formatPriceUZS(effectiveAmountUzs)}</span>}
+                <ArrowRight className="ml-1 h-3.5 w-3.5 shrink-0" />
+              </span>
             )}
           </Button>
         </div>
@@ -2036,8 +2027,8 @@ function AcceptModal({
             <span>{error}</span>
           </div>
         )}
-        <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-1">
+          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
             Bekor qilish
           </Button>
           <Button type="submit" disabled={submitting}>
@@ -2062,28 +2053,30 @@ function ModalShell({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
       role="dialog"
       aria-modal="true"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-4 shadow-card-hover animate-in fade-in zoom-in-95 duration-150">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-black text-foreground">{title}</h2>
+      <div className="relative w-full max-w-md max-h-[92vh] flex flex-col rounded-2xl border border-border bg-card shadow-card-hover overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto">
+        <div className="flex items-center justify-between border-b border-border/50 px-3.5 py-2.5 sm:px-4 sm:py-3 shrink-0">
+          <h2 className="text-sm sm:text-base font-black text-foreground truncate pr-2">{title}</h2>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-10 w-10 p-0"
+            className="h-8 w-8 sm:h-9 sm:w-9 p-0 rounded-lg text-muted-foreground hover:text-foreground shrink-0"
             onClick={onClose}
             aria-label="Yopish"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
         </div>
-        {children}
+        <div className="p-3.5 sm:p-4 overflow-y-auto overscroll-contain">
+          {children}
+        </div>
       </div>
     </div>
   );
