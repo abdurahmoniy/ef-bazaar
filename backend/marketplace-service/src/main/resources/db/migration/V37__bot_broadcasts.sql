@@ -29,14 +29,6 @@ CREATE TABLE bot_broadcasts (
     -- qaytarib bo'lmaydigan bo'lib qoladi.
     audience         text        NOT NULL DEFAULT 'ALL',
 
-    -- SELECTED uchun tanlangan manzillar. Boshqa auditoriyalarda bo'sh:
-    -- ro'yxat jo'natish paytida auth-service'dan olinadi va uni bu yerda
-    -- nusxalash foydasiz — u har jo'natishda o'zgaradi.
-    --
-    -- Tarix uchun esa SELECTED da ro'yxat SHART: "bu xabar kimga ketgan"
-    -- degan savolga keyinchalik javob beradigan yagona joy shu.
-    recipient_telegram_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
-
     -- Manzillar soni jo'natish boshlanganda aniqlanadi va keyin o'zgarmaydi.
     -- Foizni shu songa nisbatan hisoblaymiz.
     total_recipients integer     NOT NULL DEFAULT 0,
@@ -57,7 +49,7 @@ CREATE TABLE bot_broadcasts (
     CONSTRAINT chk_bot_broadcasts_status
         CHECK (status IN ('QUEUED', 'SENDING', 'SENT', 'FAILED')),
     CONSTRAINT chk_bot_broadcasts_audience
-        CHECK (audience IN ('ALL', 'USERS', 'ADMINS', 'SELECTED'))
+        CHECK (audience IN ('ALL', 'USERS', 'ADMINS'))
 );
 
 -- Tarix eng yangisidan boshlab ko'rsatiladi.
