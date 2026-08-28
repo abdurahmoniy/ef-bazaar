@@ -42,6 +42,7 @@ public class PartnerService {
     private final PartnerApplicationRepository applications;
     private final AuthSummaryClient users;
     private final PartnerEventPublisher events;
+    private final PartnerFeeClient fees;
 
     // ----- sozlamalar -----
 
@@ -162,6 +163,34 @@ public class PartnerService {
     }
 
     // ----- to'lov -----
+
+    /**
+     * Foydalanuvchi "To'lash" bosdi.
+     *
+     * <p>Pul hamyondan yechiladi. Yetmasa payment-service'ning xabari
+     * o'zgartirilmasdan qaytadi — unda yetishmayotgan summa bor va
+     * frontend shundan hamyonni to'ldirish havolasini yasaydi.
+     *
+     * <p>To'lov O'TGANIDAN KEYIN holat o'zgaradi. Teskarisi bo'lganda
+     * yechish yiqilsa ariza to'langan bo'lib qolardi.
+     */
+    @Transactional
+    public PartnerApplication pay(UUID userId) {
+        PartnerApplication application = applications
+                .findFirstByUserIdAndStatusInOrderByCreatedAtDesc(userId, List.of(Status.AWAITING_PAYMENT))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
+                        "To'lovga tayyor ariza yo'q. Avval kanalni tekshiruvdan o'tkazing."));
+
+        fees.charge(application.getId(), userId, settings().getPriceSom());
+
+        application.setPaidAt(Instant.now());
+        application.setStatus(Status.AWAITING_REVIEW);
+        log.info("Ariza {} to'landi (hamyondan), admin ko'rigiga o'tdi", application.getId());
+
+        events.applicationAwaitingReview(application);
+        return application;
+    }
+
 
     /**
      * To'lov tasdiqlandi — ariza admin ko'rigiga o'tadi.

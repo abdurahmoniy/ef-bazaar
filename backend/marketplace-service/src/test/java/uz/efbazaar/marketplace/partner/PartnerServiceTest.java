@@ -40,6 +40,7 @@ class PartnerServiceTest {
     private PartnerApplicationRepository applications;
     private AuthSummaryClient users;
     private PartnerEventPublisher events;
+    private PartnerFeeClient fees;
     private PartnerService service;
 
     private PartnerApplication application;
@@ -52,7 +53,8 @@ class PartnerServiceTest {
         applications = mock(PartnerApplicationRepository.class);
         users = mock(AuthSummaryClient.class);
         events = mock(PartnerEventPublisher.class);
-        service = new PartnerService(settingsRepository, applications, users, events);
+        fees = mock(PartnerFeeClient.class);
+        service = new PartnerService(settingsRepository, applications, users, events, fees);
 
         PartnerSettings settings = new PartnerSettings();
         settings.setMinSubscribers(1000);
@@ -265,6 +267,51 @@ class PartnerServiceTest {
 
         assertThat(created.getStatus()).isEqualTo(Status.AWAITING_CHANNEL);
         assertThat(created.getUserId()).isEqualTo(userId);
+    }
+
+    @Test
+    @DisplayName("To'lov hamyondan yechiladi va ariza ko'rikka o'tadi")
+    void payChargesTheWalletThenAdvances() {
+        application.setStatus(Status.AWAITING_PAYMENT);
+        when(applications.findFirstByUserIdAndStatusInOrderByCreatedAtDesc(
+                eq(userId), eq(List.of(Status.AWAITING_PAYMENT)))).thenReturn(Optional.of(application));
+
+        service.pay(userId);
+
+        verify(fees).charge(eq(application.getId()), eq(userId), eq(new BigDecimal("500000")));
+        assertThat(application.getStatus()).isEqualTo(Status.AWAITING_REVIEW);
+        assertThat(application.getPaidAt()).isNotNull();
+        verify(events).applicationAwaitingReview(application);
+    }
+
+    @Test
+    @DisplayName("Yechish yiqilsa ariza to'langan bo'lib qolmaydi")
+    void failedChargeLeavesTheApplicationUnpaid() {
+        application.setStatus(Status.AWAITING_PAYMENT);
+        when(applications.findFirstByUserIdAndStatusInOrderByCreatedAtDesc(
+                eq(userId), eq(List.of(Status.AWAITING_PAYMENT)))).thenReturn(Optional.of(application));
+        org.mockito.Mockito.doThrow(new ResponseStatusException(
+                        org.springframework.http.HttpStatus.CONFLICT, "Hamyonda mablag' yetarli emas"))
+                .when(fees).charge(any(), any(), any());
+
+        assertThatThrownBy(() -> service.pay(userId)).isInstanceOf(ResponseStatusException.class);
+
+        // Holat to'lovdan KEYIN o'zgaradi. Teskarisi bo'lganda pul
+        // yechilmagan ariza ko'rikka tushib, admin uni tasdiqlab yuborardi.
+        assertThat(application.getStatus()).isEqualTo(Status.AWAITING_PAYMENT);
+        assertThat(application.getPaidAt()).isNull();
+        verify(events, never()).applicationAwaitingReview(any());
+    }
+
+    @Test
+    @DisplayName("Kanal tekshiruvidan o'tmagan ariza to'lay olmaydi")
+    void cannotPayBeforeChannelVerification() {
+        when(applications.findFirstByUserIdAndStatusInOrderByCreatedAtDesc(
+                eq(userId), eq(List.of(Status.AWAITING_PAYMENT)))).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.pay(userId))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("kanalni");
     }
 
     @Test

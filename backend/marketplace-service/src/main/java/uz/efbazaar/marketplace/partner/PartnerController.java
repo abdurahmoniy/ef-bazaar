@@ -29,6 +29,17 @@ public class PartnerController {
         return service.myApplication(user.userId()).map(ApplicationResponse::from).orElse(null);
     }
 
+    /**
+     * Hamkorlik to'lovini hamyondan yechadi.
+     *
+     * <p>Mablag' yetmasa 409 va xabarda yetishmayotgan summa — frontend
+     * shundan hamyonni to'ldirish havolasini yasaydi.
+     */
+    @PostMapping("/pay")
+    public ApplicationResponse pay(@AuthenticationPrincipal AuthenticatedUser user) {
+        return ApplicationResponse.from(service.pay(user.userId()));
+    }
+
     @PostMapping("/apply")
     public ApplicationResponse apply(@AuthenticationPrincipal AuthenticatedUser user) {
         return ApplicationResponse.from(service.apply(user.userId()));
