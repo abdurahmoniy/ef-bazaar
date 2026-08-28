@@ -6,6 +6,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Ban,
   Handshake,
   Loader2,
   Send,
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import {
   applyForPartnership,
+  cancelPartnership,
   getMyApplication,
   getPartnerSettings,
   payPartnershipFee,
@@ -142,6 +144,21 @@ export function PartnershipFlow({ botUsername }: PartnershipFlowProps) {
     return () => clearInterval(timer);
   }, [application?.status, refresh]);
 
+  async function cancel() {
+    if (!window.confirm(
+      "Ariza bekor qilinsinmi? To'langan bo'lsa pul avtomatik qaytarilmaydi.",
+    )) return;
+    setError(null);
+    setBusy(true);
+    try {
+      setApplication(await cancelPartnership());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Bekor qilib bo‘lmadi');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function start() {
     setError(null);
     setBusy(true);
@@ -209,6 +226,9 @@ export function PartnershipFlow({ botUsername }: PartnershipFlowProps) {
         <p className="text-sm text-muted-foreground">
           {application.channelTitle} kanali hamkorlikka qabul qilindi.
         </p>
+        <p className="text-xs text-muted-foreground">
+          Hamkorlikni to&apos;xtatish hamkor panelidagi xavfli hududda.
+        </p>
       </div>
     );
   }
@@ -249,6 +269,16 @@ export function PartnershipFlow({ botUsername }: PartnershipFlowProps) {
         </div>
       )}
 
+      {application?.status === 'CANCELLED' && (
+        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+          <Ban className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Ariza bekor qilingan{application.cancelReason ? `: ${application.cancelReason}` : '.'}{' '}
+            Quyidan yangisini ochishingiz mumkin.
+          </span>
+        </div>
+      )}
+
       {application?.status === 'REJECTED' && (
         <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
           <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -260,13 +290,32 @@ export function PartnershipFlow({ botUsername }: PartnershipFlowProps) {
 
       <div className="rounded-xl border border-border bg-card p-4">
         <Step index={1} title="Ariza ochish" state={stepState(application, 0)}>
-          {application === null ? (
+          {/*
+            Yopilgan ariza yangisini ochishga to'sqinlik qilmaydi: DB dagi
+            qisman indeks faqat ochiq holatlarni sanaydi. Muzlab qolishdan
+            chiqish yo'li aynan shu.
+          */}
+          {application === null ||
+          application.status === 'CANCELLED' ||
+          application.status === 'REJECTED' ? (
             <Button onClick={start} disabled={busy} className="gap-2">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Ariza topshirish
+              {application === null ? 'Ariza topshirish' : 'Yangi ariza ochish'}
             </Button>
           ) : (
-            <p>Ariza ochildi.</p>
+            <div className="space-y-2">
+              <p>Ariza ochildi.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={cancel}
+                disabled={busy}
+                className="gap-2 text-destructive"
+              >
+                <Ban className="h-4 w-4" />
+                Arizani bekor qilish
+              </Button>
+            </div>
           )}
         </Step>
 

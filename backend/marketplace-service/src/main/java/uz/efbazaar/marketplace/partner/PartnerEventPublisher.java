@@ -56,6 +56,12 @@ public class PartnerEventPublisher {
                         Instant.now()));
     }
 
+    public void applicationCancelled(PartnerApplication a) {
+        send(PartnerEvents.TOPIC_CANCELLED, a.getUserId().toString(),
+                new PartnerEvents.PartnerCancelled(a.getId(), a.getUserId(),
+                        a.getCancelReason(), Instant.now()));
+    }
+
     private void send(String topic, String key, Object event) {
         afterCommit(() -> kafka.send(topic, key, event)
                 .whenComplete((r, ex) -> {

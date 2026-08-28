@@ -50,13 +50,22 @@ public class ChannelVerifier {
         if (!"channel".equals(chat.path("type").asText())) return;
 
         String newStatus = myChatMember.path("new_chat_member").path("status").asText("");
-        if (!"administrator".equals(newStatus)) {
-            log.debug("Kanal {} da botning maqomi: {} — e'tiborsiz",
-                    chat.path("id").asLong(), newStatus);
+        long channel = chat.path("id").asLong();
+
+        // Bot kanaldan chiqarib tashlandi (yoki adminlikdan tushirildi) —
+        // hamkorlikni davom ettirib bo'lmaydi. Bot u yerdan ketgach obunachi
+        // sonini ham, egalikni ham tekshirish imkoni yo'q.
+        if ("left".equals(newStatus) || "kicked".equals(newStatus) || "member".equals(newStatus)) {
+            reportRemoved(channel);
             return;
         }
 
-        long channelId = chat.path("id").asLong();
+        if (!"administrator".equals(newStatus)) {
+            log.debug("Kanal {} da botning maqomi: {} — e'tiborsiz", channel, newStatus);
+            return;
+        }
+
+        long channelId = channel;
         long addedBy = myChatMember.path("from").path("id").asLong();
         if (channelId == 0 || addedBy == 0) return;
 
@@ -84,6 +93,22 @@ public class ChannelVerifier {
                 isOwner));
     }
 
+    private void reportRemoved(long channelId) {
+        try {
+            marketplaceWebClient.post()
+                    .uri("/internal/marketplace/v1/partners/channel-removed")
+                    .header("X-Internal-Secret", props.secret())
+                    .bodyValue(new ChannelRemovedRequest(channelId))
+                    .retrieve()
+                    .bodyToMono(Void.class)
+                    .timeout(TIMEOUT)
+                    .block();
+            log.info("Kanal {} dan bot chiqarildi — marketplace xabardor qilindi", channelId);
+        } catch (Exception e) {
+            log.error("Kanal {} chiqarilishini yuborib bo'lmadi: {}", channelId, e.getMessage());
+        }
+    }
+
     private void report(ChannelVerifiedRequest request) {
         try {
             marketplaceWebClient.post()
@@ -101,6 +126,8 @@ public class ChannelVerifier {
                     request.channelId(), e.getMessage());
         }
     }
+
+    public record ChannelRemovedRequest(Long channelId) {}
 
     public record ChannelVerifiedRequest(
             Long addedByTelegramId,

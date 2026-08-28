@@ -12,6 +12,7 @@ public final class PartnerEvents {
     public static final String TOPIC_APPLICATION_SUBMITTED = "efbazaar.marketplace.partner-application-submitted";
     public static final String TOPIC_APPROVED = "efbazaar.marketplace.partner-approved";
     public static final String TOPIC_REJECTED = "efbazaar.marketplace.partner-rejected";
+    public static final String TOPIC_CANCELLED = "efbazaar.marketplace.partner-cancelled";
 
     /**
      * To'lov o'tdi, ariza admin ko'rigini kutmoqda.
@@ -32,4 +33,8 @@ public final class PartnerEvents {
     public record PartnerApproved(UUID applicationId, UUID userId, Instant occurredAt) {}
 
     public record PartnerRejected(UUID applicationId, UUID userId, String note, Instant occurredAt) {}
+
+    /** Hamkorlik to'xtatildi — auth PARTNER rolini olib tashlashi kerak. */
+    public record PartnerCancelled(UUID applicationId, UUID userId, String reason,
+                                   Instant occurredAt) {}
 }

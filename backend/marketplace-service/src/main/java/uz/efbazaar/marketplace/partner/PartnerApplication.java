@@ -37,7 +37,15 @@ public class PartnerApplication {
         /** To'landi; admin ko'rishi kerak. */
         AWAITING_REVIEW,
         APPROVED,
-        REJECTED;
+        REJECTED,
+        /**
+         * Bekor qilindi. Kim va nima uchun — {@code cancelReason} da:
+         * foydalanuvchi voz kechdi, admin to'xtatdi, yoki bot kanaldan
+         * chiqarib tashlandi. Uchtasi bir xil yakun, shuning uchun bitta
+         * holat; sabab esa "nega men endi hamkor emasman" degan savolga
+         * javob beradi.
+         */
+        CANCELLED;
 
         public boolean isOpen() {
             return this == AWAITING_CHANNEL || this == AWAITING_PAYMENT || this == AWAITING_REVIEW;
@@ -93,6 +101,16 @@ public class PartnerApplication {
 
     @Column(name = "review_note", columnDefinition = "text")
     private String reviewNote;
+
+    @Column(name = "cancel_reason", columnDefinition = "text")
+    private String cancelReason;
+
+    /** Bekor qilgan odam. Bot chiqarib tashlaganda null. */
+    @Column(name = "cancelled_by", columnDefinition = "uuid")
+    private UUID cancelledBy;
+
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();

@@ -5,7 +5,8 @@ export type PartnerApplicationStatus =
   | 'AWAITING_PAYMENT'
   | 'AWAITING_REVIEW'
   | 'APPROVED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'CANCELLED';
 
 export interface PartnerSettings {
   minSubscribers: number;
@@ -27,6 +28,8 @@ export interface PartnerApplication {
   paidAt: string | null;
   reviewedAt: string | null;
   reviewNote: string | null;
+  cancelReason: string | null;
+  cancelledAt: string | null;
   createdAt: string;
 }
 
@@ -75,6 +78,22 @@ export async function getMyApplication(): Promise<PartnerApplication | null> {
 export async function applyForPartnership(): Promise<PartnerApplication> {
   return json(
     await fetch(buildMarketplaceApiPath(['v1', 'partners', 'apply']), {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      credentials: 'include',
+    }),
+  );
+}
+
+/**
+ * Arizani yoki faol hamkorlikni bekor qiladi.
+ *
+ * <p>To'lov qaytarilmaydi — chaqiruvchi buni foydalanuvchiga oldindan
+ * aytishi kerak.
+ */
+export async function cancelPartnership(): Promise<PartnerApplication> {
+  return json(
+    await fetch(buildMarketplaceApiPath(['v1', 'partners', 'cancel']), {
       method: 'POST',
       headers: { Accept: 'application/json' },
       credentials: 'include',
@@ -132,7 +151,7 @@ export async function getAdminApplications(
 
 export async function reviewApplication(
   id: string,
-  outcome: 'approve' | 'reject',
+  outcome: 'approve' | 'reject' | 'cancel',
   note?: string,
 ): Promise<PartnerApplication> {
   return json(

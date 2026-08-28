@@ -29,4 +29,19 @@ public class InternalPartnerController {
     public void channelVerified(@Valid @RequestBody ChannelVerifiedRequest request) {
         service.onChannelVerified(request);
     }
+
+    /**
+     * Bot kanaldan chiqarib tashlandi — hamkorlik avtomatik to'xtaydi.
+     *
+     * <p>Bot u yerdan ketgach obunachi sonini ham, egalikni ham tekshirib
+     * bo'lmaydi. Maqomni saqlab qolish "hamkor, lekin tekshirib bo'lmaydi"
+     * degan ko'rinmas holatni yaratardi.
+     */
+    @PostMapping("/channel-removed")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void channelRemoved(@RequestBody ChannelRemovedRequest request) {
+        service.onChannelRemoved(request.channelId());
+    }
+
+    public record ChannelRemovedRequest(Long channelId) {}
 }

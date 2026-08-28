@@ -38,6 +38,16 @@ public class PartnerService {
     private static final List<Status> CHANNEL_TAKEN =
             List.of(Status.AWAITING_PAYMENT, Status.AWAITING_REVIEW, Status.APPROVED);
 
+    /**
+     * Bekor qilish mumkin bo'lgan holatlar — ochiq ariza va faol hamkorlik.
+     *
+     * <p>REJECTED va CANCELLED yo'q: ular allaqachon yakunlangan va ularni
+     * yana bekor qilish hech narsani o'zgartirmaydi.
+     */
+    private static final List<Status> CANCELLABLE =
+            List.of(Status.AWAITING_CHANNEL, Status.AWAITING_PAYMENT,
+                    Status.AWAITING_REVIEW, Status.APPROVED);
+
     private final PartnerSettingsRepository settingsRepository;
     private final PartnerApplicationRepository applications;
     private final AuthSummaryClient users;
@@ -217,6 +227,80 @@ public class PartnerService {
         log.info("Ariza {} to'landi, admin ko'rigiga o'tdi", applicationId);
 
         events.applicationAwaitingReview(application);
+    }
+
+    // ----- bekor qilish -----
+
+    /**
+     * Foydalanuvchi o'zi voz kechdi.
+     *
+     * <p>Ochiq ariza ham, faol hamkorlik ham bekor qilinadi — ikkalasi bir
+     * xil tugma ostida turadi va farqi faqat qaysi holatdan chiqishida.
+     *
+     * <p>To'lov QAYTARILMAYDI: pul allaqachon platformaga o'tgan va uni
+     * avtomatik qaytarish ledger'da teskari yozuv talab qiladi. Buni admin
+     * qo'lda hal qiladi — ekranda shu ochiq aytiladi.
+     */
+    @Transactional
+    public PartnerApplication cancelByUser(UUID userId) {
+        PartnerApplication application = applications
+                .findFirstByUserIdAndStatusInOrderByCreatedAtDesc(userId, CANCELLABLE)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Bekor qilinadigan ariza yoki hamkorlik topilmadi"));
+        return cancel(application, "Foydalanuvchi bekor qildi", userId);
+    }
+
+    @Transactional
+    public PartnerApplication cancelByAdmin(UUID id, UUID adminId, String reason) {
+        PartnerApplication application = applications.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ariza topilmadi"));
+        if (!CANCELLABLE.contains(application.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Bu holatdagi arizani bekor qilib bo'lmaydi: " + application.getStatus());
+        }
+        return cancel(application,
+                reason == null || reason.isBlank() ? "Admin to'xtatdi" : reason, adminId);
+    }
+
+    /**
+     * Bot kanaldan chiqarib tashlandi.
+     *
+     * <p>Hamkorlik kanalga bog'langan: bot u yerdan ketgach obunachi sonini
+     * ham, egalikni ham tekshirib bo'lmaydi. Maqomni saqlab qolish "hamkor,
+     * lekin tekshirib bo'lmaydi" degan holatni yaratardi va u ko'rinmas
+     * bo'lardi — hech kim bu haqda xabar bermaydi.
+     *
+     * <p>Idempotent: Telegram bu hodisani takroran yuborishi mumkin.
+     */
+    @Transactional
+    public void onChannelRemoved(Long channelId) {
+        if (channelId == null) return;
+        applications.findFirstByChannelIdAndStatusInOrderByCreatedAtDesc(channelId, CANCELLABLE)
+                .ifPresentOrElse(
+                        application -> {
+                            cancel(application, "Bot kanaldan chiqarib tashlandi", null);
+                            log.info("Ariza {} avtomatik bekor qilindi: kanal {} dan bot chiqarildi",
+                                    application.getId(), channelId);
+                        },
+                        () -> log.debug("Kanal {} dan bot chiqarildi, tegishli ariza yo'q", channelId));
+    }
+
+    private PartnerApplication cancel(PartnerApplication application, String reason, UUID by) {
+        boolean wasPartner = application.getStatus() == Status.APPROVED;
+
+        application.setStatus(Status.CANCELLED);
+        application.setCancelReason(reason);
+        application.setCancelledBy(by);
+        application.setCancelledAt(Instant.now());
+        log.info("Ariza {} bekor qilindi ({}), by={}", application.getId(), reason, by);
+
+        // Hodisa FAQAT tasdiqlangan hamkorlik uchun: auth roldan tushiradi.
+        // Tasdiqlanmagan arizada berilgan rol yo'q va hodisa auth'ni
+        // keraksiz ishlatardi.
+        if (wasPartner) {
+            events.applicationCancelled(application);
+        }
+        return application;
     }
 
     // ----- admin tomoni -----

@@ -56,6 +56,13 @@ public final class PartnerRepositories {
         long countByStatusAndUpdatedAtAfter(Status status, Instant since);
 
         List<PartnerApplication> findByUserIdOrderByCreatedAtDesc(UUID userId);
+
+        /**
+         * Kanal bo'yicha hali yashab turgan ariza — bot kanaldan chiqarib
+         * tashlanganda qaysi arizani bekor qilishni topish uchun.
+         */
+        Optional<PartnerApplication> findFirstByChannelIdAndStatusInOrderByCreatedAtDesc(
+                Long channelId, Collection<Status> statuses);
     }
 
     public interface AdminSectionViewRepository extends JpaRepository<AdminSectionView, AdminSectionView.Key> {
