@@ -1526,12 +1526,20 @@ function ProposeModal({
       : listing
         ? listingMediaUrls(listing, 1)[0]
         : null;
+  const listingAttributes =
+    effectiveListing && 'attributes' in effectiveListing && effectiveListing.attributes
+      ? effectiveListing.attributes
+      : (listing && 'attributes' in listing ? listing.attributes : undefined);
   const divLevel =
-    listing?.attributes?.highest_division_level
-      ? toDivisionLevel(listing.attributes.highest_division_level)
+    listingAttributes?.highest_division_level
+      ? toDivisionLevel(listingAttributes.highest_division_level)
       : undefined;
 
-  const listingExchangeMode = listing?.attributes?.exchange_mode as ExchangeMode | undefined;
+  const listingExchangeMode = (
+    (effectiveListing && 'exchangeMode' in effectiveListing && effectiveListing.exchangeMode
+      ? effectiveListing.exchangeMode
+      : undefined) ?? listingAttributes?.exchange_mode
+  ) as ExchangeMode | undefined;
   const availableKinds = useMemo(() => allowedKinds(listingExchangeMode), [listingExchangeMode]);
   const [kind, setKind] = useState<TradeKind>(
     availableKinds.includes('SALE') ? 'SALE' : (availableKinds[0] ?? 'SWAP'),
@@ -1555,10 +1563,21 @@ function ProposeModal({
         ? Number(surcharge)
         : 0;
 
+  const { commissionConfig } = useTradeContext();
   const priceNum = Number(price);
   const hasValidPrice = Number.isFinite(priceNum) && priceNum > 0;
-  const feeNum = hasValidPrice ? tradeFeeSom(priceNum) : 0;
-  const proceedsNum = hasValidPrice ? sellerProceedsSom(priceNum) : 0;
+  const feeNum = hasValidPrice ? tradeFeeSom(priceNum, commissionConfig) : 0;
+  const proceedsNum = hasValidPrice ? sellerProceedsSom(priceNum, commissionConfig) : 0;
+
+  const surchargeNum = Number(surcharge);
+  const hasValidSurcharge = Number.isFinite(surchargeNum) && surchargeNum > 0;
+  const swapFeeBase = originalPrice > 0 ? originalPrice : 0;
+  const swapFeeNum = swapFeeBase > 0 ? tradeFeeSom(swapFeeBase, commissionConfig) : 0;
+
+  const swapSurchargeFeeBase = originalPrice > 0 ? originalPrice : (hasValidSurcharge ? surchargeNum : 0);
+  const swapSurchargeFeeNum = swapSurchargeFeeBase > 0 ? tradeFeeSom(swapSurchargeFeeBase, commissionConfig) : 0;
+  const swapSurchargeNetProceeds = Math.max(0, surchargeNum - swapSurchargeFeeNum);
+  const swapSurchargeProposerOwes = Math.max(0, swapSurchargeFeeNum - surchargeNum);
 
   const presets = useMemo(() => {
     if (!originalPrice || originalPrice <= 0) return [];
@@ -1822,35 +1841,101 @@ function ProposeModal({
 
         {/* Swap Surcharge Input */}
         {kind === 'SWAP_SURCHARGE' && (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <Label htmlFor="swap-surcharge" className="text-xs font-bold shrink-0">
-                Doplata miqdori (so'm)
-              </Label>
-              {Number(surcharge) > 0 && (
-                <span className="text-[11px] font-black text-primary truncate">
-                  {formatPriceUZS(Number(surcharge))}
-                </span>
-              )}
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="swap-surcharge" className="text-xs font-bold shrink-0">
+                  Doplata miqdori (so'm)
+                </Label>
+                {Number(surcharge) > 0 && (
+                  <span className="text-[11px] font-black text-primary truncate">
+                    {formatPriceUZS(Number(surcharge))}
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <Coins className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-500" />
+                <Input
+                  id="swap-surcharge"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  value={surcharge}
+                  onChange={(e) => setSurcharge(e.target.value)}
+                  placeholder="100000"
+                  className="h-10 rounded-xl pl-9 pr-3 text-xs font-bold"
+                  required
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Qarshi taraf akkountni almashish uchun to‘lashi kerak bo‘lgan summa.
+              </p>
             </div>
-            <div className="relative">
-              <Coins className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-500" />
-              <Input
-                id="swap-surcharge"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                value={surcharge}
-                onChange={(e) => setSurcharge(e.target.value)}
-                placeholder="100000"
-                className="h-10 rounded-xl pl-9 pr-3 text-xs font-bold"
-                required
-              />
+
+            {/* Financial Breakdown Card */}
+            {mode === 'SMART' && hasValidSurcharge && (
+              <div className="rounded-xl border border-border bg-muted/20 p-2.5 sm:p-3 space-y-1.5 text-xs min-w-0">
+                <div className="flex items-center justify-between gap-2 text-muted-foreground text-[11.5px]">
+                  <span className="shrink-0">Qarshi taraf to‘laydi (doplata):</span>
+                  <span className="font-bold text-foreground truncate">{formatPriceUZS(surchargeNum)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-muted-foreground text-[11.5px]">
+                  <span className="shrink-0">Smart-admin xizmati:</span>
+                  <span className="font-semibold text-destructive truncate">
+                    −{formatPriceUZS(swapSurchargeFeeNum)}
+                  </span>
+                </div>
+                <div className="border-t border-border/60 pt-1.5 flex items-center justify-between gap-2">
+                  {surchargeNum >= swapSurchargeFeeNum ? (
+                    <>
+                      <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs shrink-0">
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                        Sizga sof doplata:
+                      </span>
+                      <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300 truncate">
+                        {formatPriceUZS(swapSurchargeNetProceeds)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex items-center gap-1 font-bold text-amber-700 dark:text-amber-300 text-xs shrink-0">
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                        Yetishmagan xizmat haqi:
+                      </span>
+                      <span className="text-xs sm:text-sm font-black text-amber-700 dark:text-amber-300 truncate">
+                        {formatPriceUZS(swapSurchargeProposerOwes)}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Swap Financial Breakdown Card */}
+        {kind === 'SWAP' && mode === 'SMART' && swapFeeNum > 0 && (
+          <div className="rounded-xl border border-border bg-muted/20 p-2.5 sm:p-3 space-y-1.5 text-xs min-w-0">
+            <div className="flex items-center justify-between gap-2 text-muted-foreground text-[11.5px]">
+              <span className="shrink-0">Qarshi taraf to‘laydi:</span>
+              <span className="font-bold text-foreground truncate">0 so'm (Obmen)</span>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Qarshi taraf akkountni almashish uchun to‘lashi kerak bo‘lgan summa.
-            </p>
+            <div className="flex items-center justify-between gap-2 text-muted-foreground text-[11.5px]">
+              <span className="shrink-0">Smart-admin xizmati:</span>
+              <span className="font-semibold text-destructive truncate">
+                −{formatPriceUZS(swapFeeNum)}
+              </span>
+            </div>
+            <div className="border-t border-border/60 pt-1.5 flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs shrink-0">
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                Xizmat haqi (taklifchidan):
+              </span>
+              <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300 truncate">
+                {formatPriceUZS(swapFeeNum)}
+              </span>
+            </div>
           </div>
         )}
 

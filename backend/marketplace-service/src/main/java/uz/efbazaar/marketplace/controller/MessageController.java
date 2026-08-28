@@ -116,7 +116,8 @@ public class MessageController {
                     base.content(), base.attachmentType(), base.attachmentFileId(),
                     base.attachmentName(), base.attachmentMime(), base.attachmentSize(),
                     base.replyToId(), quoted.getSenderId(), ChatService.previewOf(quoted),
-                    base.editedAt(), base.createdAt());
+                    base.editedAt(), base.createdAt(),
+                    base.messageType(), base.proposalId(), base.proposalOutcome());
         }).toList();
     }
 }

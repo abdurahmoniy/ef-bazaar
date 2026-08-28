@@ -16,6 +16,8 @@ import {
   type AccountRequest,
 } from '@/lib/account-request';
 import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
+import { getPublicTradeCommissionConfig } from '@/lib/payment-client';
+import type { TradeCommissionConfig } from '@/lib/payment-types';
 import { planPollTick } from '@/lib/trade-poll-plan';
 import {
   isTerminalState,
@@ -75,6 +77,7 @@ interface TradeContextValue {
   isDrawerOpen: boolean;
   setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   scrollToTradePanel: () => void;
+  commissionConfig: TradeCommissionConfig | null;
 }
 
 const TradeContext = createContext<TradeContextValue | null>(null);
@@ -129,6 +132,13 @@ export function TradeProvider({
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [commissionConfig, setCommissionConfig] = useState<TradeCommissionConfig | null>(null);
+
+  useEffect(() => {
+    getPublicTradeCommissionConfig()
+      .then((cfg) => setCommissionConfig(cfg))
+      .catch(() => {});
+  }, []);
 
   const reloadInFlight = useRef(false);
   const proposalPollInFlight = useRef(false);
@@ -271,6 +281,7 @@ export function TradeProvider({
     isDrawerOpen,
     setIsDrawerOpen,
     scrollToTradePanel,
+    commissionConfig,
   };
 
   return <TradeContext.Provider value={value}>{children}</TradeContext.Provider>;

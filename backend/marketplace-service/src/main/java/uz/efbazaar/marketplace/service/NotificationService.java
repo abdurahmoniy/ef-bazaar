@@ -40,6 +40,18 @@ public class NotificationService {
                 .build());
     }
 
+    /** Buyer requested a listing / opened account request → notify partner. */
+    @Transactional
+    public void accountRequested(UUID recipientUserId, UUID chatId, UUID listingId, String requesterDisplayName) {
+        notifications.save(Notification.builder()
+                .userId(recipientUserId)
+                .type(NotificationType.CHAT_CREATED)
+                .chatId(chatId)
+                .listingId(listingId)
+                .actorDisplayName(requesterDisplayName)
+                .build());
+    }
+
     /**
      * New message → notify the other participant. While an unread
      * CHAT_MESSAGE notification for this (recipient, chat) exists, it is

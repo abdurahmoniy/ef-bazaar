@@ -22,7 +22,7 @@
 INSERT INTO attribute_definitions (key, label_uz, type, required, position, group_key, constraints, searchable, active) VALUES
     ('highest_division_level', 'Eng yuqori division',    'ENUM',      TRUE,  10, 'gameplay',     '{"options":["1","2","3","4"],"option_labels_uz":{"1":"Division 1","2":"Division 2","3":"Division 3","4":"Division 4+"}}'::jsonb, TRUE,  TRUE),
     ('team_strength',          'Team Strength',          'INT',       TRUE,  20, 'squad',        '{"min":1000,"max":5000}'::jsonb,       TRUE,  TRUE),
-    ('players_count',          'Jami o''yinchilar',      'INT',       FALSE, 25, 'squad',        '{"min":11,"max":80}'::jsonb,           TRUE,  TRUE),
+    ('players_count',          'Jami o''yinchilar',      'INT',       FALSE, 25, 'squad',        '{"min":11,"max":5000}'::jsonb,         TRUE,  TRUE),
     ('valuable_players',       'Qidiriladigan qimmatli kartalar', 'CARD_LIST', FALSE, 30, 'squad', '{"max_items":30}'::jsonb,              TRUE,  TRUE),
     ('android_coins',          'Android coin',           'INT',       FALSE, 40, 'monetization', '{}'::jsonb,                            TRUE,  TRUE),
     ('ios_coins',              'iOS coin',               'INT',       FALSE, 50, 'monetization', '{}'::jsonb,                            TRUE,  TRUE),

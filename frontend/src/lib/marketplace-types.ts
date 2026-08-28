@@ -454,6 +454,9 @@ export interface MessageResponse {
   replyPreview?: string | null;
   editedAt?: string | null;
   createdAt: string;
+  messageType?: 'TEXT' | 'TRADE_PROPOSAL' | null;
+  proposalId?: string | null;
+  proposalOutcome?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | null;
 }
 
 export type NotificationType =
