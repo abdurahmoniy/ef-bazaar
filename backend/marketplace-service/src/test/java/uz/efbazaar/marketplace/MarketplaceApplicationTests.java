@@ -81,6 +81,10 @@ class MarketplaceApplicationTests {
     // bot sozlamalari (/start xabari)
     @MockBean uz.efbazaar.marketplace.botsettings.BotSettingsRepository botSettingsRepository;
     @MockBean uz.efbazaar.marketplace.botsettings.BotBroadcastRepository botBroadcastRepository;
+    // hamkorlik
+    @MockBean uz.efbazaar.marketplace.partner.PartnerRepositories.PartnerSettingsRepository partnerSettingsRepository;
+    @MockBean uz.efbazaar.marketplace.partner.PartnerRepositories.PartnerApplicationRepository partnerApplicationRepository;
+    @MockBean uz.efbazaar.marketplace.partner.PartnerRepositories.AdminSectionViewRepository adminSectionViewRepository;
     // trust paketi (shikoyat + blacklist)
     @MockBean uz.efbazaar.marketplace.trust.TrustRepositories.ComplaintRepository complaintRepository;
     @MockBean uz.efbazaar.marketplace.trust.TrustRepositories.PenaltyRepository penaltyRepository;

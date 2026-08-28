@@ -5,7 +5,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -90,6 +92,24 @@ public class InternalUserController {
      * tayyor manzillar ro'yxatini oladi.
      */
     public enum Audience { ALL, USERS, ADMINS }
+
+    /**
+     * Telegram chat id bo'yicha foydalanuvchi.
+     *
+     * <p>Bot faqat Telegram identifikatorlarini biladi — kanalga kim
+     * qo'shganini `my_chat_member` shundan aytadi. Platformadagi arizani
+     * unga bog'lash uchun oradagi ko'prik shu endpoint.
+     *
+     * @return topilmasa 404 emas, bo'sh javob: chaqiruvchi uchun "bunday
+     *         foydalanuvchi yo'q" xatolik emas, oddiy natija.
+     */
+    @GetMapping("/by-telegram-id/{telegramId}")
+    public ResponseEntity<UserSummaryResponse> byTelegramId(@PathVariable Long telegramId) {
+        return userRepository.findByTelegramId(telegramId)
+                .map(UserSummaryResponse::from)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
 
     @PostMapping("/names/batch")
     public Map<UUID, String> resolveNames(@Valid @RequestBody UserNamesBatchRequest request) {

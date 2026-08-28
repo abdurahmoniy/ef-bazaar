@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import uz.efbazaar.bot.partner.ChannelVerifier;
 import uz.efbazaar.bot.settings.BotSettingsClient;
 import uz.efbazaar.bot.settings.BotSettingsClient.BotSettingsView;
 import uz.efbazaar.bot.telegram.TelegramApiClient.WebAppButton;
@@ -22,11 +23,20 @@ public class UpdateHandler {
 
     private final TelegramApiClient telegram;
     private final BotSettingsClient settings;
+    private final ChannelVerifier channels;
 
     @Value("${app.web.base-url:https://efbazaar.uz}")
     private String webBaseUrl;
 
     public void handle(JsonNode update) {
+        // Bot kanalga admin qilib qo'shildi (yoki maqomi o'zgardi) —
+        // hamkorlik oqimidagi kanal tekshiruvi shu yerdan boshlanadi.
+        JsonNode myChatMember = update.path("my_chat_member");
+        if (!myChatMember.isMissingNode()) {
+            channels.handle(myChatMember);
+            return;
+        }
+
         JsonNode message = update.path("message");
         if (message.isMissingNode()) return;
 

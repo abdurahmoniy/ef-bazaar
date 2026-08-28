@@ -231,6 +231,33 @@ public class TelegramApiClient {
         return postJson("sendPhoto", body).flatMap(this::extractOnePhoto);
     }
 
+    /**
+     * Kanaldagi obunachilar soni.
+     *
+     * <p>Bot kanalda ADMIN bo'lishi shart — oddiy a'zo bu ma'lumotni
+     * o'qiy olmaydi. Aynan shuning uchun hamkorlik oqimida botni admin
+     * qilib qo'shish talab qilinadi.
+     */
+    public Optional<Integer> getChatMemberCount(long chatId) {
+        ObjectNode body = objectMapper.createObjectNode().put("chat_id", chatId);
+        return postJson("getChatMemberCount", body).map(JsonNode::asInt);
+    }
+
+    /**
+     * Foydalanuvchining kanaldagi maqomi: {@code creator}, {@code administrator},
+     * {@code member}, {@code left}, {@code kicked}.
+     *
+     * <p>Hamkorlik uchun faqat {@code creator} yetarli: administrator kanal
+     * egasi emas va uni hamkor deb hisoblab bo'lmaydi.
+     */
+    public Optional<String> getChatMemberStatus(long chatId, long userId) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("user_id", userId);
+        return postJson("getChatMember", body)
+                .map(result -> result.path("status").asText(null));
+    }
+
     /** Returns a downloadable file path for a given file_id (call getFile then prepend api URL). */
     public Optional<String> getFilePath(String fileId) {
         ObjectNode body = objectMapper.createObjectNode().put("file_id", fileId);
@@ -271,6 +298,7 @@ public class TelegramApiClient {
         if (secret != null && !secret.isBlank()) {
             body.put("secret_token", secret);
         }
+        body.set("allowed_updates", allowedUpdates());
         postJson("setWebhook", body)
                 .ifPresentOrElse(
                         r -> log.info("Webhook set to '{}'", url),
@@ -282,7 +310,23 @@ public class TelegramApiClient {
         ObjectNode body = objectMapper.createObjectNode()
                 .put("offset", offset)
                 .put("timeout", timeoutSeconds);
+        body.set("allowed_updates", allowedUpdates());
         return postJson("getUpdates", body);
+    }
+
+    /**
+     * Qaysi yangilanishlar kerakligi.
+     *
+     * <p>{@code my_chat_member} ni ATAYLAB sanab o'tamiz: Telegram standart
+     * holatda uni YUBORMAYDI va ro'yxat berilmasa bot kanalga admin qilib
+     * qo'shilganini umuman bilmay qolardi. Ro'yxat berilgach, unda
+     * sanalmagan tur ham kelmaydi — shuning uchun `message` ham bu yerda.
+     */
+    private ArrayNode allowedUpdates() {
+        return objectMapper.createArrayNode()
+                .add("message")
+                .add("callback_query")
+                .add("my_chat_member");
     }
 
     /**
