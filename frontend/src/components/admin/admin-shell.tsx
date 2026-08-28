@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ArrowUpFromLine,
   Bot,
+  Handshake,
   ChevronRight,
   ClipboardCheck,
   CreditCard,
@@ -28,6 +29,12 @@ import {
 } from 'lucide-react';
 
 import { FEATURES } from '@/lib/feature-flags';
+import {
+  BADGE_PARTNER_APPLICATIONS,
+  BADGE_WITHDRAWALS,
+  getAdminBadges,
+  type AdminBadges,
+} from '@/lib/partners';
 import type { User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -36,6 +43,10 @@ export interface NavItem {
   label: string;
   shortLabel?: string;
   icon: React.ComponentType<{ className?: string }>;
+  /**
+   * Ishora kaliti — backend qaytaradigan sanoq shu nom ostida keladi.
+   * Bo'sh bo'lsa bo'limda ishora ko'rsatilmaydi.
+   */
   badge?: string;
 }
 
@@ -102,6 +113,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Pul yechish so‘rovlari',
         shortLabel: 'Yechishlar',
         icon: ArrowUpFromLine,
+        badge: BADGE_WITHDRAWALS,
       },
       {
         href: '/admin/payments/commission',
@@ -120,6 +132,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Foydalanuvchilar bazasi',
         shortLabel: 'Foydalanuvchilar',
         icon: UsersRound,
+      },
+      {
+        href: '/admin/partners',
+        label: 'Hamkorlar',
+        icon: Handshake,
+        badge: BADGE_PARTNER_APPLICATIONS,
       },
       ...(FEATURES.humanAdmin
         ? [
@@ -199,6 +217,29 @@ export function AdminShell({ user, children }: AdminShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [badges, setBadges] = useState<AdminBadges>({});
+
+  // Ishoralar davriy yangilanadi: yangi ariza yoki pul yechish so'rovi
+  // admin sahifani ochib turganda ham kelishi mumkin va u buni sahifani
+  // qayta yuklamasdan ko'rishi kerak.
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      getAdminBadges()
+        .then((next) => {
+          if (!cancelled) setBadges(next);
+        })
+        .catch(() => {
+          // Ishora ko'rsatilmagani xato emas — panel ishlashda davom etadi.
+        });
+    };
+    load();
+    const timer = setInterval(load, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [pathname]);
 
   // Close mobile drawer on navigation
   useEffect(() => {
@@ -226,7 +267,7 @@ export function AdminShell({ user, children }: AdminShellProps) {
                   href={item.href}
                   title={compact ? item.label : undefined}
                   className={cn(
-                    'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all',
+                    'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all',
                     active
                       ? 'bg-primary text-primary-foreground shadow-sm font-semibold'
                       : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground',
@@ -242,17 +283,33 @@ export function AdminShell({ user, children }: AdminShellProps) {
                   {!compact && (
                     <span className="truncate">{item.label}</span>
                   )}
-                  {!compact && item.badge && (
-                    <span
-                      className={cn(
-                        'ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase',
-                        active
-                          ? 'bg-primary-foreground/20 text-primary-foreground'
-                          : 'bg-primary/10 text-primary',
-                      )}
-                    >
-                      {item.badge}
-                    </span>
+                  {/*
+                    Ishora: doira ichida ko'rilmagan elementlar soni.
+                    Nol bo'lsa umuman chizilmaydi — bo'sh doira "ish bor"
+                    degan noto'g'ri signal berardi.
+
+                    Yig'ilgan holatda (compact) yozuv sig'maydi, shuning
+                    uchun ikonka ustida kichik nuqta qoladi: son ko'rinmasa
+                    ham "bu yerda ish bor" degani yo'qolmasligi kerak.
+                  */}
+                  {item.badge && (badges[item.badge] ?? 0) > 0 && (
+                    compact ? (
+                      <span
+                        aria-label={`${badges[item.badge]} ta yangi`}
+                        className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive"
+                      />
+                    ) : (
+                      <span
+                        className={cn(
+                          'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold',
+                          active
+                            ? 'bg-primary-foreground text-primary'
+                            : 'bg-destructive text-destructive-foreground',
+                        )}
+                      >
+                        {badges[item.badge]}
+                      </span>
+                    )
                   )}
                 </Link>
               );

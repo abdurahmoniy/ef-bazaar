@@ -8,5 +8,7 @@ public enum TransactionKind {
     WITHDRAW_RESERVE,
     WITHDRAW_FULFIL,
     WITHDRAW_CANCEL,
+    /** Hamkorlik maqomi uchun bir martalik to'lov. */
+    PARTNER_FEE,
     ADJUSTMENT
 }

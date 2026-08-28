@@ -19,6 +19,23 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     long countByUserIdAndReadAtIsNull(UUID userId);
 
+    /**
+     * Admin panelidagi ishora uchun: pul yechish so'rovlari haqidagi
+     * o'qilmagan bildirishnomalar.
+     *
+     * <p>Alohida jadval yaratmaymiz — bu qatorlar allaqachon har admin
+     * uchun yoziladi ({@code WithdrawalConsumer}) va ularni ikkinchi marta
+     * sanash ikki manba orasida farq tug'dirardi.
+     */
+    @Query("""
+            select count(n) from Notification n
+             where n.userId = :adminId
+               and n.type = uz.efbazaar.marketplace.domain.NotificationType.WITHDRAWAL_REQUESTED
+               and n.readAt is null
+               and (:since is null or n.createdAt > :since)
+            """)
+    long countUnreadWithdrawalsSince(@Param("adminId") UUID adminId, @Param("since") Instant since);
+
     Optional<Notification> findFirstByUserIdAndChatIdAndTypeAndReadAtIsNull(
             UUID userId, UUID chatId, NotificationType type);
 

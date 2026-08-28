@@ -53,6 +53,31 @@ public class AuthSummaryClient {
         }
     }
 
+    /**
+     * Telegram chat id bo'yicha foydalanuvchi.
+     *
+     * <p>Bot faqat Telegram identifikatorlarini biladi (kanalga kim
+     * qo'shganini `my_chat_member` shundan aytadi), platformadagi ariza esa
+     * UUID bo'yicha turadi — bu ikkisi orasidagi ko'prik.
+     *
+     * <p>Xatolikda bo'sh qaytadi, boshqa chaqiruvlar kabi: kanal tekshiruvi
+     * kechikkani hech narsani buzmaydi, foydalanuvchi qayta urinadi.
+     */
+    public Optional<UserSummary> resolveByTelegramId(Long telegramId) {
+        if (telegramId == null) return Optional.empty();
+        try {
+            return Optional.ofNullable(http.get()
+                    .uri("/internal/auth/v1/users/by-telegram-id/{id}", telegramId)
+                    .header(HEADER, secret)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(UserSummary.class));
+        } catch (Exception e) {
+            log.warn("Telegram id {} bo'yicha foydalanuvchi topilmadi: {}", telegramId, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
     public Optional<UserSummary> resolve(UUID userId) {
         if (userId == null) return Optional.empty();
         return Optional.ofNullable(resolveAll(List.of(userId)).get(userId));
