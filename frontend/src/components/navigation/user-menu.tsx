@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Heart, HelpCircle, LogOut, Mail, Moon, Package, ShieldCheck, Sun, UserCog, UserRound, Wallet } from 'lucide-react';
+import { Handshake, Heart, HelpCircle, LogOut, Mail, Moon, Package, ShieldCheck, Sun, UserCog, UserRound, Wallet } from 'lucide-react';
 
 import { FEATURES } from '@/lib/feature-flags';
 
 import { logoutAction } from '@/app/auth/actions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTheme } from '@/components/theme/use-theme';
-import { isAdmin } from '@/lib/admin';
+import { isAdmin, isPartner } from '@/lib/admin';
 import { isTradeAdmin } from '@/lib/trade-human';
 import { cn } from '@/lib/utils';
 import type { User } from '@/lib/types';
@@ -60,6 +60,7 @@ export function UserMenu({ user, className }: UserMenuProps) {
   }, [open]);
 
   const admin = isAdmin(user);
+  const partner = isPartner(user);
   const tradeAdmin = isTradeAdmin(user);
 
   return (
@@ -131,6 +132,23 @@ export function UserMenu({ user, className }: UserMenuProps) {
                 Hamyon
               </Link>
             )}
+            {/*
+              Bitta yozuv, ikki manzil. Hamkor bo'lgan odamga "Hamkor
+              bo'lish" ko'rsatish uni allaqachon o'tgan yo'lga qaytarardi;
+              hamkor bo'lmaganga esa panel havolasi berib bo'lmaydi.
+
+              Menyuda turishi shart: sahifa bor-u havola yo'q bo'lsa, unga
+              faqat manzilni bilgan odam kira oladi.
+            */}
+            <Link
+              href={partner ? '/partner' : '/partnership'}
+              role="menuitem"
+              className={ITEM_CLASS}
+              onClick={() => setOpen(false)}
+            >
+              <Handshake className="h-4 w-4 text-muted-foreground" />
+              {partner ? 'Hamkor admin paneli' : "Hamkor bo'lish"}
+            </Link>
             <Link href="/help" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
               <HelpCircle className="h-4 w-4 text-muted-foreground" />
               Yordam va Qo‘llanma
