@@ -9,11 +9,13 @@ import { TelegramPreview } from '@/components/admin/telegram-preview';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { BroadcastHistory } from '@/components/admin/broadcast-history';
+import { RecipientPicker } from '@/components/admin/recipient-picker';
 import {
   isActive,
   sendBroadcast,
   type BroadcastAudience,
   type InlineButtonRows,
+  type RecipientUser,
 } from '@/lib/bot-broadcast';
 import { CAPTION_MAX_LENGTH, captionLength, effectiveLimit } from '@/lib/bot-settings';
 import { cn } from '@/lib/utils';
@@ -38,6 +40,7 @@ export function AdminBotBroadcast() {
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [buttons, setButtons] = useState<InlineButtonRows>([]);
   const [audience, setAudience] = useState<BroadcastAudience>('ALL');
+  const [recipients, setRecipients] = useState<RecipientUser[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [sending, setSending] = useState(false);
   const [sentNotice, setSentNotice] = useState<string | null>(null);
@@ -72,6 +75,7 @@ export function AdminBotBroadcast() {
         messageText: text,
         buttons,
         audience,
+        recipientTelegramIds: recipients.map((u) => u.telegramId),
         banner: bannerEnabled ? banner : null,
       });
       setConfirming(false);
@@ -205,9 +209,10 @@ export function AdminBotBroadcast() {
                 <button
                   key={option.value}
                   type="button"
+                  disabled={audience === 'SELECTED'}
                   onClick={() => setAudience(option.value)}
                   className={cn(
-                    'rounded-lg border px-3 py-2 text-left transition',
+                    'rounded-lg border px-3 py-2 text-left transition disabled:opacity-40',
                     audience === option.value
                       ? 'border-primary bg-primary/10'
                       : 'border-border hover:border-primary/40',
@@ -218,17 +223,37 @@ export function AdminBotBroadcast() {
                 </button>
               ))}
             </div>
+
             {audience === 'ADMINS' && (
               <p className="text-xs text-muted-foreground">
                 Sinov rejimi: xabar faqat adminlarga boradi. Haqiqiy jo&apos;natishdan oldin
                 shu bilan tekshirib olish mumkin.
               </p>
             )}
+
+            <Checkbox
+              checked={audience === 'SELECTED'}
+              onChange={(e) => {
+                setAudience(e.target.checked ? 'SELECTED' : 'ALL');
+                if (!e.target.checked) setRecipients([]);
+              }}
+              label="Aniq foydalanuvchilarni tanlash"
+              description="Ogohlantirish va shunga o'xshash maxsus xabarlar uchun. Yoqilsa yuqoridagi guruhlar o'chadi."
+            />
+
+            {audience === 'SELECTED' && (
+              <RecipientPicker selected={recipients} onChange={setRecipients} />
+            )}
           </div>
 
           <Button
             onClick={() => setConfirming(true)}
-            disabled={sending || overLimit || !text.trim()}
+            disabled={
+              sending ||
+              overLimit ||
+              !text.trim() ||
+              (audience === 'SELECTED' && recipients.length === 0)
+            }
             className="w-full gap-2"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -244,7 +269,9 @@ export function AdminBotBroadcast() {
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
             <div className="space-y-1 text-sm">
               <p className="font-semibold text-destructive">
-                {AUDIENCE_OPTIONS.find((o) => o.value === audience)?.label} yuborilsinmi?
+                {audience === 'SELECTED'
+                  ? `${recipients.length} ta foydalanuvchiga yuborilsinmi?`
+                  : `${AUDIENCE_OPTIONS.find((o) => o.value === audience)?.label} yuborilsinmi?`}
               </p>
               {/*
                 Tasdiqlash oynasini olib tashlab bo'lmaydi: yuborilgan xabarni

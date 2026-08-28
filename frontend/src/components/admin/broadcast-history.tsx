@@ -17,6 +17,7 @@ const AUDIENCE_LABEL: Record<BroadcastAudience, string> = {
   ALL: 'Hammaga',
   USERS: 'Faqat userlarga',
   ADMINS: 'Faqat adminlarga',
+  SELECTED: 'Tanlanganlarga',
 };
 
 function StatusBadge({ status }: { status: BroadcastStatus }) {

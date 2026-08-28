@@ -77,4 +77,23 @@ public interface UserRepository extends JpaRepository<User, UUID> {
                 OR lower(u.email) LIKE lower(concat('%', :q, '%'))
             """)
     Page<User> search(@Param("q") String q, Pageable pageable);
+
+    /**
+     * Matnli qidiruv, lekin faqat Telegramga ulanganlar orasidan.
+     *
+     * <p>Botga xabar yuborish uchun manzil tanlanayotganda ulanmagan
+     * foydalanuvchini ko'rsatish foydasiz: uni tanlab bo'lardi, xabar esa
+     * yetmasdi va sabab faqat jo'natishdan keyin ma'lum bo'lardi.
+     */
+    @Query("""
+            SELECT u FROM User u
+             WHERE u.telegramId IS NOT NULL
+               AND (lower(u.telegramUsername) LIKE lower(concat('%', :q, '%'))
+                OR lower(u.telegramFirstName) LIKE lower(concat('%', :q, '%'))
+                OR lower(u.telegramLastName) LIKE lower(concat('%', :q, '%'))
+                OR lower(u.email) LIKE lower(concat('%', :q, '%')))
+            """)
+    Page<User> searchWithTelegram(@Param("q") String q, Pageable pageable);
+
+    Page<User> findByTelegramIdNotNull(Pageable pageable);
 }

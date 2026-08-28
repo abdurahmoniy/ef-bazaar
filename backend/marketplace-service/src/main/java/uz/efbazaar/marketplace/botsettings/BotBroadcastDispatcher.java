@@ -33,12 +33,14 @@ public class BotBroadcastDispatcher {
     private final RestClient botClient;
 
     public void dispatch(UUID id, String text, String bannerFileId,
-                         List<List<InlineButton>> buttons, Audience audience) {
+                         List<List<InlineButton>> buttons, Audience audience,
+                         List<Long> recipientTelegramIds) {
         try {
             botClient.post()
                     .uri("/bot/internal/broadcast")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(new BroadcastJob(id, text, bannerFileId, buttons, audience))
+                    .body(new BroadcastJob(id, text, bannerFileId, buttons, audience,
+                            recipientTelegramIds))
                     .retrieve()
                     .toBodilessEntity();
             log.info("Broadcast {} handed to bot", id);
@@ -48,5 +50,6 @@ public class BotBroadcastDispatcher {
     }
 
     public record BroadcastJob(UUID broadcastId, String messageText, String bannerFileId,
-                               List<List<InlineButton>> buttons, Audience audience) {}
+                               List<List<InlineButton>> buttons, Audience audience,
+                               List<Long> recipientTelegramIds) {}
 }
