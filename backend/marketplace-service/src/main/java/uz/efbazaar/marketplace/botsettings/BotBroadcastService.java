@@ -80,11 +80,13 @@ public class BotBroadcastService {
         List<List<InlineButton>> buttons = validateButtons(request.buttons());
 
         Audience audience = request.audience() == null ? Audience.ALL : request.audience();
+        List<Long> recipients = resolveRecipients(audience, request.recipientTelegramIds());
 
         BotBroadcast broadcast = new BotBroadcast();
         broadcast.setMessageText(text);
         broadcast.setButtons(buttons);
         broadcast.setAudience(audience);
+        broadcast.setRecipientTelegramIds(recipients);
         broadcast.setCreatedBy(adminId);
         broadcast.setStatus(Status.QUEUED);
 
@@ -100,7 +102,8 @@ public class BotBroadcastService {
         // Botga topshirish COMMIT'dan keyin. Aks holda bot qatorni o'qishga
         // urinib topa olmasdi — tranzaksiya hali yopilmagan bo'lardi.
         UUID id = saved.getId();
-        afterCommit(() -> dispatcher.dispatch(id, text, saved.getBannerFileId(), buttons, audience));
+        afterCommit(() -> dispatcher.dispatch(
+                id, text, saved.getBannerFileId(), buttons, audience, recipients));
 
         log.info("Broadcast {} created by admin={} audience={} buttons={} banner={}",
                 id, adminId, audience, buttons.size(), withBanner);
@@ -137,6 +140,26 @@ public class BotBroadcastService {
             broadcast.setFinishedAt(Instant.now());
         }
         return broadcast;
+    }
+
+    /**
+     * SELECTED da ro'yxat MAJBURIY va bo'sh bo'lmasligi kerak.
+     *
+     * <p>Bo'sh ro'yxatga ruxsat bersak jo'natish "muvaffaqiyatli, 0 kishiga"
+     * bo'lib yakunlanardi va admin xabar ketdi deb o'ylardi. Boshqa
+     * auditoriyalarda esa ro'yxat e'tiborsiz qoldiriladi — u yerda manzillarni
+     * auth-service beradi va bu yerdagi qiymat faqat chalkashtirardi.
+     */
+    private List<Long> resolveRecipients(Audience audience, List<Long> requested) {
+        if (audience != Audience.SELECTED) return List.of();
+
+        List<Long> clean = requested == null ? List.of()
+                : requested.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (clean.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Kamida bitta qabul qiluvchi tanlanishi kerak");
+        }
+        return clean;
     }
 
     // ----- tekshiruvlar -----

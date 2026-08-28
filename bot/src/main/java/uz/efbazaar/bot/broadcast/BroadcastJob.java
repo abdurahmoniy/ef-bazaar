@@ -12,7 +12,9 @@ public record BroadcastJob(
         String messageText,
         String bannerFileId,
         List<List<Button>> buttons,
-        Audience audience
+        Audience audience,
+        /** Faqat {@link Audience#SELECTED} uchun to'ldiriladi. */
+        List<Long> recipientTelegramIds
 ) {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Button(String text, String url) {}
@@ -21,5 +23,5 @@ public record BroadcastJob(
      * Kimga yuborilsin. Bot rollar haqida hech narsa bilmaydi — bu qiymatni
      * auth-service'ga uzatadi va tayyor manzillar ro'yxatini oladi.
      */
-    public enum Audience { ALL, USERS, ADMINS }
+    public enum Audience { ALL, USERS, ADMINS, SELECTED }
 }

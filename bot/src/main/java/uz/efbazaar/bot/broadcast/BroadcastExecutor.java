@@ -59,7 +59,12 @@ public class BroadcastExecutor {
         log.info("Broadcast {} boshlandi (audience={})", job.broadcastId(), audience);
 
         while (true) {
-            var chunk = recipients.fetch(audience, page);
+            // SELECTED da manzillar allaqachon topshiriqda keladi — adminka
+            // ularni qo'lda tanlagan. auth-service'ga borish nafaqat keraksiz,
+            // balki noto'g'ri ham bo'lardi: u yerdan boshqa ro'yxat qaytardi.
+            var chunk = audience == BroadcastJob.Audience.SELECTED
+                    ? selectedChunk(job, page)
+                    : recipients.fetch(audience, page);
             if (chunk == null) {
                 // Ro'yxatni ololmadik. Yarim yuborilgan holatni MUVAFFAQIYAT
                 // deb belgilamaymiz — admin qolganini qo'lda hal qilishi uchun
@@ -116,6 +121,16 @@ public class BroadcastExecutor {
                 job.broadcastId(), sent, blocked, failed, total);
         reporter.report(job.broadcastId(), new BroadcastProgress(
                 BroadcastProgress.Status.SENT, total, sent, failed, blocked, null));
+    }
+
+    /**
+     * Topshiriqdagi tayyor ro'yxatni sahifalash shakliga keltiradi, shunda
+     * asosiy sikl ikkala manba uchun bir xil qoladi.
+     */
+    private BroadcastRecipients.TelegramIdPage selectedChunk(BroadcastJob job, int page) {
+        if (page > 0) return null;
+        List<Long> ids = job.recipientTelegramIds() == null ? List.of() : job.recipientTelegramIds();
+        return new BroadcastRecipients.TelegramIdPage(ids, true, ids.size());
     }
 
     /**

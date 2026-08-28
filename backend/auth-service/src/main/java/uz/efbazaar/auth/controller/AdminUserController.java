@@ -40,11 +40,18 @@ public class AdminUserController {
     private final UserService userService;
     private final UserMapper userMapper;
 
+    /**
+     * @param telegramOnly faqat Telegramga ulanganlarni qaytaradi — botdan
+     *                     maxsus xabar yuborish uchun manzil tanlanayotganda.
+     *                     Ulanmagan foydalanuvchini ko'rsatish foydasiz: uni
+     *                     tanlab bo'lardi, xabar esa yetmasdi.
+     */
     @GetMapping
     public PageResponse<UserResponse> list(
             @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "false") boolean telegramOnly,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
-        Page<User> page = userService.findAll(search, pageable);
+        Page<User> page = userService.findAll(search, telegramOnly, pageable);
         return new PageResponse<>(
                 page.getContent().stream().map(userMapper::toResponse).toList(),
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());

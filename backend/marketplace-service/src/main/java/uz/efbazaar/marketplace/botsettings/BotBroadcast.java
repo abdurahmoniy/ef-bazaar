@@ -70,6 +70,18 @@ public class BotBroadcast {
     @Column(nullable = false)
     private Audience audience = Audience.ALL;
 
+    /**
+     * {@link Audience#SELECTED} uchun tanlangan Telegram chat id lari.
+     *
+     * <p>Boshqa auditoriyalarda bo'sh — ular uchun ro'yxat jo'natish paytida
+     * auth-service'dan olinadi. SELECTED da esa ro'yxat shu yerda saqlanishi
+     * shart: keyinchalik "bu xabar kimga ketgan" degan savolga javob
+     * beradigan boshqa joy yo'q.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "recipient_telegram_ids", nullable = false, columnDefinition = "jsonb")
+    private List<Long> recipientTelegramIds = new ArrayList<>();
+
     @Column(name = "total_recipients", nullable = false)
     private int totalRecipients;
 
@@ -112,8 +124,11 @@ public class BotBroadcast {
      * <p>{@link #ADMINS} — sinov rejimi: xabar bir necha kishiga boradi va
      * xato bo'lsa arzon tuzatiladi. {@link #ALL} bilan yuborilgan xatoni
      * qaytarib bo'lmaydi, shuning uchun sinov rejimi alohida turadi.
+     *
+     * <p>{@link #SELECTED} — admin qo'lda tanlagan foydalanuvchilar
+     * (ogohlantirish va shunga o'xshash maxsus xabarlar uchun).
      */
-    public enum Audience { ALL, USERS, ADMINS }
+    public enum Audience { ALL, USERS, ADMINS, SELECTED }
 
     /** Telegram inline tugmasi — matn va havola. */
     public record InlineButton(String text, String url) {}

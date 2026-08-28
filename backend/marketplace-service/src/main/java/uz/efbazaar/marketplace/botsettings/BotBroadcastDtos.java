@@ -28,7 +28,10 @@ public final class BotBroadcastDtos {
                     List<@Valid ButtonDto>> buttons,
 
             /** Bo'sh bo'lsa {@link Audience#ALL} — adminka har doim yuboradi. */
-            Audience audience
+            Audience audience,
+
+            /** Faqat {@link Audience#SELECTED} uchun: tanlangan chat id lar. */
+            List<Long> recipientTelegramIds
     ) {}
 
     public record ButtonDto(
@@ -61,6 +64,7 @@ public final class BotBroadcastDtos {
             List<List<InlineButton>> buttons,
             Status status,
             Audience audience,
+            List<Long> recipientTelegramIds,
             int totalRecipients,
             int sentCount,
             int failedCount,
@@ -73,7 +77,8 @@ public final class BotBroadcastDtos {
         public static BroadcastResponse from(BotBroadcast b) {
             return new BroadcastResponse(
                     b.getId(), b.getMessageText(), b.getBannerFileId(), b.getButtons(),
-                    b.getStatus(), b.getAudience(), b.getTotalRecipients(), b.getSentCount(),
+                    b.getStatus(), b.getAudience(), b.getRecipientTelegramIds(),
+                    b.getTotalRecipients(), b.getSentCount(),
                     b.getFailedCount(), b.getBlockedCount(),
                     b.getCreatedAt(), b.getStartedAt(), b.getFinishedAt(), b.getErrorMessage());
         }

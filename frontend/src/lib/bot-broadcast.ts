@@ -104,7 +104,7 @@ export function isEmpty(rows: InlineButtonRows): boolean {
  * <p>`ADMINS` — sinov rejimi. Yuborilgan xabarni qaytarib bo'lmaydi, ya'ni
  * uni bir necha kishiga yuborib ko'rish — xato qilishning yagona arzon usuli.
  */
-export type BroadcastAudience = 'ALL' | 'USERS' | 'ADMINS';
+export type BroadcastAudience = 'ALL' | 'USERS' | 'ADMINS' | 'SELECTED';
 
 export type BroadcastStatus = 'QUEUED' | 'SENDING' | 'SENT' | 'FAILED';
 
@@ -115,6 +115,7 @@ export interface Broadcast {
   buttons: InlineButtonRows;
   status: BroadcastStatus;
   audience: BroadcastAudience;
+  recipientTelegramIds: number[];
   totalRecipients: number;
   sentCount: number;
   failedCount: number;
@@ -123,6 +124,16 @@ export interface Broadcast {
   startedAt: string | null;
   finishedAt: string | null;
   errorMessage: string | null;
+}
+
+/** Qidiruvda chiqadigan foydalanuvchi — faqat Telegramga ulanganlari. */
+export interface RecipientUser {
+  id: string;
+  telegramId: number;
+  telegramUsername: string | null;
+  telegramFirstName: string | null;
+  telegramLastName: string | null;
+  email: string | null;
 }
 
 export interface BroadcastPage {
@@ -145,10 +156,32 @@ async function parseError(response: Response): Promise<string> {
   }
 }
 
+/**
+ * Qabul qiluvchi qidiruvi.
+ *
+ * <p>`telegramOnly` shart: botga xabar yuborish uchun manzil tanlanmoqda va
+ * Telegramga ulanmagan foydalanuvchini ko'rsatish faqat chalg'itardi.
+ */
+export async function searchTelegramUsers(search: string): Promise<{ content: RecipientUser[] }> {
+  const params = new URLSearchParams({
+    search,
+    telegramOnly: 'true',
+    page: '0',
+    size: '10',
+  });
+  const response = await fetch(`/api/auth/v1/admin/users?${params.toString()}`, {
+    headers: { Accept: 'application/json' },
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json();
+}
+
 export async function sendBroadcast(input: {
   messageText: string;
   buttons: InlineButtonRows;
   audience: BroadcastAudience;
+  recipientTelegramIds: number[];
   banner: File | null;
 }): Promise<Broadcast> {
   const formData = new FormData();
@@ -160,6 +193,7 @@ export async function sendBroadcast(input: {
           messageText: input.messageText,
           buttons: input.buttons,
           audience: input.audience,
+          recipientTelegramIds: input.recipientTelegramIds,
         }),
       ],
       { type: 'application/json' },

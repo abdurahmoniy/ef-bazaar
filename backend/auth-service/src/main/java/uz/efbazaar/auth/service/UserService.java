@@ -3,6 +3,7 @@ package uz.efbazaar.auth.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,7 @@ import uz.efbazaar.auth.event.AuthEventPublisher;
 import uz.efbazaar.auth.exception.AuthException;
 import uz.efbazaar.auth.repository.UserRepository;
 
+import java.util.Optional;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -57,10 +59,58 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public Page<User> findAll(String search, Pageable pageable) {
+        return findAll(search, false, pageable);
+    }
+
+    /**
+     * Admin qidiruvi.
+     *
+     * <p>So'rov RAQAM bo'lsa Telegram chat id, UUID bo'lsa platforma id si
+     * deb qaraladi va aniq moslik izlanadi. Bu ikkisi matnli qidiruvga
+     * qo'shilmaydi: ular butun qiymat sifatida beriladi, `LIKE '%...%'`
+     * esa ular ustidagi indeksni ishlatmasdi va yarim raqam bo'yicha
+     * tasodifiy mosliklar chiqarardi.
+     *
+     * @param telegramOnly faqat Telegramga ulanganlar (botga xabar
+     *                     yuborish uchun manzil tanlanayotganda)
+     */
+    @Transactional(readOnly = true)
+    public Page<User> findAll(String search, boolean telegramOnly, Pageable pageable) {
         if (search == null || search.isBlank()) {
-            return userRepository.findAll(pageable);
+            return telegramOnly
+                    ? userRepository.findByTelegramIdNotNull(pageable)
+                    : userRepository.findAll(pageable);
         }
-        return userRepository.search(search.trim(), pageable);
+        String query = search.trim();
+
+        Optional<User> exact = findByIdentifier(query);
+        if (exact.isPresent()) {
+            User user = exact.get();
+            if (telegramOnly && user.getTelegramId() == null) {
+                return Page.empty(pageable);
+            }
+            return new PageImpl<>(List.of(user), pageable, 1);
+        }
+
+        return telegramOnly
+                ? userRepository.searchWithTelegram(query, pageable)
+                : userRepository.search(query, pageable);
+    }
+
+    /** Butun son — Telegram chat id, UUID — platforma id si. Boshqasi: bo'sh. */
+    private Optional<User> findByIdentifier(String query) {
+        if (query.matches("\\d{5,}")) {
+            try {
+                return userRepository.findByTelegramId(Long.parseLong(query));
+            } catch (NumberFormatException e) {
+                return Optional.empty();
+            }
+        }
+        try {
+            return userRepository.findById(UUID.fromString(query));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
     }
 
     /**

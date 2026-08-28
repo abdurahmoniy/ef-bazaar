@@ -18,6 +18,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -49,7 +50,7 @@ class BroadcastExecutorTest {
     }
 
     private BroadcastJob job() {
-        return new BroadcastJob(id, "salom", null, List.of(), BroadcastJob.Audience.ALL);
+        return new BroadcastJob(id, "salom", null, List.of(), BroadcastJob.Audience.ALL, List.of());
     }
 
     private BroadcastProgress lastProgress() {
@@ -103,6 +104,24 @@ class BroadcastExecutorTest {
     }
 
     @Test
+    @DisplayName("SELECTED da auth-service'ga umuman borilmaydi")
+    void selectedAudienceUsesTheProvidedList() throws Exception {
+        when(telegram.sendBroadcast(anyString(), anyString(), any(), any()))
+                .thenReturn(SendOutcome.sent());
+
+        executor.submit(new BroadcastJob(id, "ogohlantirish", null, List.of(),
+                BroadcastJob.Audience.SELECTED, List.of(11L, 22L)));
+        executor.shutdownAndWait();
+
+        // auth'dan ro'yxat so'rasak boshqa manzillar qaytardi va xabar
+        // tanlanmagan odamlarga ketardi — qaytarib bo'lmaydigan xato.
+        verify(recipients, never()).fetch(any(), anyInt());
+        verify(telegram).sendBroadcast(eq("11"), anyString(), any(), any());
+        verify(telegram).sendBroadcast(eq("22"), anyString(), any(), any());
+        assertThat(lastProgress().sentCount()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("Manzillar ro'yxati olinmasa FAILED deb belgilanadi")
     void marksFailedWhenRecipientsCannotBeFetched() throws Exception {
         when(recipients.fetch(any(), anyInt())).thenReturn(null);
@@ -137,7 +156,8 @@ class BroadcastExecutorTest {
         when(recipients.fetch(any(), anyInt()))
                 .thenReturn(new TelegramIdPage(List.of(), true, 0));
 
-        executor.submit(new BroadcastJob(id, "salom", null, List.of(), BroadcastJob.Audience.ADMINS));
+        executor.submit(new BroadcastJob(
+                id, "salom", null, List.of(), BroadcastJob.Audience.ADMINS, List.of()));
         executor.shutdownAndWait();
 
         // Sinov rejimi ishlamasa xabar ADMINS tanlanganda ham hammaga
