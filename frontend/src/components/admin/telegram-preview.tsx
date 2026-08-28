@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 
+import type { InlineButtonRows } from '@/lib/bot-broadcast';
 import { telegramHtmlToPreview } from '@/lib/telegram-html';
 
 /**
@@ -45,9 +46,15 @@ function buildPatternUrl(): string {
 interface TelegramPreviewProps {
   html: string;
   bannerUrl: string | null;
+  /**
+   * Xabar ostidagi inline tugmalar. Start xabarida ular kodda belgilangan
+   * va o'zgarmas; ommaviy xabarda admin o'zi yig'adi. Preview ikkalasini
+   * ham bir xil chizadi — natija bitta Telegram xabari.
+   */
+  buttons: InlineButtonRows;
 }
 
-export function TelegramPreview({ html, bannerUrl }: TelegramPreviewProps) {
+export function TelegramPreview({ html, bannerUrl, buttons }: TelegramPreviewProps) {
   const pattern = useMemo(buildPatternUrl, []);
   const rendered = useMemo(() => telegramHtmlToPreview(html), [html]);
 
@@ -77,24 +84,26 @@ export function TelegramPreview({ html, bannerUrl }: TelegramPreviewProps) {
           )}
         </div>
 
-        {/*
-          Tugmalar kodda belgilangan (UpdateHandler.startKeyboard) va
-          adminkadan o'zgarmaydi — bu yerda faqat xabar qanday ko'rinishini
-          to'liq ko'rsatish uchun turibdi.
-        */}
-        <div className="space-y-px border-t border-slate-200 bg-slate-50">
-          <div className="px-3 py-2 text-center text-[13px] font-medium text-[#3390ec]">
-            🛒 Bozorni ochish
+        {buttons.length > 0 && (
+          <div className="space-y-px border-t border-slate-200 bg-slate-50">
+            {buttons.map((row, rowIndex) => (
+              <div
+                key={rowIndex}
+                className="grid gap-px border-t border-slate-200 first:border-t-0"
+                style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}
+              >
+                {row.map((button, colIndex) => (
+                  <div
+                    key={colIndex}
+                    className="truncate bg-slate-50 px-3 py-2 text-center text-[13px] font-medium text-[#3390ec]"
+                  >
+                    {button.text}
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
-          <div className="grid grid-cols-2 gap-px border-t border-slate-200">
-            <div className="bg-slate-50 px-3 py-2 text-center text-[13px] font-medium text-[#3390ec]">
-              📋 E&apos;lon joylash
-            </div>
-            <div className="border-l border-slate-200 bg-slate-50 px-3 py-2 text-center text-[13px] font-medium text-[#3390ec]">
-              ❓ Yordam
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import { AlertCircle, Bot, CheckCircle2, ImagePlus, Loader2, RotateCcw, Save, Trash2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ImagePlus, Loader2, RotateCcw, Save, Trash2 } from 'lucide-react';
 
 import { TelegramEditor } from '@/components/admin/telegram-editor';
 import { TelegramPreview } from '@/components/admin/telegram-preview';
@@ -16,8 +16,25 @@ import {
   uploadBotBanner,
   type BotSettings,
 } from '@/lib/bot-settings';
+import type { InlineButtonRows } from '@/lib/bot-broadcast';
 import { listingMediaUrl } from '@/lib/marketplace-media';
 import { cn } from '@/lib/utils';
+
+/**
+ * Start xabarining tugmalari KODDA belgilangan va adminkadan o'zgarmaydi —
+ * manba: `UpdateHandler.startKeyboard()`. Bu yerdagi nusxa faqat preview
+ * uchun; ikkalasi ajralib ketmasligi uchun matnlar bir xil yozilgan.
+ *
+ * <p>Ommaviy xabarda esa tugmalarni admin o'zi yig'adi — u yerda bu ro'yxat
+ * ishlatilmaydi.
+ */
+const START_MESSAGE_BUTTONS: InlineButtonRows = [
+  [{ text: '🛒 Bozorni ochish', url: 'https://efbazaar.uz/marketplace' }],
+  [
+    { text: "📋 E'lon joylash", url: 'https://efbazaar.uz/marketplace/new' },
+    { text: '❓ Yordam', url: 'https://efbazaar.uz/help' },
+  ],
+];
 
 interface AdminBotSettingsProps {
   initial: BotSettings;
@@ -155,19 +172,6 @@ export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
 
   return (
     <div className="space-y-4">
-      <header className="flex items-start gap-3">
-        <div className="rounded-lg bg-primary/10 p-2 text-primary">
-          <Bot className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-lg font-bold">Bot sozlamalari</h1>
-          <p className="text-sm text-muted-foreground">
-            Foydalanuvchi botda <code className="rounded bg-muted px-1">/start</code> bosganda
-            ko&apos;radigan xabar. Saqlaganingizda bot darhol yangilanadi.
-          </p>
-        </div>
-      </header>
-
       {error && (
         <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -298,7 +302,14 @@ export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
 
           <div>
             <h2 className="mb-2 text-sm font-semibold">Telegramda qanday ko&apos;rinadi</h2>
-            <TelegramPreview html={text} bannerUrl={bannerEnabled ? shownBannerUrl : null} />
+            <TelegramPreview
+              html={text}
+              bannerUrl={bannerEnabled ? shownBannerUrl : null}
+              buttons={START_MESSAGE_BUTTONS}
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Tugmalar kodda belgilangan va bu bo&apos;limdan o&apos;zgarmaydi.
+            </p>
           </div>
         </section>
       </div>
