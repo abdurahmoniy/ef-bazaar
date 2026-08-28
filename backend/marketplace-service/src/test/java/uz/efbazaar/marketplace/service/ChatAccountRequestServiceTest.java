@@ -33,12 +33,18 @@ import static org.mockito.Mockito.*;
  * happened to be created from. A pair could therefore trade once, in one
  * direction, about one account.
  */
+import uz.efbazaar.marketplace.event.MarketplaceEventPublisher;
+import uz.efbazaar.marketplace.repository.ChatParticipantRepository;
+
 @ExtendWith(MockitoExtension.class)
 class ChatAccountRequestServiceTest {
 
     @Mock ChatAccountRequestRepository requests;
     @Mock ChatRepository chats;
     @Mock ListingRepository listings;
+    @Mock ChatParticipantRepository participants;
+    @Mock MarketplaceEventPublisher events;
+    @Mock NotificationService notifications;
     @InjectMocks ChatAccountRequestService service;
 
     private UUID chatId;
@@ -183,5 +189,22 @@ class ChatAccountRequestServiceTest {
         assertThatThrownBy(() -> service.open(UUID.randomUUID(), chatId, UUID.randomUUID()))
                 .isInstanceOf(MarketplaceException.class)
                 .hasMessageContaining("ishtirok etmaysiz");
+    }
+
+    @Test
+    void openingRequestNotifiesPartnerAndEmitsEvent() {
+        chatExists();
+        Listing listing2 = listingOf(bob, ListingStatus.ACTIVE);
+        when(listings.findById(listing2.getId())).thenReturn(Optional.of(listing2));
+        when(requests.findByChatIdAndStatus(chatId, AccountRequestStatus.OPEN))
+                .thenReturn(Optional.empty());
+        when(requests.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        service.open(alice, chatId, listing2.getId());
+
+        verify(events).chatCreated(chatId, listing2.getId(), alice, bob);
+        verify(notifications).accountRequested(eq(bob), eq(chatId), eq(listing2.getId()), any());
+        verify(chats).save(chat);
+        assertThat(chat.getListingId()).isEqualTo(listing2.getId());
     }
 }

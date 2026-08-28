@@ -2,6 +2,7 @@ package uz.efbazaar.marketplace.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import uz.efbazaar.marketplace.domain.AttachmentType;
+import uz.efbazaar.marketplace.domain.ChatMessageType;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -24,5 +25,8 @@ public record MessageResponse(
         /** One-line preview of the quoted message. */
         String replyPreview,
         Instant editedAt,
-        Instant createdAt
+        Instant createdAt,
+        ChatMessageType messageType,
+        UUID proposalId,
+        String proposalOutcome
 ) {}

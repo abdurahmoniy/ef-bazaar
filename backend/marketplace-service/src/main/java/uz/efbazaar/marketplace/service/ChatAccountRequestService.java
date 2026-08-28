@@ -10,11 +10,14 @@ import uz.efbazaar.marketplace.domain.ChatAccountRequest;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.domain.ListingStatus;
 import uz.efbazaar.marketplace.dto.AccountRequestResponse;
+import uz.efbazaar.marketplace.event.MarketplaceEventPublisher;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.repository.ChatAccountRequestRepository;
+import uz.efbazaar.marketplace.repository.ChatParticipantRepository;
 import uz.efbazaar.marketplace.repository.ChatRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,6 +38,9 @@ public class ChatAccountRequestService {
     private final ChatAccountRequestRepository requests;
     private final ChatRepository chats;
     private final ListingRepository listings;
+    private final ChatParticipantRepository participants;
+    private final MarketplaceEventPublisher events;
+    private final NotificationService notifications;
 
     /**
      * Opens a request, superseding any earlier one in the same chat.
@@ -86,6 +92,22 @@ public class ChatAccountRequestService {
                 .listingId(listingId)
                 .status(AccountRequestStatus.OPEN)
                 .build());
+
+        chat.setListingId(listingId);
+        chat.setLastMessageAt(Instant.now());
+        chats.save(chat);
+
+        UUID partnerId = chat.partnerOf(requesterId);
+        participants.findByChatIdAndUserId(chatId, requesterId)
+                .filter(p -> p.getHiddenAt() != null)
+                .ifPresent(p -> p.setHiddenAt(null));
+        participants.findByChatIdAndUserId(chatId, partnerId)
+                .filter(p -> p.getHiddenAt() != null)
+                .ifPresent(p -> p.setHiddenAt(null));
+
+        events.chatCreated(chat.getId(), listingId, requesterId, partnerId);
+        notifications.accountRequested(partnerId, chat.getId(), listingId, chat.displayNameOf(requesterId));
+
         log.info("Account request opened: chat={} requester={} listing={}",
                 chatId, requesterId, listingId);
         return req;

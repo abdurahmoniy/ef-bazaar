@@ -17,6 +17,8 @@ export interface ChatListingOption {
   price: number;
   priceNegotiable: boolean;
   coverMessageId: string | null;
+  exchangeMode?: string | null;
+  attributes?: Record<string, any>;
 }
 
 export interface AccountRequest {

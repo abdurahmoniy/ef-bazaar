@@ -90,4 +90,9 @@ public class Chat {
         if (!isParticipant(userId)) return null;
         return userId.equals(buyerId) ? sellerId : buyerId;
     }
+
+    public String displayNameOf(UUID userId) {
+        if (!isParticipant(userId)) return null;
+        return userId.equals(buyerId) ? buyerDisplayName : sellerDisplayName;
+    }
 }

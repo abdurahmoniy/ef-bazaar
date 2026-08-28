@@ -21,6 +21,7 @@ import { MessageActionSheet } from '@/components/chat/message-action-sheet';
 import { TradeProvider } from '@/components/chat/trade-context';
 import { TradePinnedBar } from '@/components/chat/trade-pinned-bar';
 import { TradePanel } from '@/components/chat/trade-panel';
+import { TradeProposalMessageCard } from '@/components/chat/trade-proposal-message-card';
 import { TipCallout } from '@/components/help/tip-callout';
 import { MessageAttachment, formatBytes } from '@/components/chat/message-attachment';
 import { VoiceRecorder } from '@/components/chat/voice-recorder';
@@ -379,60 +380,67 @@ export function ChatView({
                   <span className="h-px flex-1 bg-primary/30" />
                 </div>
               )}
-              <div
-                className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}
-              >
+              {message.messageType === 'TRADE_PROPOSAL' ? (
+                <TradeProposalMessageCard
+                  message={message}
+                  viewerId={viewerId}
+                />
+              ) : (
                 <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setActionTarget(message)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') setActionTarget(message);
-                  }}
-                  className={cn(
-                    'max-w-[80%] cursor-pointer rounded-2xl text-left text-sm whitespace-pre-wrap break-words',
-                    hasAttachment && message.attachmentType === 'IMAGE' ? 'p-1' : 'px-3 py-2',
-                    mine
-                      ? 'rounded-br-md bg-primary text-primary-foreground'
-                      : 'rounded-bl-md bg-muted text-foreground',
-                  )}
+                  className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}
                 >
-                  {message.replyToId && (
-                    <span
-                      className={cn(
-                        'mb-1 block rounded-lg border-l-2 px-2 py-1 text-[11.5px]',
-                        mine
-                          ? 'border-primary-foreground/60 bg-white/10 text-primary-foreground/90'
-                          : 'border-primary bg-primary/5 text-muted-foreground',
-                      )}
-                    >
-                      <span className="block font-bold">
-                        {message.replySenderId === viewerId ? 'Siz' : name}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setActionTarget(message)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') setActionTarget(message);
+                    }}
+                    className={cn(
+                      'max-w-[80%] cursor-pointer rounded-2xl text-left text-sm whitespace-pre-wrap break-words',
+                      hasAttachment && message.attachmentType === 'IMAGE' ? 'p-1' : 'px-3 py-2',
+                      mine
+                        ? 'rounded-br-md bg-primary text-primary-foreground'
+                        : 'rounded-bl-md bg-muted text-foreground',
+                    )}
+                  >
+                    {message.replyToId && (
+                      <span
+                        className={cn(
+                          'mb-1 block rounded-lg border-l-2 px-2 py-1 text-[11.5px]',
+                          mine
+                            ? 'border-primary-foreground/60 bg-white/10 text-primary-foreground/90'
+                            : 'border-primary bg-primary/5 text-muted-foreground',
+                        )}
+                      >
+                        <span className="block font-bold">
+                          {message.replySenderId === viewerId ? 'Siz' : name}
+                        </span>
+                        <span className="block truncate">
+                          {message.replyPreview ?? "O'chirilgan xabar"}
+                        </span>
                       </span>
-                      <span className="block truncate">
-                        {message.replyPreview ?? "O'chirilgan xabar"}
+                    )}
+                    {hasAttachment && (
+                      // Media controls (lightbox, play, download) must not open
+                      // the message action sheet.
+                      // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+                      <span className="block" onClick={(e) => e.stopPropagation()}>
+                        <MessageAttachment message={message} mine={mine} />
                       </span>
-                    </span>
-                  )}
-                  {hasAttachment && (
-                    // Media controls (lightbox, play, download) must not open
-                    // the message action sheet.
-                    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-                    <span className="block" onClick={(e) => e.stopPropagation()}>
-                      <MessageAttachment message={message} mine={mine} />
-                    </span>
-                  )}
-                  {message.content && (
-                    <span className={cn('block', hasAttachment && 'px-2 pb-1 pt-1.5')}>
-                      {message.content}
-                    </span>
-                  )}
+                    )}
+                    {message.content && (
+                      <span className={cn('block', hasAttachment && 'px-2 pb-1 pt-1.5')}>
+                        {message.content}
+                      </span>
+                    )}
+                  </div>
+                  <span className="mt-0.5 text-[10px] text-muted-foreground">
+                    {formatMessageTime(message.createdAt)}
+                    {message.editedAt && ' · tahrirlangan'}
+                  </span>
                 </div>
-                <span className="mt-0.5 text-[10px] text-muted-foreground">
-                  {formatMessageTime(message.createdAt)}
-                  {message.editedAt && ' · tahrirlangan'}
-                </span>
-              </div>
+              )}
             </div>
           );
         })}

@@ -97,8 +97,6 @@ public class ChatService {
             // Records which account the conversation opens on, so a brand-new
             // chat and a reused one both arrive with the same context.
             accountRequests.open(buyerId, chat.getId(), listingId);
-            events.chatCreated(chat.getId(), listingId, buyerId, sellerId);
-            notifications.chatCreated(chat);
             log.info("Chat created: id={} listingId={} buyer={} seller={}",
                     chat.getId(), listingId, buyerId, sellerId);
             return chat;

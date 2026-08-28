@@ -47,7 +47,7 @@ export const SEEDED_LISTING_ATTRIBUTE_DEFINITIONS: FormAttributeDefinition[] = [
     required: false,
     position: 25,
     groupKey: 'squad',
-    constraints: { min: 11, max: 80 },
+    constraints: { min: 11, max: 5000 },
   },
   {
     key: 'valuable_players',
