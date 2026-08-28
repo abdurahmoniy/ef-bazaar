@@ -6,10 +6,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * Ommaviy jo'natish sozlamalari.
  *
  * @param messagesPerSecond Telegram turli foydalanuvchilarga sekundiga ~30
- *                          xabarga ruxsat beradi. Undan pastroq turamiz:
- *                          chegaraga urilish jo'natishni tezlashtirmaydi,
- *                          faqat 429 va kutishga olib keladi, muntazam
- *                          takrorlansa esa bot bloklanadi.
+ *                          xabarga ruxsat beradi. Undan sezilarli pastroq
+ *                          turamiz, chunki chegara BUTUN BOT uchun umumiy:
+ *                          chat bildirishnomalari, ro'yxatdan o'tish xabarlari
+ *                          va Telegramga ketadigan loglar ham shu 30 dan
+ *                          yeydi, lekin bu jilovga kirmaydi. Qoldirilgan
+ *                          zaxira o'sha trafik uchun.
  * @param progressEvery     Har shuncha xabardan keyin marketplace'ga holat
  *                          yuboriladi. Har xabarda yuborish jo'natishdan
  *                          ko'ra ko'proq trafik yaratardi.
@@ -20,7 +22,7 @@ public record BroadcastProperties(
         int progressEvery
 ) {
     public BroadcastProperties {
-        if (messagesPerSecond <= 0) messagesPerSecond = 25;
+        if (messagesPerSecond <= 0) messagesPerSecond = 20;
         if (progressEvery <= 0) progressEvery = 50;
     }
 
