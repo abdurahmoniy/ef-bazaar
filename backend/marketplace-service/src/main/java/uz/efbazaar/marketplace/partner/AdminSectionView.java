@@ -6,6 +6,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -46,10 +47,20 @@ public class AdminSectionView {
         this.lastSeenAt = lastSeenAt;
     }
 
+    /**
+     * Kompozit kalit.
+     *
+     * <p>{@code equals}/{@code hashCode} JPA talabi va Lombok'ning
+     * {@code @Getter}/{@code @Setter} ularni yasamaydi. Ularsiz Hibernate
+     * bir xil kalitni ikki xil obyekt deb qaraydi: {@code findById} kesh'dan
+     * topa olmaydi va {@code save} mavjud qatorni yangilash o'rniga
+     * ikkinchisini qo'shishga urinadi.
+     */
     @Getter
     @Setter
     @NoArgsConstructor
     @AllArgsConstructor
+    @EqualsAndHashCode
     public static class Key implements Serializable {
         private UUID adminId;
         private String section;

@@ -103,9 +103,20 @@ class AdminBadgeQueryIT {
                 adminId, NotificationType.WITHDRAWAL_REQUESTED, past)).isEqualTo(1);
     }
 
+    /**
+     * Sinov uchun minimal kontekst.
+     *
+     * <p>{@code considerNestedRepositories} SHART. Hamkorlik repozitoriylari
+     * {@code PartnerRepositories} ichida ichma-ich e'lon qilingan, Spring Data
+     * esa ichki interfeyslarni standart holatda skanerlamaydi — bayroqsiz
+     * ular umuman yaratilmaydi va sinov "bean topilmadi" bilan yiqiladi.
+     * Ilova o'zi ishlaydi, chunki u boshqa skanerlash yo'lidan boradi;
+     * shuning uchun bu faqat shu yerda ko'rinadi.
+     */
     @org.springframework.boot.autoconfigure.domain.EntityScan(
             basePackageClasses = {Notification.class, PartnerApplication.class})
     @org.springframework.data.jpa.repository.config.EnableJpaRepositories(
-            basePackageClasses = {NotificationRepository.class, PartnerApplicationRepository.class})
+            basePackageClasses = {NotificationRepository.class, PartnerApplication.class},
+            considerNestedRepositories = true)
     static class Config {}
 }
