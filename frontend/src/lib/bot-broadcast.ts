@@ -1,3 +1,5 @@
+import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+
 /**
  * Inline tugmalar panelining ma'lumot ko'rinishi va uni o'zgartirish amallari.
  *
@@ -92,4 +94,104 @@ export function validateButton(button: InlineButton): string | null {
 /** Panel bo'shmi — bitta ham tugma yo'qmi. */
 export function isEmpty(rows: InlineButtonRows): boolean {
   return rows.every((r) => r.length === 0);
+}
+
+// ---------- Jo'natish (server bilan aloqa) ----------
+
+/**
+ * Xabar kimga ketadi.
+ *
+ * <p>`ADMINS` — sinov rejimi. Yuborilgan xabarni qaytarib bo'lmaydi, ya'ni
+ * uni bir necha kishiga yuborib ko'rish — xato qilishning yagona arzon usuli.
+ */
+export type BroadcastAudience = 'ALL' | 'USERS' | 'ADMINS';
+
+export type BroadcastStatus = 'QUEUED' | 'SENDING' | 'SENT' | 'FAILED';
+
+export interface Broadcast {
+  id: string;
+  messageText: string;
+  bannerFileId: string | null;
+  buttons: InlineButtonRows;
+  status: BroadcastStatus;
+  audience: BroadcastAudience;
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  blockedCount: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  errorMessage: string | null;
+}
+
+export interface BroadcastPage {
+  content: Broadcast[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+}
+
+export function isActive(status: BroadcastStatus): boolean {
+  return status === 'QUEUED' || status === 'SENDING';
+}
+
+async function parseError(response: Response): Promise<string> {
+  try {
+    const payload = await response.json();
+    return payload?.message || payload?.error || `Xatolik (${response.status})`;
+  } catch {
+    return `Xatolik (${response.status})`;
+  }
+}
+
+export async function sendBroadcast(input: {
+  messageText: string;
+  buttons: InlineButtonRows;
+  audience: BroadcastAudience;
+  banner: File | null;
+}): Promise<Broadcast> {
+  const formData = new FormData();
+  formData.append(
+    'data',
+    new Blob(
+      [
+        JSON.stringify({
+          messageText: input.messageText,
+          buttons: input.buttons,
+          audience: input.audience,
+        }),
+      ],
+      { type: 'application/json' },
+    ),
+  );
+  if (input.banner) formData.append('banner', input.banner);
+
+  const response = await fetch(buildMarketplaceApiPath(['v1', 'admin', 'bot-broadcasts']), {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    credentials: 'include',
+    body: formData,
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json();
+}
+
+export async function fetchBroadcast(id: string): Promise<Broadcast> {
+  const response = await fetch(
+    buildMarketplaceApiPath(['v1', 'admin', 'bot-broadcasts', id]),
+    { headers: { Accept: 'application/json' }, credentials: 'include' },
+  );
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json();
+}
+
+export async function fetchBroadcastHistory(page = 0): Promise<BroadcastPage> {
+  const params = new URLSearchParams({ page: String(page), size: '20' });
+  const response = await fetch(
+    buildMarketplaceApiPath(['v1', 'admin', 'bot-broadcasts'], params),
+    { headers: { Accept: 'application/json' }, credentials: 'include' },
+  );
+  if (!response.ok) throw new Error(await parseError(response));
+  return response.json();
 }
