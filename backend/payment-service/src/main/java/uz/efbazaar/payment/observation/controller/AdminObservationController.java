@@ -32,6 +32,17 @@ public class AdminObservationController {
         return byCard.unmatched().stream().map(ObservationResponse::of).toList();
     }
 
+    /**
+     * Qo'lda hal qilingan tushumlar tarixi.
+     *
+     * <p>Kim, kimga, qachon va nima uchun — amal qaytarib bo'lmagani uchun
+     * bu savollar keyinroq albatta so'raladi.
+     */
+    @GetMapping("/resolved")
+    public List<ObservationResponse> resolved() {
+        return byCard.resolvedHistory().stream().map(ObservationResponse::of).toList();
+    }
+
     @PostMapping("/{id}/resolve")
     public ObservationResponse resolve(@AuthenticationPrincipal AuthenticatedUser me,
                                        @PathVariable UUID id,

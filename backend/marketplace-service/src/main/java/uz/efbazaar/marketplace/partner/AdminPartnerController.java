@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -66,6 +67,15 @@ public class AdminPartnerController {
                                       @AuthenticationPrincipal AuthenticatedUser admin) {
         return ApplicationResponse.from(
                 service.reject(id, admin.userId(), body == null ? null : body.note()));
+    }
+
+    /** Hamkorlikni yoki arizani admin tomonidan to'xtatish. */
+    @PostMapping("/applications/{id}/cancel")
+    public ApplicationResponse cancel(@PathVariable UUID id,
+                                      @RequestBody(required = false) ReviewRequest body,
+                                      @AuthenticationPrincipal AuthenticatedUser admin) {
+        return ApplicationResponse.from(
+                service.cancelByAdmin(id, admin.userId(), body == null ? null : body.note()));
     }
 
     /**

@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Construction, Handshake, Loader2, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { AlertTriangle, Ban, CheckCircle2, Construction, Handshake, Loader2, Users } from 'lucide-react';
 
-import { getMyApplication, type PartnerApplication } from '@/lib/partners';
+import { Button } from '@/components/ui/button';
+
+import { cancelPartnership, getMyApplication, type PartnerApplication } from '@/lib/partners';
 
 /**
  * Hamkor boshqaruv paneli.
@@ -16,6 +19,9 @@ import { getMyApplication, type PartnerApplication } from '@/lib/partners';
 export function PartnerDashboard() {
   const [application, setApplication] = useState<PartnerApplication | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     getMyApplication()
@@ -23,6 +29,25 @@ export function PartnerDashboard() {
       .catch(() => setApplication(null))
       .finally(() => setLoading(false));
   }, []);
+
+  async function cancel() {
+    if (!window.confirm(
+      "Hamkorlik to'xtatilsinmi? Hamkor maqomi olib tashlanadi va to'lov " +
+      "avtomatik qaytarilmaydi. Qayta hamkor bo'lish uchun yangi ariza kerak.",
+    )) return;
+    setError(null);
+    setCancelling(true);
+    try {
+      await cancelPartnership();
+      // Rol olib tashlangach bu sahifa hamkor bo'lmagan odam uchun yopiq —
+      // uni ariza sahifasiga qaytaramiz.
+      router.push('/partnership');
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'To‘xtatib bo‘lmadi');
+      setCancelling(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">
@@ -69,6 +94,41 @@ export function PartnerDashboard() {
           Panelning qolgan bo&apos;limlari tayyorlanmoqda.
         </span>
       </div>
+
+      {/*
+        Xavfli hudud — qaytarib bo'lmaydigan amal uchun alohida joy.
+        Boshqa tugmalar orasida tursa tasodifan bosilishi mumkin, oqibati
+        esa maqomning yo'qolishi.
+      */}
+      <section className="space-y-3 rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-destructive">
+          <AlertTriangle className="h-4 w-4" />
+          Xavfli hudud
+        </h2>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <p className="text-sm text-muted-foreground">
+          Hamkorlikni to&apos;xtatsangiz hamkor maqomi olib tashlanadi va bu panel
+          yopiladi. To&apos;lov avtomatik qaytarilmaydi. Qayta hamkor bo&apos;lish
+          uchun yangi ariza topshirish kerak.
+        </p>
+
+        <p className="text-xs text-muted-foreground">
+          Botni kanaldan chiqarsangiz ham hamkorlik avtomatik to&apos;xtaydi — bot
+          usiz obunachilar sonini tekshira olmaydi.
+        </p>
+
+        <Button
+          variant="outline"
+          onClick={cancel}
+          disabled={cancelling}
+          className="gap-2 border-destructive/50 text-destructive"
+        >
+          {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+          Hamkorlikni to&apos;xtatish
+        </Button>
+      </section>
     </div>
   );
 }

@@ -132,6 +132,7 @@ efbazaar.marketplace.bot-settings-updated  # marketplace → bot (/start matni o
 efbazaar.marketplace.partner-application-submitted  # marketplace → bot (adminlarga Telegram xabari)
 efbazaar.marketplace.partner-approved      # marketplace → auth (PARTNER roli beriladi)
 efbazaar.marketplace.partner-rejected      # marketplace → (foydalanuvchiga xabar)
+efbazaar.marketplace.partner-cancelled     # marketplace → auth (PARTNER roli olib tashlanadi)
 efbazaar.bot.media-uploaded          # { listingId, telegramMessageId, mediaType }
 efbazaar.auth.user-role-changed      # auth → trade-service (deactivate trade-admin profile on role revoke)
 efbazaar.trade.admin-invited         # trade-service → marketplace-service (TRADE_ADMIN_INVITED notification)

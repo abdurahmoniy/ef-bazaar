@@ -1,4 +1,5 @@
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+import { searchUsers } from '@/lib/user-search';
 
 /**
  * Inline tugmalar panelining ma'lumot ko'rinishi va uni o'zgartirish amallari.
@@ -159,22 +160,23 @@ async function parseError(response: Response): Promise<string> {
 /**
  * Qabul qiluvchi qidiruvi.
  *
+ * <p>Umumiy qidiruvga tayanadi — adminkadagi boshqa ekranlar ham shundan
+ * foydalanadi va ikki nusxa vaqt o'tib bir-biridan ajralib ketardi.
+ *
  * <p>`telegramOnly` shart: botga xabar yuborish uchun manzil tanlanmoqda va
- * Telegramga ulanmagan foydalanuvchini ko'rsatish faqat chalg'itardi.
+ * Telegramga ulanmagan foydalanuvchini ko'rsatish faqat chalg'itardi —
+ * uni tanlab bo'lardi, xabar esa yetmasdi.
  */
 export async function searchTelegramUsers(search: string): Promise<{ content: RecipientUser[] }> {
-  const params = new URLSearchParams({
-    search,
-    telegramOnly: 'true',
-    page: '0',
-    size: '10',
-  });
-  const response = await fetch(`/api/auth/v1/admin/users?${params.toString()}`, {
-    headers: { Accept: 'application/json' },
-    credentials: 'include',
-  });
-  if (!response.ok) throw new Error(await parseError(response));
-  return response.json();
+  const found = await searchUsers(search, { telegramOnly: true });
+  return {
+    // `telegramOnly` ulanmaganlarni serverda kesib tashlaydi; bu filtr —
+    // tip darajasidagi kafolat, javob kutilmagan shaklda kelsa ham
+    // `telegramId` bo'sh yozuv ro'yxatga tushmasin.
+    content: found
+      .filter((user): user is RecipientUser => user.telegramId !== null)
+      .map((user) => user),
+  };
 }
 
 export async function sendBroadcast(input: {

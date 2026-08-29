@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   AlertCircle,
+  Ban,
   CheckCircle2,
   Clock,
   CreditCard,
@@ -37,6 +38,7 @@ const STATUS_LABEL: Record<PartnerApplicationStatus, { label: string; className:
   AWAITING_REVIEW: { label: 'Ko‘rikda', className: 'bg-primary/15 text-primary' },
   APPROVED: { label: 'Tasdiqlangan', className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
   REJECTED: { label: 'Rad etilgan', className: 'bg-destructive/15 text-destructive' },
+  CANCELLED: { label: 'Bekor qilingan', className: 'bg-muted text-muted-foreground' },
 };
 
 function formatDate(iso: string): string {
@@ -112,7 +114,7 @@ function Applications() {
     markSectionSeen(BADGE_PARTNER_APPLICATIONS);
   }, [load]);
 
-  async function review(id: string, outcome: 'approve' | 'reject') {
+  async function review(id: string, outcome: 'approve' | 'reject' | 'cancel') {
     setError(null);
     setBusy(id);
     try {
@@ -207,6 +209,32 @@ function Applications() {
                   Rad etish
                 </Button>
               </div>
+            )}
+
+            {/*
+              Bekor qilish tasdiqlangandan KEYIN ham kerak: hamkorlik
+              qoidabuzarlik yoki kelishuv bilan to'xtatilishi mumkin, va
+              o'shanda rol ham qaytariladi.
+            */}
+            {a.status === 'APPROVED' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => review(a.id, 'cancel')}
+                disabled={busy === a.id}
+                className="gap-2 text-destructive"
+              >
+                {busy === a.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Ban className="h-4 w-4" />
+                )}
+                Hamkorlikni to&apos;xtatish
+              </Button>
+            )}
+
+            {a.cancelReason && (
+              <p className="text-xs text-muted-foreground">Sabab: {a.cancelReason}</p>
             )}
 
             {a.reviewedAt && (

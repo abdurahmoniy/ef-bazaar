@@ -40,6 +40,16 @@ public class PartnerController {
         return ApplicationResponse.from(service.pay(user.userId()));
     }
 
+    /**
+     * Foydalanuvchi arizasini yoki hamkorligini bekor qiladi.
+     *
+     * <p>To'lov qaytarilmaydi — ekranda shu ochiq aytiladi.
+     */
+    @PostMapping("/cancel")
+    public ApplicationResponse cancel(@AuthenticationPrincipal AuthenticatedUser user) {
+        return ApplicationResponse.from(service.cancelByUser(user.userId()));
+    }
+
     @PostMapping("/apply")
     public ApplicationResponse apply(@AuthenticationPrincipal AuthenticatedUser user) {
         return ApplicationResponse.from(service.apply(user.userId()));

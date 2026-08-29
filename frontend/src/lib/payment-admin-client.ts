@@ -127,3 +127,13 @@ export function updateTradeCommissionConfig(
     body: JSON.stringify(req),
   });
 }
+
+/**
+ * Qo'lda hal qilingan tushumlar tarixi.
+ *
+ * <p>Biriktirish qaytarib bo'lmaydi, ya'ni "buni kim qildi" degan savol
+ * keyinroq albatta chiqadi va u paytda javob tayyor turishi kerak.
+ */
+export function listResolvedObservations(): Promise<ObservationResponse[]> {
+  return call<ObservationResponse[]>('/observations/resolved');
+}

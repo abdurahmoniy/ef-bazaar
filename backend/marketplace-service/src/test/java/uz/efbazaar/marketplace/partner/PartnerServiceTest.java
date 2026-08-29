@@ -314,6 +314,133 @@ class PartnerServiceTest {
                 .hasMessageContaining("kanalni");
     }
 
+    // ----- bekor qilish -----
+
+    @Test
+    @DisplayName("Foydalanuvchi ochiq arizasini bekor qiladi")
+    void userCancelsAnOpenApplication() {
+        when(applications.findFirstByUserIdAndStatusInOrderByCreatedAtDesc(eq(userId), anyCollection()))
+                .thenReturn(Optional.of(application));
+
+        service.cancelByUser(userId);
+
+        assertThat(application.getStatus()).isEqualTo(Status.CANCELLED);
+        assertThat(application.getCancelledBy()).isEqualTo(userId);
+        assertThat(application.getCancelledAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Tasdiqlanmagan arizani bekor qilganda rol hodisasi chiqmaydi")
+    void cancellingAnUnapprovedApplicationDoesNotTouchTheRole() {
+        when(applications.findFirstByUserIdAndStatusInOrderByCreatedAtDesc(eq(userId), anyCollection()))
+                .thenReturn(Optional.of(application));
+
+        service.cancelByUser(userId);
+
+        // Rol berilmagan — uni olib tashlash hodisasi auth'ni keraksiz
+        // ishlatardi va logda tushunarsiz yozuv qoldirardi.
+        verify(events, never()).applicationCancelled(any());
+    }
+
+    @Test
+    @DisplayName("Faol hamkorlik bekor qilinsa rol olib tashlanadi")
+    void cancellingAnApprovedPartnershipRevokesTheRole() {
+        application.setStatus(Status.APPROVED);
+        when(applications.findFirstByUserIdAndStatusInOrderByCreatedAtDesc(eq(userId), anyCollection()))
+                .thenReturn(Optional.of(application));
+
+        service.cancelByUser(userId);
+
+        assertThat(application.getStatus()).isEqualTo(Status.CANCELLED);
+        // Hodisasiz odam PARTNER bo'lib qolardi: maqom paneli ochiq,
+        // hamkorlik esa yo'q.
+        verify(events).applicationCancelled(application);
+    }
+
+    @Test
+    @DisplayName("Bekor qilinadigan ariza bo'lmasa xato beriladi")
+    void cancelWithoutAnApplication() {
+        when(applications.findFirstByUserIdAndStatusInOrderByCreatedAtDesc(eq(userId), anyCollection()))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.cancelByUser(userId))
+                .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    @DisplayName("Admin sabab bilan to'xtatadi")
+    void adminCancelsWithAReason() {
+        application.setStatus(Status.APPROVED);
+        when(applications.findById(application.getId())).thenReturn(Optional.of(application));
+        UUID adminId = UUID.randomUUID();
+
+        service.cancelByAdmin(application.getId(), adminId, "Kanal qoidabuzarlik");
+
+        assertThat(application.getStatus()).isEqualTo(Status.CANCELLED);
+        assertThat(application.getCancelReason()).isEqualTo("Kanal qoidabuzarlik");
+        assertThat(application.getCancelledBy()).isEqualTo(adminId);
+        verify(events).applicationCancelled(application);
+    }
+
+    @Test
+    @DisplayName("Allaqachon bekor qilingan arizani qayta bekor qilib bo'lmaydi")
+    void cannotCancelTwice() {
+        application.setStatus(Status.CANCELLED);
+        when(applications.findById(application.getId())).thenReturn(Optional.of(application));
+
+        assertThatThrownBy(() ->
+                service.cancelByAdmin(application.getId(), UUID.randomUUID(), null))
+                .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    @DisplayName("Bot kanaldan chiqarilsa hamkorlik avtomatik to'xtaydi")
+    void botRemovalCancelsThePartnership() {
+        application.setStatus(Status.APPROVED);
+        application.setChannelId(-100L);
+        when(applications.findFirstByChannelIdAndStatusInOrderByCreatedAtDesc(eq(-100L), anyCollection()))
+                .thenReturn(Optional.of(application));
+
+        service.onChannelRemoved(-100L);
+
+        // Bot ketgach obunachi sonini ham, egalikni ham tekshirib bo'lmaydi.
+        // Maqomni saqlab qolish "hamkor, lekin tekshirib bo'lmaydi" degan
+        // ko'rinmas holatni yaratardi.
+        assertThat(application.getStatus()).isEqualTo(Status.CANCELLED);
+        assertThat(application.getCancelReason()).contains("chiqarib tashlandi");
+        assertThat(application.getCancelledBy()).isNull();
+        verify(events).applicationCancelled(application);
+    }
+
+    @Test
+    @DisplayName("Begona kanaldan bot chiqarilsa hech narsa bo'lmaydi")
+    void botRemovalFromAnUnrelatedChannelIsIgnored() {
+        when(applications.findFirstByChannelIdAndStatusInOrderByCreatedAtDesc(any(), anyCollection()))
+                .thenReturn(Optional.empty());
+
+        service.onChannelRemoved(-999L);
+
+        verify(events, never()).applicationCancelled(any());
+    }
+
+    @Test
+    @DisplayName("Bekor qilingandan keyin yangi ariza ochish mumkin")
+    void reopeningAfterCancellation() {
+        // Qisman indeks CANCELLED ni sanamaydi, ya'ni foydalanuvchi bo'sh
+        // deb hisoblanadi. Muzlab qolishning yechimi aynan shu.
+        when(applications.findFirstByUserIdAndStatusInOrderByCreatedAtDesc(eq(userId), anyCollection()))
+                .thenReturn(Optional.empty());
+        when(applications.save(any())).thenAnswer(i -> {
+            PartnerApplication saved = i.getArgument(0);
+            saved.setId(UUID.randomUUID());
+            return saved;
+        });
+
+        PartnerApplication reopened = service.apply(userId);
+
+        assertThat(reopened.getStatus()).isEqualTo(Status.AWAITING_CHANNEL);
+    }
+
     @Test
     @DisplayName("Statuslarning isOpen mantiqi")
     void openStatuses() {
