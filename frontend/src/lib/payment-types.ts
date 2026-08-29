@@ -81,6 +81,17 @@ export interface ObservationResponse {
   observedAt: string;
   rawText: string;
   status: 'MATCHED' | 'UNMATCHED' | 'MANUALLY_RESOLVED' | 'IGNORED';
+
+  /**
+   * Kim, kimga, qachon va nima uchun.
+   *
+   * <p>Faqat identifikatorlar keladi — ismlarni adminka `users/by-ids`
+   * orqali o'zi yechadi, payment-service auth bilan gaplashmaydi.
+   */
+  resolvedBy?: string | null;
+  resolvedUserId?: string | null;
+  resolvedAt?: string | null;
+  resolutionNote?: string | null;
 }
 
 export interface UserbotStatusResponse {

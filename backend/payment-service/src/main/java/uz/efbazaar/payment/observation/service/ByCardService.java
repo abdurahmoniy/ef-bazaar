@@ -125,6 +125,12 @@ public class ByCardService {
      * amount is what actually arrived — there is no invoice to take a requested
      * amount from.
      */
+    /** Qo'lda hal qilinganlar — oxirgi 100 tasi, eng yangisidan. */
+    @Transactional(readOnly = true)
+    public List<CardCreditObservation> resolvedHistory() {
+        return observations.findTop100ByResolvedAtIsNotNullOrderByResolvedAtDesc();
+    }
+
     @Transactional
     public CardCreditObservation resolveManually(UUID observationId, UUID targetUserId,
                                                  UUID adminId, String note) {
@@ -145,6 +151,9 @@ public class ByCardService {
 
         obs.setStatus(ObservationStatus.MANUALLY_RESOLVED);
         obs.setResolvedBy(adminId);
+        // Qabul qiluvchi qatorga yoziladi: ledger'ga bog'lovchi kalit
+        // idempotency string ichida va u yerdan qaytib kelish yo'li yo'q.
+        obs.setResolvedUserId(targetUserId);
         obs.setResolvedAt(Instant.now());
         obs.setResolutionNote(note);
         return observations.save(obs);

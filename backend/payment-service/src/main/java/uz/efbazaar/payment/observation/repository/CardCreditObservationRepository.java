@@ -20,6 +20,15 @@ public interface CardCreditObservationRepository
     List<CardCreditObservation> findByStatusOrderByObservedAtAsc(ObservationStatus status);
 
     /**
+     * Qo'lda hal qilinganlar tarixi — eng yangisidan.
+     *
+     * <p>Holat bo'yicha emas, {@code resolvedAt} bo'yicha: e'tiborsiz
+     * qoldirilgan (IGNORED) tushum ham admin qarori va tarixda ko'rinishi
+     * kerak — u ham qaytarib bo'lmaydigan amal.
+     */
+    List<CardCreditObservation> findTop100ByResolvedAtIsNotNullOrderByResolvedAtDesc();
+
+    /**
      * The admin path's read, locked. Attributing a queued top-up to a user
      * creates money and no screen in this platform can reverse it, so two admins
      * working the same queue row must not both get past the UNMATCHED check.

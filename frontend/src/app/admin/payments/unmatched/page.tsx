@@ -1,3 +1,4 @@
+import { ResolvedHistory } from '@/components/payment/resolved-history';
 import { UnmatchedQueue } from '@/components/payment/unmatched-queue';
 import { UserbotBanner } from '@/components/payment/userbot-banner';
 import { getUserbotStatusSSR, listUnmatchedSSR } from '@/lib/payment-admin-server';
@@ -26,6 +27,13 @@ export default async function AdminUnmatchedPage() {
           Tekshirilmagan tushumlarni olishda xatolik. Sahifani yangilab ko&apos;ring.
         </p>
       )}
+
+      {/*
+        Tarix navbatdan MUSTAQIL: navbat bo'sh bo'lsa ham "bu pulni kim
+        biriktirgan" degan savol qolaveradi, va u navbat yuklanmaganda ham
+        javobsiz qolmasligi kerak.
+      */}
+      <ResolvedHistory />
     </div>
   );
 }

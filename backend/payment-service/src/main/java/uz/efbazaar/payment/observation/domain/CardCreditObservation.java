@@ -57,6 +57,17 @@ public class CardCreditObservation {
     @Column(name = "resolved_by")
     private UUID resolvedBy;
 
+    /**
+     * Pul kimning hisobiga tushgani.
+     *
+     * <p>Ledger'da ham bor, lekin u yerga bog'lovchi kalit idempotency
+     * string ichida — ya'ni qatordan ledger'ga qaytib borish yo'li yo'q.
+     * Amal qaytarib bo'lmagani uchun bu savol albatta so'raladi va
+     * javob shu yerda turishi kerak.
+     */
+    @Column(name = "resolved_user_id")
+    private UUID resolvedUserId;
+
     @Column(name = "resolved_at")
     private Instant resolvedAt;
 
