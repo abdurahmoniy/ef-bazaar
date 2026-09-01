@@ -18,7 +18,6 @@ const mockChat: ChatResponse = {
   listingId: 'listing-1',
   sellerId: 'user-seller',
   buyerId: 'user-buyer',
-  status: 'ACTIVE',
   important: false,
   messageCount: 5,
   createdAt: '2026-08-20T10:00:00Z',

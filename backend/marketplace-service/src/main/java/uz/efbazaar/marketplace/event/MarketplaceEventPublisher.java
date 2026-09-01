@@ -45,11 +45,6 @@ public class MarketplaceEventPublisher {
                 new MarketplaceEvents.ChatCreated(chatId, listingId, buyerId, sellerId, Instant.now()));
     }
 
-    public void chatExpired(UUID chatId, UUID listingId, UUID buyerId, UUID sellerId, String reason) {
-        send(MarketplaceEvents.TOPIC_CHAT_EXPIRED, chatId.toString(),
-                new MarketplaceEvents.ChatExpired(chatId, listingId, buyerId, sellerId, reason, Instant.now()));
-    }
-
     public void userBlacklisted(UUID penaltyId, UUID userId, String penaltyType,
                                 String reason, Instant expiresAt) {
         send(MarketplaceEvents.TOPIC_USER_BLACKLISTED, userId.toString(),

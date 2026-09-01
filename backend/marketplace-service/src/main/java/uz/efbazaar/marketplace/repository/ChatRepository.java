@@ -7,35 +7,23 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import uz.efbazaar.marketplace.domain.Chat;
-import uz.efbazaar.marketplace.domain.ChatStatus;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 public interface ChatRepository extends JpaRepository<Chat, UUID> {
 
-    Optional<Chat> findByBuyerIdAndListingIdAndStatus(UUID buyerId, UUID listingId, ChatStatus status);
-
     /**
      * The pair's conversation, whichever way round the roles were recorded.
-     *
-     * <p>Returns a list, not an Optional, on purpose: {@code
-     * uk_chats_active_buyer_listing} only ever kept one active chat per
-     * (buyer, listing), so a pair that talked about two listings before V32
-     * legitimately has two active rows. Newest wins — that is the conversation
-     * they are actually in — and the older ones stay reachable from the chat
-     * list rather than being merged or closed behind the user's back.
      */
     @Query("""
             SELECT c FROM Chat c
-            WHERE c.status = :status
-              AND ((c.buyerId = :a AND c.sellerId = :b)
+            WHERE ((c.buyerId = :a AND c.sellerId = :b)
                 OR (c.buyerId = :b AND c.sellerId = :a))
             ORDER BY c.lastMessageAt DESC
             """)
-    List<Chat> findBetween(@Param("a") UUID a, @Param("b") UUID b, @Param("status") ChatStatus status);
+    List<Chat> findBetween(@Param("a") UUID a, @Param("b") UUID b);
 
     /**
      * Chats visible in the user's list — participant row exists and the user
@@ -49,57 +37,7 @@ public interface ChatRepository extends JpaRepository<Chat, UUID> {
             """)
     Page<Chat> findByParticipant(@Param("userId") UUID userId, Pageable pageable);
 
-    /**
-     * Aktiv, important emas, tizim ushlab turmagan va 24 soat oldingi xabarli
-     * chatlarni qaytaradi.
-     */
-    @Query("""
-            SELECT c FROM Chat c
-            WHERE c.status = uz.efbazaar.marketplace.domain.ChatStatus.ACTIVE
-              AND c.important = false
-              AND c.systemImportant = false
-              AND c.lastMessageAt < :cutoff
-            """)
-    List<Chat> findExpired(@Param("cutoff") Instant cutoff);
-
     @Modifying
     @Query("UPDATE Chat c SET c.lastMessageAt = :ts WHERE c.id = :id")
     void touchLastMessageAt(@Param("id") UUID id, @Param("ts") Instant ts);
-
-    /**
-     * Recomputes {@code system_important} from {@code chat_trade_pins} —
-     * "does any trade still pinning this chat" — rather than setting it
-     * absolutely. A chat can host more than one trade over its life, so a
-     * direct setter would let one trade's close unpin a chat another trade
-     * still needs open. Returns 0 if the chat id is unknown.
-     *
-     * <p>{@code clearAutomatically} because this is a native SQL write that
-     * bypasses the persistence context — without it, a {@code Chat} already
-     * loaded in the same transaction (e.g. the caller's own {@code existsById}
-     * check, or a test reading the entity back) would keep serving the
-     * pre-update in-memory value instead of what this statement just wrote.
-     */
-    @Modifying(clearAutomatically = true)
-    @Query(value = """
-            UPDATE chats SET system_important = EXISTS (
-                SELECT 1 FROM chat_trade_pins ctp
-                WHERE ctp.chat_id = chats.id AND ctp.pinned = TRUE
-            ) WHERE id = :id
-            """, nativeQuery = true)
-    int recomputeSystemImportant(@Param("id") UUID id);
-
-    /**
-     * Close every ACTIVE chat the user participates in as buyer or seller.
-     * Used when auth reports the user is gone — the counterpart shouldn't wait
-     * on a reply that will never come. Returns the number of rows affected.
-     */
-    @Modifying
-    @Query("""
-            UPDATE Chat c
-               SET c.status = uz.efbazaar.marketplace.domain.ChatStatus.CLOSED,
-                   c.closedAt = :ts
-             WHERE c.status = uz.efbazaar.marketplace.domain.ChatStatus.ACTIVE
-               AND (c.buyerId = :userId OR c.sellerId = :userId)
-            """)
-    int closeAllForParticipant(@Param("userId") UUID userId, @Param("ts") Instant ts);
 }

@@ -1,5 +1,4 @@
 export type ListingStatus = 'ACTIVE' | 'SOLD' | 'DELETED';
-export type ChatStatus = 'ACTIVE' | 'CLOSED' | 'EXPIRED';
 export type AttributeType =
   | 'INT'
   | 'DECIMAL'
@@ -422,11 +421,9 @@ export interface ChatResponse {
   sellerId: string;
   buyerDisplayName?: string | null;
   sellerDisplayName?: string | null;
-  status: ChatStatus;
   important: boolean;
   lastMessageAt?: string | null;
   createdAt: string;
-  closedAt?: string | null;
   messageCount: number;
   /** Viewer-specific: partner messages after my read cursor. */
   unreadCount?: number;

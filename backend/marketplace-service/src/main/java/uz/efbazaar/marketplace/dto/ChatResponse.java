@@ -1,7 +1,6 @@
 package uz.efbazaar.marketplace.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import uz.efbazaar.marketplace.domain.ChatStatus;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -14,11 +13,9 @@ public record ChatResponse(
         UUID sellerId,
         String buyerDisplayName,
         String sellerDisplayName,
-        ChatStatus status,
         boolean important,
         Instant lastMessageAt,
         Instant createdAt,
-        Instant closedAt,
         long messageCount,
         /** Viewer-specific: partner messages after my read cursor. */
         long unreadCount,

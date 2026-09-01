@@ -92,7 +92,7 @@ export function NotificationBell({ className, dropdownAlign = 'right' }: Notific
   }
 
   return (
-    <div ref={rootRef} className={cn('relative', className)}>
+    <div ref={rootRef} className={cn('relative', open && 'z-50', className)}>
       <Button
         type="button"
         variant="ghost"

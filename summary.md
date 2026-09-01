@@ -363,10 +363,9 @@
   Chat
 
   - Listing sahifasidagi "Egasi bilan bog'lanish" tugmasi → xaridor boshlaydi
-  - Bir xaridor + bitta listing → bitta aktiv chat
-  - 24h scheduler auto-yopadi
-  - Bir taraf "Muhim" deb belgilasa auto-delete dan ozod
-  - Yopilganda efbazaar.marketplace.chat-expired event
+  - Bir juftlik o'rtasida bitta doimiy chat mavjud bo'ladi
+  - Chatlar doimiy ochiq (CLOSED/ACTIVE statuslari va 24h auto-close yo'q)
+  - Foydalanuvchilar chatlarni "Muhim" (star) deb belgilashlari mumkin
 
   ---
   14. Critical Conventions
