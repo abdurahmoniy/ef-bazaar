@@ -32,7 +32,6 @@ public class ChatService {
     private final ChatMessageRepository messages;
     private final ChatParticipantRepository participants;
     private final ListingRepository listings;
-    private final MarketplaceEventPublisher events;
     private final AuthNameClient authNameClient;
     private final NotificationService notifications;
     private final BlacklistGuard blacklistGuard;
@@ -62,7 +61,7 @@ public class ChatService {
         // say it was now about a different account.
         //
         // Direction-agnostic: today's buyer may be yesterday's seller.
-        var existing = chats.findBetween(buyerId, sellerId, ChatStatus.ACTIVE)
+        var existing = chats.findBetween(buyerId, sellerId)
                 .stream().findFirst();
         if (existing.isPresent()) {
             Chat chat = existing.get();
@@ -83,7 +82,6 @@ public class ChatService {
                     .sellerId(sellerId)
                     .buyerDisplayName(names.get(buyerId))
                     .sellerDisplayName(names.get(sellerId))
-                    .status(ChatStatus.ACTIVE)
                     .important(false)
                     .lastMessageAt(Instant.now())
                     .build());
@@ -131,9 +129,6 @@ public class ChatService {
         if (!chat.isParticipant(senderId)) {
             throw MarketplaceException.notChatParticipant();
         }
-        if (chat.getStatus() != ChatStatus.ACTIVE) {
-            throw MarketplaceException.chatAlreadyClosed();
-        }
         if (replyToId != null) {
             // Quote must reference a message from THIS chat.
             messages.findById(replyToId)
@@ -167,9 +162,6 @@ public class ChatService {
         Chat chat = chats.findById(chatId).orElseThrow(MarketplaceException::chatNotFound);
         if (!chat.isParticipant(senderId)) {
             throw MarketplaceException.notChatParticipant();
-        }
-        if (chat.getStatus() != ChatStatus.ACTIVE) {
-            throw MarketplaceException.chatAlreadyClosed();
         }
 
         ChatMessage saved = messages.save(ChatMessage.builder()
@@ -399,18 +391,5 @@ public class ChatService {
         return participants.findByChatIdAndUserId(chatId, userId)
                 .orElseGet(() -> participants.save(
                         ChatParticipant.builder().chatId(chatId).userId(userId).build()));
-    }
-
-    @Transactional
-    public Chat close(UUID chatId, UUID userId) {
-        Chat chat = getById(chatId, userId);
-        if (chat.getStatus() == ChatStatus.CLOSED) {
-            return chat; // idempotent
-        }
-        chat.setStatus(ChatStatus.CLOSED);
-        chat.setClosedAt(Instant.now());
-        events.chatExpired(chat.getId(), chat.getListingId(),
-                chat.getBuyerId(), chat.getSellerId(), "manual_close");
-        return chat;
     }
 }

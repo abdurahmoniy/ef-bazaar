@@ -29,31 +29,15 @@ public class Chat {
     @Column(name = "seller_id", nullable = false)
     private UUID sellerId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 16)
-    @Builder.Default
-    private ChatStatus status = ChatStatus.ACTIVE;
-
     @Column(name = "is_important", nullable = false)
     @Builder.Default
     private boolean important = false;
-
-    /**
-     * Held open by a live trade. Distinct from {@code important}, which is the
-     * OR of both participants' own stars — clearing this must never clear that.
-     */
-    @Column(name = "system_important", nullable = false)
-    @Builder.Default
-    private boolean systemImportant = false;
 
     @Column(name = "last_message_at", nullable = false)
     private Instant lastMessageAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
-
-    @Column(name = "closed_at")
-    private Instant closedAt;
 
     /**
      * Display-name snapshot resolved from auth-service at chat creation.
@@ -71,7 +55,6 @@ public class Chat {
         Instant now = Instant.now();
         createdAt = now;
         if (lastMessageAt == null) lastMessageAt = now;
-        if (status == null) status = ChatStatus.ACTIVE;
     }
 
     public boolean isParticipant(UUID userId) {

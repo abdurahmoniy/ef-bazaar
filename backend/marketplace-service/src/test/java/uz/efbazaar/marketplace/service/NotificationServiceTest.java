@@ -8,7 +8,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import uz.efbazaar.marketplace.domain.Chat;
-import uz.efbazaar.marketplace.domain.ChatStatus;
 import uz.efbazaar.marketplace.domain.Notification;
 import uz.efbazaar.marketplace.domain.NotificationType;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
@@ -47,7 +46,6 @@ class NotificationServiceTest {
                 .sellerId(sellerId)
                 .buyerDisplayName("Aziz")
                 .sellerDisplayName("Sardor")
-                .status(ChatStatus.ACTIVE)
                 .build();
     }
 

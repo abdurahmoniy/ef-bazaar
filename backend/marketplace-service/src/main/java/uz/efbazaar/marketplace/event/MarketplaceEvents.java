@@ -18,7 +18,6 @@ public final class MarketplaceEvents {
     public static final String TOPIC_LISTING_DELETED = "efbazaar.marketplace.listing-deleted";
     public static final String TOPIC_LIKE_TOGGLED    = "efbazaar.marketplace.like-toggled";
     public static final String TOPIC_CHAT_CREATED    = "efbazaar.marketplace.chat-created";
-    public static final String TOPIC_CHAT_EXPIRED    = "efbazaar.marketplace.chat-expired";
     public static final String TOPIC_USER_BLACKLISTED   = "efbazaar.marketplace.user-blacklisted";
     public static final String TOPIC_USER_UNBLACKLISTED = "efbazaar.marketplace.user-unblacklisted";
     public static final String TOPIC_BOT_SETTINGS_UPDATED = "efbazaar.marketplace.bot-settings-updated";
@@ -51,9 +50,6 @@ public final class MarketplaceEvents {
 
     public record UserUnblacklisted(String idempotencyKey, UUID userId, String cause,
                                     Instant occurredAt) {}
-
-    public record ChatExpired(UUID chatId, UUID listingId, UUID buyerId, UUID sellerId,
-                              String reason, Instant occurredAt) {}
 
     /** Bot /start xabari yangilandi — signal, matnni o'zi emas. */
     public record BotSettingsUpdated(UUID updatedBy, Instant occurredAt) {}

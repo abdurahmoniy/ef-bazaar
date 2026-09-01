@@ -56,10 +56,6 @@ public class MarketplaceException extends RuntimeException {
                 "Siz bu chatda ishtirok etmaysiz");
     }
 
-    public static MarketplaceException chatAlreadyClosed() {
-        return new MarketplaceException(HttpStatus.CONFLICT, "chat_closed", "Chat yopilgan");
-    }
-
     public static MarketplaceException activeChatAlreadyExists() {
         return new MarketplaceException(HttpStatus.CONFLICT, "active_chat_exists",
                 "Sizda bu e'lon uchun allaqachon aktiv chat mavjud");

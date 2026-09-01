@@ -11,17 +11,13 @@ import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import uz.efbazaar.marketplace.domain.Chat;
-import uz.efbazaar.marketplace.domain.ChatStatus;
 import uz.efbazaar.marketplace.domain.Like;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.domain.ListingStatus;
-import uz.efbazaar.marketplace.repository.ChatRepository;
 import uz.efbazaar.marketplace.repository.LikeRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,7 +48,6 @@ class UserDeletedConsumerIT {
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Autowired ListingRepository listings;
-    @Autowired ChatRepository chats;
     @Autowired LikeRepository likes;
 
     private UUID victimUserId;
@@ -69,12 +64,6 @@ class UserDeletedConsumerIT {
         // Bystander's listing — must not be touched.
         listings.save(listing(bystanderUserId, ListingStatus.ACTIVE));
 
-        // Victim as buyer + seller, plus one chat between two bystanders.
-        UUID victimListing = listings.save(listing(victimUserId, ListingStatus.ACTIVE)).getId();
-        chats.save(chat(bystanderUserId, victimUserId, victimListing, ChatStatus.ACTIVE));
-        chats.save(chat(victimUserId, bystanderUserId, victimListing, ChatStatus.ACTIVE));
-        chats.save(chat(UUID.randomUUID(), UUID.randomUUID(), victimListing, ChatStatus.ACTIVE));
-
         // Likes belonging to victim + a bystander like.
         likes.save(Like.builder().userId(victimUserId).listingId(UUID.randomUUID()).build());
         likes.save(Like.builder().userId(victimUserId).listingId(UUID.randomUUID()).build());
@@ -82,27 +71,20 @@ class UserDeletedConsumerIT {
     }
 
     @Test
-    void bulkPurgeClosesListingsChatsAndDeletesLikes() {
+    void bulkPurgeClosesListingsAndDeletesLikes() {
         int listingsClosed = listings.softDeleteAllBySeller(victimUserId);
-        int chatsClosed = chats.closeAllForParticipant(victimUserId, Instant.now());
         int likesRemoved = likes.deleteAllByUserId(victimUserId);
 
-        // Victim owns 3 listings total (2 ACTIVE, 1 SOLD); softDeleteAllBySeller
+        // Victim owns 2 listings (1 ACTIVE, 1 SOLD); softDeleteAllBySeller
         // filters to ACTIVE only (matches its own javadoc and the SOLD one's
-        // "should stay SOLD" intent above), so only 2 are closed.
-        assertThat(listingsClosed).isEqualTo(2);
-        assertThat(chatsClosed).isEqualTo(2);
+        // "should stay SOLD" intent above), so only 1 is closed.
+        assertThat(listingsClosed).isEqualTo(1);
         assertThat(likesRemoved).isEqualTo(2);
 
         // Bystander state untouched
         long bystanderActive = listings.findByStatus(ListingStatus.ACTIVE,
                 org.springframework.data.domain.PageRequest.of(0, 10)).getTotalElements();
         assertThat(bystanderActive).isEqualTo(1);
-        // Bystander-only chat still ACTIVE
-        long anyActive = chats.findExpired(Instant.now().plusSeconds(3600)).size();
-        // findExpired only returns chats older than cutoff; not exercised here, but
-        // the untouched chat count is asserted via chatsClosed above.
-        assertThat(anyActive).isBetween(0L, 1L);
     }
 
     private static Listing listing(UUID sellerId, ListingStatus status) {
@@ -112,16 +94,6 @@ class UserDeletedConsumerIT {
                 .price(new BigDecimal("100000"))
                 .priceNegotiable(false)
                 .status(status)
-                .build();
-    }
-
-    private static Chat chat(UUID buyer, UUID seller, UUID listingId, ChatStatus status) {
-        return Chat.builder()
-                .buyerId(buyer)
-                .sellerId(seller)
-                .listingId(listingId)
-                .status(status)
-                .lastMessageAt(Instant.now())
                 .build();
     }
 

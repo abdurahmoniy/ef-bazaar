@@ -127,9 +127,6 @@ app:
   # env var as outbound so services on the docker network share one secret.
   internal:
     secret: ${INTERNAL_API_SECRET:}
-  chat:
-    expire-after-hours: 24
-    expire-check-interval-ms: 300000
   listing-card-backfill:
     # One-off repair for listings created before normalized card inventory.
     # Safe to enable again: it keyset-pages listings and replaces rows idempotently.

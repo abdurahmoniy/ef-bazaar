@@ -7,7 +7,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import uz.efbazaar.marketplace.domain.*;
-import uz.efbazaar.marketplace.event.MarketplaceEventPublisher;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
 import uz.efbazaar.marketplace.repository.ChatParticipantRepository;
@@ -32,7 +31,6 @@ class ChatServiceTest {
     @Mock ChatMessageRepository messages;
     @Mock ChatParticipantRepository participants;
     @Mock ListingRepository listings;
-    @Mock MarketplaceEventPublisher events;
     @Mock AuthNameClient authNameClient;
     @Mock NotificationService notifications;
 
@@ -61,7 +59,7 @@ class ChatServiceTest {
     @Test
     void start_createsChat() {
         when(listings.findById(listingId)).thenReturn(Optional.of(activeListing));
-        when(chats.findBetween(buyerId, sellerId, ChatStatus.ACTIVE))
+        when(chats.findBetween(buyerId, sellerId))
                 .thenReturn(java.util.List.of());
         when(chats.save(any(Chat.class))).thenAnswer(inv -> {
             Chat c = inv.getArgument(0);
@@ -72,14 +70,13 @@ class ChatServiceTest {
         Chat chat = service.start(buyerId, listingId);
         assertThat(chat.getBuyerId()).isEqualTo(buyerId);
         assertThat(chat.getSellerId()).isEqualTo(sellerId);
-        assertThat(chat.getStatus()).isEqualTo(ChatStatus.ACTIVE);
         assertThat(chat.isImportant()).isFalse();
     }
 
     @Test
     void start_snapshotsBuyerAndSellerDisplayNames() {
         when(listings.findById(listingId)).thenReturn(Optional.of(activeListing));
-        when(chats.findBetween(buyerId, sellerId, ChatStatus.ACTIVE))
+        when(chats.findBetween(buyerId, sellerId))
                 .thenReturn(java.util.List.of());
         when(authNameClient.resolveNames(any()))
                 .thenReturn(Map.of(buyerId, "Aziz Rahmatov", sellerId, "Sardor Karimov"));
@@ -97,7 +94,7 @@ class ChatServiceTest {
     @Test
     void start_leavesNamesNullWhenAuthClientReturnsEmpty() {
         when(listings.findById(listingId)).thenReturn(Optional.of(activeListing));
-        when(chats.findBetween(buyerId, sellerId, ChatStatus.ACTIVE))
+        when(chats.findBetween(buyerId, sellerId))
                 .thenReturn(java.util.List.of());
         when(authNameClient.resolveNames(any())).thenReturn(Map.of());
         when(chats.save(any(Chat.class))).thenAnswer(inv -> {
@@ -118,10 +115,9 @@ class ChatServiceTest {
                 .listingId(listingId)
                 .buyerId(buyerId)
                 .sellerId(sellerId)
-                .status(ChatStatus.ACTIVE)
                 .build();
         when(listings.findById(listingId)).thenReturn(Optional.of(activeListing));
-        when(chats.findBetween(buyerId, sellerId, ChatStatus.ACTIVE))
+        when(chats.findBetween(buyerId, sellerId))
                 .thenReturn(java.util.List.of(existing));
 
         Chat chat = service.start(buyerId, listingId);
@@ -153,7 +149,7 @@ class ChatServiceTest {
         UUID stranger = UUID.randomUUID();
         Chat chat = Chat.builder()
                 .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
-                .status(ChatStatus.ACTIVE).build();
+                .build();
         when(chats.findById(chatId)).thenReturn(Optional.of(chat));
 
         assertThatThrownBy(() -> service.sendMessage(chatId, stranger, "hi"))
@@ -162,24 +158,11 @@ class ChatServiceTest {
     }
 
     @Test
-    void sendMessage_rejectsClosedChat() {
-        UUID chatId = UUID.randomUUID();
-        Chat chat = Chat.builder()
-                .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
-                .status(ChatStatus.CLOSED).build();
-        when(chats.findById(chatId)).thenReturn(Optional.of(chat));
-
-        assertThatThrownBy(() -> service.sendMessage(chatId, buyerId, "hi"))
-                .isInstanceOf(MarketplaceException.class)
-                .hasMessageContaining("yopilgan");
-    }
-
-    @Test
     void toggleImportant_togglesMyRowAndRecomputesAggregate() {
         UUID chatId = UUID.randomUUID();
         Chat chat = Chat.builder()
                 .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
-                .status(ChatStatus.ACTIVE).important(false).build();
+                .important(false).build();
         ChatParticipant mine = ChatParticipant.builder()
                 .chatId(chatId).userId(buyerId).important(false).build();
         ChatParticipant partner = ChatParticipant.builder()
@@ -200,7 +183,7 @@ class ChatServiceTest {
         UUID chatId = UUID.randomUUID();
         Chat chat = Chat.builder()
                 .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
-                .status(ChatStatus.ACTIVE).build();
+                .build();
         ChatParticipant mine = ChatParticipant.builder()
                 .chatId(chatId).userId(buyerId).build();
         when(chats.findById(chatId)).thenReturn(Optional.of(chat));
@@ -209,7 +192,6 @@ class ChatServiceTest {
         service.hide(chatId, buyerId);
 
         assertThat(mine.getHiddenAt()).isNotNull();
-        assertThat(chat.getStatus()).isEqualTo(ChatStatus.ACTIVE); // partner unaffected
     }
 
     @Test
@@ -217,7 +199,7 @@ class ChatServiceTest {
         UUID chatId = UUID.randomUUID();
         Chat chat = Chat.builder()
                 .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
-                .status(ChatStatus.ACTIVE).build();
+                .build();
         when(chats.findById(chatId)).thenReturn(Optional.of(chat));
         when(messages.save(any(ChatMessage.class))).thenAnswer(inv -> {
             ChatMessage m = inv.getArgument(0);
@@ -237,7 +219,7 @@ class ChatServiceTest {
                 .id(UUID.randomUUID()).listingId(listingId)
                 .buyerId(buyerId).sellerId(sellerId)
                 .sellerDisplayName("Eski Ism")
-                .status(ChatStatus.ACTIVE).build();
+                .build();
 
         service.stampOwnName(java.util.List.of(chat), buyerId, "Aziz Rahmatov");
         assertThat(chat.getBuyerDisplayName()).isEqualTo("Aziz Rahmatov");
@@ -255,7 +237,7 @@ class ChatServiceTest {
         UUID chatId = UUID.randomUUID();
         Chat chat = Chat.builder()
                 .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
-                .status(ChatStatus.ACTIVE).build();
+                .build();
         ChatParticipant mine = ChatParticipant.builder()
                 .chatId(chatId).userId(buyerId).build();
         when(chats.findById(chatId)).thenReturn(Optional.of(chat));
@@ -287,18 +269,5 @@ class ChatServiceTest {
         when(participants.findByChatIdAndUserId(chatId, buyerId)).thenReturn(Optional.of(mine));
 
         assertThat(service.countUnread(chatId, buyerId)).isZero();
-    }
-
-    @Test
-    void close_marksClosedAndEmitsEvent() {
-        UUID chatId = UUID.randomUUID();
-        Chat chat = Chat.builder()
-                .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
-                .status(ChatStatus.ACTIVE).build();
-        when(chats.findById(chatId)).thenReturn(Optional.of(chat));
-
-        Chat closed = service.close(chatId, buyerId);
-        assertThat(closed.getStatus()).isEqualTo(ChatStatus.CLOSED);
-        assertThat(closed.getClosedAt()).isNotNull();
     }
 }

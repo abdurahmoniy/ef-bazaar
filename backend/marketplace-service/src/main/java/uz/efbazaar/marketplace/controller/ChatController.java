@@ -106,12 +106,6 @@ public class ChatController {
         return java.util.Map.of("count", chatService.totalUnread(user.userId()));
     }
 
-    @PostMapping("/{id}/close")
-    public ChatResponse close(@AuthenticationPrincipal AuthenticatedUser user,
-                              @PathVariable UUID id) {
-        return enrich(chatService.close(id, user.userId()), user.userId());
-    }
-
     // ----- account requests: which listing this chat is currently about -----
 
     /**
@@ -157,8 +151,7 @@ public class ChatController {
 
     /**
      * {@code important} in the response is the CALLER's own star, not the
-     * aggregate stored on the chat row (that one only drives auto-close
-     * exemption). Falls back to the aggregate for pre-V10 rows without a
+     * aggregate stored on the chat row. Falls back to the aggregate for pre-V10 rows without a
      * participant entry. {@code unreadCount}/{@code lastReadAt} are likewise
      * viewer-specific.
      */
@@ -174,7 +167,7 @@ public class ChatController {
         String preview = chatService.lastMessagePreview(chat.getId());
         return new ChatResponse(r.id(), r.listingId(), r.buyerId(), r.sellerId(),
                 r.buyerDisplayName(), r.sellerDisplayName(),
-                r.status(), myImportant, r.lastMessageAt(),
-                r.createdAt(), r.closedAt(), count, unread, lastReadAt, preview);
+                myImportant, r.lastMessageAt(),
+                r.createdAt(), count, unread, lastReadAt, preview);
     }
 }

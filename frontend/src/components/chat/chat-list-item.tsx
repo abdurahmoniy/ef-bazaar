@@ -50,11 +50,6 @@ export function ChatListItem({ chat, viewerId }: ChatListItemProps) {
             {name}
           </p>
           {chat.important && <Badge variant="warn">Muhim</Badge>}
-          {chat.status !== 'ACTIVE' && (
-            <Badge variant="muted" className="uppercase">
-              {chat.status.toLowerCase()}
-            </Badge>
-          )}
           <span className="ml-auto shrink-0 text-[10.5px] text-muted-foreground">
             {formatListingDate(stamp)}
           </span>

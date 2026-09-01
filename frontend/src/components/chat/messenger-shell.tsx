@@ -36,7 +36,7 @@ export function MessengerShell({ chats, viewerId, children }: MessengerShellProp
         className={cn(
           // NOT overflow-hidden: the notification dropdown must escape the
           // 320px pane; scrolling lives on the list inside ChatsListPane.
-          'flex h-full min-h-0 flex-col border-border md:border-r',
+          'relative z-30 flex h-full min-h-0 flex-col border-border md:border-r',
           isChatOpen ? 'hidden md:flex' : 'flex w-full',
         )}
       >

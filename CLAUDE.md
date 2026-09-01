@@ -126,7 +126,6 @@ efbazaar.marketplace.listing-updated
 efbazaar.marketplace.listing-deleted
 efbazaar.marketplace.like-toggled
 efbazaar.marketplace.chat-created
-efbazaar.marketplace.chat-expired
 efbazaar.marketplace.cards-added     # { occurredAt, totalAdded, cards: [{efhubId, type, name, overallRating}] }
 efbazaar.marketplace.bot-settings-updated  # marketplace → bot (/start matni o'zgardi, kesh yangilansin)
 efbazaar.marketplace.partner-application-submitted  # marketplace → bot (adminlarga Telegram xabari)
@@ -136,8 +135,8 @@ efbazaar.marketplace.partner-cancelled     # marketplace → auth (PARTNER roli 
 efbazaar.bot.media-uploaded          # { listingId, telegramMessageId, mediaType }
 efbazaar.auth.user-role-changed      # auth → trade-service (deactivate trade-admin profile on role revoke)
 efbazaar.trade.admin-invited         # trade-service → marketplace-service (TRADE_ADMIN_INVITED notification)
-efbazaar.trade.trade-opened          # trade-service → marketplace-service (pin the trade's chat)
-efbazaar.trade.trade-closed          # trade-service → marketplace-service (unpin the trade's chat)
+efbazaar.trade.trade-opened          # trade-service
+efbazaar.trade.trade-closed          # trade-service
 ```
 
 ---
@@ -161,11 +160,9 @@ status                ACTIVE | SOLD | DELETED
 
 ### Chat (akkount almashinuvi uchun)
 - Chat listing sahifasidagi "Egasi bilan bog'lanish" tugmasi orqali xaridor tomonidan boshlanadi
-- Bir xaridor bitta listing uchun faqat bitta aktiv chat ocha oladi (buyer + listing unikal juft — spam oldini olish)
-- Har xil xaridorlar esa bir listing egasiga mustaqil chat ochishi mumkin
-- Chat 24 soatdan keyin avtomatik yopiladi (scheduler)
-- Ikki tarafdan biri "Muhim" belgilasa — auto-delete dan ozod
-- Chat yopilganda `efbazaar.marketplace.chat-expired` Kafka event
+- Bir juftlik o'rtasida bitta doimiy chat mavjud bo'ladi va yangi listinglar bo'yicha suhbatlar shu chat ichida davom etadi
+- Chatlar doimiy ochiq bo'ladi (CLOSED/ACTIVE statuslari va 24h avtomatik yopilish yo'q)
+- Foydalanuvchilar o'zlariga kerakli chatlarni "Muhim" (star) qilib belgilashlari mumkin
 
 ### Kelajak uchun rejalashtirilgan (hozir qurilmaydi)
 - Friends / Followers tizimi (`forward` action log qilinsin — keyinroq kerak)

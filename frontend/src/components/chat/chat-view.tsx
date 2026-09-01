@@ -78,7 +78,6 @@ export function ChatView({
   const listRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isClosed = chat.status !== 'ACTIVE';
   const name = partnerName(chat, viewerId);
   const partnerId = chat.sellerId === viewerId ? chat.buyerId : chat.sellerId;
 
@@ -119,7 +118,6 @@ export function ChatView({
   }, [messages.length, scrollToBottom]);
 
   useEffect(() => {
-    if (isClosed) return;
     let cancelled = false;
     const tick = async () => {
       const page = await fetchMessages(chat.id);
@@ -136,7 +134,7 @@ export function ChatView({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [chat.id, isClosed]);
+  }, [chat.id]);
 
   function handleSend() {
     const content = draft.trim();
@@ -296,11 +294,6 @@ export function ChatView({
             <div className="flex items-center gap-1.5">
               <p className="truncate text-sm font-black text-foreground">{name}</p>
               {chat.important && <Badge variant="warn">Muhim</Badge>}
-              {isClosed && (
-                <Badge variant="muted" className="uppercase">
-                  {chat.status.toLowerCase()}
-                </Badge>
-              )}
             </div>
             <p className="text-[11px] text-muted-foreground">
               {messages.length} xabar
@@ -453,12 +446,7 @@ export function ChatView({
         </div>
       )}
 
-      {isClosed ? (
-        <div className="border-t border-border bg-muted/40 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] text-center text-xs text-muted-foreground">
-          Chat yopilgan — yangi xabar yuborib bo'lmaydi.
-        </div>
-      ) : (
-        <div className="border-t border-border bg-card px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+      <div className="border-t border-border bg-card px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
           {(replyTo || editing) && (
             <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
               {editing ? (
@@ -596,7 +584,6 @@ export function ChatView({
             Enter — yuborish · Shift+Enter — yangi qator
           </p>
         </div>
-      )}
 
       {actionTarget && (
         <MessageActionSheet

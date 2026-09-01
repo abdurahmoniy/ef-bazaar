@@ -12,7 +12,7 @@ import { partnerName } from '@/lib/chat-format';
 import type { ChatResponse } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
 
-type Filter = 'all' | 'active' | 'important' | 'closed';
+type Filter = 'all' | 'unread' | 'important';
 
 interface ChatsListPaneProps {
   chats: ChatResponse[];
@@ -21,9 +21,8 @@ interface ChatsListPaneProps {
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'Barchasi' },
-  { id: 'active', label: 'Faol' },
+  { id: 'unread', label: "O'qilmagan" },
   { id: 'important', label: 'Muhim' },
-  { id: 'closed', label: 'Yopilgan' },
 ];
 
 export function ChatsListPane({ chats, viewerId }: ChatsListPaneProps) {
@@ -34,8 +33,7 @@ export function ChatsListPane({ chats, viewerId }: ChatsListPaneProps) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return chats.filter((chat) => {
-      if (filter === 'active' && chat.status !== 'ACTIVE') return false;
-      if (filter === 'closed' && chat.status !== 'CLOSED') return false;
+      if (filter === 'unread' && !(chat.unreadCount && chat.unreadCount > 0)) return false;
       if (filter === 'important' && !chat.important) return false;
       if (!q) return true;
       return partnerName(chat, viewerId).toLowerCase().includes(q);
@@ -44,7 +42,7 @@ export function ChatsListPane({ chats, viewerId }: ChatsListPaneProps) {
 
   return (
     <section className="flex h-full min-h-0 flex-col bg-background pt-[env(safe-area-inset-top)] md:pt-0">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-3 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] md:pt-2">
+      <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-card px-3 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] md:pt-2">
         <Button asChild variant="ghost" size="sm" className="-ml-1 h-9 w-9 p-0">
           <Link href="/marketplace" aria-label="Bozorga qaytish" title="Bozorga qaytish">
             <ChevronLeft className="h-5 w-5" />
@@ -142,8 +140,8 @@ function EmptyState({
           ? `"${query}" bo'yicha chat topilmadi.`
           : filter === 'important'
             ? "Muhim deb belgilangan chatlar yo'q."
-            : filter === 'closed'
-              ? "Yopilgan chatlar yo'q."
+            : filter === 'unread'
+              ? "O'qilmagan xabarlar yo'q."
               : 'Filtrni o\'zgartirib ko\'ring.'}
       </p>
     </div>
