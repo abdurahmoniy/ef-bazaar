@@ -10,5 +10,7 @@ public enum TransactionKind {
     WITHDRAW_CANCEL,
     /** Hamkorlik maqomi uchun bir martalik to'lov. */
     PARTNER_FEE,
+    /** Referal mukofoti — platforma foydalanuvchi jalb qilish uchun to'laydi. */
+    REFERRAL_REWARD,
     ADJUSTMENT
 }
