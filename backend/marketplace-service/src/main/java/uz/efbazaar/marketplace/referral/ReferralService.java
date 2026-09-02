@@ -9,6 +9,7 @@ import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralSettingsRepository;
 import uz.efbazaar.marketplace.security.AuthSummaryClient;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -84,6 +85,55 @@ public class ReferralService {
             log.warn("Akkount yoshini aniqlab bo'lmadi, referal yozilmadi: {}", userId, e);
             return false;
         }
+    }
+
+    /**
+     * Savdo muvaffaqiyatli yopildi — ikkala tarafni ham tekshiradi.
+     *
+     * <p>Ikkalasi ham birinchi savdosida bo'lsa, ikkala taklif qiluvchi
+     * ham oladi. Ikki odam platformaga olib kelingan va ikkalasi ham
+     * so'ralgan ishni bajargan.
+     *
+     * <p>Bir tarafning to'lovi yiqilsa ikkinchisi baribir ko'riladi:
+     * ular bir-biriga bog'liq emas, va biri tufayli ikkinchisini
+     * yo'qotish sababsiz zarar.
+     */
+    @Transactional
+    public void rewardFor(UUID tradeId, UUID buyerId, UUID sellerId) {
+        BigDecimal amount = settings().getRewardSom();
+        rewardParty(tradeId, buyerId, amount);
+        // Bir odam ikkala tarafda bo'lishi g'alati, lekin mumkin. Ikki
+        // marta to'lash — yo'q: mukofot bir odamni olib kelgani uchun.
+        if (!sellerId.equals(buyerId)) {
+            rewardParty(tradeId, sellerId, amount);
+        }
+    }
+
+    private void rewardParty(UUID tradeId, UUID userId, BigDecimal amount) {
+        Optional<Referral> found = referrals.findById(userId);
+        if (found.isEmpty()) return;
+
+        Referral referral = found.get();
+        // rewardedAt "faqat birinchi savdo" qorovuli: birinchi savdo uni
+        // muhrlaydi, keyingilari muhrlangan holda topadi.
+        if (referral.getRewardedAt() != null) return;
+
+        try {
+            rewards.reward(userId, referral.getReferrerUserId(), amount);
+        } catch (RuntimeException e) {
+            // Muhr QO'YILMAYDI — hodisa qayta yetkazilganda yana urinamiz.
+            // payment tarafdagi idempotentlik kaliti bir xil, shuning
+            // uchun muvaffaqiyatli urinishdan keyin kelgan takror
+            // ikkinchi marta to'lamaydi.
+            log.error("Referal mukofoti to'lanmadi (savdo={}, user={})", tradeId, userId, e);
+            return;
+        }
+        referral.setRewardedAt(Instant.now());
+        // Summa qatorga muhrlanadi: sozlama ertaga o'zgarsa tarix qayta
+        // yozilmasin va adminka to'langanini ko'rsatsin, bugun
+        // sozlanganini emas.
+        referral.setRewardSom(amount);
+        referrals.save(referral);
     }
 
     ReferralSettings settings() {
