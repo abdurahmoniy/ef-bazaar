@@ -43,6 +43,7 @@ and the advertising revenue from their channel. The two are counted and paid ind
 | Attribution when a listing is in several channels | Last click wins, frozen when the trade opens |
 | Who can refer | Every user. Partners are users, so a partner channel link refers on the owner's behalf |
 | What counts as a referral | Any referral-bearing link, including a listing post in a channel |
+| Link shapes given to a referrer | Two, copied separately: a bot deep link and a site link |
 | Referral reward | A fixed sum to the referrer when the referred user's **first** trade settles |
 | Which side the referred user is on | Irrelevant — buyer or seller, the referrer is paid |
 | Referral reward amount | Admin-configurable, default 5 000 so'm. Not hard-coded |
@@ -124,6 +125,21 @@ second referrer cannot claim the same user because the database will not allow t
 `rewarded_at` is also the "first trade only" guard, and needs nothing else: it is set by the first
 trade that settles, so every later trade finds it already stamped. Counting the user's trades would
 be a second source of truth for the same fact.
+
+**`pending_referrals`** — a code that arrived at the bot before the person had an account.
+
+```
+telegram_id  bigint       PRIMARY KEY
+code         text         NOT NULL
+created_at   timestamptz  NOT NULL DEFAULT now()
+```
+
+The bot holds no database, so it forwards the `/start` payload here immediately. The row is converted
+into a `referrals` row when `efbazaar.auth.user-registered` arrives carrying the same `telegramId`.
+Upserted, so the last bot link before registering wins — the same rule as every other path.
+
+A row that never converts is a person who was already registered when they tapped the link. That is
+the correct outcome, not a failure: an existing account is nobody's referral.
 
 **`referral_settings`** — single row, like `partner_settings`.
 
@@ -375,8 +391,9 @@ whose channel happens to be an unusually good place to put a link.
 listing post in a channel, and registered is a referral of that channel's owner. The channel brought
 them to the platform; which URL shape carried them is an implementation detail they never saw.
 
-Every such link therefore writes the same thing to the same cookie: a code. At registration, whatever
-code the cookie holds is resolved — through `user_referral_codes` or `partner_channels.link_code` —
+Every such link therefore records the same thing: a code, held until the person registers — in a
+cookie for the web paths, in `pending_referrals` for the bot path. At registration, whatever code is
+held is resolved — through `user_referral_codes` or `partner_channels.link_code` —
 to a referrer, and becomes the `referrals` row. Last link before registering wins, which is the same
 rule as §5.2 and needs no second explanation to anyone reading it.
 
@@ -386,7 +403,9 @@ referrer cannot claim the same person because the database will not accept the r
 Self-referral is rejected at insert: `referrer_user_id <> referred_user_id`.
 
 **Only newcomers.** An account that already exists must not become somebody's referral by clicking a
-link. Before inserting, marketplace-service reads the caller's `createdAt` from
+link. The bot path gets this for free: it converts on `user-registered`, which by definition fires
+once, for a brand-new account. The web path has no such event to hang on, so before inserting,
+marketplace-service reads the caller's `createdAt` from
 `POST /internal/auth/v1/users/summary/batch` — already built, already used for user search — and
 accepts the claim only for an account younger than one hour. Nothing is added to auth-service and no
 new event is introduced; the age of an account is a fact auth already publishes.
@@ -400,8 +419,19 @@ The money is §4.4.
 
 ### 5.2 The two link shapes
 
-**Invite link — `efbazaar.uz/?ref=<code>`.** Every user has one. Seeds the referral cookie (§5.1).
-Nothing else.
+**Bot link — `t.me/<bot>?start=ref_<code>`.** Telegram's own referral mechanism. The bot receives the
+payload with `/start` and forwards it to `pending_referrals`; the registration event converts it.
+Nothing in the browser is involved, so nothing about cookies, private windows or which app opened the
+link can lose it.
+
+**Site link — `efbazaar.uz/?ref=<code>`.** Captured by Next.js middleware into a cookie. Middleware
+runs before routing, so the code survives a page that redirects an anonymous visitor to login — a
+capture done in a React component would not, because `redirect()` in a server component throws before
+the layout renders.
+
+Both are offered to the referrer as separate rows to copy. The bot link is the one most people will
+share, and the site link is kept because a mobile app will need referrals to arrive over a URL rather
+than through Telegram.
 
 **Post link — `efbazaar.uz/l/<listingId>?p=<code>`.** Seeds the referral cookie *and* attributes the
 listing.
@@ -466,9 +496,12 @@ A section on the listing form: "Katta kanallarda ham chiqarish".
   partner. A seller is buying an audience and has no reason to care who owns it.
 - Selected channels and a running total, so the seller sees the cost before committing.
 
-### 7.2 Every user — the invite link
+### 7.2 Every user — the invite links
 
-The link, a copy button, how many people joined through it, and how much it has earned. It belongs
+**Two links, each on its own row with its own copy button**, labelled "Bot havolasi" and "Sayt
+havolasi". The referrer picks; both resolve to the same code and land in the same table.
+
+Then: how many people joined through them, how many have traded, and what that has earned. It belongs
 wherever the user's own account lives, not behind a partner-only route: this is now a feature of
 being a user.
 

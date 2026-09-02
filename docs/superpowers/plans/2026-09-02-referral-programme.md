@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Every user gets an invite link; whoever joins through it and completes their first trade earns the referrer a configurable reward, paid into their wallet and visible to admins as a leaderboard.
+**Goal:** Every user gets two invite links — a Telegram bot deep link and a site link; whoever joins through it and completes their first trade earns the referrer a configurable reward, paid into their wallet and visible to admins as a leaderboard.
 
 **Architecture:** marketplace-service owns referral codes, the referral graph and the reward trigger. trade-service publishes a new `trade-succeeded` event. payment-service posts the reward to the ledger. The frontend captures the code from the URL before registration and claims it after.
 
@@ -34,25 +34,32 @@
 
 | File | Responsibility |
 |---|---|
-| `db/migration/V41__referrals.sql` | The three tables |
+| `db/migration/V41__referrals.sql` | The four tables |
 | `referral/Referral.java` | The graph edge: who referred whom, and whether it paid |
 | `referral/ReferralCode.java` | One user, one code |
 | `referral/ReferralSettings.java` | Single-row reward amount |
-| `referral/ReferralRepositories.java` | Holder class with the three nested repositories |
+| `referral/PendingReferral.java` | A code the bot took before the person had an account |
+| `referral/ReferralRepositories.java` | Holder class with the four nested repositories |
 | `referral/ReferralCodeService.java` | Issues and resolves codes |
 | `referral/ReferralService.java` | Claiming, the reward decision, admin reads |
 | `referral/ReferralRewardClient.java` | marketplace → payment |
 | `referral/ReferralDtos.java` | Request/response records |
 | `referral/ReferralController.java` | `/api/v1/referrals` — the user's own |
 | `referral/AdminReferralController.java` | `/api/v1/admin/referrals` |
+| `referral/InternalReferralController.java` | `/internal/…/referrals/pending` — the bot calls it |
 | `kafka/TradeSucceededConsumer.java` | Fires the reward |
 | `kafka/TradeSucceededDto.java` | Event payload |
+| `kafka/UserRegisteredConsumer.java` | Converts a pending bot referral at registration |
+| `kafka/UserRegisteredDto.java` | Event payload |
 
 **trade-service:** `kafka/TradeEvents.java`, `kafka/TradeEventPublisher.java`, `trade/service/TradeStateHandler.java`.
 
 **payment-service:** `db/migration/V11__referral_reward_kind.sql`, `wallet/domain/TransactionKind.java`, new package `uz.efbazaar.payment.referral` with `ReferralRewardService` and `InternalReferralRewardController`.
 
-**frontend:** `src/lib/referral-capture.ts`, `src/lib/referrals.ts`, `src/components/referral/referral-capture.tsx`, `src/components/referral/invite-panel.tsx`, `src/app/invite/page.tsx`, `src/components/admin/admin-referrals.tsx`, `src/app/admin/referrals/page.tsx`, plus edits to `src/app/layout.tsx` and `src/components/admin/admin-shell.tsx`.
+**bot:** `telegram/UpdateHandler.java` (the `/start` branch) and `referral/PendingReferralClient.java`.
+
+**frontend:** `src/middleware.ts`, `src/lib/referral-capture.ts`, `src/lib/referrals.ts`, `src/components/referral/referral-capture.tsx`, `src/components/referral/invite-panel.tsx`, `src/app/invite/page.tsx`, `src/components/admin/admin-referrals.tsx`, `src/app/admin/referrals/page.tsx`, plus edits to `src/app/layout.tsx`, `src/app/admin/page.tsx`,
+`src/components/navigation/user-menu.tsx` and `src/components/admin/admin-shell.tsx`.
 
 ---
 
@@ -63,6 +70,7 @@
 - Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/referral/ReferralCode.java`
 - Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/referral/Referral.java`
 - Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/referral/ReferralSettings.java`
+- Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/referral/PendingReferral.java`
 - Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/referral/ReferralRepositories.java`
 - Test: `backend/marketplace-service/src/test/java/uz/efbazaar/marketplace/referral/ReferralSchemaIT.java`
 
@@ -126,6 +134,21 @@ CREATE TABLE referrals (
 );
 
 CREATE INDEX idx_referrals_referrer ON referrals (referrer_user_id, created_at DESC);
+
+-- Botga kelgan, lekin hali akkounti yo'q odamning kodi.
+--
+-- Botda baza yo'q, shuning uchun u /start yukini shu yerga darhol
+-- uzatadi. Qator `efbazaar.auth.user-registered` kelganda, o'sha
+-- telegram_id bilan, haqiqiy referal qatoriga aylanadi.
+--
+-- Aylanmagan qator — havolani bosganida allaqachon ro'yxatdan o'tgan
+-- odam. Bu nosozlik emas, to'g'ri natija: mavjud akkount hech kimning
+-- referali emas.
+CREATE TABLE pending_referrals (
+    telegram_id bigint      PRIMARY KEY,
+    code        text        NOT NULL,
+    created_at  timestamptz NOT NULL DEFAULT now()
+);
 ```
 
 - [ ] **Step 2: Write the failing test**
@@ -284,6 +307,46 @@ public class Referral {
 }
 ```
 
+`PendingReferral.java`:
+
+```java
+package uz.efbazaar.marketplace.referral;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.Instant;
+
+/** Botga kelgan kod. Ro'yxatdan o'tish hodisasi uni referalga aylantiradi. */
+@Entity
+@Table(name = "pending_referrals")
+@Getter
+@Setter
+@NoArgsConstructor
+public class PendingReferral {
+
+    @Id
+    @Column(name = "telegram_id", nullable = false, updatable = false)
+    private Long telegramId;
+
+    @Column(nullable = false)
+    private String code;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt = Instant.now();
+
+    public PendingReferral(Long telegramId, String code) {
+        this.telegramId = telegramId;
+        this.code = code;
+    }
+}
+```
+
 `ReferralSettings.java` — same shape as `PartnerSettings`:
 
 ```java
@@ -355,6 +418,8 @@ public final class ReferralRepositories {
     }
 
     public interface ReferralSettingsRepository extends JpaRepository<ReferralSettings, Short> {}
+
+    public interface PendingReferralRepository extends JpaRepository<PendingReferral, Long> {}
 }
 ```
 
@@ -2070,11 +2135,12 @@ against the database."
 
 ---
 
-### Task 8: Frontend — capture the code and show the invite page
+### Task 8: Frontend — capture the code and show the invite links
 
 **Files:**
 - Create: `frontend/src/lib/referral-capture.ts`
 - Create: `frontend/src/lib/referral-capture.test.ts`
+- Create: `frontend/src/middleware.ts`
 - Create: `frontend/src/lib/referrals.ts`
 - Create: `frontend/src/components/referral/referral-capture.tsx`
 - Create: `frontend/src/components/referral/invite-panel.tsx`
@@ -2084,26 +2150,26 @@ against the database."
 
 **Interfaces:**
 - Consumes: `GET /api/v1/referrals/me`, `POST /api/v1/referrals/claim`.
-- Produces: `readCodeFromSearch(search: string): string | null`, `storeCode(code: string): void`, `takeStoredCode(): string | null`, and `getMyReferrals(): Promise<MyReferrals>`.
+- Produces: `readCodeFromSearch(search: string): string | null`, `REFERRAL_COOKIE`, `readCookieCode(cookieHeader: string): string | null`, and `getMyReferrals(): Promise<MyReferrals>`.
+
+**Why middleware and not a React effect.** `redirect()` inside a server component throws before the
+layout renders, so a component that reads the URL never mounts on any page that bounces an anonymous
+visitor to login — and the `from=` parameter those pages build drops the query string, so the code is
+gone twice over. Middleware runs before routing. Today's landing pages happen to be public
+(`/marketplace/[id]` uses `resolveOptionalUser`), but that is a fact about today, and a gated landing
+page added later would break referrals silently, with no error anywhere.
 
 - [ ] **Step 1: Write the failing test**
 
 `referral-capture.test.ts`:
 
 ```ts
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { readCodeFromSearch, storeCode, takeStoredCode } from './referral-capture';
-
-class MemoryStorage {
-  private data = new Map<string, string>();
-  getItem(k: string) { return this.data.get(k) ?? null; }
-  setItem(k: string, v: string) { this.data.set(k, v); }
-  removeItem(k: string) { this.data.delete(k); }
-}
+import { readCodeFromSearch, readCookieCode, REFERRAL_COOKIE } from './referral-capture';
 
 describe('readCodeFromSearch', () => {
-  it('reads the invite link parameter', () => {
+  it('reads the site link parameter', () => {
     expect(readCodeFromSearch('?ref=ABCD2345')).toBe('ABCD2345');
   });
 
@@ -2115,44 +2181,34 @@ describe('readCodeFromSearch', () => {
     expect(readCodeFromSearch('?ref=abcd2345')).toBe('ABCD2345');
   });
 
+  it('prefers ref when a URL somehow carries both', () => {
+    expect(readCodeFromSearch('?ref=AAAA1111&p=BBBB2222')).toBe('AAAA1111');
+  });
+
   it('rejects anything that is not a code', () => {
     expect(readCodeFromSearch('?ref=<script>')).toBeNull();
     expect(readCodeFromSearch('?ref=')).toBeNull();
+    expect(readCodeFromSearch('?ref=TOOLONGCODE')).toBeNull();
     expect(readCodeFromSearch('?other=ABCD2345')).toBeNull();
     expect(readCodeFromSearch('')).toBeNull();
   });
 });
 
-describe('stored code', () => {
-  beforeEach(() => {
-    globalThis.localStorage = new MemoryStorage() as unknown as Storage;
+describe('readCookieCode', () => {
+  it('finds the code among other cookies', () => {
+    expect(readCookieCode(`theme=dark; ${REFERRAL_COOKIE}=ABCD2345; x=1`)).toBe('ABCD2345');
   });
 
-  it('survives until it is taken', () => {
-    storeCode('ABCD2345');
-    expect(takeStoredCode()).toBe('ABCD2345');
+  it('returns null when the cookie is absent', () => {
+    expect(readCookieCode('theme=dark')).toBeNull();
   });
 
-  it('is taken only once', () => {
-    storeCode('ABCD2345');
-    takeStoredCode();
-    expect(takeStoredCode()).toBeNull();
+  it('rejects a tampered cookie value', () => {
+    expect(readCookieCode(`${REFERRAL_COOKIE}=../../etc/passwd`)).toBeNull();
   });
 
-  it('the last link before registering wins', () => {
-    storeCode('AAAA1111');
-    storeCode('BBBB2222');
-    expect(takeStoredCode()).toBe('BBBB2222');
-  });
-
-  it('survives storage being unavailable', () => {
-    globalThis.localStorage = {
-      getItem() { throw new Error('blocked'); },
-      setItem() { throw new Error('blocked'); },
-      removeItem() { throw new Error('blocked'); },
-    } as unknown as Storage;
-    expect(() => storeCode('ABCD2345')).not.toThrow();
-    expect(takeStoredCode()).toBeNull();
+  it('survives an empty cookie header', () => {
+    expect(readCookieCode('')).toBeNull();
   });
 });
 ```
@@ -2172,48 +2228,46 @@ Expected: FAIL — module not found.
 /**
  * Taklif kodini URL'dan olib, ro'yxatdan o'tishgacha saqlab turadi.
  *
- * Ikki havola shakli bir xil narsani yozadi: `?ref=` — shaxsiy taklif
- * havolasi, `?p=` — kanaldagi e'lon posti. Ikkalasi ham kanalni yoki
- * odamni ko'rsatadigan bitta kodni olib yuradi, va oxirgi bosilgani
- * g'olib.
+ * Ikki havola shakli bir xil narsani olib yuradi: `?ref=` — sayt
+ * havolasi, `?p=` — kanaldagi e'lon posti. Ikkalasi ham bitta kodni
+ * ko'rsatadi va oxirgi bosilgani g'olib.
+ *
+ * Kod cookie'da saqlanadi, localStorage'da emas: uni middleware yozadi,
+ * u esa marshrutlashdan oldin ishlaydi. Anonim mehmonni login'ga
+ * yo'naltiradigan sahifada React komponenti umuman mount bo'lmaydi.
  */
 
-const KEY = 'efbazaar.referral.code';
+export const REFERRAL_COOKIE = 'efbazaar_ref';
 
 /** Kod shakli — ReferralCodeService dagi alifbo va uzunlik. */
 const CODE = /^[A-Z0-9]{8}$/;
 
-export function readCodeFromSearch(search: string): string | null {
-  if (!search) return null;
-  const params = new URLSearchParams(search);
-  const raw = params.get('ref') ?? params.get('p');
+function valid(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const code = raw.trim().toUpperCase();
   return CODE.test(code) ? code : null;
 }
 
-/**
- * Saqlash muvaffaqiyatsiz bo'lsa jimgina o'tib ketamiz. Maxfiy rejimda
- * yoki sayt ma'lumotlari o'chirilgan brauzerda localStorage otadi, va
- * bu sahifani buzishga arzimaydi — referal yo'qoladi, xolos.
- */
-export function storeCode(code: string): void {
-  try {
-    localStorage.setItem(KEY, code);
-  } catch {
-    /* saqlab bo'lmadi — referalsiz davom etamiz */
-  }
+export function readCodeFromSearch(search: string): string | null {
+  if (!search) return null;
+  const params = new URLSearchParams(search);
+  return valid(params.get('ref') ?? params.get('p'));
 }
 
-/** O'qiydi va o'chiradi: kod bir marta da'vo qilinadi. */
-export function takeStoredCode(): string | null {
-  try {
-    const code = localStorage.getItem(KEY);
-    if (code) localStorage.removeItem(KEY);
-    return code;
-  } catch {
-    return null;
+/**
+ * Cookie sarlavhasidan kodni oladi va shaklini tekshiradi.
+ *
+ * Tekshiruv shart: cookie foydalanuvchi tomonidan o'zgartirilishi
+ * mumkin, va shakldan o'tmagan qiymat serverga umuman yuborilmasligi
+ * kerak.
+ */
+export function readCookieCode(cookieHeader: string): string | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(';')) {
+    const [name, ...rest] = part.trim().split('=');
+    if (name === REFERRAL_COOKIE) return valid(rest.join('='));
   }
+  return null;
 }
 ```
 
@@ -2226,7 +2280,52 @@ npm test -- referral-capture
 
 Expected: PASS, 9 tests.
 
-- [ ] **Step 5: Write `referrals.ts`**
+- [ ] **Step 5: Write the middleware**
+
+`frontend/src/middleware.ts`:
+
+```ts
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+import { readCodeFromSearch, REFERRAL_COOKIE } from '@/lib/referral-capture';
+
+/**
+ * Taklif kodini cookie'ga yozadi.
+ *
+ * Marshrutlashdan OLDIN ishlaydi, shuning uchun sahifa anonim mehmonni
+ * login'ga yo'naltirsa ham kod saqlanadi. React komponentida qilingan
+ * bo'lsa yo'qolardi: server komponentidagi `redirect()` layout
+ * chizilishidan oldin otadi.
+ */
+export function middleware(request: NextRequest) {
+  const code = readCodeFromSearch(request.nextUrl.search);
+  const response = NextResponse.next();
+  if (code) {
+    response.cookies.set(REFERRAL_COOKIE, code, {
+      // httpOnly EMAS: ro'yxatdan o'tgach uni brauzerdagi kod o'qib
+      // da'vo yuboradi. Bu sir emas — kod havolada ochiq turadi.
+      httpOnly: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
+  return response;
+}
+
+export const config = {
+  // Statik fayllar va API yo'llari kerak emas — ular hech qachon
+  // taklif havolasining manzili bo'lmaydi.
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+};
+```
+
+Check whether `frontend/src/middleware.ts` or `frontend/middleware.ts` is the right location for this
+project's Next.js layout (it follows `src/`, so `src/middleware.ts`), and confirm after `npm run dev`
+that ordinary pages still load — a wrong matcher makes middleware run on everything.
+
+- [ ] **Step 6: Write `referrals.ts`**
 
 Follow `src/lib/partners.ts` — same `buildMarketplaceApiPath` import and the same fetch/error shape.
 
@@ -2259,7 +2358,7 @@ export async function getMyReferrals(): Promise<MyReferrals> {
 }
 
 /**
- * Ro'yxatdan o'tgandan keyin saqlangan kodni yuboradi.
+ * Ro'yxatdan o'tgandan keyin cookie'dagi kodni yuboradi.
  *
  * Rad etish xato emas: kod eskirgan yoki foydalanuvchi allaqachon
  * taklif qilingan bo'lishi normal, va bu ekranda ko'rsatiladigan
@@ -2278,9 +2377,10 @@ export async function claimReferral(code: string): Promise<boolean> {
 }
 ```
 
-Check `buildMarketplaceApiPath`'s expected prefix in `partners.ts` and match it exactly — `/v1/...` versus `/api/v1/...` differs by helper.
+Check `buildMarketplaceApiPath`'s expected prefix in `partners.ts` and match it exactly — `/v1/...`
+versus `/api/v1/...` differs by helper.
 
-- [ ] **Step 6: Write `referral-capture.tsx`**
+- [ ] **Step 7: Write `referral-capture.tsx`**
 
 ```tsx
 'use client';
@@ -2288,49 +2388,57 @@ Check `buildMarketplaceApiPath`'s expected prefix in `partners.ts` and match it 
 import { useEffect } from 'react';
 
 import { claimReferral } from '@/lib/referrals';
-import { readCodeFromSearch, storeCode, takeStoredCode } from '@/lib/referral-capture';
+import { readCookieCode, REFERRAL_COOKIE } from '@/lib/referral-capture';
 
 /**
- * Har sahifada ishlaydi, hech nima chizmaydi.
+ * Hech nima chizmaydi. Foydalanuvchi kirgan bo'lsa, middleware yozib
+ * qo'ygan kodni da'vo qiladi va cookie'ni o'chiradi.
  *
- * Ikki ish qiladi: URL'dagi kodni saqlaydi, va foydalanuvchi kirgan
- * bo'lsa saqlanganini da'vo qiladi. Anonim bosishni tashlab yuborsak
- * dasturning butun maqsadini yo'qotamiz — hali ro'yxatdan o'tmagan odam
- * aynan olib kelinishi kerak bo'lgan odam.
+ * Kodni URL'dan o'qish bu yerda EMAS — u middleware'da, chunki bu
+ * komponent login'ga yo'naltiradigan sahifada mount bo'lmaydi.
  */
 export function ReferralCapture({ authenticated }: { authenticated: boolean }) {
   useEffect(() => {
-    const code = readCodeFromSearch(window.location.search);
-    if (code) storeCode(code);
-  }, []);
-
-  useEffect(() => {
     if (!authenticated) return;
-    const code = takeStoredCode();
+    const code = readCookieCode(document.cookie);
     if (!code) return;
-    void claimReferral(code);
+
+    void claimReferral(code).finally(() => {
+      // Natijadan qat'i nazar o'chiramiz: kod bir marta da'vo qilinadi,
+      // va rad javobi qayta urinishdan o'zgarmaydi.
+      document.cookie = `${REFERRAL_COOKIE}=; path=/; max-age=0`;
+    });
   }, [authenticated]);
 
   return null;
 }
 ```
 
-- [ ] **Step 7: Mount it in the root layout**
+- [ ] **Step 8: Mount it in the root layout**
 
-In `src/app/layout.tsx`, inside the body, pass whether the user is signed in — the layout already resolves the user for the navigation, so reuse that value rather than fetching again:
+In `src/app/layout.tsx`, inside the body, pass whether the user is signed in — the layout already
+resolves the user for the navigation, so reuse that value rather than fetching again:
 
 ```tsx
 <ReferralCapture authenticated={!!user} />
 ```
 
-- [ ] **Step 8: Write `invite-panel.tsx` and `app/invite/page.tsx`**
+- [ ] **Step 9: Write `invite-panel.tsx` and `app/invite/page.tsx`**
 
-The panel is a client component modelled on `partner-dashboard.tsx`: same `mx-auto max-w-2xl space-y-4 p-4` shell, same loading spinner, same card styling. It shows
+The panel is a client component modelled on `partner-dashboard.tsx`: same `mx-auto max-w-2xl
+space-y-4 p-4` shell, same loading spinner, same card styling. It shows
 
-- the full link `${origin}/?ref=${code}` with a copy button,
+- **two links, each its own row with its own copy button** — labelled "Bot havolasi"
+  (`https://t.me/${bot}?start=ref_${code}`) and "Sayt havolasi" (`${origin}/?ref=${code}`),
 - `invitedCount` and `rewardedCount`,
-- `earnedSom` and the current `rewardSom` ("Har bir taklif qilingan foydalanuvchi birinchi savdosini yakunlaganda hisobingizga N so'm tushadi"),
+- `earnedSom` and the current `rewardSom` ("Har bir taklif qilingan foydalanuvchi birinchi savdosini
+  yakunlaganda hisobingizga N so'm tushadi"),
 - the `invited` list with each person's name, join date and whether they have traded yet.
+
+The bot username must be read in the **server** component and passed as a prop.
+`NEXT_PUBLIC_TELEGRAM_BOT` is inlined at build time, so a container environment variable never
+reaches a client component — this exact mistake rendered the bot username as the literal word
+"botimizni" on the partnership page.
 
 The page is a server component, matching `app/partner/page.tsx`:
 
@@ -2345,17 +2453,23 @@ export const dynamic = 'force-dynamic';
 export default async function InvitePage() {
   const user = await getMe();
   if (!user) redirect('/auth/login?from=/invite');
-  return <InvitePanel />;
+  return <InvitePanel botUsername={process.env.TELEGRAM_BOT_USERNAME ?? ''} />;
 }
 ```
 
-- [ ] **Step 9: Add the menu entry**
+Use whatever variable name `partnership-flow.tsx`'s page already passes down, so there is one name for
+the bot username rather than two.
 
-In `src/components/navigation/user-menu.tsx`, beside the partner entry, add an entry pointing at `/invite` labelled "Do'st taklif qilish".
+- [ ] **Step 10: Add the menu entry**
 
-A page that works only when you type its URL cannot be validated by clicking around, because testing it means already knowing the URL. `/hamkorlik` shipped with no link twice for exactly this reason. If `user-menu.test.ts` guards destinations, add `/invite` to it.
+In `src/components/navigation/user-menu.tsx`, beside the partner entry, add an entry pointing at
+`/invite` labelled "Do'st taklif qilish".
 
-- [ ] **Step 10: Run the frontend suite**
+A page that works only when you type its URL cannot be validated by clicking around, because testing
+it means already knowing the URL. `/hamkorlik` shipped with no link twice for exactly this reason. If
+`user-menu.test.ts` guards destinations, add `/invite` to it.
+
+- [ ] **Step 11: Run the frontend suite**
 
 ```bash
 cd frontend
@@ -2365,22 +2479,24 @@ npm run lint
 
 Expected: PASS.
 
-- [ ] **Step 11: Commit**
+- [ ] **Step 12: Commit**
 
 ```bash
 git add frontend/src/lib/referral-capture.ts frontend/src/lib/referral-capture.test.ts \
-        frontend/src/lib/referrals.ts frontend/src/components/referral/ \
-        frontend/src/app/invite/ frontend/src/app/layout.tsx \
-        frontend/src/components/navigation/user-menu.tsx
-git commit -m "feat(frontend): capture the invite code and show the invite page
+        frontend/src/middleware.ts frontend/src/lib/referrals.ts \
+        frontend/src/components/referral/ frontend/src/app/invite/ \
+        frontend/src/app/layout.tsx frontend/src/components/navigation/user-menu.tsx
+git commit -m "feat(frontend): capture the invite code in middleware, show both links
 
-Both link shapes write the same stored code and the last one before
-registering wins, so somebody who saw a listing in a channel and never
-touched an invite link still counts.
+Middleware rather than a React effect. redirect() in a server component
+throws before the layout renders, so a component that reads the URL never
+mounts on a page that bounces an anonymous visitor to login, and the from=
+those pages build drops the query string anyway. Today's landing pages are
+public, but that is a fact about today.
 
-The code is stored before registration and claimed after. Dropping the
-anonymous click would discard the beginning of every conversion the
-programme exists to produce."
+Both link shapes write the same cookie and the last one before registering
+wins, so somebody who saw a listing in a channel and never touched an
+invite link still counts."
 ```
 
 ---
@@ -2537,13 +2653,468 @@ code, which is how /admin/bot shipped reachable only by typing its URL."
 
 ---
 
+### Task 10: The bot deep link
+
+**Files:**
+- Modify: `bot/src/main/java/uz/efbazaar/bot/telegram/UpdateHandler.java` (the `/start` branch, around line 50)
+- Create: `bot/src/main/java/uz/efbazaar/bot/referral/PendingReferralClient.java`
+- Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/referral/InternalReferralController.java`
+- Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/kafka/UserRegisteredConsumer.java`
+- Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/kafka/UserRegisteredDto.java`
+- Modify: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/referral/ReferralService.java` (add `remember` and `claimOnRegistration`)
+- Test: `bot/src/test/java/uz/efbazaar/bot/telegram/StartPayloadTest.java`
+- Test: `backend/marketplace-service/src/test/java/uz/efbazaar/marketplace/referral/PendingReferralTest.java`
+
+**Interfaces:**
+- Consumes: `PendingReferralRepository` and `ReferralCodeService.resolve` (Tasks 1-2).
+- Produces: `POST /internal/marketplace/v1/referrals/pending {telegramId, code}`; `ReferralService.remember(long telegramId, String code)`; `ReferralService.claimOnRegistration(UUID userId, Long telegramId)`; `UpdateHandler.startPayload(String text) -> String` (package-private, for the test).
+
+**Why this path exists at all.** The platform is Telegram-first: a channel owner's audience is inside
+Telegram, and the link they share will usually be a bot link. The browser holds no cookie for someone
+who tapped `t.me/…` and registered inside Telegram, so the whole capture built in Task 8 misses them.
+
+**Why it does not need the account-age check.** The web path guesses at newness from `createdAt`
+because it has no signal. This path converts on `efbazaar.auth.user-registered`, which fires exactly
+once, for an account that is new by definition.
+
+- [ ] **Step 1: Write the failing bot test**
+
+```java
+package uz.efbazaar.bot.telegram;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class StartPayloadTest {
+
+    @Test
+    @DisplayName("a referral payload is extracted")
+    void extractsReferral() {
+        assertThat(UpdateHandler.startPayload("/start ref_ABCD2345")).isEqualTo("ABCD2345");
+    }
+
+    @Test
+    @DisplayName("a lower-case payload is normalised")
+    void normalises() {
+        assertThat(UpdateHandler.startPayload("/start ref_abcd2345")).isEqualTo("ABCD2345");
+    }
+
+    @Test
+    @DisplayName("a bare /start carries nothing")
+    void bareStart() {
+        assertThat(UpdateHandler.startPayload("/start")).isNull();
+        assertThat(UpdateHandler.startPayload("/start ")).isNull();
+    }
+
+    @Test
+    @DisplayName("a payload that is not a referral is ignored")
+    void otherPayload() {
+        assertThat(UpdateHandler.startPayload("/start somethingelse")).isNull();
+        assertThat(UpdateHandler.startPayload("/start ref_")).isNull();
+        assertThat(UpdateHandler.startPayload("/start ref_TOOLONGCODE")).isNull();
+    }
+}
+```
+
+- [ ] **Step 2: Run it and confirm it fails**
+
+```bash
+cd bot
+JAVA_HOME=~/.jdks/openjdk-21.0.2 mvn -q test -Dtest=StartPayloadTest
+```
+
+Expected: compilation failure — `startPayload` does not exist.
+
+- [ ] **Step 3: Add `startPayload` and wire it into the `/start` branch**
+
+In `UpdateHandler`:
+
+```java
+    /** Kod shakli — ReferralCodeService dagi alifbo va uzunlik. */
+    private static final java.util.regex.Pattern REFERRAL_CODE =
+            java.util.regex.Pattern.compile("^[A-Z0-9]{8}$");
+
+    /**
+     * {@code /start ref_ABCD2345} dan kodni ajratadi.
+     *
+     * <p>Telegram chuqur havolasi ({@code t.me/<bot>?start=ref_ABCD2345})
+     * yukni aynan shu ko'rinishda yetkazadi. Boshqa yuklar kelajakda ham
+     * bo'lishi mumkin, shuning uchun {@code ref_} prefiksi bo'lmaganini
+     * jimgina o'tkazib yuboramiz.
+     *
+     * @return kod, yoki bu referal yuki bo'lmasa null
+     */
+    static String startPayload(String text) {
+        if (text == null) return null;
+        String[] parts = text.trim().split("\\s+", 2);
+        if (parts.length < 2) return null;
+        String payload = parts[1].trim();
+        if (!payload.startsWith("ref_")) return null;
+        String code = payload.substring("ref_".length()).toUpperCase();
+        return REFERRAL_CODE.matcher(code).matches() ? code : null;
+    }
+```
+
+And in the dispatch, replacing the existing `/start` branch:
+
+```java
+        if (text.startsWith("/start")) {
+            String code = startPayload(text);
+            if (code != null) {
+                // Yuborishdan OLDIN: kod yo'qolsa referal yo'qoladi,
+                // salomlashish esa keyingi /start da baribir keladi.
+                pendingReferrals.remember(message.path("from").path("id").asLong(), code);
+            }
+            sendStart(chatId);
+        } else if (text.startsWith("/help")) {
+```
+
+Read `from.id` rather than `chat.id`: they coincide in a private chat today, but the one that
+identifies the person is `from`.
+
+- [ ] **Step 4: Write `PendingReferralClient`**
+
+Model it on `bot/src/main/java/uz/efbazaar/bot/settings/BotSettingsClient.java` for the base URL,
+internal secret and timeout, then:
+
+```java
+package uz.efbazaar.bot.referral;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+/**
+ * Botga kelgan taklif kodini marketplace'ga uzatadi.
+ *
+ * <p>Botda baza yo'q, shuning uchun kod bu yerda saqlanmaydi. Xato
+ * YUTILADI: referalni yo'qotish yomon, lekin /start ni yiqitish
+ * yomonroq — odam botga birinchi marta kirganida oq ekran ko'radi.
+ */
+@Slf4j
+@Component
+public class PendingReferralClient {
+
+    public void remember(long telegramId, String code) {
+        try {
+            http.post()
+                    .uri("/internal/marketplace/v1/referrals/pending")
+                    .header("X-Internal-Secret", secret)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new PendingRequest(telegramId, code))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RuntimeException e) {
+            log.warn("Taklif kodi saqlanmadi (telegramId={}, kod={})", telegramId, code, e);
+        }
+    }
+
+    private record PendingRequest(long telegramId, String code) {}
+}
+```
+
+- [ ] **Step 5: Write the failing marketplace test**
+
+```java
+package uz.efbazaar.marketplace.referral;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import uz.efbazaar.marketplace.referral.ReferralRepositories.PendingReferralRepository;
+import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository;
+import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralSettingsRepository;
+import uz.efbazaar.marketplace.security.AuthSummaryClient;
+
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentCaptor.forClass;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/**
+ * Bot yo'li: kod odam ro'yxatdan o'tishidan oldin keladi.
+ *
+ * <p>Bu yerda akkount yoshi tekshirilmaydi va tekshirilmasligi kerak —
+ * da'vo ro'yxatdan o'tish hodisasining o'zidan kelib chiqadi.
+ */
+class PendingReferralTest {
+
+    private PendingReferralRepository pending;
+    private ReferralRepository referrals;
+    private ReferralCodeService codes;
+    private ReferralService service;
+
+    private final long telegramId = 4242L;
+    private final UUID newcomer = UUID.randomUUID();
+    private final UUID referrer = UUID.randomUUID();
+
+    @BeforeEach
+    void setUp() {
+        pending = mock(PendingReferralRepository.class);
+        referrals = mock(ReferralRepository.class);
+        codes = mock(ReferralCodeService.class);
+        service = new ReferralService(referrals, codes, mock(ReferralSettingsRepository.class),
+                mock(AuthSummaryClient.class), mock(ReferralRewardClient.class), pending);
+
+        when(codes.resolve("ABCD2345")).thenReturn(Optional.of(referrer));
+        when(referrals.findById(any())).thenReturn(Optional.empty());
+        when(pending.findById(telegramId))
+                .thenReturn(Optional.of(new PendingReferral(telegramId, "ABCD2345")));
+    }
+
+    @Test
+    @DisplayName("the bot's code is stored against the telegram id")
+    void remembers() {
+        service.remember(telegramId, "ABCD2345");
+        var saved = forClass(PendingReferral.class);
+        verify(pending).save(saved.capture());
+        assertThat(saved.getValue().getCode()).isEqualTo("ABCD2345");
+    }
+
+    @Test
+    @DisplayName("registration converts the pending row into a referral")
+    void convertsOnRegistration() {
+        service.claimOnRegistration(newcomer, telegramId);
+
+        var saved = forClass(Referral.class);
+        verify(referrals).save(saved.capture());
+        assertThat(saved.getValue().getReferrerUserId()).isEqualTo(referrer);
+        assertThat(saved.getValue().getReferredUserId()).isEqualTo(newcomer);
+        verify(pending).deleteById(telegramId);
+    }
+
+    @Test
+    @DisplayName("a registration with no pending code does nothing")
+    void nothingPending() {
+        when(pending.findById(telegramId)).thenReturn(Optional.empty());
+        service.claimOnRegistration(newcomer, telegramId);
+        verify(referrals, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("a registration with no telegram id does nothing")
+    void noTelegramId() {
+        service.claimOnRegistration(newcomer, null);
+        verify(referrals, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("somebody who tapped their own link is not their own referral")
+    void selfReferral() {
+        when(codes.resolve("ABCD2345")).thenReturn(Optional.of(newcomer));
+        service.claimOnRegistration(newcomer, telegramId);
+        verify(referrals, never()).save(any());
+        // Qator baribir o'chiriladi: u endi hech qachon ishlamaydi.
+        verify(pending).deleteById(telegramId);
+    }
+}
+```
+
+- [ ] **Step 6: Run it and confirm it fails**
+
+```bash
+cd backend/marketplace-service
+JAVA_HOME=~/.jdks/openjdk-21.0.2 mvn -q test -Dtest=PendingReferralTest
+```
+
+Expected: failure — `remember`, `claimOnRegistration` and the sixth constructor argument do not exist.
+
+- [ ] **Step 7: Add the two methods to `ReferralService`**
+
+Add `private final PendingReferralRepository pending;` as the **last** field, so the generated
+constructor's existing argument order is unchanged and the Task 3, 6 and 7 tests keep compiling with
+one extra argument appended.
+
+```java
+    /** Botga kelgan kod. Oxirgisi g'olib — boshqa yo'llardagi qoida bilan bir xil. */
+    @Transactional
+    public void remember(long telegramId, String code) {
+        pending.save(new PendingReferral(telegramId, code));
+    }
+
+    /**
+     * Ro'yxatdan o'tish hodisasi kutilayotgan kodni referalga aylantiradi.
+     *
+     * <p>Bu yerda akkount yoshi tekshirilmaydi. Veb yo'li {@code createdAt}
+     * ga qaraydi, chunki uning boshqa signali yo'q; bu yo'lda esa hodisaning
+     * o'zi signal — u bir marta, ta'rifi bo'yicha yangi akkount uchun otadi.
+     */
+    @Transactional
+    public void claimOnRegistration(UUID userId, Long telegramId) {
+        if (telegramId == null) return;
+
+        Optional<PendingReferral> waiting = pending.findById(telegramId);
+        if (waiting.isEmpty()) return;
+
+        Optional<UUID> referrer = codes.resolve(waiting.get().getCode());
+        boolean usable = referrer.isPresent()
+                && !referrer.get().equals(userId)
+                && referrals.findById(userId).isEmpty();
+        if (usable) {
+            try {
+                referrals.save(new Referral(userId, referrer.get(), null));
+                log.info("Referal botdan yozildi: {} -> {}", referrer.get(), userId);
+            } catch (DataIntegrityViolationException e) {
+                log.debug("Referal allaqachon yozilgan: {}", userId);
+            }
+        }
+        // Qator har holda o'chiriladi. Ishlatilmagan bo'lsa ham u endi
+        // hech qachon ishlamaydi — bu telegram_id bir marta ro'yxatdan
+        // o'tadi — va qolib ketsa jadval o'sib boraveradi.
+        pending.deleteById(telegramId);
+    }
+```
+
+- [ ] **Step 8: Write the internal controller and the registration consumer**
+
+`InternalReferralController.java` — copy the internal-secret guard from
+`partner/InternalPartnerController.java` exactly:
+
+```java
+package uz.efbazaar.marketplace.referral;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/** Bot chaqiradi. Tashqi tarmoqdan nginx to'sadi. */
+@RestController
+@RequestMapping("/internal/marketplace/v1/referrals")
+@RequiredArgsConstructor
+public class InternalReferralController {
+
+    private final ReferralService service;
+
+    @PostMapping("/pending")
+    public void pending(@Valid @RequestBody PendingRequest request) {
+        service.remember(request.telegramId(), request.code());
+    }
+
+    public record PendingRequest(@NotNull Long telegramId, @NotBlank String code) {}
+}
+```
+
+`UserRegisteredDto.java`:
+
+```java
+package uz.efbazaar.marketplace.kafka;
+
+import java.time.Instant;
+import java.util.UUID;
+
+public record UserRegisteredDto(
+        UUID userId,
+        Long telegramId,
+        String telegramUsername,
+        String displayName,
+        String currentPhotoFileUniqueId,
+        Instant occurredAt) {}
+```
+
+`UserRegisteredConsumer.java`:
+
+```java
+package uz.efbazaar.marketplace.kafka;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Component;
+import uz.efbazaar.marketplace.referral.ReferralService;
+
+/**
+ * Botdan kelgan taklif kodini ro'yxatdan o'tish payti referalga aylantiradi.
+ *
+ * <p>Guruh identifikatori botnikidan boshqa: ikkalasi ham shu mavzuni
+ * mustaqil o'qiydi va biri ikkinchisining o'qishini yeb qo'ymasligi kerak.
+ */
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class UserRegisteredConsumer {
+
+    private final ReferralService referrals;
+
+    @KafkaListener(
+            topics = "efbazaar.auth.user-registered",
+            groupId = "marketplace-referral-registration",
+            properties = {
+                    "spring.json.value.default.type=uz.efbazaar.marketplace.kafka.UserRegisteredDto",
+                    "spring.json.use.type.headers=false"
+            }
+    )
+    public void onUserRegistered(UserRegisteredDto e) {
+        referrals.claimOnRegistration(e.userId(), e.telegramId());
+    }
+}
+```
+
+- [ ] **Step 9: Show the bot link on the invite panel**
+
+Task 8 step 9 already specifies both rows. Confirm the bot row renders
+`https://t.me/<bot>?start=ref_<code>` — the `ref_` prefix must match `startPayload` exactly, and this
+is the one place the two halves of the deep link meet.
+
+- [ ] **Step 10: Run everything**
+
+```bash
+cd bot && JAVA_HOME=~/.jdks/openjdk-21.0.2 mvn -q test
+cd ../backend/marketplace-service && JAVA_HOME=~/.jdks/openjdk-21.0.2 mvn -q test
+```
+
+Expected: PASS. The Task 3, 6 and 7 tests need the extra `pending` constructor argument appended —
+fix them if the compiler complains.
+
+- [ ] **Step 11: Mutation-check the conversion**
+
+Change `claimOnRegistration` to return before `referrals.save(...)`. `convertsOnRegistration` must
+fail. Restore.
+
+- [ ] **Step 12: Commit**
+
+```bash
+git add bot/src/main/java/uz/efbazaar/bot/referral/ \
+        bot/src/main/java/uz/efbazaar/bot/telegram/UpdateHandler.java \
+        bot/src/test/java/uz/efbazaar/bot/telegram/StartPayloadTest.java \
+        backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/referral/ \
+        backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/kafka/UserRegistered* \
+        backend/marketplace-service/src/test/java/uz/efbazaar/marketplace/referral/PendingReferralTest.java
+git commit -m "feat(referrals): the Telegram deep link
+
+The platform is Telegram-first and a channel owner's audience is inside
+Telegram, so the link most of them share is a bot link. Nothing in the
+browser holds a cookie for somebody who tapped t.me and registered there,
+so the web capture misses them entirely.
+
+The bot holds no database, so it forwards the /start payload to
+marketplace and the registration event converts it. That event is also a
+better newness signal than the web path's createdAt window: it fires
+once, for an account that is new by definition."
+```
+
+---
+
 ## Verification before calling this done
 
 - [ ] `cd backend/marketplace-service && JAVA_HOME=~/.jdks/openjdk-21.0.2 mvn -q test` — green
 - [ ] `cd backend/payment-service && JAVA_HOME=~/.jdks/openjdk-21.0.2 mvn -q test` — green
 - [ ] `cd backend/trade-service && JAVA_HOME=~/.jdks/openjdk-21.0.2 mvn -q test` — green
+- [ ] `cd bot && JAVA_HOME=~/.jdks/openjdk-21.0.2 mvn -q test` — green
 - [ ] `cd frontend && npm test && npm run lint` — green
-- [ ] `git log --oneline origin/main..HEAD` shows nine commits and no Claude attribution
+- [ ] `git log --oneline origin/main..HEAD` shows ten commits and no Claude attribution
+- [ ] Both invite links work end to end: a bot link registration and a site link registration each produce a `referrals` row
 - [ ] `docker compose config` still parses if any compose file was touched
 
 ## Out of scope — the second plan
