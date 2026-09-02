@@ -3,6 +3,7 @@ package uz.efbazaar.marketplace.referral;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import uz.efbazaar.marketplace.referral.ReferralRepositories.PendingReferralRepository;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralSettingsRepository;
 import uz.efbazaar.marketplace.security.AuthSummaryClient;
@@ -44,7 +45,7 @@ class ReferralServiceTest {
         codes = mock(ReferralCodeService.class);
         users = mock(AuthSummaryClient.class);
         service = new ReferralService(referrals, codes,
-                mock(ReferralSettingsRepository.class), users, mock(ReferralRewardClient.class));
+                mock(ReferralSettingsRepository.class), users, mock(ReferralRewardClient.class), mock(PendingReferralRepository.class));
 
         when(codes.resolve("GOODCODE")).thenReturn(Optional.of(referrer));
         when(referrals.findById(newcomer)).thenReturn(Optional.empty());

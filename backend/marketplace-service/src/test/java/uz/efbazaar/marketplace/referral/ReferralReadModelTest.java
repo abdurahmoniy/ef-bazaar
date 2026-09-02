@@ -3,6 +3,7 @@ package uz.efbazaar.marketplace.referral;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import uz.efbazaar.marketplace.referral.ReferralRepositories.PendingReferralRepository;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralSettingsRepository;
 import uz.efbazaar.marketplace.security.AuthSummaryClient;
@@ -53,7 +54,7 @@ class ReferralReadModelTest {
         when(codes.codeFor(me)).thenReturn("ABCD2345");
 
         service = new ReferralService(referrals, codes, settingsRepo, users,
-                mock(ReferralRewardClient.class));
+                mock(ReferralRewardClient.class), mock(PendingReferralRepository.class));
     }
 
     private void whenInvited(Referral... rows) {
@@ -141,7 +142,7 @@ class ReferralReadModelTest {
         when(repo.findById(ReferralSettings.SINGLETON_ID)).thenReturn(Optional.of(existing));
         when(repo.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        var svc = new ReferralService(referrals, codes, repo, users, mock(ReferralRewardClient.class));
+        var svc = new ReferralService(referrals, codes, repo, users, mock(ReferralRewardClient.class), mock(PendingReferralRepository.class));
         var saved = svc.updateSettings(new BigDecimal("7000.00"), admin);
 
         assertThat(saved.getRewardSom()).isEqualByComparingTo("7000.00");

@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import uz.efbazaar.marketplace.referral.ReferralDtos.InvitedUser;
 import uz.efbazaar.marketplace.referral.ReferralDtos.MyReferralsResponse;
 import uz.efbazaar.marketplace.referral.ReferralDtos.ReferrerRow;
+import uz.efbazaar.marketplace.referral.ReferralRepositories.PendingReferralRepository;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository.ReferrerProjection;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralSettingsRepository;
@@ -54,6 +55,7 @@ public class ReferralService {
     private final ReferralSettingsRepository settingsRepository;
     private final AuthSummaryClient users;
     private final ReferralRewardClient rewards;
+    private final PendingReferralRepository pending;
 
     /** @return qator yozilgan bo'lsa true. Rad etish xato emas — sukut. */
     @Transactional
@@ -143,6 +145,49 @@ public class ReferralService {
         // sozlanganini emas.
         referral.setRewardSom(amount);
         referrals.save(referral);
+    }
+
+    /**
+     * Botga kelgan kod. Oxirgisi g'olib — boshqa yo'llardagi qoida
+     * bilan bir xil.
+     */
+    @Transactional
+    public void remember(long telegramId, String code) {
+        pending.save(new PendingReferral(telegramId, code));
+    }
+
+    /**
+     * Ro'yxatdan o'tish hodisasi kutilayotgan kodni referalga aylantiradi.
+     *
+     * <p>BU YERDA AKKOUNT YOSHI TEKSHIRILMAYDI. Veb yo'li
+     * {@code createdAt} ga qaraydi, chunki uning boshqa signali yo'q; bu
+     * yo'lda esa hodisaning o'zi signal — u bir marta, ta'rifi bo'yicha
+     * yangi akkount uchun otadi.
+     */
+    @Transactional
+    public void claimOnRegistration(UUID userId, Long telegramId) {
+        if (telegramId == null) return;
+
+        Optional<PendingReferral> waiting = pending.findById(telegramId);
+        if (waiting.isEmpty()) return;
+
+        Optional<UUID> referrer = codes.resolve(waiting.get().getCode());
+        boolean usable = referrer.isPresent()
+                && !referrer.get().equals(userId)
+                && referrals.findById(userId).isEmpty();
+
+        if (usable) {
+            try {
+                referrals.save(new Referral(userId, referrer.get(), null));
+                log.info("Referal botdan yozildi: {} -> {}", referrer.get(), userId);
+            } catch (DataIntegrityViolationException e) {
+                log.debug("Referal allaqachon yozilgan: {}", userId);
+            }
+        }
+        // Qator HAR HOLDA o'chiriladi. Ishlatilmagan bo'lsa ham u endi
+        // hech qachon ishlamaydi — bu telegram_id bir marta ro'yxatdan
+        // o'tadi — va qolib ketsa jadval o'sib boraveradi.
+        pending.deleteById(telegramId);
     }
 
     /** Foydalanuvchining o'z taklif sahifasi. */

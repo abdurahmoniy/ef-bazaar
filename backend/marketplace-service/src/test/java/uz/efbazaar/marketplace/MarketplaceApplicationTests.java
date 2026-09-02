@@ -87,6 +87,7 @@ class MarketplaceApplicationTests {
     @MockBean uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository referralRepository;
     @MockBean uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralCodeRepository referralCodeRepository;
     @MockBean uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralSettingsRepository referralSettingsRepository;
+    @MockBean uz.efbazaar.marketplace.referral.ReferralRepositories.PendingReferralRepository pendingReferralRepository;
     // trust paketi (shikoyat + blacklist)
     @MockBean uz.efbazaar.marketplace.trust.TrustRepositories.ComplaintRepository complaintRepository;
     @MockBean uz.efbazaar.marketplace.trust.TrustRepositories.PenaltyRepository penaltyRepository;

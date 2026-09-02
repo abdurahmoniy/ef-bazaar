@@ -3,6 +3,7 @@ package uz.efbazaar.marketplace.referral;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import uz.efbazaar.marketplace.referral.ReferralRepositories.PendingReferralRepository;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralSettingsRepository;
 import uz.efbazaar.marketplace.security.AuthSummaryClient;
@@ -54,7 +55,7 @@ class ReferralRewardTest {
         when(referrals.save(any())).thenAnswer(i -> i.getArgument(0));
 
         service = new ReferralService(referrals, mock(ReferralCodeService.class),
-                settings, mock(AuthSummaryClient.class), rewards);
+                settings, mock(AuthSummaryClient.class), rewards, mock(PendingReferralRepository.class));
     }
 
     private Referral unrewarded(UUID referred, UUID referrer) {
