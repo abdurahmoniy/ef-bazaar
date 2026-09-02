@@ -9,6 +9,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -129,6 +130,39 @@ class ReferralSchemaIT {
                 .get()
                 .extracting(PendingReferral::getCode)
                 .isEqualTo("BBBB2222");
+    }
+
+    /**
+     * NEGA HAQIQIY BAZA.
+     *
+     * <p>Bu JPQL agregati interfeys proyeksiyasiga bog'lanadi va
+     * taxalluslar bo'yicha moslanadi. Mock'li sinov SQL'ni umuman
+     * ishlatmaydi — bunday so'rov mock ustida bemalol "ishlaydi" va
+     * faqat haqiqiy drayverda yiqiladi.
+     */
+    @Test
+    @DisplayName("the leaderboard ranks by invited count against a real database")
+    void leaderboardRanks() {
+        UUID busy = UUID.randomUUID();
+        UUID quiet = UUID.randomUUID();
+        referrals.saveAndFlush(new Referral(UUID.randomUUID(), busy, null));
+
+        Referral paid = new Referral(UUID.randomUUID(), busy, null);
+        paid.setRewardedAt(Instant.now());
+        paid.setRewardSom(new BigDecimal("5000.00"));
+        referrals.saveAndFlush(paid);
+
+        referrals.saveAndFlush(new Referral(UUID.randomUUID(), quiet, null));
+
+        var rows = referrals.leaderboard(PageRequest.of(0, 10));
+
+        assertThat(rows).extracting(r -> r.getUserId()).containsExactly(busy, quiet);
+        assertThat(rows.get(0).getInvitedCount()).isEqualTo(2);
+        assertThat(rows.get(0).getRewardedCount()).isEqualTo(1);
+        assertThat(rows.get(0).getEarnedSom()).isEqualByComparingTo("5000.00");
+        // Hech kimga to'lanmagan bo'lsa nol chiqadi, null emas —
+        // coalesce shuning uchun turibdi.
+        assertThat(rows.get(1).getEarnedSom()).isEqualByComparingTo("0");
     }
 
     /**

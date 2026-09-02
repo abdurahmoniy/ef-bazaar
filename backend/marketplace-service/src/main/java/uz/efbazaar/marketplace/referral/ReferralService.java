@@ -5,13 +5,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Pageable;
+import uz.efbazaar.marketplace.referral.ReferralDtos.InvitedUser;
+import uz.efbazaar.marketplace.referral.ReferralDtos.MyReferralsResponse;
+import uz.efbazaar.marketplace.referral.ReferralDtos.ReferrerRow;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository;
+import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository.ReferrerProjection;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralSettingsRepository;
 import uz.efbazaar.marketplace.security.AuthSummaryClient;
+import uz.efbazaar.marketplace.security.AuthSummaryClient.UserSummary;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -136,7 +145,92 @@ public class ReferralService {
         referrals.save(referral);
     }
 
-    ReferralSettings settings() {
+    /** Foydalanuvchining o'z taklif sahifasi. */
+    @Transactional
+    public MyReferralsResponse myReferrals(UUID userId) {
+        String code = codes.codeFor(userId);
+        List<Referral> rows = referrals.findByReferrerUserIdOrderByCreatedAtDesc(userId);
+
+        return new MyReferralsResponse(
+                code,
+                rows.size(),
+                rows.stream().filter(r -> r.getRewardedAt() != null).count(),
+                totalEarned(rows),
+                settings().getRewardSom(),
+                withNames(rows));
+    }
+
+    /** Adminka reytingi: kim eng ko'p odam olib kelayapti. */
+    @Transactional(readOnly = true)
+    public List<ReferrerRow> leaderboard(Pageable pageable) {
+        var rows = referrals.leaderboard(pageable);
+        if (rows.isEmpty()) return List.of();
+
+        Map<UUID, UserSummary> names =
+                users.resolveAll(rows.stream().map(ReferrerProjection::getUserId).toList());
+
+        return rows.stream().map(r -> {
+            UserSummary u = names.get(r.getUserId());
+            return new ReferrerRow(
+                    r.getUserId(),
+                    u == null ? null : u.displayName(),
+                    u == null ? null : u.telegramUsername(),
+                    r.getInvitedCount(),
+                    r.getRewardedCount(),
+                    r.getEarnedSom());
+        }).toList();
+    }
+
+    /** Bitta taklif qiluvchi kimlarni olib kelgan. */
+    @Transactional(readOnly = true)
+    public List<InvitedUser> invitedBy(UUID referrerId) {
+        return withNames(referrals.findByReferrerUserIdOrderByCreatedAtDesc(referrerId));
+    }
+
+    @Transactional
+    public ReferralSettings updateSettings(BigDecimal rewardSom, UUID adminId) {
+        ReferralSettings s = settings();
+        s.setRewardSom(rewardSom);
+        s.setUpdatedAt(Instant.now());
+        s.setUpdatedBy(adminId);
+        return settingsRepository.save(s);
+    }
+
+    /**
+     * Ismlarni BITTA chaqiruv bilan qo'shadi.
+     *
+     * <p>Har qator uchun alohida so'rov qilish shu yerda juda oson
+     * tug'iladi va uzoq ro'yxatda sezilarli sekinlashuvga aylanadi.
+     *
+     * <p>Ism topilmasa qator TASHLANMAYDI — sanoq ismga emas, qatorga
+     * bog'liq, va o'chirilgan foydalanuvchi ham kimningdir referali
+     * bo'lib qolaveradi.
+     */
+    private List<InvitedUser> withNames(List<Referral> rows) {
+        if (rows.isEmpty()) return List.of();
+
+        Map<UUID, UserSummary> names =
+                users.resolveAll(rows.stream().map(Referral::getReferredUserId).toList());
+
+        return rows.stream().map(r -> {
+            UserSummary u = names.get(r.getReferredUserId());
+            return new InvitedUser(
+                    r.getReferredUserId(),
+                    u == null ? null : u.displayName(),
+                    r.getCreatedAt(),
+                    r.getRewardedAt(),
+                    r.getRewardSom());
+        }).toList();
+    }
+
+    private static BigDecimal totalEarned(List<Referral> rows) {
+        return rows.stream()
+                .map(Referral::getRewardSom)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public ReferralSettings settings() {
         return settingsRepository.findById(ReferralSettings.SINGLETON_ID)
                 .orElseThrow(() -> new IllegalStateException("referral_settings qatori yo'q"));
     }
