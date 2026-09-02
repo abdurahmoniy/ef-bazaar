@@ -312,21 +312,26 @@ USER_AVAILABLE    referrer   -reward
 Unlike the partner trade share (§4.2), this is **not** carved out of the commission — it is a fixed
 sum the platform spends to acquire a user. It therefore cannot be posted inside the settle
 transaction, which must balance against that trade's own commission. Instead marketplace-service
-consumes a trade-settled event and calls payment-service, the same direction as every other partner
+consumes a trade-succeeded event and calls payment-service, the same direction as every other partner
 payment.
 
-**The event is new.** `efbazaar.trade.listing-sold` is the closest existing one, and it does not fit:
-it carries no commission figure, and it is about a listing changing hands rather than a trade
-settling, so a swap produces none. trade-service gains:
+**The event is new.** `efbazaar.trade.listing-sold` is the closest existing one and does not fit: it
+is published only when `listingId` is present, so a trade opened from a spec produces none, and it
+describes a listing changing hands rather than a trade succeeding. trade-service gains:
 
 ```
-efbazaar.trade.trade-settled
-{ tradeId, buyerId, sellerId, feeTiyin, settledAt }
+efbazaar.trade.trade-succeeded
+{ tradeId, buyerId, sellerId, mode, occurredAt }
 ```
 
-`feeTiyin` comes back from `EscrowClient.settle` in the existing `EscrowResult`, so trade-service
-already holds every field at the moment it would publish. Published after commit, not inside the
-transaction — the mistake already made and fixed once in `BotSettingsService.touch`.
+Published from the `SUCCESS` branch of `TradeStateHandler`, beside the existing `tradeClosed`. Both
+modes are published: `HUMAN` trades never touch the wallet, but the referred user completed a trade
+either way, and the reward is for having acquired an active user, not for the commission. `mode`
+travels so a later policy can distinguish them without a new event.
+
+No commission figure travels. The reward is a flat sum and nothing downstream divides it — carrying
+`feeTiyin` would mean changing `EscrowClient.settle`, which discards its response body today, to
+serve a field nobody reads.
 
 Trigger, in marketplace-service, for each of the trade's two parties:
 
@@ -485,7 +490,7 @@ Separate from the partner section, because most referrers are not partners.
   they are users with a link.
 - **Click a user** to see who they referred: when, whether that person has traded yet, and what was
   paid.
-- **Reward settings** — the amount, and the minimum-commission guard of §4.4.
+- **Reward settings** — the amount. It is the only knob: the reward is not gated on anything (§4.4).
 
 ### 7.5 `/admin/partners` — the partner analytics dashboard
 
@@ -537,7 +542,7 @@ The claims that must not be taken on trust:
   they were on.
 - A trade between two referred first-timers pays both referrers.
 - A failed trade pays nothing, and leaves the reward still claimable by a later successful one.
-- A redelivered settle event pays once.
+- A redelivered trade-succeeded event pays once.
 - The amount paid is the amount configured at payout time, and a later change to the setting does not
   alter the recorded row.
 - Last-click-wins overrides; a stamped trade does not.
@@ -553,7 +558,7 @@ the test fails.
 
 1. `user_referral_codes`, `referrals`, `referral_settings`; the invite link screen; the cookie, the
    claim endpoint and the account-age check.
-2. The referral reward: the trade-settled consumer, the payout, the wallet label.
+2. The referral reward: the trade-succeeded consumer, the payout, the wallet label.
 3. `/admin/referrals` and the leaderboard on the main dashboard.
 4. `partner_channels` + backfill from approved applications; channel link codes feeding the same
    referral path as step 1.
