@@ -524,7 +524,23 @@ public class ReferralCodeService {
                 .orElseGet(() -> codes.save(new ReferralCode(userId, freshCode())).getCode());
     }
 
-    /** Kod egasini topadi. Noma'lum kod — bo'sh natija, xato emas. */
+    /**
+     * Kod egasini topadi. Noma'lum kod — bo'sh natija, xato emas.
+     *
+     * <p>IKKINCHI BOSQICH SHU METODNI KENGAYTIRADI, yangisini qurmaydi.
+     * Kanaldagi e'lon posti havolasi ({@code /l/<e'lon>?p=<kod>}) hamkor
+     * kanalining kodini olib yuradi, u esa {@code partner_channels}
+     * jadvalida turadi — bugun mavjud emas. O'sha kunda bu metod avval
+     * {@code user_referral_codes} dan, topilmasa kanal kodlaridan
+     * qidiradigan bo'ladi va kanal egasini qaytaradi.
+     *
+     * <p>Brauzer tarafi allaqachon tayyor: {@code readCodeFromSearch}
+     * {@code ?ref=} ni ham, {@code ?p=} ni ham o'qiydi, ikkalasi bir xil
+     * joyga yoziladi va bir xil da'vo yo'lidan o'tadi. Ya'ni kanaldan
+     * kelgan odam uchun o'zgarishi kerak bo'lgan yagona narsa — shu
+     * yechish. Ikkinchi, parallel yo'l qurilsa ikki joyda ikki xil qoida
+     * paydo bo'ladi.
+     */
     @Transactional(readOnly = true)
     public Optional<UUID> resolve(String code) {
         if (code == null || code.isBlank()) return Optional.empty();
@@ -2532,4 +2548,9 @@ code, which is how /admin/bot shipped reachable only by typing its URL."
 
 ## Out of scope — the second plan
 
-Everything in §3.1 `partner_channels`, §4.1 the posting fee, §4.2 the trade share, §4.3 the monthly payment, §6 posting, §7.1 the channel picker, §7.3 the partner panel and §7.5 the partner dashboard belongs to the partner advertising plan, which reuses `referrals`, the link codes and the click capture built here.
+**`ReferralCodeService.resolve` gains a second lookup**, over `partner_channels.link_code`, returning
+the channel owner. It is extended, not duplicated: the browser already stores `?p=` codes exactly
+like `?ref=` ones and sends them down the same claim path, so resolution is the only place a channel
+code differs from a user code. A second path would mean two rules for one question.
+
+Everything else — §3.1 `partner_channels`, §4.1 the posting fee, §4.2 the trade share, §4.3 the monthly payment, §6 posting, §7.1 the channel picker, §7.3 the partner panel and §7.5 the partner dashboard belongs to the partner advertising plan, which reuses `referrals`, the link codes and the click capture built here.
