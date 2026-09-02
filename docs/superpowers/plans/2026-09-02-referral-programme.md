@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- **Flyway `V<n>__*.sql` files are immutable once merged.** Next free number in marketplace-service is **V41**, in payment-service **V11**. Never edit a merged V file — add a new one. CI job `guard-migrations` blocks the PR otherwise.
+- **Flyway `V<n>__*.sql` files are immutable once merged.** Next free number in marketplace-service is **V42** (main took V41 with the chat-status removal), in payment-service **V11**. Never edit a merged V file — add a new one. CI job `guard-migrations` blocks the PR otherwise.
 - **`sellerId`/`userId` never comes from a request body** — only from `X-User-Id`, surfaced as `@AuthenticationPrincipal AuthenticatedUser user` → `user.userId()`.
 - **Services never touch another service's database.** Cross-service reads go over the `/internal` HTTP APIs or Kafka.
 - **Kafka topics are `efbazaar.<service>.<event>`**, lower case, hyphenated.
@@ -34,7 +34,7 @@
 
 | File | Responsibility |
 |---|---|
-| `db/migration/V41__referrals.sql` | The four tables |
+| `db/migration/V42__referrals.sql` | The four tables |
 | `referral/Referral.java` | The graph edge: who referred whom, and whether it paid |
 | `referral/ReferralCode.java` | One user, one code |
 | `referral/ReferralSettings.java` | Single-row reward amount |
@@ -66,7 +66,7 @@
 ### Task 1: Referral schema and entities
 
 **Files:**
-- Create: `backend/marketplace-service/src/main/resources/db/migration/V41__referrals.sql`
+- Create: `backend/marketplace-service/src/main/resources/db/migration/V42__referrals.sql`
 - Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/referral/ReferralCode.java`
 - Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/referral/Referral.java`
 - Create: `backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/referral/ReferralSettings.java`
@@ -79,7 +79,7 @@
 
 - [ ] **Step 1: Write the migration**
 
-`V41__referrals.sql`:
+`V42__referrals.sql`:
 
 ```sql
 -- Referal dasturi. Hamkorlikdan mustaqil: taklif qilish har bir
@@ -441,7 +441,7 @@ A constraint nobody has watched fail is a guess, not a guard.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add backend/marketplace-service/src/main/resources/db/migration/V41__referrals.sql \
+git add backend/marketplace-service/src/main/resources/db/migration/V42__referrals.sql \
         backend/marketplace-service/src/main/java/uz/efbazaar/marketplace/referral/ \
         backend/marketplace-service/src/test/java/uz/efbazaar/marketplace/referral/
 git commit -m "feat(referrals): the referral graph, codes and reward setting
