@@ -17,6 +17,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -110,6 +111,12 @@ class HumanModeSideEffectsIT extends AbstractIntegrationIT {
         verify(events).mailboxRotateRequest(eq(t.getMailboxId()));
         assertThat(mailboxes.getRaw(t.getMailboxId()).getOwnerUserId())
                 .isEqualTo(done.getBuyerId());
+
+        // Referal mukofoti shu hodisadan boshlanadi, va bu HUMAN savdo:
+        // hamyonga tegmasa ham taraflar savdoni yakunlagan, mukofot esa
+        // komissiya uchun emas, jalb qilingan foydalanuvchi uchun.
+        verify(events).tradeSucceeded(argThat(published ->
+                published.getId().equals(t.getId())));
     }
 
     @Test

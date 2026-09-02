@@ -32,6 +32,7 @@ public final class TradeEvents {
     public static final String TOPIC_ADMIN_INVITED         = "efbazaar.trade.admin-invited";
     public static final String TOPIC_TRADE_OPENED          = "efbazaar.trade.trade-opened";
     public static final String TOPIC_TRADE_CLOSED          = "efbazaar.trade.trade-closed";
+    public static final String TOPIC_TRADE_SUCCEEDED       = "efbazaar.trade.trade-succeeded";
     public static final String TOPIC_MAILBOX_HANDED_BACK   = "efbazaar.trade.mailbox-handed-over";
     public static final String TOPIC_TRADE_ACTION          = "efbazaar.trade.action-notification";
 
@@ -238,4 +239,25 @@ public final class TradeEvents {
      * a chat context, in which case the consumer no-ops.
      */
     public record TradeChatPin(UUID tradeId, UUID chatId, Instant occurredAt) {}
+
+    /**
+     * A trade completed successfully. marketplace-service uses it to pay the
+     * referral reward for whichever party was on their first trade.
+     *
+     * <p>Both modes are published. A HUMAN trade never touches the wallet, but
+     * the referred user completed a trade either way, and the reward buys an
+     * active user rather than a commission. {@code mode} travels so a later
+     * policy can tell them apart without a new event.
+     *
+     * <p>Deliberately carries no commission figure: nothing downstream divides
+     * the reward, and {@code EscrowClient.settle} discards its response body
+     * today, so carrying one would mean changing it to serve a field nobody
+     * reads.
+     */
+    public record TradeSucceeded(
+            UUID tradeId,
+            UUID buyerId,
+            UUID sellerId,
+            String mode,
+            Instant occurredAt) {}
 }

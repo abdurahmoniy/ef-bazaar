@@ -101,6 +101,16 @@ public class TradeEventPublisher {
                 new TradeEvents.TradeChatPin(trade.getId(), trade.getChatId(), Instant.now()));
     }
 
+    public void tradeSucceeded(Trade trade) {
+        send(TradeEvents.TOPIC_TRADE_SUCCEEDED, trade.getId().toString(),
+                new TradeEvents.TradeSucceeded(
+                        trade.getId(),
+                        trade.getBuyerId(),
+                        trade.getSellerId(),
+                        trade.getMode().name(),
+                        Instant.now()));
+    }
+
     public void tradeAction(UUID tradeId, UUID chatId, UUID recipientUserId,
                             TradeEvents.TradeActionType actionType, long amountUzs, String details) {
         if (recipientUserId == null) return;

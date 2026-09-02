@@ -279,6 +279,10 @@ public class TradeStateHandler {
                 if (trade.getChatId() != null) {
                     events.tradeClosed(trade);
                 }
+                // Unconditional, unlike listingSold above: a trade opened from
+                // a spec has no listing but its parties are still users who
+                // completed a trade, and the referral reward is about them.
+                events.tradeSucceeded(trade);
                 events.tradeAction(trade.getId(), trade.getChatId(), trade.getSellerId(),
                         TradeEvents.TradeActionType.TRADE_SUCCESS, trade.getPriceUzs(), null);
                 events.tradeAction(trade.getId(), trade.getChatId(), trade.getBuyerId(),
