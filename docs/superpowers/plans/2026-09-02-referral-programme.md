@@ -23,6 +23,15 @@
 - **Money is `long` tiyin in payment-service and `BigDecimal` so'm in marketplace-service.** 1 so'm = 100 tiyin. Convert at the client boundary, as `PartnerFeeClient` does.
 - **Nested `@Repository` interfaces are supported** — `NestedJpaRepositoriesConfig` sets `considerNestedRepositories = true`. Follow the `PartnerRepositories` holder-class pattern.
 - **Java build:** `JAVA_HOME=~/.jdks/openjdk-21.0.2 mvn -q test` from the service directory. The ambient JDK 25 fails on Lombok.
+- **Testcontainers tests need `-DargLine="-Dapi.version=1.44"`.** Without it docker-java negotiates
+  API 1.32 and the local Docker 29.x daemon refuses with *"client version 1.32 is too old"*, which
+  Testcontainers reports as the misleading *"Could not find a valid Docker environment"*. It is a
+  command-line flag on purpose — putting `api.version` in a pom or config file is forbidden here,
+  because the value that suits this machine's daemon is not the value that suits CI's.
+- **Rebasing invalidates the migration number.** Re-list `db/migration` after every rebase, not just
+  at the start: `main` took V41 mid-flight and Flyway refuses to start on a duplicate version. Also
+  `rm` the stale copy from `target/classes/db/migration/` after renaming, or the old file keeps
+  colliding from the build output.
 - **Frontend tests:** `npm test` (vitest) from `frontend/`.
 - **UI copy is Uzbek.** Match the tone of the existing partner screens.
 
