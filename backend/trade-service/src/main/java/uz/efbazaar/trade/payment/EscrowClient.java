@@ -67,11 +67,30 @@ public class EscrowClient {
     /** Pays the proposer, less the platform's share. */
     public void settle(UUID tradeId, UUID accepterId, UUID proposerId,
                        long accepterUzs, long feeBaseUzs) {
-        call(tradeId, "settle", Map.of(
+        settle(tradeId, accepterId, proposerId, accepterUzs, feeBaseUzs, null, 0);
+    }
+
+    /**
+     * The same settlement, sharing part of the commission with the partner
+     * whose channel produced the trade.
+     *
+     * <p>Both values are the ones stamped when the trade opened, not today's
+     * configuration: a rate an admin changes mid-flight must not settle a
+     * trade on terms nobody agreed to.
+     */
+    public void settle(UUID tradeId, UUID accepterId, UUID proposerId,
+                       long accepterUzs, long feeBaseUzs,
+                       UUID partnerUserId, int partnerPercentBp) {
+        Map<String, Object> body = new java.util.HashMap<>(Map.of(
                 "buyerId", accepterId.toString(),
                 "sellerId", proposerId.toString(),
                 "priceTiyin", accepterUzs * TIYIN_PER_SOM,
-                "feeBaseTiyin", feeBaseUzs * TIYIN_PER_SOM));
+                "feeBaseTiyin", feeBaseUzs * TIYIN_PER_SOM,
+                "partnerPercentBp", partnerPercentBp));
+        // HashMap, Map.of emas: Map.of null qiymatni qabul qilmaydi, va
+        // hamkorsiz savdo — oddiy holat.
+        body.put("partnerUserId", partnerUserId == null ? null : partnerUserId.toString());
+        call(tradeId, "settle", body);
     }
 
     /** Returns every hold to whoever put it up. */

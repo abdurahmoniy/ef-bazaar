@@ -3,6 +3,7 @@ package uz.efbazaar.trade.testsupport;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import uz.efbazaar.trade.partner.PartnerAttributionClient;
 import uz.efbazaar.trade.payment.EscrowClient;
 
 import java.util.List;
@@ -13,9 +14,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Stands in for payment-service in trade tests that are not about money.
@@ -86,6 +89,27 @@ public class StubEscrowConfig {
         return null;
     }
 
+    /**
+     * Stands in for marketplace-service's advertising attribution lookup.
+     *
+     * <p>Without it every openTrade in the suite makes a real HTTP call to a
+     * host that is not there and waits out the connect timeout — three seconds
+     * each, across dozens of trades. The client already degrades to "no
+     * partner" on failure, so the tests would pass; they would just take
+     * minutes longer for no information.
+     *
+     * <p>Returns empty by default: a trade that came through no channel is the
+     * ordinary case, and a test that cares about the partner share says so by
+     * stubbing this bean itself.
+     */
+    @Bean
+    @Primary
+    PartnerAttributionClient stubPartnerAttributionClient() {
+        PartnerAttributionClient stub = mock(PartnerAttributionClient.class);
+        when(stub.lookup(any(), any())).thenReturn(java.util.Optional.empty());
+        return stub;
+    }
+
     @Bean
     @Primary
     public EscrowClient stubEscrowClient() {
@@ -94,6 +118,13 @@ public class StubEscrowConfig {
                 .when(stub).hold(any(), any(), any(), anyLong(), anyLong());
         doAnswer(i -> record("settle", i.getArgument(0)))
                 .when(stub).settle(any(), any(), any(), anyLong(), anyLong());
+        // The seven-argument overload has to be stubbed SEPARATELY. On a real
+        // EscrowClient the five-argument form delegates to it, but a mock runs
+        // no code — an unstubbed overload records nothing, and every test that
+        // asserts a settle happened would go quiet without failing on the
+        // reason.
+        doAnswer(i -> record("settle", i.getArgument(0)))
+                .when(stub).settle(any(), any(), any(), anyLong(), anyLong(), any(), anyInt());
         doAnswer(i -> record("release", i.getArgument(0)))
                 .when(stub).release(any(), any(), any(), anyLong(), anyLong());
         return stub;
