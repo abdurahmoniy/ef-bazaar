@@ -2,19 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Ban, CheckCircle2, Construction, Handshake, Loader2, Users } from 'lucide-react';
+import { AlertTriangle, Ban, CheckCircle2, Handshake, Loader2, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { PartnerPanelBlocks } from '@/components/partners/partner-panel/panel-blocks';
 
 import { cancelPartnership, getMyApplication, type PartnerApplication } from '@/lib/partners';
 
 /**
  * Hamkor boshqaruv paneli.
  *
- * <p>HOZIRCHA ASOSIY MA'LUMOTLARNI KO'RSATADI. To'liq panel keyingi
- * bosqichda quriladi — bu sahifa esa hozirdan mavjud bo'lishi kerak,
- * chunki menyudagi "Hamkor admin paneli" unga havola qiladi va
- * mavjud bo'lmagan sahifaga havola 404 beradi.
+ * <p>Holat va kanal shu yerda; narx, voronka, daromad va postlar
+ * {@code PartnerPanelBlocks} ichida. Ajratilgan, chunki bu fayl
+ * hamkorlik holatini ko'rsatadi va uni to'xtatish tugmasini saqlaydi —
+ * reklama bozorining bloklari esa butunlay boshqa narsa.
  */
 export function PartnerDashboard() {
   const [application, setApplication] = useState<PartnerApplication | null>(null);
@@ -88,12 +89,7 @@ export function PartnerDashboard() {
         </div>
       )}
 
-      <div className="flex items-start gap-2 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-        <Construction className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>
-          Panelning qolgan bo&apos;limlari tayyorlanmoqda.
-        </span>
-      </div>
+      <PartnerPanelBlocks />
 
       {/*
         Xavfli hudud — qaytarib bo'lmaydigan amal uchun alohida joy.
