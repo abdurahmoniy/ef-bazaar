@@ -237,6 +237,51 @@ class ChannelPostServiceTest {
     }
 
     @Test
+    @DisplayName("cancelling a partnership refunds what never shipped")
+    void refundsStrandedOrders() {
+        ListingChannelPost stranded = held(cheap);
+        when(posts.findByPartnerChannelIdAndState(cheap.getId(), State.HELD.name()))
+                .thenReturn(List.of(stranded));
+
+        service.refundStranded(cheap.getId());
+
+        verify(payments).refund(eq(stranded.getId()), eq(seller), eq(new BigDecimal("5000.00")));
+        assertThat(stranded.getState()).isEqualTo(State.REFUNDED.name());
+        assertThat(stranded.getError()).isEqualTo("Hamkorlik to'xtatildi");
+    }
+
+    @Test
+    @DisplayName("a delivered post is left alone when the partnership ends")
+    void deliveredPostsSurviveCancellation() {
+        // Reklama yetkazilgan va to'langan; u keltirgan savdolar ham
+        // to'lanaveradi, chunki `trades` dagi muhrlangan qiymat
+        // kanalning faolligiga qaramaydi.
+        when(posts.findByPartnerChannelIdAndState(cheap.getId(), State.HELD.name()))
+                .thenReturn(List.of());
+
+        service.refundStranded(cheap.getId());
+
+        verify(payments, never()).refund(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("one stranded refund failing does not strand the rest")
+    void oneRefundFailureDoesNotStopTheRest() {
+        ListingChannelPost first = held(cheap);
+        ListingChannelPost second = held(mid);
+        when(posts.findByPartnerChannelIdAndState(cheap.getId(), State.HELD.name()))
+                .thenReturn(List.of(first, second));
+        doThrow(new RuntimeException("payment down"))
+                .when(payments).refund(eq(first.getId()), any(), any());
+
+        service.refundStranded(cheap.getId());
+
+        // Ular boshqa-boshqa sotuvchilarning puli — biri tufayli
+        // ikkinchisini muzlatib qo'yish sababsiz.
+        verify(payments).refund(eq(second.getId()), any(), any());
+    }
+
+    @Test
     @DisplayName("an empty selection orders nothing and charges nothing")
     void emptySelection() {
         service.order(seller, listing, List.of());

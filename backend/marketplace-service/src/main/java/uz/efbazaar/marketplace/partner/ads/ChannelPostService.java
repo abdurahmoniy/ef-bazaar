@@ -171,6 +171,34 @@ public class ChannelPostService {
         });
     }
 
+    /**
+     * Hamkorlik to'xtadi — chiqmagan buyurtmalarni qaytaramiz.
+     *
+     * <p>Bu postlar HECH QACHON chiqmaydi: bot kanalda administrator
+     * emas. Ularni qoldirsak sotuvchining puli ushlangan holda,
+     * hech kim kutmaydigan holatda qolib ketardi.
+     *
+     * <p>CHIQIB BO'LGANLARIGA TEGILMAYDI: reklama yetkazilgan va
+     * to'langan, va u keltirgan savdolar ham to'lanaveradi — `trades`
+     * dagi muhrlangan qiymat kanalning faolligiga qaramaydi.
+     */
+    @Transactional
+    public void refundStranded(UUID partnerChannelId) {
+        for (ListingChannelPost post : posts.findByPartnerChannelIdAndState(
+                partnerChannelId, State.HELD.name())) {
+            try {
+                payments.refund(post.getId(), sellerOf(post), post.getPriceSom());
+                post.setState(State.REFUNDED.name());
+                post.setError("Hamkorlik to'xtatildi");
+                posts.save(post);
+            } catch (RuntimeException e) {
+                // Bir buyurtmaning yiqilishi qolganlarini to'xtatmaydi:
+                // ular boshqa-boshqa sotuvchilarning puli.
+                log.error("Ushlangan buyurtma qaytarilmadi: post={}", post.getId(), e);
+            }
+        }
+    }
+
     /** Post chiqmadi — sotuvchiga qaytaramiz. */
     @Transactional
     public void onFailed(UUID postId, String error) {

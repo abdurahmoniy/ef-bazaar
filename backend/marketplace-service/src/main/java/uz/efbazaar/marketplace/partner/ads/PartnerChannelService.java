@@ -34,6 +34,7 @@ public class PartnerChannelService {
 
     private final PartnerChannelRepository channels;
     private final PartnerSettingsRepository settingsRepository;
+    private final ChannelPostService channelPosts;
 
     @Transactional
     public void onApproved(PartnerApplication application) {
@@ -86,6 +87,10 @@ public class PartnerChannelService {
         channels.findByPartnerUserIdAndActiveTrue(partnerUserId).ifPresent(channel -> {
             channel.setActive(false);
             channels.save(channel);
+            // Chiqmagan buyurtmalar hech qachon chiqmaydi — bot endi
+            // kanalda administrator emas. Sotuvchining puli ushlangan
+            // holda qolib ketmasin.
+            channelPosts.refundStranded(channel.getId());
             log.info("Hamkor kanali qidiruvdan chiqarildi: {}", channel.getId());
         });
     }

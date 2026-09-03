@@ -34,6 +34,7 @@ import static org.mockito.Mockito.when;
 class PartnerChannelServiceTest {
 
     private PartnerChannelRepository channels;
+    private ChannelPostService channelPosts;
     private PartnerChannelService service;
 
     private final UUID partnerId = UUID.randomUUID();
@@ -52,7 +53,8 @@ class PartnerChannelServiceTest {
         when(channels.existsByLinkCode(anyString())).thenReturn(false);
         when(channels.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        service = new PartnerChannelService(channels, settingsRepository);
+        channelPosts = mock(ChannelPostService.class);
+        service = new PartnerChannelService(channels, settingsRepository, channelPosts);
     }
 
     private PartnerApplication approvedApplication() {
@@ -155,6 +157,21 @@ class PartnerChannelServiceTest {
 
         assertThat(existing.isActive()).isFalse();
         verify(channels).save(existing);
+    }
+
+    @Test
+    @DisplayName("cancelling refunds the orders it strands")
+    void deactivateRefundsHeldOrders() {
+        // Bu postlar hech qachon chiqmaydi — bot kanalda administrator
+        // emas. Qoldirilsa sotuvchining puli muzlab qolardi.
+        PartnerChannel existing = new PartnerChannel();
+        existing.setId(UUID.randomUUID());
+        existing.setActive(true);
+        when(channels.findByPartnerUserIdAndActiveTrue(partnerId)).thenReturn(Optional.of(existing));
+
+        service.deactivate(partnerId);
+
+        verify(channelPosts).refundStranded(existing.getId());
     }
 
     @Test
