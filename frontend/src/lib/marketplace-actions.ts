@@ -10,6 +10,7 @@ import type {
   DreamTeamPayload,
   LikeToggleResponse,
   ListingResponse,
+  CardSyncTriggerResponse,
   MaxOvrRefreshResponse,
   MetaTier,
 } from './marketplace-types';
@@ -231,6 +232,19 @@ export function adminRefreshMaxOvr(): Promise<ActionResult<MaxOvrRefreshResponse
     ['v1', 'admin', 'cards', 'max-ovr-refresh'],
     { method: 'POST' },
     'MAX OVR yangilanmadi',
+  );
+}
+
+/**
+ * Run the full efhub sync now instead of waiting for the 09:00 UTC cron. Scrapes
+ * new player pages, so it answers with 202 and finishes in the background; 409
+ * means a run is already going.
+ */
+export function adminTriggerCardSync(): Promise<ActionResult<CardSyncTriggerResponse>> {
+  return marketplaceRequest<CardSyncTriggerResponse>(
+    ['v1', 'admin', 'cards', 'sync'],
+    { method: 'POST' },
+    'Sync boshlanmadi',
   );
 }
 

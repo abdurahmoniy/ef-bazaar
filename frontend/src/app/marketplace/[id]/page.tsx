@@ -6,6 +6,7 @@ import { MarketplaceListingDetail } from '@/components/marketplace/marketplace-l
 import { MarketplaceErrorState } from '@/components/marketplace/marketplace-result-state';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
+import { recordChannelClick } from '@/lib/partner-click-server';
 import {
   formatPriceUZS,
   parseListingSearchParams,
@@ -160,6 +161,11 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
     resolveOptionalUser(getMe),
     getListing(id, matchFilters.matchCards, matchFilters.matchStrictness),
   ]);
+
+  // Kanaldagi postdan kelgan bo'lsa yozib qo'yamiz. Savdo ulushi
+  // shunga bog'lanadi: har kanal posti o'z kodini olib yuradi.
+  // Kutilmaydi — bosish jurnali sahifani sekinlashtirmasligi kerak.
+  recordChannelClick(originatingParams?.p, id);
 
   if (!result.ok) {
     if (result.error.status === 404) notFound();

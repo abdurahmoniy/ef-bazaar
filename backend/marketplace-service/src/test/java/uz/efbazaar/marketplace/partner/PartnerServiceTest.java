@@ -54,7 +54,8 @@ class PartnerServiceTest {
         users = mock(AuthSummaryClient.class);
         events = mock(PartnerEventPublisher.class);
         fees = mock(PartnerFeeClient.class);
-        service = new PartnerService(settingsRepository, applications, users, events, fees);
+        service = new PartnerService(settingsRepository, applications, users, events, fees,
+                mock(uz.efbazaar.marketplace.partner.ads.PartnerChannelService.class));
 
         PartnerSettings settings = new PartnerSettings();
         settings.setMinSubscribers(1000);

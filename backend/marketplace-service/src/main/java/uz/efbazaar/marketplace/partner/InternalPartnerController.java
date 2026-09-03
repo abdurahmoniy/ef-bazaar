@@ -23,6 +23,31 @@ import uz.efbazaar.marketplace.partner.PartnerDtos.ChannelVerifiedRequest;
 public class InternalPartnerController {
 
     private final PartnerService service;
+    private final uz.efbazaar.marketplace.partner.ads.ChannelPostService channelPosts;
+
+    /**
+     * Bot postni chiqardi yoki chiqara olmadi.
+     *
+     * <p>{@code telegramMessageId} bo'lsa — hamkorga to'lanadi;
+     * {@code error} bo'lsa — sotuvchiga qaytariladi. Bot jim qolsa
+     * sotuvchining puli ushlangan holda abadiy turardi, shuning uchun
+     * ikkala yo'l ham shu yerdan o'tadi.
+     */
+    @PostMapping("/channel-post-result")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void channelPostResult(@Valid @RequestBody ChannelPostResultRequest request) {
+        if (request.telegramMessageId() != null && !request.telegramMessageId().isBlank()) {
+            channelPosts.onPosted(request.postId(), request.telegramMessageId());
+        } else {
+            channelPosts.onFailed(request.postId(),
+                    request.error() == null ? "Bot postni chiqara olmadi" : request.error());
+        }
+    }
+
+    public record ChannelPostResultRequest(
+            @jakarta.validation.constraints.NotNull java.util.UUID postId,
+            String telegramMessageId,
+            String error) {}
 
     @PostMapping("/channel-verified")
     @ResponseStatus(HttpStatus.NO_CONTENT)

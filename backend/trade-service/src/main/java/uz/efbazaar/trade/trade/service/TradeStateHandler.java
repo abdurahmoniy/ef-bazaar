@@ -365,8 +365,12 @@ public class TradeStateHandler {
      */
     private void settleEscrow(Trade trade) {
         if (trade.getMode() != TradeMode.SMART) return;
+        // Muhrlangan qiymatlar uzatiladi, bugungi sozlama emas: savdo
+        // ochilgan paytdagi shart bo'yicha yopiladi.
         escrow.settle(trade.getId(), trade.getBuyerId(), trade.getSellerId(),
-                trade.getPriceUzs(), trade.feeBaseOrPrice());
+                trade.getPriceUzs(), trade.feeBaseOrPrice(),
+                trade.getPartnerUserId(),
+                trade.getPartnerPercentBp() == null ? 0 : trade.getPartnerPercentBp());
         trade.setEscrowResolvedAt(Instant.now());
     }
 

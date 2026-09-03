@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import uz.efbazaar.marketplace.cards.sync.EfhubSyncTrigger;
 import uz.efbazaar.marketplace.cards.sync.MaxOvrRefreshService;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -30,6 +33,7 @@ public class AdminCardController {
     private final CardSearchService cardSearchService;
     private final MaxOvrRefreshService maxOvrRefreshService;
     private final CardInterestService cardInterestService;
+    private final EfhubSyncTrigger efhubSyncTrigger;
 
     /** @return how many rows actually changed (already-correct cards don't count) */
     @PutMapping("/meta-tier")
@@ -72,4 +76,26 @@ public class AdminCardController {
     public MaxOvrRefreshService.Result refreshMaxOvr() {
         return maxOvrRefreshService.refresh();
     }
+
+    /**
+     * Run the daily efhub sync now, without waiting for the 09:00 UTC cron.
+     *
+     * <p>Answers immediately: a full run scrapes up to {@code batch-limit}
+     * player pages 5s apart, far longer than the request may stay open. The
+     * outcome arrives as the usual "Card sync bajarildi" summary in the
+     * Telegram log channel.
+     *
+     * @return 202 once dispatched, 409 if a run is already in progress
+     */
+    @PostMapping("/sync")
+    public ResponseEntity<EfhubSyncTriggerResponse> triggerSync() {
+        EfhubSyncTrigger.Status status = efhubSyncTrigger.trigger();
+        HttpStatus code = status == EfhubSyncTrigger.Status.STARTED
+                ? HttpStatus.ACCEPTED
+                : HttpStatus.CONFLICT;
+        return ResponseEntity.status(code).body(new EfhubSyncTriggerResponse(status));
+    }
+
+    /** @param status whether this call started a run or found one already going */
+    public record EfhubSyncTriggerResponse(EfhubSyncTrigger.Status status) {}
 }

@@ -457,6 +457,31 @@ public class TelegramApiClient {
         return postJson("sendMessage", body).map(this::extractMessageId);
     }
 
+    /**
+     * sendPhoto (allaqachon yuklangan {@code file_id} bo'yicha) + bitta oddiy
+     * havola tugmasi.
+     *
+     * <p>{@link #sendPhotoWithKeyboard} dan farqi tugma turida va bu farq
+     * hal qiluvchi: u {@code web_app} tugmalarini yasaydi, ular esa FAQAT
+     * shaxsiy chatda ishlaydi. Kanalga shunday tugma bilan yuborilgan
+     * xabarni Telegram butunlay rad etadi, ya'ni rasm ham chiqmaydi.
+     *
+     * <p>Izoh Telegram tomonidan 1024 belgi bilan cheklangan — undan uzuni
+     * yuborilsa butun xabar rad etiladi.
+     */
+    public Optional<Integer> sendPhotoWithUrlButton(String chatId, String fileId, String caption,
+                                                    UrlButton button) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("photo", fileId);
+        if (caption != null && !caption.isBlank()) {
+            body.put("caption", caption);
+            body.put("parse_mode", "HTML");
+        }
+        body.set("reply_markup", buildUrlKeyboard(List.of(List.of(button))));
+        return postJson("sendPhoto", body).map(this::extractMessageId);
+    }
+
     private ObjectNode buildUrlKeyboard(List<List<UrlButton>> rows) {
         ArrayNode keyboard = objectMapper.createArrayNode();
         for (List<UrlButton> row : rows) {

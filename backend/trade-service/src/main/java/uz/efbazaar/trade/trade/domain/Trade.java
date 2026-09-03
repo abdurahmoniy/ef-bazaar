@@ -41,6 +41,22 @@ public class Trade {
     private UUID chatId;
 
     /**
+     * Savdoni keltirgan hamkor kanalining egasi, va uning ulushi.
+     *
+     * <p>Ikkalasi ham savdo ochilganda muhrlanadi va O'ZGARMAYDI.
+     * Stavka ham muhrlanadi: admin foizni ertaga o'zgartirsa, ochilgan
+     * savdo eski shart bo'yicha yopilishi kerak.
+     *
+     * <p>Ikkalasi ham null bo'lishi normal — xaridor e'lonni
+     * efBazaar'ning o'zidan topgan bo'lishi mumkin.
+     */
+    @Column(name = "partner_user_id", updatable = false)
+    private UUID partnerUserId;
+
+    @Column(name = "partner_percent_bp", updatable = false)
+    private Integer partnerPercentBp;
+
+    /**
      * Money the ACCEPTER's wallet is charged: the price on a sale, the
      * surcharge on a swap that has one, zero on a plain swap. One meaning, so
      * escrow takes the same path in all three and a zero skips it entirely.

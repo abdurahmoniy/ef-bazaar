@@ -3,6 +3,9 @@ package uz.efbazaar.marketplace.referral;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import uz.efbazaar.marketplace.partner.PartnerChannel;
+import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelRepository;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralCodeRepository;
 
 import java.security.SecureRandom;
@@ -31,6 +34,7 @@ public class ReferralCodeService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final ReferralCodeRepository codes;
+    private final PartnerChannelRepository channels;
 
     /**
      * Foydalanuvchining kodi; birinchi murojaatda yaratiladi.
@@ -62,12 +66,15 @@ public class ReferralCodeService {
     /**
      * Kod egasini topadi. Noma'lum kod — bo'sh natija, xato emas.
      *
-     * <p>IKKINCHI BOSQICH SHU METODNI KENGAYTIRADI, yangisini qurmaydi.
-     * Kanaldagi e'lon posti havolasi ({@code /l/<e'lon>?p=<kod>}) hamkor
-     * kanalining kodini olib yuradi, u esa {@code partner_channels}
-     * jadvalida turadi — bugun mavjud emas. O'sha kunda bu metod avval
-     * {@code user_referral_codes} dan, topilmasa kanal kodlaridan
-     * qidiradigan bo'ladi va kanal egasini qaytaradi.
+     * <p>IKKI JADVALDAN QIDIRADI, va ataylab bitta metodda. Avval
+     * {@code user_referral_codes} — shaxsiy taklif havolasi; topilmasa
+     * {@code partner_channels} — kanaldagi e'lon posti havolasi, u
+     * KANAL EGASINI qaytaradi. Hamkor ham foydalanuvchi, va uning
+     * kanali orqali kelgan odam uning referali.
+     *
+     * <p>Ikkinchi, parallel yo'l qurilmadi: "kim taklif qildi" degan
+     * bitta savolga ikki joyda ikki xil javob beradigan kod vaqt o'tib
+     * bir-biridan uzoqlashadi.
      *
      * <p>Brauzer tarafi allaqachon tayyor: {@code ?ref=} ham, {@code ?p=}
      * ham bir xil joyga yoziladi va bir xil da'vo yo'lidan o'tadi. Ya'ni
@@ -75,9 +82,15 @@ public class ReferralCodeService {
      * shu yechish. Ikkinchi, parallel yo'l qurilsa "kim taklif qildi"
      * degan bitta savolga ikki joyda ikki xil javob paydo bo'ladi.
      */
+    @Transactional(readOnly = true)
     public Optional<UUID> resolve(String code) {
         if (code == null || code.isBlank()) return Optional.empty();
-        return codes.findByCode(code.trim().toUpperCase()).map(ReferralCode::getUserId);
+        String normalised = code.trim().toUpperCase();
+
+        Optional<UUID> user = codes.findByCode(normalised).map(ReferralCode::getUserId);
+        if (user.isPresent()) return user;
+
+        return channels.findByLinkCode(normalised).map(PartnerChannel::getPartnerUserId);
     }
 
     private String freshCode() {

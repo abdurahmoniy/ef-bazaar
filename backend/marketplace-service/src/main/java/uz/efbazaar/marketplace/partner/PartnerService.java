@@ -53,6 +53,7 @@ public class PartnerService {
     private final AuthSummaryClient users;
     private final PartnerEventPublisher events;
     private final PartnerFeeClient fees;
+    private final uz.efbazaar.marketplace.partner.ads.PartnerChannelService partnerChannels;
 
     // ----- sozlamalar -----
 
@@ -298,6 +299,9 @@ public class PartnerService {
         // Tasdiqlanmagan arizada berilgan rol yo'q va hodisa auth'ni
         // keraksiz ishlatardi.
         if (wasPartner) {
+            // Kanal qidiruvdan chiqadi: hamkorlikdan chiqqan odamning
+            // kanali sotuvchilarga taklif qilinaverishi mumkin emas.
+            partnerChannels.deactivate(application.getUserId());
             events.applicationCancelled(application);
         }
         return application;
@@ -315,6 +319,9 @@ public class PartnerService {
     @Transactional
     public PartnerApplication approve(UUID id, UUID adminId, String note) {
         PartnerApplication application = review(id, adminId, note, Status.APPROVED);
+        // Reklama kanali shu yerda tug'iladi: bozorda ko'rinish uchun
+        // kerak bo'lgan hamma narsa aynan hozir ma'lum.
+        partnerChannels.onApproved(application);
         events.applicationApproved(application);
         return application;
     }

@@ -3,6 +3,7 @@ package uz.efbazaar.marketplace.referral;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelRepository;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralCodeRepository;
 
 import java.util.HashMap;
@@ -40,7 +41,7 @@ class ReferralCodeServiceTest {
             return c;
         });
         when(codes.existsByCode(anyString())).thenReturn(false);
-        service = new ReferralCodeService(codes);
+        service = new ReferralCodeService(codes, mock(PartnerChannelRepository.class));
     }
 
     @Test

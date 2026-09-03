@@ -11,6 +11,7 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 8
+      max-lifetime: 600000  # 10 minutes, shorter than DB idle timeout
 
   jpa:
     hibernate:
@@ -93,6 +94,7 @@ app:
       # Ulanish byudjeti uchun asosiy datasource izohiga qarang.
       hikari:
         maximum-pool-size: 4
+        max-lifetime: 600000  # 10 minutes, shorter than DB idle timeout
     sync:
       # efhub.com'dan kunlik delta-sync. Faqat yangi card'larni tortib oladi.
       # Production: enabled=true, local dev: false (default) — efhub'ga ortiqcha so'rov ketmasin.

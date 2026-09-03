@@ -118,6 +118,28 @@ public class TradeEscrowService {
     @Transactional
     public void settle(UUID tradeId, UUID accepterId, UUID proposerId,
                        long accepterTiyin, long feeBaseTiyin) {
+        settle(tradeId, accepterId, proposerId, accepterTiyin, feeBaseTiyin, null, 0);
+    }
+
+    /**
+     * The same settlement, sharing part of the commission with the partner
+     * whose channel produced the trade.
+     *
+     * <p>Kept as an overload rather than replacing the five-argument form: a
+     * trade that came through no channel is the ordinary case, and callers
+     * that predate advertising describe it exactly.
+     *
+     * @param partnerUserId   the attributed partner, {@code null} when there is
+     *                        none
+     * @param partnerPercentBp the partner's share of the commission in basis
+     *                        points, stamped when the trade opened so a later
+     *                        change of the rate cannot settle an open trade on
+     *                        terms nobody agreed to
+     */
+    @Transactional
+    public void settle(UUID tradeId, UUID accepterId, UUID proposerId,
+                       long accepterTiyin, long feeBaseTiyin,
+                       UUID partnerUserId, int partnerPercentBp) {
         requirePositive(feeBaseTiyin);
         if (neverHeld(tradeId, "settle")) return;
 
@@ -125,7 +147,14 @@ public class TradeEscrowService {
         long proposerOwes = Math.max(0, fee - accepterTiyin);
         long proceeds = Math.max(0, accepterTiyin - fee);
 
-        var postings = new java.util.ArrayList<Posting>(4);
+        // The share is cut OUT OF the commission and written in that same
+        // transaction. No payout job, no lag, and the book is never left in an
+        // intermediate state.
+        long share = (partnerUserId == null || partnerPercentBp <= 0)
+                ? 0
+                : fee * partnerPercentBp / 10_000L;
+
+        var postings = new java.util.ArrayList<Posting>(5);
         if (accepterTiyin > 0) {
             postings.add(new Posting(LedgerAccount.USER_HELD, accepterId, accepterTiyin));
         }
@@ -141,8 +170,26 @@ public class TradeEscrowService {
 
         ledger.post(TransactionKind.TRADE_SETTLE, key("settle", tradeId), null,
                 "trade " + tradeId + " fee " + fee, postings);
-        log.info("Trade {} settled: proposer {} received {} tiyin, platform kept {}",
-                tradeId, proposerId, proceeds, fee);
+
+        // The partner's share is a SECOND ledger transaction, not an extra
+        // posting on the one above. A ledger transaction carries exactly one
+        // kind, and the kind is what the wallet history shows the user: folded
+        // into the settlement, the partner's own credit would read to them as
+        // "trade settled" — for a trade they were not party to.
+        //
+        // It is still atomic with the commission. Both calls run inside this
+        // @Transactional method, so they commit or roll back together, and each
+        // transaction balances on its own.
+        if (share > 0) {
+            ledger.post(TransactionKind.PARTNER_TRADE_SHARE, key("partner-share", tradeId), null,
+                    "trade " + tradeId + " partner share " + share,
+                    List.of(
+                            new Posting(LedgerAccount.PLATFORM_REVENUE, null, share),
+                            new Posting(LedgerAccount.USER_AVAILABLE, partnerUserId, -share)));
+        }
+
+        log.info("Trade {} settled: proposer {} received {} tiyin, partner {} took {}, platform kept {}",
+                tradeId, proposerId, proceeds, partnerUserId, share, fee - share);
     }
 
     /**

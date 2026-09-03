@@ -52,6 +52,7 @@ public class TradeService {
     private final TradeSideService sideService;
     private final TradeAuditService audit;
     private final MailboxService mailboxes;
+    private final uz.efbazaar.trade.partner.PartnerAttributionClient partners;
     private final TradeBroadcaster broadcaster;
     private final TradeEventPublisher events;
     private final uz.efbazaar.trade.plan.service.MailboxSlotService slots;
@@ -131,10 +132,18 @@ public class TradeService {
         // the buyer transfers nothing.
         UUID buyerMailboxId = kind.isSwap() ? allocatePlaceholderMailbox() : null;
 
+        // Hamkor va stavka SHU YERDA muhrlanadi. Keyingi bosishlar
+        // marketplace tarafdagi biriktirishni o'zgartirishi mumkin, bu
+        // savdoga esa ta'sir qilmaydi — kelishuv ochilgan paytda
+        // qotadi.
+        var attribution = partners.lookup(listingId, buyerId);
+
         Trade t = Trade.builder()
                 .id(tradeId)
                 .sellerId(sellerId)
                 .buyerId(buyerId)
+                .partnerUserId(attribution.map(a -> a.partnerUserId()).orElse(null))
+                .partnerPercentBp(attribution.map(a -> a.percentBp()).orElse(null))
                 .listingId(listingId)
                 .chatId(chatId)
                 .priceUzs(priceUzs)
