@@ -1985,6 +1985,22 @@ describe('toggleChannel', () => {
 });
 ```
 
+**The avatar does not exist yet, and the card promises one.** `partner_channels.photo_file_id` is
+never populated: `ChannelVerifier` reads the subscriber count and the owner's status but not the
+channel photo, and nothing serves
+`/api/marketplace/v1/partners/channels/{id}/photo`. So every card comes back with a null
+`photoUrl` and the picker shows no images.
+
+Two small pieces close it, and they belong in this task because this is where the gap becomes
+visible:
+1. In the bot's `ChannelVerifier`, call `getChat` for the channel and pass `photo.big_file_id`
+   through to `channel-verified`, then store it on the channel.
+2. A `GET /api/v1/partners/channels/{id}/photo` in marketplace that proxies the file through the
+   bot, the way user avatars are already served — check how `/api/auth/v1/users/{id}/photo` does it
+   and follow that, rather than inventing a second mechanism.
+
+Until both exist, render the channel's initial in a coloured circle rather than a broken image.
+
 - [ ] **Step 2: Run it, confirm it fails, then implement**
 
 The picker is a client component: a search box, a debounced fetch (the search endpoint is public to
