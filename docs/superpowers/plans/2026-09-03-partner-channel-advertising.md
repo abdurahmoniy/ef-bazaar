@@ -1274,8 +1274,15 @@ void reportsFailure() {
 cd bot && JAVA_HOME=~/.jdks/openjdk-21.0.2 mvn -q test -Dtest=ChannelPosterTest
 ```
 
-`ChannelPoster` uses the existing `TelegramApiClient.sendPhotoWithKeyboard` when the listing has
-media and `sendMessageWithUrlButton` otherwise, then calls back over
+`ChannelPoster` uses `TelegramApiClient.sendMessageWithUrlButton` when the listing has no media, and
+`sendPhotoWithUrlButton` when it does.
+
+**Not `sendPhotoWithKeyboard`** — that method takes `List<List<WebAppButton>>` and builds a web_app
+keyboard, which only works in private chats. A channel post carrying one is rejected by Telegram
+outright, so the photo never appears either. `sendPhotoWithUrlButton` was added for exactly this and
+is the photo twin of `sendMessageWithUrlButton`.
+
+The poster then calls back over
 `marketplaceWebClient` with `X-Internal-Secret` — the exact shape `ChannelVerifier.report` uses.
 The consumer is a `@KafkaListener` on `efbazaar.marketplace.channel-post-requested`, group
 `bot-channel-post`, with the same two `spring.json.*` properties every other consumer sets.

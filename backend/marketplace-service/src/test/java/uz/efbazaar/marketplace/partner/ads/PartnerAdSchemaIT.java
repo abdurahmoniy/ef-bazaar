@@ -1,0 +1,190 @@
+package uz.efbazaar.marketplace.partner.ads;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.context.TestPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import uz.efbazaar.marketplace.partner.PartnerChannel;
+import uz.efbazaar.marketplace.partner.PartnerSettings;
+import uz.efbazaar.marketplace.partner.PartnerRepositories.PartnerSettingsRepository;
+import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.ListingChannelPostRepository;
+import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelRepository;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+/**
+ * Reklama bozorining qoidalari haqiqiy Postgres ustida.
+ *
+ * <p>NEGA HAQIQIY BAZA. Bu yerdagi qoidalar — bitta e'lon bitta
+ * kanalga bir marta, holatlar ro'yxati, foiz shifti, narx chegaralari —
+ * kodda emas, CHECK va UNIQUE da yashaydi. Mock'li sinov ularni umuman
+ * ishlatmaydi.
+ */
+@DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Testcontainers
+@Import(PartnerAdSchemaIT.Config.class)
+@TestPropertySource(properties = {
+        "spring.jpa.hibernate.ddl-auto=none",
+        "spring.flyway.enabled=true",
+        "app.cards.datasource.url=jdbc:postgresql://localhost/skip",
+        "app.cards.datasource.username=skip",
+        "app.cards.datasource.password=skip"
+})
+class PartnerAdSchemaIT {
+
+    @Container
+    @ServiceConnection
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+
+    @Autowired TestEntityManager em;
+    @Autowired PartnerChannelRepository channels;
+    @Autowired ListingChannelPostRepository posts;
+    @Autowired PartnerSettingsRepository settingsRepository;
+
+    @Test
+    @DisplayName("one channel cannot be advertised twice for the same listing")
+    void oneOrderPerChannelPerListing() {
+        PartnerChannel channel = savedChannel("Efootball Uz", 50_239, new BigDecimal("10000.00"));
+        UUID listing = UUID.randomUUID();
+        posts.saveAndFlush(post(UUID.randomUUID(), listing, channel, "HELD"));
+
+        // Native INSERT: save() mavjud kalitni merge qiladi va UNIQUE
+        // umuman qatnashmaydi — repozitoriy orqali sinasak, biz
+        // tekshirmoqchi bo'lgan qoidani emas, Hibernate xatti-harakatini
+        // sinagan bo'lardik.
+        assertThatThrownBy(() -> em.getEntityManager()
+                .createNativeQuery("""
+                        insert into listing_channel_posts
+                            (id, order_id, listing_id, partner_channel_id, price_som, state, created_at)
+                        values (?1, ?2, ?3, ?4, 10000.00, 'HELD', now())
+                        """)
+                .setParameter(1, UUID.randomUUID())
+                .setParameter(2, UUID.randomUUID())
+                .setParameter(3, listing)
+                .setParameter(4, channel.getId())
+                .executeUpdate())
+                .hasMessageContaining("uk_listing_channel_posts");
+    }
+
+    @Test
+    @DisplayName("a state the code does not know is rejected")
+    void unknownStateRejected() {
+        PartnerChannel channel = savedChannel("Test", 1000, new BigDecimal("5000.00"));
+        ListingChannelPost bad = post(UUID.randomUUID(), UUID.randomUUID(), channel, "PENDING");
+
+        assertThatThrownBy(() -> posts.saveAndFlush(bad))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("a percentage above 100% is rejected")
+    void percentCeiling() {
+        PartnerChannel channel = channel("Test", 1000, new BigDecimal("5000.00"));
+        channel.setTradePercentBp(10_001);
+
+        assertThatThrownBy(() -> channels.saveAndFlush(channel))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("the global payout defaults are seeded on the existing settings row")
+    void settingsDefaultsSeeded() {
+        PartnerSettings settings = settingsRepository.findById(PartnerSettings.SINGLETON_ID).orElseThrow();
+
+        assertThat(settings.getDefaultPayoutMode()).isEqualTo("PERCENT");
+        assertThat(settings.getDefaultTradePercentBp()).isEqualTo(1000);
+        assertThat(settings.getMinPostPriceSom()).isEqualByComparingTo("1000");
+        assertThat(settings.getMaxPostPriceSom()).isEqualByComparingTo("100000");
+    }
+
+    @Test
+    @DisplayName("bounds that cross are rejected")
+    void crossedBoundsRejected() {
+        PartnerSettings settings = settingsRepository.findById(PartnerSettings.SINGLETON_ID).orElseThrow();
+        settings.setMinPostPriceSom(new BigDecimal("50000"));
+        settings.setMaxPostPriceSom(new BigDecimal("1000"));
+
+        assertThatThrownBy(() -> settingsRepository.saveAndFlush(settings))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("prefix search is case-insensitive and skips inactive channels")
+    void prefixSearchAgainstPostgres() {
+        savedChannel("Premium Efootball", 4_219, new BigDecimal("5000"));
+        savedChannel("Prefer Efootball", 2_334, new BigDecimal("5000"));
+        savedChannel("Boshqa kanal", 9_999, new BigDecimal("5000"));
+
+        PartnerChannel closed = savedChannel("Premium yopiq", 8_000, new BigDecimal("5000"));
+        closed.setActive(false);
+        channels.saveAndFlush(closed);
+
+        var found = channels.findByActiveTrueAndTitleStartsWithIgnoreCaseOrderBySubscriberCountDesc("PRE");
+
+        assertThat(found).extracting(PartnerChannel::getTitle)
+                .containsExactly("Premium Efootball", "Prefer Efootball");
+    }
+
+    private PartnerChannel channel(String title, int subscribers, BigDecimal price) {
+        PartnerChannel c = new PartnerChannel();
+        c.setId(UUID.randomUUID());
+        c.setPartnerUserId(UUID.randomUUID());
+        c.setApplicationId(UUID.randomUUID());
+        c.setTelegramChannelId(ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE));
+        c.setTitle(title);
+        c.setSubscriberCount(subscribers);
+        c.setSubscriberSyncedAt(Instant.now());
+        c.setLinkCode(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        c.setPostPriceSom(price);
+        return c;
+    }
+
+    private PartnerChannel savedChannel(String title, int subscribers, BigDecimal price) {
+        return channels.saveAndFlush(channel(title, subscribers, price));
+    }
+
+    private ListingChannelPost post(UUID orderId, UUID listingId, PartnerChannel channel, String state) {
+        ListingChannelPost p = new ListingChannelPost();
+        p.setId(UUID.randomUUID());
+        p.setOrderId(orderId);
+        p.setListingId(listingId);
+        p.setPartnerChannelId(channel.getId());
+        p.setPriceSom(channel.getPostPriceSom());
+        p.setState(state);
+        return p;
+    }
+
+    /**
+     * Sinov uchun minimal kontekst.
+     *
+     * <p>{@code considerNestedRepositories} SHART — repozitoriylar
+     * {@code PartnerAdRepositories} ichida ichma-ich e'lon qilingan va
+     * Spring Data ularni standart holatda skanerlamaydi.
+     */
+    // BITTA sinf yetarli: u `partner` paketini VA uning quyi
+    // paketlarini qamraydi. Ikkalasini sanasak `ads` ikki marta
+    // skanerlanadi va bir xil repozitoriy ikki marta ro'yxatga
+    // olinmoqchi bo'lib kontekst yiqiladi.
+    @org.springframework.boot.autoconfigure.domain.EntityScan(
+            basePackageClasses = PartnerChannel.class)
+    @org.springframework.data.jpa.repository.config.EnableJpaRepositories(
+            basePackageClasses = PartnerChannel.class,
+            considerNestedRepositories = true)
+    static class Config {}
+}
