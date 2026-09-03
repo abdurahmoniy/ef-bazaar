@@ -2109,13 +2109,6 @@ it has not been tried."
 
 ## Left open when the plan was finished
 
-**The channel avatar.** `partner_channels.photo_file_id` is never populated — `ChannelVerifier`
-reads the subscriber count and the owner's status but not the channel photo — and nothing serves
-`/api/v1/partners/channels/{id}/photo`. The picker draws the channel's initial in a circle instead,
-which says more than a broken image. Two pieces close it: `getChat` in the bot passing
-`photo.big_file_id` through `channel-verified`, and a proxy endpoint following the one already
-serving `/api/auth/v1/users/{id}/photo`.
-
 **Two of the panel's three earnings streams read zero.** "From posts" is real — it comes from
 `listing_channel_posts`. "From trades" and "Monthly" have to come from wallet history, and that join
 is not built: `PartnerPanelService.earnings` returns `BigDecimal.ZERO` for both. The shape is what

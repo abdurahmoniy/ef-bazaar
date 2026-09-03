@@ -38,7 +38,9 @@ public final class PartnerDtos {
             String channelUsername,
             @NotNull @Min(0) Integer subscriberCount,
             /** Qo'shgan odam kanalning EGASI (Telegram'da `creator`) mi. */
-            boolean addedByIsOwner
+            boolean addedByIsOwner,
+            /** Kanal avatari. Kanalda rasm bo'lmasligi mumkin — null normal. */
+            String channelPhotoFileId
     ) {}
 
     public record ApplicationResponse(

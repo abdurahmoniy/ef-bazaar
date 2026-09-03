@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   channelInitial,
+  channelPhotoUrl,
   formatSubscribers,
   toggleChannel,
   totalPrice,
@@ -12,7 +13,7 @@ const card = (channelId: string, priceSom: number): ChannelCard => ({
   channelId,
   title: channelId,
   username: null,
-  photoUrl: null,
+  photoFileId: null,
   subscriberCount: 100,
   priceSom,
 });
@@ -50,6 +51,18 @@ describe('toggleChannel', () => {
     const selected = ['a'];
     toggleChannel(selected, 'b');
     expect(selected).toEqual(['a']);
+  });
+});
+
+describe('channelPhotoUrl', () => {
+  it('routes through the same photo proxy listing images use', () => {
+    // Ikkinchi mexanizm qurilmadi: u bir xil narsani ikki joyda
+    // tuzatishga majbur qilardi.
+    expect(channelPhotoUrl({ photoFileId: 'AgACAgIAAxk' })).toBe('/bot/photo/AgACAgIAAxk');
+  });
+
+  it('has no url for a channel with no avatar', () => {
+    expect(channelPhotoUrl({ photoFileId: null })).toBeNull();
   });
 });
 

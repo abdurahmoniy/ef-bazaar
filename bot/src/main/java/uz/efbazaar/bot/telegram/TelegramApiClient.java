@@ -258,6 +258,23 @@ public class TelegramApiClient {
                 .map(result -> result.path("status").asText(null));
     }
 
+    /**
+     * Kanal avatarining {@code file_id} si.
+     *
+     * <p>{@code getChat} SHART: {@code my_chat_member} yangilanishidagi
+     * {@code chat} obyekti nom va username ni olib yuradi, rasmni esa
+     * yo'q — u faqat to'liq chat ma'lumotida bo'ladi.
+     *
+     * <p>{@code big_file_id} olinadi: kartochka ro'yxatda kichik
+     * ko'rinadi, lekin bir marta yuklab, keyin har o'lchamda
+     * ishlatilishi mumkin.
+     */
+    public Optional<String> getChatPhotoFileId(long chatId) {
+        ObjectNode body = objectMapper.createObjectNode().put("chat_id", chatId);
+        return postJson("getChat", body)
+                .map(result -> result.path("photo").path("big_file_id").asText(null));
+    }
+
     /** Returns a downloadable file path for a given file_id (call getFile then prepend api URL). */
     public Optional<String> getFilePath(String fileId) {
         ObjectNode body = objectMapper.createObjectNode().put("file_id", fileId);

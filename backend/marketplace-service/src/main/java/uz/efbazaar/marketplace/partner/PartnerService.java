@@ -135,6 +135,7 @@ public class PartnerService {
         application.setChannelTitle(request.channelTitle());
         application.setChannelUsername(request.channelUsername());
         application.setSubscriberCount(request.subscriberCount());
+        application.setChannelPhotoFileId(request.channelPhotoFileId());
 
         String problem = validateChannel(request);
         if (problem != null) {

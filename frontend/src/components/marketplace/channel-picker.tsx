@@ -5,6 +5,7 @@ import { Check, Loader2, Megaphone, Search, Users } from 'lucide-react';
 
 import {
   channelInitial,
+  channelPhotoUrl,
   formatSubscribers,
   searchChannels,
   toggleChannel,
@@ -108,10 +109,20 @@ export function ChannelPicker({ selected, onChange }: ChannelPickerProps) {
                   aria-pressed={picked}
                   className="flex w-full items-center gap-3 py-2.5 text-left transition hover:bg-muted/50"
                 >
-                  {/* Rasm hali to'ldirilmaydi — bo'sh doira o'rniga bosh harf. */}
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                    {channelInitial(channel.title)}
-                  </span>
+                  {/* Rasm yo'q kanal ham bor — o'shanda bosh harf. */}
+                  {channelPhotoUrl(channel) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={channelPhotoUrl(channel) ?? ''}
+                      alt=""
+                      className="h-9 w-9 shrink-0 rounded-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                      {channelInitial(channel.title)}
+                    </span>
+                  )}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{channel.title}</span>
                     <span className="flex items-center gap-1 text-xs text-muted-foreground">

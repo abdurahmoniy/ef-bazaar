@@ -19,8 +19,12 @@ public final class PartnerAdDtos {
             UUID channelId,
             String title,
             String username,
-            /** Proksi manzili; Telegram {@code file_id} brauzerga chiqmaydi. */
-            String photoUrl,
+            /**
+             * Telegram {@code file_id}. Frontend uni {@code /bot/photo/...}
+             * proksisiga aylantiradi — e'lon rasmlari bilan aynan bir xil
+             * naqsh, ikkinchi mexanizm qurilmaydi.
+             */
+            String photoFileId,
             int subscriberCount,
             BigDecimal priceSom) {}
 

@@ -76,7 +76,7 @@ class PartnerServiceTest {
     }
 
     private ChannelVerifiedRequest request(int subscribers, boolean owner) {
-        return new ChannelVerifiedRequest(telegramId, -100_1L, "Kanal", "kanal", subscribers, owner);
+        return new ChannelVerifiedRequest(telegramId, -100_1L, "Kanal", "kanal", subscribers, owner, null);
     }
 
     @Test

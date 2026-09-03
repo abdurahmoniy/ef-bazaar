@@ -1,10 +1,11 @@
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+import { listingMediaUrl } from '@/lib/marketplace-media';
 
 export interface ChannelCard {
   channelId: string;
   title: string;
   username: string | null;
-  photoUrl: string | null;
+  photoFileId: string | null;
   subscriberCount: number;
   priceSom: number;
 }
@@ -29,6 +30,17 @@ export function toggleChannel(selected: string[], channelId: string): string[] {
 
 export function formatSubscribers(count: number): string {
   return count.toLocaleString('uz-UZ');
+}
+
+/**
+ * Kanal avatarining manzili.
+ *
+ * <p>E'lon rasmlari bilan AYNAN BIR XIL proksi ({@code /bot/photo/...}).
+ * Ikkinchi mexanizm qurilmadi — u bir xil narsani ikki joyda tuzatishga
+ * majbur qilardi.
+ */
+export function channelPhotoUrl(channel: Pick<ChannelCard, 'photoFileId'>): string | null {
+  return channel.photoFileId ? listingMediaUrl(channel.photoFileId) : null;
 }
 
 /** Rasm yo'q bo'lsa nom bosh harfi — buzuq rasm o'rniga. */

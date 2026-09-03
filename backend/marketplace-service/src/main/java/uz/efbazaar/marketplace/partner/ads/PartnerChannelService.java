@@ -59,6 +59,7 @@ public class PartnerChannelService {
         channel.setTitle(application.getChannelTitle() == null
                 ? "Kanal" : application.getChannelTitle());
         channel.setUsername(application.getChannelUsername());
+        channel.setPhotoFileId(application.getChannelPhotoFileId());
         channel.setSubscriberCount(application.getSubscriberCount() == null
                 ? 0 : application.getSubscriberCount());
         channel.setSubscriberSyncedAt(Instant.now());
