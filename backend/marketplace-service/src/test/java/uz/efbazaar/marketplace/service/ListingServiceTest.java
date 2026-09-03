@@ -60,6 +60,7 @@ class ListingServiceTest {
     @Spy  ListingMapper mapper = Mappers.getMapper(ListingMapper.class);
 
     @Mock uz.efbazaar.marketplace.trust.BlacklistGuard blacklistGuard;
+    @Mock uz.efbazaar.marketplace.partner.ads.ChannelPostService channelPosts;
     @InjectMocks ListingService service;
 
     private UUID sellerId;

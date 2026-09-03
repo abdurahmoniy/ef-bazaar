@@ -47,6 +47,7 @@ public class ListingService {
     private final MarketplaceEventPublisher events;
     private final AttributeDefinitionRepository attributeDefinitions;
     private final BlacklistGuard blacklistGuard;
+    private final uz.efbazaar.marketplace.partner.ads.ChannelPostService channelPosts;
     private final ListingPersistence persistence;
     private final ListingMatchRepository listingMatches;
 
@@ -77,6 +78,13 @@ public class ListingService {
         // save() opens its own short tx via Spring Data — no long-running DB lock
         // is held across the bot upload above.
         Listing saved = persistence.saveWithCardInventory(listing);
+
+        // Kanal buyurtmasi E'LON SAQLANGANDAN KEYIN. Hamyonda mablag'
+        // yetmasa buyurtma kutib turadi, e'lon esa joyida qoladi —
+        // to'ldirilmagan hamyon uchun to'ldirilgan formani yo'qotish
+        // himoyalab bo'lmaydigan narsa.
+        channelPosts.order(sellerId, saved.getId(), request.channelIds());
+
         events.listingCreated(saved);
         log.info("Listing created: id={} sellerId={} attributes={} media={}",
                 saved.getId(), sellerId, validated.keySet(), fileIds.size());
