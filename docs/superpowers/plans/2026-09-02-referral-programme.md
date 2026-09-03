@@ -67,7 +67,7 @@
 
 **bot:** `telegram/UpdateHandler.java` (the `/start` branch) and `referral/PendingReferralClient.java`.
 
-**frontend:** `src/middleware.ts`, `src/lib/referral-capture.ts`, `src/lib/referrals.ts`, `src/components/referral/referral-capture.tsx`, `src/components/referral/invite-panel.tsx`, `src/app/invite/page.tsx`, `src/components/admin/admin-referrals.tsx`, `src/app/admin/referrals/page.tsx`, plus edits to `src/app/layout.tsx`, `src/app/admin/page.tsx`,
+**frontend:** `src/proxy.ts`, `src/lib/referral-capture.ts`, `src/lib/referrals.ts`, `src/components/referral/referral-capture.tsx`, `src/components/referral/invite-panel.tsx`, `src/app/invite/page.tsx`, `src/components/admin/admin-referrals.tsx`, `src/app/admin/referrals/page.tsx`, plus edits to `src/app/layout.tsx`, `src/app/admin/page.tsx`,
 `src/components/navigation/user-menu.tsx` and `src/components/admin/admin-shell.tsx`.
 
 ---
@@ -2149,7 +2149,7 @@ against the database."
 **Files:**
 - Create: `frontend/src/lib/referral-capture.ts`
 - Create: `frontend/src/lib/referral-capture.test.ts`
-- Create: `frontend/src/middleware.ts`
+- Modify: `frontend/src/proxy.ts` (the referral cookie rides its existing `finalize`)
 - Create: `frontend/src/lib/referrals.ts`
 - Create: `frontend/src/components/referral/referral-capture.tsx`
 - Create: `frontend/src/components/referral/invite-panel.tsx`
@@ -2161,7 +2161,13 @@ against the database."
 - Consumes: `GET /api/v1/referrals/me`, `POST /api/v1/referrals/claim`.
 - Produces: `readCodeFromSearch(search: string): string | null`, `REFERRAL_COOKIE`, `readCookieCode(cookieHeader: string): string | null`, and `getMyReferrals(): Promise<MyReferrals>`.
 
-**Why middleware and not a React effect.** `redirect()` inside a server component throws before the
+**This project is on Next.js 16, where `middleware.ts` is now `proxy.ts` — and it already has one.**
+Creating `src/middleware.ts` fails the build outright ("Both middleware file and proxy file are
+detected"). The referral cookie goes into the existing `src/proxy.ts`, on its `finalize()` helper,
+which every response already passes through — including the redirect that file performs itself when
+an anonymous visitor asks for a protected path.
+
+**Why the proxy layer and not a React effect.** `redirect()` inside a server component throws before the
 layout renders, so a component that reads the URL never mounts on any page that bounces an anonymous
 visitor to login — and the `from=` parameter those pages build drops the query string, so the code is
 gone twice over. Middleware runs before routing. Today's landing pages happen to be public

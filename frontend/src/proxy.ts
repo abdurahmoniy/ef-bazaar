@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import { getAuthCookieClearOptions, getAuthCookieOptions } from './lib/auth-cookies';
 import { rewriteCookieHeader } from './lib/proxy-refresh-cookies';
+import { readCodeFromSearch, REFERRAL_COOKIE } from './lib/referral-capture';
 import { isSafeInternalPath } from './lib/safe-redirect';
 import { refreshSession, type RefreshedTokens } from './lib/session-refresh';
 
@@ -17,6 +18,9 @@ const PROTECTED_PREFIXES = [
 ] as const;
 
 const AUTH_ONLY_LOGGED_OUT_PREFIXES = ['/auth/login'] as const;
+
+/** 30 kun — odam havolani bosib, keyinroq qaytib ro'yxatdan o'tishi mumkin. */
+const REFERRAL_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
 function isProtectedPath(pathname: string) {
   if (PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
@@ -45,6 +49,34 @@ function withRefreshedCookies(request: NextRequest, tokens: RefreshedTokens): He
   const headers = new Headers(request.headers);
   headers.set('cookie', rewriteCookieHeader(request.cookies.getAll(), tokens));
   return headers;
+}
+
+/**
+ * Taklif kodini cookie'ga yozadi.
+ *
+ * NEGA SHU YERDA. Bu qatlam marshrutlashdan oldin ishlaydi va quyidagi
+ * redirect'lardan ham oldin — jumladan shu fayldagi "himoyalangan
+ * sahifa → login" yo'naltirishidan, u yasaydigan `?from=` esa so'rov
+ * satrini tashlab yuboradi. React komponentida qilingan bo'lsa
+ * yo'qolardi: server komponentidagi `redirect()` layout chizilishidan
+ * oldin otadi, ya'ni komponent umuman mount bo'lmaydi.
+ *
+ * `?ref=` — sayt havolasi, `?p=` — kanaldagi e'lon posti. Ikkalasi bir
+ * xil kodni olib yuradi va oxirgi bosilgani g'olib.
+ */
+function applyReferralCode(request: NextRequest, response: NextResponse) {
+  const code = readCodeFromSearch(request.nextUrl.search);
+  if (!code) return response;
+
+  response.cookies.set(REFERRAL_COOKIE, code, {
+    // httpOnly EMAS: ro'yxatdan o'tgach uni brauzerdagi kod o'qib da'vo
+    // yuboradi. Bu sir emas — kod havolada ochiq turadi.
+    httpOnly: false,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: REFERRAL_COOKIE_MAX_AGE,
+  });
+  return response;
 }
 
 function applySecurityHeaders(response: NextResponse) {
@@ -116,7 +148,7 @@ export async function proxy(request: NextRequest) {
         response.cookies.set(REFRESH_COOKIE, '', cookieOpts);
       }
     }
-    return applySecurityHeaders(response);
+    return applySecurityHeaders(applyReferralCode(request, response));
   };
 
   if (isProtectedPath(pathname) && !hasSession) {
