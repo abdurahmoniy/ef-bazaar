@@ -47,7 +47,8 @@ class ReferralServiceTest {
         service = new ReferralService(referrals, codes,
                 mock(ReferralSettingsRepository.class), users, mock(ReferralRewardClient.class), mock(PendingReferralRepository.class));
 
-        when(codes.resolve("GOODCODE")).thenReturn(Optional.of(referrer));
+        when(codes.resolve("GOODCODE")).thenReturn(
+                Optional.of(new ReferralCodeService.ResolvedCode(referrer, null)));
         when(referrals.findById(newcomer)).thenReturn(Optional.empty());
         whenAccountAge(Duration.ofMinutes(2));
     }
@@ -62,6 +63,34 @@ class ReferralServiceTest {
     void claims() {
         assertThat(service.claim(newcomer, "GOODCODE")).isTrue();
         verify(referrals).save(any(Referral.class));
+    }
+
+    @Test
+    @DisplayName("a referral through a channel link records the channel")
+    void channelReferralRecordsTheChannel() {
+        // Voronkaning butun ma'nosi shunda: kanalning ko'rsatkichi
+        // shaxsiy taklif havolasidan kelganlarni O'Z ICHIGA OLMASLIGI
+        // kerak. Kanal yozilmasa, ikkalasi bir raqamga qo'shilib
+        // ketardi va hech kim buni sezmasdi.
+        UUID channelId = UUID.randomUUID();
+        when(codes.resolve("CHAN2345")).thenReturn(
+                Optional.of(new ReferralCodeService.ResolvedCode(referrer, channelId)));
+
+        assertThat(service.claim(newcomer, "CHAN2345")).isTrue();
+
+        var saved = org.mockito.ArgumentCaptor.forClass(Referral.class);
+        verify(referrals).save(saved.capture());
+        assertThat(saved.getValue().getPartnerChannelId()).isEqualTo(channelId);
+    }
+
+    @Test
+    @DisplayName("a referral through a personal link records no channel")
+    void personalReferralRecordsNoChannel() {
+        assertThat(service.claim(newcomer, "GOODCODE")).isTrue();
+
+        var saved = org.mockito.ArgumentCaptor.forClass(Referral.class);
+        verify(referrals).save(saved.capture());
+        assertThat(saved.getValue().getPartnerChannelId()).isNull();
     }
 
     @Test
@@ -91,7 +120,8 @@ class ReferralServiceTest {
     @Test
     @DisplayName("a user cannot refer themselves")
     void selfReferral() {
-        when(codes.resolve("MYOWNCODE")).thenReturn(Optional.of(newcomer));
+        when(codes.resolve("MYOWNCODE")).thenReturn(
+                Optional.of(new ReferralCodeService.ResolvedCode(newcomer, null)));
         assertThat(service.claim(newcomer, "MYOWNCODE")).isFalse();
         verify(referrals, never()).save(any());
     }

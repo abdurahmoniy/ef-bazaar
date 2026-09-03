@@ -26,6 +26,13 @@ public final class ReferralRepositories {
         long countByReferrerUserId(UUID referrerUserId);
 
         /**
+         * Kanal orqali kelganlar — shaxsiy taklif havolasidan
+         * kelganlarni O'Z ICHIGA OLMAYDI. Voronka aynan shu farqni
+         * ko'rsatishi kerak.
+         */
+        long countByPartnerChannelId(UUID partnerChannelId);
+
+        /**
          * Reyting: kim nechta odam olib kelgan.
          *
          * <p>Ismlar bu yerda emas — ular auth-service'da. Xizmat

@@ -88,7 +88,8 @@ class ReferralCodeServiceTest {
         UUID owner = UUID.randomUUID();
         when(codes.findByCode("ABCD2345")).thenReturn(Optional.of(new ReferralCode(owner, "ABCD2345")));
 
-        assertThat(service.resolve("ABCD2345")).contains(owner);
+        assertThat(service.resolve("ABCD2345"))
+                .map(ReferralCodeService.ResolvedCode::referrerUserId).contains(owner);
     }
 
     @Test
@@ -99,7 +100,8 @@ class ReferralCodeServiceTest {
 
         // Kod og'zaki uzatiladi va qo'lda teriladi — kichik harf yoki
         // ortiqcha bo'sh joy uchun referalni yo'qotish sababsiz.
-        assertThat(service.resolve("  abcd2345 ")).contains(owner);
+        assertThat(service.resolve("  abcd2345 "))
+                .map(ReferralCodeService.ResolvedCode::referrerUserId).contains(owner);
     }
 
     @Test

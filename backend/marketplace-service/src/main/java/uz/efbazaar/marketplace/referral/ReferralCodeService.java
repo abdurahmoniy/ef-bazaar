@@ -82,15 +82,26 @@ public class ReferralCodeService {
      * shu yechish. Ikkinchi, parallel yo'l qurilsa "kim taklif qildi"
      * degan bitta savolga ikki joyda ikki xil javob paydo bo'ladi.
      */
+    /**
+     * @param partnerChannelId kanal kodi bo'lsa kanal, shaxsiy havola
+     *                         bo'lsa null. Voronka aynan shu farqqa
+     *                         tayanadi: kanalning ko'rsatkichi shaxsiy
+     *                         havoladan kelganlarni o'z ichiga
+     *                         olmasligi kerak.
+     */
+    public record ResolvedCode(UUID referrerUserId, UUID partnerChannelId) {}
+
     @Transactional(readOnly = true)
-    public Optional<UUID> resolve(String code) {
+    public Optional<ResolvedCode> resolve(String code) {
         if (code == null || code.isBlank()) return Optional.empty();
         String normalised = code.trim().toUpperCase();
 
-        Optional<UUID> user = codes.findByCode(normalised).map(ReferralCode::getUserId);
+        Optional<ResolvedCode> user = codes.findByCode(normalised)
+                .map(c -> new ResolvedCode(c.getUserId(), null));
         if (user.isPresent()) return user;
 
-        return channels.findByLinkCode(normalised).map(PartnerChannel::getPartnerUserId);
+        return channels.findByLinkCode(normalised)
+                .map(c -> new ResolvedCode(c.getPartnerUserId(), c.getId()));
     }
 
     private String freshCode() {

@@ -46,7 +46,8 @@ class PendingReferralTest {
         service = new ReferralService(referrals, codes, mock(ReferralSettingsRepository.class),
                 mock(AuthSummaryClient.class), mock(ReferralRewardClient.class), pending);
 
-        when(codes.resolve("ABCD2345")).thenReturn(Optional.of(referrer));
+        when(codes.resolve("ABCD2345")).thenReturn(
+                Optional.of(new ReferralCodeService.ResolvedCode(referrer, null)));
         when(referrals.findById(any())).thenReturn(Optional.empty());
         when(pending.findById(telegramId))
                 .thenReturn(Optional.of(new PendingReferral(telegramId, "ABCD2345")));
@@ -97,7 +98,8 @@ class PendingReferralTest {
     @Test
     @DisplayName("somebody who tapped their own link is not their own referral")
     void selfReferral() {
-        when(codes.resolve("ABCD2345")).thenReturn(Optional.of(newcomer));
+        when(codes.resolve("ABCD2345")).thenReturn(
+                Optional.of(new ReferralCodeService.ResolvedCode(newcomer, null)));
 
         service.claimOnRegistration(newcomer, telegramId);
 

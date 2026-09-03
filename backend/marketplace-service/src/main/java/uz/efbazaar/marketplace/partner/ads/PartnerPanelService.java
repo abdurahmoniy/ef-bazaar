@@ -49,7 +49,9 @@ public class PartnerPanelService {
                 new PriceBounds(settings.getMinPostPriceSom(), settings.getMaxPostPriceSom()),
                 new ChannelFunnel(
                         clicks.countByPartnerChannelId(channel.getId()),
-                        referrals.countByReferrerUserId(partnerUserId)),
+                        // KANAL bo'yicha, hamkor bo'yicha emas: uning shaxsiy
+                        // taklif havolasidan kelganlar bu voronkaga kirmaydi.
+                        referrals.countByPartnerChannelId(channel.getId())),
                 earnings(channelPosts),
                 channelPosts.stream().map(PartnerPanelService::row).toList());
     }
