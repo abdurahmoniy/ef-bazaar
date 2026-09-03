@@ -10,6 +10,7 @@ import uz.efbazaar.marketplace.partner.PartnerRepositories.PartnerSettingsReposi
 import uz.efbazaar.marketplace.partner.PartnerSettings;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelRepository;
 
+import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.UUID;
@@ -49,8 +50,6 @@ public class PartnerChannelService {
         // ikkinchi kanal ochmasin.
         if (channels.findByApplicationId(application.getId()).isPresent()) return;
 
-        PartnerSettings settings = settings();
-
         PartnerChannel channel = new PartnerChannel();
         channel.setId(UUID.randomUUID());
         channel.setPartnerUserId(application.getUserId());
@@ -64,9 +63,10 @@ public class PartnerChannelService {
                 ? 0 : application.getSubscriberCount());
         channel.setSubscriberSyncedAt(Instant.now());
         channel.setLinkCode(freshCode());
-        // Eng past ruxsat etilgan narxdan boshlaymiz — hamkor uni o'z
-        // panelidan ko'taradi.
-        channel.setPostPriceSom(settings.getMinPostPriceSom());
+        // NOLDAN boshlanadi. Narx hamkorning o'z ishi va u hali
+        // qo'ymagan — "eng kam narx" deb biror qiymat qo'yish uning
+        // nomidan qaror qabul qilish bo'lardi.
+        channel.setPostPriceSom(BigDecimal.ZERO);
         // To'lov sozlamalari BO'SH: kanal global siyosatga ergashadi.
         // Bugungi qiymatni nusxalab olsak, admin siyosatni
         // o'zgartirganda bu kanal eski shartda qolib ketardi.

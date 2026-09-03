@@ -44,11 +44,6 @@ class PartnerChannelServiceTest {
         channels = mock(PartnerChannelRepository.class);
         PartnerSettingsRepository settingsRepository = mock(PartnerSettingsRepository.class);
 
-        PartnerSettings settings = new PartnerSettings();
-        settings.setMinPostPriceSom(new BigDecimal("1000.00"));
-        settings.setMaxPostPriceSom(new BigDecimal("100000.00"));
-        when(settingsRepository.findById(PartnerSettings.SINGLETON_ID)).thenReturn(Optional.of(settings));
-
         when(channels.findByApplicationId(any())).thenReturn(Optional.empty());
         when(channels.existsByLinkCode(anyString())).thenReturn(false);
         when(channels.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -90,12 +85,13 @@ class PartnerChannelServiceTest {
     }
 
     @Test
-    @DisplayName("the channel starts at the lowest price the admin allows")
-    void startsAtTheMinimumPrice() {
-        // Hamkor narxni o'zi qo'yadi. Sozlamagunicha kanali eng arzon
-        // bo'lib turgani, qimmat bo'lib turganidan yaxshiroq.
+    @DisplayName("the channel starts at zero, not at some price nobody chose")
+    void startsAtZero() {
+        // Narx hamkorning o'z ishi va u hali qo'ymagan. Biror
+        // boshlang'ich qiymat qo'yish uning nomidan qaror qabul
+        // qilish bo'lardi, va sotuvchi o'sha qiymatni to'lardi.
         service.onApproved(approvedApplication());
-        assertThat(captureSavedChannel().getPostPriceSom()).isEqualByComparingTo("1000.00");
+        assertThat(captureSavedChannel().getPostPriceSom()).isEqualByComparingTo("0");
     }
 
     @Test

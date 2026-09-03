@@ -31,16 +31,12 @@ public final class PartnerAdDtos {
     /** Hamkorning o'z paneli — spec §7.3 dagi to'rt blok. */
     public record PartnerPanelResponse(
             ChannelSummary channel,
-            PriceBounds priceBounds,
             ChannelFunnel funnel,
             Earnings earnings,
             List<PostRow> posts) {}
 
     public record ChannelSummary(UUID channelId, String title, String username,
                                  int subscriberCount, BigDecimal postPriceSom) {}
-
-    /** Chegaralar KO'RSATILADI, faqat rad etilmaydi: oraliqni ko'rmagan hamkor taxmin qilishga majbur. */
-    public record PriceBounds(BigDecimal minSom, BigDecimal maxSom) {}
 
     /** Kanalning o'z voronkasi — shaxsiy taklif havolasi emas, u /invite da. */
     public record ChannelFunnel(long clicks, long registrations) {}

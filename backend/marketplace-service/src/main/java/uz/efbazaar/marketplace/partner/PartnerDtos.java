@@ -1,6 +1,7 @@
 package uz.efbazaar.marketplace.partner;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -14,16 +15,72 @@ public final class PartnerDtos {
 
     private PartnerDtos() {}
 
-    public record PartnerSettingsResponse(int minSubscribers, BigDecimal priceSom, Instant updatedAt) {
-        public static PartnerSettingsResponse from(PartnerSettings s) {
-            return new PartnerSettingsResponse(s.getMinSubscribers(), s.getPriceSom(), s.getUpdatedAt());
+    public record PartnerSettingsResponse(
+            int minSubscribers,
+            BigDecimal priceSom,
+            String defaultPayoutMode,
+            int defaultTradePercentBp,
+            BigDecimal defaultFixedMonthlySom,
+            /** Referal mukofoti — /admin/referrals dagi bilan BITTA qiymat. */
+            BigDecimal referralRewardSom,
+            Instant updatedAt) {
+
+        public static PartnerSettingsResponse from(PartnerSettings s, BigDecimal referralRewardSom) {
+            return new PartnerSettingsResponse(
+                    s.getMinSubscribers(), s.getPriceSom(),
+                    s.getDefaultPayoutMode(), s.getDefaultTradePercentBp(),
+                    s.getDefaultFixedMonthlySom(), referralRewardSom, s.getUpdatedAt());
         }
     }
 
     public record UpdatePartnerSettingsRequest(
             @NotNull @Min(value = 0, message = "Obunachi soni manfiy bo'lmaydi") Integer minSubscribers,
-            @NotNull @DecimalMin(value = "0.0", message = "Narx manfiy bo'lmaydi") BigDecimal priceSom
+            /** Hamkor bo'lish uchun bir martalik kirish to'lovi. */
+            @NotNull @DecimalMin(value = "0.0", message = "Narx manfiy bo'lmaydi") BigDecimal priceSom,
+
+            /** PERCENT yoki FIXED — barcha hamkorlarga standart. */
+            @NotNull String defaultPayoutMode,
+            /**
+             * Savdo komissiyasidan hamkorga ketadigan ulush, asos punktida.
+             * 1000 = 10%. Foizda emas: 10.5% ni butun songa sig'dirib
+             * bo'lmaydi va kasrli tur yaxlitlash bahsini ochadi.
+             */
+            @NotNull @Min(0) @Max(10000) Integer defaultTradePercentBp,
+            @NotNull @DecimalMin("0.0") BigDecimal defaultFixedMonthlySom,
+
+            /**
+             * Referal mukofoti — HAMMA foydalanuvchi uchun, faqat
+             * hamkorlar uchun emas. Bu yerda ham ko'rinadi, chunki
+             * hamkor ham referal qiladi va admin uni shu ekranda
+             * o'zgartira olishi kerak; qiymat esa /admin/referrals
+             * bilan BITTA.
+             */
+            @NotNull @DecimalMin("0.0") BigDecimal referralRewardSom
     ) {}
+
+    /** Bitta hamkorga alohida shart. null = global sozlamaga ergashadi. */
+    public record UpdateChannelPayoutRequest(
+            String payoutMode,
+            @Min(0) @Max(10000) Integer tradePercentBp,
+            @DecimalMin("0.0") BigDecimal fixedMonthlySom
+    ) {}
+
+    /** Sozlash tabidagi bitta qator. */
+    public record ChannelPayoutRow(
+            UUID channelId,
+            String title,
+            UUID partnerUserId,
+            boolean active,
+            /** Kanalning o'z qiymatlari — null bo'lsa globalga ergashadi. */
+            String payoutMode,
+            Integer tradePercentBp,
+            BigDecimal fixedMonthlySom,
+            /** Amalda qo'llanadigan qiymatlar — global bilan birlashtirilgan. */
+            String effectivePayoutMode,
+            int effectiveTradePercentBp,
+            BigDecimal effectiveFixedMonthlySom,
+            /** Hamkorning o'zi qo'ygan post narxi — admin o'zgartirmaydi. */
+            BigDecimal postPriceSom) {}
 
     /**
      * Botdan keladigan kanal tekshiruvi.

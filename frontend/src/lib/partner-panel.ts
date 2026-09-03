@@ -8,11 +8,6 @@ export interface ChannelSummary {
   postPriceSom: number;
 }
 
-export interface PriceBounds {
-  minSom: number;
-  maxSom: number;
-}
-
 export interface ChannelFunnel {
   clicks: number;
   registrations: number;
@@ -35,21 +30,19 @@ export interface PostRow {
 
 export interface PartnerPanel {
   channel: ChannelSummary;
-  priceBounds: PriceBounds;
   funnel: ChannelFunnel;
   earnings: Earnings;
   posts: PostRow[];
 }
 
 /**
- * Narx admin qo'ygan oraliqda bo'lishi kerak.
+ * Narx hamkorning o'z ishi — yuqori chegara yo'q.
  *
- * <p>Chegaralar ekranda KO'RSATILADI, faqat rad etilmaydi: oraliqni
- * ko'rmagan hamkor nima uchun rad etilganini taxmin qilishga majbur.
+ * <p>Qimmat kanal shunchaki tanlanmaydi, va buni bozorning o'zi hal
+ * qiladi. Manfiy narx esa narx emas: u sotuvchiga pul to'lash bo'lardi.
  */
-export function priceWithinBounds(price: number, bounds: PriceBounds): boolean {
-  if (!Number.isFinite(price)) return false;
-  return price >= bounds.minSom && price <= bounds.maxSom;
+export function isValidPostPrice(price: number): boolean {
+  return Number.isFinite(price) && price >= 0;
 }
 
 /** Postning holati hamkorga nima deyishi. */

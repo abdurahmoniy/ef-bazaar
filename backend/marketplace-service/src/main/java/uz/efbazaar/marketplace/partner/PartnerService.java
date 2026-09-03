@@ -54,6 +54,9 @@ public class PartnerService {
     private final PartnerEventPublisher events;
     private final PartnerFeeClient fees;
     private final uz.efbazaar.marketplace.partner.ads.PartnerChannelService partnerChannels;
+    private final uz.efbazaar.marketplace.referral.ReferralService referrals;
+    private final uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelRepository channels;
+    private final uz.efbazaar.marketplace.partner.ads.PartnerPayoutPolicy payoutPolicy;
 
     // ----- sozlamalar -----
 
@@ -69,11 +72,67 @@ public class PartnerService {
         PartnerSettings s = settings();
         s.setMinSubscribers(request.minSubscribers());
         s.setPriceSom(request.priceSom());
+        s.setDefaultPayoutMode(request.defaultPayoutMode());
+        s.setDefaultTradePercentBp(request.defaultTradePercentBp());
+        s.setDefaultFixedMonthlySom(request.defaultFixedMonthlySom());
         s.setUpdatedAt(Instant.now());
         s.setUpdatedBy(adminId);
-        log.info("Partner settings updated by admin={} minSubscribers={} price={}",
-                adminId, request.minSubscribers(), request.priceSom());
+
+        // Referal mukofoti hamkorlarga xos emas — u har bir
+        // foydalanuvchi uchun. Shu ekrandan ham tahrirlanadi, lekin
+        // QIYMAT BITTA: referral_settings jadvalidagi o'sha qator.
+        // Ikkinchi nusxa bo'lsa, ikki ekran vaqt o'tib bir-biriga zid
+        // raqam ko'rsatardi.
+        referrals.updateSettings(request.referralRewardSom(), adminId);
+
+        log.info("Partner settings updated by admin={} minSubscribers={} price={} mode={} bp={}",
+                adminId, request.minSubscribers(), request.priceSom(),
+                request.defaultPayoutMode(), request.defaultTradePercentBp());
         return s;
+    }
+
+    /**
+     * Sozlamalar javobi — referal mukofoti bilan birga.
+     *
+     * <p>Mukofot boshqa jadvalda va boshqa bo'limdan ham tahrirlanadi;
+     * bu yerda faqat O'QILADI va bitta manbadan keladi.
+     */
+    @Transactional(readOnly = true)
+    public uz.efbazaar.marketplace.partner.PartnerDtos.PartnerSettingsResponse settingsResponse() {
+        return uz.efbazaar.marketplace.partner.PartnerDtos.PartnerSettingsResponse.from(
+                settings(), referrals.settings().getRewardSom());
+    }
+
+    /** Bitta kanalga alohida shart. null maydon — globalga ergashish. */
+    @Transactional
+    public PartnerChannel updateChannelPayout(UUID channelId,
+                                              uz.efbazaar.marketplace.partner.PartnerDtos.UpdateChannelPayoutRequest request,
+                                              UUID adminId) {
+        PartnerChannel channel = channels.findById(channelId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Kanal topilmadi"));
+
+        channel.setPayoutMode(request.payoutMode());
+        channel.setTradePercentBp(request.tradePercentBp());
+        channel.setFixedMonthlySom(request.fixedMonthlySom());
+        channels.save(channel);
+
+        log.info("Kanal {} to'lov sharti admin {} tomonidan o'zgartirildi: mode={} bp={} oylik={}",
+                channelId, adminId, request.payoutMode(), request.tradePercentBp(),
+                request.fixedMonthlySom());
+        return channel;
+    }
+
+    /** Sozlash tabidagi ro'yxat: kanalning o'z qiymati va amaldagi qiymat. */
+    @Transactional(readOnly = true)
+    public java.util.List<uz.efbazaar.marketplace.partner.PartnerDtos.ChannelPayoutRow> channelPayouts() {
+        return channels.findAll().stream().map(c -> {
+            var effective = payoutPolicy.resolve(c);
+            return new uz.efbazaar.marketplace.partner.PartnerDtos.ChannelPayoutRow(
+                    c.getId(), c.getTitle(), c.getPartnerUserId(), c.isActive(),
+                    c.getPayoutMode(), c.getTradePercentBp(), c.getFixedMonthlySom(),
+                    effective.mode().name(), effective.tradePercentBp(), effective.fixedMonthlySom(),
+                    c.getPostPriceSom());
+        }).toList();
     }
 
     // ----- foydalanuvchi tomoni -----

@@ -111,16 +111,14 @@ class PartnerAdSchemaIT {
 
         assertThat(settings.getDefaultPayoutMode()).isEqualTo("PERCENT");
         assertThat(settings.getDefaultTradePercentBp()).isEqualTo(1000);
-        assertThat(settings.getMinPostPriceSom()).isEqualByComparingTo("1000");
-        assertThat(settings.getMaxPostPriceSom()).isEqualByComparingTo("100000");
+        assertThat(settings.getDefaultFixedMonthlySom()).isEqualByComparingTo("0");
     }
 
     @Test
-    @DisplayName("bounds that cross are rejected")
-    void crossedBoundsRejected() {
+    @DisplayName("a payout percentage above 100% is rejected on the global settings too")
+    void globalPercentCeiling() {
         PartnerSettings settings = settingsRepository.findById(PartnerSettings.SINGLETON_ID).orElseThrow();
-        settings.setMinPostPriceSom(new BigDecimal("50000"));
-        settings.setMaxPostPriceSom(new BigDecimal("1000"));
+        settings.setDefaultTradePercentBp(10_001);
 
         assertThatThrownBy(() -> settingsRepository.saveAndFlush(settings))
                 .isInstanceOf(DataIntegrityViolationException.class);

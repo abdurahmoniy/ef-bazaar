@@ -8,7 +8,7 @@ import {
   formatSom,
   getPartnerPanel,
   postStateLabel,
-  priceWithinBounds,
+  isValidPostPrice,
   updatePostPrice,
   type PartnerPanel,
 } from '@/lib/partner-panel';
@@ -42,10 +42,8 @@ export function PartnerPanelBlocks() {
   async function save() {
     if (!panel) return;
     const value = Number(price);
-    if (!priceWithinBounds(value, panel.priceBounds)) {
-      setError(
-        `Narx ${formatSom(panel.priceBounds.minSom)} — ${formatSom(panel.priceBounds.maxSom)} so'm oralig'ida bo'lishi kerak`,
-      );
+    if (!isValidPostPrice(value)) {
+      setError("Narx manfiy bo'lishi mumkin emas");
       return;
     }
     setError(null);
@@ -94,14 +92,13 @@ export function PartnerPanelBlocks() {
           Kanalga e&apos;lon joylash narxi
         </h2>
         <p className="text-xs text-muted-foreground">
-          Sotuvchi e&apos;lonini kanalingizda chiqarish uchun shuncha to&apos;laydi. Ruxsat etilgan
-          oraliq: {formatSom(panel.priceBounds.minSom)} — {formatSom(panel.priceBounds.maxSom)} so&apos;m.
+          Sotuvchi e&apos;lonini kanalingizda chiqarish uchun shuncha to&apos;laydi. Narxni
+          o&apos;zingiz belgilaysiz. <strong>0</strong> — kanalingizga bepul joylanadi.
         </p>
         <div className="flex items-center gap-2">
           <input
             type="number"
-            min={panel.priceBounds.minSom}
-            max={panel.priceBounds.maxSom}
+            min={0}
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             aria-label="Post narxi (so'm)"

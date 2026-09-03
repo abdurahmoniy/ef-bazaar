@@ -50,13 +50,6 @@ public class PartnerSettings {
     @Column(name = "default_fixed_monthly_som", nullable = false)
     private BigDecimal defaultFixedMonthlySom = BigDecimal.ZERO;
 
-    /** Hamkor post narxini shu oraliqda erkin qo'yadi. */
-    @Column(name = "min_post_price_som", nullable = false)
-    private BigDecimal minPostPriceSom;
-
-    @Column(name = "max_post_price_som", nullable = false)
-    private BigDecimal maxPostPriceSom;
-
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 

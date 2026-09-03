@@ -6,15 +6,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.marketplace.partner.PartnerChannel;
-import uz.efbazaar.marketplace.partner.PartnerRepositories.PartnerSettingsRepository;
-import uz.efbazaar.marketplace.partner.PartnerSettings;
 import uz.efbazaar.marketplace.partner.ads.ListingChannelPost.State;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.ChannelFunnel;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.ChannelSummary;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.Earnings;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.PartnerPanelResponse;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.PostRow;
-import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.PriceBounds;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.ListingChannelPostRepository;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelRepository;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerClickRepository;
@@ -33,12 +30,10 @@ public class PartnerPanelService {
     private final ListingChannelPostRepository posts;
     private final PartnerClickRepository clicks;
     private final ReferralRepository referrals;
-    private final PartnerSettingsRepository settingsRepository;
 
     @Transactional(readOnly = true)
     public PartnerPanelResponse panelFor(UUID partnerUserId) {
         PartnerChannel channel = requireChannel(partnerUserId);
-        PartnerSettings settings = settings();
 
         List<ListingChannelPost> channelPosts =
                 posts.findByPartnerChannelIdOrderByCreatedAtDesc(channel.getId());
@@ -46,7 +41,6 @@ public class PartnerPanelService {
         return new PartnerPanelResponse(
                 new ChannelSummary(channel.getId(), channel.getTitle(), channel.getUsername(),
                         channel.getSubscriberCount(), channel.getPostPriceSom()),
-                new PriceBounds(settings.getMinPostPriceSom(), settings.getMaxPostPriceSom()),
                 new ChannelFunnel(
                         clicks.countByPartnerChannelId(channel.getId()),
                         // KANAL bo'yicha, hamkor bo'yicha emas: uning shaxsiy
@@ -59,21 +53,18 @@ public class PartnerPanelService {
     /**
      * Post narxini o'zgartiradi.
      *
-     * <p>Chegaradan chiqsa rad javobi ORALIQNI AYTADI: "juda katta"
-     * degan xabar hamkorni taxmin qilishga majbur qiladi.
+     * <p>Yuqori chegara YO'Q — narx hamkorning o'z ishi. Qimmat kanal
+     * shunchaki tanlanmaydi, va bu bozorning o'zi hal qiladigan narsa.
+     *
+     * <p>Manfiy narx esa narx emas: u sotuvchiga pul to'lash bo'lardi.
      */
     @Transactional
     public PartnerChannel updatePostPrice(UUID partnerUserId, BigDecimal priceSom) {
-        PartnerChannel channel = requireChannel(partnerUserId);
-        PartnerSettings settings = settings();
-
-        if (priceSom.compareTo(settings.getMinPostPriceSom()) < 0
-                || priceSom.compareTo(settings.getMaxPostPriceSom()) > 0) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Narx " + settings.getMinPostPriceSom().toBigInteger()
-                            + " dan " + settings.getMaxPostPriceSom().toBigInteger()
-                            + " so'mgacha bo'lishi kerak");
+        if (priceSom == null || priceSom.signum() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Narx manfiy bo'lishi mumkin emas");
         }
+        PartnerChannel channel = requireChannel(partnerUserId);
         channel.setPostPriceSom(priceSom);
         return channels.save(channel);
     }
@@ -105,8 +96,4 @@ public class PartnerPanelService {
                         "Faol hamkor kanali topilmadi"));
     }
 
-    private PartnerSettings settings() {
-        return settingsRepository.findById(PartnerSettings.SINGLETON_ID)
-                .orElseThrow(() -> new IllegalStateException("partner_settings qatori yo'q"));
-    }
 }
