@@ -1,6 +1,7 @@
 package uz.efbazaar.payment.wallet.controller;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
@@ -47,9 +48,17 @@ public class InternalTradeEscrowController {
                               @NotNull @PositiveOrZero Long priceTiyin,
                               Long feeBaseTiyin) {}
 
+    /**
+     * {@code partnerUserId} and {@code partnerPercentBp} are the advertising
+     * partner the trade was attributed to, and the rate stamped on it when it
+     * opened. Both are nullable: a trade that came through no channel, and a
+     * replayed request written before advertising existed, send neither.
+     */
     public record SettleRequest(@NotNull UUID buyerId, @NotNull UUID sellerId,
                                 @NotNull @PositiveOrZero Long priceTiyin,
-                                Long feeBaseTiyin) {}
+                                Long feeBaseTiyin,
+                                UUID partnerUserId,
+                                @PositiveOrZero @Max(10_000) Integer partnerPercentBp) {}
 
     public record ReleaseRequest(@NotNull UUID buyerId, UUID sellerId,
                                  @NotNull @PositiveOrZero Long priceTiyin,
@@ -72,7 +81,11 @@ public class InternalTradeEscrowController {
     @PostMapping("/settle")
     public EscrowResult settle(@PathVariable UUID tradeId, @Valid @RequestBody SettleRequest req) {
         long base = feeBase(req.feeBaseTiyin(), req.priceTiyin());
-        escrow.settle(tradeId, req.buyerId(), req.sellerId(), req.priceTiyin(), base);
+        escrow.settle(tradeId, req.buyerId(), req.sellerId(), req.priceTiyin(), base,
+                req.partnerUserId(),
+                req.partnerPercentBp() == null ? 0 : req.partnerPercentBp());
+        // The quote is unchanged: the partner's share comes out of the
+        // platform's half of the fee, so what the seller receives is the same.
         return quote(req.priceTiyin(), base);
     }
 
