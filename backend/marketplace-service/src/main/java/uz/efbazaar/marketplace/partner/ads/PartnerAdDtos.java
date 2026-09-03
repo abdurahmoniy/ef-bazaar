@@ -53,6 +53,25 @@ public final class PartnerAdDtos {
     public record PostRow(UUID postId, UUID listingId, String state,
                           BigDecimal priceSom, Instant createdAt, Instant postedAt) {}
 
+    /**
+     * Adminka voronkasining bitta qatori.
+     *
+     * <p>VORONKA — asosiy narsa. Ko'p bosilish va savdosiz kanal, umuman
+     * bosilmagan kanaldan BOSHQA muammo, va bitta daromad ustuni
+     * adminga ularning qaysi biri ekanini ayta olmaydi.
+     */
+    public record PartnerFunnelRow(
+            UUID channelId,
+            String title,
+            int subscriberCount,
+            boolean active,
+            long clicks,
+            long registrations,
+            long postsOrdered,
+            long postsDelivered,
+            long postsRefunded,
+            BigDecimal revenueSom) {}
+
     public record UpdatePostPriceRequest(
             @jakarta.validation.constraints.NotNull
             @jakarta.validation.constraints.PositiveOrZero BigDecimal priceSom) {}

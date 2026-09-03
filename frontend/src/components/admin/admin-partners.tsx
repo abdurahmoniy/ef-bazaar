@@ -14,6 +14,7 @@ import {
   XCircle,
 } from 'lucide-react';
 
+import { AdminPartnerAnalytics } from '@/components/admin/admin-partner-analytics';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,7 +31,7 @@ import {
 } from '@/lib/partners';
 import { cn } from '@/lib/utils';
 
-type TabId = 'applications' | 'settings';
+type TabId = 'applications' | 'settings' | 'analytics';
 
 const STATUS_LABEL: Record<PartnerApplicationStatus, { label: string; className: string }> = {
   AWAITING_CHANNEL: { label: 'Kanal kutilmoqda', className: 'bg-muted text-muted-foreground' },
@@ -69,6 +70,7 @@ export function AdminPartners() {
           {([
             { id: 'applications' as const, label: 'Arizalar' },
             { id: 'settings' as const, label: 'Shartlar' },
+            { id: 'analytics' as const, label: 'Voronka' },
           ]).map((item) => (
             <button
               key={item.id}
@@ -87,7 +89,9 @@ export function AdminPartners() {
         </div>
       </nav>
 
-      {tab === 'applications' ? <Applications /> : <Settings />}
+      {tab === 'applications' && <Applications />}
+      {tab === 'settings' && <Settings />}
+      {tab === 'analytics' && <AdminPartnerAnalytics />}
     </div>
   );
 }

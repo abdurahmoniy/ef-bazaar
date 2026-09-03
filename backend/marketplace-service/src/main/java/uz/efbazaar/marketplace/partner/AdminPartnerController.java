@@ -33,7 +33,20 @@ import java.util.UUID;
 public class AdminPartnerController {
 
     private final PartnerService service;
+    private final uz.efbazaar.marketplace.partner.ads.PartnerAnalyticsService analytics;
     private final AdminBadgeService badges;
+
+    /**
+     * Kanal kesimidagi voronka: bosilish → ro'yxat → post → daromad.
+     *
+     * <p>Bitta daromad ustuni adminga kanal nima uchun ishlamayotganini
+     * ayta olmaydi — ko'p bosilib savdosiz qolgani boshqa muammo,
+     * umuman bosilmagani boshqa.
+     */
+    @GetMapping("/analytics")
+    public java.util.List<uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.PartnerFunnelRow> analytics() {
+        return analytics.funnel();
+    }
 
     @GetMapping("/settings")
     public PartnerSettingsResponse settings() {
