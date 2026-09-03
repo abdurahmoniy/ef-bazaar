@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import {
   AlertCircle,
+  ArrowRight,
   Check,
   CheckCircle2,
   Clock,
@@ -226,9 +228,20 @@ export function PartnershipFlow({ botUsername }: PartnershipFlowProps) {
         <p className="text-sm text-muted-foreground">
           {application.channelTitle} kanali hamkorlikka qabul qilindi.
         </p>
-        <p className="text-xs text-muted-foreground">
-          Hamkorlikni to&apos;xtatish hamkor panelidagi xavfli hududda.
-        </p>
+        {/*
+          Havola SHART. Bu matn hamkor panelini tilga oladi, ya'ni odam
+          uni qidiradi — va topa olmasa, aytilgan joy mavjud emasdek
+          tuyuladi. Menyuda havola bor, lekin bu yerda nomi aytilib
+          havolasi berilmasligi o'quvchini boshi berk ko'chaga olib
+          kiradi.
+        */}
+        <Link
+          href="/partner"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+        >
+          Hamkor paneliga o&apos;tish
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
     );
   }
