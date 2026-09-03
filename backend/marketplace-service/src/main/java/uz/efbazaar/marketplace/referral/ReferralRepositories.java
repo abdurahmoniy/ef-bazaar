@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -55,5 +56,15 @@ public final class ReferralRepositories {
 
     public interface ReferralSettingsRepository extends JpaRepository<ReferralSettings, Short> {}
 
-    public interface PendingReferralRepository extends JpaRepository<PendingReferral, Long> {}
+    public interface PendingReferralRepository extends JpaRepository<PendingReferral, Long> {
+
+        /**
+         * Ro'yxatdan o'tishga aylanmagan eski kodlarni tozalaydi.
+         *
+         * <p>Botdagi havolani bosgan har bir odam ro'yxatdan o'tmaydi —
+         * ko'pchiligi shunchaki qarab chiqadi. Ularning qatorlarini
+         * o'chiradigan hech narsa yo'q edi, ya'ni jadval faqat o'sardi.
+         */
+        long deleteByCreatedAtBefore(Instant cutoff);
+    }
 }

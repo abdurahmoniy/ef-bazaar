@@ -113,11 +113,23 @@ class ReferralServiceTest {
     }
 
     @Test
-    @DisplayName("auth being unreachable is not treated as a fresh account")
-    void authFailureDoesNotClaim() {
-        // Xato yutilib "yangi akkount" deb hisoblansa, auth o'chgan paytda
-        // har qanday eski foydalanuvchi referalga aylanib qolardi.
-        when(users.resolve(newcomer)).thenThrow(new RuntimeException("auth down"));
+    @DisplayName("auth giving nothing back is not treated as a fresh account")
+    void authSilenceDoesNotClaim() {
+        // AuthSummaryClient xato OTMAYDI — u hamma narsani yutib bo'sh
+        // natija qaytaradi, va internal-secret sozlanmagan bo'lsa
+        // so'rov ham yubormaydi. Bo'sh natija "yangi" deb qabul
+        // qilinsa, auth o'chgan yoki noto'g'ri sozlangan paytda har
+        // qanday eski foydalanuvchi referalga aylanib qolardi.
+        when(users.resolve(newcomer)).thenReturn(Optional.empty());
+        assertThat(service.claim(newcomer, "GOODCODE")).isFalse();
+        verify(referrals, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("an account with no createdAt is refused rather than assumed new")
+    void missingCreatedAtDoesNotClaim() {
+        when(users.resolve(newcomer)).thenReturn(Optional.of(new UserSummary(
+                newcomer, "Yangi", null, null, false, null, false)));
         assertThat(service.claim(newcomer, "GOODCODE")).isFalse();
         verify(referrals, never()).save(any());
     }

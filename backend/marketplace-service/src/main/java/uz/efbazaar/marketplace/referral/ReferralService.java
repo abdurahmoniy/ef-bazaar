@@ -57,8 +57,20 @@ public class ReferralService {
     private final ReferralRewardClient rewards;
     private final PendingReferralRepository pending;
 
-    /** @return qator yozilgan bo'lsa true. Rad etish xato emas — sukut. */
-    @Transactional
+    /**
+     * @return qator yozilgan bo'lsa true. Rad etish xato emas — sukut.
+     *
+     * <p>ATAYLAB {@code @Transactional} EMAS, ikki sabab bilan.
+     *
+     * <p>Birinchisi: kalit qo'lda beriladi, shuning uchun Hibernate
+     * INSERT'ni flush'gacha kechiktiradi. O'rab turuvchi tranzaksiya
+     * bo'lsa u commit paytida otardi — quyidagi catch'dan keyin — va
+     * bir vaqtda kelgan ikki da'vodan yutqazgani 500 olardi.
+     *
+     * <p>Ikkinchisi: {@link #isFreshAccount} auth-service'ga HTTP so'rov
+     * qiladi. Tranzaksiya ichida bo'lsa, DB ulanishi o'sha so'rov
+     * davomida band turadi — havzada bor-yo'g'i sakkizta ulanish bor.
+     */
     public boolean claim(UUID claimantId, String code) {
         Optional<UUID> referrer = codes.resolve(code);
         if (referrer.isEmpty()) return false;
@@ -81,21 +93,30 @@ public class ReferralService {
     /**
      * Akkount da'vo oynasi ichida yaratilganmi.
      *
-     * <p>auth-service javob bermasa YANGI DEB HISOBLANMAYDI. Xatoni
-     * yutib "ha, yangi" desak, auth o'chgan paytda har qanday eski
-     * foydalanuvchi referalga aylanib qolardi. Bu holatda referalni
-     * yo'qotamiz — noto'g'ri biriktirishdan ko'ra arzonroq.
+     * <p>auth-service javob bermasa YANGI DEB HISOBLANMAYDI. "Ha, yangi"
+     * desak, auth o'chgan paytda har qanday eski foydalanuvchi referalga
+     * aylanib qolardi. Bu holatda referalni yo'qotamiz — noto'g'ri
+     * biriktirishdan ko'ra arzonroq.
+     *
+     * <p>{@code AuthSummaryClient} XATO OTMAYDI: u ichida hamma narsani
+     * yutadi va bo'sh natija qaytaradi, {@code app.auth.internal-secret}
+     * umuman sozlanmagan bo'lsa esa so'rov ham yubormaydi. Ya'ni
+     * "foydalanuvchi topilmadi", "auth o'chgan" va "sir sozlanmagan"
+     * bu yerda bir xil ko'rinadi. Oxirgisi — butun veb yo'lini jimgina
+     * o'ldiradigan noto'g'ri sozlama, shuning uchun uni jurnalda
+     * ko'rsatamiz: aks holda "nega hech kim referal bo'lmayapti" degan
+     * savolga hech qanday iz qolmaydi.
      */
     private boolean isFreshAccount(UUID userId) {
-        try {
-            return users.resolve(userId)
-                    .map(u -> u.createdAt() != null
-                            && u.createdAt().isAfter(Instant.now().minus(CLAIM_WINDOW)))
-                    .orElse(false);
-        } catch (RuntimeException e) {
-            log.warn("Akkount yoshini aniqlab bo'lmadi, referal yozilmadi: {}", userId, e);
+        Optional<UserSummary> summary = users.resolve(userId);
+        if (summary.isEmpty()) {
+            log.warn("Referal da'vosi rad etildi: {} uchun auth-service ma'lumot bermadi "
+                    + "(foydalanuvchi yo'q, auth javob bermadi, yoki internal-secret sozlanmagan)",
+                    userId);
             return false;
         }
+        Instant createdAt = summary.get().createdAt();
+        return createdAt != null && createdAt.isAfter(Instant.now().minus(CLAIM_WINDOW));
     }
 
     /**
@@ -109,9 +130,15 @@ public class ReferralService {
      * ular bir-biriga bog'liq emas, va biri tufayli ikkinchisini
      * yo'qotish sababsiz zarar.
      */
-    @Transactional
     public void rewardFor(UUID tradeId, UUID buyerId, UUID sellerId) {
         BigDecimal amount = settings().getRewardSom();
+        // Nol mukofotda hech narsa qilmaymiz — MUHRLAMAYMIZ ham. Admin
+        // summani vaqtincha nolga tushirib, keyin qaytarsa, o'sha
+        // oradagi savdolar "to'langan" deb muhrlanib qolardi va ularga
+        // hech qachon to'lab bo'lmasdi: "birinchi savdo" muhri bir
+        // martalik.
+        if (amount == null || amount.signum() <= 0) return;
+
         rewardParty(tradeId, buyerId, amount);
         // Bir odam ikkala tarafda bo'lishi g'alati, lekin mumkin. Ikki
         // marta to'lash — yo'q: mukofot bir odamni olib kelgani uchun.
@@ -177,21 +204,32 @@ public class ReferralService {
                 && referrals.findById(userId).isEmpty();
 
         if (usable) {
-            try {
-                referrals.save(new Referral(userId, referrer.get(), null));
-                log.info("Referal botdan yozildi: {} -> {}", referrer.get(), userId);
-            } catch (DataIntegrityViolationException e) {
-                log.debug("Referal allaqachon yozilgan: {}", userId);
-            }
+            // Bu yerda catch YO'Q, va ataylab. Kalit qo'lda berilgani
+            // uchun INSERT commit paytida otadi — catch baribir
+            // ishlamasdi, ustiga tranzaksiya rollback-only bo'lib
+            // qolgani uchun quyidagi o'chirish ham bekor qilinardi.
+            //
+            // Poyga o'zi tuzaladi: tranzaksiya orqaga qaytadi, Kafka
+            // yozuvni qayta yetkazadi, va ikkinchi urinishda yuqoridagi
+            // findById g'olibning qatorini topib `usable` ni false
+            // qiladi — qator yozilmaydi, kutilayotgani o'chiriladi,
+            // commit o'tadi.
+            referrals.save(new Referral(userId, referrer.get(), null));
+            log.info("Referal botdan yozildi: {} -> {}", referrer.get(), userId);
         }
-        // Qator HAR HOLDA o'chiriladi. Ishlatilmagan bo'lsa ham u endi
-        // hech qachon ishlamaydi — bu telegram_id bir marta ro'yxatdan
-        // o'tadi — va qolib ketsa jadval o'sib boraveradi.
+        // Qator o'chiriladi: ishlatilmagan bo'lsa ham u endi hech qachon
+        // ishlamaydi — bu telegram_id bir marta ro'yxatdan o'tadi — va
+        // qolib ketsa jadval o'sib boraveradi.
         pending.deleteById(telegramId);
     }
 
-    /** Foydalanuvchining o'z taklif sahifasi. */
-    @Transactional
+    /**
+     * Foydalanuvchining o'z taklif sahifasi.
+     *
+     * <p>Tranzaksiyasiz: {@link ReferralCodeService#codeFor} kodni
+     * birinchi murojaatda yaratadi va poygani o'zi hal qiladi — buning
+     * uchun uning yozuvi o'z tranzaksiyasida tugashi kerak.
+     */
     public MyReferralsResponse myReferrals(UUID userId) {
         String code = codes.codeFor(userId);
         List<Referral> rows = referrals.findByReferrerUserIdOrderByCreatedAtDesc(userId);

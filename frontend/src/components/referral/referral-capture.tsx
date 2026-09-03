@@ -19,11 +19,19 @@ export function ReferralCapture({ authenticated }: { authenticated: boolean }) {
     const code = readCookieCode(document.cookie);
     if (!code) return;
 
-    void claimReferral(code).finally(() => {
-      // Natijadan qat'i nazar o'chiramiz: kod bir marta da'vo qilinadi
-      // va rad javobi qayta urinishdan o'zgarmaydi.
-      document.cookie = `${REFERRAL_COOKIE}=; path=/; max-age=0`;
-    });
+    claimReferral(code)
+      .then(() => {
+        // Faqat SERVER JAVOB BERGANDA o'chiramiz. Javob "rad etildi"
+        // bo'lsa ham o'chiriladi — kod eskirgan yoki odam allaqachon
+        // taklif qilingan, qayta urinish buni o'zgartirmaydi.
+        document.cookie = `${REFERRAL_COOKIE}=; path=/; max-age=0`;
+      })
+      .catch(() => {
+        // Tarmoq uzilgan: so'rov serverga umuman yetib bormadi.
+        // Cookie QOLDIRILADI — bir soatlik oyna hali ochiq va keyingi
+        // sahifada yana urinamiz. Bu yerda o'chirsak, referal hech
+        // qanday sabab bo'lmasa ham butunlay yo'qolardi.
+      });
   }, [authenticated]);
 
   return null;

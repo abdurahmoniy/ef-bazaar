@@ -157,6 +157,28 @@ class ReferralRewardTest {
     }
 
     @Test
+    @DisplayName("a zero reward pays nothing and leaves the row still claimable")
+    void zeroRewardDoesNotSealTheRow() {
+        ReferralSettingsRepository zeroed = mock(ReferralSettingsRepository.class);
+        ReferralSettings s = new ReferralSettings();
+        s.setRewardSom(BigDecimal.ZERO);
+        when(zeroed.findById(ReferralSettings.SINGLETON_ID)).thenReturn(Optional.of(s));
+
+        Referral row = unrewarded(buyer, buyersReferrer);
+        when(referrals.findById(buyer)).thenReturn(Optional.of(row));
+
+        var svc = new ReferralService(referrals, mock(ReferralCodeService.class), zeroed,
+                mock(AuthSummaryClient.class), rewards, mock(PendingReferralRepository.class));
+        svc.rewardFor(trade, buyer, seller);
+
+        verify(rewards, never()).reward(any(), any(), any());
+        // Muhrlangan bo'lsa, admin summani qaytargach ham bu odamga
+        // hech qachon to'lab bo'lmasdi — muhr bir martalik.
+        assertThat(row.getRewardedAt()).isNull();
+        assertThat(row.getRewardSom()).isNull();
+    }
+
+    @Test
     @DisplayName("a trade somebody made with themselves pays once, not twice")
     void samePartyOnBothSides() {
         when(referrals.findById(buyer)).thenReturn(Optional.of(unrewarded(buyer, buyersReferrer)));
