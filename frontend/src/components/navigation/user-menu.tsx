@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Handshake, Heart, HelpCircle, LogOut, Mail, Moon, Package, ShieldCheck, Sun, UserCog, UserRound, Wallet } from 'lucide-react';
+import { Handshake, Heart, HelpCircle, LogOut, Mail, Moon, Package, ShieldCheck, Sun, UserCog, UserPlus, UserRound, Wallet } from 'lucide-react';
 
 import { FEATURES } from '@/lib/feature-flags';
 
@@ -148,6 +148,10 @@ export function UserMenu({ user, className }: UserMenuProps) {
             >
               <Handshake className="h-4 w-4 text-muted-foreground" />
               {partner ? 'Hamkor admin paneli' : "Hamkor bo'lish"}
+            </Link>
+            <Link href="/invite" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
+              <UserPlus className="h-4 w-4 text-muted-foreground" />
+              Do&apos;st taklif qilish
             </Link>
             <Link href="/help" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
               <HelpCircle className="h-4 w-4 text-muted-foreground" />

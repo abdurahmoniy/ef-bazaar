@@ -34,6 +34,7 @@ describe('user menu', () => {
 
   it.each([
     ['/hamyon', 'Hamyon'],
+    ['/invite', "Do'st taklif qilish"],
     ['/mail', 'Pochta'],
     ['/help', 'Yordam'],
   ])('links to %s', (href) => {
