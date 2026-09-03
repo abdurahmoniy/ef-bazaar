@@ -226,6 +226,15 @@ export interface MaxOvrRefreshResponse {
   changed: number;
 }
 
+/**
+ * A full sync answers before it finishes — it scrapes player pages 5s apart —
+ * so this reports only whether the run was dispatched. The result itself lands
+ * in the Telegram log channel.
+ */
+export interface CardSyncTriggerResponse {
+  status: 'STARTED' | 'ALREADY_RUNNING';
+}
+
 /** One position on the pitch. `card` is absent while the slot is empty. */
 export interface DreamTeamSlot {
   index: number;

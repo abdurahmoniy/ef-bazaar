@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
-import { CalendarClock, Check, RefreshCw, Search, Sparkles, Users } from 'lucide-react';
+import { CalendarClock, Check, DownloadCloud, RefreshCw, Search, Sparkles, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import {
   adminExpireCardMeta,
   adminRefreshMaxOvr,
   adminSetCardMetaTier,
+  adminTriggerCardSync,
 } from '@/lib/marketplace-actions';
 import { cardRating } from '@/lib/marketplace-types';
 import type { AdminCardSearchResult, CardType, MetaTier } from '@/lib/marketplace-types';
@@ -140,6 +141,32 @@ export function AdminPlayers({ cards, total, query, activeType, activeTier }: Ad
     });
   }
 
+  /**
+   * Fire-and-forget: the run outlives this request, so all we can report is
+   * that it started. The card list is unchanged for minutes yet, hence no
+   * router.refresh() here.
+   */
+  function triggerSync() {
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const result = await adminTriggerCardSync();
+      if (!result.ok) {
+        setError(
+          result.status === 409
+            ? 'Sync allaqachon ishlayapti — tugashini kuting'
+            : result.message,
+        );
+        return;
+      }
+      setNotice(
+        result.data.status === 'ALREADY_RUNNING'
+          ? 'Sync allaqachon ishlayapti — tugashini kuting'
+          : "Sync boshlandi. Yangi kartalar bir necha daqiqada qo'shiladi, natija Telegram log kanaliga tushadi.",
+      );
+    });
+  }
+
   const selectedIds = [...selected];
   const metaCount = cards.filter((card) => card.metaTier === 'META').length;
   const visibleCards = useMemo(() => {
@@ -155,10 +182,16 @@ export function AdminPlayers({ cards, total, query, activeType, activeTier }: Ad
         <p className="text-sm font-semibold text-muted-foreground">
           Jami: {total} ta karta · shu sahifada {metaCount} ta META
         </p>
-        <Button size="sm" variant="outline" disabled={isPending} onClick={refreshMaxOvr}>
-          <RefreshCw className="mr-1.5 h-4 w-4" />
-          MAX OVR yangilash
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" disabled={isPending} onClick={refreshMaxOvr}>
+            <RefreshCw className="mr-1.5 h-4 w-4" />
+            MAX OVR yangilash
+          </Button>
+          <Button size="sm" variant="outline" disabled={isPending} onClick={triggerSync}>
+            <DownloadCloud className="mr-1.5 h-4 w-4" />
+            Yangi kartalarni sync qilish
+          </Button>
+        </div>
       </div>
 
       <form

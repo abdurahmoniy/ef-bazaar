@@ -50,6 +50,15 @@ public class EfhubSyncService {
         this.props = props;
     }
 
+    /**
+     * Whether a run currently holds the lock. Advisory only — the lock itself
+     * is what keeps runs from overlapping; this just lets a manual trigger tell
+     * the admin their click did nothing instead of failing silently.
+     */
+    public boolean isRunning() {
+        return lock.isLocked();
+    }
+
     public SyncResult sync() {
         if (!lock.tryLock()) {
             log.info("efhub sync already running, skipping");
