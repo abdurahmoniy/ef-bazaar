@@ -17,6 +17,7 @@
 - **Flyway `V<n>__*.sql` files are immutable once merged.** Next free: marketplace-service **V43** then **V44**, payment-service **V11**, trade-service **V23**. Re-check with `ls db/migration | sort -V | tail -1` **after every rebase** — `main` took V41 out from under this branch once already, and Flyway refuses to start on a duplicate version. Also `rm` the stale file from `target/classes/db/migration/` after any rename.
 - **Testcontainers tests need `-DargLine="-Dapi.version=1.44"`.** Without it docker-java negotiates API 1.32, the local Docker 29.x daemon refuses, and Testcontainers reports it as the misleading "Could not find a valid Docker environment". Command line only — never in a pom.
 - **Java build:** `JAVA_HOME=~/.jdks/openjdk-21.0.2 mvn -q test` from the service directory. Ambient JDK 25 fails on Lombok.
+- **`mvn test-compile` without `clean` can report BUILD SUCCESS on code that does not compile.** Maven's incremental compiler skips a test file whose own timestamp did not change, even when a class it depends on did — so adding a constructor argument looks fine until CI, which always starts clean. After changing any constructor or signature that tests touch, run `mvn clean test-compile` before believing it.
 - **Run several tests with commas, not plus:** `-Dtest='A,B'`. `-Dtest='A+B'` matches nothing, and with `-q` that looks exactly like success.
 - **Frontend:** `npm test` (vitest), `npm run lint`, and `npm run build` from `frontend/`. The build is not optional — this project is on Next.js 16 where `middleware.ts` is `proxy.ts`, and only the build catches that class of mistake.
 - **`sellerId`/`userId` never comes from a request body** — only `@AuthenticationPrincipal AuthenticatedUser user` → `user.userId()`.
@@ -608,7 +609,13 @@ Note the annotation goes back on: `resolve` is read-only and now reads two table
 read transaction is right. `codeFor` stays without one — it writes, and Task 1 of the referral plan
 explains why.
 
-- [ ] **Step 5b: Refund the orders a cancellation strands**
+- [ ] **Step 5b: Refund the orders a cancellation strands — DEFERRED INTO TASK 4**
+
+`ChannelPostService.refundStranded` does not exist until Task 4, so this step cannot be done here
+without stubbing something Task 4 then replaces. Do it as the last step of Task 4, where the service
+is in front of you, and wire `PartnerChannelService.deactivate` to call it then. The reasoning and
+the test below stand unchanged.
+
 
 Spec §6.1. When a partnership ends, orders already `HELD` but not yet posted will never be
 delivered — the bot has lost its rights on that channel. Leaving them held would strand the seller's
