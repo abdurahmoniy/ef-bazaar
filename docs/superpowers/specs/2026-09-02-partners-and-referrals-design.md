@@ -377,6 +377,13 @@ the 100 000 band and 10 000 above it (`trade_commission_configs`), so at the def
 platform is not out of pocket on a rewarded trade. That is a fact about today's settings, not an
 invariant anything enforces — the two numbers live in different services and either may be changed.
 
+**And it holds only for SMART trades.** A HUMAN trade never touches the wallet and therefore takes no
+commission at all (`TradeStateHandler.settleEscrow` returns early for any other mode), so a rewarded
+HUMAN trade costs the platform the whole reward and earns nothing. Two accounts belonging to one
+person could collect it repeatedly at no cost to themselves. This is closed today only because
+`FEATURES.humanAdmin` is `false`; the note lives on that flag, because the person who flips it is the
+one who needs to read it.
+
 ## 5. Referrals and attribution
 
 Two questions — *who brought this person to the platform* and *which channel produced this trade* —

@@ -32,6 +32,22 @@ export const FEATURES = {
    *
    * Replaces `tradeAdmin` and `tradeAdminDirectory`, which were declared but
    * referenced nowhere — they read as protection while gating nothing.
+   *
+   * BEFORE TURNING THIS BACK ON, read this. A HUMAN trade never touches the
+   * wallet, so it takes no commission — `TradeStateHandler.settleEscrow`
+   * returns early for anything that is not SMART. The referral reward, though,
+   * pays out on any successful trade. Two accounts belonging to one person,
+   * one referring the other, can close a HUMAN trade that costs them nothing
+   * and collect the reward out of PLATFORM_REVENUE, once per fake account.
+   *
+   * Today that is closed only because this flag is false. SMART trades carry a
+   * commission floor (5 000 so'm below the 100 000 band) that matches the
+   * default reward, so the platform breaks even on those. Re-enabling HUMAN
+   * mode reopens it, and nothing in the referral code will notice.
+   *
+   * The narrowest fix, if it is ever wanted: decline the reward when the other
+   * side of the qualifying trade is the referrer. It gates nothing on
+   * profitability and needs no new setting.
    */
   humanAdmin: false,
   /** Public scammer blacklist (/blacklist). */
