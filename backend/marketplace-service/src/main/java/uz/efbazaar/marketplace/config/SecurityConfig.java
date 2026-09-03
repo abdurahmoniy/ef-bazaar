@@ -50,6 +50,13 @@ public class SecurityConfig {
                         // Public — card picker (read-only player card lookup)
                         .requestMatchers(HttpMethod.GET, "/api/v1/cards/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/card-interest/apply").permitAll()
+                        // Kanaldagi post havolasining bosilishi. ANONIM ham
+                        // yoziladi: ro'yxatdan o'tmagan odam aynan kanal olib
+                        // kelgan odam, va uni sanamaslik konversiyaning
+                        // boshini yo'qotish demak.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/partners/click").permitAll()
+                        // Kanal tanlash paneli — e'lon berayotgan sotuvchi ko'radi.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/partners/channels").permitAll()
                         // Gamer Card: /me needs the auth principal (declared
                         // first — first match wins), any other id is public
                         // (share page, listing seller card).

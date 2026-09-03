@@ -56,6 +56,8 @@ class PartnerAdSchemaIT {
     @Autowired PartnerChannelRepository channels;
     @Autowired ListingChannelPostRepository posts;
     @Autowired PartnerSettingsRepository settingsRepository;
+    @Autowired PartnerAdRepositories.PartnerClickRepository clicks;
+    @Autowired PartnerAdRepositories.ListingPartnerAttributionRepository attributions;
 
     @Test
     @DisplayName("one channel cannot be advertised twice for the same listing")
@@ -139,6 +141,38 @@ class PartnerAdSchemaIT {
 
         assertThat(found).extracting(PartnerChannel::getTitle)
                 .containsExactly("Premium Efootball", "Prefer Efootball");
+    }
+
+    @Test
+    @DisplayName("the last click wins, against a real database")
+    void attributionIsUpserted() {
+        PartnerChannel first = savedChannel("Birinchi", 100, new BigDecimal("5000"));
+        PartnerChannel second = savedChannel("Ikkinchi", 200, new BigDecimal("5000"));
+        UUID listing = UUID.randomUUID();
+        UUID buyer = UUID.randomUUID();
+
+        attributions.saveAndFlush(new ListingPartnerAttribution(listing, buyer, first.getId()));
+
+        ListingPartnerAttribution again = attributions
+                .findById(new ListingPartnerAttribution.Key(listing, buyer)).orElseThrow();
+        again.setPartnerChannelId(second.getId());
+        attributions.saveAndFlush(again);
+
+        // Bitta juftlik — bitta qator, va u oxirgi kanalni ko'rsatadi.
+        assertThat(attributions.count()).isEqualTo(1);
+        assertThat(attributions.findById(new ListingPartnerAttribution.Key(listing, buyer))
+                .orElseThrow().getPartnerChannelId()).isEqualTo(second.getId());
+    }
+
+    @Test
+    @DisplayName("a click kind the code does not know is rejected")
+    void unknownClickKindRejected() {
+        PartnerChannel channel = savedChannel("Test", 100, new BigDecimal("5000"));
+        PartnerClick bad = new PartnerClick(channel.getId(), PartnerClick.Kind.LISTING, null, null);
+        bad.setKind("SOMETHING");
+
+        assertThatThrownBy(() -> clicks.saveAndFlush(bad))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     private PartnerChannel channel(String title, int subscribers, BigDecimal price) {

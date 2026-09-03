@@ -86,6 +86,8 @@ class MarketplaceApplicationTests {
     // hamkorlik reklama bozori
     @MockBean uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelRepository partnerChannelRepository;
     @MockBean uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.ListingChannelPostRepository listingChannelPostRepository;
+    @MockBean uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerClickRepository partnerClickRepository;
+    @MockBean uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.ListingPartnerAttributionRepository listingPartnerAttributionRepository;
     // referal dasturi
     @MockBean uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository referralRepository;
     @MockBean uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralCodeRepository referralCodeRepository;

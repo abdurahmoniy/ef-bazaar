@@ -26,4 +26,11 @@ public final class PartnerAdRepositories {
         List<ListingChannelPost> findByPartnerChannelIdOrderByCreatedAtDesc(UUID partnerChannelId);
         List<ListingChannelPost> findByPartnerChannelIdAndState(UUID partnerChannelId, String state);
     }
+
+    public interface PartnerClickRepository extends JpaRepository<PartnerClick, Long> {
+        long countByPartnerChannelId(UUID partnerChannelId);
+    }
+
+    public interface ListingPartnerAttributionRepository
+            extends JpaRepository<ListingPartnerAttribution, ListingPartnerAttribution.Key> {}
 }
