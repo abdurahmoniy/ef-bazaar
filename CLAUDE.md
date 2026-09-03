@@ -137,6 +137,7 @@ efbazaar.auth.user-role-changed      # auth → trade-service (deactivate trade-
 efbazaar.trade.admin-invited         # trade-service → marketplace-service (TRADE_ADMIN_INVITED notification)
 efbazaar.trade.trade-opened          # trade-service
 efbazaar.trade.trade-closed          # trade-service
+efbazaar.trade.trade-succeeded       # trade-service → marketplace-service (referal mukofoti)
 ```
 
 ---

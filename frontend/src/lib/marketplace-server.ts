@@ -169,6 +169,26 @@ export async function getAdminStats(): Promise<FetchResult<AdminStatsResponse>> 
   return safeFetch<AdminStatsResponse>(`${MARKETPLACE_PREFIX}/admin/stats`);
 }
 
+/**
+ * Reyting uchun eng ko'p odam olib kelganlar.
+ *
+ * <p>Bosh panelda ko'rsatiladi, chunki bo'lim sahifalari "kim kimni
+ * taklif qilgan" ga javob beradi, bu esa "platformani hozir kim
+ * o'stirayapti" ga.
+ */
+export async function getTopReferrers(): Promise<FetchResult<AdminReferrerRow[]>> {
+  return safeFetch<AdminReferrerRow[]>(`${MARKETPLACE_PREFIX}/admin/referrals`);
+}
+
+export interface AdminReferrerRow {
+  userId: string;
+  displayName: string | null;
+  telegramUsername: string | null;
+  invitedCount: number;
+  rewardedCount: number;
+  earnedSom: number;
+}
+
 export async function getAdminUsers(
   search?: string,
   page = 0,

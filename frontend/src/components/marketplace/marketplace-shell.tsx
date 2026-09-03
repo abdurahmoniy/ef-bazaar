@@ -15,6 +15,7 @@ import { MarketplaceSearch } from '@/components/marketplace/marketplace-search';
 import { MeasuredBottomBar } from '@/components/marketplace/measured-bottom-bar';
 import { SlidingNav, type SlidingNavItem } from '@/components/navigation/sliding-nav';
 import { TopBackButton } from '@/components/navigation/top-back-button';
+import { ReferralCapture } from '@/components/referral/referral-capture';
 import { UserMenu } from '@/components/navigation/user-menu';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
@@ -188,6 +189,14 @@ export function MarketplaceShell({
       data-marketplace-shell
       className="min-h-app bg-background"
     >
+      {/*
+        Hech nima chizmaydi. Bu yerda turibdi, ildiz layout'da emas,
+        chunki layout foydalanuvchini bilmaydi va uni bilish uchun har
+        sahifada qo'shimcha so'rov kerak bo'lardi. Shell esa uni
+        allaqachon oladi va ro'yxatdan o'tgan odam tushadigan
+        sahifalarning aksariyatini o'raydi.
+      */}
+      <ReferralCapture authenticated={!!user} />
       <header className={cn(
         "relative z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)] md:sticky md:top-0",
         hideHeader && "hidden md:block"

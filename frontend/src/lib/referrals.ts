@@ -1,0 +1,46 @@
+import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+
+export interface InvitedUser {
+  userId: string;
+  displayName: string | null;
+  joinedAt: string;
+  rewardedAt: string | null;
+  rewardSom: number | null;
+}
+
+export interface MyReferrals {
+  code: string;
+  invitedCount: number;
+  rewardedCount: number;
+  earnedSom: number;
+  rewardSom: number;
+  invited: InvitedUser[];
+}
+
+export async function getMyReferrals(): Promise<MyReferrals> {
+  const response = await fetch(buildMarketplaceApiPath(['v1', 'referrals', 'me']), {
+    headers: { Accept: 'application/json' },
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error('Referal maʼlumotlari yuklanmadi');
+  return response.json();
+}
+
+/**
+ * Ro'yxatdan o'tgandan keyin cookie'dagi kodni yuboradi.
+ *
+ * Rad etish xato EMAS: kod eskirgan yoki foydalanuvchi allaqachon
+ * taklif qilingan bo'lishi mutlaqo normal va ekranda ko'rsatiladigan
+ * hodisa emas.
+ */
+export async function claimReferral(code: string): Promise<boolean> {
+  const response = await fetch(buildMarketplaceApiPath(['v1', 'referrals', 'claim']), {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  if (!response.ok) return false;
+  const body = await response.json();
+  return body?.claimed === true;
+}

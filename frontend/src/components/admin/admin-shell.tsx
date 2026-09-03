@@ -24,6 +24,7 @@ import {
   Sparkles,
   Store,
   UserCog,
+  UserPlus,
   UsersRound,
   X,
 } from 'lucide-react';
@@ -138,6 +139,11 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Hamkorlar',
         icon: Handshake,
         badge: BADGE_PARTNER_APPLICATIONS,
+      },
+      {
+        href: '/admin/referrals',
+        label: 'Referallar',
+        icon: UserPlus,
       },
       ...(FEATURES.humanAdmin
         ? [

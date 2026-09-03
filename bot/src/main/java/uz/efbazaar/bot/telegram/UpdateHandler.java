@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import uz.efbazaar.bot.partner.ChannelVerifier;
+import uz.efbazaar.bot.referral.PendingReferralClient;
 import uz.efbazaar.bot.settings.BotSettingsClient;
 import uz.efbazaar.bot.settings.BotSettingsClient.BotSettingsView;
 import uz.efbazaar.bot.telegram.TelegramApiClient.UrlButton;
@@ -25,6 +26,7 @@ public class UpdateHandler {
     private final TelegramApiClient telegram;
     private final BotSettingsClient settings;
     private final ChannelVerifier channels;
+    private final PendingReferralClient pendingReferrals;
 
     @Value("${app.web.base-url:https://efbazaar.uz}")
     private String webBaseUrl;
@@ -48,6 +50,15 @@ public class UpdateHandler {
         long chatId = message.path("chat").path("id").asLong();
 
         if (text.startsWith("/start")) {
+            String code = startPayload(text);
+            if (code != null) {
+                // Salomlashishdan OLDIN: kod yo'qolsa referal yo'qoladi,
+                // salomlashish esa keyingi /start da baribir keladi.
+                //
+                // `from`, `chat` emas: shaxsiy chatda ular teng, lekin
+                // odamni ko'rsatadigani `from`.
+                pendingReferrals.remember(message.path("from").path("id").asLong(), code);
+            }
             sendStart(chatId);
         } else if (text.startsWith("/help")) {
             sendHelp(chatId);
@@ -55,6 +66,34 @@ public class UpdateHandler {
             sendPartner(chatId);
         }
         // Boshqa xabarlar: ignore
+    }
+
+    /** Kod shakli — ReferralCodeService dagi alifbo va uzunlik. */
+    private static final java.util.regex.Pattern REFERRAL_CODE =
+            java.util.regex.Pattern.compile("^[A-Z0-9]{8}$");
+
+    /**
+     * {@code /start ref_ABCD2345} dan kodni ajratadi.
+     *
+     * <p>Telegram chuqur havolasi ({@code t.me/<bot>?start=ref_ABCD2345})
+     * yukni aynan shu ko'rinishda yetkazadi.
+     *
+     * <p>{@code ref_} prefiksi bo'lmagan yuk jimgina o'tkazib
+     * yuboriladi: kelajakda boshqa chuqur havolalar ham bo'lishi mumkin
+     * va ular bu yerda xato bermasligi kerak.
+     *
+     * @return kod, yoki bu referal yuki bo'lmasa null
+     */
+    static String startPayload(String text) {
+        if (text == null) return null;
+        String[] parts = text.trim().split("\\s+", 2);
+        if (parts.length < 2) return null;
+
+        String payload = parts[1].trim();
+        if (!payload.startsWith("ref_")) return null;
+
+        String code = payload.substring("ref_".length()).toUpperCase();
+        return REFERRAL_CODE.matcher(code).matches() ? code : null;
     }
 
     /**

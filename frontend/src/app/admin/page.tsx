@@ -32,7 +32,8 @@ import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { getMe } from '@/lib/auth';
 import { getAdminMailboxStats } from '@/lib/mailbox-admin-server';
 import { formatListingDate } from '@/lib/marketplace-format';
-import { getAdminStats, getAdminUsers } from '@/lib/marketplace-server';
+import { getAdminStats, getAdminUsers, getTopReferrers } from '@/lib/marketplace-server';
+import { formatEarned, referrerLabel, sortByInvited } from '@/lib/admin-referrals';
 import { formatTiyin } from '@/lib/money';
 import {
   getUserbotStatusSSR,
@@ -54,6 +55,7 @@ export default async function AdminDashboardPage() {
     platformCards,
     userbot,
     me,
+    topReferrers,
   ] = await Promise.all([
     getAdminStats(),
     getAdminUsers(undefined, 0, 8),
@@ -63,6 +65,7 @@ export default async function AdminDashboardPage() {
     listPlatformCardsSSR(),
     getUserbotStatusSSR(),
     getMe(),
+    getTopReferrers(),
   ]);
 
   if (!statsResult.ok) {
@@ -477,6 +480,53 @@ export default async function AdminDashboardPage() {
             <span className="font-bold">{mailboxStats?.pending ?? 0} ta</span>
           </div>
         </div>
+      </div>
+
+      {/* ─── Referral leaderboard ──────────────────────────────────────────── */}
+      {/*
+        Bo'lim sahifalari "kim kimni taklif qilgan" ga javob beradi; bu
+        esa "platformani hozir kim o'stirayapti" ga. Tartib
+        sortByInvited'dan — bo'lim bilan bir xil, aks holda ikkalasi kim
+        birinchi ekanida bir-biriga zid gapirardi.
+      */}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5 text-primary" />
+            <h3 className="font-bold text-base">Eng ko‘p taklif qilganlar</h3>
+          </div>
+          <Link
+            href="/admin/referrals"
+            className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+          >
+            Barchasi <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+        {topReferrers.ok && topReferrers.data.length > 0 ? (
+          <ul className="divide-y divide-border">
+            {sortByInvited(topReferrers.data).slice(0, 5).map((row, index) => (
+              <li key={row.userId} className="flex items-center gap-3 py-2.5">
+                <span className="w-5 shrink-0 text-sm font-bold tabular-nums text-muted-foreground">
+                  {index + 1}
+                </span>
+                <Link
+                  href={`/admin/referrals`}
+                  className="min-w-0 flex-1 truncate text-sm font-medium hover:underline"
+                >
+                  {referrerLabel(row)}
+                </Link>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {row.invitedCount} ta · {row.rewardedCount} savdo
+                </span>
+                <span className="w-24 shrink-0 text-right text-sm font-semibold tabular-nums">
+                  {formatEarned(row.earnedSom)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">Hali hech kim taklif qilmagan.</p>
+        )}
       </div>
 
       {/* ─── Recent Users & Quick Actions ──────────────────────────────────── */}
