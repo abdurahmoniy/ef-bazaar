@@ -517,7 +517,11 @@ Without this screen the feature does not exist — a link nobody can find refers
 ### 7.3 `/partner` — the partner's own panel
 
 - **Posting price** — one number, within the admin's bounds, with the bounds shown.
-- **Referral link** — the link, copy button, clicks and registrations.
+- **Channel funnel** — clicks and registrations *that came through this channel*. Not the personal
+  invite link: referrals became a platform-wide feature with their own page (§7.2) after this section
+  was first written, and duplicating the link here would give a partner two places to copy the same
+  code from. What belongs here is the part `/invite` cannot show — how the channel itself is
+  performing.
 - **Earnings** — the three streams shown separately, because they behave differently and a partner
   deciding whether to lower their posting price needs to see which stream responds.
 - **Posts** — what has been published to their channel, and what it earned.
