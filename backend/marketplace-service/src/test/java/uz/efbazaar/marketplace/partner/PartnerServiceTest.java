@@ -20,6 +20,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -42,6 +43,7 @@ class PartnerServiceTest {
     private PartnerEventPublisher events;
     private PartnerFeeClient fees;
     private uz.efbazaar.marketplace.referral.ReferralService referralService;
+    private uz.efbazaar.marketplace.service.NotificationService notifications;
     private PartnerService service;
 
     private PartnerApplication application;
@@ -56,11 +58,13 @@ class PartnerServiceTest {
         events = mock(PartnerEventPublisher.class);
         fees = mock(PartnerFeeClient.class);
         referralService = mock(uz.efbazaar.marketplace.referral.ReferralService.class);
+        notifications = mock(uz.efbazaar.marketplace.service.NotificationService.class);
         service = new PartnerService(settingsRepository, applications, users, events, fees,
                 mock(uz.efbazaar.marketplace.partner.ads.PartnerChannelService.class),
                 referralService,
                 mock(uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelRepository.class),
-                mock(uz.efbazaar.marketplace.partner.ads.PartnerPayoutPolicy.class));
+                mock(uz.efbazaar.marketplace.partner.ads.PartnerPayoutPolicy.class),
+                notifications);
 
         PartnerSettings settings = new PartnerSettings();
         settings.setMinSubscribers(1000);
@@ -213,6 +217,10 @@ class PartnerServiceTest {
         // Rolni auth-service beradi; hodisa chiqmasa foydalanuvchi
         // tasdiqlangan bo'lib ko'rinar, lekin hamkor bo'lmasdi.
         verify(events).applicationApproved(application);
+        // Ilgari arizachi qarorni faqat /partnership ga qaytib kirib
+        // bilardi. Odam pul to'lagan va admin qachon ko'rishi noma'lum.
+        verify(notifications).partnerDecision(userId,
+                uz.efbazaar.marketplace.domain.NotificationType.PARTNER_APPROVED);
     }
 
     @Test
@@ -284,6 +292,10 @@ class PartnerServiceTest {
         assertThat(application.getStatus()).isEqualTo(Status.REJECTED);
         assertThat(application.getReviewNote()).isEqualTo("kanal mos emas");
         verify(events).applicationRejected(application);
+        // Rad etilgani ayniqsa muhim: sababni bilmagan odam qayta
+        // ariza berib yana o'shanga urilardi.
+        verify(notifications).partnerDecision(userId,
+                uz.efbazaar.marketplace.domain.NotificationType.PARTNER_REJECTED);
     }
 
     @Test
@@ -373,7 +385,7 @@ class PartnerServiceTest {
 
         // Rol berilmagan — uni olib tashlash hodisasi auth'ni keraksiz
         // ishlatardi va logda tushunarsiz yozuv qoldirardi.
-        verify(events, never()).applicationCancelled(any());
+        verify(events, never()).applicationCancelled(any(), anyBoolean());
     }
 
     @Test
@@ -388,7 +400,10 @@ class PartnerServiceTest {
         assertThat(application.getStatus()).isEqualTo(Status.CANCELLED);
         // Hodisasiz odam PARTNER bo'lib qolardi: maqom paneli ochiq,
         // hamkorlik esa yo'q.
-        verify(events).applicationCancelled(application);
+        verify(events).applicationCancelled(application, true);
+        // O'zi to'xtatdi — tasdiqlash oynasini hozirgina bosgan odamga
+        // "hamkorligingiz to'xtatildi" deb yozish shovqin.
+        verify(notifications, never()).partnerDecision(any(), any());
     }
 
     @Test
@@ -413,7 +428,10 @@ class PartnerServiceTest {
         assertThat(application.getStatus()).isEqualTo(Status.CANCELLED);
         assertThat(application.getCancelReason()).isEqualTo("Kanal qoidabuzarlik");
         assertThat(application.getCancelledBy()).isEqualTo(adminId);
-        verify(events).applicationCancelled(application);
+        verify(events).applicationCancelled(application, false);
+        // Bundan odamning o'zi bexabar — xabar shart.
+        verify(notifications).partnerDecision(userId,
+                uz.efbazaar.marketplace.domain.NotificationType.PARTNER_CANCELLED);
     }
 
     @Test
@@ -443,7 +461,9 @@ class PartnerServiceTest {
         assertThat(application.getStatus()).isEqualTo(Status.CANCELLED);
         assertThat(application.getCancelReason()).contains("chiqarib tashlandi");
         assertThat(application.getCancelledBy()).isNull();
-        verify(events).applicationCancelled(application);
+        verify(events).applicationCancelled(application, false);
+        verify(notifications).partnerDecision(userId,
+                uz.efbazaar.marketplace.domain.NotificationType.PARTNER_CANCELLED);
     }
 
     @Test
@@ -454,7 +474,7 @@ class PartnerServiceTest {
 
         service.onChannelRemoved(-999L);
 
-        verify(events, never()).applicationCancelled(any());
+        verify(events, never()).applicationCancelled(any(), anyBoolean());
     }
 
     @Test

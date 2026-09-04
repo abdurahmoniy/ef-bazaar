@@ -480,7 +480,10 @@ export type NotificationType =
   | 'TRADE_PASSWORD_SENT'
   | 'TRADE_SUCCESS'
   | 'TRADE_REJECTED'
-  | 'TRADE_ORPHANED';
+  | 'TRADE_ORPHANED'
+  | 'PARTNER_APPROVED'
+  | 'PARTNER_REJECTED'
+  | 'PARTNER_CANCELLED';
 
 export interface NotificationResponse {
   id: string;

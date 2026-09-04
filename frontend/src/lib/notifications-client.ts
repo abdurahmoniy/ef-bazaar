@@ -86,6 +86,12 @@ export function notificationLabel(n: NotificationResponse): string {
       return 'Savdo rad etildi';
     case 'TRADE_ORPHANED':
       return 'Savdo muddati tugadi';
+    case 'PARTNER_APPROVED':
+      return 'Hamkorligingiz tasdiqlandi — kanalingiz reklama bozorida';
+    case 'PARTNER_REJECTED':
+      return 'Hamkorlik arizasi rad etildi';
+    case 'PARTNER_CANCELLED':
+      return 'Hamkorligingiz to‘xtatildi';
     default:
       return actor;
   }
@@ -98,6 +104,11 @@ export function notificationHref(n: NotificationResponse): string | null {
     return `/admin/payments/withdrawals?ticket=${encodeURIComponent(n.withdrawalId ?? '')}`;
   }
   if (n.type === 'WITHDRAWAL_PAID' || n.type === 'WITHDRAWAL_REJECTED') return '/hamyon';
+  // Tasdiqlangani PANELGA: hamkor u yerda e'lon narxini qo'yadi va u
+  // hozir nolda turibdi. Qolgan ikkisida panel yopiq, ariza sahifasi
+  // esa nima bo'lganini va sababini ko'rsatadi.
+  if (n.type === 'PARTNER_APPROVED') return '/partner';
+  if (n.type === 'PARTNER_REJECTED' || n.type === 'PARTNER_CANCELLED') return '/partnership';
   // The inbox itself, not the trade: the trade is over, and what the reader
   // needs is the mail — Konami's codes arrive there if they want to move the
   // account on to an address of their own. Absolute because the webmail is a

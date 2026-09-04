@@ -5,6 +5,43 @@ import { siteConfig } from './site';
 import type { NotificationResponse } from './marketplace-types';
 
 describe('notification client helpers', () => {
+  it('sends an approved partner to the panel, not back to the application', () => {
+    // The panel is where the posting price lives and it starts at zero —
+    // a partner who never opens it gives their channel away for free.
+    expect(notificationHref({
+      id: 'n-approved',
+      type: 'PARTNER_APPROVED',
+      createdAt: '2026-09-04T00:00:00Z',
+    } satisfies NotificationResponse)).toBe('/partner');
+  });
+
+  it('sends a rejected or ended partnership to the application page', () => {
+    // The panel is shut for both, and the application page is what
+    // carries the decision and its reason.
+    for (const type of ['PARTNER_REJECTED', 'PARTNER_CANCELLED'] as const) {
+      expect(notificationHref({
+        id: 'n-' + type,
+        type,
+        createdAt: '2026-09-04T00:00:00Z',
+      } satisfies NotificationResponse)).toBe('/partnership');
+    }
+  });
+
+  it('labels every partner decision — silence was the bug being fixed', () => {
+    // Before this, an applicant learned their fate only by revisiting
+    // the page themselves. An unlabelled type falls through to the
+    // actor name, which for these is empty.
+    for (const type of ['PARTNER_APPROVED', 'PARTNER_REJECTED', 'PARTNER_CANCELLED'] as const) {
+      const label = notificationLabel({
+        id: 'n-' + type,
+        type,
+        createdAt: '2026-09-04T00:00:00Z',
+      } satisfies NotificationResponse);
+      expect(label.length).toBeGreaterThan(0);
+      expect(label).not.toBe('Foydalanuvchi');
+    }
+  });
+
   it('deep-links trade-admin invitations by trade id before chat id', () => {
     const notification = {
       id: 'n1',

@@ -36,5 +36,11 @@ public enum NotificationType {
     /** Trade was rejected. */
     TRADE_REJECTED,
     /** Trade timed out or was orphaned. */
-    TRADE_ORPHANED
+    TRADE_ORPHANED,
+    /** My partnership application was approved — the channel is live. */
+    PARTNER_APPROVED,
+    /** My partnership application was turned down. */
+    PARTNER_REJECTED,
+    /** My partnership ended: I stopped it, an admin did, or the bot lost the channel. */
+    PARTNER_CANCELLED
 }
