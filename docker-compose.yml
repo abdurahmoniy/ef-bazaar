@@ -647,7 +647,29 @@ services:
     mem_limit: 64m
     memswap_limit: 96m
     networks:
-      - efbazaar-net
+      efbazaar-net:
+        # Ommaviy nomlar TARMOQ ICHIDA to'g'ridan-to'g'ri shu konteynerga
+        # yechiladi.
+        #
+        # Ularsiz konteyner mailcow.efbazaar.uz ni serverning ommaviy
+        # manziliga (95.111.255.160) yechar va o'sha manzilga ulana
+        # olmasdi: paket docker ko'prigidan chiqib hostning o'z tashqi
+        # manziliga qaytishga urinadi va qaytish yo'li yo'q — hairpin
+        # NAT. Host'ning O'ZIDAN ishlaydi, chunki ulanish o'sha yerda
+        # boshlanadi; shuning uchun tashqaridan hammasi soz ko'rinadi.
+        #
+        # Aynan shu smart-admin-worker'ning email_provision'ini
+        # ConnectTimeout bilan yiqitib turgan va savdo pochta qutisi
+        # ochilmay to'xtab qolgan.
+        #
+        # Taxallus IP emas, NOM beradi: TLS SNI ham, sertifikat
+        # tekshiruvi ham o'zgarishsiz qoladi.
+        # FAQAT mailcow.efbazaar.uz. mail.efbazaar.uz QO'SHILMAYDI: u
+        # IMAPS (993) uchun ishlatiladi, nginx esa faqat 80/443 ni
+        # tinglaydi — taxallus qo'ysak IMAP ulanishlari hech kim
+        # tinglamaydigan portga borardi.
+        aliases:
+          - mailcow.efbazaar.uz
 
   # ---------- Certbot — Let's Encrypt cert issuance + renewal ----------
   # First boot: 'docker compose run --rm certbot certonly --webroot ...' qo'lda chaqiring (init-cert.sh).
