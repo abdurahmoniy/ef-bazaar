@@ -61,6 +61,7 @@ class ListingServiceTest {
 
     @Mock uz.efbazaar.marketplace.trust.BlacklistGuard blacklistGuard;
     @Mock uz.efbazaar.marketplace.partner.ads.ChannelPostService channelPosts;
+    @Mock uz.efbazaar.marketplace.partner.ads.OfficialChannelService officialChannel;
     @InjectMocks ListingService service;
 
     private UUID sellerId;

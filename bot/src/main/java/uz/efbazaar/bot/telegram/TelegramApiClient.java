@@ -281,6 +281,50 @@ public class TelegramApiClient {
      * uchtasi uchun uch marta {@code getChat} chaqirish Telegram
      * cheklovini bekorga sarflardi.
      */
+    /**
+     * Xabarni boshqa kanalga FORWARD qiladi.
+     *
+     * <p>"Forwarded from &lt;manba&gt;" sarlavhasi saqlanadi, lekin
+     * INLINE TUGMA yo'qoladi — Telegram uni forwardda olib tashlaydi.
+     * Shuning uchun e'lon havolasi post matnining o'zida ham turadi.
+     */
+    public Optional<Integer> forwardMessage(String toChatId, String fromChatId, long messageId) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", toChatId)
+                .put("from_chat_id", fromChatId)
+                .put("message_id", messageId);
+        return postJson("forwardMessage", body).map(r -> r.path("message_id").asInt());
+    }
+
+    /**
+     * Chiqib bo'lgan postning matnini almashtiradi.
+     *
+     * <p>{@code reply_markup} YUBORILMAYDI va shu bilan tugma olib
+     * tashlanadi: sotilgan e'lonning tugmasi bosilsa, odam mavjud
+     * bo'lmagan taklifga borardi.
+     *
+     * <p>Rasmli post uchun {@code editMessageCaption}, matnli uchun
+     * {@code editMessageText} — Telegram ularni almashtirib
+     * ishlatishga ruxsat bermaydi, shuning uchun ikkalasi ham
+     * sinaladi.
+     */
+    public boolean editPostText(String chatId, long messageId, String html) {
+        ObjectNode caption = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("message_id", messageId)
+                .put("caption", html)
+                .put("parse_mode", "HTML");
+        if (postJson("editMessageCaption", caption).isPresent()) return true;
+
+        ObjectNode text = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("message_id", messageId)
+                .put("text", html)
+                .put("parse_mode", "HTML");
+        text.putObject("link_preview_options").put("is_disabled", true);
+        return postJson("editMessageText", text).isPresent();
+    }
+
     public Optional<JsonNode> getChat(long chatId) {
         ObjectNode body = objectMapper.createObjectNode().put("chat_id", chatId);
         return postJson("getChat", body);

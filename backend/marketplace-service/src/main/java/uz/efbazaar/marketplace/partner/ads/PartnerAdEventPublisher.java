@@ -23,6 +23,8 @@ public class PartnerAdEventPublisher {
             "efbazaar.marketplace.channel-refresh-requested";
     public static final String TOPIC_CHANNEL_POST_DELETE_REQUESTED =
             "efbazaar.marketplace.channel-post-delete-requested";
+    public static final String TOPIC_OFFICIAL_POST_REQUESTED =
+            "efbazaar.marketplace.official-post-requested";
 
     private final KafkaTemplate<String, Object> kafka;
 
@@ -53,6 +55,27 @@ public class PartnerAdEventPublisher {
                 new ChannelPostDeletePayload(post.getId(), channel.getTelegramChannelId(),
                         post.getTelegramMessageId(), Instant.now()));
     }
+
+    /**
+     * E'lonni efBazaar rasmiy kanaliga chiqarish.
+     *
+     * <p>Ikki yo'l bitta payloadda: {@code sourceMessageId} to'ldirilgan
+     * bo'lsa FORWARD, aks holda to'g'ridan-to'g'ri joylash. Ikki mavzu
+     * ochish bot tarafida bir xil ishni ikki joyda yozishga majbur
+     * qilardi — natija ham, xatolik yo'li ham bitta.
+     */
+    public void officialPostRequested(OfficialPostPayload payload) {
+        send(TOPIC_OFFICIAL_POST_REQUESTED, payload.listingId().toString(), payload);
+    }
+
+    public record OfficialPostPayload(
+            UUID listingId,
+            String officialChannel,
+            String caption,
+            String mediaFileId,
+            String buttonUrl,
+            Long sourceChannelId,
+            String sourceMessageId) {}
 
     public record ChannelPostDeletePayload(
             UUID postId,

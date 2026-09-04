@@ -25,6 +25,7 @@ public class InternalPartnerController {
     private final PartnerService service;
     private final uz.efbazaar.marketplace.partner.ads.ChannelPostService channelPosts;
     private final uz.efbazaar.marketplace.partner.ads.PartnerChannelService partnerChannels;
+    private final uz.efbazaar.marketplace.partner.ads.OfficialChannelService officialChannel;
 
     /**
      * Bot postni chiqardi yoki chiqara olmadi.
@@ -78,6 +79,25 @@ public class InternalPartnerController {
      * botsiz kanal ro'yxatda abadiy qolib ketardi. {@code subscriberCount}
      * bo'sh bo'lsa — o'qilmadi degani.
      */
+    /**
+     * E'lon efBazaar rasmiy kanaliga chiqdi yoki chiqmadi.
+     *
+     * <p>Muvaffaqiyatsizlik ham yoziladi: bu post bepul, ya'ni uni
+     * yo'qotish hech kimning pulini yo'qotmaydi — lekin sababsiz
+     * yo'qolgan e'lonni hech kim sezmasdi.
+     */
+    @PostMapping("/official-post-result")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void officialPostResult(@Valid @RequestBody OfficialPostResultRequest request) {
+        officialChannel.onOfficialPosted(
+                request.listingId(), request.telegramMessageId(), request.error());
+    }
+
+    public record OfficialPostResultRequest(
+            @jakarta.validation.constraints.NotNull java.util.UUID listingId,
+            String telegramMessageId,
+            String error) {}
+
     @PostMapping("/channel-refreshed")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void channelRefreshed(

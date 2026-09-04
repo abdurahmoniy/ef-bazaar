@@ -40,6 +40,7 @@ import uz.efbazaar.marketplace.trust.BlacklistGuard;
 public class ListingService {
 
     private final ListingRepository listings;
+    private final uz.efbazaar.marketplace.partner.ads.OfficialChannelService officialChannel;
     private final ListingMapper mapper;
     private final AttributeValidator attributeValidator;
     private final MediaService mediaService;
@@ -83,7 +84,13 @@ public class ListingService {
         // yetmasa buyurtma kutib turadi, e'lon esa joyida qoladi —
         // to'ldirilmagan hamyon uchun to'ldirilgan formani yo'qotish
         // himoyalab bo'lmaydigan narsa.
+        boolean partnerChannelsOrdered =
+                request.channelIds() != null && !request.channelIds().isEmpty();
         channelPosts.order(sellerId, saved.getId(), request.channelIds());
+        // Rasmiy kanalga HAR e'lon tushadi, hamkor tanlangan-tanlanmaganidan
+        // qat'i nazar. Hamkor tanlangan bo'lsa nusxa o'sha postdan forward
+        // qilinadi va bu yerda faqat kutish yozuvi ochiladi.
+        officialChannel.onListingCreated(saved, partnerChannelsOrdered);
 
         events.listingCreated(saved);
         log.info("Listing created: id={} sellerId={} attributes={} media={}",

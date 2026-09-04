@@ -117,6 +117,15 @@ app:
     # Hamkorlik to'lovi shu servisdagi hamyondan yechiladi — savdolar bilan
     # bir xil pul yo'li.
     internal-base-url: ${PAYMENT_INTERNAL_BASE_URL:http://payment-service:8087}
+  channels:
+    # efBazaar rasmiy kanali — har bir e'lon shu yerga ham tushadi.
+    # @username yoki raqamli id. BO'SH BO'LSA butunlay o'chiq: sozlanmagan
+    # muhit na yiqilishi, na noto'g'ri joyga post qilishi kerak.
+    #
+    # Bazada emas, env'da: bu qiymat muhitga qarab farq qiladi va staging
+    # jonli kanalga yozib yubormasligi kerak. Secret ham emas — kanal
+    # manzili ochiq ma'lumot va hech kimga hech narsa ochmaydi.
+    official: ${OFFICIAL_CHANNEL:}
   partners:
     # Fiks rejimdagi hamkorlarga o'tgan oy uchun to'lov — har oyning 1-sanasi.
     monthly-cron: ${PARTNER_MONTHLY_CRON:0 0 4 1 * *}

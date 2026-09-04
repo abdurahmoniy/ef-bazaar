@@ -40,6 +40,7 @@ class ChannelPostServiceTest {
     private PartnerAdClient payments;
     private PartnerAdEventPublisher events;
     private uz.efbazaar.marketplace.repository.ListingRepository listings;
+    private OfficialChannelService officialChannel;
     private ChannelPostService service;
 
     private final UUID seller = UUID.randomUUID();
@@ -55,7 +56,9 @@ class ChannelPostServiceTest {
         payments = mock(PartnerAdClient.class);
         events = mock(PartnerAdEventPublisher.class);
         listings = mock(uz.efbazaar.marketplace.repository.ListingRepository.class);
-        service = new ChannelPostService(channels, posts, payments, events, new PartnerPricing(), listings);
+        officialChannel = mock(OfficialChannelService.class);
+        service = new ChannelPostService(channels, posts, payments, events, officialChannel,
+                new PartnerPricing(), listings);
 
         cheap = channel("Arzon", new BigDecimal("5000.00"));
         mid = channel("O'rtacha", new BigDecimal("10000.00"));
