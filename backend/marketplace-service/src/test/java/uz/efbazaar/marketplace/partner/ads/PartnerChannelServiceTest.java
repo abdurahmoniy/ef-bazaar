@@ -49,7 +49,105 @@ class PartnerChannelServiceTest {
         when(channels.save(any())).thenAnswer(i -> i.getArgument(0));
 
         channelPosts = mock(ChannelPostService.class);
-        service = new PartnerChannelService(channels, settingsRepository, channelPosts);
+        // Uch kun ketma-ket o'qib bo'lmasa hamkorlik to'xtaydi.
+        service = new PartnerChannelService(channels, settingsRepository, channelPosts, 3);
+    }
+
+    @Test
+    @DisplayName("kunlik yangilanish avatar va obunachi sonini almashtiradi")
+    void refreshReplacesPhotoAndSubscribers() {
+        // Ikkalasi ham tekshiruv paytida BIR MARTA olinardi. Obunachi
+        // soni reklama narxining asosi, avatar esa vaqt o'tib
+        // Telegram'da yaroqsiz bo'lib qoladi.
+        PartnerChannel channel = existingChannel();
+        channel.setPhotoFileId("eski-avatar");
+        channel.setSubscriberCount(50_239);
+
+        service.onChannelRefreshed(refreshed(channel.getId(), "yangi-avatar", 61_004));
+
+        assertThat(channel.getPhotoFileId()).isEqualTo("yangi-avatar");
+        assertThat(channel.getSubscriberCount()).isEqualTo(61_004);
+    }
+
+    @Test
+    @DisplayName("hamkor avatarini olib tashlasa bizda eskisi qolmaydi")
+    void aRemovedPhotoIsCleared() {
+        PartnerChannel channel = existingChannel();
+        channel.setPhotoFileId("eski-avatar");
+
+        service.onChannelRefreshed(refreshed(channel.getId(), null, 100));
+
+        assertThat(channel.getPhotoFileId()).isNull();
+    }
+
+    @Test
+    @DisplayName("bitta xato hamkorlikni to'xtatmaydi")
+    void oneFailureIsForgiven() {
+        // Telegram bir daqiqaga javob bermasligi mumkin — buning uchun
+        // odamning hamkorligi tugab qolmasligi kerak.
+        PartnerChannel channel = existingChannel();
+
+        service.onChannelRefreshed(failed(channel.getId()));
+
+        assertThat(channel.getRefreshFailures()).isEqualTo(1);
+        assertThat(channel.isActive()).isTrue();
+        verify(channelPosts, never()).refundStranded(any());
+    }
+
+    @Test
+    @DisplayName("uch kun ketma-ket o'qilmasa hamkorlik to'xtaydi va pul qaytariladi")
+    void threeFailuresInARowDeactivate() {
+        PartnerChannel channel = existingChannel();
+        when(channels.findByPartnerUserIdAndActiveTrue(partnerId))
+                .thenReturn(Optional.of(channel));
+
+        service.onChannelRefreshed(failed(channel.getId()));
+        service.onChannelRefreshed(failed(channel.getId()));
+        assertThat(channel.isActive()).isTrue();
+
+        service.onChannelRefreshed(failed(channel.getId()));
+
+        assertThat(channel.isActive()).isFalse();
+        // Chiqmagan buyurtmalar hech qachon chiqmaydi: bot kanalda emas.
+        verify(channelPosts).refundStranded(channel.getId());
+    }
+
+    @Test
+    @DisplayName("muvaffaqiyatli o'qish hisoblagichni nolga qaytaradi")
+    void aSuccessResetsTheCounter() {
+        // Hisoblagich KETMA-KET xatolarni sanaydi. Umumiy sanoq bo'lsa,
+        // oylar davomida yig'ilgan tasodifiy xatolar sog'lom kanalni
+        // o'chirib yuborardi.
+        PartnerChannel channel = existingChannel();
+
+        service.onChannelRefreshed(failed(channel.getId()));
+        service.onChannelRefreshed(failed(channel.getId()));
+        service.onChannelRefreshed(refreshed(channel.getId(), "avatar", 10));
+        service.onChannelRefreshed(failed(channel.getId()));
+
+        assertThat(channel.getRefreshFailures()).isEqualTo(1);
+        assertThat(channel.isActive()).isTrue();
+    }
+
+    private PartnerChannel existingChannel() {
+        PartnerChannel channel = new PartnerChannel();
+        channel.setId(UUID.randomUUID());
+        channel.setPartnerUserId(partnerId);
+        channel.setTitle("Efootball Uz");
+        channel.setPostPriceSom(BigDecimal.ZERO);
+        when(channels.findById(channel.getId())).thenReturn(Optional.of(channel));
+        return channel;
+    }
+
+    private PartnerChannelService.ChannelRefreshedRequest refreshed(
+            UUID channelId, String photoFileId, int subscribers) {
+        return new PartnerChannelService.ChannelRefreshedRequest(
+                channelId, "Efootball Uz", "efootball_uz", photoFileId, subscribers, null);
+    }
+
+    private PartnerChannelService.ChannelRefreshedRequest failed(UUID channelId) {
+        return new PartnerChannelService.ChannelRefreshedRequest(
+                channelId, null, null, null, null, "getChat javob bermadi");
     }
 
     private PartnerApplication approvedApplication() {

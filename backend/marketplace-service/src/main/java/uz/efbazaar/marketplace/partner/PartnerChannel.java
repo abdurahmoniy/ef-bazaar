@@ -76,6 +76,17 @@ public class PartnerChannel {
     @Column(name = "fixed_monthly_som")
     private BigDecimal fixedMonthlySom;
 
+    /**
+     * KETMA-KET muvaffaqiyatsiz yangilanishlar soni.
+     *
+     * <p>Muvaffaqiyatli o'qishda NOLGA qaytadi. Umumiy sanoq bo'lsa,
+     * oylar davomida yig'ilgan tasodifiy xatolar sog'lom kanalni
+     * o'chirib yuborardi — bizni qiziqtirgani "bot hali ham u yerdami",
+     * "qachondir xato bo'lganmi" emas.
+     */
+    @Column(name = "refresh_failures", nullable = false)
+    private int refreshFailures;
+
     @Column(nullable = false)
     private boolean active = true;
 

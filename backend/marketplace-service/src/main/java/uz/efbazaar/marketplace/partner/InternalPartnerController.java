@@ -24,6 +24,7 @@ public class InternalPartnerController {
 
     private final PartnerService service;
     private final uz.efbazaar.marketplace.partner.ads.ChannelPostService channelPosts;
+    private final uz.efbazaar.marketplace.partner.ads.PartnerChannelService partnerChannels;
 
     /**
      * Bot postni chiqardi yoki chiqara olmadi.
@@ -69,4 +70,19 @@ public class InternalPartnerController {
     }
 
     public record ChannelRemovedRequest(Long channelId) {}
+
+    /**
+     * Kunlik yangilanishning natijasi.
+     *
+     * <p>MUVAFFAQIYATSIZLIK HAM shu yerdan o'tadi: bot jim qolsa,
+     * botsiz kanal ro'yxatda abadiy qolib ketardi. {@code subscriberCount}
+     * bo'sh bo'lsa — o'qilmadi degani.
+     */
+    @PostMapping("/channel-refreshed")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void channelRefreshed(
+            @Valid @RequestBody uz.efbazaar.marketplace.partner.ads
+                    .PartnerChannelService.ChannelRefreshedRequest request) {
+        partnerChannels.onChannelRefreshed(request);
+    }
 }

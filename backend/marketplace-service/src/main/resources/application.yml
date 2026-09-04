@@ -117,6 +117,17 @@ app:
     # Hamkorlik to'lovi shu servisdagi hamyondan yechiladi — savdolar bilan
     # bir xil pul yo'li.
     internal-base-url: ${PAYMENT_INTERNAL_BASE_URL:http://payment-service:8087}
+  partners:
+    # Fiks rejimdagi hamkorlarga o'tgan oy uchun to'lov — har oyning 1-sanasi.
+    monthly-cron: ${PARTNER_MONTHLY_CRON:0 0 4 1 * *}
+    # Kanallarni Telegram'dan qayta o'qish: obunachi soni, nom va avatar.
+    # Tekshiruv paytida bir marta olingan raqamlar eskiradi, sotuvchi esa
+    # aynan o'sha obunachi soniga qarab pul to'laydi.
+    refresh-cron: ${PARTNER_REFRESH_CRON:0 30 3 * * *}
+    # Necha kun KETMA-KET o'qib bo'lmasa hamkorlik to'xtaydi. Bir kunlik
+    # xato Telegram'ning vaqtincha javob bermasligi bo'lishi mumkin —
+    # birinchi xatoda odamning hamkorligini tugatib bo'lmaydi.
+    refresh-failure-limit: ${PARTNER_REFRESH_FAILURE_LIMIT:3}
   # Server-to-server access to auth-service's /internal/** endpoints
   # (currently: user display-name resolution at chat creation). If
   # internal-secret is unset the resolver short-circuits and the frontend

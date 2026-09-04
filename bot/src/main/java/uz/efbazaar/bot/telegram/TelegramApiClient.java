@@ -270,9 +270,20 @@ public class TelegramApiClient {
      * ishlatilishi mumkin.
      */
     public Optional<String> getChatPhotoFileId(long chatId) {
-        ObjectNode body = objectMapper.createObjectNode().put("chat_id", chatId);
-        return postJson("getChat", body)
+        return getChat(chatId)
                 .map(result -> result.path("photo").path("big_file_id").asText(null));
+    }
+
+    /**
+     * Kanalning to'liq {@code Chat} obyektini qaytaradi.
+     *
+     * <p>Kunlik yangilanish nom, username va avatarni BIRGA o'qiydi:
+     * uchtasi uchun uch marta {@code getChat} chaqirish Telegram
+     * cheklovini bekorga sarflardi.
+     */
+    public Optional<JsonNode> getChat(long chatId) {
+        ObjectNode body = objectMapper.createObjectNode().put("chat_id", chatId);
+        return postJson("getChat", body);
     }
 
     /** Returns a downloadable file path for a given file_id (call getFile then prepend api URL). */

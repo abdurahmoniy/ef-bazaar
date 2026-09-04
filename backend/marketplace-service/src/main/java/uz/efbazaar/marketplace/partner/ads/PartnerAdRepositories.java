@@ -15,6 +15,7 @@ public final class PartnerAdRepositories {
         Optional<PartnerChannel> findByPartnerUserIdAndActiveTrue(UUID partnerUserId);
         Optional<PartnerChannel> findByLinkCode(String linkCode);
         Optional<PartnerChannel> findByApplicationId(UUID applicationId);
+        Optional<PartnerChannel> findByTelegramChannelIdAndActiveTrue(Long telegramChannelId);
         boolean existsByLinkCode(String linkCode);
         List<PartnerChannel> findByActiveTrueOrderBySubscriberCountDesc();
         List<PartnerChannel> findByActiveTrueAndTitleStartsWithIgnoreCaseOrderBySubscriberCountDesc(String prefix);
