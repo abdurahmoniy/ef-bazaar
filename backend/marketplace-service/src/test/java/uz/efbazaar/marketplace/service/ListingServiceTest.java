@@ -48,6 +48,35 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ListingServiceTest {
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("sotilgan e'lon begonaga ko'rinmaydi, egasi va xaridoriga ko'rinadi")
+    void aSoldListingIsOnlyVisibleToItsParties() {
+        // Kanaldagi post ustidan chizilgan bo'lsa ham havolasi qolib
+        // ketishi mumkin: eski forward, saqlangan havola, ko'chirilgan
+        // xabar. Begona odam mavjud bo'lmagan taklif ustida vaqt
+        // sarflab, sotuvchini bezovta qilardi.
+        java.util.UUID id = java.util.UUID.randomUUID();
+        java.util.UUID seller = java.util.UUID.randomUUID();
+        java.util.UUID buyer = java.util.UUID.randomUUID();
+        uz.efbazaar.marketplace.domain.Listing sold =
+                new uz.efbazaar.marketplace.domain.Listing();
+        sold.setId(id);
+        sold.setSellerId(seller);
+        sold.setSoldToUserId(buyer);
+        sold.setStatus(uz.efbazaar.marketplace.domain.ListingStatus.SOLD);
+        org.mockito.Mockito.when(repository.findById(id))
+                .thenReturn(java.util.Optional.of(sold));
+
+        org.assertj.core.api.Assertions.assertThat(service.getForViewer(id, seller)).isSameAs(sold);
+        org.assertj.core.api.Assertions.assertThat(service.getForViewer(id, buyer)).isSameAs(sold);
+        org.assertj.core.api.Assertions
+                .assertThatThrownBy(() -> service.getForViewer(id, java.util.UUID.randomUUID()))
+                .isInstanceOf(uz.efbazaar.marketplace.exception.MarketplaceException.class);
+        org.assertj.core.api.Assertions
+                .assertThatThrownBy(() -> service.getForViewer(id, null))
+                .isInstanceOf(uz.efbazaar.marketplace.exception.MarketplaceException.class);
+    }
+
 
     @Mock ListingRepository repository;
     @Mock MarketplaceEventPublisher events;
@@ -62,6 +91,7 @@ class ListingServiceTest {
     @Mock uz.efbazaar.marketplace.trust.BlacklistGuard blacklistGuard;
     @Mock uz.efbazaar.marketplace.partner.ads.ChannelPostService channelPosts;
     @Mock uz.efbazaar.marketplace.partner.ads.OfficialChannelService officialChannel;
+    @Mock uz.efbazaar.marketplace.partner.ads.SoldPostMarker soldPosts;
     @InjectMocks ListingService service;
 
     private UUID sellerId;

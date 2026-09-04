@@ -41,6 +41,7 @@ public class ListingService {
 
     private final ListingRepository listings;
     private final uz.efbazaar.marketplace.partner.ads.OfficialChannelService officialChannel;
+    private final uz.efbazaar.marketplace.partner.ads.SoldPostMarker soldPosts;
     private final ListingMapper mapper;
     private final AttributeValidator attributeValidator;
     private final MediaService mediaService;
@@ -150,6 +151,9 @@ public class ListingService {
         listing.setStatus(ListingStatus.SOLD);
         listing.setSoldAt(java.time.Instant.now());
         Listing saved = listings.save(listing);
+        // Kanallardagi nusxalar ustidan chiziladi va tugmasi olinadi:
+        // aks holda post kanalda "sotuvda" bo'lib turaveradi.
+        soldPosts.onSold(saved);
         events.listingDeleted(saved.getId(), sellerId, ListingStatus.SOLD);
         return saved;
     }
@@ -157,6 +161,30 @@ public class ListingService {
     @Transactional(readOnly = true)
     public Listing getById(UUID id) {
         return listings.findById(id).orElseThrow(MarketplaceException::listingNotFound);
+    }
+
+    /**
+     * Ko'ruvchi uchun e'lon.
+     *
+     * <p>Sotilgan e'lon FAQAT egasi va xaridoriga ochiq. Kanaldagi post
+     * ustidan chizilgan bo'lsa ham havolasi qolib ketishi mumkin —
+     * eski forward, saqlangan havola, boshqa joyga ko'chirilgan xabar.
+     * Uni bosgan begona odam mavjud bo'lmagan taklif ustida vaqt
+     * sarflardi va sotuvchiga yozib bezovta qilardi.
+     *
+     * <p>Egasi va xaridoriga ochiq qoladi: chatdagi va
+     * bildirishnomalardagi havolalar ular uchun ishlashi kerak, aks
+     * holda o'z savdolarining yozuviga kira olmasdilar.
+     */
+    @Transactional(readOnly = true)
+    public Listing getForViewer(UUID id, UUID viewerId) {
+        Listing listing = getById(id);
+        if (listing.getStatus() != ListingStatus.SOLD) return listing;
+        boolean party = viewerId != null
+                && (viewerId.equals(listing.getSellerId())
+                    || viewerId.equals(listing.getSoldToUserId()));
+        if (!party) throw MarketplaceException.listingNotFound();
+        return listing;
     }
 
     @Transactional(readOnly = true)
@@ -301,6 +329,9 @@ public class ListingService {
         listing.setSoldAt(soldAt);
         listing.setSoldToUserId(buyerId);
         listings.save(listing);
+        // Savdo trade-service orqali yakunlangan yo'l ham shu yerdan
+        // o'tadi: kanallardagi nusxa ikkala yo'lda ham belgilanishi kerak.
+        soldPosts.onSold(listing);
         log.info("Listing marked SOLD: id={} buyerId={}", listingId, buyerId);
     }
 

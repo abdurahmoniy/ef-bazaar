@@ -136,6 +136,7 @@ efbazaar.marketplace.channel-post-requested # marketplace → bot (e'lonni hamko
 efbazaar.marketplace.channel-refresh-requested # marketplace → bot (kunlik: obunachi soni, nom, avatar)
 efbazaar.marketplace.channel-post-delete-requested # marketplace → bot (qayta yuborildi, eskisini o'chir)
 efbazaar.marketplace.official-post-requested # marketplace → bot (efBazaar kanaliga: post yoki forward)
+efbazaar.marketplace.channel-post-edit-requested # marketplace → bot (sotildi: ustidan chiz, tugmani ol)
 efbazaar.bot.media-uploaded          # { listingId, telegramMessageId, mediaType }
 efbazaar.auth.user-role-changed      # auth → trade-service (deactivate trade-admin profile on role revoke)
 efbazaar.trade.admin-invited         # trade-service → marketplace-service (TRADE_ADMIN_INVITED notification)

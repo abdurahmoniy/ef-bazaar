@@ -92,8 +92,11 @@ public class ListingController {
                                @AuthenticationPrincipal AuthenticatedUser viewer,
                                @RequestParam(name = "matchCard", required = false) List<String> matchCards,
                                @RequestParam(name = "matchStrictness", required = false) Integer matchStrictness) {
-        Listing listing = listingService.getById(id);
-        ListingResponse response = assembler.assemble(listing, viewer == null ? null : viewer.userId());
+        UUID viewerId = viewer == null ? null : viewer.userId();
+        // Sotilgan e'lon faqat egasi va xaridoriga: kanaldagi post
+        // ustidan chizilgan bo'lsa ham havolasi qolib ketishi mumkin.
+        Listing listing = listingService.getForViewer(id, viewerId);
+        ListingResponse response = assembler.assemble(listing, viewerId);
         return matchRequestParser.parse(matchCards, matchStrictness)
                 .map(match -> response.withMatchDetails(listingService.matchDetails(id, match)))
                 .orElse(response);

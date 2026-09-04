@@ -25,6 +25,8 @@ public class PartnerAdEventPublisher {
             "efbazaar.marketplace.channel-post-delete-requested";
     public static final String TOPIC_OFFICIAL_POST_REQUESTED =
             "efbazaar.marketplace.official-post-requested";
+    public static final String TOPIC_POST_EDIT_REQUESTED =
+            "efbazaar.marketplace.channel-post-edit-requested";
 
     private final KafkaTemplate<String, Object> kafka;
 
@@ -67,6 +69,19 @@ public class PartnerAdEventPublisher {
     public void officialPostRequested(OfficialPostPayload payload) {
         send(TOPIC_OFFICIAL_POST_REQUESTED, payload.listingId().toString(), payload);
     }
+
+    /**
+     * Chiqib bo'lgan postning matnini almashtirish — sotilgan e'lon uchun.
+     *
+     * <p>Kalit sifatida KANAL+XABAR: bir e'lonning turli kanallardagi
+     * nusxalari mustaqil va biri yiqilsa qolganlari to'xtamasligi kerak.
+     */
+    public void postEditRequested(PostEditPayload payload) {
+        send(TOPIC_POST_EDIT_REQUESTED,
+                payload.chatId() + ":" + payload.telegramMessageId(), payload);
+    }
+
+    public record PostEditPayload(String chatId, String telegramMessageId, String html) {}
 
     public record OfficialPostPayload(
             UUID listingId,
