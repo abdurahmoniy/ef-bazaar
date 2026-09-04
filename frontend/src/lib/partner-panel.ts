@@ -1,4 +1,26 @@
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+import type { PartnerApplication } from '@/lib/partners';
+
+/**
+ * Hamkor paneli shu odamga ochiladimi.
+ *
+ * <p>ROLGA QARAMAYDI, va bu ataylab. Rollar bitta qiymatli: odam yo
+ * USER, yo ADMIN, yo TRADE_ADMIN, yo PARTNER. Shuning uchun
+ * PartnerApprovedConsumer adminning rolini tegmay o'tadi — uni PARTNER
+ * qilsa admin panelini yo'qotardi. Natijada tasdiqlangan hamkor admin
+ * hech qachon ROLE_PARTNER olmaydi.
+ *
+ * <p>Rolga qarasak u o'z paneliga kira olmasdi: havola bosilganda
+ * /partnership ga qaytarilar va u yerda yana "Siz hamkorsiz" deb
+ * turardi — havola o'lgandek ko'rinardi.
+ *
+ * <p>Ariza holati esa /partnership "Siz hamkorsiz" deganda qaraydigan
+ * aynan o'sha manba. Ikkala sahifa bitta faktga tayanadi va bir-biriga
+ * zid gapira olmaydi.
+ */
+export function canOpenPartnerPanel(application: PartnerApplication | null): boolean {
+  return application?.status === 'APPROVED';
+}
 
 export interface ChannelSummary {
   channelId: string;
