@@ -89,6 +89,52 @@ public class TradeStateHandler {
      * rejection, a silent party, a deadline — hands each account back to the
      * person who put it up, which is also what a failed sale does.
      */
+    /**
+     * Pochta qutisi ochilmadi — savdo hech qanday iz qoldirmay yopiladi.
+     *
+     * <p>{@code handOver} QILINMAYDI. U qutini egasiga berib parolini
+     * almashtiradi; bu yerda esa quti pochta serverida umuman
+     * ochilmagan va almashtiradigan parol yo'q. Ustiga egasi bo'lgan
+     * quti keyinchalik o'chirilmaydi ham va odamning slot kvotasini
+     * bekorga band qilib turardi.
+     */
+    private void onProvisionFailed(Trade trade, ActorType actor, UUID actorId) {
+        // Pul darhol qaytadi: savdo boshlanmagan ham.
+        releaseEscrow(trade);
+        trade.setTerminalReason("PROVISION_FAILED");
+        discardPlaceholders(trade);
+        audit.record(trade.getId(), actor, actorId, "TRADE_PROVISION_FAILED",
+                Map.of("actor", actor.name(), "mailboxesDiscarded", "true"));
+        if (trade.getChatId() != null) {
+            events.tradeClosed(trade);
+        }
+        events.tradeAction(trade.getId(), trade.getChatId(), trade.getSellerId(),
+                TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null);
+        events.tradeAction(trade.getId(), trade.getChatId(), trade.getBuyerId(),
+                TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null);
+    }
+
+    /**
+     * Ochilmagan pochta qutilarini yo'q qiladi.
+     *
+     * <p>Savdo "hech qanday iz qoldirmasdan" yopilishi kerak: bu
+     * qatorlar pochta serverida hech narsaga mos kelmaydi, lekin
+     * qolsa foydalanuvchining slot kvotasini band qilib turardi va
+     * u yangi savdo ocha olmasdi — aynan bugungi tuzoqning o'zi.
+     *
+     * <p>Bittasi haqiqatda ochilib ulgurgan bo'lsa (ikki qutili
+     * savdoda biri o'tib, ikkinchisi yiqilgan) unga TEGILMAYDI:
+     * pochta serverida real quti bor va uni jimgina yo'qotish
+     * ma'lumot yo'qotish bo'lardi.
+     */
+    private void discardPlaceholders(Trade trade) {
+        for (UUID box : mailboxesOf(trade)) {
+            var mb = mailboxes.getRaw(box);
+            if (mb == null || mb.getProvisionedAt() != null) continue;
+            mailboxes.deleteUnheld(box);
+        }
+    }
+
     private void handOver(Trade trade, boolean crossed) {
         List<TradeSide> both = sides.of(trade.getId());
         if (both.isEmpty()) {
@@ -325,6 +371,12 @@ public class TradeStateHandler {
             case ORPHANED -> {
                 trade.setStateDeadline(null);
                 trade.setEscalationDeadlineAt(null);
+                // Pochta qutisi ochilmagan holat butunlay boshqacha
+                // yakunlanadi va shu sababli birinchi tekshiriladi.
+                if (event == TradeEvent.PROVISION_FAILED) {
+                    onProvisionFailed(trade, actor, actorId);
+                    return;
+                }
                 // A trade that ran out of time is a trade that did not happen.
                 // Without this the buyer's money stayed frozen for a deal
                 // nobody completed, with no state left that could ever free it.

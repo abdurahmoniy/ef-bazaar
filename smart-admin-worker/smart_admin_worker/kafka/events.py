@@ -80,6 +80,15 @@ class MailboxDeleteRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class EmailProvisionFailed:
+    """Quti ochilmadi va urinishlar tugadi — savdo yopilishi kerak."""
+
+    trade_id: UUID
+    mailbox_id: UUID
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
 class EmailProvisioned:
     trade_id: UUID
     mailbox_id: UUID

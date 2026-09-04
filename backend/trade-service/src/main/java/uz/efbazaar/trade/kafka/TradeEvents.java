@@ -16,6 +16,14 @@ public final class TradeEvents {
     public static final String TOPIC_PROPOSAL_RESOLVED    = "efbazaar.trade.proposal-resolved";
     public static final String TOPIC_EMAIL_PROVISION_REQ  = "efbazaar.trade.email-provision-request";
     public static final String TOPIC_EMAIL_PROVISIONED    = "efbazaar.trade.email-provisioned";
+    /**
+     * Worker pochta qutisini ocha olmadi va urinishlari tugadi.
+     *
+     * <p>Usiz savdo INITIATED da abadiy qotib qolardi: bu holatda
+     * TIMEOUT ham, rad etish ham, admin bekor qilishi ham yo'q.
+     */
+    public static final String TOPIC_EMAIL_PROVISION_FAILED =
+            "efbazaar.trade.email-provision-failed";
     public static final String TOPIC_FORGOT_PW_REQ        = "efbazaar.trade.forgot-password-request";
     public static final String TOPIC_IMAP_POLL_REQ        = "efbazaar.trade.imap-poll-request";
     public static final String TOPIC_KONAMI_EMAIL         = "efbazaar.trade.konami-email-received";
@@ -69,6 +77,8 @@ public final class TradeEvents {
             UUID proposalId,
             ProposalOutcome outcome,
             Instant resolvedAt) {}
+
+    public record EmailProvisionFailed(UUID tradeId, UUID mailboxId, String reason) {}
 
     public record EmailProvisionRequest(
             UUID tradeId,

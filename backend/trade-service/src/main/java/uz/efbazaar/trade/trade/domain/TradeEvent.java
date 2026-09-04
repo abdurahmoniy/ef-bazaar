@@ -8,6 +8,15 @@ package uz.efbazaar.trade.trade.domain;
 public enum TradeEvent {
     /** Worker replied to email-provision-request. INITIATED → WAITING_PAYMENT. */
     MAILBOX_PROVISIONED,
+    /**
+     * Pochta qutisini ochib bo'lmadi va worker taslim bo'ldi.
+     *
+     * <p>Usiz INITIATED yagona chiqishsiz holat edi: deadline yo'q,
+     * TIMEOUT yo'q, rad etish ham yo'q. Worker uch urinishdan keyin
+     * offsetni commit qilib o'tib ketardi va savdo xaridorning puli
+     * muzlatilgan holda abadiy qotib qolardi.
+     */
+    PROVISION_FAILED,
     /** Buyer clicked "TO'LOV QILDIM". WAITING_PAYMENT → WAITING_EMAIL_CHANGE. */
     PAYMENT_CONFIRMED,
     /** Seller clicked "O'ZGARTIRDIM". WAITING_EMAIL_CHANGE → VERIFYING_KONAMI_LINK. */

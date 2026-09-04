@@ -143,6 +143,7 @@ efbazaar.trade.admin-invited         # trade-service → marketplace-service (TR
 efbazaar.trade.trade-opened          # trade-service
 efbazaar.trade.trade-closed          # trade-service
 efbazaar.trade.trade-succeeded       # trade-service → marketplace-service (referal mukofoti)
+efbazaar.trade.email-provision-failed # worker → trade-service (quti ochilmadi, savdo yopiladi)
 ```
 
 ---
