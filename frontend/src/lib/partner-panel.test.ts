@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import type { PartnerApplication, PartnerApplicationStatus } from './partners';
 import {
+  canOpenPartnerPanel,
   describeTerms,
   earnedFromPosts,
   formatSom,
@@ -99,5 +101,56 @@ describe('formatSom', () => {
   it('shows zero as zero, not as blank', () => {
     expect(formatSom(0)).toBe('0');
     expect(formatSom(null)).toBe('0');
+  });
+});
+
+
+describe('canOpenPartnerPanel', () => {
+  function application(status: PartnerApplicationStatus): PartnerApplication {
+    return {
+      id: 'a1',
+      userId: 'u1',
+      status,
+      channelId: -1001234,
+      channelTitle: 'Efootball Uz',
+      channelUsername: 'efootball_uz',
+      subscriberCount: 50239,
+      verifiedAt: null,
+      verificationError: null,
+      invoiceId: null,
+      paidAt: null,
+      reviewedAt: null,
+      reviewNote: null,
+      cancelReason: null,
+      cancelledAt: null,
+      createdAt: '2026-09-01T00:00:00Z',
+    };
+  }
+
+  it('opens for an approved partner whatever their role is', () => {
+    // Roles are single-valued, so an admin who partners never receives
+    // ROLE_PARTNER — the grant deliberately leaves ADMIN untouched so
+    // they keep the admin panel. Gating on the role locked them out of
+    // a panel the API was already serving them.
+    expect(canOpenPartnerPanel(application('APPROVED'))).toBe(true);
+  });
+
+  it('stays shut while the application is still moving', () => {
+    // Paid but unreviewed is not a partnership. Opening here would show
+    // a channel that does not exist yet.
+    expect(canOpenPartnerPanel(application('AWAITING_REVIEW'))).toBe(false);
+    expect(canOpenPartnerPanel(application('AWAITING_PAYMENT'))).toBe(false);
+    expect(canOpenPartnerPanel(application('AWAITING_CHANNEL'))).toBe(false);
+  });
+
+  it('stays shut once the partnership has ended', () => {
+    expect(canOpenPartnerPanel(application('REJECTED'))).toBe(false);
+    expect(canOpenPartnerPanel(application('CANCELLED'))).toBe(false);
+  });
+
+  it('stays shut when there is no application at all', () => {
+    // Also the marketplace-is-down case: the panel's own data comes
+    // from that service, so there is nothing to draw either way.
+    expect(canOpenPartnerPanel(null)).toBe(false);
   });
 });
