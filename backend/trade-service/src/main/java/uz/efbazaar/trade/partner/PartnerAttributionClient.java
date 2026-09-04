@@ -40,6 +40,14 @@ public class PartnerAttributionClient {
         factory.setReadTimeout((int) TIMEOUT.toMillis());
         this.http = builder.baseUrl(baseUrl).requestFactory(factory).build();
         this.secret = secret;
+        if (secret == null || secret.isBlank()) {
+            // Bo'sh sir bilan chaqiruv KETAVERADI va qabul qiluvchi uni
+            // "mismatch" deb rad etadi — tashqaridan bu sozlama xatosi
+            // emas, tarmoq nosozligidek ko'rinadi. Aynan shu holat
+            // hamkor ulushini jimgina yo'qotib turgan edi.
+            log.warn("app.internal.secret sozlanmagan — hamkor attributsiyasi "
+                    + "har safar rad etiladi va savdo ulushi yozilmaydi");
+        }
     }
 
     public Optional<Attribution> lookup(UUID listingId, UUID buyerId) {

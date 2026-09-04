@@ -50,6 +50,12 @@ app:
     internal-secret: ${INTERNAL_API_SECRET:}
   marketplace:
     internal-base-url: ${MARKETPLACE_INTERNAL_BASE_URL:http://marketplace-service:8082}
+  # Servislararo /internal/** chaqiruvlari uchun umumiy sir. Marketplace'da
+  # ham aynan shu nom bilan turadi va bir xil INTERNAL_API_SECRET dan
+  # o'qiydi — nomlar mos kelmasa chaqiruv bo'sh sarlavha bilan ketadi va
+  # qabul qiluvchi uni "mismatch" deb rad etadi.
+  internal:
+    secret: ${INTERNAL_API_SECRET:}
 
 server:
   port: 8085
