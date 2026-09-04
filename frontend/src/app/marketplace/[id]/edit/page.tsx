@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 
 import { DeleteListingButton } from '@/components/marketplace/delete-listing-button';
+import { ListingChannelPosts } from '@/components/marketplace/listing-channel-posts';
 import { ListingForm } from '@/components/marketplace/listing-form';
 import { MarkSoldButton } from '@/components/marketplace/mark-sold-button';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
@@ -47,6 +48,15 @@ export default async function EditListingPage({ params }: EditPageProps) {
           </p>
         </header>
         <ListingForm attributeDefinitions={definitions} initialListing={result.data} />
+        {/*
+          Formadan TASHQARIDA. Forma e'lonni tahrirlaydi, bu bo'lim esa
+          uni reklama qiladi — va reklama pul turadi. Formaning "Saqlash"
+          tugmasiga bog'lansa, tavsifni tuzatgani uchun hamyondan pul
+          yechilib ketardi.
+        */}
+        <div className="mt-6">
+          <ListingChannelPosts listingId={result.data.id} />
+        </div>
         {result.data.status === 'ACTIVE' && (
           <div className="pt-2">
             <MarkSoldButton listingId={id} />

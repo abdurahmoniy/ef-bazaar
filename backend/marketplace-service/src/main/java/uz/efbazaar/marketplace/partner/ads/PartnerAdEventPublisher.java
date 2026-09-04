@@ -21,6 +21,8 @@ public class PartnerAdEventPublisher {
             "efbazaar.marketplace.channel-post-requested";
     public static final String TOPIC_CHANNEL_REFRESH_REQUESTED =
             "efbazaar.marketplace.channel-refresh-requested";
+    public static final String TOPIC_CHANNEL_POST_DELETE_REQUESTED =
+            "efbazaar.marketplace.channel-post-delete-requested";
 
     private final KafkaTemplate<String, Object> kafka;
 
@@ -39,6 +41,24 @@ public class PartnerAdEventPublisher {
                 new ChannelRefreshPayload(channel.getId(),
                         channel.getTelegramChannelId(), Instant.now()));
     }
+
+    /**
+     * "Shu xabarni kanaldan o'chir" — e'lon qayta yuborilgani uchun.
+     *
+     * <p>Obunachi bir xil e'lonni ikki marta ko'rmasin va pastda
+     * eskirgan narx bilan turgan postga tushib qolmasin.
+     */
+    public void postDeleteRequested(ListingChannelPost post, PartnerChannel channel) {
+        send(TOPIC_CHANNEL_POST_DELETE_REQUESTED, post.getId().toString(),
+                new ChannelPostDeletePayload(post.getId(), channel.getTelegramChannelId(),
+                        post.getTelegramMessageId(), Instant.now()));
+    }
+
+    public record ChannelPostDeletePayload(
+            UUID postId,
+            Long telegramChannelId,
+            String telegramMessageId,
+            Instant occurredAt) {}
 
     public record ChannelRefreshPayload(
             UUID partnerChannelId,

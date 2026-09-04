@@ -41,6 +41,7 @@ import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTelegramMainButton } from '@/hooks/use-telegram-main-button';
 import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
+import { ChannelPicker } from '@/components/marketplace/channel-picker';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { formatPriceUZS, normalizePlayerList } from '@/lib/marketplace-format';
 import { listingMediaUrls } from '@/lib/marketplace-media';
@@ -135,6 +136,9 @@ export function ListingForm({
 }: ListingFormProps) {
 	const router = useRouter();
 	const editMode = initialListing !== undefined;
+	// Yaratishda tanlangan hamkor kanallari. Tahrirlashda ishlatilmaydi:
+	// u yerda buyurtma alohida tugmadan o'tadi.
+	const [channelIds, setChannelIds] = useState<string[]>([]);
 	const [definitions, setDefinitions] = useState<
 		readonly ListingAttributeDefinition[]
 	>(attributeDefinitions ?? SEEDED_LISTING_ATTRIBUTE_DEFINITIONS);
@@ -305,6 +309,8 @@ export function ListingForm({
 		setPending(true);
 		try {
 			const request = buildRequest(state, definitions);
+			// Kanallar FAQAT yaratishda so'rov ichida ketadi.
+			if (!editMode && channelIds.length > 0) request.channelIds = channelIds;
 			const formData = new FormData();
 			formData.append(
 				'data',
@@ -312,7 +318,7 @@ export function ListingForm({
 			);
 			for (const photo of photos) formData.append('files', photo.file);
 
-			const isEdit = initialListing !== undefined;
+			const isEdit = editMode;
 			const url = isEdit
 				? buildMarketplaceApiPath(['v1', 'listings', initialListing.id])
 				: buildMarketplaceApiPath('v1/listings');
@@ -450,6 +456,18 @@ export function ListingForm({
 						onEditStep={goToStep}
 						commissionConfig={commissionConfig}
 					/>
+				)}
+
+				{/*
+					Kanal tanlash SO'NGGI bosqichda: jami summa shu yerda
+					ko'rinadi va sotuvchi rozi bo'lishdan oldin raqamni
+					ko'radi. Tahrirlashda esa umuman chiqmaydi — u yerda
+					pul harakati alohida tugmaga bog'langan.
+				*/}
+				{step === 'review' && !editMode && (
+					<div className='mt-4'>
+						<ChannelPicker selected={channelIds} onChange={setChannelIds} />
+					</div>
 				)}
 
 				{submitError && (

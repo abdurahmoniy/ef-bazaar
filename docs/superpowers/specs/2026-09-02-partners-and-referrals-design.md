@@ -93,6 +93,30 @@ created_at            timestamptz   NOT NULL DEFAULT now()
 value would silently ignore a later change to the global policy, which is the opposite of what an
 admin editing the global setting expects.
 
+### Reposting a listing to the same channel
+
+A listing scrolls away in a busy channel within a day, and the only remedy is to publish it again.
+That is a separate paid service each time, so `uk_listing_channel_posts` — one post per
+(listing, channel) — was the wrong rule and is gone.
+
+Ordering for an existing listing goes through `POST /api/v1/listings/{id}/channel-posts`, never
+through the listing's own `PUT`. The update endpoint fires on every save; if channel ids rode along
+with it, fixing a typo in a description could move money out of the seller's wallet. Money moves
+only from a button pressed for that purpose.
+
+When the fresh post lands, the previous one for that channel is deleted from Telegram and stamped
+`replaced_at`. Deletion happens *after* the new post is confirmed, never before: if the new post
+fails, deleting first would remove the listing from the channel entirely while the seller had
+already paid. Failing to delete is forgiven — the bot may lack delete rights, or the message may
+already be gone — because the new post is out and the seller has what they paid for.
+
+The row is never deleted. It was paid for and the partner earned from it, so it stays in the
+reports; `replaced_at` only records that its Telegram message is no longer there. Without it the
+panel would show two POSTED rows for one channel and nobody could tell which message still exists.
+
+Only an `ACTIVE` listing can be ordered, and only by its seller. Advertising a sold listing would
+send readers to an offer that no longer exists, with the seller paying for the privilege.
+
 ### Rejoining after a cancellation
 
 Cancelling a partnership sets `active = false` and keeps the row, because published posts and the

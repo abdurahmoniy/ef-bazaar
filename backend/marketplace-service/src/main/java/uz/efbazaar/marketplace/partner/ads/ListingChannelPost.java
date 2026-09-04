@@ -62,6 +62,17 @@ public class ListingChannelPost {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /**
+     * Qayta yuborilgach kanaldagi xabar o'chirilgan payt.
+     *
+     * <p>Qator qolaveradi: u to'langan va hamkor undan daromad olgan.
+     * O'chirilgani faqat Telegram'dagi xabar, tarix emas. Bu maydonsiz
+     * panelda bir kanal uchun ikkita POSTED qator turar va qaysi
+     * birining xabari hali tirikligini hech kim ayta olmasdi.
+     */
+    @Column(name = "replaced_at")
+    private Instant replacedAt;
+
     @Column(name = "posted_at")
     private Instant postedAt;
 
