@@ -93,6 +93,27 @@ created_at            timestamptz   NOT NULL DEFAULT now()
 value would silently ignore a later change to the global policy, which is the opposite of what an
 admin editing the global setting expects.
 
+### Rejoining after a cancellation
+
+Cancelling a partnership sets `active = false` and keeps the row, because published posts and the
+trades they produced hang off it and a report must not lose them. Approving a channel, meanwhile,
+inserted a fresh row every time. The two met on `telegram_channel_id UNIQUE` and approval crashed
+with a duplicate-key violation the moment a partner who had cancelled applied again.
+
+The uniqueness is now scoped to live rows (`WHERE active`), and approval reuses the existing row for
+the same partner instead of inserting a second one. Reuse rather than insert is the important half:
+`link_code` is written into every post already published to that channel and into
+`referrals.partner_channel_id`, so a new code would strand all of that history and split the funnel
+across two rows. The partner's own posting price and any per-partner terms an admin set survive the
+gap; the failure counter resets, since a channel closed by three failed refreshes is being read
+again.
+
+If the live row belongs to a *different* user, the channel changed hands on Telegram — the bot
+verifies the applicant is the channel `creator`, so the new owner is legitimate. The previous row is
+closed and its unposted orders refunded, and a new row is created. The old partner's clicks and
+referrals stay attached to their own row: handing that history to whoever owns the channel next
+would pay the wrong person.
+
 ### Daily channel refresh
 
 `title`, `username`, `photo_file_id` and `subscriber_count` are read from Telegram when the channel

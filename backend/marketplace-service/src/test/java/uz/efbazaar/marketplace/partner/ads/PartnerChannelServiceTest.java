@@ -54,6 +54,79 @@ class PartnerChannelServiceTest {
     }
 
     @Test
+    @DisplayName("bekor qilib qayta qo'shilgan hamkorga ESKI qator tiriltiriladi")
+    void rejoiningReusesTheSameRow() {
+        // Yangi qator ochilsa link_code ham yangilanardi — u esa shu
+        // kanalga chiqib bo'lgan HAR BIR postda va referal yozuvida
+        // turibdi. O'tgan reklamalar hech qaysi hamkorga olib bormay
+        // qolardi, voronka esa ikkiga bo'linardi.
+        PartnerChannel old = existingChannel();
+        old.setTelegramChannelId(-1002148329110L);
+        old.setLinkCode("K7M4XQP2");
+        old.setPostPriceSom(new BigDecimal("25000"));
+        old.setActive(false);
+        when(channels.findFirstByTelegramChannelIdAndPartnerUserIdOrderByCreatedAtDesc(
+                -1002148329110L, partnerId)).thenReturn(Optional.of(old));
+
+        PartnerApplication second = approvedApplication();
+        second.setChannelId(-1002148329110L);
+        service.onApproved(second);
+
+        PartnerChannel saved = captureSavedChannel();
+        assertThat(saved.getId()).isEqualTo(old.getId());
+        assertThat(saved.isActive()).isTrue();
+        // Havola kodi va hamkor qo'ygan narx tegilmaydi.
+        assertThat(saved.getLinkCode()).isEqualTo("K7M4XQP2");
+        assertThat(saved.getPostPriceSom()).isEqualByComparingTo("25000");
+        // Ariza esa YANGISIGA ko'rsatadi: eskisi bekor qilingan.
+        assertThat(saved.getApplicationId()).isEqualTo(second.getId());
+    }
+
+    @Test
+    @DisplayName("qayta qo'shilganda xato hisoblagichi nolga qaytadi")
+    void rejoiningClearsTheFailureCounter() {
+        // Kanal uch kun o'qilmagani uchun yopilgan bo'lishi mumkin.
+        // Hisoblagich qolib ketsa, qaytgan hamkor bitta xatodan keyin
+        // yana yopilardi.
+        PartnerChannel old = existingChannel();
+        old.setTelegramChannelId(-1002148329110L);
+        old.setRefreshFailures(3);
+        old.setActive(false);
+        when(channels.findFirstByTelegramChannelIdAndPartnerUserIdOrderByCreatedAtDesc(
+                -1002148329110L, partnerId)).thenReturn(Optional.of(old));
+
+        PartnerApplication second = approvedApplication();
+        second.setChannelId(-1002148329110L);
+        service.onApproved(second);
+
+        assertThat(old.getRefreshFailures()).isZero();
+    }
+
+    @Test
+    @DisplayName("kanal boshqa odamga o'tsa eski hamkorlik yopiladi, tarixi qoladi")
+    void aTransferredChannelRetiresThePreviousPartnership() {
+        // Ariza berish uchun bot yangi odamni EGA deb tasdiqlagan.
+        // Eski hamkorning klik va referal tarixi unga qolishi kerak —
+        // shuning uchun qatori o'chirilmaydi, yopiladi.
+        PartnerChannel previous = new PartnerChannel();
+        previous.setId(UUID.randomUUID());
+        previous.setPartnerUserId(UUID.randomUUID());
+        previous.setTelegramChannelId(-1002148329110L);
+        previous.setPostPriceSom(BigDecimal.ZERO);
+        previous.setActive(true);
+        when(channels.findByTelegramChannelIdAndActiveTrue(-1002148329110L))
+                .thenReturn(Optional.of(previous));
+
+        PartnerApplication mine = approvedApplication();
+        mine.setChannelId(-1002148329110L);
+        service.onApproved(mine);
+
+        assertThat(previous.isActive()).isFalse();
+        // Chiqmagan buyurtmalar eski narxda va eski hamkorga edi.
+        verify(channelPosts).refundStranded(previous.getId());
+    }
+
+    @Test
     @DisplayName("kunlik yangilanish avatar va obunachi sonini almashtiradi")
     void refreshReplacesPhotoAndSubscribers() {
         // Ikkalasi ham tekshiruv paytida BIR MARTA olinardi. Obunachi

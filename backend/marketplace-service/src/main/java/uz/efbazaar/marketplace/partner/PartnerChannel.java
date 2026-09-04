@@ -38,7 +38,14 @@ public class PartnerChannel {
     @Column(name = "partner_user_id", nullable = false, updatable = false, columnDefinition = "uuid")
     private UUID partnerUserId;
 
-    @Column(name = "application_id", nullable = false, updatable = false, columnDefinition = "uuid")
+    /**
+     * Shu hamkorlikni TUG'DIRGAN ariza.
+     *
+     * <p>Qayta qo'shilganda YANGI arizaga ko'rsatadi. Bekor qilingan
+     * arizada qolib ketsa, kanal yopilgan hamkorlikka bog'langandek
+     * ko'rinardi va admin paneli ham o'shani ochardi.
+     */
+    @Column(name = "application_id", nullable = false, columnDefinition = "uuid")
     private UUID applicationId;
 
     @Column(name = "telegram_channel_id", nullable = false, updatable = false)

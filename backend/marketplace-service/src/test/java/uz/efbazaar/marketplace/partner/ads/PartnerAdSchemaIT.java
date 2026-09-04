@@ -173,6 +173,45 @@ class PartnerAdSchemaIT {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    @Test
+    @DisplayName("bekor qilingan hamkorlik yonida yangisi ochila oladi")
+    void aClosedPartnershipDoesNotBlockARejoin() {
+        // Bekor qilishda qator O'CHIRILMAYDI — chiqib bo'lgan postlar va
+        // ular keltirgan savdolar unga bog'langan. Ilgari cheklov butun
+        // jadval bo'yicha edi va qayta tasdiqlash shu yerda yiqilardi:
+        // duplicate key ... partner_channels_telegram_channel_id_key.
+        long telegramChannel = ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE);
+
+        PartnerChannel closed = channel("Eski hamkorlik", 5_000, BigDecimal.ZERO);
+        closed.setTelegramChannelId(telegramChannel);
+        closed.setActive(false);
+        channels.saveAndFlush(closed);
+
+        PartnerChannel reopened = channel("Qayta hamkorlik", 5_000, BigDecimal.ZERO);
+        reopened.setTelegramChannelId(telegramChannel);
+
+        assertThat(channels.saveAndFlush(reopened).getId()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("bitta kanalda ikkita TIRIK hamkorlik bo'la olmaydi")
+    void oneLivePartnershipPerChannel() {
+        // Cheklov yumshatildi, lekin yo'qolmadi: ikkita faol qator
+        // bo'lsa e'lon qaysi hamkorga pul keltirishi noaniq bo'lardi va
+        // bozorda kanal ikki marta ko'rinardi.
+        long telegramChannel = ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE);
+
+        PartnerChannel first = channel("Birinchi", 5_000, BigDecimal.ZERO);
+        first.setTelegramChannelId(telegramChannel);
+        channels.saveAndFlush(first);
+
+        PartnerChannel second = channel("Ikkinchi", 5_000, BigDecimal.ZERO);
+        second.setTelegramChannelId(telegramChannel);
+
+        assertThatThrownBy(() -> channels.saveAndFlush(second))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
     private PartnerChannel channel(String title, int subscribers, BigDecimal price) {
         PartnerChannel c = new PartnerChannel();
         c.setId(UUID.randomUUID());

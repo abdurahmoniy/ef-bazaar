@@ -13,6 +13,7 @@ import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelR
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -66,6 +67,36 @@ public class PartnerChannelService {
         // ikkinchi kanal ochmasin.
         if (channels.findByApplicationId(application.getId()).isPresent()) return;
 
+        // Bu kanalda tirik hamkorlik bor bo'lsa — u kimniki?
+        Optional<PartnerChannel> live =
+                channels.findByTelegramChannelIdAndActiveTrue(application.getChannelId());
+        if (live.isPresent() && !live.get().getPartnerUserId().equals(application.getUserId())) {
+            // Kanal Telegram'da boshqa odamga o'tgan: ariza berish uchun
+            // bot yangi odamni EGA deb tasdiqlagan. Eski hamkorning
+            // klik va referal tarixi unga qolishi kerak, shuning uchun
+            // qatori olib qo'yilmaydi — yopiladi.
+            PartnerChannel previous = live.get();
+            previous.setActive(false);
+            channels.save(previous);
+            channelPosts.refundStranded(previous.getId());
+            log.info("Kanal {} egasi almashdi — eski hamkorlik {} yopildi",
+                    application.getChannelId(), previous.getId());
+        }
+
+        // O'SHA odam qayta qo'shilyaptimi. Yangi qator ochsak, link_code
+        // ham yangilanardi — u esa shu kanalga chiqib bo'lgan HAR BIR
+        // postda va referrals.partner_channel_id da yozilgan. Eski
+        // qatorni qoldirib yangisini ochish voronkani ikkiga bo'lardi
+        // va o'tgan savdolar hech qaysi hamkorga tegishli bo'lmay
+        // qolardi.
+        Optional<PartnerChannel> mine = channels
+                .findFirstByTelegramChannelIdAndPartnerUserIdOrderByCreatedAtDesc(
+                        application.getChannelId(), application.getUserId());
+        if (mine.isPresent()) {
+            rejoin(mine.get(), application);
+            return;
+        }
+
         PartnerChannel channel = new PartnerChannel();
         channel.setId(UUID.randomUUID());
         channel.setPartnerUserId(application.getUserId());
@@ -89,6 +120,37 @@ public class PartnerChannelService {
         channels.save(channel);
 
         log.info("Hamkor kanali ochildi: {} ({}), egasi {}",
+                channel.getTitle(), channel.getTelegramChannelId(), channel.getPartnerUserId());
+    }
+
+    /**
+     * Bekor qilgan hamkor qaytib keldi.
+     *
+     * <p>Eski qator TIRILTIRILADI, yangisi ochilmaydi. {@code link_code}
+     * shu kanalga chiqib bo'lgan har bir postda va har bir referal
+     * yozuvida turibdi — uni almashtirsak, o'tgan reklamalar hech
+     * qaysi hamkorga olib bormay qolardi.
+     *
+     * <p>Narx va admin qo'ygan shaxsiy shartlar SAQLANADI: ular shu
+     * hamkor uchun qo'yilgan va u o'sha odamning o'zi.
+     */
+    private void rejoin(PartnerChannel channel, PartnerApplication application) {
+        channel.setApplicationId(application.getId());
+        channel.setTitle(application.getChannelTitle() == null
+                ? channel.getTitle() : application.getChannelTitle());
+        channel.setUsername(application.getChannelUsername());
+        channel.setPhotoFileId(application.getChannelPhotoFileId());
+        if (application.getSubscriberCount() != null) {
+            channel.setSubscriberCount(application.getSubscriberCount());
+        }
+        channel.setSubscriberSyncedAt(Instant.now());
+        // Ketma-ket xatolar hisoblagichi ham nolga qaytadi: kanal endi
+        // qaytadan o'qilib turibdi.
+        channel.setRefreshFailures(0);
+        channel.setActive(true);
+        channels.save(channel);
+
+        log.info("Hamkor kanali qayta ochildi: {} ({}), egasi {}",
                 channel.getTitle(), channel.getTelegramChannelId(), channel.getPartnerUserId());
     }
 
