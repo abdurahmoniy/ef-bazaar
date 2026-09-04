@@ -52,7 +52,12 @@ public class TradeExceptionHandler {
         // which throws the moment anything is put into it.
         Map<String, Object> body = new java.util.LinkedHashMap<>(
                 body(HttpStatus.CONFLICT, "mailbox_slots_exhausted"));
-        body.put("detail", e.getMessage());
+        // "message" SHART. Frontend xato matnini faqat shu maydondan
+        // (yoki "error" dan) o'qiydi; ilgari sabab "detail" da yotar va
+        // foydalanuvchi umumiy "So'rov bajarilmadi" ni ko'rardi —
+        // server esa aniq nima bo'lganini bilib turardi.
+        body.put("error", HttpStatus.CONFLICT.getReasonPhrase());
+        body.put("message", e.getMessage());
         body.put("plan", e.getPlanCode());
         body.put("used", e.getUsed());
         body.put("limit", e.getLimit());

@@ -86,6 +86,38 @@ public class MailboxService {
      * <p>Idempotent: deleting one that is already gone does nothing rather
      * than failing, so a double-click is not an error.
      */
+    /**
+     * Foydalanuvchi O'Z pochta qutisini o'chiradi.
+     *
+     * <p>Slot to'lganda savdoga kira olmaydi va yagona chiqish yo'li —
+     * eskisini bo'shatish. Ilgari o'chirish faqat adminda edi va u ham
+     * egasi bor qutini o'chira olmasdi, ya'ni to'lgan slot boshi berk
+     * ko'cha bo'lardi.
+     *
+     * <p>TIRIK SAVDODAGI quti o'chirilmaydi: u hozir ishlatilmoqda va
+     * uni olib qo'yish savdoni to'xtatib qo'yardi.
+     */
+    @Transactional
+    public void deleteOwnedBy(UUID userId, UUID mailboxId) {
+        Mailbox m = mailboxes.findById(mailboxId)
+                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
+        if (!userId.equals(m.getOwnerUserId())) {
+            // Boshqa odamning qutisi borligini ham bildirmaymiz: u
+            // Konami parol tiklash xatlarini saqlaydi.
+            throw new EntityNotFoundException("Mailbox " + mailboxId);
+        }
+        if (m.getTradeId() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Bu pochta qutisi savdoda ishlatilmoqda — o'chirib bo'lmaydi");
+        }
+        // Egalik OLIB TASHLANADI, keyin o'chiriladi: deleteUnheld egasi
+        // bor qutini rad etadi va bu ataylab — tasodifiy o'chirishdan
+        // himoya. Bu yerda esa egasining o'zi ataylab so'rayapti.
+        m.setOwnerUserId(null);
+        mailboxes.save(m);
+        deleteUnheld(mailboxId);
+    }
+
     @Transactional
     public void deleteUnheld(UUID mailboxId) {
         Mailbox m = mailboxes.findById(mailboxId)
