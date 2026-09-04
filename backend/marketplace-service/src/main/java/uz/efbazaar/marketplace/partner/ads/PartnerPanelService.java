@@ -10,6 +10,7 @@ import uz.efbazaar.marketplace.partner.ads.ListingChannelPost.State;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.ChannelFunnel;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.ChannelSummary;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.Earnings;
+import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.PayoutTerms;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.PartnerPanelResponse;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.PostRow;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.ListingChannelPostRepository;
@@ -18,6 +19,7 @@ import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerClickRep
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +32,8 @@ public class PartnerPanelService {
     private final ListingChannelPostRepository posts;
     private final PartnerClickRepository clicks;
     private final ReferralRepository referrals;
+    private final PartnerAdClient payments;
+    private final PartnerPayoutPolicy policy;
 
     @Transactional(readOnly = true)
     public PartnerPanelResponse panelFor(UUID partnerUserId) {
@@ -41,12 +45,13 @@ public class PartnerPanelService {
         return new PartnerPanelResponse(
                 new ChannelSummary(channel.getId(), channel.getTitle(), channel.getUsername(),
                         channel.getSubscriberCount(), channel.getPostPriceSom()),
+                terms(channel),
                 new ChannelFunnel(
                         clicks.countByPartnerChannelId(channel.getId()),
                         // KANAL bo'yicha, hamkor bo'yicha emas: uning shaxsiy
                         // taklif havolasidan kelganlar bu voronkaga kirmaydi.
                         referrals.countByPartnerChannelId(channel.getId())),
-                earnings(channelPosts),
+                earnings(partnerUserId),
                 channelPosts.stream().map(PartnerPanelService::row).toList());
     }
 
@@ -70,19 +75,32 @@ public class PartnerPanelService {
     }
 
     /**
-     * Uch oqim ALOHIDA hisoblanadi.
+     * Uch oqim — ledger'dan, marketplace nusxasidan emas.
      *
-     * <p>Post haqi shu yerdagi qatorlardan yig'iladi; savdo ulushi va
-     * oylik to'lov esa hamyon tarixidan keladi va bu bosqichda nol
-     * qaytadi — panel ularni ko'rsatadi, lekin manba keyingi qadamda
-     * ulanadi.
+     * <p>Bitta to'lovning ikkita yozuvi vaqt o'tib bir-biridan
+     * uzoqlashadi va keyin qaysi biri to'g'ri ekani bilinmaydi.
+     * "E'lon joylashdan" ni ham shu yerdan olamiz, garchi
+     * {@code listing_channel_posts} dan ham hisoblash mumkin bo'lsa
+     * ham: uchala raqam bitta manbadan kelgani yaxshiroq.
      */
-    private Earnings earnings(List<ListingChannelPost> channelPosts) {
-        BigDecimal fromPosts = channelPosts.stream()
-                .filter(p -> State.POSTED.name().equals(p.getState()))
-                .map(ListingChannelPost::getPriceSom)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new Earnings(fromPosts, BigDecimal.ZERO, BigDecimal.ZERO);
+    private Earnings earnings(UUID partnerUserId) {
+        var paid = payments.earnings(partnerUserId);
+        return new Earnings(paid.fromPostsSom(), paid.fromTradesSom(), paid.monthlySom());
+    }
+
+    /**
+     * Amaldagi shart — hamkor uni faqat KO'RADI, o'zgartira olmaydi.
+     *
+     * <p>Foiz asos punktida saqlanadi (1000 = 10%), lekin ekranga
+     * foizda chiqadi: hamkorga "1000 asos punkti" hech narsa
+     * demaydi.
+     */
+    private PayoutTerms terms(PartnerChannel channel) {
+        var payout = policy.resolve(channel);
+        return new PayoutTerms(
+                payout.mode().name(),
+                BigDecimal.valueOf(payout.tradePercentBp()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP),
+                payout.fixedMonthlySom());
     }
 
     private static PostRow row(ListingChannelPost p) {

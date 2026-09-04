@@ -28,8 +28,23 @@ export interface PostRow {
   postedAt: string | null;
 }
 
+/**
+ * Hamkorga qanday shart qo'llanadi.
+ *
+ * <p>Hamkor buni O'ZGARTIRA OLMAYDI — admin sozlaydi. Lekin ko'radi:
+ * qaysi shartda ekanini bilmagan odam daromadidagi raqamni tushuntira
+ * olmaydi.
+ */
+export interface PayoutTerms {
+  mode: 'PERCENT' | 'FIXED';
+  /** Foizda, ko'rsatish uchun. FIXED rejimda 0. */
+  tradePercent: number;
+  fixedMonthlySom: number;
+}
+
 export interface PartnerPanel {
   channel: ChannelSummary;
+  terms: PayoutTerms;
   funnel: ChannelFunnel;
   earnings: Earnings;
   posts: PostRow[];
@@ -73,6 +88,20 @@ export function earnedFromPosts(posts: PostRow[]): number {
   return posts
     .filter((p) => p.state === 'POSTED')
     .reduce((sum, p) => sum + p.priceSom, 0);
+}
+
+/**
+ * Amaldagi shartni bir jumlada aytadi.
+ *
+ * <p>Ikki rejim bir-birini almashtiradi, shuning uchun ikkalasini
+ * birga ko'rsatish hamkorni chalg'itardi — u ikkalasini ham olaman
+ * deb o'ylardi.
+ */
+export function describeTerms(terms: PayoutTerms): string {
+  if (terms.mode === 'FIXED') {
+    return `Oyiga ${formatSom(terms.fixedMonthlySom)} so'm`;
+  }
+  return `Har savdodan ${terms.tradePercent}% (efBazaar komissiyasidan)`;
 }
 
 export function formatSom(value: number | null | undefined): string {

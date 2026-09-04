@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  describeTerms,
   earnedFromPosts,
   formatSom,
   postStateLabel,
@@ -69,6 +70,24 @@ describe('postStateLabel', () => {
     // Backend yangi holat qo'shsa, panel bo'sh katak emas, xom qiymat
     // ko'rsatsin — u hech bo'lmasa nimadir deydi.
     expect(postStateLabel('SOMETHING_NEW' as PostRow['state'])).toBe('SOMETHING_NEW');
+  });
+});
+
+describe('describeTerms', () => {
+  it('names the percentage and where it is taken from', () => {
+    // "10%" o'zi yetarli emas: nimadan olinishini bilmagan hamkor
+    // savdo summasidan deb o'ylaydi va raqamni katta kutadi.
+    expect(describeTerms({ mode: 'PERCENT', tradePercent: 10, fixedMonthlySom: 0 }))
+      .toBe("Har savdodan 10% (efBazaar komissiyasidan)");
+  });
+
+  it('names only the monthly amount in fixed mode', () => {
+    // Ikki rejim bir-birini almashtiradi. Ikkalasini birga
+    // ko'rsatsak, hamkor ikkalasini ham olaman deb o'ylardi.
+    expect(describeTerms({ mode: 'FIXED', tradePercent: 0, fixedMonthlySom: 300000 }))
+      .toContain('Oyiga');
+    expect(describeTerms({ mode: 'FIXED', tradePercent: 0, fixedMonthlySom: 300000 }))
+      .not.toContain('%');
   });
 });
 

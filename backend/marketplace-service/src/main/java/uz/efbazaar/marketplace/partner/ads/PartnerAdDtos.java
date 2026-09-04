@@ -31,6 +31,8 @@ public final class PartnerAdDtos {
     /** Hamkorning o'z paneli — spec §7.3 dagi to'rt blok. */
     public record PartnerPanelResponse(
             ChannelSummary channel,
+            /** Hamkorga qanday shart qo'llanadi — u buni FAQAT KO'RADI. */
+            PayoutTerms terms,
             ChannelFunnel funnel,
             Earnings earnings,
             List<PostRow> posts) {}
@@ -40,6 +42,20 @@ public final class PartnerAdDtos {
 
     /** Kanalning o'z voronkasi — shaxsiy taklif havolasi emas, u /invite da. */
     public record ChannelFunnel(long clicks, long registrations) {}
+
+    /**
+     * Amaldagi to'lov sharti.
+     *
+     * <p>Hamkor buni o'zgartira olmaydi — admin sozlaydi. Lekin
+     * KO'RSATILADI: qaysi shartda ekanini bilmagan odam daromadidagi
+     * raqamni tushuntira olmaydi.
+     */
+    public record PayoutTerms(
+            /** PERCENT yoki FIXED. */
+            String mode,
+            /** Foizda, ko'rsatish uchun: 10.5 kabi. FIXED rejimda nol. */
+            BigDecimal tradePercent,
+            BigDecimal fixedMonthlySom) {}
 
     /**
      * Uch oqim ALOHIDA.

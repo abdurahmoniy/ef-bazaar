@@ -5,6 +5,7 @@ import { Coins, Gift, Loader2, MousePointerClick, Save, Send, Users } from 'luci
 
 import { Button } from '@/components/ui/button';
 import {
+  describeTerms,
   formatSom,
   getPartnerPanel,
   postStateLabel,
@@ -128,12 +129,23 @@ export function PartnerPanelBlocks() {
         </div>
       </section>
 
-      {/* 3. Daromad — uch oqim alohida */}
+      {/* 3. Daromad — uch oqim alohida, ustida amaldagi shart */}
       <section className="space-y-3 rounded-xl border border-border bg-card p-4">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
           <Gift className="h-4 w-4" />
           Daromad
         </h2>
+        {/*
+          Shartni KO'RSATAMIZ, lekin tahrirlash yo'q — uni admin
+          sozlaydi. Ko'rsatmasak, hamkor "Savdodan" ustunidagi raqam
+          qayerdan chiqqanini tushuntira olmasdi.
+        */}
+        <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          Sizning shartingiz: <strong className="text-foreground">{describeTerms(panel.terms)}</strong>
+          <br />
+          Shartni platforma belgilaydi. E&apos;lon joylash haqi esa alohida va uni o&apos;zingiz
+          qo&apos;yasiz.
+        </p>
         <div className="grid grid-cols-3 gap-2 text-center">
           <div>
             <p className="text-xs text-muted-foreground">E&apos;lon joylashdan</p>
