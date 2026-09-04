@@ -93,6 +93,26 @@ created_at            timestamptz   NOT NULL DEFAULT now()
 value would silently ignore a later change to the global policy, which is the opposite of what an
 admin editing the global setting expects.
 
+### The official channel
+
+Every listing also reaches efBazaar's own channel. With no partner selected it is posted directly;
+with a partner it is **forwarded** from the first partner post that lands. The "Forwarded from
+<partner channel>" header is the point: it shows efBazaar confirming the partner's listing rather
+than lifting it out of their audience. `copyMessage` would keep the inline button but loses that
+header, and the header is what the partner needs — so the listing URL lives in the post text too,
+because forwarding strips inline keyboards.
+
+Only the first successful partner post becomes the source; forwarding all of them would drop three
+copies of one account into the channel. If every partner post fails, the listing is posted directly
+rather than not at all — failing to reach a partner is not a reason to punish the listing.
+
+The channel address is a GitHub repository secret (`OFFICIAL_CHANNEL`), carried by the deploy
+workflow into `deploy.sh`, which writes `.env` on the server. It is deliberately not hand-edited on
+the host: `deploy.sh` truncates and rewrites `.env` on every deploy, so a hand-written value
+disappears at the next release with no trace. An empty value disables official posting entirely —
+an unconfigured environment must neither crash nor post to the wrong place, and a post that reaches
+the live channel cannot be recalled.
+
 ### Reposting a listing to the same channel
 
 A listing scrolls away in a busy channel within a day, and the only remedy is to publish it again.

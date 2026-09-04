@@ -119,12 +119,16 @@ app:
     internal-base-url: ${PAYMENT_INTERNAL_BASE_URL:http://payment-service:8087}
   channels:
     # efBazaar rasmiy kanali — har bir e'lon shu yerga ham tushadi.
-    # @username yoki raqamli id. BO'SH BO'LSA butunlay o'chiq: sozlanmagan
-    # muhit na yiqilishi, na noto'g'ri joyga post qilishi kerak.
+    # @username yoki raqamli id.
     #
-    # Bazada emas, env'da: bu qiymat muhitga qarab farq qiladi va staging
-    # jonli kanalga yozib yubormasligi kerak. Secret ham emas — kanal
-    # manzili ochiq ma'lumot va hech kimga hech narsa ochmaydi.
+    # Manba: GitHub repo secret OFFICIAL_CHANNEL -> deploy.yml -> deploy.sh
+    # -> .env -> docker-compose. Serverda .env ni qo'lda tahrirlash foydasiz:
+    # deploy.sh uni har deployda bo'shatib qayta yozadi va qo'lda qo'yilgan
+    # qiymat jimgina yo'qoladi.
+    #
+    # BO'SH BO'LSA butunlay o'chiq: sozlanmagan muhit na yiqilishi, na
+    # noto'g'ri joyga post qilishi kerak. Jonli kanalga tushgan postni
+    # orqaga qaytarib bo'lmaydi.
     official: ${OFFICIAL_CHANNEL:}
   partners:
     # Fiks rejimdagi hamkorlarga o'tgan oy uchun to'lov — har oyning 1-sanasi.
