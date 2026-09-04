@@ -53,6 +53,26 @@ public class MailboxSlotService {
         return mailboxes.countHeldBy(userId, TERMINAL);
     }
 
+    /**
+     * Slot holati — profildagi ogohlantirish shu yerdan o'qiydi.
+     *
+     * <p>{@code limit} null bo'lsa cheksiz reja. {@code full} ni shu
+     * yerda hisoblaymiz: ikki joyda ikki xil taqqoslash yozilsa, birida
+     * {@code >=} ikkinchisida {@code >} bo'lib qolar va ogohlantirish
+     * savdoni to'sadigan holatdan bir qadam kechikardi.
+     */
+    @Transactional(readOnly = true)
+    public SlotStatus statusFor(UUID userId) {
+        OptionalLong limit = entitlements.limit(userId, KEY);
+        long used = used(userId);
+        return new SlotStatus(used,
+                limit.isPresent() ? limit.getAsLong() : null,
+                limit.isPresent() && used >= limit.getAsLong(),
+                entitlements.planFor(userId));
+    }
+
+    public record SlotStatus(long used, Long limit, boolean full, String plan) {}
+
     /** The ceiling, or empty when this user has none. */
     @Transactional(readOnly = true)
     public OptionalLong limitFor(UUID userId) {

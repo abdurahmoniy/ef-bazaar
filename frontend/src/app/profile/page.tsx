@@ -1,3 +1,4 @@
+import { MailboxSlotsWarning } from '@/components/profile/mailbox-slots-warning';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -126,6 +127,14 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
             {subpageHeader.rightAction}
           </div>
         )}
+
+        {/*
+          Slot to'lganini savdoni qabul qilishga urinishdan ANCHA oldin
+          ko'rsatamiz: u yerda xato "So'rov bajarilmadi" bo'lib ko'rinar
+          va odam na sababni, na yechimni bilardi. Slot bo'shashi bilan
+          bu blok o'zi yo'qoladi.
+        */}
+        <MailboxSlotsWarning />
 
         {/* Tab content view */}
         <section key={activeTab} className="animate-panel-in">
