@@ -168,7 +168,35 @@ public class ChannelPostService {
             post.setTelegramMessageId(telegramMessageId);
             post.setPostedAt(Instant.now());
             posts.save(post);
+
+            replacePrevious(post, channel);
         });
+    }
+
+    /**
+     * Qayta yuborilgan e'lonning oldingi posti kanaldan olinadi.
+     *
+     * <p>YANGISI CHIQQANDAN KEYIN o'chiriladi, oldin emas: yangisi
+     * chiqmay qolsa e'lon kanaldan butunlay yo'qolar va sotuvchi
+     * to'lagan bo'lardi.
+     *
+     * <p>Qator o'chirilmaydi — u to'langan va hamkor undan daromad
+     * olgan. {@code replacedAt} faqat "bu qatordagi xabar endi
+     * kanalda yo'q" deb belgilaydi.
+     */
+    private void replacePrevious(ListingChannelPost fresh, PartnerChannel channel) {
+        for (ListingChannelPost old : posts
+                .findByListingIdAndPartnerChannelIdAndStateAndReplacedAtIsNull(
+                        fresh.getListingId(), fresh.getPartnerChannelId(), State.POSTED.name())) {
+            if (old.getId().equals(fresh.getId())) continue;
+            old.setReplacedAt(Instant.now());
+            posts.save(old);
+            // Xabar identifikatorisiz o'chirib bo'lmaydi: post chiqqan,
+            // lekin bot identifikatorni qaytarmagan holat.
+            if (old.getTelegramMessageId() != null && !old.getTelegramMessageId().isBlank()) {
+                events.postDeleteRequested(old, channel);
+            }
+        }
     }
 
     /**

@@ -115,6 +115,13 @@ export interface ListingCreateRequest {
   price: number;
   priceNegotiable: boolean;
   attributes: ListingAttributes;
+  /**
+   * Hamkor kanallari — e'lon yaratilgan payt ular uchun ham to'lanadi.
+   * Faqat YARATISHDA: tahrirlashda kanal buyurtmasi alohida
+   * endpointdan o'tadi, aks holda tavsifni tuzatgani uchun hamyondan
+   * pul yechilib ketardi.
+   */
+  channelIds?: string[];
 }
 
 export type ListingUpdateRequest = Partial<ListingCreateRequest>;
@@ -480,7 +487,10 @@ export type NotificationType =
   | 'TRADE_PASSWORD_SENT'
   | 'TRADE_SUCCESS'
   | 'TRADE_REJECTED'
-  | 'TRADE_ORPHANED';
+  | 'TRADE_ORPHANED'
+  | 'PARTNER_APPROVED'
+  | 'PARTNER_REJECTED'
+  | 'PARTNER_CANCELLED';
 
 export interface NotificationResponse {
   id: string;

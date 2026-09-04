@@ -177,6 +177,22 @@ public class NotificationService {
                 .build());
     }
 
+    /**
+     * Hamkorlik bo'yicha qaror.
+     *
+     * <p>Havola uchun ma'lumot saqlanmaydi: qaror qayerga olib
+     * borishini turning O'ZI aytadi — tasdiqlangani panelga, qolgani
+     * ariza sahifasiga. Kanal identifikatorini yozib qo'yish esa uni
+     * bu jadvalda ikkinchi marta saqlash bo'lardi.
+     */
+    @Transactional
+    public void partnerDecision(UUID userId, NotificationType type) {
+        notifications.save(Notification.builder()
+                .userId(userId)
+                .type(type)
+                .build());
+    }
+
     @Transactional(readOnly = true)
     public Page<Notification> list(UUID userId, Pageable pageable) {
         return notifications.findByUserIdOrderByCreatedAtDesc(userId, pageable);

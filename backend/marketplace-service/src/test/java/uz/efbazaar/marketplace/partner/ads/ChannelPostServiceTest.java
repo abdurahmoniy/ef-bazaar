@@ -62,6 +62,8 @@ class ChannelPostServiceTest {
         dear = channel("Qimmat", new BigDecimal("15000.00"));
         when(posts.saveAll(any())).thenAnswer(i -> List.copyOf(i.getArgument(0)));
         when(posts.findByOrderId(any())).thenReturn(List.of());
+        when(posts.findByListingIdAndPartnerChannelIdAndStateAndReplacedAtIsNull(
+                any(), any(), any())).thenReturn(List.of());
     }
 
     private PartnerChannel channel(String title, BigDecimal price) {
@@ -191,6 +193,56 @@ class ChannelPostServiceTest {
         assertThat(post.getTelegramMessageId()).isEqualTo("4242");
         verify(payments).settle(eq(post.getId()), eq(seller), eq(cheap.getPartnerUserId()),
                 eq(new BigDecimal("5000.00")));
+    }
+
+    @Test
+    @DisplayName("qayta yuborilganda oldingi post kanaldan olinadi")
+    void aRepostReplacesThePreviousMessage() {
+        // Kanalda e'lonlar tez aylanadi va sotuvchi e'lonini qaytadan
+        // yuqoriga chiqaradi. Eskisi qolsa obunachi bir xil e'lonni ikki
+        // marta ko'rar, pastdagi eskirgan narxli postga tushib qolardi.
+        ListingChannelPost previous = new ListingChannelPost();
+        previous.setId(UUID.randomUUID());
+        previous.setListingId(listing);
+        previous.setPartnerChannelId(cheap.getId());
+        previous.setState(State.POSTED.name());
+        previous.setTelegramMessageId("1111");
+
+        ListingChannelPost fresh = held(cheap);
+        when(posts.findByListingIdAndPartnerChannelIdAndStateAndReplacedAtIsNull(
+                listing, cheap.getId(), State.POSTED.name())).thenReturn(List.of(previous, fresh));
+
+        service.onPosted(fresh.getId(), "2222");
+
+        assertThat(previous.getReplacedAt()).isNotNull();
+        verify(events).postDeleteRequested(previous, cheap);
+        // Yangisiga tegilmaydi: u hozirgina chiqdi.
+        assertThat(fresh.getReplacedAt()).isNull();
+        verify(events, never()).postDeleteRequested(eq(fresh), any());
+    }
+
+    @Test
+    @DisplayName("xabar identifikatorisiz eski postni o'chirishga urinilmaydi")
+    void aPostWithoutAMessageIdIsNotDeleted() {
+        // Post chiqqan, lekin bot identifikatorni qaytarmagan holat.
+        // Nimani o'chirishni bilmaymiz va tasodifan boshqa xabarni
+        // olib tashlashdan ko'ra qoldirgan yaxshi.
+        ListingChannelPost previous = new ListingChannelPost();
+        previous.setId(UUID.randomUUID());
+        previous.setListingId(listing);
+        previous.setPartnerChannelId(cheap.getId());
+        previous.setState(State.POSTED.name());
+
+        ListingChannelPost fresh = held(cheap);
+        when(posts.findByListingIdAndPartnerChannelIdAndStateAndReplacedAtIsNull(
+                listing, cheap.getId(), State.POSTED.name())).thenReturn(List.of(previous, fresh));
+
+        service.onPosted(fresh.getId(), "2222");
+
+        // Qator baribir almashtirilgan deb belgilanadi: kanalda uning
+        // o'rnini yangisi egalladi.
+        assertThat(previous.getReplacedAt()).isNotNull();
+        verify(events, never()).postDeleteRequested(any(), any());
     }
 
     @Test

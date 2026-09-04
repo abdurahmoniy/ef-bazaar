@@ -57,6 +57,7 @@ public class PartnerService {
     private final uz.efbazaar.marketplace.referral.ReferralService referrals;
     private final uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelRepository channels;
     private final uz.efbazaar.marketplace.partner.ads.PartnerPayoutPolicy payoutPolicy;
+    private final uz.efbazaar.marketplace.service.NotificationService notifications;
 
     // ----- sozlamalar -----
 
@@ -362,7 +363,14 @@ public class PartnerService {
             // Kanal qidiruvdan chiqadi: hamkorlikdan chiqqan odamning
             // kanali sotuvchilarga taklif qilinaverishi mumkin emas.
             partnerChannels.deactivate(application.getUserId());
-            events.applicationCancelled(application);
+            boolean bySelf = by != null && by.equals(application.getUserId());
+            events.applicationCancelled(application, bySelf);
+            // O'zi to'xtatganga xabar yuborilmaydi: u hozirgina
+            // tasdiqlash oynasini bosgan.
+            if (!bySelf) {
+                notifications.partnerDecision(application.getUserId(),
+                        uz.efbazaar.marketplace.domain.NotificationType.PARTNER_CANCELLED);
+            }
         }
         return application;
     }
@@ -383,6 +391,10 @@ public class PartnerService {
         // kerak bo'lgan hamma narsa aynan hozir ma'lum.
         partnerChannels.onApproved(application);
         events.applicationApproved(application);
+        // Odam pul to'lagan va admin qachon ko'rishi noma'lum edi —
+        // qarorni faqat sahifaga qaytib kirib bilardi.
+        notifications.partnerDecision(application.getUserId(),
+                uz.efbazaar.marketplace.domain.NotificationType.PARTNER_APPROVED);
         return application;
     }
 
@@ -390,6 +402,10 @@ public class PartnerService {
     public PartnerApplication reject(UUID id, UUID adminId, String note) {
         PartnerApplication application = review(id, adminId, note, Status.REJECTED);
         events.applicationRejected(application);
+        // Sabab bilan: odam nimani tuzatish kerakligini bilmasa,
+        // qayta ariza berib yana o'shanga urilardi.
+        notifications.partnerDecision(application.getUserId(),
+                uz.efbazaar.marketplace.domain.NotificationType.PARTNER_REJECTED);
         return application;
     }
 

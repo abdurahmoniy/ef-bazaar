@@ -26,6 +26,9 @@ public final class PartnerAdRepositories {
     public interface ListingChannelPostRepository extends JpaRepository<ListingChannelPost, UUID> {
         List<ListingChannelPost> findByOrderId(UUID orderId);
         List<ListingChannelPost> findByListingId(UUID listingId);
+        List<ListingChannelPost> findByListingIdOrderByCreatedAtDesc(UUID listingId);
+        List<ListingChannelPost> findByListingIdAndPartnerChannelIdAndStateAndReplacedAtIsNull(
+                UUID listingId, UUID partnerChannelId, String state);
         List<ListingChannelPost> findByPartnerChannelIdOrderByCreatedAtDesc(UUID partnerChannelId);
         List<ListingChannelPost> findByPartnerChannelIdAndState(UUID partnerChannelId, String state);
     }

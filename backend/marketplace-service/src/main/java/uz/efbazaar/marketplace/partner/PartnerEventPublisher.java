@@ -8,6 +8,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import uz.efbazaar.marketplace.security.AuthAdminClient;
 import uz.efbazaar.marketplace.security.AuthAdminClient.AdminSummary;
+import uz.efbazaar.marketplace.security.AuthSummaryClient;
+import uz.efbazaar.marketplace.security.AuthSummaryClient.UserSummary;
 
 import java.time.Instant;
 import java.util.List;
@@ -28,6 +30,7 @@ public class PartnerEventPublisher {
 
     private final KafkaTemplate<String, Object> kafka;
     private final AuthAdminClient admins;
+    private final AuthSummaryClient users;
 
     public void applicationAwaitingReview(PartnerApplication a) {
         // Adminlarning manzillari SHU YERDA yechiladi: bot rollarni bilmaydi
@@ -47,19 +50,45 @@ public class PartnerEventPublisher {
 
     public void applicationApproved(PartnerApplication a) {
         send(PartnerEvents.TOPIC_APPROVED, a.getUserId().toString(),
-                new PartnerEvents.PartnerApproved(a.getId(), a.getUserId(), Instant.now()));
+                new PartnerEvents.PartnerApproved(a.getId(), a.getUserId(),
+                        telegramIdOf(a.getUserId()), Instant.now()));
     }
 
     public void applicationRejected(PartnerApplication a) {
         send(PartnerEvents.TOPIC_REJECTED, a.getUserId().toString(),
                 new PartnerEvents.PartnerRejected(a.getId(), a.getUserId(), a.getReviewNote(),
-                        Instant.now()));
+                        telegramIdOf(a.getUserId()), Instant.now()));
     }
 
-    public void applicationCancelled(PartnerApplication a) {
+    public void applicationCancelled(PartnerApplication a, boolean bySelf) {
         send(PartnerEvents.TOPIC_CANCELLED, a.getUserId().toString(),
                 new PartnerEvents.PartnerCancelled(a.getId(), a.getUserId(),
-                        a.getCancelReason(), Instant.now()));
+                        a.getCancelReason(), bySelf,
+                        // O'zi to'xtatgan bo'lsa DM ketmaydi — manzilni
+                        // yechish uchun auth'ni bezovta qilishning ham
+                        // hojati yo'q.
+                        bySelf ? null : telegramIdOf(a.getUserId()), Instant.now()));
+    }
+
+    /**
+     * Arizachining Telegram manzili — SHU YERDA yechiladi, adminlarniki
+     * kabi. Bot auth-service'ga murojaat qila olmaydi va foydalanuvchi
+     * identifikatorlarini bilmaydi.
+     *
+     * <p>Null bo'lishi mumkin: Telegram orqali kirmagan odamda manzil
+     * yo'q. Bunda DM ketmaydi, platforma bildirishnomasi esa baribir
+     * yoziladi — u boshqa yo'ldan boradi.
+     */
+    private Long telegramIdOf(java.util.UUID userId) {
+        try {
+            return users.resolve(userId).map(UserSummary::telegramId).orElse(null);
+        } catch (RuntimeException e) {
+            // Manzil topilmagani qarorni bekor qilmaydi: hamkorlik
+            // allaqachon tasdiqlangan va hodisa rol berish uchun ham
+            // kerak. DM'siz qolgani xabarsiz qolgandan yaxshi.
+            log.warn("Arizachi {} ning Telegram manzili yechilmadi: {}", userId, e.getMessage());
+            return null;
+        }
     }
 
     private void send(String topic, String key, Object event) {

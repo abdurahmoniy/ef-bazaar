@@ -60,17 +60,21 @@ class PartnerAdSchemaIT {
     @Autowired PartnerAdRepositories.ListingPartnerAttributionRepository attributions;
 
     @Test
-    @DisplayName("one channel cannot be advertised twice for the same listing")
-    void oneOrderPerChannelPerListing() {
+    @DisplayName("bir e'lonni bir kanalga qayta yuborish mumkin")
+    void aListingMayBeRepostedToTheSameChannel() {
+        // Faol kanalda e'lonlar tez aylanadi va bir kunda pastga tushib
+        // ketadi. Yagona chora — qaytadan chiqarish, va bu har safar
+        // alohida to'lanadigan alohida xizmat. Ilgari buni
+        // uk_listing_channel_posts qulflab turardi.
         PartnerChannel channel = savedChannel("Efootball Uz", 50_239, new BigDecimal("10000.00"));
         UUID listing = UUID.randomUUID();
-        posts.saveAndFlush(post(UUID.randomUUID(), listing, channel, "HELD"));
+        posts.saveAndFlush(post(UUID.randomUUID(), listing, channel, "POSTED"));
 
-        // Native INSERT: save() mavjud kalitni merge qiladi va UNIQUE
+        // Native INSERT: save() mavjud kalitni merge qiladi va cheklov
         // umuman qatnashmaydi — repozitoriy orqali sinasak, biz
         // tekshirmoqchi bo'lgan qoidani emas, Hibernate xatti-harakatini
         // sinagan bo'lardik.
-        assertThatThrownBy(() -> em.getEntityManager()
+        int inserted = em.getEntityManager()
                 .createNativeQuery("""
                         insert into listing_channel_posts
                             (id, order_id, listing_id, partner_channel_id, price_som, state, created_at)
@@ -80,8 +84,9 @@ class PartnerAdSchemaIT {
                 .setParameter(2, UUID.randomUUID())
                 .setParameter(3, listing)
                 .setParameter(4, channel.getId())
-                .executeUpdate())
-                .hasMessageContaining("uk_listing_channel_posts");
+                .executeUpdate();
+
+        assertThat(inserted).isEqualTo(1);
     }
 
     @Test

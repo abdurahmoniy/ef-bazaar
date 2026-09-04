@@ -129,11 +129,12 @@ efbazaar.marketplace.chat-created
 efbazaar.marketplace.cards-added     # { occurredAt, totalAdded, cards: [{efhubId, type, name, overallRating}] }
 efbazaar.marketplace.bot-settings-updated  # marketplace → bot (/start matni o'zgardi, kesh yangilansin)
 efbazaar.marketplace.partner-application-submitted  # marketplace → bot (adminlarga Telegram xabari)
-efbazaar.marketplace.partner-approved      # marketplace → auth (PARTNER roli beriladi)
-efbazaar.marketplace.partner-rejected      # marketplace → (foydalanuvchiga xabar)
-efbazaar.marketplace.partner-cancelled     # marketplace → auth (PARTNER roli olib tashlanadi)
+efbazaar.marketplace.partner-approved      # marketplace → auth (PARTNER roli), bot (arizachiga DM)
+efbazaar.marketplace.partner-rejected      # marketplace → bot (arizachiga DM, sabab bilan)
+efbazaar.marketplace.partner-cancelled     # marketplace → auth (rol olinadi), bot (DM; bySelf bo'lsa jim)
 efbazaar.marketplace.channel-post-requested # marketplace → bot (e'lonni hamkor kanaliga joyla)
 efbazaar.marketplace.channel-refresh-requested # marketplace → bot (kunlik: obunachi soni, nom, avatar)
+efbazaar.marketplace.channel-post-delete-requested # marketplace → bot (qayta yuborildi, eskisini o'chir)
 efbazaar.bot.media-uploaded          # { listingId, telegramMessageId, mediaType }
 efbazaar.auth.user-role-changed      # auth → trade-service (deactivate trade-admin profile on role revoke)
 efbazaar.trade.admin-invited         # trade-service → marketplace-service (TRADE_ADMIN_INVITED notification)
