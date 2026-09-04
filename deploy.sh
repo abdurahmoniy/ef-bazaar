@@ -97,6 +97,11 @@ write_env() {
   upsert_env .env TELEGRAM_BOT_TOKEN          "${TELEGRAM_BOT_TOKEN:-}"
   upsert_env .env TELEGRAM_BOT_USERNAME       "${TELEGRAM_BOT_USERNAME:-}"
   upsert_env .env TELEGRAM_GROUP_CHAT_ID      "${TELEGRAM_GROUP_CHAT_ID:-}"
+  # efBazaar rasmiy kanali — har bir e'lon shu yerga ham tushadi.
+  # Default YO'Q: bo'sh qiymat "rasmiy kanalga chiqarma" degani, noto'g'ri
+  # qiymat esa e'lonlarni begona kanalga tushirardi va uni orqaga
+  # qaytarib bo'lmasdi.
+  upsert_env .env OFFICIAL_CHANNEL            "${OFFICIAL_CHANNEL:-}"
   upsert_env .env TELEGRAM_TOPIC_LOGS         "${TELEGRAM_TOPIC_LOGS:-6}"
   upsert_env .env TELEGRAM_TOPIC_REGISTRATION "${TELEGRAM_TOPIC_REGISTRATION:-4}"
   upsert_env .env TELEGRAM_TOPIC_MEDIA        "${TELEGRAM_TOPIC_MEDIA:-2}"

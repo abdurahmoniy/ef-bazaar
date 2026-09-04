@@ -37,6 +37,8 @@ public final class PartnerAdRepositories {
         long countByPartnerChannelId(UUID partnerChannelId);
     }
 
+    public interface OfficialChannelPostRepository extends JpaRepository<OfficialChannelPost, UUID> {}
+
     public interface ListingPartnerAttributionRepository
             extends JpaRepository<ListingPartnerAttribution, ListingPartnerAttribution.Key> {}
 }

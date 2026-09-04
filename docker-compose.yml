@@ -310,6 +310,8 @@ services:
     container_name: efbazaar-marketplace
     restart: unless-stopped
     environment:
+      # efBazaar rasmiy kanali — bo'sh bo'lsa rasmiy postlar o'chiq.
+      OFFICIAL_CHANNEL: ${OFFICIAL_CHANNEL:-}
       # Heap 320m — marketplace eng katta (springdoc + spring security + jpa + 2 datasource + flyway + redis + kafka + multipart).
       JAVA_OPTS: "-Xms96m -Xmx320m -XX:MaxMetaspaceSize=160m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}

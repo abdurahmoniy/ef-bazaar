@@ -44,6 +44,7 @@ public class ChannelPostService {
     private final ListingChannelPostRepository posts;
     private final PartnerAdClient payments;
     private final PartnerAdEventPublisher events;
+    private final OfficialChannelService officialChannel;
     private final PartnerPricing pricing;
     private final ListingRepository listings;
 
@@ -123,11 +124,32 @@ public class ChannelPostService {
     }
 
     private void publish(ListingChannelPost post, PartnerChannel channel) {
+        Listing listing = listings.findById(post.getListingId()).orElse(null);
+        if (listing == null) {
+            // E'lon o'chirilgan bo'lsa post chiqarishning ma'nosi yo'q va
+            // matn ham yig'ilmaydi. Sotuvchining puli ushlangan holda
+            // qolmasin.
+            onFailed(post.getId(), "E'lon topilmadi");
+            return;
+        }
+        String url = buttonUrl(post.getListingId(), channel.getLinkCode());
         events.postRequested(post, ChannelPostPayload.of(
                 post, channel,
-                null,   // izoh e'lon matnidan yig'iladi — chaqiruvchi beradi
-                null,   // media file_id — e'londan olinadi
-                buttonUrl(post.getListingId(), channel.getLinkCode())));
+                ChannelPostCaption.of(listing, url),
+                firstMedia(listing),
+                url));
+    }
+
+    /**
+     * Postga qo'yiladigan rasm.
+     *
+     * <p>Nomi yanglishtiradi: {@code mediaMessageIds} aslida yuklangan
+     * fayl identifikatorlarini saqlaydi. Rasmsiz e'lon ham chiqadi —
+     * shunda oddiy matnli xabar bo'ladi.
+     */
+    private String firstMedia(Listing listing) {
+        List<String> media = listing.getMediaMessageIds();
+        return media == null || media.isEmpty() ? null : media.get(0);
     }
 
     /**
@@ -170,6 +192,9 @@ public class ChannelPostService {
             posts.save(post);
 
             replacePrevious(post, channel);
+            // Rasmiy kanaldagi nusxa SHU postdan forward qilinadi —
+            // "Forwarded from" sarlavhasi hamkorlikni tasdiqlaydi.
+            officialChannel.onPartnerPostDelivered(post, channel);
         });
     }
 
@@ -237,6 +262,11 @@ public class ChannelPostService {
             post.setState(State.REFUNDED.name());
             post.setError(error);
             posts.save(post);
+
+            // Barcha buyurtmalar yiqilgan bo'lsa e'lon rasmiy kanalga
+            // butunlay tushmay qolardi. Hamkorga chiqara olmaganini
+            // e'lonning o'zi bilan jazolash noto'g'ri.
+            officialChannel.onPartnerPostFailed(post.getListingId());
         });
     }
 }

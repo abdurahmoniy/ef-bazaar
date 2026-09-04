@@ -23,6 +23,10 @@ public class PartnerAdEventPublisher {
             "efbazaar.marketplace.channel-refresh-requested";
     public static final String TOPIC_CHANNEL_POST_DELETE_REQUESTED =
             "efbazaar.marketplace.channel-post-delete-requested";
+    public static final String TOPIC_OFFICIAL_POST_REQUESTED =
+            "efbazaar.marketplace.official-post-requested";
+    public static final String TOPIC_POST_EDIT_REQUESTED =
+            "efbazaar.marketplace.channel-post-edit-requested";
 
     private final KafkaTemplate<String, Object> kafka;
 
@@ -53,6 +57,40 @@ public class PartnerAdEventPublisher {
                 new ChannelPostDeletePayload(post.getId(), channel.getTelegramChannelId(),
                         post.getTelegramMessageId(), Instant.now()));
     }
+
+    /**
+     * E'lonni efBazaar rasmiy kanaliga chiqarish.
+     *
+     * <p>Ikki yo'l bitta payloadda: {@code sourceMessageId} to'ldirilgan
+     * bo'lsa FORWARD, aks holda to'g'ridan-to'g'ri joylash. Ikki mavzu
+     * ochish bot tarafida bir xil ishni ikki joyda yozishga majbur
+     * qilardi — natija ham, xatolik yo'li ham bitta.
+     */
+    public void officialPostRequested(OfficialPostPayload payload) {
+        send(TOPIC_OFFICIAL_POST_REQUESTED, payload.listingId().toString(), payload);
+    }
+
+    /**
+     * Chiqib bo'lgan postning matnini almashtirish — sotilgan e'lon uchun.
+     *
+     * <p>Kalit sifatida KANAL+XABAR: bir e'lonning turli kanallardagi
+     * nusxalari mustaqil va biri yiqilsa qolganlari to'xtamasligi kerak.
+     */
+    public void postEditRequested(PostEditPayload payload) {
+        send(TOPIC_POST_EDIT_REQUESTED,
+                payload.chatId() + ":" + payload.telegramMessageId(), payload);
+    }
+
+    public record PostEditPayload(String chatId, String telegramMessageId, String html) {}
+
+    public record OfficialPostPayload(
+            UUID listingId,
+            String officialChannel,
+            String caption,
+            String mediaFileId,
+            String buttonUrl,
+            Long sourceChannelId,
+            String sourceMessageId) {}
 
     public record ChannelPostDeletePayload(
             UUID postId,
