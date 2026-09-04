@@ -9,6 +9,11 @@
 --
 -- Kod bu yerda md5 dan olinadi, tasodifiy emas: SQL ichida takroriy
 -- urinish halqasi yo'q, ariza identifikatori esa allaqachon yagona.
+--
+-- REPEATABLE MIGRATSIYA HAR BOOT'DA ISHLAYDI va versiyalilardan
+-- KEYIN. Ya'ni u o'zi tegmagan ustun o'chirilsa ham yiqiladi — V46
+-- narx chegaralarini olib tashlaganda aynan shunday bo'ldi va butun
+-- kontekst ko'tarilmay qoldi.
 -- translate() alifboni kod formatiga keltiradi (0/1/I/L/O chiqariladi),
 -- shakli PartnerChannelService bilan bir xil bo'lishi uchun.
 INSERT INTO partner_channels (
@@ -25,11 +30,13 @@ SELECT
     coalesce(a.subscriber_count, 0),
     coalesce(a.verified_at, now()),
     upper(substr(translate(md5(a.id::text), '01ilo', 'ABCDE'), 1, 8)),
-    s.min_post_price_som,
+    -- NOL. Narx hamkorning o'z ishi va u hali qo'ymagan; biror
+    -- qiymat qo'yish uning nomidan qaror qabul qilish bo'lardi, va
+    -- sotuvchi o'sha qiymatni to'lardi.
+    0,
     true,
     coalesce(a.reviewed_at, now())
 FROM partner_applications a
-CROSS JOIN partner_settings s
 WHERE a.status = 'APPROVED'
   AND a.channel_id IS NOT NULL
 ON CONFLICT (application_id) DO NOTHING;

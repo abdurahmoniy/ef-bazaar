@@ -72,21 +72,26 @@ public class ReferralService {
      * davomida band turadi — havzada bor-yo'g'i sakkizta ulanish bor.
      */
     public boolean claim(UUID claimantId, String code) {
-        Optional<UUID> referrer = codes.resolve(code);
-        if (referrer.isEmpty()) return false;
-        if (referrer.get().equals(claimantId)) return false;
+        Optional<ReferralCodeService.ResolvedCode> resolved = codes.resolve(code);
+        if (resolved.isEmpty()) return false;
+
+        ReferralCodeService.ResolvedCode referrer = resolved.get();
+        if (referrer.referrerUserId().equals(claimantId)) return false;
         if (referrals.findById(claimantId).isPresent()) return false;
         if (!isFreshAccount(claimantId)) return false;
 
         try {
-            referrals.save(new Referral(claimantId, referrer.get(), null));
+            // Kanal kodi bo'lsa kanal ham yoziladi: voronka kanalning
+            // o'z ko'rsatkichini shaxsiy havoladan ajratishi kerak.
+            referrals.save(new Referral(claimantId, referrer.referrerUserId(),
+                    referrer.partnerChannelId()));
         } catch (DataIntegrityViolationException e) {
             // Ikki so'rov bir vaqtda kelgan: birinchisi yozdi, ikkinchisi
             // birlamchi kalitga urildi. Natija to'g'ri, aytadigan xato yo'q.
             log.debug("Referal da'vosi allaqachon yozilgan: {}", claimantId);
             return false;
         }
-        log.info("Referal yozildi: {} -> {}", referrer.get(), claimantId);
+        log.info("Referal yozildi: {} -> {}", referrer.referrerUserId(), claimantId);
         return true;
     }
 
@@ -198,9 +203,9 @@ public class ReferralService {
         Optional<PendingReferral> waiting = pending.findById(telegramId);
         if (waiting.isEmpty()) return;
 
-        Optional<UUID> referrer = codes.resolve(waiting.get().getCode());
+        Optional<ReferralCodeService.ResolvedCode> referrer = codes.resolve(waiting.get().getCode());
         boolean usable = referrer.isPresent()
-                && !referrer.get().equals(userId)
+                && !referrer.get().referrerUserId().equals(userId)
                 && referrals.findById(userId).isEmpty();
 
         if (usable) {
@@ -214,8 +219,9 @@ public class ReferralService {
             // findById g'olibning qatorini topib `usable` ni false
             // qiladi — qator yozilmaydi, kutilayotgani o'chiriladi,
             // commit o'tadi.
-            referrals.save(new Referral(userId, referrer.get(), null));
-            log.info("Referal botdan yozildi: {} -> {}", referrer.get(), userId);
+            referrals.save(new Referral(userId, referrer.get().referrerUserId(),
+                    referrer.get().partnerChannelId()));
+            log.info("Referal botdan yozildi: {} -> {}", referrer.get().referrerUserId(), userId);
         }
         // Qator o'chiriladi: ishlatilmagan bo'lsa ham u endi hech qachon
         // ishlamaydi — bu telegram_id bir marta ro'yxatdan o'tadi — va

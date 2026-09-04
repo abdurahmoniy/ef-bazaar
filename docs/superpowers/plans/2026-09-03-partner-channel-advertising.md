@@ -17,6 +17,7 @@
 - **Flyway `V<n>__*.sql` files are immutable once merged.** Next free: marketplace-service **V43** then **V44**, payment-service **V11**, trade-service **V23**. Re-check with `ls db/migration | sort -V | tail -1` **after every rebase** — `main` took V41 out from under this branch once already, and Flyway refuses to start on a duplicate version. Also `rm` the stale file from `target/classes/db/migration/` after any rename.
 - **Testcontainers tests need `-DargLine="-Dapi.version=1.44"`.** Without it docker-java negotiates API 1.32, the local Docker 29.x daemon refuses, and Testcontainers reports it as the misleading "Could not find a valid Docker environment". Command line only — never in a pom.
 - **Java build:** `JAVA_HOME=~/.jdks/openjdk-21.0.2 mvn -q test` from the service directory. Ambient JDK 25 fails on Lombok.
+- **A repeatable migration breaks the whole application, not one test.** `R__*.sql` runs on every boot, after every versioned migration. Drop a column it reads — even from a migration that has nothing to do with it — and Flyway fails at startup, so every integration test in the module reports "Failed to load ApplicationContext" and none of them names the real cause. Grep `db/migration/R__*` for any column a `V` migration drops.
 - **Never run two Maven builds in the same module directory at once.** The second `clean` wipes `target/` under the first, and the failures that come back name whatever class was mid-write — `ClassNotFoundException: LuhnValidator`, `No qualifying bean of type CardMapper`, twenty-four context load failures. None of it is real, and all of it reads like a genuine wiring break. Wait for one to finish.
 - **Maven's incremental state goes stale after a signature change, in two different ways, and both look like something else.** After changing any constructor or method signature that tests touch, use `clean`.
   - `mvn test-compile` reports BUILD SUCCESS on code that does not compile.
@@ -2106,6 +2107,14 @@ it has not been tried."
 - [ ] `ls backend/*/src/main/resources/db/migration | sort -V | tail` shows no duplicate version
 - [ ] `git status --short` still shows only `application.yml` and `crypto_vectors.json` unstaged
 - [ ] No Claude attribution in any commit
+
+## Left open when the plan was finished
+
+**Two of the panel's three earnings streams read zero.** "From posts" is real — it comes from
+`listing_channel_posts`. "From trades" and "Monthly" have to come from wallet history, and that join
+is not built: `PartnerPanelService.earnings` returns `BigDecimal.ZERO` for both. The shape is what
+§7.3 asks for and the numbers are what is missing; a wallet-history read per partner, filtered to
+`PARTNER_TRADE_SHARE` and `PARTNER_MONTHLY`, fills them.
 
 ## What this plan deliberately does not build
 

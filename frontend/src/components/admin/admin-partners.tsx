@@ -14,14 +14,18 @@ import {
   XCircle,
 } from 'lucide-react';
 
+import { AdminPartnerAnalytics } from '@/components/admin/admin-partner-analytics';
+import { AdminPartnerPayouts } from '@/components/admin/admin-partner-payouts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   BADGE_PARTNER_APPLICATIONS,
+  bpToPercent,
   getAdminApplications,
   getAdminPartnerSettings,
   markSectionSeen,
+  percentToBp,
   reviewApplication,
   updateAdminPartnerSettings,
   type PartnerApplication,
@@ -30,7 +34,7 @@ import {
 } from '@/lib/partners';
 import { cn } from '@/lib/utils';
 
-type TabId = 'applications' | 'settings';
+type TabId = 'applications' | 'settings' | 'analytics';
 
 const STATUS_LABEL: Record<PartnerApplicationStatus, { label: string; className: string }> = {
   AWAITING_CHANNEL: { label: 'Kanal kutilmoqda', className: 'bg-muted text-muted-foreground' },
@@ -69,6 +73,7 @@ export function AdminPartners() {
           {([
             { id: 'applications' as const, label: 'Arizalar' },
             { id: 'settings' as const, label: 'Shartlar' },
+            { id: 'analytics' as const, label: 'Voronka' },
           ]).map((item) => (
             <button
               key={item.id}
@@ -87,7 +92,9 @@ export function AdminPartners() {
         </div>
       </nav>
 
-      {tab === 'applications' ? <Applications /> : <Settings />}
+      {tab === 'applications' && <Applications />}
+      {tab === 'settings' && <Settings />}
+      {tab === 'analytics' && <AdminPartnerAnalytics />}
     </div>
   );
 }
@@ -254,6 +261,10 @@ function Settings() {
   const [settings, setSettings] = useState<PartnerSettings | null>(null);
   const [minSubscribers, setMinSubscribers] = useState('');
   const [priceSom, setPriceSom] = useState('');
+  const [payoutMode, setPayoutMode] = useState<'PERCENT' | 'FIXED'>('PERCENT');
+  const [tradePercent, setTradePercent] = useState('');
+  const [fixedMonthly, setFixedMonthly] = useState('');
+  const [referralReward, setReferralReward] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -264,6 +275,10 @@ function Settings() {
         setSettings(s);
         setMinSubscribers(String(s.minSubscribers));
         setPriceSom(String(s.priceSom));
+        setPayoutMode(s.defaultPayoutMode);
+        setTradePercent(String(bpToPercent(s.defaultTradePercentBp)));
+        setFixedMonthly(String(s.defaultFixedMonthlySom));
+        setReferralReward(String(s.referralRewardSom));
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Shartlar yuklanmadi'));
   }, []);
@@ -282,7 +297,14 @@ function Settings() {
     setError(null);
     setSaving(true);
     try {
-      const updated = await updateAdminPartnerSettings({ minSubscribers: min, priceSom: price });
+      const updated = await updateAdminPartnerSettings({
+        minSubscribers: min,
+        priceSom: price,
+        defaultPayoutMode: payoutMode,
+        defaultTradePercentBp: percentToBp(Number(tradePercent)),
+        defaultFixedMonthlySom: Number(fixedMonthly),
+        referralRewardSom: Number(referralReward),
+      });
       setSettings(updated);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -343,10 +365,76 @@ function Settings() {
         </p>
       </div>
 
+      <div className="space-y-1 border-t border-border pt-4">
+        <Label htmlFor="payoutMode">Standart to&apos;lov rejimi</Label>
+        <select
+          id="payoutMode"
+          value={payoutMode}
+          onChange={(e) => setPayoutMode(e.target.value as 'PERCENT' | 'FIXED')}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+        >
+          <option value="PERCENT">Savdodan foiz</option>
+          <option value="FIXED">Oylik fiks summa</option>
+        </select>
+        <p className="text-xs text-muted-foreground">
+          Ikkalasi bir-birini almashtiradi: fiks rejimdagi hamkor savdo ulushi olmaydi.
+          E&apos;lon joylash haqi esa ikkala rejimda ham to&apos;lanadi &mdash; u alohida narsa.
+        </p>
+      </div>
+
+      <div className="space-y-1">
+        <Label htmlFor="tradePercent">Savdodan ulush (%)</Label>
+        <Input
+          id="tradePercent"
+          inputMode="decimal"
+          value={tradePercent}
+          onChange={(e) => setTradePercent(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          efBazaar <strong>komissiyasidan</strong> olinadi, savdo summasidan emas &mdash; shuning
+          uchun platforma hech qachon zarar ko&apos;rmaydi.
+        </p>
+      </div>
+
+      <div className="space-y-1">
+        <Label htmlFor="fixedMonthly">Oylik summa (so&apos;m)</Label>
+        <Input
+          id="fixedMonthly"
+          inputMode="numeric"
+          value={fixedMonthly}
+          onChange={(e) => setFixedMonthly(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Fiks rejimdagi hamkorlarga har oyning 1-sanasida o&apos;tkaziladi. Birinchi oy kunlar
+          bo&apos;yicha bo&apos;linadi.
+        </p>
+      </div>
+
+      <div className="space-y-1">
+        <Label htmlFor="referralReward">Referal mukofoti (so&apos;m)</Label>
+        <Input
+          id="referralReward"
+          inputMode="numeric"
+          value={referralReward}
+          onChange={(e) => setReferralReward(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Taklif qilingan foydalanuvchi <strong>birinchi</strong> savdosini yakunlaganda taklif
+          qiluvchiga o&apos;tkaziladi. Bu <strong>hamma foydalanuvchi</strong> uchun, hamkorlarga
+          xos emas &mdash; shuning uchun bu qiymat{' '}
+          <a href="/admin/referrals" className="text-primary hover:underline">
+            Referallar bo&apos;limi
+          </a>{' '}
+          dagi bilan bitta.
+        </p>
+      </div>
+
       <Button onClick={save} disabled={saving} className="gap-2">
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
         Saqlash
       </Button>
+
+      <AdminPartnerPayouts />
     </div>
   );
 }

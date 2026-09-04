@@ -33,17 +33,53 @@ import java.util.UUID;
 public class AdminPartnerController {
 
     private final PartnerService service;
+    private final uz.efbazaar.marketplace.partner.ads.PartnerAnalyticsService analytics;
     private final AdminBadgeService badges;
+
+    /**
+     * Kanal kesimidagi voronka: bosilish → ro'yxat → post → daromad.
+     *
+     * <p>Bitta daromad ustuni adminga kanal nima uchun ishlamayotganini
+     * ayta olmaydi — ko'p bosilib savdosiz qolgani boshqa muammo,
+     * umuman bosilmagani boshqa.
+     */
+    /** Sozlash tabi: har bir kanalning o'z sharti va amaldagi shart. */
+    @GetMapping("/channels")
+    public java.util.List<uz.efbazaar.marketplace.partner.PartnerDtos.ChannelPayoutRow> channels() {
+        return service.channelPayouts();
+    }
+
+    /**
+     * Bitta kanalga alohida shart.
+     *
+     * <p>Bo'sh maydon globalga ergashishni bildiradi — o'sha kunning
+     * global qiymatini NUSXALAMAYDI, aks holda admin keyin global
+     * sozlamani o'zgartirganda bu kanal eski shartda qolib ketardi.
+     */
+    @PutMapping("/channels/{channelId}/payout")
+    public java.util.List<uz.efbazaar.marketplace.partner.PartnerDtos.ChannelPayoutRow> updateChannelPayout(
+            @PathVariable UUID channelId,
+            @Valid @RequestBody uz.efbazaar.marketplace.partner.PartnerDtos.UpdateChannelPayoutRequest request,
+            @AuthenticationPrincipal AuthenticatedUser admin) {
+        service.updateChannelPayout(channelId, request, admin.userId());
+        return service.channelPayouts();
+    }
+
+    @GetMapping("/analytics")
+    public java.util.List<uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.PartnerFunnelRow> analytics() {
+        return analytics.funnel();
+    }
 
     @GetMapping("/settings")
     public PartnerSettingsResponse settings() {
-        return PartnerSettingsResponse.from(service.settings());
+        return service.settingsResponse();
     }
 
     @PutMapping("/settings")
     public PartnerSettingsResponse updateSettings(@Valid @RequestBody UpdatePartnerSettingsRequest request,
                                                   @AuthenticationPrincipal AuthenticatedUser admin) {
-        return PartnerSettingsResponse.from(service.updateSettings(request, admin.userId()));
+        service.updateSettings(request, admin.userId());
+        return service.settingsResponse();
     }
 
     @GetMapping("/applications")

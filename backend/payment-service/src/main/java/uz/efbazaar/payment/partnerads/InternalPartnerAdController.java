@@ -6,7 +6,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -72,4 +74,16 @@ public class InternalPartnerAdController {
     public record MonthlyRequest(@NotNull UUID channelId, @NotNull UUID partnerUserId,
                                  @NotNull @PositiveOrZero Long amountTiyin,
                                  @NotBlank String period) {}
+
+    /**
+     * What a partner has been paid, by stream.
+     *
+     * <p>marketplace shows these in the partner panel. It does not keep
+     * its own copy: two records of one payment drift apart and neither
+     * can be trusted afterwards.
+     */
+    @GetMapping("/earnings")
+    public PartnerAdLedgerService.PartnerEarnings earnings(@RequestParam UUID partnerUserId) {
+        return ads.earningsOf(partnerUserId);
+    }
 }

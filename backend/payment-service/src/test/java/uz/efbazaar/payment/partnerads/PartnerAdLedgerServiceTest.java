@@ -46,7 +46,8 @@ class PartnerAdLedgerServiceTest {
     @BeforeEach
     void setUp() {
         ledger = mock(LedgerService.class);
-        service = new PartnerAdLedgerService(ledger);
+        service = new PartnerAdLedgerService(ledger,
+                mock(uz.efbazaar.payment.wallet.repository.LedgerEntryRepository.class));
         // Rich enough for every case that is not about running out.
         when(ledger.balanceOf(any())).thenReturn(walletWith(100_000_000L));
     }

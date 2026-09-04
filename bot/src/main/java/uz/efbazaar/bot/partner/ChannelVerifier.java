@@ -84,13 +84,18 @@ public class ChannelVerifier {
                 .map("creator"::equals)
                 .orElse(false);
 
+        // Rasm ixtiyoriy: kanalda avatar bo'lmasligi mumkin va bu
+        // hamkorlikni to'sadigan sabab emas.
+        String photoFileId = telegram.getChatPhotoFileId(channelId).orElse(null);
+
         report(new ChannelVerifiedRequest(
                 addedBy,
                 channelId,
                 chat.path("title").asText(null),
                 chat.path("username").asText(null),
                 subscribers,
-                isOwner));
+                isOwner,
+                photoFileId));
     }
 
     private void reportRemoved(long channelId) {
@@ -135,5 +140,6 @@ public class ChannelVerifier {
             String channelTitle,
             String channelUsername,
             Integer subscriberCount,
-            boolean addedByIsOwner) {}
+            boolean addedByIsOwner,
+            String channelPhotoFileId) {}
 }

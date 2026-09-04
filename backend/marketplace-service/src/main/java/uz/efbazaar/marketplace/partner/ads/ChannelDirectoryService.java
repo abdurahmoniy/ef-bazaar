@@ -42,11 +42,9 @@ public class ChannelDirectoryService {
                 channel.getId(),
                 channel.getTitle(),
                 channel.getUsername(),
-                // Telegram file_id brauzerga BERILMAYDI — u botning
-                // tokeni bilan birga ishlaydigan ichki identifikator.
-                channel.getPhotoFileId() == null
-                        ? null
-                        : "/api/marketplace/v1/partners/channels/" + channel.getId() + "/photo",
+                // file_id o'zi beriladi: frontend uni /bot/photo/... ga
+                // aylantiradi, e'lon rasmlari bilan bir xil yo'ldan.
+                channel.getPhotoFileId(),
                 channel.getSubscriberCount(),
                 // priceFor, getPostPriceSom emas — tariflar shu yerdan
                 // qo'shiladi va bu chaqiruv o'zgarmaydi. E'lon hali

@@ -1,34 +1,34 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  describeTerms,
   earnedFromPosts,
   formatSom,
   postStateLabel,
-  priceWithinBounds,
+  isValidPostPrice,
   type PostRow,
 } from './partner-panel';
 
-const bounds = { minSom: 1000, maxSom: 100000 };
-
-describe('priceWithinBounds', () => {
-  it('accepts a price inside the admin bounds', () => {
-    expect(priceWithinBounds(5000, bounds)).toBe(true);
+describe('isValidPostPrice', () => {
+  it('accepts zero — a free channel is a real choice', () => {
+    expect(isValidPostPrice(0)).toBe(true);
   });
 
-  it('rejects one below and one above', () => {
-    expect(priceWithinBounds(500, bounds)).toBe(false);
-    expect(priceWithinBounds(200000, bounds)).toBe(false);
+  it('accepts any positive price, with no ceiling', () => {
+    // Narx hamkorning o'z ishi. Qimmat kanal shunchaki tanlanmaydi.
+    expect(isValidPostPrice(5000)).toBe(true);
+    expect(isValidPostPrice(10_000_000)).toBe(true);
   });
 
-  it('accepts the bounds themselves', () => {
-    expect(priceWithinBounds(1000, bounds)).toBe(true);
-    expect(priceWithinBounds(100000, bounds)).toBe(true);
+  it('rejects a negative price', () => {
+    // Manfiy narx narx emas — u sotuvchiga pul to'lash bo'lardi.
+    expect(isValidPostPrice(-1)).toBe(false);
   });
 
   it('rejects a value that is not a number at all', () => {
-    // Bo'sh maydon NaN beradi; uni "chegara ichida" deb hisoblasak,
-    // server rad etadigan qiymat yuborilardi.
-    expect(priceWithinBounds(Number.NaN, bounds)).toBe(false);
+    // Bo'sh maydon NaN beradi; uni yaroqli deb hisoblasak, server
+    // rad etadigan qiymat yuborilardi.
+    expect(isValidPostPrice(Number.NaN)).toBe(false);
   });
 });
 
@@ -70,6 +70,24 @@ describe('postStateLabel', () => {
     // Backend yangi holat qo'shsa, panel bo'sh katak emas, xom qiymat
     // ko'rsatsin — u hech bo'lmasa nimadir deydi.
     expect(postStateLabel('SOMETHING_NEW' as PostRow['state'])).toBe('SOMETHING_NEW');
+  });
+});
+
+describe('describeTerms', () => {
+  it('names the percentage and where it is taken from', () => {
+    // "10%" o'zi yetarli emas: nimadan olinishini bilmagan hamkor
+    // savdo summasidan deb o'ylaydi va raqamni katta kutadi.
+    expect(describeTerms({ mode: 'PERCENT', tradePercent: 10, fixedMonthlySom: 0 }))
+      .toBe("Har savdodan 10% (efBazaar komissiyasidan)");
+  });
+
+  it('names only the monthly amount in fixed mode', () => {
+    // Ikki rejim bir-birini almashtiradi. Ikkalasini birga
+    // ko'rsatsak, hamkor ikkalasini ham olaman deb o'ylardi.
+    expect(describeTerms({ mode: 'FIXED', tradePercent: 0, fixedMonthlySom: 300000 }))
+      .toContain('Oyiga');
+    expect(describeTerms({ mode: 'FIXED', tradePercent: 0, fixedMonthlySom: 300000 }))
+      .not.toContain('%');
   });
 });
 

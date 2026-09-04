@@ -10,6 +10,18 @@ export type PartnerApplicationStatus =
 
 export interface PartnerSettings {
   minSubscribers: number;
+  /** PERCENT yoki FIXED — barcha hamkorlarga standart. */
+  defaultPayoutMode: 'PERCENT' | 'FIXED';
+  /** Asos punktida: 1000 = 10%. */
+  defaultTradePercentBp: number;
+  defaultFixedMonthlySom: number;
+  /**
+   * Referal mukofoti — HAMMA foydalanuvchi uchun, hamkorlarga xos emas.
+   * Bu yerdan ham tahrirlanadi, lekin qiymat /admin/referrals dagi
+   * bilan BITTA: ikkinchi nusxa bo'lsa ikki ekran bir-biriga zid
+   * raqam ko'rsatardi.
+   */
+  referralRewardSom: number;
   priceSom: number;
   updatedAt: string;
 }
@@ -122,9 +134,70 @@ export async function getAdminPartnerSettings(): Promise<PartnerSettings> {
   );
 }
 
+/** Sozlash tabidagi bitta kanal qatori. */
+export interface ChannelPayoutRow {
+  channelId: string;
+  title: string;
+  partnerUserId: string;
+  active: boolean;
+  /** Kanalning O'Z qiymatlari — null bo'lsa globalga ergashadi. */
+  payoutMode: 'PERCENT' | 'FIXED' | null;
+  tradePercentBp: number | null;
+  fixedMonthlySom: number | null;
+  /** Amalda qo'llanadigan qiymatlar. */
+  effectivePayoutMode: 'PERCENT' | 'FIXED';
+  effectiveTradePercentBp: number;
+  effectiveFixedMonthlySom: number;
+  /** Hamkorning o'zi qo'ygan post narxi — admin o'zgartirmaydi. */
+  postPriceSom: number;
+}
+
+/** Asos punkti ↔ foiz. 1000 bp = 10%. */
+export function bpToPercent(bp: number): number {
+  return bp / 100;
+}
+
+export function percentToBp(percent: number): number {
+  return Math.round(percent * 100);
+}
+
+export async function getChannelPayouts(): Promise<ChannelPayoutRow[]> {
+  return json(
+    await fetch(buildMarketplaceApiPath(['v1', 'admin', 'partners', 'channels']), {
+      headers: { Accept: 'application/json' },
+      credentials: 'include',
+    }),
+  );
+}
+
+export async function updateChannelPayout(
+  channelId: string,
+  input: {
+    payoutMode: 'PERCENT' | 'FIXED' | null;
+    tradePercentBp: number | null;
+    fixedMonthlySom: number | null;
+  },
+): Promise<ChannelPayoutRow[]> {
+  return json(
+    await fetch(
+      buildMarketplaceApiPath(['v1', 'admin', 'partners', 'channels', channelId, 'payout']),
+      {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(input),
+      },
+    ),
+  );
+}
+
 export async function updateAdminPartnerSettings(input: {
   minSubscribers: number;
   priceSom: number;
+  defaultPayoutMode: 'PERCENT' | 'FIXED';
+  defaultTradePercentBp: number;
+  defaultFixedMonthlySom: number;
+  referralRewardSom: number;
 }): Promise<PartnerSettings> {
   return json(
     await fetch(buildMarketplaceApiPath(['v1', 'admin', 'partners', 'settings']), {

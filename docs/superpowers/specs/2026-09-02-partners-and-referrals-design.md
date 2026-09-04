@@ -84,6 +84,7 @@ post_price_som        numeric(14,2) NOT NULL
 payout_mode           text                            -- NULL = follow global
 trade_percent_bp      integer                         -- NULL = follow global
 fixed_monthly_som     numeric(14,2)                   -- NULL = follow global
+refresh_failures      integer       NOT NULL DEFAULT 0  -- consecutive failed daily refreshes
 active                boolean       NOT NULL DEFAULT true
 created_at            timestamptz   NOT NULL DEFAULT now()
 ```
@@ -91,6 +92,32 @@ created_at            timestamptz   NOT NULL DEFAULT now()
 `NULL` means "follow the global setting" rather than copying the global value at creation. A copied
 value would silently ignore a later change to the global policy, which is the opposite of what an
 admin editing the global setting expects.
+
+### Daily channel refresh
+
+`title`, `username`, `photo_file_id` and `subscriber_count` are read from Telegram when the channel
+is verified, and every one of them changes over the life of a partnership. Left alone they rot in
+three ways: the subscriber count is what a seller prices a post against, so a stale number means the
+seller is paying for an audience that no longer exists; an avatar `file_id` stops resolving once
+Telegram expires it, so the picture disappears entirely; and a channel that quietly removed the bot
+stays listed and sellable forever, because `my_chat_member` only fires while the bot is connected.
+
+A daily job in marketplace-service enqueues one `efbazaar.marketplace.channel-refresh-requested`
+event per active channel. The bot reads `getChat` and `getChatMemberCount` and reports back to
+`/internal/marketplace/v1/partners/channel-refreshed`. Marketplace holds the schedule because it
+owns the channels; the bot holds the Telegram token and never shares it.
+
+The refresh is **all or nothing**: if either Telegram call fails, nothing is written. A partial write
+would leave a channel carrying a new avatar beside an old subscriber count, and no one would see the
+mismatch.
+
+A failed read increments `refresh_failures`; a successful one resets it to zero. At
+`app.partners.refresh-failure-limit` (default 3, one per day) the partnership is deactivated and
+unposted orders are refunded. Consecutive failures, not a running total — an absolute count would
+eventually kill a healthy channel from accumulated blips. Deactivating on the *first* failure would
+end someone's partnership because Telegram was briefly unreachable; never deactivating would leave
+sellers paying for posts that can never appear. If marketplace itself is unreachable the bot reports
+nothing and the counter does not move: our own outage must not cost a partner their partnership.
 
 One code serves both the referral link and every post link — both identify the same channel, and a
 second code would be a second thing to keep in sync for no gain. It is random, not derived from the

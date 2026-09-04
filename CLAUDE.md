@@ -132,6 +132,8 @@ efbazaar.marketplace.partner-application-submitted  # marketplace → bot (admin
 efbazaar.marketplace.partner-approved      # marketplace → auth (PARTNER roli beriladi)
 efbazaar.marketplace.partner-rejected      # marketplace → (foydalanuvchiga xabar)
 efbazaar.marketplace.partner-cancelled     # marketplace → auth (PARTNER roli olib tashlanadi)
+efbazaar.marketplace.channel-post-requested # marketplace → bot (e'lonni hamkor kanaliga joyla)
+efbazaar.marketplace.channel-refresh-requested # marketplace → bot (kunlik: obunachi soni, nom, avatar)
 efbazaar.bot.media-uploaded          # { listingId, telegramMessageId, mediaType }
 efbazaar.auth.user-role-changed      # auth → trade-service (deactivate trade-admin profile on role revoke)
 efbazaar.trade.admin-invited         # trade-service → marketplace-service (TRADE_ADMIN_INVITED notification)

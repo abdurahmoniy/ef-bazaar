@@ -19,15 +19,20 @@ public final class PartnerAdDtos {
             UUID channelId,
             String title,
             String username,
-            /** Proksi manzili; Telegram {@code file_id} brauzerga chiqmaydi. */
-            String photoUrl,
+            /**
+             * Telegram {@code file_id}. Frontend uni {@code /bot/photo/...}
+             * proksisiga aylantiradi — e'lon rasmlari bilan aynan bir xil
+             * naqsh, ikkinchi mexanizm qurilmaydi.
+             */
+            String photoFileId,
             int subscriberCount,
             BigDecimal priceSom) {}
 
     /** Hamkorning o'z paneli — spec §7.3 dagi to'rt blok. */
     public record PartnerPanelResponse(
             ChannelSummary channel,
-            PriceBounds priceBounds,
+            /** Hamkorga qanday shart qo'llanadi — u buni FAQAT KO'RADI. */
+            PayoutTerms terms,
             ChannelFunnel funnel,
             Earnings earnings,
             List<PostRow> posts) {}
@@ -35,11 +40,22 @@ public final class PartnerAdDtos {
     public record ChannelSummary(UUID channelId, String title, String username,
                                  int subscriberCount, BigDecimal postPriceSom) {}
 
-    /** Chegaralar KO'RSATILADI, faqat rad etilmaydi: oraliqni ko'rmagan hamkor taxmin qilishga majbur. */
-    public record PriceBounds(BigDecimal minSom, BigDecimal maxSom) {}
-
     /** Kanalning o'z voronkasi — shaxsiy taklif havolasi emas, u /invite da. */
     public record ChannelFunnel(long clicks, long registrations) {}
+
+    /**
+     * Amaldagi to'lov sharti.
+     *
+     * <p>Hamkor buni o'zgartira olmaydi — admin sozlaydi. Lekin
+     * KO'RSATILADI: qaysi shartda ekanini bilmagan odam daromadidagi
+     * raqamni tushuntira olmaydi.
+     */
+    public record PayoutTerms(
+            /** PERCENT yoki FIXED. */
+            String mode,
+            /** Foizda, ko'rsatish uchun: 10.5 kabi. FIXED rejimda nol. */
+            BigDecimal tradePercent,
+            BigDecimal fixedMonthlySom) {}
 
     /**
      * Uch oqim ALOHIDA.
@@ -52,6 +68,25 @@ public final class PartnerAdDtos {
 
     public record PostRow(UUID postId, UUID listingId, String state,
                           BigDecimal priceSom, Instant createdAt, Instant postedAt) {}
+
+    /**
+     * Adminka voronkasining bitta qatori.
+     *
+     * <p>VORONKA — asosiy narsa. Ko'p bosilish va savdosiz kanal, umuman
+     * bosilmagan kanaldan BOSHQA muammo, va bitta daromad ustuni
+     * adminga ularning qaysi biri ekanini ayta olmaydi.
+     */
+    public record PartnerFunnelRow(
+            UUID channelId,
+            String title,
+            int subscriberCount,
+            boolean active,
+            long clicks,
+            long registrations,
+            long postsOrdered,
+            long postsDelivered,
+            long postsRefunded,
+            BigDecimal revenueSom) {}
 
     public record UpdatePostPriceRequest(
             @jakarta.validation.constraints.NotNull

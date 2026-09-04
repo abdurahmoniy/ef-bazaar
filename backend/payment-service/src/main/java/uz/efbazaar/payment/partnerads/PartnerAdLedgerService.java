@@ -33,6 +33,7 @@ import java.util.UUID;
 public class PartnerAdLedgerService {
 
     private final LedgerService ledger;
+    private final uz.efbazaar.payment.wallet.repository.LedgerEntryRepository entries;
 
     /**
      * Freezes the whole order in one transaction.
@@ -125,4 +126,21 @@ public class PartnerAdLedgerService {
                             + " so'm yetishmayapti");
         }
     }
+
+    /**
+     * What this partner has been paid, by stream.
+     *
+     * <p>Read straight from the ledger rather than mirrored into
+     * marketplace. A second copy of a money figure drifts, and the
+     * ledger is the one place that cannot be wrong about it.
+     */
+    @Transactional(readOnly = true)
+    public PartnerEarnings earningsOf(UUID partnerUserId) {
+        return new PartnerEarnings(
+                entries.sumCreditedByKind(partnerUserId, TransactionKind.PARTNER_POST_SETTLE),
+                entries.sumCreditedByKind(partnerUserId, TransactionKind.PARTNER_TRADE_SHARE),
+                entries.sumCreditedByKind(partnerUserId, TransactionKind.PARTNER_MONTHLY));
+    }
+
+    public record PartnerEarnings(long fromPostsTiyin, long fromTradesTiyin, long monthlyTiyin) {}
 }

@@ -41,6 +41,7 @@ class PartnerServiceTest {
     private AuthSummaryClient users;
     private PartnerEventPublisher events;
     private PartnerFeeClient fees;
+    private uz.efbazaar.marketplace.referral.ReferralService referralService;
     private PartnerService service;
 
     private PartnerApplication application;
@@ -54,8 +55,12 @@ class PartnerServiceTest {
         users = mock(AuthSummaryClient.class);
         events = mock(PartnerEventPublisher.class);
         fees = mock(PartnerFeeClient.class);
+        referralService = mock(uz.efbazaar.marketplace.referral.ReferralService.class);
         service = new PartnerService(settingsRepository, applications, users, events, fees,
-                mock(uz.efbazaar.marketplace.partner.ads.PartnerChannelService.class));
+                mock(uz.efbazaar.marketplace.partner.ads.PartnerChannelService.class),
+                referralService,
+                mock(uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelRepository.class),
+                mock(uz.efbazaar.marketplace.partner.ads.PartnerPayoutPolicy.class));
 
         PartnerSettings settings = new PartnerSettings();
         settings.setMinSubscribers(1000);
@@ -76,7 +81,7 @@ class PartnerServiceTest {
     }
 
     private ChannelVerifiedRequest request(int subscribers, boolean owner) {
-        return new ChannelVerifiedRequest(telegramId, -100_1L, "Kanal", "kanal", subscribers, owner);
+        return new ChannelVerifiedRequest(telegramId, -100_1L, "Kanal", "kanal", subscribers, owner, null);
     }
 
     @Test
@@ -221,16 +226,44 @@ class PartnerServiceTest {
         assertThat(application.getChannelId()).isNull();
     }
 
+    private PartnerDtos.UpdatePartnerSettingsRequest settingsRequest() {
+        return new PartnerDtos.UpdatePartnerSettingsRequest(
+                2500, new BigDecimal("750000"),
+                "PERCENT", 1500, new BigDecimal("0"),
+                new BigDecimal("5000"));
+    }
+
     @Test
     @DisplayName("Sozlamalar saqlanadi")
     void updatesSettings() {
         UUID adminId = UUID.randomUUID();
-        PartnerSettings updated = service.updateSettings(
-                new PartnerDtos.UpdatePartnerSettingsRequest(2500, new BigDecimal("750000")), adminId);
+        PartnerSettings updated = service.updateSettings(settingsRequest(), adminId);
 
         assertThat(updated.getMinSubscribers()).isEqualTo(2500);
         assertThat(updated.getPriceSom()).isEqualByComparingTo("750000");
         assertThat(updated.getUpdatedBy()).isEqualTo(adminId);
+    }
+
+    @Test
+    @DisplayName("To'lov siyosati ham saqlanadi")
+    void updatesPayoutPolicy() {
+        PartnerSettings updated = service.updateSettings(settingsRequest(), UUID.randomUUID());
+
+        assertThat(updated.getDefaultPayoutMode()).isEqualTo("PERCENT");
+        assertThat(updated.getDefaultTradePercentBp()).isEqualTo(1500);
+    }
+
+    @Test
+    @DisplayName("Referal mukofoti O'Z jadvaliga yoziladi, nusxasi olinmaydi")
+    void referralRewardGoesToItsOwnTable() {
+        // Bu ekranda ham tahrirlanadi, lekin qiymat bitta. Nusxa
+        // saqlansa, ikki ekran vaqt o'tib bir-biriga zid raqam
+        // ko'rsatardi va qaysi biri to'g'ri ekani bilinmasdi.
+        UUID adminId = UUID.randomUUID();
+
+        service.updateSettings(settingsRequest(), adminId);
+
+        verify(referralService).updateSettings(eq(new BigDecimal("5000")), eq(adminId));
     }
 
     @Test

@@ -6,21 +6,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.marketplace.partner.PartnerChannel;
-import uz.efbazaar.marketplace.partner.PartnerRepositories.PartnerSettingsRepository;
-import uz.efbazaar.marketplace.partner.PartnerSettings;
 import uz.efbazaar.marketplace.partner.ads.ListingChannelPost.State;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.ChannelFunnel;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.ChannelSummary;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.Earnings;
+import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.PayoutTerms;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.PartnerPanelResponse;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.PostRow;
-import uz.efbazaar.marketplace.partner.ads.PartnerAdDtos.PriceBounds;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.ListingChannelPostRepository;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelRepository;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerClickRepository;
 import uz.efbazaar.marketplace.referral.ReferralRepositories.ReferralRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,12 +32,12 @@ public class PartnerPanelService {
     private final ListingChannelPostRepository posts;
     private final PartnerClickRepository clicks;
     private final ReferralRepository referrals;
-    private final PartnerSettingsRepository settingsRepository;
+    private final PartnerAdClient payments;
+    private final PartnerPayoutPolicy policy;
 
     @Transactional(readOnly = true)
     public PartnerPanelResponse panelFor(UUID partnerUserId) {
         PartnerChannel channel = requireChannel(partnerUserId);
-        PartnerSettings settings = settings();
 
         List<ListingChannelPost> channelPosts =
                 posts.findByPartnerChannelIdOrderByCreatedAtDesc(channel.getId());
@@ -46,50 +45,62 @@ public class PartnerPanelService {
         return new PartnerPanelResponse(
                 new ChannelSummary(channel.getId(), channel.getTitle(), channel.getUsername(),
                         channel.getSubscriberCount(), channel.getPostPriceSom()),
-                new PriceBounds(settings.getMinPostPriceSom(), settings.getMaxPostPriceSom()),
+                terms(channel),
                 new ChannelFunnel(
                         clicks.countByPartnerChannelId(channel.getId()),
-                        referrals.countByReferrerUserId(partnerUserId)),
-                earnings(channelPosts),
+                        // KANAL bo'yicha, hamkor bo'yicha emas: uning shaxsiy
+                        // taklif havolasidan kelganlar bu voronkaga kirmaydi.
+                        referrals.countByPartnerChannelId(channel.getId())),
+                earnings(partnerUserId),
                 channelPosts.stream().map(PartnerPanelService::row).toList());
     }
 
     /**
      * Post narxini o'zgartiradi.
      *
-     * <p>Chegaradan chiqsa rad javobi ORALIQNI AYTADI: "juda katta"
-     * degan xabar hamkorni taxmin qilishga majbur qiladi.
+     * <p>Yuqori chegara YO'Q — narx hamkorning o'z ishi. Qimmat kanal
+     * shunchaki tanlanmaydi, va bu bozorning o'zi hal qiladigan narsa.
+     *
+     * <p>Manfiy narx esa narx emas: u sotuvchiga pul to'lash bo'lardi.
      */
     @Transactional
     public PartnerChannel updatePostPrice(UUID partnerUserId, BigDecimal priceSom) {
-        PartnerChannel channel = requireChannel(partnerUserId);
-        PartnerSettings settings = settings();
-
-        if (priceSom.compareTo(settings.getMinPostPriceSom()) < 0
-                || priceSom.compareTo(settings.getMaxPostPriceSom()) > 0) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Narx " + settings.getMinPostPriceSom().toBigInteger()
-                            + " dan " + settings.getMaxPostPriceSom().toBigInteger()
-                            + " so'mgacha bo'lishi kerak");
+        if (priceSom == null || priceSom.signum() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Narx manfiy bo'lishi mumkin emas");
         }
+        PartnerChannel channel = requireChannel(partnerUserId);
         channel.setPostPriceSom(priceSom);
         return channels.save(channel);
     }
 
     /**
-     * Uch oqim ALOHIDA hisoblanadi.
+     * Uch oqim — ledger'dan, marketplace nusxasidan emas.
      *
-     * <p>Post haqi shu yerdagi qatorlardan yig'iladi; savdo ulushi va
-     * oylik to'lov esa hamyon tarixidan keladi va bu bosqichda nol
-     * qaytadi — panel ularni ko'rsatadi, lekin manba keyingi qadamda
-     * ulanadi.
+     * <p>Bitta to'lovning ikkita yozuvi vaqt o'tib bir-biridan
+     * uzoqlashadi va keyin qaysi biri to'g'ri ekani bilinmaydi.
+     * "E'lon joylashdan" ni ham shu yerdan olamiz, garchi
+     * {@code listing_channel_posts} dan ham hisoblash mumkin bo'lsa
+     * ham: uchala raqam bitta manbadan kelgani yaxshiroq.
      */
-    private Earnings earnings(List<ListingChannelPost> channelPosts) {
-        BigDecimal fromPosts = channelPosts.stream()
-                .filter(p -> State.POSTED.name().equals(p.getState()))
-                .map(ListingChannelPost::getPriceSom)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new Earnings(fromPosts, BigDecimal.ZERO, BigDecimal.ZERO);
+    private Earnings earnings(UUID partnerUserId) {
+        var paid = payments.earnings(partnerUserId);
+        return new Earnings(paid.fromPostsSom(), paid.fromTradesSom(), paid.monthlySom());
+    }
+
+    /**
+     * Amaldagi shart — hamkor uni faqat KO'RADI, o'zgartira olmaydi.
+     *
+     * <p>Foiz asos punktida saqlanadi (1000 = 10%), lekin ekranga
+     * foizda chiqadi: hamkorga "1000 asos punkti" hech narsa
+     * demaydi.
+     */
+    private PayoutTerms terms(PartnerChannel channel) {
+        var payout = policy.resolve(channel);
+        return new PayoutTerms(
+                payout.mode().name(),
+                BigDecimal.valueOf(payout.tradePercentBp()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP),
+                payout.fixedMonthlySom());
     }
 
     private static PostRow row(ListingChannelPost p) {
@@ -103,8 +114,4 @@ public class PartnerPanelService {
                         "Faol hamkor kanali topilmadi"));
     }
 
-    private PartnerSettings settings() {
-        return settingsRepository.findById(PartnerSettings.SINGLETON_ID)
-                .orElseThrow(() -> new IllegalStateException("partner_settings qatori yo'q"));
-    }
 }

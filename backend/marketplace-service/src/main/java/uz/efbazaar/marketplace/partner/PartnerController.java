@@ -21,7 +21,7 @@ public class PartnerController {
     /** Shartlar: minimal obunachi soni va narx. Ariza sahifasida ko'rsatiladi. */
     @GetMapping("/settings")
     public PartnerSettingsResponse settings() {
-        return PartnerSettingsResponse.from(service.settings());
+        return service.settingsResponse();
     }
 
     @GetMapping("/me")

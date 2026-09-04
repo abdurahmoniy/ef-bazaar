@@ -1,7 +1,7 @@
 package uz.efbazaar.marketplace.partner.ads;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.marketplace.partner.PartnerApplication;
@@ -10,6 +10,7 @@ import uz.efbazaar.marketplace.partner.PartnerRepositories.PartnerSettingsReposi
 import uz.efbazaar.marketplace.partner.PartnerSettings;
 import uz.efbazaar.marketplace.partner.ads.PartnerAdRepositories.PartnerChannelRepository;
 
+import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.UUID;
@@ -23,7 +24,6 @@ import java.util.UUID;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class PartnerChannelService {
 
     /** O'xshash belgilar yo'q: kod og'zaki ham uzatiladi. */
@@ -34,6 +34,24 @@ public class PartnerChannelService {
 
     private final PartnerChannelRepository channels;
     private final PartnerSettingsRepository settingsRepository;
+    private final ChannelPostService channelPosts;
+
+    /**
+     * Necha kun KETMA-KET o'qib bo'lmasa hamkorlik to'xtaydi.
+     *
+     * <p>Yangilanish kuniga bir marta ishlaydi, ya'ni bu — kun soni.
+     */
+    private final int refreshFailureLimit;
+
+    public PartnerChannelService(PartnerChannelRepository channels,
+                                 PartnerSettingsRepository settingsRepository,
+                                 ChannelPostService channelPosts,
+                                 @Value("${app.partners.refresh-failure-limit:3}") int refreshFailureLimit) {
+        this.channels = channels;
+        this.settingsRepository = settingsRepository;
+        this.channelPosts = channelPosts;
+        this.refreshFailureLimit = refreshFailureLimit;
+    }
 
     @Transactional
     public void onApproved(PartnerApplication application) {
@@ -48,8 +66,6 @@ public class PartnerChannelService {
         // ikkinchi kanal ochmasin.
         if (channels.findByApplicationId(application.getId()).isPresent()) return;
 
-        PartnerSettings settings = settings();
-
         PartnerChannel channel = new PartnerChannel();
         channel.setId(UUID.randomUUID());
         channel.setPartnerUserId(application.getUserId());
@@ -58,13 +74,15 @@ public class PartnerChannelService {
         channel.setTitle(application.getChannelTitle() == null
                 ? "Kanal" : application.getChannelTitle());
         channel.setUsername(application.getChannelUsername());
+        channel.setPhotoFileId(application.getChannelPhotoFileId());
         channel.setSubscriberCount(application.getSubscriberCount() == null
                 ? 0 : application.getSubscriberCount());
         channel.setSubscriberSyncedAt(Instant.now());
         channel.setLinkCode(freshCode());
-        // Eng past ruxsat etilgan narxdan boshlaymiz — hamkor uni o'z
-        // panelidan ko'taradi.
-        channel.setPostPriceSom(settings.getMinPostPriceSom());
+        // NOLDAN boshlanadi. Narx hamkorning o'z ishi va u hali
+        // qo'ymagan — "eng kam narx" deb biror qiymat qo'yish uning
+        // nomidan qaror qabul qilish bo'lardi.
+        channel.setPostPriceSom(BigDecimal.ZERO);
         // To'lov sozlamalari BO'SH: kanal global siyosatga ergashadi.
         // Bugungi qiymatni nusxalab olsak, admin siyosatni
         // o'zgartirganda bu kanal eski shartda qolib ketardi.
@@ -86,9 +104,75 @@ public class PartnerChannelService {
         channels.findByPartnerUserIdAndActiveTrue(partnerUserId).ifPresent(channel -> {
             channel.setActive(false);
             channels.save(channel);
+            // Chiqmagan buyurtmalar hech qachon chiqmaydi — bot endi
+            // kanalda administrator emas. Sotuvchining puli ushlangan
+            // holda qolib ketmasin.
+            channelPosts.refundStranded(channel.getId());
             log.info("Hamkor kanali qidiruvdan chiqarildi: {}", channel.getId());
         });
     }
+
+    /**
+     * Kunlik yangilanishning natijasi.
+     *
+     * <p>Muvaffaqiyat — raqamlar yangilanadi va hisoblagich nolga
+     * qaytadi. Xato — hisoblagich o'sadi va chegaraga yetganda
+     * hamkorlik to'xtaydi.
+     *
+     * <p>Nega darhol to'xtatilmaydi: Telegram bir daqiqaga javob
+     * bermasligi bo'ladigan ish, va shuning uchun odamning hamkorligi
+     * tugab qolishi mumkin emas. Nega umuman to'xtatiladi: botsiz
+     * kanal ro'yxatda qolsa, sotuvchi unga pul to'lab e'lon buyurtma
+     * qiladi va post hech qachon chiqmaydi.
+     */
+    @Transactional
+    public void onChannelRefreshed(ChannelRefreshedRequest request) {
+        channels.findById(request.partnerChannelId()).ifPresent(channel -> {
+            // O'chirilgan kanalning yangilanishi kechikib kelishi mumkin —
+            // uni tirilitib yubormaymiz.
+            if (!channel.isActive()) return;
+
+            if (request.subscriberCount() == null) {
+                onRefreshFailed(channel, request.error());
+                return;
+            }
+
+            channel.setSubscriberCount(request.subscriberCount());
+            channel.setSubscriberSyncedAt(Instant.now());
+            // Rasm ATAYLAB null bo'lishi ham mumkin: hamkor avatarni
+            // olib tashlagan bo'lsa, bizda eskisi qolib ketmasin.
+            channel.setPhotoFileId(request.photoFileId());
+            if (request.title() != null && !request.title().isBlank()) {
+                channel.setTitle(request.title());
+            }
+            channel.setUsername(request.username());
+            channel.setRefreshFailures(0);
+            channels.save(channel);
+        });
+    }
+
+    private void onRefreshFailed(PartnerChannel channel, String error) {
+        int failures = channel.getRefreshFailures() + 1;
+        channel.setRefreshFailures(failures);
+        channels.save(channel);
+
+        if (failures < refreshFailureLimit) {
+            log.warn("Kanal {} o'qilmadi ({}/{}): {}",
+                    channel.getId(), failures, refreshFailureLimit, error);
+            return;
+        }
+        log.warn("Kanal {} ketma-ket {} marta o'qilmadi — hamkorlik to'xtatiladi",
+                channel.getId(), failures);
+        deactivate(channel.getPartnerUserId());
+    }
+
+    public record ChannelRefreshedRequest(
+            @jakarta.validation.constraints.NotNull UUID partnerChannelId,
+            String title,
+            String username,
+            String photoFileId,
+            Integer subscriberCount,
+            String error) {}
 
     PartnerSettings settings() {
         return settingsRepository.findById(PartnerSettings.SINGLETON_ID)

@@ -89,24 +89,26 @@ class ChannelDirectoryServiceTest {
     }
 
     @Test
-    @DisplayName("a channel with no avatar gets no photo url rather than a broken one")
+    @DisplayName("a channel with no avatar carries no file id rather than an empty one")
     void missingAvatar() {
         when(channels.findByActiveTrueOrderBySubscriberCountDesc())
                 .thenReturn(List.of(channel("Rasmsiz kanal", 100)));
 
-        assertThat(service.search(null).get(0).photoUrl()).isNull();
+        // Kanalda rasm bo'lmasligi mumkin; kartochka buni null bilan
+        // aytadi va frontend bosh harf chizadi.
+        assertThat(service.search(null).get(0).photoFileId()).isNull();
     }
 
     @Test
-    @DisplayName("a channel with an avatar gets a proxy url, never the raw file id")
-    void avatarIsProxied() {
-        // Telegram file_id brauzerga berilmaydi: u botning tokeni bilan
-        // birga ishlaydigan ichki identifikator.
+    @DisplayName("a channel with an avatar carries the file id the photo proxy takes")
+    void avatarIsCarried() {
+        // E'lon rasmlari bilan AYNAN BIR XIL naqsh: file_id beriladi,
+        // frontend uni /bot/photo/... ga aylantiradi. Ikkinchi
+        // mexanizm qurilmaydi.
         PartnerChannel c = channel("Rasmli kanal", 100);
-        c.setPhotoFileId("AgACAgIAAxk-secret");
+        c.setPhotoFileId("AgACAgIAAxk");
         when(channels.findByActiveTrueOrderBySubscriberCountDesc()).thenReturn(List.of(c));
 
-        String url = service.search(null).get(0).photoUrl();
-        assertThat(url).contains(c.getId().toString()).doesNotContain("AgACAgIAAxk-secret");
+        assertThat(service.search(null).get(0).photoFileId()).isEqualTo("AgACAgIAAxk");
     }
 }

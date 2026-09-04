@@ -76,6 +76,10 @@ public class PartnerApplication {
     @Column(name = "subscriber_count")
     private Integer subscriberCount;
 
+    /** Kanal avatari. Kanalda rasm bo'lmasligi mumkin — null normal. */
+    @Column(name = "channel_photo_file_id")
+    private String channelPhotoFileId;
+
     @Column(name = "verified_at")
     private Instant verifiedAt;
 

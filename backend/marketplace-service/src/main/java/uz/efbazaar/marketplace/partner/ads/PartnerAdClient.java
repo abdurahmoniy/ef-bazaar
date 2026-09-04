@@ -104,6 +104,47 @@ public class PartnerAdClient {
         return end < 0 ? "Hamyonda mablag' yetarli emas" : body.substring(start, end);
     }
 
+    /**
+     * Hamkorga to'langan summalar, oqim bo'yicha.
+     *
+     * <p>marketplace bu raqamlarning NUSXASINI saqlamaydi: bitta
+     * to'lovning ikkita yozuvi vaqt o'tib bir-biridan uzoqlashadi va
+     * keyin qaysi biri to'g'ri ekani bilinmaydi. Ledger — yagona
+     * manba.
+     *
+     * <p>Xato bo'lsa NOLLAR qaytadi va panel baribir ochiladi: daromad
+     * raqami ko'rinmagani uchun butun panelni yopish o'rinsiz.
+     */
+    public Earnings earnings(UUID partnerUserId) {
+        try {
+            EarningsResponse body = http.get()
+                    .uri(uri -> uri.path("/internal/partner-ads/earnings")
+                            .queryParam("partnerUserId", partnerUserId)
+                            .build())
+                    .header("X-Internal-Secret", secret)
+                    .retrieve()
+                    .body(EarningsResponse.class);
+
+            if (body == null) return Earnings.ZERO;
+            return new Earnings(som(body.fromPostsTiyin()), som(body.fromTradesTiyin()),
+                    som(body.monthlyTiyin()));
+        } catch (RuntimeException e) {
+            log.warn("Hamkor daromadini o'qib bo'lmadi ({}): {}", partnerUserId, e.toString());
+            return Earnings.ZERO;
+        }
+    }
+
+    public record Earnings(BigDecimal fromPostsSom, BigDecimal fromTradesSom, BigDecimal monthlySom) {
+        public static final Earnings ZERO =
+                new Earnings(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+    }
+
+    private record EarningsResponse(long fromPostsTiyin, long fromTradesTiyin, long monthlyTiyin) {}
+
+    private static BigDecimal som(long tiyin) {
+        return BigDecimal.valueOf(tiyin).divide(TIYIN_PER_SOM, 2, RoundingMode.HALF_UP);
+    }
+
     private record HoldRequest(UUID orderId, UUID sellerId, long totalTiyin) {}
     private record SettleRequest(UUID postId, UUID sellerId, UUID partnerUserId, long priceTiyin) {}
     private record RefundRequest(UUID postId, UUID sellerId, long priceTiyin) {}
