@@ -25,6 +25,8 @@ log = logging.getLogger(__name__)
 
 Handler = Callable[[object], Awaitable[None]]
 StateCallback = Callable[[str], None]
+# (topik, hodisa, xato) -> urinishlar tugagach bir marta.
+ExhaustedCallback = Callable[[str, object, Exception], Awaitable[None]]
 
 
 class KafkaConsumerRunner:
@@ -35,12 +37,17 @@ class KafkaConsumerRunner:
         topics: list[str],
         handlers: Mapping[str, Handler],
         on_state_change: StateCallback | None = None,
+        on_exhausted: ExhaustedCallback | None = None,
     ) -> None:
         self._bootstrap = bootstrap_servers
         self._group = group_id
         self._topics = topics
         self._handlers = handlers
         self._on_state_change = on_state_change or (lambda _: None)
+        # Urinishlar tugaganda BIR MARTA chaqiriladi. Usiz xabar
+        # jimgina yo'qolar va uni kutayotgan tomon abadiy kutib
+        # qolardi — savdo INITIATED da qotib, pul muzlab turardi.
+        self._on_exhausted = on_exhausted
         self._task: asyncio.Task | None = None
         self._consumer: AIOKafkaConsumer | None = None
         self._stop_event = asyncio.Event()
@@ -111,5 +118,13 @@ class KafkaConsumerRunner:
             # last attempt, not a RetryError, so this is the only branch that's
             # ever reachable here.
             log.error("handler for %s exhausted retries: %s", msg.topic, e)
+            if self._on_exhausted is not None:
+                try:
+                    await self._on_exhausted(msg.topic, event, e)
+                except Exception:  # noqa: BLE001
+                    # Xabar bera olmaslik offsetni to'sib qo'ymaydi:
+                    # aks holda bitta yiqilgan xabar butun navbatni
+                    # to'xtatib qo'yardi.
+                    log.exception("on_exhausted callback failed for %s", msg.topic)
         finally:
             await self._consumer.commit()

@@ -32,9 +32,11 @@ from smart_admin_worker.imap.detector import KonamiEmailDetector
 from smart_admin_worker.imap.factory import ImapToolsConnectionFactory
 from smart_admin_worker.imap.registry import ImapPollerRegistry
 from smart_admin_worker.kafka.consumer import KafkaConsumerRunner
+from smart_admin_worker.kafka.events import EmailProvisionFailed
 from smart_admin_worker.kafka.producer import KafkaProducerClient
 from smart_admin_worker.kafka.topics import (
     REQUEST_TOPICS,
+    TOPIC_EMAIL_PROVISION_FAILED,
     TOPIC_EMAIL_PROVISION_REQ,
     TOPIC_FORGOT_PW_REQ,
     TOPIC_IMAP_POLL_REQ,
@@ -199,12 +201,37 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         topic: _wrap(topic, fn) for topic, fn in raw_handlers.items()
     }
 
+    async def _on_exhausted(topic: str, event: object, exc: Exception) -> None:
+        """Urinishlar tugadi — kutayotgan tomonga xabar beramiz.
+
+        Ilgari xabar shu yerda jimgina yo'qolardi: offset commit
+        bo'lar, savdo esa INITIATED da abadiy qotib qolardi va
+        xaridorning puli muzlab turardi. Uni faqat qo'lda, bazaga
+        kirib ochish mumkin edi.
+        """
+        if topic != TOPIC_EMAIL_PROVISION_REQ:
+            # Qolgan topiklarda kutayotgan holat mashinasi yo'q:
+            # ular yiqilsa savdo boshqa yo'l bilan davom etadi.
+            return
+        trade_id = getattr(event, "trade_id", None)
+        mailbox_id = getattr(event, "mailbox_id", None)
+        if trade_id is None or mailbox_id is None:
+            return
+        await producer.publish(
+            TOPIC_EMAIL_PROVISION_FAILED,
+            str(trade_id),
+            EmailProvisionFailed(
+                trade_id=trade_id, mailbox_id=mailbox_id, reason=str(exc) or type(exc).__name__
+            ),
+        )
+
     consumer = KafkaConsumerRunner(
         bootstrap_servers=settings.kafka_bootstrap_servers,
         group_id=settings.kafka_consumer_group,
         topics=list(REQUEST_TOPICS),
         handlers=handlers,
         on_state_change=health.set_kafka_state,
+        on_exhausted=_on_exhausted,
     )
 
     # Both starts share one try/finally so that if consumer.start() throws,

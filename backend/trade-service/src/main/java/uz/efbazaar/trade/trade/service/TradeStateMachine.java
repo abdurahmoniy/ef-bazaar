@@ -43,7 +43,10 @@ public class TradeStateMachine {
     private static Map<TradeState, Map<TradeEvent, TradeState>> smart() {
         Map<TradeState, Map<TradeEvent, TradeState>> m = new EnumMap<>(TradeState.class);
         m.put(INITIATED, Map.of(
-                MAILBOX_PROVISIONED, WAITING_PAYMENT
+                MAILBOX_PROVISIONED, WAITING_PAYMENT,
+                // Quti ochilmasa savdo o'lik qotib qolmasin: pul
+                // xaridorga qaytadi va u qaytadan ocha oladi.
+                PROVISION_FAILED, ORPHANED
         ));
         m.put(WAITING_PAYMENT, Map.of(
                 PAYMENT_CONFIRMED, WAITING_EMAIL_CHANGE,
@@ -74,7 +77,8 @@ public class TradeStateMachine {
     private static Map<TradeState, Map<TradeEvent, TradeState>> human() {
         Map<TradeState, Map<TradeEvent, TradeState>> m = new EnumMap<>(TradeState.class);
         m.put(INITIATED, Map.of(
-                MAILBOX_PROVISIONED, WAITING_ADMIN
+                MAILBOX_PROVISIONED, WAITING_ADMIN,
+                PROVISION_FAILED, ORPHANED
         ));
         m.put(WAITING_ADMIN, Map.of(
                 ADMIN_ACCEPTED, IN_PROGRESS,

@@ -2,6 +2,9 @@
 
 TOPIC_EMAIL_PROVISION_REQ = "efbazaar.trade.email-provision-request"
 TOPIC_EMAIL_PROVISIONED = "efbazaar.trade.email-provisioned"
+# Urinishlar tugadi va quti ochilmadi. Usiz savdo INITIATED da abadiy
+# qotib qolardi: u holatda TIMEOUT ham, rad etish ham yo'q.
+TOPIC_EMAIL_PROVISION_FAILED = "efbazaar.trade.email-provision-failed"
 TOPIC_FORGOT_PW_REQ = "efbazaar.trade.forgot-password-request"
 TOPIC_IMAP_POLL_REQ = "efbazaar.trade.imap-poll-request"
 TOPIC_KONAMI_EMAIL = "efbazaar.trade.konami-email-received"

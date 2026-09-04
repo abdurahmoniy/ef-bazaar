@@ -34,6 +34,27 @@ class TradeStateMachineTest {
     }
 
     @Test
+    void provisionFailureEndsTheTradeInsteadOfStrandingIt() {
+        // INITIATED yagona chiqishsiz holat edi: deadline yo'q, TIMEOUT
+        // yo'q, rad etish ham yo'q. Worker uch urinishdan keyin taslim
+        // bo'lardi va savdo xaridorning puli muzlatilgan holda abadiy
+        // qotib qolardi — uni faqat bazaga kirib ochish mumkin edi.
+        assertThat(sm.transition(INITIATED, PROVISION_FAILED)).isEqualTo(ORPHANED);
+        assertThat(sm.transition(TradeMode.HUMAN, INITIATED, PROVISION_FAILED))
+                .isEqualTo(ORPHANED);
+    }
+
+    @Test
+    void provisionFailureIsOnlyAcceptedWhileTheMailboxIsStillPending() {
+        // Kechikkan yoki takroriy xabar ishlab turgan savdoni yopib
+        // yubormasin: quti allaqachon ochilgan bo'lishi mumkin.
+        assertThatThrownBy(() -> sm.transition(WAITING_PAYMENT, PROVISION_FAILED))
+                .isInstanceOf(InvalidTradeTransitionException.class);
+        assertThatThrownBy(() -> sm.transition(WAITING_BUYER_VERIFY, PROVISION_FAILED))
+                .isInstanceOf(InvalidTradeTransitionException.class);
+    }
+
+    @Test
     void buyerRejectFromWaitingBuyerVerifyGoesToRejected() {
         TradeState s = sm.transition(WAITING_BUYER_VERIFY, BUYER_REJECT);
         assertThat(s).isEqualTo(REJECTED);
