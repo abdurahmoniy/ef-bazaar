@@ -62,6 +62,14 @@ class ChannelPostServiceTest {
         dear = channel("Qimmat", new BigDecimal("15000.00"));
         when(posts.saveAll(any())).thenAnswer(i -> List.copyOf(i.getArgument(0)));
         when(posts.findByOrderId(any())).thenReturn(List.of());
+        // publish() matnni e'londan yig'adi — usiz post BO'SH ketardi.
+        uz.efbazaar.marketplace.domain.Listing subject =
+                new uz.efbazaar.marketplace.domain.Listing();
+        subject.setId(listing);
+        subject.setSellerId(seller);
+        subject.setPrice(new BigDecimal("4500000"));
+        subject.setDescription("Akkaunt 2 yil o'ynalgan");
+        when(listings.findById(listing)).thenReturn(Optional.of(subject));
         when(posts.findByListingIdAndPartnerChannelIdAndStateAndReplacedAtIsNull(
                 any(), any(), any())).thenReturn(List.of());
     }
@@ -193,6 +201,34 @@ class ChannelPostServiceTest {
         assertThat(post.getTelegramMessageId()).isEqualTo("4242");
         verify(payments).settle(eq(post.getId()), eq(seller), eq(cheap.getPartnerUserId()),
                 eq(new BigDecimal("5000.00")));
+    }
+
+    @Test
+    @DisplayName("post MATN bilan ketadi — bo'sh caption Telegram tomonidan rad etiladi")
+    void aPostCarriesRealText() {
+        // Ilgari caption o'rniga null uzatilardi: Telegram matnsiz
+        // xabarni qabul qilmaydi, ya'ni birorta ham post haqiqatda
+        // chiqmagan va sotuvchiga pul qaytarilaverardi.
+        service.order(seller, listing, List.of(cheap.getId()));
+
+        var payload = forClass(PartnerAdEventPublisher.ChannelPostPayload.class);
+        verify(events).postRequested(any(), payload.capture());
+        assertThat(payload.getValue().caption()).isNotBlank();
+        assertThat(payload.getValue().caption()).contains("so'm");
+        // Havola MATN ichida ham bo'lishi kerak: rasmiy kanalga
+        // forward qilingan nusxa inline tugmani yo'qotadi.
+        assertThat(payload.getValue().caption()).contains(payload.getValue().buttonUrl());
+    }
+
+    @Test
+    @DisplayName("e'lon topilmasa post chiqmaydi va pul ushlanib qolmaydi")
+    void aMissingListingFailsTheOrderInsteadOfPostingNothing() {
+        UUID orphan = UUID.randomUUID();
+        when(listings.findById(orphan)).thenReturn(Optional.empty());
+
+        service.order(seller, orphan, List.of(cheap.getId()));
+
+        verify(events, never()).postRequested(any(), any());
     }
 
     @Test
