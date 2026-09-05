@@ -35,6 +35,10 @@ public class PartnerPanelService {
     private final PartnerAdClient payments;
     private final PartnerPayoutPolicy policy;
 
+    /** Preview'dagi havola haqiqiy postnikidan farq qilmasligi kerak. */
+    @org.springframework.beans.factory.annotation.Value("${app.web.base-url:https://efbazaar.uz}")
+    private String webBaseUrl;
+
     @Transactional(readOnly = true)
     public PartnerPanelResponse panelFor(UUID partnerUserId) {
         PartnerChannel channel = requireChannel(partnerUserId);
@@ -44,7 +48,9 @@ public class PartnerPanelService {
 
         return new PartnerPanelResponse(
                 new ChannelSummary(channel.getId(), channel.getTitle(), channel.getUsername(),
+                        channel.getPhotoFileId(),
                         channel.getSubscriberCount(), channel.getPostPriceSom()),
+                postSettingsOf(channel),
                 terms(channel),
                 new ChannelFunnel(
                         clicks.countByPartnerChannelId(channel.getId()),
@@ -106,6 +112,59 @@ public class PartnerPanelService {
     private static PostRow row(ListingChannelPost p) {
         return new PostRow(p.getId(), p.getListingId(), p.getState(),
                 p.getPriceSom(), p.getCreatedAt(), p.getPostedAt());
+    }
+
+    /**
+     * Hamkor o'z postining ko'rinishini o'zgartiradi.
+     *
+     * <p>Bloklar ro'yxati TARTIB ham, yoqilganlik ham: ro'yxatda bor
+     * blok chiqadi, yo'qi chiqmaydi. Noma'lum kalitlar
+     * {@link ChannelPostLayout#parse} da tashlanadi, ya'ni eski
+     * klient yuborgan nom butun sozlamani yiqitmaydi.
+     */
+    @Transactional
+    public PartnerPanelResponse updatePostSettings(UUID partnerUserId,
+                                                   List<String> blocks, String footer) {
+        PartnerChannel channel = requireChannel(partnerUserId);
+        ChannelPostLayout layout = ChannelPostLayout.parse(blocks);
+        channel.setPostBlocks(layout.keys().toArray(String[]::new));
+
+        String trimmed = footer == null ? null : footer.strip();
+        if (trimmed != null && trimmed.isEmpty()) trimmed = null;
+        if (trimmed != null && trimmed.length() > ChannelPostCaption.FOOTER_LIMIT) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Footer " + ChannelPostCaption.FOOTER_LIMIT + " belgidan oshmasligi kerak");
+        }
+        channel.setPostFooter(trimmed);
+        channels.save(channel);
+        return panelFor(partnerUserId);
+    }
+
+    /**
+     * Sozlama qanday ko'rinishini qaytaradi — SAQLAMASDAN.
+     *
+     * <p>Matn haqiqiy postni quradigan aynan o'sha kod bilan
+     * yig'iladi. Frontendda qayta yozsak, ikkita ilova bir xil matnni
+     * ikki xil qurar va ular vaqt o'tib ajralib ketardi: hamkor
+     * preview'da bir narsani ko'rib, kanalda boshqasini olardi.
+     */
+    @Transactional(readOnly = true)
+    public String previewPost(UUID partnerUserId, List<String> blocks, String footer) {
+        PartnerChannel channel = requireChannel(partnerUserId);
+        var sample = ChannelPostSample.listing();
+        String url = webBaseUrl + "/marketplace/" + sample.getId()
+                + "?p=" + channel.getLinkCode();
+        return ChannelPostCaption.of(sample, url, ChannelPostLayout.parse(blocks), footer);
+    }
+
+    private PartnerAdDtos.PostSettings postSettingsOf(PartnerChannel channel) {
+        ChannelPostLayout layout = ChannelPostLayout.parse(
+                channel.getPostBlocks() == null ? null : List.of(channel.getPostBlocks()));
+        return new PartnerAdDtos.PostSettings(
+                layout.keys(),
+                layout.disabled().stream().map(Enum::name).toList(),
+                channel.getPostFooter(),
+                ChannelPostCaption.FOOTER_LIMIT);
     }
 
     private PartnerChannel requireChannel(UUID partnerUserId) {

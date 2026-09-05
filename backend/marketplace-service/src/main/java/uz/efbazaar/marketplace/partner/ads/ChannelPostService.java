@@ -135,7 +135,12 @@ public class ChannelPostService {
         String url = buttonUrl(post.getListingId(), channel.getLinkCode());
         events.postRequested(post, ChannelPostPayload.of(
                 post, channel,
-                ChannelPostCaption.of(listing, url),
+                // Hamkorning o'z ko'rinishi: qaysi bloklar, qaysi
+                // tartibda va o'z footeri bilan.
+                ChannelPostCaption.of(listing, url,
+                        ChannelPostLayout.parse(channel.getPostBlocks() == null
+                                ? null : java.util.List.of(channel.getPostBlocks())),
+                        channel.getPostFooter()),
                 firstMedia(listing),
                 url));
     }
