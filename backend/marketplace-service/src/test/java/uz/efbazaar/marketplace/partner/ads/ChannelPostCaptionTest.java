@@ -163,6 +163,80 @@ class ChannelPostCaptionTest {
     }
 
     @Test
+    @DisplayName("hamkor bloklarni o'chira va tartibini almashtira oladi")
+    void theLayoutDecidesWhatAppearsAndInWhatOrder() {
+        // Ba'zi kanallar tavsifni eng yuqorida joylaydi, ba'zilari
+        // oxirida. Bitta qat'iy tartib ikkalasiga ham to'g'ri kelmaydi.
+        var layout = ChannelPostLayout.parse(List.of("DESCRIPTION", "PRICE"));
+
+        String caption = ChannelPostCaption.of(listing(Map.of()), URL, layout, null);
+
+        assertThat(caption.indexOf("Akkaunt 2 yil"))
+                .as("tavsif narxdan oldin turishi kerak")
+                .isLessThan(caption.indexOf("so'm"));
+        // O'chirilgan bloklar umuman chiqmaydi.
+        assertThat(caption).doesNotContain("eFootball akkaunt");
+    }
+
+    @Test
+    @DisplayName("footer post oxirida, efBazaar qatoridan oldin turadi")
+    void theFooterSitsAboveTheEfbazaarLine() {
+        String caption = ChannelPostCaption.of(listing(Map.of()), URL,
+                ChannelPostLayout.defaults(), "Rasmiy Sahifalarimiz\n🎮 @java_esports");
+
+        assertThat(caption).contains("@java_esports");
+        assertThat(caption.indexOf("@java_esports")).isLessThan(caption.indexOf("efBazaar</a>"));
+    }
+
+    @Test
+    @DisplayName("uzun footer kesiladi — u postning qolganini yeb qo'ymasin")
+    void anOverlongFooterIsCut() {
+        String caption = ChannelPostCaption.of(listing(Map.of()), URL,
+                ChannelPostLayout.defaults(), "@kanal ".repeat(200));
+
+        // efBazaar havolasi baribir joyida qoladi: usiz forward
+        // qilingan nusxadan e'longa yo'l yo'q.
+        assertThat(caption).contains("efBazaar</a>");
+        assertThat(caption.length()).isLessThanOrEqualTo(1024);
+    }
+
+    @Test
+    @DisplayName("footerdagi HTML matnni buzmaydi")
+    void theFooterIsEscaped() {
+        // Hamkor yozgan "<" Telegram HTML'ini buzib, postni butunlay
+        // chiqmaydigan qilardi.
+        String caption = ChannelPostCaption.of(listing(Map.of()), URL,
+                ChannelPostLayout.defaults(), "<b>reklama</b> & narx");
+
+        assertThat(caption).contains("&lt;b&gt;").contains("&amp;");
+    }
+
+    @Test
+    @DisplayName("noma'lum blok butun sozlamani yiqitmaydi")
+    void anUnknownBlockIsIgnored() {
+        // Blok o'chirilgan yoki nomi o'zgargan bo'lsa, saqlangan
+        // sozlama tufayli post bo'sh chiqmasligi kerak.
+        var layout = ChannelPostLayout.parse(List.of("PRICE", "OLD_BLOCK_NAME"));
+
+        assertThat(layout.keys()).containsExactly("PRICE");
+        assertThat(ChannelPostCaption.of(listing(Map.of()), URL, layout, null))
+                .contains("so'm");
+    }
+
+    @Test
+    @DisplayName("bo'sh sozlama default ko'rinishga qaytadi")
+    void anEmptyLayoutFallsBackToTheDefault() {
+        // Hech narsasiz post e'lon haqida hech narsa aytmaydi.
+        var expected = List.of("HEADER", "PRICE", "STRENGTH", "PLAYERS", "COINS", "DESCRIPTION");
+        assertThat(ChannelPostLayout.parse(List.of()).keys()).containsExactlyElementsOf(expected);
+        assertThat(ChannelPostLayout.parse(null).keys()).containsExactlyElementsOf(expected);
+        // HAMMASI noma'lum bo'lgan holat boshqa shoxdan o'tadi: ro'yxat
+        // bo'sh emas, lekin undan birorta ham blok tanilmaydi.
+        assertThat(ChannelPostLayout.parse(List.of("OLD_ONE", "GONE")).keys())
+                .containsExactlyElementsOf(expected);
+    }
+
+    @Test
     @DisplayName("sotilganda ustidan chiziladi va HAVOLA olib tashlanadi")
     void soldStrikesThroughAndDropsTheLink() {
         // Ustidan chizilgan havola ham bosiladigan havolaligicha

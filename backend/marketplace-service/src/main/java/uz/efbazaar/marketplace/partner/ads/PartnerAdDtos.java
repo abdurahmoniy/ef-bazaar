@@ -31,6 +31,8 @@ public final class PartnerAdDtos {
     /** Hamkorning o'z paneli — spec §7.3 dagi to'rt blok. */
     public record PartnerPanelResponse(
             ChannelSummary channel,
+            /** Post ko'rinishi — hamkor o'zi sozlaydi. */
+            PostSettings postSettings,
             /** Hamkorga qanday shart qo'llanadi — u buni FAQAT KO'RADI. */
             PayoutTerms terms,
             ChannelFunnel funnel,
@@ -38,7 +40,18 @@ public final class PartnerAdDtos {
             List<PostRow> posts) {}
 
     public record ChannelSummary(UUID channelId, String title, String username,
+                                 String photoFileId,
                                  int subscriberCount, BigDecimal postPriceSom) {}
+
+    /**
+     * Postdagi bloklar va hamkorning o'z matni.
+     *
+     * <p>{@code disabled} ham qaytariladi: sozlash ekrani o'chiq
+     * bloklarni ham ko'rsatishi kerak, aks holda hamkor ularni qayta
+     * yoqa olmasdi.
+     */
+    public record PostSettings(List<String> enabled, List<String> disabled,
+                               String footer, int footerLimit) {}
 
     /** Kanalning o'z voronkasi — shaxsiy taklif havolasi emas, u /invite da. */
     public record ChannelFunnel(long clicks, long registrations) {}

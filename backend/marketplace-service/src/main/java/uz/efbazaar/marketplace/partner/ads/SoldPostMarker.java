@@ -66,7 +66,10 @@ public class SoldPostMarker {
             events.postEditRequested(new PostEditPayload(
                     String.valueOf(channel.get().getTelegramChannelId()),
                     post.getTelegramMessageId(),
-                    ChannelPostCaption.sold(ChannelPostCaption.of(listing, url))));
+                    ChannelPostCaption.sold(ChannelPostCaption.of(listing, url,
+                            ChannelPostLayout.parse(channel.get().getPostBlocks() == null
+                                    ? null : java.util.List.of(channel.get().getPostBlocks())),
+                            channel.get().getPostFooter()))));
         }
 
         if (officialChannel.isEmpty()) return;
@@ -77,6 +80,9 @@ public class SoldPostMarker {
                     // Rasmiy nusxada hamkor kodi yo'q — u hech qaysi
                     // hamkorga tegishli emas.
                     String url = webBaseUrl + "/marketplace/" + listing.getId();
+                    // Rasmiy kanalda hamkorning ko'rinishi va footeri
+                    // ISHLATILMAYDI: bu efBazaar'ning o'z lentasi va
+                    // bir hamkorning reklamasi u yerda o'rinsiz.
                     events.postEditRequested(new PostEditPayload(
                             officialChannel, row.getTelegramMessageId(),
                             ChannelPostCaption.sold(ChannelPostCaption.of(listing, url))));

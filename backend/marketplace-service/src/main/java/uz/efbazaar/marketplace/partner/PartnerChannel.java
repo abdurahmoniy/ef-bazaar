@@ -84,6 +84,25 @@ public class PartnerChannel {
     private BigDecimal fixedMonthlySom;
 
     /**
+     * Postdagi bloklar va ularning tartibi.
+     *
+     * <p>Massivda bor blok yoqilgan, yo'qi o'chirilgan — yoqilganlik
+     * uchun alohida maydon yo'q, aks holda ikkisi vaqt o'tib
+     * bir-biriga zid bo'lib qolardi.
+     *
+     * <p>null = sozlanmagan, ya'ni default ko'rinish. Yaratilishda
+     * default'ni nusxalasak, u o'zgarganda eski kanallar eskisida
+     * qotib qolardi.
+     */
+    @Column(name = "post_blocks", columnDefinition = "text[]")
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.ARRAY)
+    private String[] postBlocks;
+
+    /** Hamkorning o'z matni — kanallari, ishonch profillari. */
+    @Column(name = "post_footer")
+    private String postFooter;
+
+    /**
      * KETMA-KET muvaffaqiyatsiz yangilanishlar soni.
      *
      * <p>Muvaffaqiyatli o'qishda NOLGA qaytadi. Umumiy sanoq bo'lsa,

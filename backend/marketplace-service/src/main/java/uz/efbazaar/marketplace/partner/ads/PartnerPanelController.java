@@ -25,6 +25,22 @@ public class PartnerPanelController {
         return service.panelFor(user.userId());
     }
 
+    /**
+     * Post ko'rinishi — bloklar tartibi, yoqilganlik va footer.
+     *
+     * <p>Narxdan ALOHIDA endpoint: narx pul masalasi va tez-tez
+     * o'zgaradi, ko'rinish esa bir marta sozlanadi. Bittaga qo'shsak,
+     * narxni tuzatgan hamkor ko'rinishni ham beixtiyor qayta
+     * yozib yuborardi.
+     */
+    @PutMapping("/post-settings")
+    public PartnerPanelResponse updatePostSettings(@AuthenticationPrincipal AuthenticatedUser user,
+                                                   @Valid @RequestBody PostSettingsRequest request) {
+        return service.updatePostSettings(user.userId(), request.blocks(), request.footer());
+    }
+
+    public record PostSettingsRequest(java.util.List<String> blocks, String footer) {}
+
     @PutMapping("/price")
     public PartnerPanelResponse updatePrice(@AuthenticationPrincipal AuthenticatedUser user,
                                             @Valid @RequestBody UpdatePostPriceRequest request) {

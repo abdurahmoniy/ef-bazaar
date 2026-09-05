@@ -33,6 +33,16 @@ public final class ChannelPostCaption {
     private static final int PLAYERS_SHOWN = 3;
 
     /**
+     * Hamkor footeri uchun chegara.
+     *
+     * <p>Chegarasiz footer postning qolgan hamma qismini yeb qo'yardi:
+     * rasm ostida jami 1024 belgi bor va tavsif undan keyin
+     * qisqartiriladi. 300 belgi ~10 qatorlik havolalar ro'yxatiga
+     * yetadi.
+     */
+    public static final int FOOTER_LIMIT = 300;
+
+    /**
      * Raqam guruhlari orasidagi UZILMAS bo'shliq (U+00A0).
      *
      * <p>Oddiy bo'shliq bo'lsa Telegram uzun narxni satr oxirida
@@ -49,40 +59,35 @@ public final class ChannelPostCaption {
      *                   yo'qotadi va rasmiy kanaldagi nusxada faqat
      *                   shu havola qoladi.
      */
+    /** Sozlanmagan kanal uchun — bugungi ko'rinishning aynan o'zi. */
     public static String of(Listing listing, String listingUrl) {
+        return of(listing, listingUrl, ChannelPostLayout.defaults(), null);
+    }
+
+    /**
+     * @param layout hamkor tanlagan bloklar va ularning tartibi
+     * @param footer hamkorning o'z matni (o'z kanallari, ishonch
+     *               profillari). Bo'sh bo'lishi mumkin.
+     */
+    public static String of(Listing listing, String listingUrl,
+                            ChannelPostLayout layout, String footer) {
         Map<String, Object> a = listing.getAttributes() == null ? Map.of() : listing.getAttributes();
         List<String> lines = new ArrayList<>();
 
-        lines.add("🎮 <b>eFootball akkaunt</b>");
-        lines.add("");
-        lines.add("💰 <b>" + som(listing.getPrice()) + "</b>"
-                + (listing.isPriceNegotiable() ? " · kelishiladi" : ""));
+        for (ChannelPostLayout.Block block : layout.blocks()) {
+            String rendered = render(block, listing, a);
+            if (rendered == null || rendered.isBlank()) continue;
+            // Tavsif va footer abzas sifatida ajratiladi: ular uzun
+            // matn va qatorlar orasiga siqilsa o'qilmay qoladi.
+            if (block == ChannelPostLayout.Block.DESCRIPTION) lines.add("");
+            lines.add(rendered);
+            if (block == ChannelPostLayout.Block.HEADER) lines.add("");
+        }
 
-        // Akkauntning kuchi bitta qatorda: uchtasi ham kichik son va
-        // alohida qatorlarga yoyilsa matn bo'sh joyga cho'ziladi.
-        String strength = join(" · ",
-                plain(a, "highest_division_level", v -> "🏆 Division <b>" + v + "</b>"),
-                plain(a, "team_strength", v -> "TS <b>" + v + "</b>"),
-                plain(a, "players_count", v -> "<b>" + v + "</b> o'yinchi"));
-        if (!strength.isBlank()) lines.add(strength);
-
-        String players = players(a.get("valuable_players"));
-        if (!players.isBlank()) lines.add("⭐️ " + players);
-
-        String coins = join(" · ",
-                text(a, "android_coins", v -> "📱 Android <b>" + v + "</b>"),
-                text(a, "ios_coins", v -> "iOS <b>" + v + "</b>"));
-        if (!coins.isBlank()) lines.add(coins + " coin");
-
-        String links = join(" · ",
-                flag(a, "has_google_play_link", "🔗 Google Play ulangan"),
-                flag(a, "has_game_center_link", "🔗 Game Center ulangan"));
-        if (!links.isBlank()) lines.add(links);
-
-        String description = shorten(listing.getDescription());
-        if (!description.isBlank()) {
+        String tail = footerOf(footer);
+        if (!tail.isBlank()) {
             lines.add("");
-            lines.add(escape(description));
+            lines.add(tail);
         }
 
         lines.add("");
@@ -90,6 +95,55 @@ public final class ChannelPostCaption {
                 + " — pul savdo tugaguncha xavfsiz saqlanadi");
 
         return clamp(String.join("\n", lines));
+    }
+
+    private static String render(ChannelPostLayout.Block block, Listing listing,
+                                 Map<String, Object> a) {
+        return switch (block) {
+            case HEADER -> "🎮 <b>eFootball akkaunt</b>";
+            case PRICE -> "💰 <b>" + som(listing.getPrice()) + "</b>"
+                    + (listing.isPriceNegotiable() ? " · kelishiladi" : "");
+            // Akkauntning kuchi bitta qatorda: uchtasi ham kichik son
+            // va alohida qatorlarga yoyilsa matn bo'sh joyga cho'ziladi.
+            case STRENGTH -> join(" · ",
+                    plain(a, "highest_division_level", v -> "🏆 Division <b>" + v + "</b>"),
+                    plain(a, "team_strength", v -> "TS <b>" + v + "</b>"),
+                    plain(a, "players_count", v -> "<b>" + v + "</b> o'yinchi"));
+            case PLAYERS -> {
+                String players = players(a.get("valuable_players"));
+                yield players.isBlank() ? "" : "⭐️ " + players;
+            }
+            case COINS -> {
+                String coins = join(" · ",
+                        text(a, "android_coins", v -> "📱 Android <b>" + v + "</b>"),
+                        text(a, "ios_coins", v -> "iOS <b>" + v + "</b>"));
+                yield coins.isBlank() ? "" : coins + " coin";
+            }
+            case DESCRIPTION -> escape(shorten(listing.getDescription()));
+            case LINKS -> join(" · ",
+                    flag(a, "has_google_play_link", "🔗 Google Play ulangan"),
+                    flag(a, "has_game_center_link", "🔗 Game Center ulangan"));
+            case PLATFORM -> plain(a, "platform", v -> "📲 " + v);
+            case EXCHANGE -> plain(a, "exchange_mode", v -> "🔄 " + v);
+            case DEVICE_LIMIT -> plain(a, "device_transfer_limit",
+                    v -> "📵 Qurilma almashtirish: <b>" + v + "</b>");
+        };
+    }
+
+    /**
+     * Hamkorning o'z matni.
+     *
+     * <p>Escape qilinadi: hamkor yozgan "<" belgisi Telegram HTML'ini
+     * buzib, postni butunlay chiqmaydigan qilardi. Chegaradan
+     * oshgani KESILADI — saqlashda ham tekshiriladi, bu esa eski
+     * yozuvlar uchun ikkinchi to'siq.
+     */
+    private static String footerOf(String footer) {
+        if (footer == null) return "";
+        String flat = footer.strip();
+        if (flat.isEmpty()) return "";
+        if (flat.length() > FOOTER_LIMIT) flat = flat.substring(0, FOOTER_LIMIT);
+        return escape(flat);
     }
 
     /**
