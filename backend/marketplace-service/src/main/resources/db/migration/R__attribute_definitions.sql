@@ -27,8 +27,8 @@ INSERT INTO attribute_definitions (key, label_uz, type, required, position, grou
     ('android_coins',          'Android coin',           'INT',       FALSE, 40, 'monetization', '{}'::jsonb,                            TRUE,  TRUE),
     ('ios_coins',              'iOS coin',               'INT',       FALSE, 50, 'monetization', '{}'::jsonb,                            TRUE,  TRUE),
     ('platform',               'Platforma',              'ENUM',      TRUE,  60, 'platform',     '{"options":["MOBILE","STEAM","PLAYSTATION"],"option_labels_uz":{"MOBILE":"Mobile","STEAM":"Steam","PLAYSTATION":"PlayStation"},"default":"MOBILE"}'::jsonb, TRUE, TRUE),
-    ('has_game_center_link',   'Game Center ulangan',    'BOOLEAN',   FALSE, 65, 'platform',     '{}'::jsonb,                            TRUE,  TRUE),
-    ('has_google_play_link',   'Google Play ulangan',    'BOOLEAN',   FALSE, 70, 'platform',     '{}'::jsonb,                            TRUE,  TRUE),
+    ('has_google_play_link',   'Google Play ulangan',    'BOOLEAN',   FALSE, 65, 'platform',     '{}'::jsonb,                            TRUE,  TRUE),
+    ('has_game_center_link',   'Game Center ulangan',    'BOOLEAN',   FALSE, 70, 'platform',     '{}'::jsonb,                            TRUE,  TRUE),
     -- eFootball "transfer data to new device": 10 sign-ins per account per
     -- month. A trade burns at least two of them (moderator verification +
     -- buyer's own sign-in after handover), so `min_sellable` blocks listings

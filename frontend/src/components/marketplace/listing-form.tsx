@@ -947,7 +947,15 @@ function GameplayStep({
 	const platformDef = relevant.find((d) => d.key === 'platform');
 	const androidCoinDef = relevant.find((d) => d.key === 'android_coins');
 	const iosCoinDef = relevant.find((d) => d.key === 'ios_coins');
-	const boolDefs = relevant.filter((d) => d.type === 'BOOLEAN');
+	const boolDefs = relevant
+		.filter((d) => d.type === 'BOOLEAN')
+		.sort((a, b) => {
+			// Align with coins grid: Google Play under Android Coin (col 1), Game Center under iOS Coin (col 2)
+			const rank = (key: string) =>
+				key === 'has_google_play_link' ? 0 : key === 'has_game_center_link' ? 1 : 2;
+			const diff = rank(a.key) - rank(b.key);
+			return diff !== 0 ? diff : (a.position ?? 0) - (b.position ?? 0);
+		});
 
 	const handledKeys = new Set([
 		'highest_division_level',
