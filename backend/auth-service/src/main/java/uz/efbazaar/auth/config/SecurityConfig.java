@@ -43,13 +43,14 @@ public class SecurityConfig {
                         // payment-service turned a "not enough money" 409 into
                         // a 401 exactly this way, and no trade could be accepted.
                         .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()
-                        // Public — Telegram register/login, Google login, token refresh.
+                        // Public — Telegram register/login, Google login, token refresh, logout.
                         // /telegram/link is protected (needs the caller's user id) so it
                         // stays under the default authenticated matcher below.
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/telegram",
                                 "/api/v1/auth/telegram-webapp",
                                 "/api/v1/auth/google/login",
+                                "/api/v1/auth/logout",
                                 "/api/v1/auth/refresh").permitAll()
                         // Public — verify subrequest hit by nginx auth_request. The handler
                         // returns 401 explicitly when no principal is bound (JWT missing /

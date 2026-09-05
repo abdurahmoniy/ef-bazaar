@@ -769,7 +769,7 @@ function WaitingEmailChangeSellerPanel({
         <p className="mb-1 font-semibold text-foreground">Konami email manzili</p>
         {email ? (
           <div className="flex items-center gap-2">
-            <code className="flex-1 truncate rounded bg-white/70 px-2 py-1 text-[11px] font-mono text-foreground">
+            <code className="flex-1 truncate rounded border border-border/80 bg-background/80 px-2.5 py-1.5 text-[11px] font-mono text-foreground select-all dark:bg-background/90 dark:border-border/60">
               {email}
             </code>
             <Button
@@ -797,7 +797,7 @@ function WaitingEmailChangeSellerPanel({
         <p className="mb-1 font-semibold text-foreground">Konami tasdiqlash kodi</p>
         {code ? (
           <div className="flex items-center gap-2">
-            <code className="flex-1 rounded bg-white/70 px-2 py-1 text-center text-lg font-mono font-bold tracking-widest text-primary">
+            <code className="flex-1 rounded border border-border/80 bg-background/80 px-2.5 py-1.5 text-center text-lg font-mono font-bold tracking-widest text-primary select-all dark:bg-background/90 dark:border-border/60">
               {code}
             </code>
             <Button
@@ -1095,7 +1095,7 @@ function WaitingBuyerVerifyBuyerPanel({
                   Konami email
                 </p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 truncate rounded bg-white/80 px-2 py-1 font-mono text-sm text-foreground">
+                  <code className="flex-1 truncate rounded border border-border/80 bg-background/80 px-2.5 py-1.5 font-mono text-sm text-foreground select-all dark:bg-background/90 dark:border-border/60">
                     {mailboxEmail}
                   </code>
                   <Button
@@ -1117,7 +1117,7 @@ function WaitingBuyerVerifyBuyerPanel({
                 Konami paroli
               </p>
               <div className="flex items-center gap-2">
-                <code className="flex-1 truncate rounded bg-white/80 px-2 py-1 font-mono text-sm text-foreground">
+                <code className="flex-1 truncate rounded border border-border/80 bg-background/80 px-2.5 py-1.5 font-mono text-sm text-foreground select-all dark:bg-background/90 dark:border-border/60">
                   {revealedPassword}
                 </code>
                 <Button
@@ -1471,7 +1471,7 @@ function PendingProposalCard({
         </div>
       </div>
       {isSeller ? (
-        <p className="rounded-lg bg-white/60 px-3 py-2 text-xs text-muted-foreground dark:bg-white/5">
+        <p className="rounded-lg border border-border/50 bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
           Xaridor javobini kutmoqda.
           {isHumanProposal(proposal) && proposal.adminFeeUzs
             ? ` Inson admin narxi: ${formatPriceUZS(proposal.adminFeeUzs)}.`
