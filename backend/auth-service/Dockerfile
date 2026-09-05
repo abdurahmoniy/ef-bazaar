@@ -10,12 +10,31 @@ FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
 
 # Dependency layer — pom.xml o'zgarmagunicha cache reuses
+# Maven Central anonim CI trafigini cheklaydi va 429 qaytaradi. Bu VAQTINCHALIK
+# holat uchun butun image qurilishini yiqitadi.
+#
+# MAVEN_OPTS dagi retryHandler bu yerda YETARLI EMAS: u faqat tarmoq uzilishida
+# qayta uriniladi, 429 esa to'liq HTTP javob va Maven uni "server javob berdi"
+# deb hisoblaydi. Shuning uchun qayta urinish qobiq darajasida — u nima sababdan
+# yiqilganidan qat'i nazar ishlaydi.
 COPY pom.xml .
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q dependency:go-offline
+RUN --mount=type=cache,target=/root/.m2 \
+    n=0; until mvn -B -q dependency:go-offline; do \
+      n=$((n+1)); \
+      if [ "$n" -ge 5 ]; then echo "Maven 5 urinishdan keyin ham yiqildi"; exit 1; fi; \
+      echo "Maven yiqildi (urinish $n/5) — $((n*20))s dan keyin qayta"; \
+      sleep $((n*20)); \
+    done
 
 # Source layer
 COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q clean package -DskipTests \
+RUN --mount=type=cache,target=/root/.m2 \
+    n=0; until mvn -B -q clean package -DskipTests; do \
+      n=$((n+1)); \
+      if [ "$n" -ge 5 ]; then echo "Maven 5 urinishdan keyin ham yiqildi"; exit 1; fi; \
+      echo "Maven yiqildi (urinish $n/5) — $((n*20))s dan keyin qayta"; \
+      sleep $((n*20)); \
+    done \
  && mv target/*.jar target/app.jar
 
 # ---------------- Stage 2: extract layers ----------------

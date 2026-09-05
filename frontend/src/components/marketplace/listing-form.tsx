@@ -372,6 +372,11 @@ export function ListingForm({
 		editMode,
 		existingMediaUrls.length,
 		initialListing,
+		// SHART. Usiz useCallback boshlang'ich bo'sh ro'yxatni yopib
+		// qoladi va foydalanuvchi kanal tanlasa ham so'rovga hech
+		// narsa qo'shilmaydi — e'lon jimgina hech qaysi kanalga
+		// chiqmaydi va bazada birorta buyurtma qatori ham qolmaydi.
+		channelIds,
 	]);
 
 	const submitLabel = editMode ? 'Saqlash' : "E'lon yaratish";
