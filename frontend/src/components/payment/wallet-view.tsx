@@ -9,8 +9,11 @@ import {
   ArrowUpFromLine,
   ArrowUpRight,
   CheckCircle2,
+  Gift,
+  Handshake,
   History,
   Lock,
+  Megaphone,
   RotateCcw,
   ShieldAlert,
   Snowflake,
@@ -27,6 +30,7 @@ import { getWalletHistory } from '@/lib/payment-client';
 import { formatTiyin } from '@/lib/money';
 import type {
   InvoiceResponse,
+  TransactionKind,
   WalletEntryResponse,
   WalletResponse,
 } from '@/lib/payment-types';
@@ -49,54 +53,106 @@ interface WalletViewProps {
 type WalletTab = 'topup' | 'withdraw' | 'history';
 type HistoryFilter = 'all' | 'in' | 'out';
 
-function getTransactionIcon(label: string, incoming: boolean) {
-  if (label.includes("To'ldirish") || label.includes("to‘ldirish") || label.includes("To‘ldirish")) {
-    return {
-      icon: <ArrowDownLeft className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />,
-      bg: 'bg-emerald-500/10 dark:bg-emerald-400/10',
-    };
+type TxIcon = { icon: React.ReactNode; bg: string };
+
+const ICON_CLASS = 'h-4.5 w-4.5';
+
+/**
+ * Ikon TURGA qarab tanlanadi, matn bo'lagiga emas.
+ *
+ * <p>Ilgari bu funksiya nomdan bo'lak qidirardi ("muzlatildi",
+ * "qaytdi"). Yangi tur qo'shilganda uning nomi hech bir bo'lakka
+ * tushmas va u jimgina umumiy ikon bilan chiqardi — hamkorlik va
+ * referal yozuvlari aynan shunday ajralmay qolgan edi. Tur bo'yicha
+ * tanlaganda unutilgan tur kompilyatsiyada ko'rinadi.
+ */
+const KIND_ICONS: Partial<Record<TransactionKind, TxIcon>> = {
+  DEPOSIT: {
+    icon: <ArrowDownLeft className={cn(ICON_CLASS, 'text-emerald-600 dark:text-emerald-400')} />,
+    bg: 'bg-emerald-500/10 dark:bg-emerald-400/10',
+  },
+  TRADE_HOLD: {
+    icon: <Lock className={cn(ICON_CLASS, 'text-amber-600 dark:text-amber-400')} />,
+    bg: 'bg-amber-500/10 dark:bg-amber-400/10',
+  },
+  TRADE_RELEASE: {
+    icon: <RotateCcw className={cn(ICON_CLASS, 'text-blue-600 dark:text-blue-400')} />,
+    bg: 'bg-blue-500/10 dark:bg-blue-400/10',
+  },
+  WITHDRAW_RESERVE: {
+    icon: <ArrowUpRight className={cn(ICON_CLASS, 'text-violet-600 dark:text-violet-400')} />,
+    bg: 'bg-violet-500/10 dark:bg-violet-400/10',
+  },
+  WITHDRAW_FULFIL: {
+    icon: <ArrowUpRight className={cn(ICON_CLASS, 'text-violet-600 dark:text-violet-400')} />,
+    bg: 'bg-violet-500/10 dark:bg-violet-400/10',
+  },
+  WITHDRAW_CANCEL: {
+    icon: <XCircle className={cn(ICON_CLASS, 'text-rose-600 dark:text-rose-400')} />,
+    bg: 'bg-rose-500/10 dark:bg-rose-400/10',
+  },
+  REFERRAL_REWARD: {
+    icon: <Gift className={cn(ICON_CLASS, 'text-fuchsia-600 dark:text-fuchsia-400')} />,
+    bg: 'bg-fuchsia-500/10 dark:bg-fuchsia-400/10',
+  },
+  PARTNER_FEE: {
+    icon: <Handshake className={cn(ICON_CLASS, 'text-sky-600 dark:text-sky-400')} />,
+    bg: 'bg-sky-500/10 dark:bg-sky-400/10',
+  },
+  PARTNER_TRADE_SHARE: {
+    icon: <Handshake className={cn(ICON_CLASS, 'text-sky-600 dark:text-sky-400')} />,
+    bg: 'bg-sky-500/10 dark:bg-sky-400/10',
+  },
+  PARTNER_MONTHLY: {
+    icon: <Handshake className={cn(ICON_CLASS, 'text-sky-600 dark:text-sky-400')} />,
+    bg: 'bg-sky-500/10 dark:bg-sky-400/10',
+  },
+  PARTNER_POST_HOLD: {
+    icon: <Lock className={cn(ICON_CLASS, 'text-amber-600 dark:text-amber-400')} />,
+    bg: 'bg-amber-500/10 dark:bg-amber-400/10',
+  },
+  PARTNER_POST_REFUND: {
+    icon: <RotateCcw className={cn(ICON_CLASS, 'text-blue-600 dark:text-blue-400')} />,
+    bg: 'bg-blue-500/10 dark:bg-blue-400/10',
+  },
+  ADJUSTMENT: {
+    icon: <ShieldAlert className={cn(ICON_CLASS, 'text-primary')} />,
+    bg: 'bg-primary/10',
+  },
+};
+
+function getTransactionIcon(kind: TransactionKind, incoming: boolean): TxIcon {
+  // Ikki tomonli turlar: kim o'qiyotganiga qarab ikon ham o'zgaradi.
+  if (kind === 'PARTNER_POST_SETTLE') {
+    return incoming
+      ? {
+          icon: <Handshake className={cn(ICON_CLASS, 'text-sky-600 dark:text-sky-400')} />,
+          bg: 'bg-sky-500/10 dark:bg-sky-400/10',
+        }
+      : {
+          icon: <Megaphone className={cn(ICON_CLASS, 'text-indigo-600 dark:text-indigo-400')} />,
+          bg: 'bg-indigo-500/10 dark:bg-indigo-400/10',
+        };
   }
-  if (label.includes('muzlatildi')) {
-    return {
-      icon: <Lock className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />,
-      bg: 'bg-amber-500/10 dark:bg-amber-400/10',
-    };
+  if (kind === 'TRADE_SETTLE') {
+    return incoming
+      ? {
+          icon: <CheckCircle2 className={cn(ICON_CLASS, 'text-emerald-600 dark:text-emerald-400')} />,
+          bg: 'bg-emerald-500/10 dark:bg-emerald-400/10',
+        }
+      : {
+          icon: <ArrowUpRight className={cn(ICON_CLASS, 'text-muted-foreground')} />,
+          bg: 'bg-muted',
+        };
   }
-  if (label.includes('tushdi')) {
-    return {
-      icon: <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />,
-      bg: 'bg-emerald-500/10 dark:bg-emerald-400/10',
-    };
-  }
-  if (label.includes('qaytdi')) {
-    return {
-      icon: <RotateCcw className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />,
-      bg: 'bg-blue-500/10 dark:bg-blue-400/10',
-    };
-  }
-  if (label.includes('Yechish') || label.includes('yechish')) {
-    return {
-      icon: <ArrowUpRight className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" />,
-      bg: 'bg-violet-500/10 dark:bg-violet-400/10',
-    };
-  }
-  if (label.includes('bekor')) {
-    return {
-      icon: <XCircle className="h-4.5 w-4.5 text-rose-600 dark:text-rose-400" />,
-      bg: 'bg-rose-500/10 dark:bg-rose-400/10',
-    };
-  }
-  if (label.includes('Admin') || label.includes('tuzatish')) {
-    return {
-      icon: <ShieldAlert className="h-4.5 w-4.5 text-primary" />,
-      bg: 'bg-primary/10',
-    };
-  }
+  const known = KIND_ICONS[kind];
+  if (known) return known;
+
   return {
     icon: incoming ? (
-      <ArrowDownLeft className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
+      <ArrowDownLeft className={cn(ICON_CLASS, 'text-emerald-600 dark:text-emerald-400')} />
     ) : (
-      <ArrowLeftRight className="h-4.5 w-4.5 text-muted-foreground" />
+      <ArrowLeftRight className={cn(ICON_CLASS, 'text-muted-foreground')} />
     ),
     bg: incoming ? 'bg-emerald-500/10 dark:bg-emerald-400/10' : 'bg-muted',
   };
@@ -382,7 +438,7 @@ export function WalletView({
           ) : (
             <ul className="divide-y divide-border/60">
               {filteredRows.map((row, index) => {
-                const { icon, bg } = getTransactionIcon(row.label, row.incoming);
+                const { icon, bg } = getTransactionIcon(row.kind, row.incoming);
 
                 return (
                   <li

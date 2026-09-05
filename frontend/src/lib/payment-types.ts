@@ -40,6 +40,13 @@ export type TransactionKind =
   | 'WITHDRAW_RESERVE'
   | 'WITHDRAW_FULFIL'
   | 'WITHDRAW_CANCEL'
+  | 'PARTNER_FEE'
+  | 'REFERRAL_REWARD'
+  | 'PARTNER_POST_HOLD'
+  | 'PARTNER_POST_SETTLE'
+  | 'PARTNER_POST_REFUND'
+  | 'PARTNER_TRADE_SHARE'
+  | 'PARTNER_MONTHLY'
   | 'ADJUSTMENT';
 
 export type LedgerAccount =

@@ -10,6 +10,14 @@ export const WALLET_KIND_LABELS: Record<TransactionKind, string> = {
   WITHDRAW_RESERVE: 'Yechishga ajratildi',
   WITHDRAW_FULFIL: 'Yechib berildi',
   WITHDRAW_CANCEL: 'Yechish bekor qilindi',
+  PARTNER_FEE: 'Hamkorlik to‘lovi',
+  REFERRAL_REWARD: 'Referal bonus',
+  PARTNER_POST_HOLD: 'Kanal posti uchun muzlatildi',
+  // walletEntryLabel yo'nalishga qarab almashtiradi.
+  PARTNER_POST_SETTLE: 'Kanal posti uchun',
+  PARTNER_POST_REFUND: 'Kanal posti chiqmadi — qaytdi',
+  PARTNER_TRADE_SHARE: 'Hamkorlik (savdodan)',
+  PARTNER_MONTHLY: 'Hamkorlik (oylik)',
   ADJUSTMENT: 'Admin tuzatishi',
 };
 
@@ -27,14 +35,18 @@ export type WalletMovement = 'in' | 'out' | 'internal';
 
 /** Kinds that only shuffle the owner's own buckets. */
 const INTERNAL_KINDS: ReadonlySet<TransactionKind> = new Set<TransactionKind>([
-  'TRADE_HOLD',       // available → held
-  'TRADE_RELEASE',    // held → available
-  'WITHDRAW_RESERVE', // available → withdraw-pending
-  'WITHDRAW_CANCEL',  // withdraw-pending → available
+  'TRADE_HOLD',           // available → held
+  'TRADE_RELEASE',        // held → available
+  'WITHDRAW_RESERVE',     // available → withdraw-pending
+  'WITHDRAW_CANCEL',      // withdraw-pending → available
+  'PARTNER_POST_HOLD',    // available → held (sotuvchining o'zida)
+  'PARTNER_POST_REFUND',  // held → available (sotuvchining o'zida)
 ]);
 
 export interface WalletHistoryRow {
   transactionId: string;
+  /** Ikon SHU maydondan tanlanadi — matn bo'lagidan emas. */
+  kind: TransactionKind;
   label: string;
   /** Display sign, already flipped: positive is money arriving. */
   signedTiyin: number;
@@ -67,6 +79,12 @@ export function formatSignedTiyin(signedTiyin: number): string {
 export function walletEntryLabel(kind: TransactionKind, incoming: boolean): string {
   if (kind === 'TRADE_SETTLE') {
     return incoming ? 'Savdodan tushdi' : "Sotuvchiga o'tkazildi";
+  }
+  // Xuddi shu sabab: post haqi sotuvchidan chiqib hamkorga kiradi.
+  // Ikkalasiga bir xil matn ko'rsatsak, hamkor o'z daromadini
+  // xarajat deb o'qirdi.
+  if (kind === 'PARTNER_POST_SETTLE') {
+    return incoming ? 'Hamkorlik (kanal posti)' : 'Kanal posti uchun';
   }
   return WALLET_KIND_LABELS[kind] ?? UNKNOWN_KIND_LABEL;
 }
@@ -112,6 +130,7 @@ export function walletHistoryRows(
     const movement = movementOf(entry.kind, incoming);
     return {
       transactionId: entry.transactionId,
+      kind: entry.kind,
       label: walletEntryLabel(entry.kind, incoming),
       signedTiyin,
       // No sign on an internal move: the owner still has the money, and a
