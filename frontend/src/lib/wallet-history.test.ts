@@ -5,6 +5,7 @@ import {
   WALLET_KIND_LABELS,
   formatSignedTiyin,
   movementOf,
+  walletEntryLabel,
   walletHistoryRows,
 } from './wallet-history';
 
@@ -259,3 +260,38 @@ describe('walletHistoryRows — signs', () => {
 });
 
 
+
+
+describe('hamkorlik va referal yozuvlari', () => {
+  it('referal mukofoti "Amaliyot" emas, o\'z nomi bilan chiqadi', () => {
+    // Frontend turlar ro'yxati backenddan orqada qolgani uchun
+    // yettita tur umumiy "Amaliyot" bo'lib ko'rinardi — foydalanuvchi
+    // hamyoniga nima uchun pul tushganini bilmasdi.
+    expect(walletEntryLabel('REFERRAL_REWARD', true)).toBe('Referal bonus');
+  });
+
+  it('post haqi ikki tomonda ikki xil o\'qiladi', () => {
+    // Bitta yozuv: sotuvchidan chiqadi, hamkorga kiradi. Bir xil matn
+    // ko'rsatsak, hamkor o'z daromadini xarajat deb o'qirdi.
+    expect(walletEntryLabel('PARTNER_POST_SETTLE', false)).toBe('Kanal posti uchun');
+    expect(walletEntryLabel('PARTNER_POST_SETTLE', true)).toBe('Hamkorlik (kanal posti)');
+  });
+
+  it('hamkorlikning uchala daromad yo\'li ham nomlangan', () => {
+    expect(walletEntryLabel('PARTNER_TRADE_SHARE', true)).toContain('Hamkorlik');
+    expect(walletEntryLabel('PARTNER_MONTHLY', true)).toContain('Hamkorlik');
+    expect(walletEntryLabel('PARTNER_FEE', false)).toContain('Hamkorlik');
+  });
+
+  it('post uchun muzlatish va qaytarish ICHKI harakat', () => {
+    // Ikkalasi ham sotuvchining o'z hamyoni ichida ko'chadi. Chiqim
+    // deb ko'rsatsak, bitta 1 000 so'mlik post 2 000 bo'lib o'qilardi.
+    expect(movementOf('PARTNER_POST_HOLD', false)).toBe('internal');
+    expect(movementOf('PARTNER_POST_REFUND', true)).toBe('internal');
+  });
+
+  it('hamkorga tushgan pul kirim deb belgilanadi', () => {
+    expect(movementOf('PARTNER_TRADE_SHARE', true)).toBe('in');
+    expect(movementOf('REFERRAL_REWARD', true)).toBe('in');
+  });
+});

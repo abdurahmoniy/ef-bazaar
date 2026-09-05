@@ -17,10 +17,14 @@ export function recordChannelClick(rawCode: unknown, listingId: string): void {
   const code = rawCode.trim().toUpperCase();
   if (!CODE.test(code)) return;
 
+  // OBYEKT beriladi, satr emas: apiFetch tanani o'zi JSON.stringify
+  // qiladi va Content-Type ni ham o'zi qo'yadi. Oldindan satrga
+  // aylantirsak tana ikki marta o'raladi va server ildizda obyekt
+  // emas, satr ko'radi — bosish umuman yozilmasdi va hamkor o'zi
+  // olib kelgan savdodan ulush ololmasdi.
   void apiFetch('/marketplace/v1/partners/click', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ linkCode: code, listingId }),
+    body: { linkCode: code, listingId },
   }).catch(() => {
     // Statistika sahifaga ta'sir qilmaydi.
   });
