@@ -92,6 +92,16 @@ export function refreshSession(
   return promise;
 }
 
+/**
+ * Evict a refresh token from memory upon logout so that in-flight or recently
+ * rotated entries are not replayed to re-authenticate the user.
+ */
+export function invalidateRefreshToken(refreshToken?: string) {
+  if (!refreshToken) return;
+  recent.delete(refreshToken);
+  inflight.delete(refreshToken);
+}
+
 /** Test seam — the maps outlive a single case otherwise. */
 export function __resetRefreshCaches() {
   inflight.clear();

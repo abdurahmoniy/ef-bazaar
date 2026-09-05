@@ -35,7 +35,7 @@ describe('auth cookie options', () => {
     expect(normalizeCookieDomain('   ')).toBeUndefined();
   });
 
-  it('clears both shared-domain and legacy host-only cookies', () => {
+  it('clears shared-domain cookies with maxAge: 0 and expires: 1970', () => {
     expect(
       getAuthCookieClearOptions({
         NODE_ENV: 'production',
@@ -49,13 +49,24 @@ describe('auth cookie options', () => {
         path: '/',
         domain: 'efbazaar.uz',
         maxAge: 0,
+        expires: new Date(0),
       },
+    ]);
+  });
+
+  it('clears host-only cookies in development without domain', () => {
+    expect(
+      getAuthCookieClearOptions({
+        NODE_ENV: 'development',
+      }),
+    ).toEqual([
       {
         httpOnly: true,
-        secure: true,
-        sameSite: 'none',
+        secure: false,
+        sameSite: 'lax',
         path: '/',
         maxAge: 0,
+        expires: new Date(0),
       },
     ]);
   });

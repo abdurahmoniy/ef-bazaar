@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   __resetRefreshCaches,
+  invalidateRefreshToken,
   refreshSession,
   type RefreshedTokens,
 } from './session-refresh';
@@ -186,6 +187,19 @@ describe('refreshSession — a request that was already travelling', () => {
 
     expect(one).toEqual({ ok: true, tokens: TOKENS });
     expect(two).toEqual({ ok: true, tokens: other });
+  });
+
+  it('evicts a cached refresh token from memory when invalidateRefreshToken is called', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(TOKENS));
+
+    const first = await refreshSession('rt-logout', fetchImpl);
+    expect(first).toEqual({ ok: true, tokens: TOKENS });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    invalidateRefreshToken('rt-logout');
+
+    await refreshSession('rt-logout', fetchImpl);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 });
 

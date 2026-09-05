@@ -10,6 +10,7 @@ import {
   ApiException,
 } from './api';
 import { getAuthCookieClearOptions, getAuthCookieOptions } from './auth-cookies';
+import { invalidateRefreshToken } from './session-refresh';
 import type { AuthResponse, TelegramAuthData, User } from './types';
 
 const ACCESS_TTL_SECONDS = 60 * 15;            // 15 min
@@ -179,9 +180,11 @@ export async function logout() {
   const jar = await cookies();
   const refreshToken = jar.get(REFRESH_COOKIE_NAME)?.value;
   if (refreshToken) {
+    invalidateRefreshToken(refreshToken);
     try {
       await apiFetch('/auth/v1/auth/logout', {
         method: 'POST',
+        auth: false,
         body: { refreshToken },
       });
     } catch {

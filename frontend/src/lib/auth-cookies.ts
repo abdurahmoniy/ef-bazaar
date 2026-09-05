@@ -45,10 +45,9 @@ export function getAuthCookieClearOptions(env?: AuthCookieEnv) {
   const options = {
     ...getAuthCookieOptions(env),
     maxAge: 0,
+    expires: new Date(0),
   };
 
-  if (!('domain' in options)) return [options];
-
-  const { domain: _domain, ...hostOnlyOptions } = options;
-  return [options, hostOnlyOptions];
+  return [options];
 }
+
