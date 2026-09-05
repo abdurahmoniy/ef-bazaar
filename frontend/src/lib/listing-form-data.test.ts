@@ -13,6 +13,22 @@ describe('createListingRequestFromForm', () => {
       definition.key === 'valuable_players')?.constraints?.max_items).toBe(30);
   });
 
+  it('orders Google Play before Game Center so store links align under Android and iOS coins', () => {
+    const googlePlayIdx = SEEDED_LISTING_ATTRIBUTE_DEFINITIONS.findIndex(
+      (def) => def.key === 'has_google_play_link',
+    );
+    const gameCenterIdx = SEEDED_LISTING_ATTRIBUTE_DEFINITIONS.findIndex(
+      (def) => def.key === 'has_game_center_link',
+    );
+    expect(googlePlayIdx).toBeGreaterThan(-1);
+    expect(gameCenterIdx).toBeGreaterThan(-1);
+    expect(googlePlayIdx).toBeLessThan(gameCenterIdx);
+
+    const googlePlayPos = SEEDED_LISTING_ATTRIBUTE_DEFINITIONS[googlePlayIdx].position ?? 0;
+    const gameCenterPos = SEEDED_LISTING_ATTRIBUTE_DEFINITIONS[gameCenterIdx].position ?? 0;
+    expect(googlePlayPos).toBeLessThan(gameCenterPos);
+  });
+
   const definitions = [
     {
       key: 'highest_division_level',
