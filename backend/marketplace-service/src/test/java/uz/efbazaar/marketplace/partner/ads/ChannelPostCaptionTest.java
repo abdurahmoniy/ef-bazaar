@@ -91,6 +91,53 @@ class ChannelPostCaptionTest {
     }
 
     @Test
+    @DisplayName("kartadan FAQAT nomi olinadi — obyekt postga to'kilmaydi")
+    void aCardShowsItsNameOnly() {
+        // valuable_players CARD_LIST: elementlari skill ro'yxati, efhub
+        // identifikatori va rasm manzili bo'lgan obyektlar. toString()
+        // butun map'ni postga to'kib tashlagan va e'lon kanalda xom
+        // ma'lumot bo'lib chiqqan edi.
+        Map<String, Object> card = new LinkedHashMap<>();
+        card.put("name", "Ferenc Puskas");
+        card.put("efhub_id", 78037702765700L);
+        card.put("image_url", "https://efimg.com/player_cards/1.png");
+        card.put("skills", List.of("heading", "longRangeDrive"));
+
+        String caption = ChannelPostCaption.of(
+                listing(Map.of("valuable_players", List.of(card))), URL);
+
+        assertThat(caption).contains("Ferenc Puskas");
+        assertThat(caption).doesNotContain("efhub_id")
+                .doesNotContain("image_url")
+                .doesNotContain("skills")
+                .doesNotContain("https://efimg.com");
+    }
+
+    @Test
+    @DisplayName("nomsiz karta o'tkazib yuboriladi, bo'sh joy qoldirmaydi")
+    void aNamelessCardIsSkipped() {
+        Map<String, Object> nameless = new LinkedHashMap<>();
+        nameless.put("efhub_id", 1L);
+        Map<String, Object> named = new LinkedHashMap<>();
+        named.put("name", "Haaland");
+
+        String caption = ChannelPostCaption.of(
+                listing(Map.of("valuable_players", java.util.Arrays.asList(nameless, named))), URL);
+
+        assertThat(caption).contains("Haaland");
+        assertThat(caption).doesNotContain("⭐️ ,");
+    }
+
+    @Test
+    @DisplayName("eski e'londagi oddiy matnli ro'yxat ham ishlaydi")
+    void aPlainStringListStillWorks() {
+        String caption = ChannelPostCaption.of(
+                listing(Map.of("valuable_players", List.of("Mbappé", "Haaland"))), URL);
+
+        assertThat(caption).contains("Mbappé, Haaland");
+    }
+
+    @Test
     @DisplayName("sotuvchi tavsifidagi HTML matnni buzmaydi")
     void sellerTextIsEscaped() {
         // Tavsif — foydalanuvchi yozgan matn. Escape qilmasak "<b" kabi

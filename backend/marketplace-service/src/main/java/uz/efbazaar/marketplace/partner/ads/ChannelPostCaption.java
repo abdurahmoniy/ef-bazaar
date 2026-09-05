@@ -113,8 +113,7 @@ public final class ChannelPostCaption {
     private static String players(Object raw) {
         if (!(raw instanceof Collection<?> collection) || collection.isEmpty()) return "";
         List<String> names = collection.stream()
-                .filter(java.util.Objects::nonNull)
-                .map(Object::toString)
+                .map(ChannelPostCaption::playerName)
                 .filter(s -> !s.isBlank())
                 .limit(PLAYERS_SHOWN)
                 .map(ChannelPostCaption::escape)
@@ -125,6 +124,28 @@ public final class ChannelPostCaption {
     }
 
     /** Guruhlangan son — pul va coin uchun. */
+    /**
+     * Karta nomi.
+     *
+     * <p>{@code valuable_players} matnlar ro'yxati EMAS — u
+     * {@code CARD_LIST} va elementlari {@code name},
+     * {@code overall_rating}, {@code image_url} kabi kalitlarga ega
+     * obyektlar. Ularga {@code toString()} qo'llash butun map'ni
+     * postga to'kib tashlaydi: skill ro'yxati, efhub identifikatori
+     * va rasm manzili bilan birga — aynan shu kanalda chiqib ketgan.
+     *
+     * <p>Matn ham qabul qilinadi: eski e'lonlarda bu maydon oddiy
+     * ro'yxat bo'lgan bo'lishi mumkin.
+     */
+    private static String playerName(Object card) {
+        if (card == null) return "";
+        if (card instanceof Map<?, ?> map) {
+            Object name = map.get("name");
+            return name == null ? "" : name.toString().trim();
+        }
+        return card.toString().trim();
+    }
+
     private static String text(Map<String, Object> a, String key,
                                java.util.function.Function<String, String> format) {
         return field(a, key, format, true);
