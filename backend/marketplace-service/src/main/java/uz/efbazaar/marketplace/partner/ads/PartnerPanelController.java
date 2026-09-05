@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,6 +41,21 @@ public class PartnerPanelController {
     }
 
     public record PostSettingsRequest(java.util.List<String> blocks, String footer) {}
+
+    /**
+     * Saqlamasdan ko'rish.
+     *
+     * <p>POST, chunki tana yuboriladi — bu o'zgartirmaydigan amal va
+     * hech narsa saqlamaydi.
+     */
+    @PostMapping("/post-preview")
+    public PreviewResponse previewPost(@AuthenticationPrincipal AuthenticatedUser user,
+                                       @RequestBody PostSettingsRequest request) {
+        return new PreviewResponse(
+                service.previewPost(user.userId(), request.blocks(), request.footer()));
+    }
+
+    public record PreviewResponse(String html) {}
 
     @PutMapping("/price")
     public PartnerPanelResponse updatePrice(@AuthenticationPrincipal AuthenticatedUser user,

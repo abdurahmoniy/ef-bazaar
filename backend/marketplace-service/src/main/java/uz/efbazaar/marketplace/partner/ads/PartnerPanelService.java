@@ -35,6 +35,10 @@ public class PartnerPanelService {
     private final PartnerAdClient payments;
     private final PartnerPayoutPolicy policy;
 
+    /** Preview'dagi havola haqiqiy postnikidan farq qilmasligi kerak. */
+    @org.springframework.beans.factory.annotation.Value("${app.web.base-url:https://efbazaar.uz}")
+    private String webBaseUrl;
+
     @Transactional(readOnly = true)
     public PartnerPanelResponse panelFor(UUID partnerUserId) {
         PartnerChannel channel = requireChannel(partnerUserId);
@@ -134,6 +138,23 @@ public class PartnerPanelService {
         channel.setPostFooter(trimmed);
         channels.save(channel);
         return panelFor(partnerUserId);
+    }
+
+    /**
+     * Sozlama qanday ko'rinishini qaytaradi — SAQLAMASDAN.
+     *
+     * <p>Matn haqiqiy postni quradigan aynan o'sha kod bilan
+     * yig'iladi. Frontendda qayta yozsak, ikkita ilova bir xil matnni
+     * ikki xil qurar va ular vaqt o'tib ajralib ketardi: hamkor
+     * preview'da bir narsani ko'rib, kanalda boshqasini olardi.
+     */
+    @Transactional(readOnly = true)
+    public String previewPost(UUID partnerUserId, List<String> blocks, String footer) {
+        PartnerChannel channel = requireChannel(partnerUserId);
+        var sample = ChannelPostSample.listing();
+        String url = webBaseUrl + "/marketplace/" + sample.getId()
+                + "?p=" + channel.getLinkCode();
+        return ChannelPostCaption.of(sample, url, ChannelPostLayout.parse(blocks), footer);
     }
 
     private PartnerAdDtos.PostSettings postSettingsOf(PartnerChannel channel) {

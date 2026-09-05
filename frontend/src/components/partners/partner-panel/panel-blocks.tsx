@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Coins, Gift, Loader2, MousePointerClick, Save, Send, Users } from 'lucide-react';
+import { Coins, Gift, Loader2, MousePointerClick, Save, Send, Settings2, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { PostSettingsTab } from '@/components/partners/partner-panel/post-settings';
+import { channelInitial, channelPhotoUrl } from '@/lib/partner-channels';
 import {
   describeTerms,
   formatSom,
@@ -29,6 +31,7 @@ export function PartnerPanelBlocks() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [tab, setTab] = useState<'stats' | 'post'>('stats');
 
   useEffect(() => {
     getPartnerPanel()
@@ -78,6 +81,8 @@ export function PartnerPanelBlocks() {
     );
   }
 
+  const photo = channelPhotoUrl({ photoFileId: panel.channel.photoFileId });
+
   return (
     <>
       {error && (
@@ -86,6 +91,59 @@ export function PartnerPanelBlocks() {
         </p>
       )}
 
+      {/*
+        Kanal eng boshida: hamkor panelga kirganda avval O'Z kanalini
+        taniydi, keyin raqamlarni o'qiydi. Raqamlar avval kelsa, ular
+        qaysi kanalniki ekani noaniq bo'lardi.
+      */}
+      <section className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
+        {photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photo} alt="" className="h-14 w-14 shrink-0 rounded-full object-cover" />
+        ) : (
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
+            {channelInitial(panel.channel.title)}
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-base font-bold">{panel.channel.title}</p>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Users className="h-3.5 w-3.5" />
+            {panel.channel.subscriberCount.toLocaleString('uz-UZ')} obunachi
+            {panel.channel.username && ` · @${panel.channel.username}`}
+          </p>
+        </div>
+      </section>
+
+      <nav className="flex gap-1 rounded-xl border border-border bg-card p-1" role="tablist">
+        {([['stats', 'Statistika', Coins], ['post', 'Post ko‘rinishi', Settings2]] as const).map(
+          ([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ),
+        )}
+      </nav>
+
+      {tab === 'post' && (
+        <PostSettingsTab
+          settings={panel.postSettings}
+          onSaved={(postSettings) => setPanel({ ...panel, postSettings })}
+        />
+      )}
+
+      {tab === 'stats' && (
+      <>
       {/* 1. Post narxi — chegaralar bilan birga */}
       <section className="space-y-3 rounded-xl border border-border bg-card p-4">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
@@ -190,6 +248,8 @@ export function PartnerPanelBlocks() {
           </ul>
         )}
       </section>
+      </>
+      )}
     </>
   );
 }

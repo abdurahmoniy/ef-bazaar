@@ -22,10 +22,44 @@ export function canOpenPartnerPanel(application: PartnerApplication | null): boo
   return application?.status === 'APPROVED';
 }
 
+/** Postdagi bloklar. Kalitlar backend bilan bir xil. */
+export type PostBlock =
+  | 'HEADER'
+  | 'PRICE'
+  | 'STRENGTH'
+  | 'PLAYERS'
+  | 'COINS'
+  | 'DESCRIPTION'
+  | 'LINKS'
+  | 'PLATFORM'
+  | 'EXCHANGE'
+  | 'DEVICE_LIMIT';
+
+export const POST_BLOCK_LABELS: Record<PostBlock, string> = {
+  HEADER: '🎮 Sarlavha',
+  PRICE: '💰 Narx',
+  STRENGTH: '🏆 Division · TS · o‘yinchi soni',
+  PLAYERS: '⭐️ Qimmatli kartalar',
+  COINS: '📱 Coinlar',
+  DESCRIPTION: '📝 Sotuvchi tavsifi',
+  LINKS: '🔗 Google Play / Game Center',
+  PLATFORM: '📲 Platforma',
+  EXCHANGE: '🔄 Obmen shartlari',
+  DEVICE_LIMIT: '📵 Qurilma almashtirish limiti',
+};
+
+export interface PostSettings {
+  enabled: PostBlock[];
+  disabled: PostBlock[];
+  footer: string | null;
+  footerLimit: number;
+}
+
 export interface ChannelSummary {
   channelId: string;
   title: string;
   username: string | null;
+  photoFileId: string | null;
   subscriberCount: number;
   postPriceSom: number;
 }
@@ -66,6 +100,7 @@ export interface PayoutTerms {
 
 export interface PartnerPanel {
   channel: ChannelSummary;
+  postSettings: PostSettings;
   terms: PayoutTerms;
   funnel: ChannelFunnel;
   earnings: Earnings;
@@ -152,4 +187,67 @@ export async function updatePostPrice(priceSom: number): Promise<PartnerPanel> {
     throw new Error(payload?.message ?? 'Narx saqlanmadi');
   }
   return response.json();
+}
+
+
+/**
+ * Post ko'rinishini saqlaydi.
+ *
+ * <p>Bloklar ro'yxati TARTIB ham, yoqilganlik ham: ro'yxatda bor blok
+ * chiqadi, yo'qi chiqmaydi.
+ */
+export async function updatePostSettings(
+  blocks: PostBlock[],
+  footer: string | null,
+): Promise<PartnerPanel> {
+  const response = await fetch(
+    buildMarketplaceApiPath(['v1', 'partners', 'panel', 'post-settings']),
+    {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ blocks, footer }),
+    },
+  );
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.message ?? 'Saqlanmadi');
+  }
+  return response.json();
+}
+
+/**
+ * Saqlamasdan ko'rish.
+ *
+ * <p>Matnni BACKEND quradi — haqiqiy postni quradigan aynan o'sha kod
+ * bilan. Bu yerda qayta yozsak, preview'dagi va kanaldagi post vaqt
+ * o'tib bir-biridan farq qila boshlardi.
+ */
+export async function previewPost(
+  blocks: PostBlock[],
+  footer: string | null,
+): Promise<string> {
+  const response = await fetch(
+    buildMarketplaceApiPath(['v1', 'partners', 'panel', 'post-preview']),
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ blocks, footer }),
+    },
+  );
+  if (!response.ok) throw new Error('Ko‘rinishni yuklab bo‘lmadi');
+  const payload = (await response.json()) as { html: string };
+  return payload.html;
+}
+
+/** Bloklar ro'yxatida bitta elementni yuqoriga/pastga suradi. */
+export function moveBlock(blocks: PostBlock[], index: number, delta: number): PostBlock[] {
+  const target = index + delta;
+  if (index < 0 || index >= blocks.length || target < 0 || target >= blocks.length) {
+    return blocks;
+  }
+  const next = [...blocks];
+  [next[index], next[target]] = [next[target], next[index]];
+  return next;
 }

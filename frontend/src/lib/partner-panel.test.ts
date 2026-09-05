@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { PartnerApplication, PartnerApplicationStatus } from './partners';
 import {
   canOpenPartnerPanel,
+  moveBlock,
   describeTerms,
   earnedFromPosts,
   formatSom,
@@ -152,5 +153,37 @@ describe('canOpenPartnerPanel', () => {
     // Also the marketplace-is-down case: the panel's own data comes
     // from that service, so there is nothing to draw either way.
     expect(canOpenPartnerPanel(null)).toBe(false);
+  });
+});
+
+
+describe('moveBlock', () => {
+  const blocks = ['PRICE', 'STRENGTH', 'DESCRIPTION'] as const;
+
+  it('swaps neighbours so a partner can lift the description to the top', () => {
+    // Some channels lead with the seller's words, others with the
+    // numbers. One fixed order cannot serve both.
+    expect(moveBlock([...blocks], 2, -1)).toEqual(['PRICE', 'DESCRIPTION', 'STRENGTH']);
+    expect(moveBlock([...blocks], 0, 1)).toEqual(['STRENGTH', 'PRICE', 'DESCRIPTION']);
+  });
+
+  it('refuses to move past either end instead of wrapping around', () => {
+    // Wrapping would send the top item to the bottom on a mis-click,
+    // and the partner would not connect the click to the result.
+    expect(moveBlock([...blocks], 0, -1)).toEqual([...blocks]);
+    expect(moveBlock([...blocks], 2, 1)).toEqual([...blocks]);
+  });
+
+  it('leaves the original array untouched', () => {
+    // The caller holds it in React state; mutating it in place would
+    // skip the re-render and the list would look stuck.
+    const original = [...blocks];
+    moveBlock(original, 0, 1);
+    expect(original).toEqual([...blocks]);
+  });
+
+  it('ignores an index that is not in the list', () => {
+    expect(moveBlock([...blocks], 9, -1)).toEqual([...blocks]);
+    expect(moveBlock([...blocks], -1, 1)).toEqual([...blocks]);
   });
 });
