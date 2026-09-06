@@ -45,7 +45,7 @@ export function ProfileListings({ listings, favorites = false }: ProfileListings
         ) : (
           <div key={listing.id} className="flex flex-col gap-2">
             <ListingCard listing={listing} />
-            <ListingOwnerActions listingId={listing.id} />
+            <ListingOwnerActions listingId={listing.id} status={listing.status} />
           </div>
         ),
       )}

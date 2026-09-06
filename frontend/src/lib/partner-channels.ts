@@ -1,5 +1,6 @@
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { listingMediaUrl } from '@/lib/marketplace-media';
+import { formatCompactNumber } from '@/lib/marketplace-format';
 
 export interface ChannelCard {
   channelId: string;
@@ -10,16 +11,20 @@ export interface ChannelCard {
   priceSom: number;
 }
 
-/**
- * Tanlangan kanallarning umumiy summasi.
- *
- * <p>Ro'yxatda yo'q tanlov E'TIBORGA OLINMAYDI: qidiruv o'zgarganda
- * tanlangan kanal ekrandan chiqib ketishi mumkin, va o'shanda jami
- * summa undan qulamasligi kerak.
- */
+/** Sum the unique selected IDs from their retained channel snapshots. */
 export function totalPrice(channels: ChannelCard[], selectedIds: string[]): number {
   const byId = new Map(channels.map((c) => [c.channelId, c.priceSom]));
-  return selectedIds.reduce((sum, id) => sum + (byId.get(id) ?? 0), 0);
+  // Channel prices have two decimal places; payment balances are integer tiyin.
+  return [...new Set(selectedIds)].reduce((sum, id) => sum + Math.round((byId.get(id) ?? 0) * 100), 0) / 100;
+}
+
+export function formatAdvertisingPrice(amountSom: number): string {
+  return `${amountSom.toLocaleString('en-US', { maximumFractionDigits: 2 }).replace(/,/g, ' ')} so‘m`;
+}
+
+/** The wallet top-up input accepts whole so‘m, but affordability uses tiyin. */
+export function advertisingShortfallSom(priceSom: number, availableTiyin: number): number {
+  return Math.max(0, Math.ceil((Math.round(priceSom * 100) - availableTiyin) / 100));
 }
 
 export function toggleChannel(selected: string[], channelId: string): string[] {
@@ -29,7 +34,7 @@ export function toggleChannel(selected: string[], channelId: string): string[] {
 }
 
 export function formatSubscribers(count: number): string {
-  return count.toLocaleString('uz-UZ');
+  return formatCompactNumber(count);
 }
 
 /**
