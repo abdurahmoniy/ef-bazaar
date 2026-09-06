@@ -11,6 +11,7 @@ import {
 
 import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { ListingActions } from '@/components/marketplace/listing-actions';
+import { ListingAdvertisingCard } from '@/components/marketplace/listing-advertising-card';
 import { ListingCard } from '@/components/marketplace/listing-card';
 import { ListingMediaGallery } from '@/components/marketplace/listing-media-gallery';
 import { MatchBreakdown } from '@/components/marketplace/match-breakdown';
@@ -95,8 +96,10 @@ export function MarketplaceListingDetail({
   return (
     <article className="space-y-4">
       <div className="flex justify-end">
-        <ShareListingButton listingId={listing.id} title={title} />
+        <ShareListingButton listingId={listing.id} title={title} authenticated={authenticated} />
       </div>
+
+      {isOwner && listing.status === 'ACTIVE' && <ListingAdvertisingCard listingId={listing.id} />}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-6">
         <div className="min-w-0 space-y-4">

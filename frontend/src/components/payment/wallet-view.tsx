@@ -36,6 +36,7 @@ import type {
 } from '@/lib/payment-types';
 import { walletHistoryRows } from '@/lib/wallet-history';
 import { cn } from '@/lib/utils';
+import { GrowthLink } from '@/components/growth/growth-link';
 
 interface WalletViewProps {
   wallet: WalletResponse;
@@ -248,6 +249,11 @@ export function WalletView({
             Ishlatish mumkin bo‘lgan mablag‘
           </p>
         </div>
+
+        <GrowthLink href="/invite" event="invite_open" placement="wallet"
+          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-primary dark:text-secondary transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Gift aria-hidden className="h-4 w-4" /> Do‘st taklif qilish va mukofotlar
+        </GrowthLink>
 
         {(wallet.heldTiyin > 0 || wallet.withdrawPendingTiyin > 0) && (
           <div className="mt-4 space-y-2 border-t border-border/60 pt-3.5">

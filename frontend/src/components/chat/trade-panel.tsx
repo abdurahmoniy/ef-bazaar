@@ -34,6 +34,7 @@ import { HumanPartyTradePanel } from '@/components/trade-admin/human-party-trade
 import { TradeAdminPicker } from '@/components/trade-admin/trade-admin-picker';
 import { SellerRatingForm } from '@/components/chat/seller-rating-form';
 import { TipCallout } from '@/components/help/tip-callout';
+import { CompletedTradeInvite } from '@/components/growth/completed-trade-invite';
 import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -221,6 +222,7 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
         >
           Yangi savdo boshlash
         </Button>
+        {!isInsideDrawer && <CompletedTradeInvite state={lastFinished.state} />}
       </div>
     );
   }

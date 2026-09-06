@@ -7,6 +7,7 @@ import {
   Trophy,
   UserRound,
   Wallet,
+  UserPlus,
 } from 'lucide-react';
 
 import { ChatsUnreadBadge } from '@/components/chat/chats-unread-badge';
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { User } from '@/lib/types';
 import { FEATURES } from '@/lib/feature-flags';
+import { GrowthLink } from '@/components/growth/growth-link';
 
 interface MarketplaceShellProps {
   user: User | null;
@@ -202,7 +204,7 @@ export function MarketplaceShell({
         hideHeader && "hidden md:block"
       )}>
         <div className={cn(
-          "mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center gap-x-2 px-4 sm:h-14 sm:flex-nowrap sm:gap-3",
+          "mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center gap-x-2 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] sm:h-14 sm:flex-nowrap sm:gap-3",
           activeTab === 'home' && "pt-3 sm:pt-0"
         )}>
           {backHref && <TopBackButton href={backHref} label={backLabel} className="-ml-2" />}
@@ -237,6 +239,11 @@ export function MarketplaceShell({
             primary action.
           */}
           <div className={cn("ml-auto flex shrink-0 items-center gap-1.5", activeTab === 'home' && "hidden sm:flex")}>
+            <GrowthLink href="/invite" event="invite_open" placement="desktop_header"
+              className="hidden min-h-11 items-center gap-1.5 rounded-full bg-primary/10 px-3 text-xs font-semibold text-primary dark:text-secondary transition hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:inline-flex">
+              <UserPlus aria-hidden className="h-4 w-4" />
+              Do&apos;st taklif qilish
+            </GrowthLink>
             {user ? (
               <>
                 <div className="hidden items-center sm:flex">
@@ -295,7 +302,7 @@ export function MarketplaceShell({
         </div>
       )}
 
-      <main className="marketplace-shell-content mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-4 md:py-6">
+      <main className="marketplace-shell-content mx-auto flex w-full max-w-6xl flex-col gap-4 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] pt-4 md:py-6">
         {children}
       </main>
 

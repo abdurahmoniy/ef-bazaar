@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Coins, Gift, Loader2, MousePointerClick, Save, Send, Settings2, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { trackGrowth } from '@/lib/growth-analytics';
 import { PostSettingsTab } from '@/components/partners/partner-panel/post-settings';
 import { channelInitial, channelPhotoUrl } from '@/lib/partner-channels';
 import {
@@ -31,23 +32,29 @@ export function PartnerPanelBlocks() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [freePricing, setFreePricing] = useState(false);
   const [tab, setTab] = useState<'stats' | 'post'>('stats');
 
-  useEffect(() => {
-    getPartnerPanel()
-      .then((data) => {
-        setPanel(data);
-        setPrice(String(data.channel.postPriceSom));
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Yuklanmadi'))
-      .finally(() => setLoading(false));
+  const refresh = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const data = await getPartnerPanel();
+      setPanel(data); setPrice(String(data.channel.postPriceSom));
+    } catch (e) { setError(e instanceof Error ? e.message : 'Yuklanmadi'); }
+    finally { setLoading(false); }
   }, []);
+
+  useEffect(() => { void refresh(); }, [refresh]);
 
   async function save() {
     if (!panel) return;
     const value = Number(price);
-    if (!isValidPostPrice(value)) {
-      setError("Narx manfiy bo'lishi mumkin emas");
+    if (!price.trim() || !isValidPostPrice(value)) {
+      setError('To‘g‘ri narx kiriting. Narx manfiy bo‘lishi mumkin emas.');
+      return;
+    }
+    if (value === 0 && !freePricing) {
+      setError('Bepul joylashni tanlang yoki noldan katta narx kiriting.');
       return;
     }
     setError(null);
@@ -57,7 +64,7 @@ export function PartnerPanelBlocks() {
       setPanel(updated);
       setPrice(String(updated.channel.postPriceSom));
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      trackGrowth('partnership_price_saved', { placement: 'partner_panel', state: value === 0 ? 'free' : 'paid' });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Saqlanmadi');
     } finally {
@@ -75,9 +82,10 @@ export function PartnerPanelBlocks() {
 
   if (!panel) {
     return (
-      <p className="rounded-xl border border-border p-4 text-sm text-muted-foreground">
-        {error ?? 'Panel maʼlumotlari topilmadi.'}
-      </p>
+      <div role="alert" className="space-y-3 rounded-xl border border-border p-4 text-sm text-muted-foreground">
+        <p>{error ?? 'Panel maʼlumotlari topilmadi.'}</p>
+        <Button variant="outline" onClick={() => void refresh()}>Qayta urinish</Button>
+      </div>
     );
   }
 
@@ -85,12 +93,6 @@ export function PartnerPanelBlocks() {
 
   return (
     <>
-      {error && (
-        <p className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-          {error}
-        </p>
-      )}
-
       {/*
         Kanal eng boshida: hamkor panelga kirganda avval O'Z kanalini
         taniydi, keyin raqamlarni o'qiydi. Raqamlar avval kelsa, ular
@@ -115,6 +117,14 @@ export function PartnerPanelBlocks() {
         </div>
       </section>
 
+      {panel.channel.postPriceSom === 0 && (
+        <section className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+          <h2 className="text-sm font-semibold">Kanalingizga hozir bepul joylash mumkin</h2>
+          <p className="text-sm leading-relaxed text-muted-foreground">Amaldagi post narxi 0 so‘m. Pullik joylashni xohlasangiz narx belgilang, yoki bepul joylashni ongli ravishda tanlab saqlang.</p>
+          <a href="#partner-post-price" onClick={() => setTab('stats')} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary dark:text-secondary underline underline-offset-4">Post narxini sozlash</a>
+        </section>
+      )}
+
       <nav className="flex gap-1 rounded-xl border border-border bg-card p-1" role="tablist">
         {([['stats', 'Statistika', Coins], ['post', 'Post ko‘rinishi', Settings2]] as const).map(
           ([id, label, Icon]) => (
@@ -124,7 +134,7 @@ export function PartnerPanelBlocks() {
               role="tab"
               aria-selected={tab === id}
               onClick={() => setTab(id)}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
+              className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
                 tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
               }`}
             >
@@ -145,7 +155,7 @@ export function PartnerPanelBlocks() {
       {tab === 'stats' && (
       <>
       {/* 1. Post narxi — chegaralar bilan birga */}
-      <section className="space-y-3 rounded-xl border border-border bg-card p-4">
+      <section id="partner-post-price" className="scroll-mt-24 space-y-3 rounded-xl border border-border bg-card p-4">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
           <Coins className="h-4 w-4" />
           Kanalga e&apos;lon joylash narxi
@@ -154,14 +164,21 @@ export function PartnerPanelBlocks() {
           Sotuvchi e&apos;lonini kanalingizda chiqarish uchun shuncha to&apos;laydi. Narxni
           o&apos;zingiz belgilaysiz. <strong>0</strong> — kanalingizga bepul joylanadi.
         </p>
-        <div className="flex items-center gap-2">
+        {error && (
+          <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <label htmlFor="partner-post-price-input" className="block text-sm font-medium">Post narxi (so‘m)</label>
+        <div className="flex flex-wrap items-center gap-2">
           <input
+            id="partner-post-price-input"
             type="number"
             min={0}
             value={price}
-            onChange={(e) => setPrice(e.target.value)}
+            onChange={(e) => { setPrice(e.target.value); setFreePricing(false); setSaved(false); }}
             aria-label="Post narxi (so'm)"
-            className="w-40 rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            className="min-h-11 w-36 rounded-lg border border-border bg-background px-3 py-2 text-sm"
           />
           <span className="text-sm text-muted-foreground">so&apos;m</span>
           <Button onClick={save} disabled={saving} className="gap-2">
@@ -169,6 +186,14 @@ export function PartnerPanelBlocks() {
             {saved ? 'Saqlandi' : 'Saqlash'}
           </Button>
         </div>
+        <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+          <input type="checkbox" checked={freePricing} onChange={(e) => {
+            setFreePricing(e.target.checked); setSaved(false);
+            if (e.target.checked) setPrice('0');
+          }} className="h-5 w-5 shrink-0 accent-primary" />
+          Bepul joylashni tanlayman (0 so‘m)
+        </label>
+        {saved && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">Narx saqlandi.</p>}
       </section>
 
       {/* 2. Kanal voronkasi — shaxsiy taklif havolasi EMAS, u /invite da */}

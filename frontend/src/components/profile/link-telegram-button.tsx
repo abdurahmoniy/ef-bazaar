@@ -1,13 +1,14 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Check, AlertCircle, ExternalLink, Send } from 'lucide-react';
+import { Check, AlertCircle, RefreshCw, Send } from 'lucide-react';
 
 import { TelegramLogin } from '@/components/auth/telegram-login';
 import { linkTelegramAction } from '@/app/auth/actions';
 import type { TelegramAuthData } from '@/lib/types';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface LinkTelegramButtonProps {
   botUsername: string;
@@ -21,10 +22,9 @@ interface LinkTelegramButtonProps {
  * yuboramiz. Backend {@code 409 telegram_already_linked}'ni aniq qaytaradi;
  * shu holatlarni user'ga xavotirsizroq xabar sifatida ko'rsatamiz.
  *
- * Widget domain'da avvaldan {@code /setdomain} bilan sozlangan bo'lishi kerak.
- * Sozlanmagan bo'lsa, Telegram jimgina hech narsa qaytarmaydi — shu holatni
- * {@link TelegramLogin.onRenderIssue} orqali aniqlab, user'ga aniq izoh
- * beramiz (fallback: botga to'g'ridan-to'g'ri o'tish).
+ * Render failures can have several causes. Offer a fresh widget load and
+ * support without guessing at configuration or sending users to a bot that
+ * cannot link this existing account by itself.
  */
 export function LinkTelegramButton({
   botUsername,
@@ -33,6 +33,7 @@ export function LinkTelegramButton({
 }: LinkTelegramButtonProps) {
   const router = useRouter();
   const [error, setError] = React.useState<string | null>(null);
+  const [widgetAttempt, setWidgetAttempt] = React.useState(0);
   const [renderIssue, setRenderIssue] = React.useState<
     'missing_bot' | 'iframe_missing' | null
   >(null);
@@ -69,7 +70,11 @@ export function LinkTelegramButton({
     );
   }
 
-  const botDeepLink = botUsername ? `https://t.me/${botUsername}` : null;
+  function retryWidget() {
+    if (renderIssue === 'missing_bot') router.refresh();
+    setRenderIssue(null);
+    setWidgetAttempt((attempt) => attempt + 1);
+  }
 
   return (
     <div className="space-y-3">
@@ -80,6 +85,7 @@ export function LinkTelegramButton({
         </div>
       )}
       <TelegramLogin
+        key={widgetAttempt}
         botUsername={botUsername}
         size="large"
         cornerRadius={12}
@@ -87,38 +93,35 @@ export function LinkTelegramButton({
         onRenderIssue={setRenderIssue}
       />
       {renderIssue && (
-        <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+        <div role="alert" className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
           <div className="flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <div className="space-y-1">
               <p className="font-semibold">
                 {renderIssue === 'missing_bot'
-                  ? 'Telegram bot sozlanmagan.'
-                  : 'Telegram tugmasi ochilmadi.'}
+                  ? 'Telegram orqali ulanish hozir mavjud emas.'
+                  : 'Telegram tugmasi yuklanmadi.'}
               </p>
-              <p className="text-xs text-amber-900/80">
+              <p className="text-sm leading-relaxed">
                 {renderIssue === 'missing_bot'
-                  ? "Frontend'da NEXT_PUBLIC_TELEGRAM_BOT env variable to'ldirilmagan. Deploy'ni qayta yoqish kerak."
-                  : `Bot @${botUsername} uchun BotFather'da /setdomain hozirgi sayt domenini qo'shishi zarur. Iltimos administratorga xabar bering yoki bot orqali to'g'ridan ulaning.`}
+                  ? 'Birozdan keyin qayta urinib ko‘ring. Muammo davom etsa, yordam markaziga murojaat qiling.'
+                  : 'Internet aloqasini tekshirib, qayta urinib ko‘ring. Muammo davom etsa, yordam markaziga murojaat qiling.'}
               </p>
-              {botDeepLink && (
-                <a
-                  href={botDeepLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-amber-900 underline underline-offset-2"
-                >
-                  Botni ochish
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
             </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={retryWidget}>
+              <RefreshCw /> Qayta urinish
+            </Button>
+            <Button asChild variant="ghost">
+              <Link href="/help">Yordam markazi</Link>
+            </Button>
           </div>
         </div>
       )}
       <p className="text-xs text-muted-foreground flex items-center gap-1.5">
         <Send className="h-3 w-3" />
-        Verified badge olish uchun Telegram akkountingizni ulang.
+        Telegram akkauntingizni ushbu hisobga ulang.
       </p>
     </div>
   );

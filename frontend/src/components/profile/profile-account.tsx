@@ -36,7 +36,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useTheme } from '@/components/theme/use-theme';
 import { fetchUnreadCount } from '@/lib/notifications-client';
 import { FEATURES } from '@/lib/feature-flags';
-import { isAdmin } from '@/lib/admin';
+import { isAdmin, isPartner } from '@/lib/admin';
+import { InvitationCard } from '@/components/growth/invitation-card';
+import { ChannelOwnerCard } from '@/components/growth/channel-owner-card';
 import { isTradeAdmin } from '@/lib/trade-human';
 import { cn } from '@/lib/utils';
 import type { TradeAdminApplicationResponse } from '@/lib/trade-admin-applications';
@@ -260,6 +262,8 @@ export function ProfileAccount({
       </div>
 
       {/* 2. Grouped Navigation Menu (List Hub) */}
+      <InvitationCard placement="profile" compact />
+      <ChannelOwnerCard placement="profile" partner={isPartner(user)} />
       <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm divide-y divide-border/60">
         {navMenuItems.map((item) => (
           <Link

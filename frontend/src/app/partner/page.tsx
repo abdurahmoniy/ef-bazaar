@@ -1,9 +1,7 @@
 import { redirect } from 'next/navigation';
-
+import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { PartnerDashboard } from '@/components/partners/partner-dashboard';
 import { getMe } from '@/lib/auth';
-import { canOpenPartnerPanel } from '@/lib/partner-panel';
-import { getMyApplicationServer } from '@/lib/partners-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,10 +9,11 @@ export default async function PartnerDashboardPage() {
   const user = await getMe();
   if (!user) redirect('/auth/login?from=/partner');
 
-  // Eshik ROLGA emas, hamkorlik FAKTIGA qaraydi — sababi
-  // canOpenPartnerPanel izohida.
-  const application = await getMyApplicationServer();
-  if (!canOpenPartnerPanel(application)) redirect('/partnership');
-
-  return <PartnerDashboard />;
+  // The client distinguishes a missing application from a failed status lookup,
+  // and loads panel data only after the application is confirmed as approved.
+  return (
+    <MarketplaceShell user={user} hideSearch backHref="/partnership">
+      <PartnerDashboard />
+    </MarketplaceShell>
+  );
 }

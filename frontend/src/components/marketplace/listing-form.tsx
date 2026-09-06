@@ -14,6 +14,7 @@ import {
 	ImageIcon,
 	ImagePlus,
 	Loader2,
+	Megaphone,
 	ShieldCheck,
 	Smartphone,
 	Sparkles,
@@ -42,6 +43,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { useTelegramMainButton } from '@/hooks/use-telegram-main-button';
 import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
 import { ChannelPicker } from '@/components/marketplace/channel-picker';
+import { MeasuredBottomBar } from '@/components/marketplace/measured-bottom-bar';
+import { formatAdvertisingPrice, totalPrice, type ChannelCard } from '@/lib/partner-channels';
+import { listingAdvertisingHref } from '@/lib/listing-advertising';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { formatPriceUZS, normalizePlayerList } from '@/lib/marketplace-format';
 import { listingMediaUrls } from '@/lib/marketplace-media';
@@ -136,9 +140,11 @@ export function ListingForm({
 }: ListingFormProps) {
 	const router = useRouter();
 	const editMode = initialListing !== undefined;
-	// Yaratishda tanlangan hamkor kanallari. Tahrirlashda ishlatilmaydi:
-	// u yerda buyurtma alohida tugmadan o'tadi.
-	const [channelIds, setChannelIds] = useState<string[]>([]);
+	// Save first. The dedicated advertising page owns any paid order.
+	const [advertising, setAdvertising] = useState(false);
+	const [channels, setChannels] = useState<ChannelCard[]>([]);
+	const advertisingAllowed = !initialListing || initialListing.status === 'ACTIVE';
+	const advertisingTotal = totalPrice(channels, channels.map(channel => channel.channelId));
 	const [definitions, setDefinitions] = useState<
 		readonly ListingAttributeDefinition[]
 	>(attributeDefinitions ?? SEEDED_LISTING_ATTRIBUTE_DEFINITIONS);
@@ -309,8 +315,6 @@ export function ListingForm({
 		setPending(true);
 		try {
 			const request = buildRequest(state, definitions);
-			// Kanallar FAQAT yaratishda so'rov ichida ketadi.
-			if (!editMode && channelIds.length > 0) request.channelIds = channelIds;
 			const formData = new FormData();
 			formData.append(
 				'data',
@@ -351,7 +355,9 @@ export function ListingForm({
 			)) as Partial<ListingResponse> | null;
 			const targetId = payload?.id ?? (isEdit ? initialListing.id : undefined);
 			if (targetId) {
-				router.push(`/marketplace/${targetId}`);
+				router.push(advertising && advertisingAllowed
+					? listingAdvertisingHref(targetId, channels.map(channel => channel.channelId))
+					: `/marketplace/${targetId}`);
 				router.refresh();
 			} else {
 				router.push('/marketplace');
@@ -372,14 +378,14 @@ export function ListingForm({
 		editMode,
 		existingMediaUrls.length,
 		initialListing,
-		// SHART. Usiz useCallback boshlang'ich bo'sh ro'yxatni yopib
-		// qoladi va foydalanuvchi kanal tanlasa ham so'rovga hech
-		// narsa qo'shilmaydi — e'lon jimgina hech qaysi kanalga
-		// chiqmaydi va bazada birorta buyurtma qatori ham qolmaydi.
-		channelIds,
+		advertising,
+		advertisingAllowed,
+		channels,
 	]);
 
-	const submitLabel = editMode ? 'Saqlash' : "E'lon yaratish";
+	const submitLabel = advertising && advertisingAllowed
+		? (editMode ? 'Saqlash va reklama' : 'Yaratish va reklama')
+		: (editMode ? 'Saqlash' : "E'lon yaratish");
 	useTelegramMainButton({
 		text: pending
 			? 'Yuborilmoqda...'
@@ -393,9 +399,28 @@ export function ListingForm({
 
 	const showErrors = touchedSteps.has(step);
 	const progressPercent = Math.min(100, Math.round(((stepIndex + 1) / 4) * 100));
+	const advertisingOffer = advertisingAllowed && (step === 'pricing' || step === 'review') && (
+		<div className="space-y-3" aria-label="E’lon reklamasi">
+			<div className="space-y-3 rounded-2xl border border-primary/25 bg-primary/5 p-4">
+				<div className="flex items-start gap-3">
+					<Megaphone aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-primary dark:text-secondary" />
+					<div><h3 className="text-base font-bold">Ko‘proq xaridorga ko‘rsating</h3><p className="mt-1 text-sm leading-relaxed text-muted-foreground">Telegram kanallari va narxlarni ko‘ring. Reklama ixtiyoriy.</p></div>
+				</div>
+				{advertising ? <>
+					<p className="text-sm font-semibold">{channels.length > 0 ? `${channels.length} ta kanal · ${formatAdvertisingPrice(advertisingTotal)}` : 'Kanallarni keyingi sahifada ham tanlashingiz mumkin.'}</p>
+					<p className="text-sm leading-relaxed text-muted-foreground">Avval e’lon saqlanadi. Reklama buyurtmasini keyingi sahifada narxlarni tekshirib, alohida tasdiqlaysiz. Hozir reklama uchun pul olinmaydi.</p>
+					<div className="flex flex-wrap gap-2">
+						{step === 'review' && <Button type="button" variant="outline" disabled={pending} onClick={() => goToStep('pricing')}>Kanallarni o‘zgartirish</Button>}
+						<Button type="button" variant="ghost" disabled={pending} onClick={() => { setAdvertising(false); setChannels([]); }}>Hozir reklamasiz davom etish</Button>
+					</div>
+				</> : <Button type="button" variant="outline" className="min-h-12 w-full sm:w-auto" disabled={pending} onClick={() => { setAdvertising(true); if (step === 'review') goToStep('pricing'); }}>Kanallarni tanlash <ArrowRight aria-hidden /></Button>}
+			</div>
+			{advertising && step === 'pricing' && <ChannelPicker selected={channels} onChange={setChannels} disabled={pending} />}
+		</div>
+	);
 
 	return (
-		<div className='space-y-3 pb-24 sm:pb-4'>
+		<div className='space-y-3 pb-4'>
 			{/* Top Seamless Progress Track */}
 			<div className='h-1 w-full overflow-hidden rounded-full bg-muted/40'>
 				<div
@@ -450,8 +475,10 @@ export function ListingForm({
 						setState={setState}
 						errors={showErrors ? stepErrors : []}
 						commissionConfig={commissionConfig}
+						advertisingOffer={advertisingOffer}
 					/>
 				)}
+				{step === 'review' && advertisingOffer && <div className="mb-4">{advertisingOffer}</div>}
 				{step === 'review' && (
 					<ReviewStep
 						state={state}
@@ -463,20 +490,8 @@ export function ListingForm({
 					/>
 				)}
 
-				{/*
-					Kanal tanlash SO'NGGI bosqichda: jami summa shu yerda
-					ko'rinadi va sotuvchi rozi bo'lishdan oldin raqamni
-					ko'radi. Tahrirlashda esa umuman chiqmaydi — u yerda
-					pul harakati alohida tugmaga bog'langan.
-				*/}
-				{step === 'review' && !editMode && (
-					<div className='mt-4'>
-						<ChannelPicker selected={channelIds} onChange={setChannelIds} />
-					</div>
-				)}
-
 				{submitError && (
-					<div className='mt-3 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-destructive'>
+					<div role='alert' className='mt-3 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-destructive'>
 						<AlertCircle className='mt-0.5 h-3.5 w-3.5 shrink-0' />
 						<span>{submitError}</span>
 					</div>
@@ -524,7 +539,7 @@ function StepNav({
 	const isLast = step === 'review';
 
 	return (
-		<div className='fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-card/95 backdrop-blur-md px-4 py-3 pb-[calc(0.75rem+var(--app-content-safe-bottom))] sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:pb-0'>
+		<MeasuredBottomBar className='fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-card/95 backdrop-blur-md pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] py-3 pb-[calc(0.75rem+var(--app-content-safe-bottom))] sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:pb-0'>
 			<div className='mx-auto flex max-w-3xl items-center gap-2.5'>
 				<Button
 					type='button'
@@ -562,7 +577,7 @@ function StepNav({
 					</Button>
 				)}
 			</div>
-		</div>
+		</MeasuredBottomBar>
 	);
 }
 
@@ -1552,11 +1567,13 @@ function PricingStep({
 	setState,
 	errors,
 	commissionConfig,
+	advertisingOffer,
 }: {
 	state: WizardState;
 	setState: React.Dispatch<React.SetStateAction<WizardState>>;
 	errors: string[];
 	commissionConfig?: TradeCommissionConfig | null;
+	advertisingOffer?: React.ReactNode;
 }) {
 	const parsed = Number(state.price);
 	const hasValue = Number.isFinite(parsed) && parsed > 0;
@@ -1705,6 +1722,8 @@ function PricingStep({
 					/>
 				</div>
 			</button>
+
+			{advertisingOffer}
 
 			<TipCallout
 				variant='security'

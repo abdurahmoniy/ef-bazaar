@@ -1,158 +1,108 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Check, Loader2, Megaphone, Search, Users } from 'lucide-react';
-
-import {
-  channelInitial,
-  channelPhotoUrl,
-  formatSubscribers,
-  searchChannels,
-  toggleChannel,
-  totalPrice,
-  type ChannelCard,
-} from '@/lib/partner-channels';
+import { useEffect, useId, useState } from 'react';
+import { Check, ExternalLink, Loader2, Megaphone, RefreshCw, Search, Users, X } from 'lucide-react';
+import { GrowthLink } from '@/components/growth/growth-link';
+import { Button } from '@/components/ui/button';
+import { formatCompactNumber } from '@/lib/marketplace-format';
+import { channelInitial, channelPhotoUrl, formatAdvertisingPrice, formatSubscribers, searchChannels, totalPrice, type ChannelCard } from '@/lib/partner-channels';
+import { cn } from '@/lib/utils';
 
 interface ChannelPickerProps {
-  selected: string[];
-  onChange: (selected: string[]) => void;
+  selected: ChannelCard[];
+  onChange: (selected: ChannelCard[]) => void;
+  disabled?: boolean;
 }
 
-/**
- * E'lonni hamkor kanallarida ham chiqarish.
- *
- * <p>Tartib SERVERDAN keladi va bu yerda qayta saralanmaydi: bo'sh
- * qidiruvda obunachi bo'yicha reyting, yozilganda nom boshlanishi
- * bo'yicha. Ikki joyda ikki xil tartib bo'lsa ular vaqt o'tib
- * bir-biridan uzoqlashadi.
- *
- * <p>Jami summa ro'yxat ostida turadi: sotuvchi to'plam uchun bir yo'la
- * hisoblanadi, va raqamni ko'rish payti rozi bo'lishdan OLDIN.
- */
-export function ChannelPicker({ selected, onChange }: ChannelPickerProps) {
+/** Selected channel snapshots live outside filtered results so the basket keeps its full price. */
+export function ChannelPicker({ selected, onChange, disabled = false }: ChannelPickerProps) {
   const [query, setQuery] = useState('');
   const [channels, setChannels] = useState<ChannelCard[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Kechikkan javob yangisini bosib ketmasin: tez yozilganda so'rovlar
-  // tartibsiz qaytadi va eskisi ekranga tushib qolishi mumkin.
-  const requestId = useRef(0);
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const searchId = useId();
 
   useEffect(() => {
-    const id = ++requestId.current;
+    let active = true;
+    setLoading(true);
+    setError(false);
     const timer = setTimeout(() => {
-      setLoading(true);
       searchChannels(query)
-        .then((found) => {
-          if (id !== requestId.current) return;
-          setChannels(found);
-          setError(null);
-        })
-        .catch((e) => {
-          if (id !== requestId.current) return;
-          setError(e instanceof Error ? e.message : 'Yuklanmadi');
-        })
-        .finally(() => {
-          if (id === requestId.current) setLoading(false);
-        });
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [query]);
+        .then((found) => { if (active) setChannels(found); })
+        .catch(() => { if (active) setError(true); })
+        .finally(() => { if (active) setLoading(false); });
+    }, query ? 250 : 0);
+    return () => { clearTimeout(timer); active = false; };
+  }, [query, attempt]);
 
-  const total = totalPrice(channels, selected);
+  const total = totalPrice(selected, selected.map(channel => channel.channelId));
+  const remove = (id: string) => onChange(selected.filter(channel => channel.channelId !== id));
 
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4">
+    <section className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5" aria-label="Reklama kanallarini tanlash">
       <div className="flex items-start gap-3">
-        <div className="rounded-lg bg-primary/10 p-2 text-primary">
-          <Megaphone className="h-4 w-4" />
-        </div>
-        <div>
-          <h2 className="text-sm font-semibold">Katta kanallarda ham chiqarish</h2>
-          <p className="text-xs text-muted-foreground">
-            E&apos;loningiz tanlangan Telegram kanallariga ham joylanadi. Ixtiyoriy.
-          </p>
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary dark:text-secondary"><Megaphone aria-hidden className="h-5 w-5" /></span>
+        <div className="min-w-0">
+          <h2 className="text-base font-bold">Telegram kanallarini tanlang</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">E’loningizni qayerda ko‘rsatishni tanlang. Har bir narx — bir marta joylash uchun.</p>
         </div>
       </div>
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Kanal nomi bo'yicha qidirish"
-          aria-label="Kanal qidirish"
-          className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm"
-        />
-      </div>
-
-      {error && <p className="text-sm text-destructive">{error}</p>}
-
-      {loading ? (
-        <p className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Yuklanmoqda…
-        </p>
-      ) : channels.length === 0 ? (
-        <p className="py-3 text-sm text-muted-foreground">
-          {query.trim() ? 'Bunday kanal topilmadi.' : 'Hozircha hamkor kanallari yo‘q.'}
-        </p>
-      ) : (
-        <ul className="divide-y divide-border">
-          {channels.map((channel) => {
-            const picked = selected.includes(channel.channelId);
-            return (
-              <li key={channel.channelId}>
-                <button
-                  type="button"
-                  onClick={() => onChange(toggleChannel(selected, channel.channelId))}
-                  aria-pressed={picked}
-                  className="flex w-full items-center gap-3 py-2.5 text-left transition hover:bg-muted/50"
-                >
-                  {/* Rasm yo'q kanal ham bor — o'shanda bosh harf. */}
-                  {channelPhotoUrl(channel) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={channelPhotoUrl(channel) ?? ''}
-                      alt=""
-                      className="h-9 w-9 shrink-0 rounded-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                      {channelInitial(channel.title)}
-                    </span>
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{channel.title}</span>
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Users className="h-3 w-3" />
-                      {formatSubscribers(channel.subscriberCount)} obunachi
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-sm font-semibold tabular-nums">
-                    {channel.priceSom.toLocaleString('uz-UZ')}
-                  </span>
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                      picked ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
-                    }`}
-                  >
-                    {picked && <Check className="h-3.5 w-3.5" />}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
 
       {selected.length > 0 && (
-        <p className="border-t border-border pt-3 text-sm">
-          <span className="text-muted-foreground">{selected.length} ta kanal · jami </span>
-          <span className="font-bold">{total.toLocaleString('uz-UZ')} so&apos;m</span>
-        </p>
+        <div className="space-y-2 rounded-xl bg-primary/5 p-3" aria-label="Tanlangan kanallar">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold">{selected.length} ta kanal tanlandi</p>
+            <button type="button" disabled={disabled} onClick={() => onChange([])} className="min-h-11 rounded-lg px-2 text-sm font-medium text-muted-foreground underline underline-offset-4 disabled:opacity-50">Barchasini olib tashlash</button>
+          </div>
+          <ul className="space-y-1">
+            {selected.map(channel => <li key={channel.channelId} className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 break-words text-sm">{channel.title}</span>
+              <span className="shrink-0 text-sm font-semibold tabular-nums">{channel.priceSom === 0 ? 'Bepul' : formatAdvertisingPrice(channel.priceSom)}</span>
+              <button type="button" disabled={disabled} onClick={() => remove(channel.channelId)} aria-label={`${channel.title} tanlovdan olib tashlash`} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"><X aria-hidden className="h-4 w-4" /></button>
+            </li>)}
+          </ul>
+          <p aria-label="Reklama jami" role="status" className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-sm"><span className="text-muted-foreground">Jami</span><strong className="text-lg tabular-nums">{formatAdvertisingPrice(total)}</strong></p>
+        </div>
       )}
+
+      <div className="space-y-1.5">
+        <label htmlFor={searchId} className="text-sm font-medium">Kanal qidirish</label>
+        <div className="relative">
+          <Search aria-hidden className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input id={searchId} type="search" value={query} disabled={disabled} onChange={event => setQuery(event.target.value)} placeholder="Kanal nomini yozing" className="min-h-12 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />
+        </div>
+      </div>
+
+      {loading ? <p role="status" className="flex min-h-24 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Kanallar yuklanmoqda…</p>
+        : error ? <div role="alert" className="space-y-3 rounded-xl border border-destructive/30 p-4"><p className="text-sm">Kanallar yuklanmadi. Aloqani tekshirib, qayta urinib ko‘ring.</p><Button type="button" variant="outline" disabled={disabled} onClick={() => setAttempt(value => value + 1)}><RefreshCw aria-hidden /> Qayta urinish</Button></div>
+        : channels.length === 0 ? <div className="space-y-2 py-4 text-sm text-muted-foreground"><p>{query.trim() ? 'Bunday kanal topilmadi. Boshqa nom bilan qidiring.' : 'Hozircha hamkor kanallari yo‘q.'}</p>{query.trim() && <Button type="button" variant="outline" disabled={disabled} onClick={() => setQuery('')}>Barcha kanallarni ko‘rish</Button>}</div>
+        : <>
+          <p className="text-xs text-muted-foreground">{formatCompactNumber(channels.length)} ta kanal · obunachilar soni ko‘rishlar kafolati emas</p>
+          <ul className="space-y-2">
+            {channels.map(channel => {
+              const picked = selected.some(item => item.channelId === channel.channelId);
+              const photo = channelPhotoUrl(channel);
+              return <li key={channel.channelId} className={cn('overflow-hidden rounded-xl border', picked ? 'border-primary/60 bg-primary/5' : 'border-border')}>
+                <button type="button" disabled={disabled} aria-pressed={picked} onClick={() => picked ? remove(channel.channelId) : onChange([...selected, channel])}
+                  className="flex min-h-20 w-full items-center gap-3 p-3 text-left transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50">
+                  {photo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photo} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" loading="lazy" />
+                  ) : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-muted font-bold text-foreground">{channelInitial(channel.title)}</span>}
+                  <span className="min-w-0 flex-1 space-y-1">
+                    <span className="block break-words text-sm font-semibold">{channel.title}</span>
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground"><Users aria-hidden className="h-3.5 w-3.5" /> {formatSubscribers(channel.subscriberCount)} obunachi</span>
+                    <span className="block text-sm font-bold tabular-nums text-primary dark:text-secondary">{channel.priceSom === 0 ? 'Bepul' : formatAdvertisingPrice(channel.priceSom)}</span>
+                  </span>
+                  <span aria-hidden className={cn('grid h-6 w-6 shrink-0 place-items-center rounded-md border', picked ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/50')}>{picked && <Check className="h-4 w-4" />}</span>
+                </button>
+                {channel.username && <a href={`https://t.me/${encodeURIComponent(channel.username.replace(/^@/, ''))}`} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-center gap-1.5 border-t border-border text-xs font-medium text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">Kanalni ko‘rish <ExternalLink aria-hidden className="h-3.5 w-3.5" /></a>}
+              </li>;
+            })}
+          </ul>
+        </>}
+      <GrowthLink href="/partnership" target="_blank" rel="noopener noreferrer" event="partnership_open" placement="channel_picker" className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-muted-foreground underline underline-offset-4 hover:text-foreground">Telegram kanalingiz bormi? Hamkorlikni ko‘ring <ExternalLink aria-hidden className="h-3 w-3" /></GrowthLink>
     </section>
   );
 }
