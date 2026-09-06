@@ -24,6 +24,9 @@ import { AuthAwareLink } from '@/components/auth/auth-aware-link'
 import { Logo } from '@/components/brand/logo'
 import { SiteFooter } from '@/components/site-footer'
 import { ThemeToggle } from '@/components/theme/theme-toggle'
+import { InvitationCard } from '@/components/growth/invitation-card'
+import { ChannelOwnerCard } from '@/components/growth/channel-owner-card'
+import { ReferralWelcome } from '@/components/growth/referral-welcome'
 import { FEATURES } from '@/lib/feature-flags'
 import { MARKETPLACE_LANDINGS } from '@/lib/marketplace-landing'
 import { absoluteUrl, siteConfig } from '@/lib/site'
@@ -283,9 +286,14 @@ export default function HomePage() {
 			/>
 			<main className='min-h-app overflow-hidden bg-background pt-[env(safe-area-inset-top)] text-foreground'>
 				<LandingHeader />
+				<ReferralWelcome />
 				<Hero />
 				<HowItWorks />
 				<TrustGrid />
+				<section className="container space-y-4 py-6 sm:py-10" aria-label="Do‘stlar va kanallar uchun">
+					<InvitationCard placement="homepage" compact />
+					<ChannelOwnerCard placement="homepage" />
+				</section>
 				<FinalCta />
 				<SiteFooter />
 			</main>

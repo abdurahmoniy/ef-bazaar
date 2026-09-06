@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { MarketplaceBrowser } from '@/components/marketplace/marketplace-browser';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
+import { InvitationCard } from '@/components/growth/invitation-card';
 import { getMe } from '@/lib/auth';
 import {
   getSelectedMarketplaceFilter,
@@ -59,6 +60,7 @@ export default async function MarketplacePage({ searchParams }: MarketplacePageP
       marketplaceQuery={rawQuery}
       collapsibleSearch
     >
+      <div className="lg:hidden"><InvitationCard placement="marketplace" compact dismissible /></div>
       <MarketplaceBrowser
         filters={filters}
         activeFilter={activeFilter}

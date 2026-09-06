@@ -1,38 +1,96 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 
+import { trackGrowth } from '@/lib/growth-analytics';
 import { readCookieCode, REFERRAL_COOKIE } from '@/lib/referral-capture';
 import { claimReferral } from '@/lib/referrals';
 
-/**
- * Hech nima chizmaydi. Foydalanuvchi kirgan bo'lsa, middleware yozib
- * qo'ygan kodni da'vo qiladi va cookie'ni o'chiradi.
- *
- * Kodni URL'dan O'QISH BU YERDA EMAS — u middleware'da, chunki bu
- * komponent login'ga yo'naltiradigan sahifada mount bo'lmaydi.
- */
+// A shell can remount before its request finishes (including React StrictMode).
+// Reuse that request, while each mounted consumer owns its own retry lifecycle.
+const inFlight = new Map<string, Promise<boolean>>();
+
+function claimOnce(code: string) {
+  let request = inFlight.get(code);
+  if (!request) {
+    request = claimReferral(code).finally(() => inFlight.delete(code));
+    inFlight.set(code, request);
+  }
+  return request;
+}
+
+/** Claims the middleware's last-click cookie once authentication is available. */
 export function ReferralCapture({ authenticated }: { authenticated: boolean }) {
+  return (
+    <Suspense fallback={null}>
+      <CaptureLifecycle authenticated={authenticated} />
+    </Suspense>
+  );
+}
+
+function CaptureLifecycle({ authenticated }: { authenticated: boolean }) {
+  const pathname = usePathname();
+  const search = useSearchParams()?.toString();
+
   useEffect(() => {
     if (!authenticated) return;
 
-    const code = readCookieCode(document.cookie);
-    if (!code) return;
+    let disposed = false;
+    let running = false;
+    let retryDelay = 1000;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-    claimReferral(code)
-      .then(() => {
-        // Faqat SERVER JAVOB BERGANDA o'chiramiz. Javob "rad etildi"
-        // bo'lsa ham o'chiriladi — kod eskirgan yoki odam allaqachon
-        // taklif qilingan, qayta urinish buni o'zgartirmaydi.
-        document.cookie = `${REFERRAL_COOKIE}=; path=/; max-age=0`;
-      })
-      .catch(() => {
-        // Tarmoq uzilgan: so'rov serverga umuman yetib bormadi.
-        // Cookie QOLDIRILADI — bir soatlik oyna hali ochiq va keyingi
-        // sahifada yana urinamiz. Bu yerda o'chirsak, referal hech
-        // qanday sabab bo'lmasa ham butunlay yo'qolardi.
-      });
-  }, [authenticated]);
+    async function attempt() {
+      if (disposed || running) return;
+      clearTimeout(retryTimer);
+      const code = readCookieCode(document.cookie);
+      if (!code || !navigator.onLine) return;
+
+      running = true;
+      let failed = false;
+      try {
+        const claimed = await claimOnce(code);
+        if (disposed) return;
+        // A newer link may have replaced this cookie while the request ran.
+        // The old response must never erase the new last-click attribution.
+        if (readCookieCode(document.cookie) === code) {
+          document.cookie = `${REFERRAL_COOKIE}=; path=/; max-age=0`;
+          if (claimed) trackGrowth('referral_claimed', { placement: 'capture' });
+        }
+      } catch {
+        failed = true;
+      } finally {
+        running = false;
+        if (!disposed) {
+          const latest = readCookieCode(document.cookie);
+          if (latest && latest !== code) {
+            retryDelay = 1000;
+            void attempt();
+          } else if (latest && failed) {
+            retryTimer = setTimeout(() => { void attempt(); }, retryDelay);
+            retryDelay = Math.min(retryDelay * 2, 30_000);
+          }
+        }
+      }
+    }
+
+    const wake = () => { void attempt(); };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') wake();
+    };
+    wake();
+    window.addEventListener('focus', wake);
+    window.addEventListener('online', wake);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      disposed = true;
+      clearTimeout(retryTimer);
+      window.removeEventListener('focus', wake);
+      window.removeEventListener('online', wake);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [authenticated, pathname, search]);
 
   return null;
 }

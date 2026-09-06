@@ -8,6 +8,7 @@ import {
 } from '@/lib/marketplace-landing';
 import { siteConfig } from '@/lib/site';
 import { cn } from '@/lib/utils';
+import { GrowthLink } from '@/components/growth/growth-link';
 
 const GROUP_ORDER: readonly MarketplaceLandingGroup[] = ['division', 'platform', 'player'];
 
@@ -57,6 +58,12 @@ export function SiteFooter({ embedded = false }: SiteFooterProps) {
             </li>
             <li>
               <FooterLink href="/help">Yordam va Qo‘llanma</FooterLink>
+            </li>
+            <li>
+              <GrowthLink href="/invite" event="invite_open" placement="footer" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary dark:text-secondary hover:underline">Do‘st taklif qilish</GrowthLink>
+            </li>
+            <li>
+              <GrowthLink href="/partnership" event="partnership_open" placement="footer" className="inline-flex min-h-11 items-center text-sm font-semibold text-muted-foreground hover:text-foreground">Telegram kanal egalari uchun</GrowthLink>
             </li>
             <li>
               <FooterLink href={siteConfig.links.telegram}>Telegram bot</FooterLink>

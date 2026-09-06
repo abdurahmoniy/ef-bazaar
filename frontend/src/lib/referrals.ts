@@ -40,7 +40,10 @@ export async function claimReferral(code: string): Promise<boolean> {
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ code }),
   });
-  if (!response.ok) return false;
+  // The API represents definitive business rejection as 200 { claimed: false }.
+  // HTTP errors (including expired auth) must leave the cookie available to retry.
+  if (!response.ok) throw new Error('Taklifni tasdiqlab boʼlmadi');
   const body = await response.json();
-  return body?.claimed === true;
+  if (typeof body?.claimed !== 'boolean') throw new Error('Taklif javobi tushunarsiz');
+  return body.claimed;
 }

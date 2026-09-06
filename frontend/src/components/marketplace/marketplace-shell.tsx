@@ -7,6 +7,7 @@ import {
   Trophy,
   UserRound,
   Wallet,
+  UserPlus,
 } from 'lucide-react';
 
 import { ChatsUnreadBadge } from '@/components/chat/chats-unread-badge';
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { User } from '@/lib/types';
 import { FEATURES } from '@/lib/feature-flags';
+import { GrowthLink } from '@/components/growth/growth-link';
 
 interface MarketplaceShellProps {
   user: User | null;
@@ -237,6 +239,11 @@ export function MarketplaceShell({
             primary action.
           */}
           <div className={cn("ml-auto flex shrink-0 items-center gap-1.5", activeTab === 'home' && "hidden sm:flex")}>
+            <GrowthLink href="/invite" event="invite_open" placement="desktop_header"
+              className="hidden min-h-11 items-center gap-1.5 rounded-full bg-primary/10 px-3 text-xs font-semibold text-primary dark:text-secondary transition hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:inline-flex">
+              <UserPlus aria-hidden className="h-4 w-4" />
+              Do&apos;st taklif qilish
+            </GrowthLink>
             {user ? (
               <>
                 <div className="hidden items-center sm:flex">

@@ -13,6 +13,7 @@ import { isAdmin, isPartner } from '@/lib/admin';
 import { isTradeAdmin } from '@/lib/trade-human';
 import { cn } from '@/lib/utils';
 import type { User } from '@/lib/types';
+import { trackGrowth } from '@/lib/growth-analytics';
 
 interface UserMenuProps {
   user: User;
@@ -98,6 +99,11 @@ export function UserMenu({ user, className }: UserMenuProps) {
               <UserRound className="h-4 w-4 text-muted-foreground" />
               Profil
             </Link>
+            <Link href="/invite" role="menuitem" className={cn(ITEM_CLASS, 'min-h-11 bg-primary/5 text-primary dark:text-secondary')}
+              onClick={() => { trackGrowth('invite_open', { placement: 'user_menu' }); setOpen(false); }}>
+              <UserPlus aria-hidden className="h-4 w-4" />
+              Do&apos;st taklif qilish
+            </Link>
             <Link
               href="/profile?tab=listings"
               role="menuitem"
@@ -147,11 +153,7 @@ export function UserMenu({ user, className }: UserMenuProps) {
               onClick={() => setOpen(false)}
             >
               <Handshake className="h-4 w-4 text-muted-foreground" />
-              {partner ? 'Hamkor admin paneli' : "Hamkor bo'lish"}
-            </Link>
-            <Link href="/invite" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
-              <UserPlus className="h-4 w-4 text-muted-foreground" />
-              Do&apos;st taklif qilish
+              {partner ? 'Hamkor paneli' : 'Telegram kanal egalari uchun'}
             </Link>
             <Link href="/help" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
               <HelpCircle className="h-4 w-4 text-muted-foreground" />

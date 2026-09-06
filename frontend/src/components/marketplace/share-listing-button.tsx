@@ -1,51 +1,105 @@
 'use client';
 
-import { useState } from 'react';
-import { Check, Share2 } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Check, Copy, Loader2, Send, Share2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { getTelegramWebApp } from '@/lib/telegram';
+import { getMyReferrals } from '@/lib/referrals';
+import { listingShareUrl, telegramListingShareUrl } from '@/lib/listing-share';
+import { trackGrowth } from '@/lib/growth-analytics';
 
 interface ShareListingButtonProps {
   listingId: string;
   title: string;
+  authenticated?: boolean;
 }
 
-export function ShareListingButton({ listingId, title }: ShareListingButtonProps) {
+export function ShareListingButton({ listingId, title, authenticated = false }: ShareListingButtonProps) {
+  const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const [url, setUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+  const regionId = useId();
+  const container = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
 
-  async function handleShare() {
-    const url = new URL(`/marketplace/${listingId}`, window.location.origin).toString();
-
-    const telegram = getTelegramWebApp();
-    if (telegram) {
-      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`;
-      window.open(shareUrl, '_blank');
-      return;
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    const plainUrl = listingShareUrl(window.location.origin, listingId);
+    setUrl(plainUrl);
+    setCopied(false);
+    setCopyFailed(false);
+    if (authenticated) {
+      setLoading(true);
+      // A failed lookup must not prevent ordinary listing sharing.
+      const timeout = setTimeout(() => { if (active) { setLoading(false); active = false; } }, 4000);
+      getMyReferrals().then((data) => {
+        if (active) setUrl(listingShareUrl(window.location.origin, listingId, data.code));
+      }).catch(() => {}).finally(() => {
+        clearTimeout(timeout);
+        if (active) setLoading(false);
+      });
+      return () => { active = false; clearTimeout(timeout); };
     }
+    setLoading(false);
+  }, [open, authenticated, listingId]);
 
-    if (navigator.share) {
-      try {
-        await navigator.share({ title, url });
-        return;
-      } catch {
-        // fall through to clipboard
-      }
-    }
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (container.current && !container.current.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { setOpen(false); trigger.current?.focus(); }
+    };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [open]);
 
+  async function copy() {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
+      setCopyFailed(false);
+      trackGrowth('invite_copy_success', { placement: 'listing', method: 'copy' });
     } catch {
-      // no-op
+      setCopyFailed(true);
     }
   }
 
   return (
-    <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={handleShare}>
-      {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
-      {copied ? 'Nusxa olindi' : 'Ulashish'}
-    </Button>
+    <div ref={container} className="relative">
+      <Button ref={trigger} type="button" variant="outline" className="min-h-11 rounded-xl" aria-expanded={open} aria-controls={regionId} onClick={() => setOpen((value) => !value)}>
+        <Share2 aria-hidden className="h-4 w-4" /> Do‘stga yuborish
+      </Button>
+      {open && (
+        <div id={regionId} role="region" aria-label="E’lonni do‘stga yuborish" className="absolute right-0 top-full z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 rounded-2xl border border-border bg-card p-4 shadow-card-hover">
+          <p className="text-sm font-semibold">Shu akkount do‘stingizga mosmi?</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">E’lonni Telegramda yuboring yoki havolasini nusxalang.</p>
+          {loading ? (
+            <p role="status" className="flex min-h-11 items-center gap-2 text-sm text-muted-foreground"><Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Havola tayyorlanmoqda…</p>
+          ) : url ? (
+            <>
+              <a href={telegramListingShareUrl(url, title)} target="_blank" rel="noopener noreferrer"
+                onClick={() => trackGrowth('invite_share_intent', { placement: 'listing', method: 'telegram' })}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Send aria-hidden className="h-4 w-4" /> Telegramda yuborish
+              </a>
+              <Button type="button" variant="outline" className="min-h-11 w-full rounded-xl" onClick={copy}>
+                {copied ? <Check aria-hidden className="h-4 w-4" /> : <Copy aria-hidden className="h-4 w-4" />} Havolani nusxalash
+              </Button>
+            </>
+          ) : null}
+          {copied && <p role="status" className="text-xs text-primary dark:text-secondary">Nusxalandi. Endi do‘stingizga yuboring.</p>}
+          {copyFailed && <label className="block space-y-2 text-xs text-muted-foreground"><span role="status">Nusxalanmadi. Havolani tanlab, qo‘lda nusxalang.</span><input aria-label="E’lon havolasi" readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="min-h-11 w-full rounded-lg border border-input bg-background px-2 text-sm text-foreground" /></label>}
+        </div>
+      )}
+    </div>
   );
 }

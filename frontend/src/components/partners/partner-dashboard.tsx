@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, Ban, CheckCircle2, Handshake, Loader2, Users } from 'lucide-react';
 
@@ -22,14 +23,18 @@ export function PartnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    getMyApplication()
-      .then(setApplication)
-      .catch(() => setApplication(null))
-      .finally(() => setLoading(false));
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try { setApplication(await getMyApplication()); }
+    catch (e) { setLoadError(e instanceof Error ? e.message : 'Hamkorlik holati yuklanmadi'); }
+    finally { setLoading(false); }
   }, []);
+
+  useEffect(() => { void refresh(); }, [refresh]);
 
   async function cancel() {
     if (!window.confirm(
@@ -51,7 +56,7 @@ export function PartnerDashboard() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 p-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4 pb-6">
       <header className="flex items-start gap-3">
         <div className="rounded-lg bg-primary/10 p-2 text-primary">
           <Handshake className="h-5 w-5" />
@@ -65,6 +70,17 @@ export function PartnerDashboard() {
       {loading ? (
         <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Yuklanmoqda…
+        </div>
+      ) : loadError ? (
+        <div role="alert" className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+          <p className="text-sm text-destructive">{loadError}</p>
+          <p className="text-sm text-muted-foreground">Hamkorlik holatini tekshirib bo‘lmadi.</p>
+          <Button variant="outline" onClick={() => void refresh()}>Qayta urinish</Button>
+        </div>
+      ) : application?.status !== 'APPROVED' ? (
+        <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+          <p className="text-sm text-muted-foreground">Faol hamkorlik topilmadi. Arizangiz holatini hamkorlik sahifasida ko‘ring.</p>
+          <Button asChild><Link href="/partnership">Ariza holatini ko‘rish</Link></Button>
         </div>
       ) : (
         <div className="space-y-3 rounded-xl border border-border bg-card p-4">
@@ -89,6 +105,7 @@ export function PartnerDashboard() {
         </div>
       )}
 
+      {!loading && !loadError && application?.status === 'APPROVED' && <>
       <PartnerPanelBlocks />
 
       {/*
@@ -125,6 +142,7 @@ export function PartnerDashboard() {
           Hamkorlikni to&apos;xtatish
         </Button>
       </section>
+      </>}
     </div>
   );
 }

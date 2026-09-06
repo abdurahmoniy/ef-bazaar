@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Check, Loader2, Megaphone, Search, Users } from 'lucide-react';
+import { GrowthLink } from '@/components/growth/growth-link';
 
 import {
   channelInitial,
@@ -153,6 +154,10 @@ export function ChannelPicker({ selected, onChange }: ChannelPickerProps) {
           <span className="font-bold">{total.toLocaleString('uz-UZ')} so&apos;m</span>
         </p>
       )}
+      <GrowthLink href="/partnership" target="_blank" rel="noopener noreferrer" event="partnership_open" placement="channel_picker"
+        className="inline-flex min-h-11 items-center text-xs font-semibold text-muted-foreground underline underline-offset-4 hover:text-primary">
+        Telegram kanalingiz bormi? Hamkorlikni ko‘ring ↗
+      </GrowthLink>
     </section>
   );
 }

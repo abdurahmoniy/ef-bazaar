@@ -95,7 +95,7 @@ export function MarketplaceListingDetail({
   return (
     <article className="space-y-4">
       <div className="flex justify-end">
-        <ShareListingButton listingId={listing.id} title={title} />
+        <ShareListingButton listingId={listing.id} title={title} authenticated={authenticated} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-6">
