@@ -25,6 +25,7 @@ public class KafkaLogForwarder {
     private static final String SERVICE_NAME = "marketplace-service";
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final LogThrottle throttle = new LogThrottle();
 
     @Value("${app.logging.kafka-forward.enabled:true}")
     private boolean enabled;
@@ -81,6 +82,16 @@ public class KafkaLogForwarder {
                     stackTrace(event.getThrowableProxy()),
                     Instant.ofEpochMilli(event.getTimeStamp())
             );
+            LogThrottle.Verdict verdict = throttle.admit(throttleKey(event));
+            if (verdict.suppressed() > 0) {
+                kafkaTemplate.send(LOG_TOPIC, SERVICE_NAME, new LogEvent(
+                        SERVICE_NAME, "WARN", "LogThrottle", event.getThreadName(),
+                        "Oldingi daqiqada " + verdict.suppressed()
+                                + " ta log xabari bostirildi (takror yoki chegara). "
+                                + "To'liq ko'rinish uchun Grafana/Loki.",
+                        null, Instant.ofEpochMilli(event.getTimeStamp())));
+            }
+            if (!verdict.send()) return;
             kafkaTemplate.send(LOG_TOPIC, SERVICE_NAME, payload);
         } catch (Exception ignored) {
         }
@@ -93,6 +104,19 @@ public class KafkaLogForwarder {
             if (m.contains(NotifyMarker.NAME)) return true;
         }
         return false;
+    }
+
+    /**
+     * What counts as "the same error again": who logged it and what was thrown.
+     *
+     * <p>Deliberately not the formatted message — that usually carries an id,
+     * which would make every repeat unique and defeat the dedup exactly during
+     * the loop it exists to survive.
+     */
+    private static String throttleKey(ILoggingEvent event) {
+        IThrowableProxy thrown = event.getThrowableProxy();
+        return event.getLoggerName() + "|"
+                + (thrown != null ? thrown.getClassName() : event.getLevel().toString());
     }
 
     private static String stackTrace(IThrowableProxy proxy) {
