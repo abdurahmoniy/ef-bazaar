@@ -30,7 +30,7 @@ async def test_a_refusal_is_not_retried():
     mailcow.delete_mailbox.side_effect = MailcowApiError(200, "access_denied")
 
     # Must not raise: raising is what puts it back on the topic.
-    await MailboxDeleteHandler(mailcow=mailcow).handle(EVENT)
+    await MailboxDeleteHandler(mailcow=mailcow, registry=AsyncMock()).handle(EVENT)
 
 
 async def test_mailcow_being_unreachable_is_retried():
@@ -40,12 +40,12 @@ async def test_mailcow_being_unreachable_is_retried():
     mailcow.delete_mailbox.side_effect = httpx.ConnectError("no route")
 
     with pytest.raises(httpx.HTTPError):
-        await MailboxDeleteHandler(mailcow=mailcow).handle(EVENT)
+        await MailboxDeleteHandler(mailcow=mailcow, registry=AsyncMock()).handle(EVENT)
 
 
 async def test_the_happy_path_asks_mailcow_once():
     mailcow = AsyncMock()
 
-    await MailboxDeleteHandler(mailcow=mailcow).handle(EVENT)
+    await MailboxDeleteHandler(mailcow=mailcow, registry=AsyncMock()).handle(EVENT)
 
     mailcow.delete_mailbox.assert_awaited_once_with(EVENT.mailbox_email)

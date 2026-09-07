@@ -71,6 +71,19 @@ class ImapPollerRegistry:
         except (asyncio.CancelledError, Exception):
             pass
 
+    async def cancel_mailbox(self, mailbox_email: str) -> int:
+        """Stops every poller watching this mailbox, whatever the purpose.
+
+        Callers know the mailbox — a rotate request, a delete — but not which
+        of the three purposes happen to be live on it. Left behind, a poller
+        logs in every interval with a password Mailcow has already replaced,
+        for ever: `run()` has no exit of its own.
+        """
+        purposes = [key[1] for key in self._tasks if key[0] == mailbox_email]
+        for purpose in purposes:
+            await self.cancel(mailbox_email, purpose)
+        return len(purposes)
+
     async def cancel_all(self) -> None:
         keys = list(self._tasks.keys())
         for mailbox_email, purpose in keys:
