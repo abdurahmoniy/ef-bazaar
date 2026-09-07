@@ -9,6 +9,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.UUID;
+import java.util.concurrent.Executor;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -30,6 +31,11 @@ class KafkaLogForwarderTest {
     private KafkaLogForwarder attach() {
         KafkaLogForwarder forwarder = new KafkaLogForwarder(template);
         ReflectionTestUtils.setField(forwarder, "enabled", true);
+        // Uzatish produksiyada alohida threadда ketadi, aks holda Kafka
+        // sekinlashuvi log yozgan threadni bloklardi. Testda uni shu yerda
+        // bajaramiz — tekshirilayotgan narsa qaysi thread emas, NIMA
+        // yuborilgani.
+        ReflectionTestUtils.setField(forwarder, "publishExecutor", (Executor) Runnable::run);
         forwarder.register();
         return forwarder;
     }

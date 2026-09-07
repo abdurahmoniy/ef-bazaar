@@ -33,6 +33,30 @@ public class KafkaLogForwarder {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final LogThrottle throttle = new LogThrottle();
 
+    /**
+     * Uzatish CHAQIRUVCHI THREADDA bo'lmaydi.
+     *
+     * <p>Broker yo'q yoki sekin bo'lsa `KafkaTemplate.send` metadata kutib
+     * `max.block.ms` (default 60s) gacha bloklaydi. Log yozgan thread esa
+     * so'rovni bajarayotgan thread bo'lishi mumkin — ya'ni Kafka yiqilishi
+     * ilovani muzlatardi. CI'da aynan shu bo'ldi: kontekst ko'tarilishidagi
+     * bir necha WARN har biri 60 soniya turdi.
+     *
+     * <p>Navbat chegaralangan va to'lganda yangi yozuv TASHLANADI: xabar
+     * berish uchun xotira yeb qo'yish, keyin OOM bilan yiqilish — davosi
+     * dardidan yomon.
+     */
+    private java.util.concurrent.Executor publishExecutor =
+            new java.util.concurrent.ThreadPoolExecutor(
+                    1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
+                    new java.util.concurrent.ArrayBlockingQueue<>(500),
+                    r -> {
+                        Thread t = new Thread(r, "kafka-log-forwarder");
+                        t.setDaemon(true);
+                        return t;
+                    },
+                    new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy());
+
     @Value("${app.logging.kafka-forward.enabled:true}")
     private boolean enabled;
 
@@ -90,7 +114,7 @@ public class KafkaLogForwarder {
             );
             LogThrottle.Verdict verdict = throttle.admit(throttleKey(event));
             if (verdict.suppressed() > 0) {
-                kafkaTemplate.send(LOG_TOPIC, SERVICE_NAME, new LogEvent(
+                send(new LogEvent(
                         SERVICE_NAME, "WARN", "LogThrottle", event.getThreadName(),
                         "Oldingi daqiqada " + verdict.suppressed()
                                 + " ta log xabari bostirildi (takror yoki chegara). "
@@ -98,7 +122,7 @@ public class KafkaLogForwarder {
                         null, Instant.ofEpochMilli(event.getTimeStamp())));
             }
             if (!verdict.send()) return;
-            kafkaTemplate.send(LOG_TOPIC, SERVICE_NAME, payload);
+            send(payload);
         } catch (Exception ignored) {
             // Swallow — never let logging break the app.
         }
@@ -111,6 +135,16 @@ public class KafkaLogForwarder {
      * which would make every repeat unique and defeat the dedup exactly during
      * the loop it exists to survive.
      */
+    private void send(LogEvent payload) {
+        publishExecutor.execute(() -> {
+            try {
+                kafkaTemplate.send(LOG_TOPIC, SERVICE_NAME, payload);
+            } catch (Exception ignored) {
+                // Xabar berish ikkinchi muammoga aylanmasin.
+            }
+        });
+    }
+
     private static String throttleKey(ILoggingEvent event) {
         IThrowableProxy thrown = event.getThrowableProxy();
         return event.getLoggerName() + "|"

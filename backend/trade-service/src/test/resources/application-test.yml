@@ -32,3 +32,17 @@ trade:
     min-interval-seconds: 1
   proposal:
     ttl-seconds: 60
+
+# Bu servisning O'Z loglarini Kafka'ga uzatish — testlarda o'chiq.
+#
+# Broker yo'q paytda `KafkaTemplate.send` metadata kutib `max.block.ms`
+# (default 60s) gacha CHAQIRUVCHI THREADNI bloklaydi. Kontekst ko'tarilishida
+# bir nechta WARN chiqadi va har biri shuncha turadi — CI 8 daqiqa qotib
+# qoldi, sabab log uzatgich edi, sinalayotgan kod emas.
+#
+# Produksiyada uzatish alohida threadda ketadi (KafkaLogForwarder), lekin
+# testlarda uni umuman yoqmaslik toza: sinalayotgan narsa bu emas.
+app:
+  logging:
+    kafka-forward:
+      enabled: false
