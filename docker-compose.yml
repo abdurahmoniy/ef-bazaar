@@ -180,7 +180,13 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_SERVER_ROOT_URL: http://localhost:3001
+      # Grafana o'z havolalarini (redirect, parolni tiklash, share URL, Live
+      # WebSocket manzili) shu qiymatdan quradi. localhost qolsa, nginx orqali
+      # kirgan foydalanuvchi login'dan keyin o'z mashinasidagi 3001-portga
+      # yo'naltiriladi va "sahifa ochilmadi" oladi.
+      GF_SERVER_ROOT_URL: https://dashboard.efbazaar.uz
+      # nginx allaqachon TLS'ni tugatadi va Host'ni uzatadi.
+      GF_SERVER_ENFORCE_DOMAIN: "false"
     volumes:
       - grafana_data:/var/lib/grafana
       # ./ — nuqtadan keyin slash SHART. ".infra" deb yozilsa Docker uni shu

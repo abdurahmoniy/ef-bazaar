@@ -24,6 +24,7 @@ from humo_userbot.kafka_client import (
     build_card_credit_payload,
     iso_z,
 )
+from humo_userbot.observability.kafka_log_forwarder import KafkaLogForwarder
 from humo_userbot.parser import parse_topup
 
 settings = get_settings()
@@ -33,6 +34,16 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 log = logging.getLogger(__name__)
+
+
+def attach_kafka_forwarder(forwarder) -> None:
+    """Wires this service's own logs into `efbazaar.system.log-event`.
+
+    Everything here logs through stdlib `logging`, so one handler covers the
+    service. (smart-admin-worker needs a second adapter because it also uses
+    structlog, which bypasses stdlib entirely.)
+    """
+    logging.getLogger().addHandler(forwarder.logging_handler())
 
 kafka = KafkaClient(settings.kafka_bootstrap_servers)
 
@@ -129,6 +140,15 @@ async def heartbeat_loop() -> None:
 
 async def main() -> None:
     await kafka.start()
+    # Only now can we forward: the producer is the transport. This service's
+    # own WARN/ERROR lines now reach the Telegram logs channel like every Java
+    # service's do. It handles money notifications, so a failure nobody is
+    # told about is the expensive kind.
+    attach_kafka_forwarder(KafkaLogForwarder(
+        producer=kafka,
+        service_name="humo-userbot",
+        loop=asyncio.get_running_loop(),
+    ))
     await app.start()
     log.info("humo-userbot started, watching %s", settings.source_chat)
     try:

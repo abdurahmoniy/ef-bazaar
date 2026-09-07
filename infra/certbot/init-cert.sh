@@ -22,7 +22,7 @@ set -euo pipefail
 cd "${DEPLOY_PATH:-/opt/efbazaar}"
 
 # Har guruh bitta SAN cert (primary = birinchi element → /live/<primary>/).
-EFBAZAAR_DOMAINS=(efbazaar.uz api.efbazaar.uz)
+EFBAZAAR_DOMAINS=(efbazaar.uz api.efbazaar.uz dashboard.efbazaar.uz)
 CHEMPOX_DOMAINS=(chempox.uz www.chempox.uz api.chempox.uz)
 ALL_DOMAINS=("${EFBAZAAR_DOMAINS[@]}" "${CHEMPOX_DOMAINS[@]}")
 LE_EMAIL="${LE_EMAIL:-}"
@@ -96,6 +96,18 @@ echo "==> Writing Swagger htpasswd (user: $SWAGGER_USER)"
 # bcrypt hash htpasswd format'ida (httpd-tools'siz — openssl bilan)
 HASH=$(docker run --rm httpd:2.4-alpine htpasswd -nbB "$SWAGGER_USER" "$SWAGGER_PASS")
 docker compose exec -T nginx sh -c "echo '$HASH' > /etc/nginx/auth/swagger.htpasswd"
+
+# ─── Grafana dashboard basic auth ──────────────────────────────────────
+# Grafana'ning O'Z login'i ham bor va u saqlanadi. Bu tashqi eshik:
+# skanerlar va botlar Grafana'ning login sahifasiga umuman yetmaydi, va
+# Grafana'da topilgan yangi zaiflik darhol ochiq turmaydi.
+if [ -n "${DASHBOARD_USER:-}" ] && [ -n "${DASHBOARD_PASS:-}" ]; then
+  echo "==> Writing dashboard htpasswd (user: $DASHBOARD_USER)"
+  DHASH=$(docker run --rm httpd:2.4-alpine htpasswd -nbB "$DASHBOARD_USER" "$DASHBOARD_PASS")
+  docker compose exec -T nginx sh -c "echo '$DHASH' > /etc/nginx/auth/dashboard.htpasswd"
+else
+  echo "==> DASHBOARD_USER/DASHBOARD_PASS berilmadi — dashboard yopiq qoladi"
+fi
 
 # ─── nginx reload ──────────────────────────────────────────────────────
 echo "==> Validating + reloading nginx"

@@ -19,3 +19,4 @@ set $backend_tournament    "chempionat-api:8080";
 set $backend_chempox_front "chempox-front:80";
 set $backend_frontend    "frontend:3000";
 set $backend_mail        "mail-frontend:3000";
+set $backend_grafana     "grafana:3000";

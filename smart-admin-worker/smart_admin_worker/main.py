@@ -8,6 +8,7 @@ every request-topic handler by topic. Uvicorn runs this via
 
 from __future__ import annotations
 
+import asyncio
 import base64
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -45,8 +46,9 @@ from smart_admin_worker.kafka.topics import (
     TOPIC_MAILBOX_ROTATE_REQ,
 )
 from smart_admin_worker.konami.client import KonamiClient
-from smart_admin_worker.logging_config import configure_logging
+from smart_admin_worker.logging_config import attach_kafka_forwarder, configure_logging
 from smart_admin_worker.mailcow.client import MailcowClient
+from smart_admin_worker.observability.kafka_log_forwarder import KafkaLogForwarder
 from smart_admin_worker.redis.lock import RedisLockManager
 from smart_admin_worker.telegram.notifier import TelegramNotifier
 
@@ -239,6 +241,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Both starts share one try/finally so that if consumer.start() throws,
     # producer.stop() still runs and we don't leak the producer's connection.
     await producer.start()
+    # Only now can we forward: the producer is the transport. From here the
+    # worker's own WARN/ERROR lines reach the Telegram logs channel like every
+    # Java service's do — previously only a raising Kafka handler said anything
+    # (see the wrapper above), so an IMAP poller dying went unreported.
+    attach_kafka_forwarder(KafkaLogForwarder(
+        producer=producer,
+        service_name="smart-admin-worker",
+        loop=asyncio.get_running_loop(),
+    ))
     try:
         await consumer.start()
 
