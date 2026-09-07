@@ -539,7 +539,7 @@ function StepNav({
 	const isLast = step === 'review';
 
 	return (
-		<MeasuredBottomBar className='fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-card/95 backdrop-blur-md pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] py-3 pb-[calc(0.75rem+var(--app-content-safe-bottom))] sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:pb-0'>
+		<MeasuredBottomBar hideOnKeyboard className='fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-card/95 backdrop-blur-md pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] py-3 pb-[calc(0.75rem+var(--app-content-safe-bottom))] sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:pb-0'>
 			<div className='mx-auto flex max-w-3xl items-center gap-2.5'>
 				<Button
 					type='button'
@@ -890,7 +890,7 @@ function BasicsStep({
 						}))
 					}
 					className={cn(
-						'rounded-xl text-xs sm:text-sm leading-relaxed min-h-[64px] max-h-[120px]',
+						'rounded-xl text-base sm:text-sm leading-relaxed min-h-[64px] max-h-[120px]',
 						descError && 'border-destructive focus-visible:ring-destructive',
 					)}
 				/>
@@ -1240,8 +1240,11 @@ function TeamStrengthInput({
 					placeholder='3150'
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === 'Enter') e.currentTarget.blur();
+					}}
 					className={cn(
-						'h-10 rounded-xl pl-8 pr-2 text-xs font-bold',
+						'h-10 rounded-xl pl-8 pr-2 text-base font-bold sm:text-sm',
 						error && 'border-destructive focus-visible:ring-destructive',
 					)}
 				/>
@@ -1293,8 +1296,11 @@ function TransferLimitInput({
 						}
 						onChange(v);
 					}}
+					onKeyDown={(e) => {
+						if (e.key === 'Enter') e.currentTarget.blur();
+					}}
 					className={cn(
-						'h-10 rounded-xl pl-8 pr-2 text-xs font-bold',
+						'h-10 rounded-xl pl-8 pr-2 text-base font-bold sm:text-sm',
 						error && 'border-destructive focus-visible:ring-destructive',
 					)}
 				/>
@@ -1432,8 +1438,11 @@ function CoinInput({
 					placeholder='0'
 					value={value}
 					onChange={(e) => onChange(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === 'Enter') e.currentTarget.blur();
+					}}
 					className={cn(
-						'h-10 rounded-xl pl-8 pr-2 text-xs font-bold',
+						'h-10 rounded-xl pl-8 pr-2 text-base font-bold sm:text-sm',
 						error && 'border-destructive focus-visible:ring-destructive',
 					)}
 				/>
@@ -1479,7 +1488,7 @@ function AttributeInput({
 				<Select
 					value={raw}
 					onChange={(event) => update(event.target.value)}
-					className='h-10 rounded-xl font-semibold text-xs'
+					className='h-10 rounded-xl font-semibold text-base sm:text-sm'
 				>
 					<option value='' disabled>
 						Tanlang
@@ -1523,8 +1532,11 @@ function AttributeInput({
 						}
 						update(nextVal);
 					}}
+					onKeyDown={(e) => {
+						if (e.key === 'Enter') e.currentTarget.blur();
+					}}
 					className={cn(
-						'h-10 rounded-xl font-bold text-xs sm:text-sm',
+						'h-10 rounded-xl font-bold text-base sm:text-sm',
 						error && 'border-destructive focus-visible:ring-destructive',
 					)}
 				/>
@@ -1544,8 +1556,11 @@ function AttributeInput({
 			<Input
 				value={raw}
 				onChange={(event) => update(event.target.value)}
+				onKeyDown={(e) => {
+					if (e.key === 'Enter') e.currentTarget.blur();
+				}}
 				className={cn(
-					'h-10 rounded-xl text-xs sm:text-sm',
+					'h-10 rounded-xl text-base sm:text-sm',
 					error && 'border-destructive focus-visible:ring-destructive',
 				)}
 			/>
@@ -1623,6 +1638,9 @@ function PricingStep({
 								else if (num < 0) nextVal = '0';
 							}
 							setState((prev) => ({ ...prev, price: nextVal }));
+						}}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter') e.currentTarget.blur();
 						}}
 						className={cn(
 							'h-12 rounded-xl pl-9 pr-3 text-lg font-black text-[hsl(var(--price))]',
