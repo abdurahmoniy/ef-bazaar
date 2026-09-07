@@ -35,6 +35,10 @@ chmod -R 755 /var/www/certbot
 # htpasswd uchun papka (yo'q bo'lsa bo'sh fayl yaratamiz — basic auth init-cert.sh'da qo'shiladi)
 mkdir -p /etc/nginx/auth
 [ -f /etc/nginx/auth/swagger.htpasswd ] || : > /etc/nginx/auth/swagger.htpasswd
+# Bo'sh fayl = hech kim kira olmaydi (fail-closed). Aksi bo'lsa, ya'ni
+# fayl yo'qligida nginx uni o'tkazib yuborsa, dashboard bir zumga
+# butunlay ochiq qolardi.
+[ -f /etc/nginx/auth/dashboard.htpasswd ] || : > /etc/nginx/auth/dashboard.htpasswd
 
 # Secret'lar env'dan conf variable'ga (nginx env o'qiy olmaydi).
 # INTERNAL_API_SECRET bo'sh bo'lsa ham fayl yaratiladi — Chempionat header-auth
