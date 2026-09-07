@@ -4,6 +4,10 @@ version = "0.1.0"
 requires-python = ">=3.12,<3.13"
 
 [tool.pytest.ini_options]
+# Bu servis butunlay async (aiokafka, Telethon), lekin pytest-asyncio yo'q edi
+# va async testlar JIMGINA o'tkazib yuborilardi — "s" belgisi bilan, ya'ni
+# yashil natija ichida. smart-admin-worker'dagi bilan bir xil sozlama.
+asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-ra -q --strict-markers"
 
