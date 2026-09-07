@@ -40,8 +40,16 @@ spring:
     consumer:
       group-id: trade-service
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      # Wrapped, not raw. A raw JsonDeserializer failure is thrown out of poll()
+      # itself, where no listener error handler can reach it and the offset is
+      # never committed — the container then re-polls the same record for ever.
+      # That is exactly what one unreadable user-role-changed record did on
+      # 2026-09-07. Wrapped, the failure travels as the record's payload, the
+      # error handler in KafkaErrorHandlingConfig parks it on a DLT, and the
+      # bad record costs one offset instead of the service.
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
         spring.json.trusted.packages: "uz.efbazaar.*"
 
 app:

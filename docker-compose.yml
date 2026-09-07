@@ -8,6 +8,24 @@
 
 name: efbazaar
 
+# Har konteynerning log fayli uchun aylanma chegara.
+#
+# Bu bloksiz Docker json-file drayveri fayllarni CHEKSIZ o'stiradi. 2026-09-07
+# da trade-service Kafka'ning "poison pill" halqasiga tushdi va daqiqasiga
+# 669 000 qator yozdi — kuniga 100 GB dan ortiq, 96 GB lik diskni bir
+# sutkadan kam vaqtda to'ldirar edi. Halqaning o'zi tuzatildi, lekin xohlagan
+# yangi bug xuddi shu yo'l bilan butun stekni o'ldira olardi: disk to'lsa
+# Postgres ham, Kafka ham yoziladigan joy topa olmaydi.
+#
+# 50MB x 3 fayl = konteyneriga eng ko'pi 150MB. Alloy loglarni Loki'ga
+# uzatib turadi, shuning uchun aylanib ketgan qism yo'qolmaydi — u yerda
+# saqlanadi.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "3"
+
 services:
   # ---------- Infrastructure ----------
 
@@ -15,6 +33,7 @@ services:
     image: postgres:16-alpine
     container_name: efbazaar-postgres
     restart: unless-stopped
+    logging: *default-logging
     # 2GB RAM box uchun tuning — default shared_buffers=128MB ko'p.
     command: >
       postgres
@@ -59,6 +78,7 @@ services:
     image: redis:7-alpine
     container_name: efbazaar-redis
     restart: unless-stopped
+    logging: *default-logging
     # 64MB cap — blacklist + refresh tokenlar uchun yetadi. allkeys-lru: limit'ga yetganda eskini chiqaradi.
     command:
       - "redis-server"
@@ -86,6 +106,7 @@ services:
     image: prom/prometheus:v2.53.0
     container_name: efbazaar-prometheus
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "127.0.0.1:9090:9090"
     command:
@@ -115,6 +136,7 @@ services:
     image: prom/alertmanager:v0.28.0
     container_name: efbazaar-alertmanager
     restart: unless-stopped
+    logging: *default-logging
     # Loopback'ga bog'langan: SSH tunnel bilan ko'rish mumkin, internetdan yo'q.
     # Alertmanager'da ham autentifikatsiya yo'q, va u alertlaringizni —
     # ya'ni nima buzilayotganini — ochiq aytib beradi.
@@ -152,6 +174,7 @@ services:
     image: grafana/grafana:11.3.0
     container_name: efbazaar-grafana
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "127.0.0.1:3001:3000"
     environment:
@@ -177,6 +200,7 @@ services:
     image: grafana/loki:3.3.0
     container_name: efbazaar-loki
     restart: unless-stopped
+    logging: *default-logging
     # Loopback'ga bog'langan. Loki'da autentifikatsiya YO'Q
     # (`auth_enabled: false`) va u barcha loglaringizni — parol
     # o'zgartirish izlarini, xato stacktrace'larini, ichki manzillarni —
@@ -200,6 +224,7 @@ services:
     image: grafana/alloy:v1.5.0
     container_name: efbazaar-alloy
     restart: unless-stopped
+    logging: *default-logging
     command:
       - "run"
       - "--server.http.listen-addr=0.0.0.0:12345"
@@ -232,6 +257,7 @@ services:
     image: apache/kafka:3.7.0
     container_name: efbazaar-kafka
     restart: unless-stopped
+    logging: *default-logging
     hostname: kafka
     environment:
       # 192m heap + JVM overhead → OOMKilled restart loop. Single-node KRaft uchun 256m minimum.
@@ -269,6 +295,7 @@ services:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-auth-service:${IMAGE_TAG:-latest}
     container_name: efbazaar-auth
     restart: unless-stopped
+    logging: *default-logging
     environment:
       # Heap 280m (springdoc + spring security + kafka + jpa + redis + flyway = ko'p framework).
       # Avval 180m edi — GC death spiral. Springdoc qo'shilgandan keyin baqomadi.
@@ -309,6 +336,7 @@ services:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-marketplace-service:${IMAGE_TAG:-latest}
     container_name: efbazaar-marketplace
     restart: unless-stopped
+    logging: *default-logging
     environment:
       # efBazaar rasmiy kanali — bo'sh bo'lsa rasmiy postlar o'chiq.
       OFFICIAL_CHANNEL: ${OFFICIAL_CHANNEL:-}
@@ -372,6 +400,7 @@ services:
       context: ./backend/trade-service
     container_name: efbazaar-trade
     restart: unless-stopped
+    logging: *default-logging
     environment:
       JAVA_OPTS: "-Xms96m -Xmx280m -XX:MaxMetaspaceSize=160m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
@@ -414,6 +443,7 @@ services:
       context: ./backend/payment-service
     container_name: efbazaar-payment
     restart: unless-stopped
+    logging: *default-logging
     environment:
       JAVA_OPTS: "-Xms96m -Xmx280m -XX:MaxMetaspaceSize=160m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
@@ -448,6 +478,7 @@ services:
       context: ./smart-admin-worker
     container_name: efbazaar-smart-admin
     restart: unless-stopped
+    logging: *default-logging
     # Chromium (rotate.py subprocess) needs:
     #   - /dev/shm > 64MB default (crashpad handler heap)
     #   - init: true — Docker's tini as PID 1 correctly reaps subprocesses;
@@ -522,6 +553,7 @@ services:
       context: ./humo-userbot
     container_name: efbazaar-humo-userbot
     restart: unless-stopped
+    logging: *default-logging
     environment:
       TELEGRAM_API_ID: ${TELEGRAM_API_ID}
       TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
@@ -543,6 +575,7 @@ services:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-bot:${IMAGE_TAG:-latest}
     container_name: efbazaar-bot
     restart: unless-stopped
+    logging: *default-logging
     environment:
       JAVA_OPTS: "-Xms64m -Xmx160m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
@@ -580,6 +613,7 @@ services:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-frontend:${IMAGE_TAG:-latest}
     container_name: efbazaar-frontend
     restart: unless-stopped
+    logging: *default-logging
     environment:
       # Server (Node) ichidan backend'ga ichki tarmoq orqali ulanish
       INTERNAL_API_BASE_URL: http://nginx:8080/api
@@ -604,6 +638,7 @@ services:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-mail-frontend:${IMAGE_TAG:-latest}
     container_name: efbazaar-mail-frontend
     restart: unless-stopped
+    logging: *default-logging
     environment:
       INTERNAL_API_BASE_URL: http://nginx:8080/api
       AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-efbazaar.uz}
@@ -620,6 +655,7 @@ services:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-nginx:${IMAGE_TAG:-latest}
     container_name: efbazaar-nginx
     restart: unless-stopped
+    logging: *default-logging
     environment:
       # Snake-oil bootstrap uchun domenlar (har biri uchun alohida SAN papka).
       # efbazaar.uz → efbazaar.uz + api.efbazaar.uz; chempox.uz → chempox.uz +
@@ -678,6 +714,7 @@ services:
     image: certbot/certbot:latest
     container_name: efbazaar-certbot
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - letsencrypt_data:/etc/letsencrypt
       - acme_challenge:/var/www/certbot

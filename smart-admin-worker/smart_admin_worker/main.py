@@ -160,9 +160,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         ).handle,
         TOPIC_MAILBOX_ROTATE_REQ: MailboxRotateHandler(
             mailcow=mailcow, encryptor=encryptor, producer=producer,
-            email_provider=email_provider,
+            email_provider=email_provider, registry=poller_registry,
         ).handle,
-        TOPIC_MAILBOX_DELETE_REQ: MailboxDeleteHandler(mailcow=mailcow).handle,
+        TOPIC_MAILBOX_DELETE_REQ: MailboxDeleteHandler(
+            mailcow=mailcow, registry=poller_registry,
+        ).handle,
     }
 
     # Wrap each handler so any exception fires a Telegram error notification

@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable
 from uuid import UUID
 
 from smart_admin_worker.crypto.field_encryptor import FieldEncryptor
+from smart_admin_worker.imap.registry import ImapPollerRegistry
 from smart_admin_worker.kafka import events as e
 from smart_admin_worker.kafka.producer import KafkaProducerClient
 from smart_admin_worker.kafka.topics import TOPIC_MAILBOX_ROTATED
@@ -28,14 +29,27 @@ class MailboxRotateHandler:
         encryptor: FieldEncryptor,
         producer: KafkaProducerClient,
         email_provider: EmailProvider,
+        registry: ImapPollerRegistry,
     ) -> None:
         self._mailcow = mailcow
         self._encryptor = encryptor
         self._producer = producer
         self._email_provider = email_provider
+        self._registry = registry
 
     async def handle(self, event: e.MailboxRotateRequest) -> None:
         email = await self._email_provider(event.mailbox_id)
+        # Stop watching this box before the password under it changes. Every
+        # trade ending routes through here — SUCCESS, REJECTED and ORPHANED
+        # all call TradeStateHandler.handOver, which rotates each mailbox — so
+        # this is where a finished trade's pollers are collected. Without it
+        # they never stop: nothing else in the worker cancels one, and each
+        # survivor keeps taking a thread off the shared executor that a live
+        # trade's 2FA poll needs.
+        #
+        # Cancel first, not after: a poll landing between the swap and the
+        # cancel logs in with a password Mailcow has already replaced.
+        await self._registry.cancel_mailbox(email)
         password = secrets.token_urlsafe(16)
         await self._mailcow.rotate_password(email, password)
 

@@ -11,6 +11,7 @@ import logging
 
 import httpx
 
+from smart_admin_worker.imap.registry import ImapPollerRegistry
 from smart_admin_worker.kafka import events as e
 from smart_admin_worker.mailcow.client import MailcowClient
 from smart_admin_worker.mailcow.errors import MailcowApiError
@@ -19,10 +20,15 @@ logger = logging.getLogger(__name__)
 
 
 class MailboxDeleteHandler:
-    def __init__(self, mailcow: MailcowClient) -> None:
+    def __init__(self, mailcow: MailcowClient, registry: ImapPollerRegistry) -> None:
         self._mailcow = mailcow
+        self._registry = registry
 
     async def handle(self, event: e.MailboxDeleteRequest) -> None:
+        # The address is about to stop existing, so anything still polling it
+        # can only fail-login on a loop. Done before the call to Mailcow and
+        # outside the try: it holds whether or not Mailcow agrees to delete.
+        await self._registry.cancel_mailbox(event.mailbox_email)
         try:
             await self._mailcow.delete_mailbox(event.mailbox_email)
         except MailcowApiError as refused:

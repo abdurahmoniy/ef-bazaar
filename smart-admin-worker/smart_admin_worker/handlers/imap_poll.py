@@ -35,6 +35,17 @@ class ImapPollHandler:
     async def handle(self, event: e.ImapPollRequest) -> None:
         purpose = PollPurpose(event.purpose)
         password = await self._password_provider(event.mailbox_email)
+        if not password:
+            # Cache miss — the worker restarted since this mailbox was
+            # provisioned (see the MVP note in main.py). Starting a poller on
+            # an empty password is the worst of both: it can never log in, and
+            # `run()` would retry every interval for ever with nobody
+            # watching. Raising hands it to the consumer's retry path and the
+            # wrapper in main.py, which tells the admin group.
+            raise LookupError(
+                f"no cached password for {event.mailbox_email} — "
+                "refusing to start a poller that cannot log in"
+            )
 
         async def on_reset(hit):
             await self._producer.publish(
