@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * `/premium-emoji` — custom emoji'ning `custom_emoji_id` sini aytadi.
+ * `/emoji` — custom emoji'ning `custom_emoji_id` sini aytadi.
  *
  * <p>Id boshqa yo'l bilan qo'lga kirmaydi: u faqat kelgan xabarning
  * `entities` massivida bo'ladi, ya'ni uni ko'rish uchun kimdir update JSON'ini
@@ -41,8 +41,8 @@ public class PremiumEmojiInspector {
 
                     Custom emoji topilmadi. Ikki yo'l bor:
 
-                    • <code>/premium-emoji</code> dan keyin emoji'ni qo'ying
-                    • yoki emoji bor xabarga <b>javob</b> qilib <code>/premium-emoji</code> yozing
+                    • <code>/emoji</code> dan keyin emoji'ni qo'ying
+                    • yoki emoji bor xabarga <b>javob</b> qilib <code>/emoji</code> yozing
 
                     Emoji Premium (custom) bo'lishi shart — oddiy emoji'da id bo'lmaydi.""";
         }

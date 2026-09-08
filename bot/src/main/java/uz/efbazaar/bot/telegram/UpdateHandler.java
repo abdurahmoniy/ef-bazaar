@@ -65,7 +65,7 @@ public class UpdateHandler {
             sendHelp(chatId);
         } else if (text.startsWith("/partner")) {
             sendPartner(chatId);
-        } else if (text.startsWith("/premium-emoji")) {
+        } else if (text.startsWith("/emoji")) {
             // Ichki asbob: custom emoji'ning id'sini aytadi. /help da ATAYLAB
             // yo'q — u oddiy foydalanuvchiga hech narsa bermaydi. Yopilmagan
             // ham: javob faqat yuboruvchining O'Z xabaridan o'qiladi, ya'ni
