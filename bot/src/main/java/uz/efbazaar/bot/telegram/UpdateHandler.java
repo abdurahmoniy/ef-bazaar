@@ -27,6 +27,7 @@ public class UpdateHandler {
     private final BotSettingsClient settings;
     private final ChannelVerifier channels;
     private final PendingReferralClient pendingReferrals;
+    private final PremiumEmojiInspector premiumEmoji;
 
     @Value("${app.web.base-url:https://efbazaar.uz}")
     private String webBaseUrl;
@@ -64,6 +65,13 @@ public class UpdateHandler {
             sendHelp(chatId);
         } else if (text.startsWith("/partner")) {
             sendPartner(chatId);
+        } else if (text.startsWith("/premium-emoji")) {
+            // Ichki asbob: custom emoji'ning id'sini aytadi. /help da ATAYLAB
+            // yo'q — u oddiy foydalanuvchiga hech narsa bermaydi. Yopilmagan
+            // ham: javob faqat yuboruvchining O'Z xabaridan o'qiladi, ya'ni
+            // tizim haqida hech narsa oshkor qilmaydi.
+            telegram.sendMessage(String.valueOf(chatId), null,
+                    premiumEmoji.describe(message));
         }
         // Boshqa xabarlar: ignore
     }
