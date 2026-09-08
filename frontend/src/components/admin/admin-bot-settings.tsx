@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, ImagePlus, Loader2, RotateCcw, Save, Trash2 } from 'lucide-react';
 
 import { TelegramEditor } from '@/components/admin/telegram-editor';
+import { useEmojiPacks } from '@/lib/use-emoji-packs';
 import { TelegramPreview } from '@/components/admin/telegram-preview';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -42,6 +43,7 @@ interface AdminBotSettingsProps {
 
 export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
   const [settings, setSettings] = useState(initial);
+  const emoji = useEmojiPacks();
   const [text, setText] = useState(initial.welcomeText);
   // Belgi DB'da saqlanmaydi — u `bannerFileId != null` ning aksi. Shunda
   // "belgi yoqilgan, lekin banner yo'q" degan yarim holat bazaga tushmaydi.
@@ -200,7 +202,12 @@ export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
             </span>
           </div>
 
-          <TelegramEditor value={text} onChange={setText} />
+          <TelegramEditor
+            value={text}
+            onChange={setText}
+            emojiPacks={emoji.packs}
+            emojiUrls={emoji.thumbnailUrls}
+          />
 
           <p className="text-xs text-muted-foreground">
             Formatlash Telegramdagidek: <kbd>Ctrl+B</kbd> qalin, <kbd>Ctrl+I</kbd> kursiv,{' '}
@@ -303,6 +310,7 @@ export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
           <div>
             <h2 className="mb-2 text-sm font-semibold">Telegramda qanday ko&apos;rinadi</h2>
             <TelegramPreview
+              emojiUrls={emoji.fileUrls}
               html={text}
               bannerUrl={bannerEnabled ? shownBannerUrl : null}
               buttons={START_MESSAGE_BUTTONS}

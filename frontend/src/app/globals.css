@@ -451,6 +451,34 @@
   box-decoration-break: clone;
 }
 
+/*
+ * Custom emoji matn qatorining ichida turadi va MATN BALANDLIGIDA
+ * bo'lishi kerak. O'lchamsiz qoldirsak rasm o'z tabiiy kattaligida
+ * (100px+) chiqib, bitta emoji butun xabarni surib yuborardi.
+ *
+ * `1.2em` — Telegram'ning o'zidagi nisbat; `vertical-align` esa uni
+ * harflar bilan bir chiziqqa tushiradi, aks holda emoji bir oz pastda
+ * osilib turadi.
+ */
+.tg-emoji,
+.tg-custom-emoji {
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  vertical-align: -0.25em;
+  object-fit: contain;
+}
+
+/*
+ * Xaritada topilmagan emoji: id saqlanadi, lekin ko'rsatadigan rasm yo'q.
+ * Zaxira belgi ko'rinadi va u tahrirlanadigan element ekani bilinib
+ * tursin — admin uni tasodifan matn deb o'ylab, yarmini o'chirib
+ * qo'ymasin.
+ */
+.tg-emoji-fallback {
+  border-bottom: 1px dotted hsl(var(--muted-foreground) / 0.6);
+}
+
 .tg-editor code,
 .tg-preview code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

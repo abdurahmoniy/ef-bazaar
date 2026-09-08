@@ -41,6 +41,14 @@ const TAG_MAP: Record<string, string> = {
 /** Yopilgandan keyin qator tashlaydigan elementlar. */
 const BLOCK_TAGS = new Set(['div', 'p', 'blockquote', 'li', 'tr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
 
+/**
+ * Atribut qiymati uchun — `escapeHtml` qo'shtirnoqqa tegmaydi va u atribut
+ * ichida chegarani yopib, keyingi matnni atributga aylantirib yuborardi.
+ */
+function escapeAttr(text: string): string {
+  return escapeHtml(text).replace(/"/g, '&quot;');
+}
+
 export function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -81,6 +89,17 @@ export function domToTelegramHtml(root: HTMLElement): string {
 
     const el = node as Element;
     const tag = el.tagName.toLowerCase();
+
+    // Custom emoji. Bu tarmoq bo'lmasa emoji JIMGINA yo'qolardi: <img> da
+    // matn yo'q, ya'ni pastdagi "notanish element — matnini saqla" qoidasi
+    // hech narsa qoldirmaydi. Zaxira belgi `data-fallback` da turadi,
+    // chunki Telegram teg ichida aynan shuni kutadi.
+    const emojiId = el.getAttribute('data-emoji-id');
+    if (emojiId && /^\d{1,32}$/.test(emojiId)) {
+      const fallback = el.getAttribute('data-fallback') ?? el.textContent ?? '';
+      out += `<tg-emoji emoji-id="${emojiId}">${escapeHtml(fallback)}</tg-emoji>`;
+      return;
+    }
 
     if (tag === 'br') {
       out += '\n';
@@ -140,16 +159,23 @@ export function domToTelegramHtml(root: HTMLElement): string {
  * `<tg-spoiler>` brauzerda notanish element — uni `<span>` ga aylantiramiz,
  * shunda uslub berish va kursor bilan ishlash normal ishlaydi.
  */
-export function telegramHtmlToEditor(html: string): string {
-  return sanitizeTelegramHtml(html, { spoilerAsSpan: true }).replace(/\n/g, '<br>');
+export function telegramHtmlToEditor(
+  html: string,
+  emojiUrls?: ReadonlyMap<string, string>,
+): string {
+  return sanitizeTelegramHtml(html, { spoilerAsSpan: true, emojiUrls, emojiAs: 'img' })
+    .replace(/\n/g, '<br>');
 }
 
 /**
  * Preview uchun xavfsiz HTML. Kirish ishonchsiz deb qaraladi — u admin
  * yozayotgan, hali saqlanmagan va tekshirilmagan matn.
  */
-export function telegramHtmlToPreview(html: string): string {
-  return sanitizeTelegramHtml(html, { spoilerAsSpan: true }).replace(/\n/g, '<br>');
+export function telegramHtmlToPreview(
+  html: string,
+  emojiUrls?: ReadonlyMap<string, string>,
+): string {
+  return sanitizeTelegramHtml(html, { spoilerAsSpan: true, emojiUrls }).replace(/\n/g, '<br>');
 }
 
 /**
@@ -157,11 +183,48 @@ export function telegramHtmlToPreview(html: string): string {
  * ruxsat etilgan teglar tiklanadi. Shuning uchun kirish qanchalik yomon
  * bo'lsa ham chiqishda faqat ma'lum teglar bo'ladi.
  */
-function sanitizeTelegramHtml(html: string, opts: { spoilerAsSpan: boolean }): string {
+function sanitizeTelegramHtml(
+  html: string,
+  opts: {
+    spoilerAsSpan: boolean;
+    emojiUrls?: ReadonlyMap<string, string>;
+    /** Muharrirda tahrirlanadigan element, preview'da harakatli video. */
+    emojiAs?: 'video' | 'img';
+  },
+): string {
   const escaped = escapeHtml(html);
 
-  // Atributsiz teglar
+  // <tg-emoji emoji-id="123">🙂</tg-emoji> — Telegram custom emoji.
+  //
+  // id qat'iy raqamli: Telegram `custom_emoji_id` ni shunday beradi va
+  // erkin shakl teg'ni tanimay qoldirar yoki kutilmagan narsa chizardi.
+  //
+  // Manzil FOYDALANUVCHI MATNIDAN emas, bizning xaritamizdan olinadi —
+  // ya'ni bu yerda in'ektsiya uchun joy yo'q. Xaritada bo'lmasa teg
+  // zaxira emoji bilan qoladi: Telegram ham emoji'ni ko'rsata olmaganda
+  // aynan shunday qiladi, va bo'sh qoldirish adminni chalg'itardi.
   let result = escaped.replace(
+    /&lt;tg-emoji\s+emoji-id=(?:&quot;|")(\d{1,32})(?:&quot;|")&gt;([\s\S]*?)&lt;\/tg-emoji&gt;/g,
+    (_m, id: string, fallback: string) => {
+      const url = opts.emojiUrls?.get(id);
+      if (opts.emojiAs === 'img') {
+        // Muharrirda id HAR DOIM saqlanadi, hatto rasm topilmasa ham:
+        // aks holda xabarni qayta tahrirlash emoji'ni o'chirib yuborardi.
+        const attrs = `data-emoji-id="${id}" data-fallback="${escapeAttr(fallback)}"`;
+        return url
+          ? `<img class="tg-emoji" src="${escapeAttr(url)}" alt="${escapeAttr(fallback)}" ${attrs}>`
+          : `<span class="tg-emoji-fallback" ${attrs}>${fallback}</span>`;
+      }
+      if (!url) return fallback;
+      return (
+        `<video src="${escapeHtml(url)}" class="tg-custom-emoji" ` +
+        'autoplay loop muted playsinline></video>'
+      );
+    },
+  );
+
+  // Atributsiz teglar
+  result = result.replace(
     /&lt;(\/?)(b|strong|i|em|u|ins|s|strike|del|code|pre|blockquote|tg-spoiler)&gt;/g,
     (_m, slash: string, tag: string) => {
       const lower = tag.toLowerCase();
@@ -174,7 +237,12 @@ function sanitizeTelegramHtml(html: string, opts: { spoilerAsSpan: boolean }): s
 
   // <a href="..."> — faqat xavfsiz sxema bilan
   result = result.replace(
-    /&lt;a\s+href=&quot;([^&]*)&quot;\s*&gt;/gi,
+    // Tirnoq ikki xil bo'lishi mumkin: `escapeHtml` faqat & < > ni
+    // ekranlaydi, ya'ni odatda tirnoq XOM qoladi. Faqat `&quot;` ni
+    // kutgan naqsh hech qachon mos kelmasdi va preview'da yarim teg
+    // ko'rinardi (`&lt;a href="..."&gt;sayt</a>`) — yopilish teg'ida
+    // tirnoq yo'q, shuning uchun u ishlab, ochilishi ishlamasdi.
+    /&lt;a\s+href=(?:&quot;|")([^"]*?)(?:&quot;|")\s*&gt;/gi,
     (match, href: string) => {
       const safe = safeHref(href.replace(/&amp;/g, '&'));
       return safe ? `<a href="${escapeHtml(safe)}" target="_blank" rel="noreferrer">` : match;

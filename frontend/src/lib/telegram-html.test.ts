@@ -115,3 +115,137 @@ describe('telegramTextLength', () => {
     expect(telegramTextLength('⚽')).toBe(1);
   });
 });
+
+describe('telegramHtmlToPreview — custom emoji', () => {
+  const urls = new Map([['5332713063516753296', '/bot/emoji/FILE1']]);
+
+  it('tanish emoji preview da harakatli video bo\'lib chiziladi', () => {
+    // Panelda statik thumbnail, preview da esa asl fayl — admin xabar
+    // qanday ko'rinishini haqiqiy holicha ko'rishi kerak.
+    const html = telegramHtmlToPreview(
+      '<tg-emoji emoji-id="5332713063516753296">🇵🇹</tg-emoji>',
+      urls,
+    );
+
+    expect(html).toContain('<video');
+    expect(html).toContain('/bot/emoji/FILE1');
+  });
+
+  it('notanish id zaxira emoji bilan qoladi', () => {
+    // Telegram ham aynan shunday qiladi: emoji ko'rsatib bo'lmasa teg
+    // ichidagi oddiy belgi chiqadi. Bo'sh qoldirsak, admin matnda teshik
+    // ko'rib, nima yo'qolganini bilmasdi.
+    const html = telegramHtmlToPreview('<tg-emoji emoji-id="999">🙂</tg-emoji>', urls);
+
+    expect(html).not.toContain('<video');
+    expect(html).toContain('🙂');
+  });
+
+  it('id shakli qat\'iy — atribut in\'ektsiyasi o\'tmaydi', () => {
+    // id to'g'ridan-to'g'ri HTML atributiga tushmaydi, lekin u bilan
+    // xarita qidiriladi. Shakl erkin bo'lsa, teg umuman tanilmasligi yoki
+    // kutilmagan narsa chizilishi mumkin edi.
+    const html = telegramHtmlToPreview(
+      '<tg-emoji emoji-id="1" onerror=alert(1)">🙂</tg-emoji>',
+      urls,
+    );
+
+    // Muhimi shu: soxta teg VIDEO'ga aylanmaydi va ekranlangan matn bo'lib
+    // qoladi. "onerror" so'zining matn ichida ko'rinishi zararsiz — u
+    // atribut emas, oddiy belgilar.
+    expect(html).not.toContain('<video');
+    expect(html).toContain('&lt;tg-emoji');
+  });
+
+  it('zaxira matn ekranlanadi', () => {
+    const html = telegramHtmlToPreview('<tg-emoji emoji-id="999"><img src=x></tg-emoji>', urls);
+
+    expect(html).not.toContain('<img');
+  });
+
+  it('xarita berilmasa ham yiqilmaydi', () => {
+    // Preview boshqa joylarda ham ishlatiladi (hamkor post sozlamalari),
+    // u yerda emoji xaritasi yo'q.
+    const html = telegramHtmlToPreview('<b>qalin</b> <tg-emoji emoji-id="1">🙂</tg-emoji>');
+
+    expect(html).toContain('<b>qalin</b>');
+    expect(html).toContain('🙂');
+  });
+});
+
+
+describe('telegramHtmlToPreview — havolalar', () => {
+  it('xavfsiz havola haqiqiy <a> bo\'lib chiziladi', () => {
+    // Ilgari faqat "javascript: bo'lmasin" deb tekshirilardi va u
+    // havolalar umuman chizilmayotganida ham o'tardi.
+    expect(telegramHtmlToPreview('<a href="https://efbazaar.uz">sayt</a>'))
+      .toContain('<a href="https://efbazaar.uz"');
+  });
+
+  it('so\'rov parametrli havola ham chiziladi', () => {
+    // `&` ekranlangandan keyin `&amp;` bo'ladi; eski naqsh o'sha yerda
+    // to'xtardi.
+    expect(telegramHtmlToPreview('<a href="https://efbazaar.uz/?a=1&b=2">x</a>'))
+      .toContain('a=1&amp;b=2');
+  });
+});
+
+describe('custom emoji — muharrir va saqlash orasida', () => {
+  const urls = new Map([['5332713063516753296', '/bot/emoji/THUMB1']]);
+
+  it('muharrirdagi emoji saqlashda <tg-emoji> ga aylanadi', () => {
+    // Bu yo'l uzilsa emoji JIMGINA yo'qoladi: <img> da matn yo'q, ya'ni
+    // "notanish element — matnini saqla" qoidasi hech narsa qoldirmaydi.
+    const html = domToTelegramHtml(editor(
+      '<img class="tg-emoji" data-emoji-id="5332713063516753296" data-fallback="🇵🇹" alt="🇵🇹">',
+    ));
+
+    expect(html).toBe('<tg-emoji emoji-id="5332713063516753296">🇵🇹</tg-emoji>');
+  });
+
+  it('saqlangan matn muharrirga qaytganda emoji ko\'rinadi', () => {
+    const html = telegramHtmlToEditor(
+      '<tg-emoji emoji-id="5332713063516753296">🇵🇹</tg-emoji>',
+      urls,
+    );
+
+    expect(html).toContain('data-emoji-id="5332713063516753296"');
+    expect(html).toContain('/bot/emoji/THUMB1');
+  });
+
+  it('borib-kelish matnni o\'zgartirmaydi', () => {
+    // Admin xabarni tahrirlab, saqlab, qayta ochishi mumkin. Har aylanishda
+    // shakl o'zgarsa, emoji bir necha tahrirdan keyin yo'qolardi.
+    const original = 'salom <tg-emoji emoji-id="111">🙂</tg-emoji> xayr';
+    const roundTripped = domToTelegramHtml(editor(telegramHtmlToEditor(original, new Map([['111', '/u']]))));
+
+    expect(roundTripped).toBe(original);
+  });
+
+  it('notanish id bo\'lsa ham saqlashda id yo\'qolmaydi', () => {
+    // Xaritada yo'q emoji muharrirda zaxira belgi bo'lib ko'rinadi, lekin
+    // id saqlanishi kerak — aks holda tahrirlash uni o'chirib yuborardi.
+    const editorHtml = telegramHtmlToEditor('<tg-emoji emoji-id="999">🙂</tg-emoji>', urls);
+    expect(domToTelegramHtml(editor(editorHtml)))
+      .toBe('<tg-emoji emoji-id="999">🙂</tg-emoji>');
+  });
+});
+
+describe('custom emoji — zaxira belgi atribut chegarasini buzmaydi', () => {
+  it('qo\'shtirnoqli zaxira atributdan chiqib keta olmaydi', () => {
+    // `escapeHtml` qo'shtirnoqqa TEGMAYDI (faqat & < >). Zaxira matn esa
+    // `data-fallback="..."` ichiga tushadi, ya'ni tirnoq chegarani yopib,
+    // undan keyingi hamma narsa muharrir DOM'ida atributga aylanardi.
+    const html = telegramHtmlToEditor(
+      '<tg-emoji emoji-id="1">" onmouseover=alert(1) x="</tg-emoji>',
+      new Map([['1', '/u']]),
+    );
+
+    // Matnda "onmouseover" so'zi KO'RINISHI zararsiz — muhimi, u atribut
+    // bo'lib qolmasin. Shuning uchun natijani DOM sifatida o'qiymiz:
+    // aynan brauzer nima ko'rishini tekshirgan bo'lamiz.
+    const img = editor(html).querySelector('img');
+    expect(img?.getAttribute('onmouseover')).toBeNull();
+    expect(img?.getAttribute('data-fallback')).toContain('onmouseover');
+  });
+});

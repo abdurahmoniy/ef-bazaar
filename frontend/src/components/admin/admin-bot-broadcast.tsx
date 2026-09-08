@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, History, ImagePlus, Loader2, Send, Trash2 } 
 
 import { InlineButtonBuilder } from '@/components/admin/inline-button-builder';
 import { TelegramEditor } from '@/components/admin/telegram-editor';
+import { useEmojiPacks } from '@/lib/use-emoji-packs';
 import { TelegramPreview } from '@/components/admin/telegram-preview';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -34,6 +35,7 @@ const AUDIENCE_OPTIONS: Array<{ value: BroadcastAudience; label: string; hint: s
  * cheklab sinov qilish mumkin, va yuborilgan har xabar tarixda qoladi.
  */
 export function AdminBotBroadcast() {
+  const emoji = useEmojiPacks();
   const [text, setText] = useState('');
   const [bannerEnabled, setBannerEnabled] = useState(false);
   const [banner, setBanner] = useState<File | null>(null);
@@ -131,7 +133,12 @@ export function AdminBotBroadcast() {
             </span>
           </div>
 
-          <TelegramEditor value={text} onChange={setText} />
+          <TelegramEditor
+            value={text}
+            onChange={setText}
+            emojiPacks={emoji.packs}
+            emojiUrls={emoji.thumbnailUrls}
+          />
 
           {overLimit && (
             <p className="text-xs font-medium text-destructive">
@@ -195,6 +202,7 @@ export function AdminBotBroadcast() {
           <div>
             <h2 className="mb-2 text-sm font-semibold">Telegramda qanday ko&apos;rinadi</h2>
             <TelegramPreview
+              emojiUrls={emoji.fileUrls}
               html={text}
               bannerUrl={bannerEnabled ? bannerUrl : null}
               buttons={buttons}

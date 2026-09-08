@@ -1,8 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
-import { Bold, Code, Eraser, EyeOff, Italic, Link2, Strikethrough, Underline } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bold, Code, Eraser, EyeOff, Italic, Link2, Smile, Strikethrough, Underline } from 'lucide-react';
 
+import { EmojiPicker } from '@/components/admin/emoji-picker';
+import type { EmojiItem, EmojiPackDetail } from '@/lib/emoji-packs';
 import { domToTelegramHtml, telegramHtmlToEditor } from '@/lib/telegram-html';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +12,10 @@ interface TelegramEditorProps {
   value: string;
   onChange: (telegramHtml: string) => void;
   className?: string;
+  /** Berilsa, asboblar panelida emoji tugmasi paydo bo'ladi. */
+  emojiPacks?: EmojiPackDetail[];
+  /** custom_emoji_id → thumbnail manzili; saqlangan matnni chizish uchun. */
+  emojiUrls?: ReadonlyMap<string, string>;
 }
 
 interface ToolbarAction {
@@ -32,18 +38,21 @@ interface ToolbarAction {
  * (undo) tarixini buzadi, chunki brauzer o'z tarixiga faqat execCommand
  * o'zgarishlarini yozadi.
  */
-export function TelegramEditor({ value, onChange, className }: TelegramEditorProps) {
+export function TelegramEditor({
+  value, onChange, className, emojiPacks, emojiUrls,
+}: TelegramEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
   // Oxirgi o'zimiz chiqargan qiymat. Bu bo'lmasa React qaytargan `value`
   // har bosishda innerHTML'ni qayta yozardi va kursor matn boshiga sakrardi.
   const lastEmitted = useRef<string>('');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (value === lastEmitted.current) return;
-    el.innerHTML = telegramHtmlToEditor(value);
-  }, [value]);
+    el.innerHTML = telegramHtmlToEditor(value, emojiUrls);
+  }, [value, emojiUrls]);
 
   const emit = useCallback(() => {
     const el = ref.current;
@@ -91,6 +100,27 @@ export function TelegramEditor({ value, onChange, className }: TelegramEditorPro
       // Bunda hech narsa qilmaymiz — matn buzilmagani muhimroq.
       return;
     }
+    emit();
+  }, [emit]);
+
+  /**
+   * Emoji'ni kursorga qo'yadi.
+   *
+   * <p>`insertHTML` — Range bilan qo'lda qo'yish emas: brauzer o'z bekor
+   * qilish tarixiga faqat execCommand o'zgarishlarini yozadi, qo'lda
+   * qo'yilgani esa Ctrl+Z bilan qaytmasdi.
+   *
+   * <p>`data-emoji-id` shu yerda muhim: saqlashda aynan shundan
+   * `<tg-emoji>` yasaladi. Usiz emoji jimgina yo'qolardi — rasmda matn yo'q.
+   */
+  const insertEmoji = useCallback((item: EmojiItem) => {
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    const alt = item.emoji.replace(/"/g, '');
+    document.execCommand('insertHTML', false,
+      `<img class="tg-emoji" src="${item.thumbnailUrl}" alt="${alt}" `
+      + `data-emoji-id="${item.customEmojiId}" data-fallback="${alt}">`);
     emit();
   }, [emit]);
 
@@ -156,7 +186,8 @@ export function TelegramEditor({ value, onChange, className }: TelegramEditorPro
   }
 
   return (
-    <div className={cn('overflow-hidden rounded-lg border border-border bg-background', className)}>
+    // `relative` — emoji paneli shu qutiga nisbatan joylashadi.
+    <div className={cn('relative overflow-visible rounded-lg border border-border bg-background', className)}>
       <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/40 px-1.5 py-1">
         {actions.map((action) => (
           <button
@@ -171,7 +202,32 @@ export function TelegramEditor({ value, onChange, className }: TelegramEditorPro
             {action.icon}
           </button>
         ))}
+
+        {emojiPacks && (
+          <button
+            type="button"
+            title="Emoji"
+            aria-expanded={pickerOpen}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setPickerOpen((open) => !open)}
+            className="rounded p-1.5 text-muted-foreground transition hover:bg-background hover:text-foreground"
+          >
+            <Smile className="h-4 w-4" />
+          </button>
+        )}
       </div>
+
+      {pickerOpen && emojiPacks && (
+        <EmojiPicker
+          packs={emojiPacks}
+          onPick={(item) => {
+            insertEmoji(item);
+            // Panel ochiq qoladi: odatda ketma-ket bir nechta emoji
+            // qo'yiladi va har safar qayta ochish zerikarli bo'lardi.
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
 
       <div
         ref={ref}
