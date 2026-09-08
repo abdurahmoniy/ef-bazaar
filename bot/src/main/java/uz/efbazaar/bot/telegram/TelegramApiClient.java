@@ -330,6 +330,18 @@ public class TelegramApiClient {
         return postJson("getChat", body);
     }
 
+    /**
+     * Emoji to'plamini butunlay o'qiydi.
+     *
+     * <p>Nom `https://t.me/addemoji/<nom>` havolasining oxirgi bo'lagi.
+     * Marketplace uni tekshirib yuboradi (EmojiPackLink), shuning uchun bu
+     * yerda qayta tozalanmaydi.
+     */
+    public Optional<JsonNode> getStickerSet(String name) {
+        ObjectNode body = objectMapper.createObjectNode().put("name", name);
+        return postJson("getStickerSet", body);
+    }
+
     /** Returns a downloadable file path for a given file_id (call getFile then prepend api URL). */
     public Optional<String> getFilePath(String fileId) {
         ObjectNode body = objectMapper.createObjectNode().put("file_id", fileId);
