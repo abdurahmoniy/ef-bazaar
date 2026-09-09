@@ -45,6 +45,8 @@ function buildPatternUrl(): string {
 
 interface TelegramPreviewProps {
   html: string;
+  /** custom_emoji_id → asl fayl; berilmasa zaxira belgi ko'rinadi. */
+  emojiUrls?: ReadonlyMap<string, string>;
   bannerUrl: string | null;
   /**
    * Xabar ostidagi inline tugmalar. Start xabarida ular kodda belgilangan
@@ -54,9 +56,9 @@ interface TelegramPreviewProps {
   buttons: InlineButtonRows;
 }
 
-export function TelegramPreview({ html, bannerUrl, buttons }: TelegramPreviewProps) {
+export function TelegramPreview({ html, bannerUrl, buttons, emojiUrls }: TelegramPreviewProps) {
   const pattern = useMemo(buildPatternUrl, []);
-  const rendered = useMemo(() => telegramHtmlToPreview(html), [html]);
+  const rendered = useMemo(() => telegramHtmlToPreview(html, emojiUrls), [html, emojiUrls]);
 
   return (
     <div

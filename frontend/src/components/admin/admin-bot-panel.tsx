@@ -1,18 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Bot, MessageSquare, Send } from 'lucide-react';
+import { Bot, MessageSquare, Send, Smile } from 'lucide-react';
 
 import { AdminBotBroadcast } from '@/components/admin/admin-bot-broadcast';
 import { AdminBotSettings } from '@/components/admin/admin-bot-settings';
+import { AdminEmojiPacks } from '@/components/admin/admin-emoji-packs';
 import type { BotSettings } from '@/lib/bot-settings';
 import { cn } from '@/lib/utils';
 
-type TabId = 'start' | 'broadcast';
+type TabId = 'start' | 'broadcast' | 'emoji';
 
 const TABS: Array<{ id: TabId; label: string; icon: React.ReactNode }> = [
   { id: 'start', label: 'Start xabari', icon: <MessageSquare className="h-4 w-4" /> },
   { id: 'broadcast', label: 'Ommaviy xabar', icon: <Send className="h-4 w-4" /> },
+  { id: 'emoji', label: 'Emoji', icon: <Smile className="h-4 w-4" /> },
 ];
 
 interface AdminBotPanelProps {
@@ -76,6 +78,9 @@ export function AdminBotPanel({ settings }: AdminBotPanelProps) {
       </div>
       <div hidden={active !== 'broadcast'}>
         <AdminBotBroadcast />
+      </div>
+      <div hidden={active !== 'emoji'}>
+        <AdminEmojiPacks />
       </div>
     </div>
   );

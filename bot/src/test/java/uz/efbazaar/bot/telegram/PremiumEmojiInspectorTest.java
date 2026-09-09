@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * `/premium-emoji` — custom emoji'ning id'sini olish uchun kichik asbob.
+ * `/emoji` — custom emoji'ning id'sini olish uchun kichik asbob.
  *
  * <p>Id'ni boshqa yo'l bilan olish noqulay: u faqat kelgan xabarning
  * `entities` massivida bo'ladi va uni ko'rish uchun update'ni qo'lda o'qish
@@ -32,10 +32,10 @@ class PremiumEmojiInspectorTest {
     @DisplayName("bitta custom emoji uchun id va tayyor HTML qaytaradi")
     void readsASingleCustomEmoji() {
         JsonNode msg = message("""
-                {"text":"/premium-emoji 👍",
+                {"text":"/emoji 👍",
                  "entities":[
-                   {"type":"bot_command","offset":0,"length":14},
-                   {"type":"custom_emoji","offset":15,"length":2,
+                   {"type":"bot_command","offset":0,"length":6},
+                   {"type":"custom_emoji","offset":7,"length":2,
                     "custom_emoji_id":"5368324170671202286"}]}""");
 
         String reply = inspector.describe(msg);
@@ -50,9 +50,9 @@ class PremiumEmojiInspectorTest {
     @DisplayName("HTML namunasi matn sifatida ko'rinadi, render bo'lib ketmaydi")
     void theSnippetIsEscaped() {
         JsonNode msg = message("""
-                {"text":"/premium-emoji 👍",
+                {"text":"/emoji 👍",
                  "entities":[
-                   {"type":"custom_emoji","offset":15,"length":2,
+                   {"type":"custom_emoji","offset":7,"length":2,
                     "custom_emoji_id":"5368324170671202286"}]}""");
 
         String reply = inspector.describe(msg);
@@ -67,10 +67,10 @@ class PremiumEmojiInspectorTest {
     @DisplayName("bir nechta emoji tartibi bilan qaytadi")
     void readsSeveralInOrder() {
         JsonNode msg = message("""
-                {"text":"/premium-emoji 👍🔥",
+                {"text":"/emoji 👍🔥",
                  "entities":[
-                   {"type":"custom_emoji","offset":15,"length":2,"custom_emoji_id":"111"},
-                   {"type":"custom_emoji","offset":17,"length":2,"custom_emoji_id":"222"}]}""");
+                   {"type":"custom_emoji","offset":7,"length":2,"custom_emoji_id":"111"},
+                   {"type":"custom_emoji","offset":9,"length":2,"custom_emoji_id":"222"}]}""");
 
         String reply = inspector.describe(msg);
 
@@ -81,11 +81,11 @@ class PremiumEmojiInspectorTest {
     @Test
     @DisplayName("javob berilgan xabardagi emoji ham o'qiladi")
     void fallsBackToTheRepliedMessage() {
-        // Tayyor postni qayta yozib chiqmasdan, unga javoban /premium-emoji
+        // Tayyor postni qayta yozib chiqmasdan, unga javoban /emoji
         // yozish qulayroq.
         JsonNode msg = message("""
-                {"text":"/premium-emoji",
-                 "entities":[{"type":"bot_command","offset":0,"length":14}],
+                {"text":"/emoji",
+                 "entities":[{"type":"bot_command","offset":0,"length":6}],
                  "reply_to_message":{
                    "text":"salom 👍",
                    "entities":[{"type":"custom_emoji","offset":6,"length":2,
@@ -100,12 +100,12 @@ class PremiumEmojiInspectorTest {
     @DisplayName("emoji topilmasa nima qilish kerakligini aytadi")
     void explainsItselfWhenThereIsNothingToRead() {
         JsonNode msg = message("""
-                {"text":"/premium-emoji","entities":[
-                   {"type":"bot_command","offset":0,"length":14}]}""");
+                {"text":"/emoji","entities":[
+                   {"type":"bot_command","offset":0,"length":6}]}""");
 
         String reply = inspector.describe(msg);
 
-        assertThat(reply).contains("/premium-emoji");
+        assertThat(reply).contains("/emoji");
         assertThat(reply).doesNotContain("tg-emoji emoji-id=");
     }
 
