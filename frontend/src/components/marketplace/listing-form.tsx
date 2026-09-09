@@ -528,7 +528,7 @@ function StepNav({
 	const isLast = step === 'review';
 
 	return (
-		<MeasuredBottomBar hideOnKeyboard className='fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-card/95 backdrop-blur-md pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] py-3 pb-[calc(0.75rem+var(--app-content-safe-bottom))] sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:pb-0'>
+		<MeasuredBottomBar className='fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-card/95 backdrop-blur-md pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] py-3 pb-[calc(0.75rem+var(--app-content-safe-bottom))] sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:pb-0'>
 			<div className='mx-auto flex max-w-3xl items-center gap-2.5'>
 				<Button
 					type='button'
