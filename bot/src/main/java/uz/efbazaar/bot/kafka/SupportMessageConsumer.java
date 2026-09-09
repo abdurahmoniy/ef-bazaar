@@ -78,22 +78,33 @@ public class SupportMessageConsumer {
             default -> "🛠 #Yordam";
         };
 
-        boolean isInitial = (e.replyToTelegramMessageId() == null);
+        String chatIdStr = e.chatId().toString();
+        String shortChatId = chatIdStr.length() >= 8 ? chatIdStr.substring(0, 8) : chatIdStr;
+
         StringBuilder sb = new StringBuilder();
-        if (isInitial) {
-            sb.append("💬 <b>").append(catLabel).append(" | Yangi murojaat</b>\n\n");
-        } else {
-            sb.append("💬 <b>").append(catLabel).append(" | Yangi xabar</b>\n\n");
+
+        if (e.replyToTelegramMessageId() != null) {
+            // KEYINGI XABAR — sarlavha takrorlanmaydi.
+            //
+            // Ilgari har xabar to'rt qator bezak bilan kelardi va bitta
+            // so'zlik javob ham yangi murojaatdek ko'rinardi. Kontekstni
+            // reply zanjiri allaqachon beradi: xabar ildizga bog'langan va
+            // Telegram uni bosganda ko'rsatadi.
+            //
+            // Qisqa id qoladi, chunki bir nechta murojaat bitta topikda
+            // aralashadi va ko'z bilan ajratishning yagona yo'li shu.
+            sb.append("<code>#").append(shortChatId).append("</code> ")
+              .append(escape(e.senderName())).append("\n")
+              .append(escape(e.content()));
+            return sb.toString();
         }
 
+        sb.append("💬 <b>").append(catLabel).append(" | Yangi murojaat</b>\n\n");
         sb.append("👤 <b>Kimdan:</b> ").append(escape(e.senderName()));
         if (StringUtils.hasText(e.senderContact())) {
             sb.append(" (").append(escape(e.senderContact())).append(")");
         }
         sb.append("\n");
-
-        String chatIdStr = e.chatId().toString();
-        String shortChatId = chatIdStr.length() >= 8 ? chatIdStr.substring(0, 8) : chatIdStr;
         sb.append("🆔 <b>Chat ID:</b> <code>#").append(shortChatId).append("</code>\n");
         sb.append("────────────────────\n");
         sb.append(escape(e.content()));
