@@ -2,6 +2,9 @@ package uz.efbazaar.bot.kafka;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.any;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -113,5 +116,60 @@ class SupportMessageConsumerTest {
         consumer.onMessageCreated(dto);
 
         verify(kafka, never()).send(anyString(), anyString(), any());
+    }
+
+    @Nested
+    @DisplayName("topikdagi ko'rinish")
+    class TopicReadability {
+
+        private String textSentFor(Long replyTo, String content) {
+            when(telegram.sendMessageWithReply(anyString(), anyInt(), anyString(), any()))
+                    .thenReturn(Optional.of(1));
+            consumer.onMessageCreated(new SupportMessageCreatedDto(
+                    UUID.fromString("fa02085f-0000-4000-8000-000000000001"),
+                    UUID.randomUUID(), "SUPPORT", UUID.randomUUID(),
+                    "Abdurakhmoniy", "@abdurahmoniy", content, replyTo, Instant.now()));
+            ArgumentCaptor<String> text = ArgumentCaptor.forClass(String.class);
+            verify(telegram).sendMessageWithReply(anyString(), anyInt(), text.capture(), any());
+            return text.getValue();
+        }
+
+        @Test
+        @DisplayName("birinchi murojaat to'liq sarlavha bilan keladi")
+        void theFirstMessageCarriesTheHeader() {
+            // Bu haqiqatan yangi murojaat: admin kimdan kelganini va qanday
+            // bog'lanishni shu yerda ko'rishi kerak.
+            String text = textSentFor(null, "help");
+
+            assertThat(text).contains("Yangi murojaat");
+            assertThat(text).contains("Abdurakhmoniy");
+            assertThat(text).contains("@abdurahmoniy");
+            assertThat(text).contains("#fa02085f");
+        }
+
+        @Test
+        @DisplayName("keyingi xabar sarlavhani takrorlamaydi")
+        void followUpsAreCompact() {
+            // Ilgari har xabar to'rt qator bezak bilan kelardi va bitta
+            // so'zlik javob ham YANGI MUROJAATDEK ko'rinardi. Reply zanjiri
+            // kontekstni allaqachon beradi.
+            String text = textSentFor(999L, "help");
+
+            assertThat(text).doesNotContain("Yangi murojaat");
+            assertThat(text).doesNotContain("Kimdan");
+            assertThat(text).doesNotContain("────");
+            // Qisqa id qoladi: bir nechta murojaat aralashganda ko'z bilan
+            // ajratishning yagona yo'li shu.
+            assertThat(text).contains("#fa02085f");
+            assertThat(text).contains("help");
+        }
+
+        @Test
+        @DisplayName("keyingi xabar qisqa — ko'pi bilan ikki qator bezak")
+        void followUpsStayShort() {
+            String text = textSentFor(999L, "help");
+
+            assertThat(text.lines().count()).isLessThanOrEqualTo(2L);
+        }
     }
 }

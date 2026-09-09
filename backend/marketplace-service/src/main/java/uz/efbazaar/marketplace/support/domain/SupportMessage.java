@@ -39,6 +39,16 @@ public class SupportMessage {
     @Column(name = "telegram_message_id")
     private Long telegramMessageId;
 
+    /**
+     * Javob bergan adminning Telegram username'i — faqat audit uchun.
+     *
+     * <p>Foydalanuvchiga KO'RSATILMAYDI: `senderName` doim "efBazaar
+     * Admin". Bu ustun "kim javob berdi" degan savolga javob berish uchun
+     * saqlanadi.
+     */
+    @Column(name = "admin_telegram_username")
+    private String adminTelegramUsername;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

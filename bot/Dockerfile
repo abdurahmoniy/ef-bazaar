@@ -14,17 +14,17 @@ WORKDIR /workspace
 ENV MAVEN_OPTS="-Dmaven.wagon.http.retryHandler.count=5 \
                 -Dmaven.wagon.http.retryHandler.requestSentEnabled=true \
                 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120"
+# GHA cache RUN qatlamlarini saqlaydi, cache mount ichidagi ~/.m2 ni emas.
+# Kutubxonalar oddiy qatlamda qolsin: src o'zgarganda ham keyingi runner oladi.
 COPY pom.xml .
-RUN --mount=type=cache,target=/root/.m2 \
-    n=0; until mvn -B -q dependency:go-offline; do \
+RUN n=0; until mvn -B -ntp dependency:go-offline; do \
       n=$((n+1)); \
       if [ "$n" -ge 5 ]; then echo "Maven 5 urinishdan keyin ham yiqildi"; exit 1; fi; \
       echo "Maven yiqildi (urinish $n/5) — $((n*20))s dan keyin qayta"; \
       sleep $((n*20)); \
     done
 COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 \
-    n=0; until mvn -B -q clean package -DskipTests; do \
+RUN n=0; until mvn -B -ntp clean package -DskipTests; do \
       n=$((n+1)); \
       if [ "$n" -ge 5 ]; then echo "Maven 5 urinishdan keyin ham yiqildi"; exit 1; fi; \
       echo "Maven yiqildi (urinish $n/5) — $((n*20))s dan keyin qayta"; \
