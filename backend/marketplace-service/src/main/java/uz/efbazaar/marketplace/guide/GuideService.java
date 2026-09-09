@@ -51,13 +51,14 @@ public class GuideService {
     @Transactional
     public GuideResponse create(String title, String description,
                                 MultipartFile video, UUID adminId) {
-        String fileId = uploader.upload(video, description);
+        GuideVideoUploader.UploadResponse uploaded = uploader.upload(video, description);
 
         Guide guide = Guide.builder()
                 .id(UUID.randomUUID())
                 .title(title.strip())
                 .description(description.strip())
-                .videoFileId(fileId)
+                .videoFileId(uploaded.fileId())
+                .mediaKind(uploaded.kindOrVideo())
                 .createdBy(adminId)
                 .createdAt(Instant.now())
                 .sortOrder((int) guides.count())

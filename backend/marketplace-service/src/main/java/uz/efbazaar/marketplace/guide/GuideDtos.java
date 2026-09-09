@@ -52,12 +52,13 @@ public final class GuideDtos {
     }
 
     /** Bot uchun — tugma yozuvi va video birga, ikkinchi so'rov kerak bo'lmasin. */
-    public record BotGuideButton(UUID guideId, String label,
-                                 String description, String videoFileId) {
+    public record BotGuideButton(UUID guideId, String label, String description,
+                                 String videoFileId, String mediaKind) {
 
         public static BotGuideButton from(GuideButton b) {
             return new BotGuideButton(b.getGuide().getId(), b.getLabel(),
-                    b.getGuide().getDescription(), b.getGuide().getVideoFileId());
+                    b.getGuide().getDescription(), b.getGuide().getVideoFileId(),
+                    b.getGuide().getMediaKind());
         }
     }
 }

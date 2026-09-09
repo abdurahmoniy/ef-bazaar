@@ -47,8 +47,16 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 80MB
+      # 60MB: qo'llanma videosi Telegram chegarasi bo'yicha 50MB gacha,
+      # qolgani multipart qo'shimchalari uchun. Ilgari 10MB edi va video
+      # KODGA YETIB BORMASDAN rad etilardi — 50MB tekshiruvimiz ishga
+      # tushishga ham ulgurmasdi.
+      #
+      # Xotira xavfi yo'q: fayllar diskka yoziladi va yuqoriga OQIM bilan
+      # uzatiladi (GuideVideoUploader, MediaUploadController). Rasm hajmi
+      # esa alohida, ilova darajasida cheklanadi (MediaService.validate).
+      max-file-size: 60MB
+      max-request-size: 120MB
 
 server:
   port: 8082

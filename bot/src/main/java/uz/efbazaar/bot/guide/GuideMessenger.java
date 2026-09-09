@@ -77,10 +77,21 @@ public class GuideMessenger {
         String chatId = message.path("chat").path("id").asText("");
         if (chatId.isEmpty()) return;
 
+        // Avval YUBORAMIZ, keyin o'chiramiz. Teskarisi bo'lsa va yuborish
+        // yiqilsa, foydalanuvchi qo'lida hech narsa qolmaydi: ro'yxat ham
+        // yo'q, video ham yo'q, sabab ham ko'rinmaydi.
+        boolean sent = "DOCUMENT".equals(guide.get().mediaKind())
+                ? telegram.sendDocumentByFileId(chatId, guide.get().videoFileId(),
+                        guide.get().description(), keyboardOf(buttons)).isPresent()
+                : telegram.sendVideoByFileId(chatId, guide.get().videoFileId(),
+                        guide.get().description(), keyboardOf(buttons)).isPresent();
+
+        if (!sent) {
+            log.warn("Qo'llanma {} yuborilmadi — ro'yxat joyida qoldirildi", guideId.get());
+            return;
+        }
+
         long messageId = message.path("message_id").asLong(0);
         if (messageId > 0) telegram.deleteMessage(chatId, messageId);
-
-        telegram.sendVideoByFileId(chatId, guide.get().videoFileId(),
-                guide.get().description(), keyboardOf(buttons));
     }
 }
