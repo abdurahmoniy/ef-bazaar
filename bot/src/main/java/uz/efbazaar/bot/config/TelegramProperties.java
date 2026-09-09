@@ -23,8 +23,13 @@ public record TelegramProperties(
             Integer logs,
             Integer registration,
             Integer media,
-            Integer payments
-    ) {}
+            Integer payments,
+            Integer support
+    ) {
+        public Topics(Integer logs, Integer registration, Integer media, Integer payments) {
+            this(logs, registration, media, payments, null);
+        }
+    }
 
     public boolean isWebhookMode() {
         return webhookUrl != null && !webhookUrl.isBlank();

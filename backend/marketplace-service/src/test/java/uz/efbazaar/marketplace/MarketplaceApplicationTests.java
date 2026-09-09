@@ -101,6 +101,9 @@ class MarketplaceApplicationTests {
     @MockBean uz.efbazaar.marketplace.trust.TrustRepositories.ComplaintRepository complaintRepository;
     @MockBean uz.efbazaar.marketplace.trust.TrustRepositories.PenaltyRepository penaltyRepository;
     @MockBean uz.efbazaar.marketplace.trust.TrustRepositories.BlacklistIdentifierRepository blacklistIdentifierRepository;
+    // support chat
+    @MockBean uz.efbazaar.marketplace.support.repository.SupportChatRepository supportChatRepository;
+    @MockBean uz.efbazaar.marketplace.support.repository.SupportMessageRepository supportMessageRepository;
 
     @Test
     void contextLoads() {

@@ -504,3 +504,18 @@ export interface NotificationResponse {
   readAt?: string | null;
   createdAt: string;
 }
+
+export interface AdminSupportChatSummary {
+  id: string;
+  category: import('./support').SupportCategory;
+  status: import('./support').SupportChatStatus;
+  userId: string | null;
+  guestSessionId: string | null;
+  senderName: string;
+  senderContact: string | null;
+  telegramRootMessageId: number | null;
+  lastMessagePreview: string;
+  lastMessageAt: string;
+  createdAt: string;
+}
+

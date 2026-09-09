@@ -5,6 +5,7 @@ import { buildListingSearchParams } from './marketplace-format';
 import type {
   AdminReportResponse,
   AdminStatsResponse,
+  AdminSupportChatSummary,
   AttributeDefinitionResponse,
   CardPage,
   AdminCardPage,
@@ -20,6 +21,7 @@ import type {
   PageResponse,
   ReportStatus,
 } from './marketplace-types';
+import type { SupportCategory, SupportChatStatus } from './support';
 import type { BotSettings } from './bot-settings';
 import type { TrustComplaint, TrustComplaintStatus } from './gamer-types';
 import type { User } from './types';
@@ -315,5 +317,25 @@ export async function getMyNotifications(size = 50): Promise<NotificationRespons
   );
   if (!result.ok) return [];
   return result.data.content ?? [];
+}
+
+export async function getAdminSupportChats(
+  category?: SupportCategory,
+  status?: SupportChatStatus,
+  search?: string,
+  page = 0,
+  size = 20,
+): Promise<FetchResult<PageResponse<AdminSupportChatSummary>>> {
+  const params = new URLSearchParams({
+    page: String(page),
+    size: String(size),
+    sort: 'lastMessageAt,desc',
+  });
+  if (category) params.set('category', category);
+  if (status) params.set('status', status);
+  if (search && search.trim()) params.set('search', search.trim());
+  return safeFetch<PageResponse<AdminSupportChatSummary>>(
+    `${MARKETPLACE_PREFIX}/admin/support/chats?${params.toString()}`,
+  );
 }
 

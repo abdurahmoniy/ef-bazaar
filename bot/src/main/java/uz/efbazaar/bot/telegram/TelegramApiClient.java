@@ -41,7 +41,28 @@ public class TelegramApiClient {
      * @return sent message id (or empty on failure — we don't crash the caller).
      */
     public Optional<Integer> sendMessage(String chatId, Integer threadId, String text) {
-        return sendMessage(chatId, threadId, text, null);
+        return sendMessage(chatId, threadId, text, (WebAppButton) null);
+    }
+
+    /**
+     * sendMessage with replyToMessageId support (threads in forum topics or message replies).
+     */
+    public Optional<Integer> sendMessageWithReply(String chatId, Integer threadId, String text,
+                                                  Long replyToMessageId) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("text", text)
+                .put("parse_mode", "HTML")
+                .put("disable_web_page_preview", true);
+        if (threadId != null) {
+            body.put("message_thread_id", threadId);
+        }
+        if (replyToMessageId != null) {
+            body.put("reply_to_message_id", replyToMessageId);
+            body.put("allow_sending_without_reply", true);
+        }
+        return postJson("sendMessage", body)
+                .map(this::extractMessageId);
     }
 
     /**

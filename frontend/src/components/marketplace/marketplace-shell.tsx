@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import type { User } from '@/lib/types';
 import { FEATURES } from '@/lib/feature-flags';
 import { GrowthLink } from '@/components/growth/growth-link';
+import { SupportWidget } from '@/components/support/support-widget';
 
 interface MarketplaceShellProps {
   user: User | null;
@@ -305,6 +306,8 @@ export function MarketplaceShell({
       <main className="marketplace-shell-content mx-auto flex w-full max-w-6xl flex-col gap-4 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] pt-4 md:py-6">
         {children}
       </main>
+
+      <SupportWidget user={user} />
 
       {mobileActionBar ? (
         <MeasuredBottomBar

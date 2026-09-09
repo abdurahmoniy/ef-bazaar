@@ -84,6 +84,7 @@ describe('AdminShell & Navigation', () => {
     expect(allHrefs).toContain('/admin');
     expect(allHrefs).toContain('/admin/listings');
     expect(allHrefs).toContain('/admin/reports');
+    expect(allHrefs).toContain('/admin/support');
     expect(allHrefs).toContain('/admin/trust');
     expect(allHrefs).toContain('/admin/payments/cards');
     expect(allHrefs).toContain('/admin/payments/unmatched');

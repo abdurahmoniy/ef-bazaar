@@ -8,6 +8,7 @@ import {
   ArrowUpFromLine,
   Bot,
   Handshake,
+  Headphones,
   ChevronRight,
   ClipboardCheck,
   CreditCard,
@@ -85,6 +86,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/reports',
         label: 'Shikoyatlar',
         icon: Flag,
+      },
+      {
+        href: '/admin/support',
+        label: 'Murojaatlar & Chat',
+        shortLabel: 'Support',
+        icon: Headphones,
       },
       {
         href: '/admin/trust',

@@ -14,6 +14,7 @@ import type {
   MaxOvrRefreshResponse,
   MetaTier,
 } from './marketplace-types';
+import type { SupportChat, SupportMessage } from './support';
 
 export type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -254,5 +255,32 @@ export function adminDeleteAttribute(id: string): Promise<ActionResult<null>> {
     ['v1', 'admin', 'attributes', id],
     { method: 'DELETE' },
     "Atribut o'chirilmadi",
+  );
+}
+
+export function adminGetSupportChat(chatId: string): Promise<ActionResult<SupportChat>> {
+  return marketplaceRequest<SupportChat>(
+    ['v1', 'admin', 'support', 'chats', chatId],
+    { method: 'GET' },
+    'Murojaat yuklanmadi',
+  );
+}
+
+export function adminReplySupportChat(
+  chatId: string,
+  content: string,
+): Promise<ActionResult<SupportMessage>> {
+  return marketplaceRequest<SupportMessage>(
+    ['v1', 'admin', 'support', 'chats', chatId, 'reply'],
+    { method: 'POST', body: JSON.stringify({ content }) },
+    'Javob yuborilmadi',
+  );
+}
+
+export function adminCloseSupportChat(chatId: string): Promise<ActionResult<SupportChat>> {
+  return marketplaceRequest<SupportChat>(
+    ['v1', 'admin', 'support', 'chats', chatId, 'close'],
+    { method: 'POST' },
+    'Murojaat yopilmadi',
   );
 }

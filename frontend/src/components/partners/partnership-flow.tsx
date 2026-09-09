@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertCircle, ArrowRight, Ban, Bell, Check, CheckCircle2, Clock, Coins,
-  Handshake, Loader2, MousePointerClick, RefreshCw, Send, Settings2, Store, Wallet,
+  Handshake, Headphones, Loader2, MousePointerClick, RefreshCw, Send, Settings2, Store, Wallet,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -61,14 +61,21 @@ function PartnershipOverview({ authenticated }: { authenticated: boolean }) {
           <p className="flex items-center gap-2 text-sm font-semibold text-primary dark:text-secondary"><Handshake className="h-5 w-5" /> Telegram kanal egalari uchun</p>
           <h1 className="max-w-xl text-3xl font-bold leading-tight tracking-tight sm:text-4xl">Kanalingizga e’lon qabul qiling</h1>
           <p className="max-w-xl text-base leading-relaxed text-muted-foreground">efBazaar sotuvchilari kanalingizni tanlasin. Joylash narxi va post ko‘rinishini o‘zingiz belgilang.</p>
-          <Button asChild size="lg" className="w-full sm:w-auto">
-            <Link
-              href={authenticated ? '#application' : '/auth/login?from=/partnership'}
-              onClick={() => trackGrowth('partnership_open', { placement: 'partnership_hero', state: authenticated ? 'authenticated' : 'guest' })}
-            >
-              {authenticated ? 'Arizaga o‘tish' : 'Kirish va shartlarni ko‘rish'} <ArrowRight />
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button asChild size="lg" className="w-full sm:w-auto">
+              <Link
+                href={authenticated ? '#application' : '/auth/login?from=/partnership'}
+                onClick={() => trackGrowth('partnership_open', { placement: 'partnership_hero', state: authenticated ? 'authenticated' : 'guest' })}
+              >
+                {authenticated ? 'Arizaga o‘tish' : 'Kirish va shartlarni ko‘rish'} <ArrowRight />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+              <Link href="/support?category=PARTNERSHIP">
+                <Headphones className="h-4 w-4" /> Hamkorlik chati
+              </Link>
+            </Button>
+          </div>
           <p className="text-sm text-muted-foreground">Ariza → kanal tekshiruvi → to‘lov → admin tasdig‘i</p>
         </div>
         <figure className="mx-auto w-full max-w-sm rounded-2xl border border-border bg-muted/50 p-4">
