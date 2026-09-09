@@ -10,6 +10,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -26,8 +27,15 @@ class GuideMessengerTest {
 
     private static final UUID GUIDE = UUID.randomUUID();
 
+    private void sendingSucceeds() {
+        when(telegram.sendVideoByFileId(anyString(), anyString(), anyString(), any()))
+                .thenReturn(java.util.Optional.of(1));
+        when(telegram.sendDocumentByFileId(anyString(), anyString(), anyString(), any()))
+                .thenReturn(java.util.Optional.of(1));
+    }
+
     private GuideClient.GuideButtonView button() {
-        return new GuideClient.GuideButtonView(GUIDE, "E'lon joylash", "Tavsif", "FILE123");
+        return new GuideClient.GuideButtonView(GUIDE, "E'lon joylash", "Tavsif", "FILE123", "VIDEO");
     }
 
     @Test
@@ -45,7 +53,7 @@ class GuideMessengerTest {
     @Test
     @DisplayName("har qo'llanma alohida qatorda chiqadi")
     void eachGuideGetsItsOwnRow() {
-        var second = new GuideClient.GuideButtonView(UUID.randomUUID(), "Savdo", "T", "F2");
+        var second = new GuideClient.GuideButtonView(UUID.randomUUID(), "Savdo", "T", "F2", "VIDEO");
         when(guides.buttons()).thenReturn(List.of(button(), second));
 
         messenger.sendList(42L);
@@ -61,6 +69,8 @@ class GuideMessengerTest {
     @Test
     @DisplayName("tugma bosilganda eski xabar o'chib, video keladi")
     void pressingBringsTheVideoAndRemovesTheList() throws Exception {
+        sendingSucceeds();
+        sendingSucceeds();
         when(guides.buttons()).thenReturn(List.of(button()));
         var query = mapper.readTree("""
                 {"id":"cb1","data":"guide:%s",
@@ -105,5 +115,46 @@ class GuideMessengerTest {
 
         verify(telegram).answerCallbackQuery("cb1");
         verify(telegram, never()).sendVideoByFileId(anyString(), anyString(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("MP4 bo'lmagan qo'llanma document sifatida yuboriladi")
+    void aDocumentGuideGoesAsDocument() {
+        // Telegram MP4 bo'lmagan faylni document sifatida qabul qiladi va
+        // o'sha `file_id` ni sendVideo ga bersak RAD ETADI. Turni
+        // saqlamaganimizda qo'llanma bosilganda hech narsa kelmasdi.
+        sendingSucceeds();
+        when(guides.buttons()).thenReturn(List.of(
+                new GuideClient.GuideButtonView(GUIDE, "Q", "Tavsif", "FILE123", "DOCUMENT")));
+        var query = query();
+
+        messenger.onCallback(query);
+
+        verify(telegram).sendDocumentByFileId(eq("42"), eq("FILE123"), eq("Tavsif"), any());
+        verify(telegram, never()).sendVideoByFileId(anyString(), anyString(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("yuborish yiqilsa ro'yxat o'chirilmaydi")
+    void aFailedSendKeepsTheList() {
+        // Aks holda foydalanuvchi qo'lida hech narsa qolmaydi: ro'yxat ham
+        // yo'q, video ham yo'q, sabab ham ko'rinmaydi.
+        when(telegram.sendVideoByFileId(anyString(), anyString(), anyString(), any()))
+                .thenReturn(java.util.Optional.empty());
+        when(guides.buttons()).thenReturn(List.of(button()));
+
+        messenger.onCallback(query());
+
+        verify(telegram, never()).deleteMessage(anyString(), anyLong());
+    }
+
+    private com.fasterxml.jackson.databind.JsonNode query() {
+        try {
+            return mapper.readTree("""
+                    {"id":"cb1","data":"guide:%s",
+                     "message":{"message_id":77,"chat":{"id":42}}}""".formatted(GUIDE));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

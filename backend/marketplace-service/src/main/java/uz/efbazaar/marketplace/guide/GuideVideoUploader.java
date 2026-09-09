@@ -40,7 +40,7 @@ public class GuideVideoUploader {
     @Qualifier("botClient")
     private final RestClient botClient;
 
-    public String upload(MultipartFile video, String caption) {
+    public UploadResponse upload(MultipartFile video, String caption) {
         if (video == null || video.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Video yuklanmagan");
         }
@@ -64,7 +64,7 @@ public class GuideVideoUploader {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                         "Telegram videoni qabul qilmadi");
             }
-            return response.fileId();
+            return response;
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
@@ -104,5 +104,15 @@ public class GuideVideoUploader {
         }
     }
 
-    public record UploadResponse(String fileId, Integer messageId) {}
+    /**
+     * @param mediaKind VIDEO yoki DOCUMENT. Telegram MP4 bo'lmagan faylni
+     *                  document sifatida qabul qiladi va uni qayta yuborish
+     *                  usuli boshqa.
+     */
+    public record UploadResponse(String fileId, Integer messageId, String mediaKind) {
+
+        public String kindOrVideo() {
+            return mediaKind == null || mediaKind.isBlank() ? "VIDEO" : mediaKind;
+        }
+    }
 }

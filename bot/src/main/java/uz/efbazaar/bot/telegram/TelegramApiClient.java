@@ -232,8 +232,8 @@ public class TelegramApiClient {
      *
      * @return (messageId, video file_id) yoki bo'sh — yuklash yiqilgan.
      */
-    public Optional<UploadedDocument> sendVideo(String chatId, Integer threadId,
-                                                MediaFile file, String caption) {
+    public Optional<UploadedMedia> sendVideo(String chatId, Integer threadId,
+                                            MediaFile file, String caption) {
         return sendVideo(chatId, threadId, asResource(file), caption);
     }
 
@@ -246,8 +246,8 @@ public class TelegramApiClient {
      * multipart faylni allaqachon diskka yozadi, shuning uchun uni
      * {@code Resource} sifatida uzatsak xotiraga umuman tushmaydi.
      */
-    public Optional<UploadedDocument> sendVideo(String chatId, Integer threadId,
-                                                Resource video, String caption) {
+    public Optional<UploadedMedia> sendVideo(String chatId, Integer threadId,
+                                            Resource video, String caption) {
         MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
         form.add("chat_id", chatId);
         if (threadId != null) form.add("message_thread_id", String.valueOf(threadId));
@@ -268,13 +268,16 @@ public class TelegramApiClient {
                     .map(r -> r.path("ok").asBoolean() ? r.path("result") : null)
                     .block();
             if (result == null) return Optional.empty();
-            // Telegram ba'zan videoni `document` sifatida qaytaradi — masalan
-            // kodek qo'llab-quvvatlanmasa. Ikkalasini ham qabul qilamiz:
-            // file_id baribir ishlaydi va qo'llanma yo'qolmaydi.
+            // Telegram MP4 bo'lmagan faylni `document` sifatida qabul qiladi.
+            // `file_id` ikkalasida ham bor, lekin QAYTA YUBORISH usuli
+            // boshqa: document'ning id'sini sendVideo ga bersak rad etadi.
+            // Shuning uchun turini ham qaytaramiz.
             String fileId = result.path("video").path("file_id").asText(null);
+            boolean asVideo = fileId != null;
             if (fileId == null) fileId = result.path("document").path("file_id").asText(null);
             if (fileId == null) return Optional.empty();
-            return Optional.of(new UploadedDocument(result.path("message_id").asInt(), fileId));
+            return Optional.of(new UploadedMedia(
+                    result.path("message_id").asInt(), fileId, asVideo));
         } catch (WebClientResponseException e) {
             log.error("sendVideo failed: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
             return Optional.empty();
@@ -302,6 +305,22 @@ public class TelegramApiClient {
             body.set("reply_markup", buildCallbackKeyboard(keyboard));
         }
         return postJson("sendVideo", body).map(r -> r.path("message_id").asInt());
+    }
+
+    /** Document'ni file_id bo'yicha yuboradi — MP4 bo'lmagan qo'llanmalar uchun. */
+    public Optional<Integer> sendDocumentByFileId(String chatId, String fileId, String caption,
+                                                  List<List<CallbackButton>> keyboard) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("document", fileId);
+        if (caption != null && !caption.isBlank()) {
+            body.put("caption", caption);
+            body.put("parse_mode", "HTML");
+        }
+        if (keyboard != null && !keyboard.isEmpty()) {
+            body.set("reply_markup", buildCallbackKeyboard(keyboard));
+        }
+        return postJson("sendDocument", body).map(r -> r.path("message_id").asInt());
     }
 
     /**
@@ -832,6 +851,13 @@ public class TelegramApiClient {
     }
 
     public record MediaFile(byte[] bytes, String filename, String contentType) {}
+
+    /**
+     * @param asVideo Telegram uni video sifatida qabul qildimi. `false`
+     *                bo'lsa qayta yuborishda `sendDocument` kerak —
+     *                `sendVideo` document id'sini rad etadi.
+     */
+    public record UploadedMedia(int messageId, String fileId, boolean asVideo) {}
     public record UploadedPhoto(int messageId, String fileId, String fileUniqueId) {}
 
     /** Single inline-keyboard button that opens a Telegram Mini App. */

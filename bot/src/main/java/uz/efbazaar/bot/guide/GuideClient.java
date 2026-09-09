@@ -55,5 +55,6 @@ public class GuideClient {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record GuideButtonView(UUID guideId, String label,
-                                  String description, String videoFileId) {}
+                                  String description, String videoFileId,
+                                  String mediaKind) {}
 }

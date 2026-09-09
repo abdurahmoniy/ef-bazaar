@@ -152,7 +152,7 @@ public class MediaUploadController {
      */
     @PostMapping(value = "/upload-video", consumes = "multipart/form-data")
     @ResponseStatus(HttpStatus.OK)
-    public FileUploadResponse uploadVideo(@RequestParam("file") MultipartFile file,
+    public VideoUploadResponse uploadVideo(@RequestParam("file") MultipartFile file,
                                           @RequestParam(value = "caption", required = false)
                                           String caption) {
         if (file == null || file.isEmpty()) {
@@ -172,9 +172,18 @@ public class MediaUploadController {
                     "Telegram videoni qabul qilmadi. Eng ko'p uchraydigan sabab — "
                             + "hajm 50 MB dan katta.");
         }
-        log.info("Uploaded video to media topic: messageId={}", uploaded.get().messageId());
-        return new FileUploadResponse(uploaded.get().fileId(), uploaded.get().messageId());
+        log.info("Uploaded video to media topic: messageId={} asVideo={}",
+                uploaded.get().messageId(), uploaded.get().asVideo());
+        return new VideoUploadResponse(uploaded.get().fileId(), uploaded.get().messageId(),
+                uploaded.get().asVideo() ? "VIDEO" : "DOCUMENT");
     }
+
+    /**
+     * @param mediaKind VIDEO yoki DOCUMENT — qayta yuborishda usul shunga
+     *                  qarab tanlanadi. Document id'sini `sendVideo` ga
+     *                  bersak Telegram rad etadi.
+     */
+    public record VideoUploadResponse(String fileId, Integer messageId, String mediaKind) {}
 
     public record UploadResponse(List<String> fileIds, List<Integer> messageIds) {}
 
