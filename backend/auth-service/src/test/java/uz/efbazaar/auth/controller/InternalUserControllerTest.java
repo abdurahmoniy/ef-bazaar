@@ -1,5 +1,6 @@
 package uz.efbazaar.auth.controller;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import uz.efbazaar.auth.domain.User;
 import uz.efbazaar.auth.dto.UserNamesBatchRequest;
@@ -10,6 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -80,5 +82,53 @@ class InternalUserControllerTest {
                 controller.resolveNames(new UserNamesBatchRequest(List.of(id)));
 
         assertThat(result).isEmpty();
+    }
+
+    /**
+     * Sahifa shaklini O'ZIMIZ belgilaymiz.
+     *
+     * <p>Ilgari bu endpoint Spring'ning `PageImpl` ini shundayligicha
+     * qaytarardi va Spring buning uchun ogohlantiradi: bu JSON tuzilmasi
+     * kafolatlanmagan, versiya yangilanganda o'zgarishi mumkin.
+     *
+     * <p>Bu yerda o'zgarish jimgina falokat bo'lardi. Bot sahifalashni
+     * `last` bo'yicha to'xtatadi (`BroadcastExecutor:116`); maydon
+     * yo'qolsa Jackson uni `false` qiladi va ommaviy jo'natish CHEKSIZ
+     * aylanardi.
+     */
+    @Test
+    @DisplayName("oxirgi sahifa last=true bilan keladi")
+    void theLastPageSaysSo() {
+        when(userRepository.findTelegramIds(any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(
+                        List.of(1L, 2L),
+                        org.springframework.data.domain.PageRequest.of(0, 500),
+                        2));
+
+        var page = controller.telegramIds(
+                uz.efbazaar.auth.controller.InternalUserController.Audience.ALL,
+                org.springframework.data.domain.PageRequest.of(0, 500));
+
+        assertThat(page.content()).containsExactly(1L, 2L);
+        assertThat(page.last()).isTrue();
+        assertThat(page.totalElements()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("oxirgi bo'lmagan sahifada last=false")
+    void anEarlierPageIsNotTheLast() {
+        when(userRepository.findTelegramIds(any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(
+                        List.of(1L),
+                        org.springframework.data.domain.PageRequest.of(0, 1),
+                        5));
+
+        var page = controller.telegramIds(
+                uz.efbazaar.auth.controller.InternalUserController.Audience.ALL,
+                org.springframework.data.domain.PageRequest.of(0, 1));
+
+        // Bu `false` bo'lmasa jo'natish birinchi sahifada to'xtardi va
+        // qolgan foydalanuvchilar xabarni umuman olmasdi.
+        assertThat(page.last()).isFalse();
     }
 }

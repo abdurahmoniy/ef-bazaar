@@ -73,14 +73,32 @@ public class InternalUserController {
      * <p>Sahifalab qaytariladi — ro'yxat o'n minglab bo'lishi mumkin va
      * uni bitta javobga solish ikkala servisda ham xotirani band qiladi.
      */
+    /**
+     * Sahifa shakli — bizniki, Spring'niki emas.
+     *
+     * <p>Ilgari bu yerda `Page<Long>` shundayligicha qaytarilardi va Spring
+     * har so'rovda ogohlantirardi: `PageImpl` ning JSON tuzilmasi
+     * KAFOLATLANMAGAN va versiya yangilanganda o'zgarishi mumkin.
+     *
+     * <p>Bu yerda o'zgarish jimgina falokat bo'lardi. Bot sahifalashni
+     * `last` bo'yicha to'xtatadi; maydon yo'qolsa Jackson uni `false`
+     * qiladi va ommaviy jo'natish cheksiz aylanardi — xatosiz, jimgina.
+     *
+     * <p>`PageResponse` ishlatilmadi: unda `last` yo'q va uni qo'shish
+     * marketplace bilan bir xil shaklni buzardi. Bu ichki endpoint,
+     * yagona iste'molchisi bot — unga aynan kerakli shakl beriladi.
+     */
+    public record TelegramIdPage(List<Long> content, boolean last, long totalElements) {}
+
     @GetMapping("/telegram-ids")
-    public Page<Long> telegramIds(@RequestParam(defaultValue = "ALL") Audience audience,
-                                  @PageableDefault(size = 500) Pageable pageable) {
-        return switch (audience) {
+    public TelegramIdPage telegramIds(@RequestParam(defaultValue = "ALL") Audience audience,
+                                      @PageableDefault(size = 500) Pageable pageable) {
+        Page<Long> page = switch (audience) {
             case ALL    -> userRepository.findTelegramIds(pageable);
             case ADMINS -> userRepository.findTelegramIdsByRole(Role.ADMIN, pageable);
             case USERS  -> userRepository.findTelegramIdsByRoleNot(Role.ADMIN, pageable);
         };
+        return new TelegramIdPage(page.getContent(), page.isLast(), page.getTotalElements());
     }
 
     /**

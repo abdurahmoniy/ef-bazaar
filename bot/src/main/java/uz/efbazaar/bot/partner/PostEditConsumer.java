@@ -48,7 +48,15 @@ public class PostEditConsumer {
             return;
         }
         if (!telegram.editPostText(e.chatId(), messageId, e.html())) {
-            log.info("Post {}:{} tahrirlanmadi (xabar yo'q yoki huquq yetmadi)",
+            // WARN, INFO emas. Tahrir o'tmasa SOTILGAN e'lon kanalda
+            // sotuvda turaveradi — xaridor uchun yolg'on ma'lumot.
+            // INFO log forwarder'dan o'tmaydi (u WARN+ ni uzatadi), ya'ni
+            // bu xato hech kimga bildirilmasdi. Rasmiy kanalda u aynan
+            // shunday yashiringan edi: nusxa forward bo'lgani uchun
+            // tahrir hech qachon o'tmasdi va buni hech kim ko'rmadi.
+            log.warn("Post {}:{} tahrirlanmadi — sotilgan e'lon kanalda "
+                            + "sotuvda ko'rinib turibdi (xabar yo'q, huquq yetmadi "
+                            + "yoki xabar forward qilingan)",
                     e.chatId(), e.telegramMessageId());
         }
     }

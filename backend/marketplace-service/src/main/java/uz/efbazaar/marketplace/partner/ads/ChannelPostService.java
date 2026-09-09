@@ -197,9 +197,6 @@ public class ChannelPostService {
             posts.save(post);
 
             replacePrevious(post, channel);
-            // Rasmiy kanaldagi nusxa SHU postdan forward qilinadi —
-            // "Forwarded from" sarlavhasi hamkorlikni tasdiqlaydi.
-            officialChannel.onPartnerPostDelivered(post, channel);
         });
     }
 
@@ -268,10 +265,6 @@ public class ChannelPostService {
             post.setError(error);
             posts.save(post);
 
-            // Barcha buyurtmalar yiqilgan bo'lsa e'lon rasmiy kanalga
-            // butunlay tushmay qolardi. Hamkorga chiqara olmaganini
-            // e'lonning o'zi bilan jazolash noto'g'ri.
-            officialChannel.onPartnerPostFailed(post.getListingId());
         });
     }
 }
