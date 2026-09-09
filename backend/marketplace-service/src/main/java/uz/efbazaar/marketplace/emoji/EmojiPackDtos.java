@@ -20,9 +20,23 @@ public final class EmojiPackDtos {
     public record PackSummary(UUID id, String setName, String title, int count,
                               Instant addedAt, Instant refreshedAt) {
 
+        /**
+         * Faqat TRANZAKSIYA ICHIDA chaqiriladi.
+         *
+         * <p>`getItems()` — lazy ro'yxat. Kontrollerda, ya'ni sessiya
+         * yopilgandan keyin chaqirilsa `LazyInitializationException` beradi.
+         * Aynan shu bo'lgan edi: `add` ishlab, `list` yiqilardi, chunki
+         * `add` da ro'yxat xotirada yasalgan va proxy emas edi.
+         */
         public static PackSummary from(EmojiPack p) {
             return new PackSummary(p.getId(), p.getSetName(), p.getTitle(),
                     p.getItems().size(), p.getAddedAt(), p.getRefreshedAt());
+        }
+
+        /** Ro'yxat uchun — bu yo'lda lazy ro'yxatga umuman tegilmaydi. */
+        public static PackSummary from(EmojiPackRepository.SummaryView v) {
+            return new PackSummary(v.getId(), v.getSetName(), v.getTitle(),
+                    v.getItemCount(), v.getAddedAt(), v.getRefreshedAt());
         }
     }
 

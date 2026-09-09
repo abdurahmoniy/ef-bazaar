@@ -6,6 +6,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import uz.efbazaar.marketplace.emoji.EmojiPackDtos.PackDetail;
+import uz.efbazaar.marketplace.emoji.EmojiPackDtos.PackSummary;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,17 +22,24 @@ public class EmojiPackService {
     private final EmojiPackRepository packs;
     private final BotEmojiClient bot;
 
+    /**
+  * Servis DTO qaytaradi, entity emas.
+  *
+  * <p>Entity qaytarganda uni DTO'ga o'girish kontrollerda, ya'ni sessiya
+  * yopilgandan KEYIN bo'lardi va lazy ro'yxat o'sha yerda yiqilardi.
+  * Chegarani shu yerga qo'yish bu xatoni imkonsiz qiladi.
+  */
     @Transactional(readOnly = true)
-    public List<EmojiPack> list() {
-        return packs.findAllByOrderByAddedAtAsc();
+    public List<PackSummary> list() {
+        return packs.summaries().stream().map(PackSummary::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public EmojiPack get(UUID id) {
-        EmojiPack pack = packs.findById(id).orElseThrow(() ->
-                new ResponseStatusException(HttpStatus.NOT_FOUND, "To'plam topilmadi"));
-        pack.getItems().size();   // lazy ro'yxatni tranzaksiya ichida ochamiz
-        return pack;
+    public PackDetail get(UUID id) {
+        return packs.findWithItemsById(id)
+                .map(PackDetail::from)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "To'plam topilmadi"));
     }
 
     /**
@@ -41,7 +51,7 @@ public class EmojiPackService {
      * ko'p.
      */
     @Transactional
-    public EmojiPack add(String link, UUID adminId) {
+    public PackSummary add(String link, UUID adminId) {
         // Tekshiruv Telegram'ga borishdan OLDIN: noto'g'ri havola uchun
         // tarmoqqa chiqish ham, kutish ham keraksiz.
         String setName = EmojiPackLink.setNameOf(link);
@@ -69,7 +79,7 @@ public class EmojiPackService {
                 ? setName : fetched.title());
 
         replaceItems(pack, fetched);
-        return packs.save(pack);
+        return PackSummary.from(packs.save(pack));
     }
 
     @Transactional
