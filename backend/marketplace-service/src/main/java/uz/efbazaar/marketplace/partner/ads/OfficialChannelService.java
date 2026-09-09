@@ -18,16 +18,21 @@ import java.util.UUID;
 /**
  * Har bir e'lonning efBazaar rasmiy kanalidagi nusxasi.
  *
- * <p>Hamkor kanali tanlanmagan bo'lsa e'lon to'g'ridan-to'g'ri
- * joylanadi. Tanlangan bo'lsa — birinchi muvaffaqiyatli hamkor
- * postidan FORWARD qilinadi.
+ * <p>Nusxa HAR DOIM to'g'ridan-to'g'ri joylanadi.
  *
- * <p>Nega forward va nega copy emas. "Forwarded from &lt;hamkor
- * kanali&gt;" sarlavhasi efBazaar e'lonni hamkorning auditoriyasidan
- * tortib olmayotganini, balki uning hamkorligini tasdiqlayotganini
- * ko'rsatadi. {@code copyMessage} tugmani saqlaydi, lekin bu
- * sarlavhani bermaydi — ikkalasini birga olib bo'lmaydi va biz
- * sarlavhani tanladik. Shuning uchun havola post MATNIDA ham turadi.
+ * <p>NEGA FORWARD EMAS. Ilgari hamkor kanali tanlangan bo'lsa nusxa
+ * o'sha postdan forward qilinardi: "Forwarded from &lt;hamkor
+ * kanali&gt;" sarlavhasi efBazaar e'lonni tortib olmayotganini, balki
+ * hamkorligini tasdiqlayotganini ko'rsatardi.
+ *
+ * <p>Lekin forward qilingan xabarni TAHRIRLAB BO'LMAYDI. Ya'ni
+ * sotilgan e'lon rasmiy kanalda sotuvda turaverardi — xaridor uchun
+ * yolg'on ma'lumot. Va u jimgina turardi: {@code SoldPostMarker} tahrir
+ * so'rovini yuborardi, Telegram rad etardi, bot esa buni INFO bilan
+ * yozib o'tib ketardi.
+ *
+ * <p>Hamkorlik belgisi shunga arzimadi. Havola post MATNIDA turgani
+ * uchun e'longa yo'l baribir ochiq.
  */
 @Slf4j
 @Service
@@ -67,70 +72,21 @@ public class OfficialChannelService {
     }
 
     /**
-     * E'lon yaratildi.
+     * E'lon yaratildi — rasmiy nusxa darrov joylanadi.
      *
-     * <p>Hamkor kanali buyurtma qilingan bo'lsa BU YERDA hech narsa
-     * yuborilmaydi: rasmiy nusxa o'sha postdan forward qilinishi kerak
-     * va u hali chiqmagan. {@link #onPartnerPostDelivered} kutadi.
+     * <p>Hamkor kanali tanlangan-tanlanmagani ahamiyatsiz: ilgari
+     * tanlangan bo'lsa hamkor posti kutilardi va undan forward
+     * qilinardi. Endi kutilmaydi, chunki forward tahrirlanmaydi va
+     * SOTILDI belgisi ishlamay qolardi.
      */
     @Transactional
-    public void onListingCreated(Listing listing, boolean partnerChannelsOrdered) {
+    public void onListingCreated(Listing listing) {
         if (!enabled() || official.existsById(listing.getId())) return;
 
         OfficialChannelPost row = new OfficialChannelPost();
         row.setListingId(listing.getId());
         official.save(row);
-
-        if (!partnerChannelsOrdered) publishDirect(listing, row);
-    }
-
-    /**
-     * Hamkor posti chiqdi — rasmiy nusxa shundan forward qilinadi.
-     *
-     * <p>BIRINCHI chiqqani manba bo'ladi. Bir e'lon uch kanalga
-     * yuborilsa, uchalasini forward qilish rasmiy kanalga bir
-     * akkauntning uch nusxasini tushirardi.
-     */
-    @Transactional
-    public void onPartnerPostDelivered(ListingChannelPost post, PartnerChannel channel) {
-        if (!enabled()) return;
-        official.findById(post.getListingId())
-                .filter(row -> OfficialChannelPost.State.PENDING.name().equals(row.getState()))
-                .filter(row -> row.getSourcePostId() == null)
-                .ifPresent(row -> {
-                    row.setSourcePostId(post.getId());
-                    official.save(row);
-                    events.officialPostRequested(new PartnerAdEventPublisher.OfficialPostPayload(
-                            post.getListingId(), officialChannel, null, null, null,
-                            channel.getTelegramChannelId(), post.getTelegramMessageId()));
-                });
-    }
-
-    /**
-     * Hamkor posti chiqmadi.
-     *
-     * <p>Barcha buyurtmalar yiqilgan bo'lsa e'lon rasmiy kanalga
-     * BUTUNLAY tushmay qolardi — hamkorga to'lay olmaganini e'lonning
-     * o'zi bilan jazolash noto'g'ri. Shunda to'g'ridan-to'g'ri
-     * joylaymiz.
-     */
-    @Transactional
-    public void onPartnerPostFailed(UUID listingId) {
-        if (!enabled()) return;
-        Optional<OfficialChannelPost> pending = official.findById(listingId)
-                .filter(row -> OfficialChannelPost.State.PENDING.name().equals(row.getState()))
-                .filter(row -> row.getSourcePostId() == null);
-        if (pending.isEmpty()) return;
-
-        // Hali chiqishi mumkin bo'lgan buyurtma qolgan bo'lsa kutamiz:
-        // forward har doim to'g'ridan-to'g'ri joylashdan afzal.
-        boolean stillHopeful = posts.findByListingId(listingId).stream()
-                .anyMatch(p -> State.HELD.name().equals(p.getState())
-                        || State.AWAITING_FUNDS.name().equals(p.getState()));
-        if (stillHopeful) return;
-
-        listings.findById(listingId)
-                .ifPresent(listing -> publishDirect(listing, pending.get()));
+        publishDirect(listing, row);
     }
 
     @Transactional

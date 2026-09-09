@@ -91,7 +91,7 @@ public class ListingService {
         // Rasmiy kanalga HAR e'lon tushadi, hamkor tanlangan-tanlanmaganidan
         // qat'i nazar. Hamkor tanlangan bo'lsa nusxa o'sha postdan forward
         // qilinadi va bu yerda faqat kutish yozuvi ochiladi.
-        officialChannel.onListingCreated(saved, partnerChannelsOrdered);
+        officialChannel.onListingCreated(saved);
 
         events.listingCreated(saved);
         log.info("Listing created: id={} sellerId={} attributes={} media={}",

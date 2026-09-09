@@ -27,10 +27,12 @@ import static org.mockito.Mockito.when;
 /**
  * E'lonning efBazaar rasmiy kanalidagi nusxasi.
  *
- * <p>Eng nozik qoida — hamkor tanlanganda nusxa FORWARD bo'lishi.
- * To'g'ridan-to'g'ri joylansa, efBazaar hamkorning auditoriyasidan
- * e'lonni tortib olib o'ziniki qilayotgandek ko'rinardi; forward esa
- * uning hamkorligini tasdiqlaydi.
+ * <p>Eng nozik qoida — nusxa HAR DOIM to'g'ridan-to'g'ri joylanadi.
+ * Ilgari hamkor posti bo'lsa undan forward qilinardi, chunki
+ * "Forwarded from" sarlavhasi hamkorlikni ko'rsatardi. Lekin forward
+ * qilingan xabarni TAHRIRLAB BO'LMAYDI va sotilgan e'lon rasmiy
+ * kanalda sotuvda turaverardi — xaridor uchun yolg'on ma'lumot.
+ * Hamkorlik belgisi shunga arzimadi.
  */
 class OfficialChannelServiceTest {
 
@@ -84,82 +86,39 @@ class OfficialChannelServiceTest {
     }
 
     @Test
-    @DisplayName("hamkorsiz e'lon to'g'ridan-to'g'ri rasmiy kanalga chiqadi")
-    void aListingWithoutPartnersIsPostedDirectly() {
-        service.onListingCreated(listing(), false);
+    @DisplayName("e'lon rasmiy kanalga to'g'ridan-to'g'ri chiqadi")
+    void aListingIsPostedDirectly() {
+        service.onListingCreated(listing());
 
         OfficialPostPayload sent = captured();
         assertThat(sent.officialChannel()).isEqualTo(CHANNEL);
         assertThat(sent.caption()).contains("so'm");
-        assertThat(sent.sourceMessageId()).isNull();
         // Hamkor kodi YO'Q: bu post hech qaysi hamkorga tegishli emas
         // va undan kelgan savdo ulushi ham yo'q.
         assertThat(sent.buttonUrl()).doesNotContain("?p=");
     }
 
     @Test
-    @DisplayName("hamkor tanlangan bo'lsa yaratilishda hech narsa yuborilmaydi")
-    void aListingWithPartnersWaitsForTheirPost() {
-        // Nusxa hamkor postidan forward qilinishi kerak va u hali
-        // chiqmagan. Hozir yuborsak, keyin ikkita nusxa qolardi.
-        service.onListingCreated(listing(), true);
-
-        verify(events, never()).officialPostRequested(any());
-    }
-
-    @Test
-    @DisplayName("hamkor posti chiqqach rasmiy nusxa FORWARD qilinadi")
-    void theOfficialCopyIsForwardedFromThePartner() {
-        OfficialChannelPost row = pendingRow();
-
-        service.onPartnerPostDelivered(post("4242"), channel(-1001234L));
+    @DisplayName("hamkor kanali tanlangan bo'lsa ham forward qilinmaydi")
+    void partnerChannelsDoNotTurnItIntoAForward() {
+        // Butun o'zgarishning sababi shu. Forward qilingan xabarni
+        // tahrirlab bo'lmaydi, ya'ni SOTILDI belgisi rasmiy kanalda hech
+        // qachon ishlamasdi — va u jimgina ishlamasdi, chunki tahrir
+        // xatosi INFO bilan yozilardi.
+        service.onListingCreated(listing());
 
         OfficialPostPayload sent = captured();
-        assertThat(sent.sourceChannelId()).isEqualTo(-1001234L);
-        assertThat(sent.sourceMessageId()).isEqualTo("4242");
-        assertThat(row.getSourcePostId()).isNotNull();
+        assertThat(sent.sourceChannelId()).isNull();
+        assertThat(sent.sourceMessageId()).isNull();
+        assertThat(sent.caption()).isNotBlank();
     }
 
     @Test
-    @DisplayName("ikkinchi hamkor posti rasmiy kanalga ikkinchi nusxa tushirmaydi")
-    void onlyTheFirstPartnerPostBecomesTheSource() {
-        // Bir e'lon uch kanalga yuborilsa, uchalasini forward qilish
-        // rasmiy kanalga bir akkauntning uch nusxasini tushirardi.
-        OfficialChannelPost row = pendingRow();
-        row.setSourcePostId(UUID.randomUUID());
+    @DisplayName("e'lon ikki marta yaratilsa ikkinchi nusxa tushmaydi")
+    void theOfficialCopyIsWrittenOnce() {
+        when(official.existsById(listingId)).thenReturn(true);
 
-        service.onPartnerPostDelivered(post("4242"), channel(-1001234L));
-
-        verify(events, never()).officialPostRequested(any());
-    }
-
-    @Test
-    @DisplayName("hamma hamkor posti yiqilsa e'lon baribir rasmiy kanalga chiqadi")
-    void everyPartnerFailureFallsBackToADirectPost() {
-        // Hamkorga chiqara olmaganini e'lonning o'zi bilan jazolash
-        // noto'g'ri: e'lon rasmiy kanalga butunlay tushmay qolardi.
-        pendingRow();
-        listing();
-
-        service.onPartnerPostFailed(listingId);
-
-        assertThat(captured().sourceMessageId()).isNull();
-    }
-
-    @Test
-    @DisplayName("chiqishi mumkin bo'lgan buyurtma qolsa kutiladi")
-    void aPendingOrderIsWaitedFor() {
-        // Forward har doim to'g'ridan-to'g'ri joylashdan afzal:
-        // sarlavha hamkorlikni tasdiqlaydi.
-        pendingRow();
-        // E'lon HAM stub qilinadi: usiz publishDirect qo'riqchidan
-        // qat'i nazar ishlamas va sinov bo'sh o'tardi.
-        listing();
-        ListingChannelPost stillHeld = post(null);
-        stillHeld.setState(State.HELD.name());
-        when(posts.findByListingId(listingId)).thenReturn(List.of(stillHeld));
-
-        service.onPartnerPostFailed(listingId);
+        service.onListingCreated(listing());
 
         verify(events, never()).officialPostRequested(any());
     }
@@ -171,7 +130,7 @@ class OfficialChannelServiceTest {
         // qilishi kerak.
         OfficialChannelService off = build("");
 
-        off.onListingCreated(listing(), false);
+        off.onListingCreated(listing());
 
         assertThat(off.enabled()).isFalse();
         verify(events, never()).officialPostRequested(any());
