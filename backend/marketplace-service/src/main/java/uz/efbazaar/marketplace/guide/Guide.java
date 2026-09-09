@@ -35,6 +35,15 @@ public class Guide {
     @Column(name = "video_file_id", nullable = false)
     private String videoFileId;
 
+    /**
+     * VIDEO yoki DOCUMENT — Telegram faylni qanday qabul qilgani.
+     *
+     * <p>Qayta yuborish usuli shunga bog'liq: document'ning `file_id` sini
+     * `sendVideo` ga bersak Telegram rad etadi va qo'llanma kelmaydi.
+     */
+    @Column(name = "media_kind", nullable = false)
+    private String mediaKind;
+
     @Column(name = "created_by")
     private UUID createdBy;
 

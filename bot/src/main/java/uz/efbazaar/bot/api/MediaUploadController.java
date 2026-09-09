@@ -152,25 +152,18 @@ public class MediaUploadController {
      */
     @PostMapping(value = "/upload-video", consumes = "multipart/form-data")
     @ResponseStatus(HttpStatus.OK)
-    public FileUploadResponse uploadVideo(@RequestParam("file") MultipartFile file,
+    public VideoUploadResponse uploadVideo(@RequestParam("file") MultipartFile file,
                                           @RequestParam(value = "caption", required = false)
                                           String caption) {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "file majburiy");
         }
-        MediaFile mediaFile;
-        try {
-            mediaFile = new MediaFile(
-                    file.getBytes(),
-                    file.getOriginalFilename() != null ? file.getOriginalFilename() : "video.mp4",
-                    file.getContentType());
-        } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Fayl o'qib bo'lmadi: " + file.getOriginalFilename());
-        }
-
+        // getBytes() ATAYLAB ishlatilmaydi: u 50 MB ni heap'ga tortadi va
+        // bot heap'i 160 MB. Spring multipart faylni allaqachon diskka
+        // yozgan, resurs esa o'shandan oqim bilan o'qiydi.
         var uploaded = telegram.sendVideo(
-                props.groupChatId(), props.topics().media(), mediaFile, caption);
+                props.groupChatId(), props.topics().media(),
+                namedResource(file), caption);
         if (uploaded.isEmpty()) {
             // Eng ko'p uchraydigan sabab — 50 MB chegarasi. Bot API bundan
             // kattasini qabul qilmaydi va xabar shuni aytishi kerak, aks
@@ -179,11 +172,44 @@ public class MediaUploadController {
                     "Telegram videoni qabul qilmadi. Eng ko'p uchraydigan sabab — "
                             + "hajm 50 MB dan katta.");
         }
-        log.info("Uploaded video to media topic: messageId={}", uploaded.get().messageId());
-        return new FileUploadResponse(uploaded.get().fileId(), uploaded.get().messageId());
+        log.info("Uploaded video to media topic: messageId={} asVideo={}",
+                uploaded.get().messageId(), uploaded.get().asVideo());
+        return new VideoUploadResponse(uploaded.get().fileId(), uploaded.get().messageId(),
+                uploaded.get().asVideo() ? "VIDEO" : "DOCUMENT");
     }
 
+    /**
+     * @param mediaKind VIDEO yoki DOCUMENT — qayta yuborishda usul shunga
+     *                  qarab tanlanadi. Document id'sini `sendVideo` ga
+     *                  bersak Telegram rad etadi.
+     */
+    public record VideoUploadResponse(String fileId, Integer messageId, String mediaKind) {}
+
     public record UploadResponse(List<String> fileIds, List<Integer> messageIds) {}
+
+    /**
+     * Multipart faylning resursi, nomi kafolatlangan holda.
+     *
+     * <p>Telegram multipart qismida FAYL NOMI bo'lishini talab qiladi;
+     * nomsiz qism oddiy maydon deb qabul qilinadi va video yuklanmaydi.
+     */
+    private static org.springframework.core.io.Resource namedResource(MultipartFile file) {
+        String name = file.getOriginalFilename();
+        String safe = name == null || name.isBlank() ? "video.mp4" : name;
+        return new org.springframework.core.io.InputStreamResource(openStream(file)) {
+            @Override public String getFilename() { return safe; }
+            @Override public long contentLength() { return file.getSize(); }
+        };
+    }
+
+    private static java.io.InputStream openStream(MultipartFile file) {
+        try {
+            return file.getInputStream();
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Faylni o'qib bo'lmadi: " + file.getOriginalFilename());
+        }
+    }
 
     public record FileUploadResponse(String fileId, int messageId) {}
 }

@@ -3,7 +3,8 @@ package uz.efbazaar.marketplace.guide;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -14,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * Qo'llanma videosini Telegram'ga yuklaydi va `file_id` ni qaytaradi.
@@ -38,7 +40,7 @@ public class GuideVideoUploader {
     @Qualifier("botClient")
     private final RestClient botClient;
 
-    public String upload(MultipartFile video, String caption) {
+    public UploadResponse upload(MultipartFile video, String caption) {
         if (video == null || video.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Video yuklanmagan");
         }
@@ -62,7 +64,7 @@ public class GuideVideoUploader {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                         "Telegram videoni qabul qilmadi");
             }
-            return response.fileId();
+            return response;
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
@@ -72,19 +74,45 @@ public class GuideVideoUploader {
         }
     }
 
-    private static ByteArrayResource resource(MultipartFile video) {
+    /**
+     * Faylni OQIM bilan uzatadi — bayt massiviga o'qimasdan.
+     *
+     * <p>{@code getBytes()} 50 MB ni heap'ga tortardi. marketplace heap'i
+     * 320 MB, bot'niki esa atigi 160 MB va ikkalasi ham konteyner
+     * chegarasiga yaqin ishlaydi — bunday o'qish OOM ga olib borardi, va
+     * {@code -XX:+ExitOnOutOfMemoryError} bilan servis o'lardi.
+     *
+     * <p>Spring multipart faylni allaqachon DISKKA yozadi, ya'ni oqim
+     * shundan o'qiladi va qo'shimcha nusxa umuman yaratilmaydi.
+     */
+    private static Resource resource(MultipartFile video) {
+        String name = video.getOriginalFilename();
+        String safe = name == null || name.isBlank() ? "guide.mp4" : name;
+        return new InputStreamResource(openStream(video)) {
+            @Override public String getFilename() { return safe; }
+            // Content-Length berilmasa mijoz butun oqimni buferlab uzunlikni
+            // o'lchardi — ya'ni aynan qochmoqchi bo'lgan narsamiz.
+            @Override public long contentLength() { return video.getSize(); }
+        };
+    }
+
+    private static InputStream openStream(MultipartFile video) {
         try {
-            return new ByteArrayResource(video.getBytes()) {
-                @Override
-                public String getFilename() {
-                    String name = video.getOriginalFilename();
-                    return name == null || name.isBlank() ? "guide.mp4" : name;
-                }
-            };
+            return video.getInputStream();
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Faylni o'qib bo'lmadi");
         }
     }
 
-    public record UploadResponse(String fileId, Integer messageId) {}
+    /**
+     * @param mediaKind VIDEO yoki DOCUMENT. Telegram MP4 bo'lmagan faylni
+     *                  document sifatida qabul qiladi va uni qayta yuborish
+     *                  usuli boshqa.
+     */
+    public record UploadResponse(String fileId, Integer messageId, String mediaKind) {
+
+        public String kindOrVideo() {
+            return mediaKind == null || mediaKind.isBlank() ? "VIDEO" : mediaKind;
+        }
+    }
 }
