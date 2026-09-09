@@ -51,7 +51,7 @@ describe('ListingForm mobile zooming and keyboard protection', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders StepNav inside a MeasuredBottomBar with hideOnKeyboard enabled', async () => {
+  it('renders StepNav inside a MeasuredBottomBar without hideOnKeyboard so action bar remains visible on keyboard focus', async () => {
     await act(async () => {
       root.render(
         React.createElement(ListingForm, {
@@ -62,8 +62,9 @@ describe('ListingForm mobile zooming and keyboard protection', () => {
 
     const bottomBar = host.querySelector('[class*="fixed inset-x-0 bottom-0"]');
     expect(bottomBar).not.toBeNull();
-    // Verify it includes transition classes for keyboard slide animation
-    expect(bottomBar?.className).toContain('transition-all');
+    // Verify hideOnKeyboard is disabled so action bar stays visible when mobile keyboard opens
+    expect(bottomBar?.className).not.toContain('transition-all');
+    expect(bottomBar?.getAttribute('data-keyboard-hidden')).toBeNull();
   });
 
   it('ensures description textarea has text-base on mobile to prevent iOS Safari auto-zoom', async () => {
