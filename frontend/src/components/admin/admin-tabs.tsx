@@ -18,6 +18,7 @@ import {
   Sparkles,
   UserCog,
   UsersRound,
+  Video,
 } from 'lucide-react';
 
 import { FEATURES } from '@/lib/feature-flags';
@@ -42,6 +43,7 @@ const TABS: Array<{ href: string; label: string; icon: React.ReactNode }> = [
   { href: '/admin/players', label: "O'yinchilar", icon: <Sparkles className="h-4 w-4" /> },
   { href: '/admin/attributes', label: 'Atributlar', icon: <SlidersHorizontal className="h-4 w-4" /> },
   { href: '/admin/bot', label: 'Bot', icon: <Bot className="h-4 w-4" /> },
+  { href: '/admin/guides', label: "Qo'llanmalar", icon: <Video className="h-4 w-4" /> },
   // Human trade admin is closed for use; both of its tabs point at routes that
   // now answer 404. The entries stay here so turning FEATURES.humanAdmin back
   // on restores them in place rather than from memory.

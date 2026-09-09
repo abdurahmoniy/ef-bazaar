@@ -190,6 +190,102 @@ public class TelegramApiClient {
         }
     }
 
+    /** Matn + callback tugmalar — qo'llanmalar ro'yxati shu ko'rinishda chiqadi. */
+    public Optional<Integer> sendMessageWithCallbacks(String chatId, String html,
+                                                      List<List<CallbackButton>> keyboard) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("text", html)
+                .put("parse_mode", "HTML");
+        body.put("disable_web_page_preview", true);
+        if (keyboard != null && !keyboard.isEmpty()) {
+            body.set("reply_markup", buildCallbackKeyboard(keyboard));
+        }
+        return postJson("sendMessage", body).map(r -> r.path("message_id").asInt());
+    }
+
+    /**
+     * Tugma bosilganini Telegram'ga tasdiqlaymiz.
+     *
+     * <p>Chaqirilmasa tugmada aylanuvchi belgi bir necha soniya osilib
+     * turadi va foydalanuvchi bot javob bermayapti deb o'ylaydi.
+     */
+    public void answerCallbackQuery(String callbackQueryId) {
+        postJson("answerCallbackQuery",
+                objectMapper.createObjectNode().put("callback_query_id", callbackQueryId));
+    }
+
+    /**
+     * sendVideo — o'ynatiladigan video sifatida yuklaydi.
+     *
+     * <p>{@link #sendDocument} dan farqi shu: document baytlarni saqlaydi,
+     * lekin klient uni FAYL qilib ko'rsatadi — bosib yuklab olish kerak.
+     * Video esa chat ichida o'ynaydi va Telegram uni o'z kompressori bilan
+     * siqadi, ya'ni qo'llanma tez ochiladi.
+     *
+     * <p>{@code supports_streaming} — video to'liq yuklanmasdan o'ynay
+     * boshlaydi. Uzun qo'llanmada bu kutish vaqtini yo'q qiladi.
+     *
+     * @return (messageId, video file_id) yoki bo'sh — yuklash yiqilgan.
+     */
+    public Optional<UploadedDocument> sendVideo(String chatId, Integer threadId,
+                                                MediaFile file, String caption) {
+        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("chat_id", chatId);
+        if (threadId != null) form.add("message_thread_id", String.valueOf(threadId));
+        if (caption != null && !caption.isBlank()) {
+            form.add("caption", caption);
+            form.add("parse_mode", "HTML");
+        }
+        form.add("supports_streaming", "true");
+        form.add("video", asResource(file));
+
+        try {
+            JsonNode result = telegramWebClient.post()
+                    .uri("/sendVideo")
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(BodyInserters.fromMultipartData(form))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .map(r -> r.path("ok").asBoolean() ? r.path("result") : null)
+                    .block();
+            if (result == null) return Optional.empty();
+            // Telegram ba'zan videoni `document` sifatida qaytaradi — masalan
+            // kodek qo'llab-quvvatlanmasa. Ikkalasini ham qabul qilamiz:
+            // file_id baribir ishlaydi va qo'llanma yo'qolmaydi.
+            String fileId = result.path("video").path("file_id").asText(null);
+            if (fileId == null) fileId = result.path("document").path("file_id").asText(null);
+            if (fileId == null) return Optional.empty();
+            return Optional.of(new UploadedDocument(result.path("message_id").asInt(), fileId));
+        } catch (WebClientResponseException e) {
+            log.error("sendVideo failed: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * sendVideo file_id bo'yicha — fayl qayta yuklanmaydi.
+     *
+     * <p>Qo'llanma har bosilganda qayta yuborilishi kerak; faylni har safar
+     * yuklash sekin ham, keraksiz ham. Telegram `file_id` ni qabul qiladi va
+     * nusxani o'zi oladi.
+     */
+    public Optional<Integer> sendVideoByFileId(String chatId, String fileId, String caption,
+                                               List<List<CallbackButton>> keyboard) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("video", fileId)
+                .put("supports_streaming", true);
+        if (caption != null && !caption.isBlank()) {
+            body.put("caption", caption);
+            body.put("parse_mode", "HTML");
+        }
+        if (keyboard != null && !keyboard.isEmpty()) {
+            body.set("reply_markup", buildCallbackKeyboard(keyboard));
+        }
+        return postJson("sendVideo", body).map(r -> r.path("message_id").asInt());
+    }
+
     /**
      * getUserProfilePhotos — user'ning profile rasmlari ro'yxati.
      * Bizga eng birinchi rasm'ning eng katta o'lchami kerak.
@@ -564,6 +660,34 @@ public class TelegramApiClient {
         }
         body.set("reply_markup", buildUrlKeyboard(List.of(List.of(button))));
         return postJson("sendPhoto", body).map(this::extractMessageId);
+    }
+
+    /**
+     * Bosilganda BOTGA qaytadigan tugma.
+     *
+     * <p>{@link UrlButton} dan farqi: u foydalanuvchini tashqariga olib
+     * chiqadi, bu esa botga `callback_query` yuboradi va bot javob beradi.
+     * Qo'llanma tugmalari aynan shunday — video botdan keladi.
+     *
+     * <p>{@code data} 64 BAYTDAN oshmasligi kerak — Telegram cheklovi.
+     * Undan uzun bo'lsa tugma jimgina ishlamaydi.
+     */
+    public record CallbackButton(String text, String data) {}
+
+    private ObjectNode buildCallbackKeyboard(List<List<CallbackButton>> rows) {
+        ArrayNode keyboard = objectMapper.createArrayNode();
+        for (List<CallbackButton> row : rows) {
+            ArrayNode jsonRow = objectMapper.createArrayNode();
+            for (CallbackButton button : row) {
+                jsonRow.add(objectMapper.createObjectNode()
+                        .put("text", button.text())
+                        .put("callback_data", button.data()));
+            }
+            keyboard.add(jsonRow);
+        }
+        ObjectNode markup = objectMapper.createObjectNode();
+        markup.set("inline_keyboard", keyboard);
+        return markup;
     }
 
     private ObjectNode buildUrlKeyboard(List<List<UrlButton>> rows) {

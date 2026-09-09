@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import uz.efbazaar.bot.partner.ChannelVerifier;
+import uz.efbazaar.bot.guide.GuideMessenger;
 import uz.efbazaar.bot.referral.PendingReferralClient;
 import uz.efbazaar.bot.settings.BotSettingsClient;
 import uz.efbazaar.bot.settings.BotSettingsClient.BotSettingsView;
@@ -28,6 +29,7 @@ public class UpdateHandler {
     private final ChannelVerifier channels;
     private final PendingReferralClient pendingReferrals;
     private final PremiumEmojiInspector premiumEmoji;
+    private final GuideMessenger guides;
 
     @Value("${app.web.base-url:https://efbazaar.uz}")
     private String webBaseUrl;
@@ -41,6 +43,13 @@ public class UpdateHandler {
         JsonNode myChatMember = update.path("my_chat_member");
         if (!myChatMember.isMissingNode()) {
             channels.handle(myChatMember);
+            return;
+        }
+
+        // Inline tugma bosildi — qo'llanma so'ralgan.
+        JsonNode callbackQuery = update.path("callback_query");
+        if (!callbackQuery.isMissingNode()) {
+            guides.onCallback(callbackQuery);
             return;
         }
 
@@ -61,6 +70,11 @@ public class UpdateHandler {
                 pendingReferrals.remember(message.path("from").path("id").asLong(), code);
             }
             sendStart(chatId);
+            // Salomlashishdan KEYIN alohida xabar. Bitta xabarga
+            // qo'shsak, /start matni va qo'llanmalar bir-birini bosardi;
+            // ustiga banner qo'yilgan bo'lsa izoh chegarasi 1024 ga
+            // tushadi va matn kesilardi.
+            guides.sendList(chatId);
         } else if (text.startsWith("/help")) {
             sendHelp(chatId);
         } else if (text.startsWith("/partner")) {
