@@ -51,28 +51,36 @@ async function marketplaceRequest<T>(
   init: RequestInit,
   fallbackMessage: string,
 ): Promise<ActionResult<T>> {
-  const response = await fetch(buildMarketplaceApiPath(path), {
-    ...init,
-    headers: {
-      Accept: 'application/json',
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(init.headers as Record<string, string> | undefined),
-    },
-    credentials: 'include',
-  });
-  const payload = await readJson(response);
-  if (!response.ok) {
+  try {
+    const response = await fetch(buildMarketplaceApiPath(path), {
+      ...init,
+      headers: {
+        Accept: 'application/json',
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(init.headers as Record<string, string> | undefined),
+      },
+      credentials: 'include',
+    });
+    const payload = await readJson(response);
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        message:
+          response.status === 401 || response.status === 403
+            ? 'Kirish talab qilinadi'
+            : messageFrom(payload, fallbackMessage),
+        code: codeFrom(payload),
+      };
+    }
+    return { ok: true, data: payload as T };
+  } catch (err) {
     return {
       ok: false,
-      status: response.status,
-      message:
-        response.status === 401 || response.status === 403
-          ? 'Kirish talab qilinadi'
-          : messageFrom(payload, fallbackMessage),
-      code: codeFrom(payload),
+      status: 0,
+      message: err instanceof Error ? err.message : fallbackMessage,
     };
   }
-  return { ok: true, data: payload as T };
 }
 
 export function toggleListingLike(

@@ -15,6 +15,7 @@ import uz.efbazaar.marketplace.support.domain.SupportChat;
 import uz.efbazaar.marketplace.support.domain.SupportChatStatus;
 import uz.efbazaar.marketplace.support.domain.SupportMessage;
 import uz.efbazaar.marketplace.support.domain.SupportSenderType;
+import uz.efbazaar.marketplace.support.dto.AdminSupportReplyRequest;
 import uz.efbazaar.marketplace.support.dto.CreateSupportChatRequest;
 import uz.efbazaar.marketplace.support.dto.SendSupportMessageRequest;
 import uz.efbazaar.marketplace.support.dto.SupportChatResponse;
@@ -242,7 +243,7 @@ class SupportChatServiceTest {
 
         org.springframework.data.domain.Page<SupportChat> chatPage =
                 new org.springframework.data.domain.PageImpl<>(List.of(chat));
-        when(chatRepository.findForAdmin(eq(SupportCategory.SUPPORT), eq(SupportChatStatus.OPEN), eq("Vali"), any()))
+        when(chatRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(chatPage);
         when(messageRepository.findFirstBySupportChatIdOrderByCreatedAtDesc(chatId))
                 .thenReturn(Optional.of(lastMsg));
@@ -306,5 +307,63 @@ class SupportChatServiceTest {
 
         assertThat(res.status()).isEqualTo(SupportChatStatus.CLOSED);
         verify(chatRepository).save(chat);
+    }
+
+    @Test
+    @DisplayName("createChat bo'sh xabar bilan chaqirilsa MarketplaceException tashlanadi")
+    void createChat_emptyMessage_throwsException() {
+        CreateSupportChatRequest req = new CreateSupportChatRequest(
+                SupportCategory.SUPPORT, "   ", "Ali", null, null);
+
+        assertThatThrownBy(() -> service.createChat(testUser, req))
+                .isInstanceOf(MarketplaceException.class)
+                .hasMessageContaining("Xabar matni bo'sh bo'lishi mumkin emas");
+    }
+
+    @Test
+    @DisplayName("sendMessage bo'sh content bilan chaqirilsa MarketplaceException tashlanadi")
+    void sendMessage_emptyContent_throwsException() {
+        UUID chatId = UUID.randomUUID();
+        SendSupportMessageRequest req = new SendSupportMessageRequest("  \n  ", null);
+
+        assertThatThrownBy(() -> service.sendMessage(chatId, testUser, req))
+                .isInstanceOf(MarketplaceException.class)
+                .hasMessageContaining("Xabar matni bo'sh bo'lishi mumkin emas");
+    }
+
+    @Test
+    @DisplayName("replyAsAdmin bo'sh content bilan chaqirilsa MarketplaceException tashlanadi")
+    void replyAsAdmin_emptyContent_throwsException() {
+        UUID chatId = UUID.randomUUID();
+        AdminSupportReplyRequest req = new AdminSupportReplyRequest("   ");
+        AuthenticatedUser adminUser = new AuthenticatedUser(UUID.randomUUID(), 9999L, List.of("ROLE_ADMIN"), "Admin");
+
+        assertThatThrownBy(() -> service.replyAsAdmin(chatId, adminUser, req))
+                .isInstanceOf(MarketplaceException.class)
+                .hasMessageContaining("Xabar matni bo'sh bo'lishi mumkin emas");
+    }
+
+    @Test
+    @DisplayName("handleAdminReply null yoki bo'sh text bilan chaqirilsa NPE bermaydi va xavfsiz saqlaydi")
+    void handleAdminReply_nullOrBlankText_handledSafely() {
+        UUID chatId = UUID.randomUUID();
+        SupportChat chat = SupportChat.builder()
+                .id(chatId)
+                .category(SupportCategory.SUPPORT)
+                .status(SupportChatStatus.OPEN)
+                .userId(userId)
+                .telegramRootMessageId(555L)
+                .build();
+
+        when(messageRepository.existsByTelegramMessageId(666L)).thenReturn(false);
+        when(chatRepository.findByAnyTelegramMessageId(555L)).thenReturn(Optional.of(chat));
+
+        service.handleAdminReply(555L, 666L, null, null, null);
+
+        ArgumentCaptor<SupportMessage> msgCaptor = ArgumentCaptor.forClass(SupportMessage.class);
+        verify(messageRepository).save(msgCaptor.capture());
+        SupportMessage saved = msgCaptor.getValue();
+        assertThat(saved.getSenderName()).isEqualTo("Admin");
+        assertThat(saved.getContent()).isEqualTo("[Xabar / Media]");
     }
 }

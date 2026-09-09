@@ -59,7 +59,7 @@ describe('support.ts', () => {
 
     expect(result).toEqual(mockChat);
     expect(fetchSpy).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/support/chats'),
+      expect.stringContaining('/v1/support/chats'),
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({

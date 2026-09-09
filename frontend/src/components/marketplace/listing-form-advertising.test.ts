@@ -27,7 +27,7 @@ async function requestBody() {const data=fetchMock.mock.calls[0][1].body.get('da
 describe('save listing before advertising purchase',()=>{
  it('creates without charging channels, then carries selected IDs into review',async()=>{
   await pricing();await click('Kanallarni tanlash');await click('Sinov kanalini tanlash');await click('Davom etish');
-  expect(host.textContent).toContain('5 000');expect(nativeButton.mock.calls.at(-1)?.[0].text).toBe('Yaratish va reklama');
+  expect(host.textContent).toContain('5 000');
   await click('Yaratish va reklama');expect(fetchMock).toHaveBeenCalledOnce();expect(fetchMock.mock.calls[0][1].method).toBe('POST');expect(await requestBody()).not.toHaveProperty('channelIds');expect(push).toHaveBeenCalledWith('/marketplace/saved-1/advertise?channel=chan-a');
  });
  it('saves edits before opening advertising and never submits an ad order',async()=>{

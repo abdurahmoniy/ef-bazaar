@@ -223,51 +223,61 @@ public class UpdateHandler {
     }
 
     private boolean handleSupportTopicReply(JsonNode message, long chatId) {
-        if (!StringUtils.hasText(props.groupChatId())) return false;
-        if (!props.groupChatId().equals(String.valueOf(chatId))) return false;
+        try {
+            if (!StringUtils.hasText(props.groupChatId())) return false;
+            if (!props.groupChatId().equals(String.valueOf(chatId))) return false;
 
-        Integer topicId = props.topics() != null ? props.topics().support() : null;
-        if (topicId == null) return false;
+            Integer topicId = props.topics() != null ? props.topics().support() : null;
+            if (topicId == null) return false;
 
-        int messageThreadId = message.path("message_thread_id").asInt(0);
-        if (messageThreadId != topicId) return false;
+            int messageThreadId = message.path("message_thread_id").asInt(0);
+            if (messageThreadId != topicId) return false;
 
-        JsonNode replyTo = message.path("reply_to_message");
-        if (replyTo.isMissingNode()) return false;
+            JsonNode replyTo = message.path("reply_to_message");
+            if (replyTo == null || replyTo.isMissingNode() || replyTo.isNull()) return false;
 
-        long replyToId = replyTo.path("message_id").asLong();
-        long messageId = message.path("message_id").asLong();
+            long replyToId = replyTo.path("message_id").asLong(0);
+            long messageId = message.path("message_id").asLong(0);
+            if (replyToId <= 0 || messageId <= 0) return false;
 
-        String text = message.path("text").asText("");
-        if (text.isBlank()) {
-            text = message.path("caption").asText("");
+            String text = message.path("text").asText("");
+            if (text.isBlank()) {
+                text = message.path("caption").asText("");
+            }
+            if (text.isBlank()) return false;
+
+            JsonNode from = message.path("from");
+            String firstName = from.path("first_name").asText("");
+            String lastName = from.path("last_name").asText("");
+            String adminName = (firstName + " " + lastName).trim();
+            String adminUsername = from.hasNonNull("username") ? from.path("username").asText() : null;
+
+            var event = new SupportReplyReceivedDto(
+                    replyToId,
+                    messageId,
+                    adminName,
+                    adminUsername,
+                    text.trim(),
+                    Instant.now()
+            );
+
+            try {
+                kafka.send("efbazaar.bot.support-reply-received", String.valueOf(replyToId), event)
+                        .whenComplete((res, ex) -> {
+                            if (ex != null) {
+                                log.error("Failed to publish support reply event: replyToId={}", replyToId, ex);
+                            } else {
+                                log.info("Published support reply event: replyToId={} messageId={}", replyToId, messageId);
+                            }
+                        });
+            } catch (Exception ex) {
+                log.error("Synchronous error publishing support reply event: replyToId={}", replyToId, ex);
+            }
+
+            return true;
+        } catch (Exception ex) {
+            log.error("Error handling support topic reply: chatId={}", chatId, ex);
+            return false;
         }
-        if (text.isBlank()) return false;
-
-        JsonNode from = message.path("from");
-        String firstName = from.path("first_name").asText("");
-        String lastName = from.path("last_name").asText("");
-        String adminName = (firstName + " " + lastName).trim();
-        String adminUsername = from.hasNonNull("username") ? from.path("username").asText() : null;
-
-        var event = new SupportReplyReceivedDto(
-                replyToId,
-                messageId,
-                adminName,
-                adminUsername,
-                text,
-                Instant.now()
-        );
-
-        kafka.send("efbazaar.bot.support-reply-received", String.valueOf(replyToId), event)
-                .whenComplete((res, ex) -> {
-                    if (ex != null) {
-                        log.error("Failed to publish support reply event: replyToId={}", replyToId, ex);
-                    } else {
-                        log.info("Published support reply event: replyToId={} messageId={}", replyToId, messageId);
-                    }
-                });
-
-        return true;
     }
 }

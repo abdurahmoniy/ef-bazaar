@@ -71,68 +71,87 @@ export async function createSupportChat(input: {
   guestSessionId?: string;
 }): Promise<SupportChat> {
   const sid = input.guestSessionId || getOrCreateGuestSessionId();
-  const res = await fetch(buildMarketplaceApiPath('/api/v1/support/chats'), {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(sid ? { 'X-Guest-Session-Id': sid } : {}),
-    },
-    body: JSON.stringify({
-      category: input.category,
-      message: input.message,
-      senderName: input.senderName,
-      senderContact: input.senderContact,
-      guestSessionId: sid,
-    }),
-  });
+  try {
+    const res = await fetch(buildMarketplaceApiPath(['v1', 'support', 'chats']), {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(sid ? { 'X-Guest-Session-Id': sid } : {}),
+      },
+      body: JSON.stringify({
+        category: input.category,
+        message: input.message,
+        senderName: input.senderName,
+        senderContact: input.senderContact,
+        guestSessionId: sid,
+      }),
+    });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || 'Murojaat yaratib bo‘lmadi');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Murojaat yaratib bo‘lmadi');
+    }
+
+    return await res.json();
+  } catch (e) {
+    if (e instanceof Error) throw e;
+    throw new Error('Murojaat yaratib bo‘lmadi');
   }
-
-  return res.json();
 }
 
 export async function getActiveSupportChat(guestSessionId?: string): Promise<SupportChat | null> {
-  const sid = guestSessionId || getOrCreateGuestSessionId();
-  const res = await fetch(
-    buildMarketplaceApiPath(`/api/v1/support/chats/active${sid ? `?guestSessionId=${encodeURIComponent(sid)}` : ''}`),
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        ...(sid ? { 'X-Guest-Session-Id': sid } : {}),
-      },
-    }
-  );
+  try {
+    const sid = guestSessionId || getOrCreateGuestSessionId();
+    const res = await fetch(
+      buildMarketplaceApiPath(
+        ['v1', 'support', 'chats', 'active'],
+        sid ? new URLSearchParams({ guestSessionId: sid }) : undefined,
+      ),
+      {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          ...(sid ? { 'X-Guest-Session-Id': sid } : {}),
+        },
+      }
+    );
 
-  if (res.status === 204) return null;
-  if (!res.ok) return null;
+    if (res.status === 204 || res.status === 404 || !res.ok) return null;
 
-  return res.json();
+    return await res.json().catch(() => null);
+  } catch {
+    return null;
+  }
 }
 
 export async function getSupportChat(chatId: string, guestSessionId?: string): Promise<SupportChat> {
   const sid = guestSessionId || getOrCreateGuestSessionId();
-  const res = await fetch(
-    buildMarketplaceApiPath(`/api/v1/support/chats/${chatId}${sid ? `?guestSessionId=${encodeURIComponent(sid)}` : ''}`),
-    {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        ...(sid ? { 'X-Guest-Session-Id': sid } : {}),
-      },
+  try {
+    const res = await fetch(
+      buildMarketplaceApiPath(
+        ['v1', 'support', 'chats', chatId],
+        sid ? new URLSearchParams({ guestSessionId: sid }) : undefined,
+      ),
+      {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          ...(sid ? { 'X-Guest-Session-Id': sid } : {}),
+        },
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Murojaatni yuklab bo‘lmadi');
     }
-  );
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || 'Murojaatni yuklab bo‘lmadi');
+    return await res.json();
+  } catch (e) {
+    if (e instanceof Error) throw e;
+    throw new Error('Murojaatni yuklab bo‘lmadi');
   }
-
-  return res.json();
 }
 
 export async function sendSupportMessage(
@@ -141,44 +160,55 @@ export async function sendSupportMessage(
   guestSessionId?: string
 ): Promise<SupportMessage> {
   const sid = guestSessionId || getOrCreateGuestSessionId();
-  const res = await fetch(buildMarketplaceApiPath(`/api/v1/support/chats/${chatId}/messages`), {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(sid ? { 'X-Guest-Session-Id': sid } : {}),
-    },
-    body: JSON.stringify({
-      content,
-      guestSessionId: sid,
-    }),
-  });
+  try {
+    const res = await fetch(buildMarketplaceApiPath(['v1', 'support', 'chats', chatId, 'messages']), {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(sid ? { 'X-Guest-Session-Id': sid } : {}),
+      },
+      body: JSON.stringify({
+        content,
+        guestSessionId: sid,
+      }),
+    });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || 'Xabar yuborilmadi');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Xabar yuborilmadi');
+    }
+
+    return await res.json();
+  } catch (e) {
+    if (e instanceof Error) throw e;
+    throw new Error('Xabar yuborilmadi');
   }
-
-  return res.json();
 }
 
 export async function closeSupportChat(chatId: string, guestSessionId?: string): Promise<SupportChat> {
   const sid = guestSessionId || getOrCreateGuestSessionId();
-  const res = await fetch(buildMarketplaceApiPath(`/api/v1/support/chats/${chatId}/close`), {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(sid ? { 'X-Guest-Session-Id': sid } : {}),
-    },
-    body: JSON.stringify({
-      guestSessionId: sid,
-    }),
-  });
+  try {
+    const res = await fetch(buildMarketplaceApiPath(['v1', 'support', 'chats', chatId, 'close']), {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(sid ? { 'X-Guest-Session-Id': sid } : {}),
+      },
+      body: JSON.stringify({
+        guestSessionId: sid,
+      }),
+    });
 
-  if (!res.ok) {
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Murojaatni yopib bo‘lmadi');
+    }
+
+    return await res.json();
+  } catch (e) {
+    if (e instanceof Error) throw e;
     throw new Error('Murojaatni yopib bo‘lmadi');
   }
-
-  return res.json();
 }

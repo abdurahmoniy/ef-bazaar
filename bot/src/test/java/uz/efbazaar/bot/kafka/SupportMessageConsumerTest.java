@@ -96,4 +96,22 @@ class SupportMessageConsumerTest {
         verify(telegram, never()).sendMessageWithReply(any(), any(), any(), any());
         verify(kafka, never()).send(anyString(), anyString(), any());
     }
+
+    @Test
+    @DisplayName("Telegram xato bersa ham metod to'xtab qolmaydi va istisno tashlamaydi")
+    void onMessageCreated_telegramErrorHandledGracefully() {
+        UUID chatId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        SupportMessageCreatedDto dto = new SupportMessageCreatedDto(
+                chatId, messageId, "SUPPORT", null, "Mehmon", null, "Yordam", null, Instant.now()
+        );
+
+        when(telegram.sendMessageWithReply(any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("Telegram network error"));
+
+        // Should not throw
+        consumer.onMessageCreated(dto);
+
+        verify(kafka, never()).send(anyString(), anyString(), any());
+    }
 }
