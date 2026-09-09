@@ -230,6 +230,20 @@ public class TelegramApiClient {
      */
     public Optional<UploadedDocument> sendVideo(String chatId, Integer threadId,
                                                 MediaFile file, String caption) {
+        return sendVideo(chatId, threadId, asResource(file), caption);
+    }
+
+    /**
+     * Video OQIM bilan yuboriladi — bayt massivi orqali emas.
+     *
+     * <p>Bu shunchaki nafislik emas. Bot heap'i {@code -Xmx160m}; 50 MB lik
+     * videoni {@code getBytes()} bilan o'qish uni OOM ga olib boradi va
+     * {@code -XX:+ExitOnOutOfMemoryError} bilan konteyner O'LADI. Spring
+     * multipart faylni allaqachon diskka yozadi, shuning uchun uni
+     * {@code Resource} sifatida uzatsak xotiraga umuman tushmaydi.
+     */
+    public Optional<UploadedDocument> sendVideo(String chatId, Integer threadId,
+                                                Resource video, String caption) {
         MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
         form.add("chat_id", chatId);
         if (threadId != null) form.add("message_thread_id", String.valueOf(threadId));
@@ -238,7 +252,7 @@ public class TelegramApiClient {
             form.add("parse_mode", "HTML");
         }
         form.add("supports_streaming", "true");
-        form.add("video", asResource(file));
+        form.add("video", video);
 
         try {
             JsonNode result = telegramWebClient.post()

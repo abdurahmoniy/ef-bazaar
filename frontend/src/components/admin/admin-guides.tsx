@@ -148,6 +148,9 @@ export function AdminGuides() {
           />
           <p className="text-xs text-muted-foreground">
             50 MB gacha. Telegram videoni o&apos;z kompressori bilan siqadi.
+            <b> MP4</b> tavsiya etiladi: <code>.MOV</code> va boshqa formatlarni
+            Telegram ba&apos;zan o&apos;ynatiladigan video emas, oddiy fayl qilib
+            qabul qiladi.
           </p>
         </div>
 

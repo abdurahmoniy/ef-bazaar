@@ -158,19 +158,12 @@ public class MediaUploadController {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "file majburiy");
         }
-        MediaFile mediaFile;
-        try {
-            mediaFile = new MediaFile(
-                    file.getBytes(),
-                    file.getOriginalFilename() != null ? file.getOriginalFilename() : "video.mp4",
-                    file.getContentType());
-        } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Fayl o'qib bo'lmadi: " + file.getOriginalFilename());
-        }
-
+        // getBytes() ATAYLAB ishlatilmaydi: u 50 MB ni heap'ga tortadi va
+        // bot heap'i 160 MB. Spring multipart faylni allaqachon diskka
+        // yozgan, resurs esa o'shandan oqim bilan o'qiydi.
         var uploaded = telegram.sendVideo(
-                props.groupChatId(), props.topics().media(), mediaFile, caption);
+                props.groupChatId(), props.topics().media(),
+                namedResource(file), caption);
         if (uploaded.isEmpty()) {
             // Eng ko'p uchraydigan sabab — 50 MB chegarasi. Bot API bundan
             // kattasini qabul qilmaydi va xabar shuni aytishi kerak, aks
@@ -184,6 +177,30 @@ public class MediaUploadController {
     }
 
     public record UploadResponse(List<String> fileIds, List<Integer> messageIds) {}
+
+    /**
+     * Multipart faylning resursi, nomi kafolatlangan holda.
+     *
+     * <p>Telegram multipart qismida FAYL NOMI bo'lishini talab qiladi;
+     * nomsiz qism oddiy maydon deb qabul qilinadi va video yuklanmaydi.
+     */
+    private static org.springframework.core.io.Resource namedResource(MultipartFile file) {
+        String name = file.getOriginalFilename();
+        String safe = name == null || name.isBlank() ? "video.mp4" : name;
+        return new org.springframework.core.io.InputStreamResource(openStream(file)) {
+            @Override public String getFilename() { return safe; }
+            @Override public long contentLength() { return file.getSize(); }
+        };
+    }
+
+    private static java.io.InputStream openStream(MultipartFile file) {
+        try {
+            return file.getInputStream();
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Faylni o'qib bo'lmadi: " + file.getOriginalFilename());
+        }
+    }
 
     public record FileUploadResponse(String fileId, int messageId) {}
 }
