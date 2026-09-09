@@ -188,30 +188,32 @@ export function AdminEmojiPacks() {
                       <Loader2 className="h-4 w-4 animate-spin" /> Ochilmoqda…
                     </p>
                   ) : (
-                    <div className="grid max-h-80 grid-cols-8 gap-1 overflow-y-auto sm:grid-cols-10">
-                      {detail?.items.map((item) => (
-                        <span
-                          key={item.customEmojiId}
-                          title={item.emoji}
-                          className={cn(
-                            'flex aspect-square items-center justify-center rounded p-1',
-                            'transition hover:bg-muted',
-                          )}
-                        >
-                          {/*
-                            Statik thumbnail, video emas — bu yerda 200 ta
-                            katak bo'lishi mumkin. Yuklash dangasa: ekrandan
-                            tashqaridagilar so'ralmaydi.
-                          */}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={item.thumbnailUrl}
-                            alt={item.emoji}
-                            loading="lazy"
-                            className="h-full w-full object-contain"
-                          />
-                        </span>
-                      ))}
+                    <div className="max-h-80 overflow-y-auto rounded-lg bg-muted/20 p-2">
+                      <div className="grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] gap-1.5">
+                        {detail?.items.map((item) => (
+                          <span
+                            key={item.customEmojiId}
+                            title={item.emoji ? `${item.emoji} (${item.customEmojiId})` : item.customEmojiId}
+                            className={cn(
+                              'flex h-10 w-10 items-center justify-center rounded-lg p-1',
+                              'transition-all hover:bg-muted hover:scale-110 active:scale-95',
+                            )}
+                          >
+                            {/*
+                              Statik thumbnail, video emas — bu yerda 200 ta
+                              katak bo'lishi mumkin. Yuklash dangasa: ekrandan
+                              tashqaridagilar so'ralmaydi.
+                            */}
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.thumbnailUrl}
+                              alt={item.emoji}
+                              loading="lazy"
+                              className="h-7 w-7 object-contain"
+                            />
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

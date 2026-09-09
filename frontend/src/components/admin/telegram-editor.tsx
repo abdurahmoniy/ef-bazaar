@@ -117,6 +117,16 @@ export function TelegramEditor({
     const el = ref.current;
     if (!el) return;
     el.focus();
+
+    const selection = window.getSelection();
+    if (selection && (selection.rangeCount === 0 || !el.contains(selection.anchorNode))) {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
     const alt = item.emoji.replace(/"/g, '');
     document.execCommand('insertHTML', false,
       `<img class="tg-emoji" src="${item.thumbnailUrl}" alt="${alt}" `
@@ -186,8 +196,7 @@ export function TelegramEditor({
   }
 
   return (
-    // `relative` — emoji paneli shu qutiga nisbatan joylashadi.
-    <div className={cn('relative overflow-visible rounded-lg border border-border bg-background', className)}>
+    <div className={cn('relative overflow-hidden rounded-lg border border-border bg-background shadow-xs', className)}>
       <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/40 px-1.5 py-1">
         {actions.map((action) => (
           <button
@@ -206,29 +215,26 @@ export function TelegramEditor({
         {emojiPacks && (
           <button
             type="button"
-            title="Emoji"
+            title="Emoji paneli"
             aria-expanded={pickerOpen}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => setPickerOpen((open) => !open)}
-            className="rounded p-1.5 text-muted-foreground transition hover:bg-background hover:text-foreground"
+            className={cn(
+              'rounded p-1.5 transition',
+              pickerOpen
+                ? 'bg-primary/20 text-primary ring-1 ring-primary/40'
+                : 'text-muted-foreground hover:bg-background hover:text-foreground',
+            )}
           >
             <Smile className="h-4 w-4" />
           </button>
         )}
       </div>
 
-      {pickerOpen && emojiPacks && (
-        <EmojiPicker
-          packs={emojiPacks}
-          onPick={(item) => {
-            insertEmoji(item);
-            // Panel ochiq qoladi: odatda ketma-ket bir nechta emoji
-            // qo'yiladi va har safar qayta ochish zerikarli bo'lardi.
-          }}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
-
+      {/*
+        Matn tahrirlash maydoni doimo ko'rinib turadi — emoji paneli
+        matn ustiga tushib uni to'sib qo'ymaydi, balki pastga joylashadi.
+      */}
       <div
         ref={ref}
         contentEditable
@@ -240,8 +246,27 @@ export function TelegramEditor({
         onBlur={emit}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
-        className="tg-editor min-h-[320px] w-full resize-y overflow-auto px-3 py-2.5 text-sm leading-relaxed outline-none"
+        className={cn(
+          'tg-editor w-full resize-y overflow-y-auto px-3 py-2.5 text-sm leading-relaxed outline-none',
+          pickerOpen ? 'min-h-[160px] max-h-[280px]' : 'min-h-[260px] max-h-[460px]',
+        )}
       />
+
+      {/*
+        Emoji paneli muharrir ostiga doklanadi — matnni to'smaydi,
+        yozish va bir vaqtning o'zida emojilar tanlash imkonini beradi.
+      */}
+      {pickerOpen && emojiPacks && (
+        <EmojiPicker
+          packs={emojiPacks}
+          onPick={(item) => {
+            insertEmoji(item);
+            // Panel ochiq qoladi: odatda ketma-ket bir nechta emoji
+            // qo'yiladi va har safar qayta ochish zerikarli bo'lardi.
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }
