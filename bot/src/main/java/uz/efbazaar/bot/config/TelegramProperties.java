@@ -1,6 +1,7 @@
 package uz.efbazaar.bot.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 @ConfigurationProperties(prefix = "app.telegram")
 public record TelegramProperties(
@@ -26,6 +27,10 @@ public record TelegramProperties(
             Integer payments,
             Integer support
     ) {
+        // Select the canonical constructor explicitly because a compatibility overload exists.
+        @ConstructorBinding
+        public Topics {}
+
         public Topics(Integer logs, Integer registration, Integer media, Integer payments) {
             this(logs, registration, media, payments, null);
         }
