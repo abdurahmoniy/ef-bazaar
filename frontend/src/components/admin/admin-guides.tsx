@@ -147,10 +147,10 @@ export function AdminGuides() {
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1 file:text-sm"
           />
           <p className="text-xs text-muted-foreground">
-            50 MB gacha. Telegram videoni o&apos;z kompressori bilan siqadi.
-            <b> MP4</b> tavsiya etiladi: <code>.MOV</code> va boshqa formatlarni
-            Telegram ba&apos;zan o&apos;ynatiladigan video emas, oddiy fayl qilib
-            qabul qiladi.
+            50 MB gacha, <b>MP4</b> tavsiya etiladi. Telegram bot orqali
+            yuklangan videoni QAYTA KODLAMAYDI — ilovadagi siqish faqat odam
+            yuborganda ishlaydi. Boshqa formatlar (masalan <code>.MOV</code>)
+            o&apos;ynatiladigan video emas, oddiy fayl bo&apos;lib chiqishi mumkin.
           </p>
         </div>
 

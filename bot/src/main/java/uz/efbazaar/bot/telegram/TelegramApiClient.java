@@ -218,10 +218,14 @@ public class TelegramApiClient {
     /**
      * sendVideo — o'ynatiladigan video sifatida yuklaydi.
      *
-     * <p>{@link #sendDocument} dan farqi shu: document baytlarni saqlaydi,
-     * lekin klient uni FAYL qilib ko'rsatadi — bosib yuklab olish kerak.
-     * Video esa chat ichida o'ynaydi va Telegram uni o'z kompressori bilan
-     * siqadi, ya'ni qo'llanma tez ochiladi.
+     * <p>{@link #sendDocument} dan farqi shu: document klientda FAYL bo'lib
+     * ko'rinadi — bosib yuklab olish kerak. Video esa chat ichida o'ynaydi.
+     *
+     * <p>Telegram bot yuklagan videoni QAYTA KODLAMAYDI: ilovadagi siqish
+     * faqat odam yuborganda ishlaydi. Hujjatga ko'ra klientlar MPEG4 ni
+     * qo'llab-quvvatlaydi, boshqa formatlar Document sifatida yetkazilishi
+     * mumkin — shuning uchun pastda `file_id` ikkala maydondan ham
+     * o'qiladi.
      *
      * <p>{@code supports_streaming} — video to'liq yuklanmasdan o'ynay
      * boshlaydi. Uzun qo'llanmada bu kutish vaqtini yo'q qiladi.
