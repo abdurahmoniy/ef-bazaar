@@ -15,6 +15,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 class EmojiPackServiceTest {
 
@@ -39,14 +40,18 @@ class EmojiPackServiceTest {
         when(bot.fetch("MixAnimeEmoji")).thenReturn(set("MixAnimeEmoji", "a", "b", "c"));
         when(packs.save(any(EmojiPack.class))).thenAnswer(i -> i.getArgument(0));
 
-        EmojiPack saved = service.add("https://t.me/addemoji/MixAnimeEmoji", ADMIN);
+        var saved = service.add("https://t.me/addemoji/MixAnimeEmoji", ADMIN);
 
-        assertThat(saved.getSetName()).isEqualTo("MixAnimeEmoji");
-        // Tartib Telegram bergani bo'yicha: panel ham shu ketma-ketlikda
-        // chiziladi va admin paketni Telegram'dagidek ko'radi.
-        assertThat(saved.getItems()).extracting(EmojiPackItem::getCustomEmojiId)
+        assertThat(saved.setName()).isEqualTo("MixAnimeEmoji");
+        assertThat(saved.count()).isEqualTo(3);
+
+        // Saqlangan entity'ni ushlaymiz: qaytgan DTO tartibni ko'rsatmaydi,
+        // tartib esa muhim — panel Telegram'dagi ketma-ketlikda chiziladi.
+        ArgumentCaptor<EmojiPack> captor = ArgumentCaptor.forClass(EmojiPack.class);
+        verify(packs).save(captor.capture());
+        assertThat(captor.getValue().getItems()).extracting(EmojiPackItem::getCustomEmojiId)
                 .containsExactly("a", "b", "c");
-        assertThat(saved.getItems()).extracting(EmojiPackItem::getSortOrder)
+        assertThat(captor.getValue().getItems()).extracting(EmojiPackItem::getSortOrder)
                 .containsExactly(0, 1, 2);
     }
 
@@ -67,13 +72,17 @@ class EmojiPackServiceTest {
         when(bot.fetch("Pack")).thenReturn(set("Pack", "x", "y"));
         when(packs.save(any(EmojiPack.class))).thenAnswer(i -> i.getArgument(0));
 
-        EmojiPack saved = service.add("https://t.me/addemoji/Pack", ADMIN);
+        var saved = service.add("https://t.me/addemoji/Pack", ADMIN);
 
         // To'plamdan olib tashlangan emoji bizda ham qolmasligi kerak: uning
         // id'si Telegram'da endi yaroqsiz va matnga qo'yilsa xato beradi.
-        assertThat(saved.getItems()).extracting(EmojiPackItem::getCustomEmojiId)
+        assertThat(saved.count()).isEqualTo(2);
+        assertThat(saved.refreshedAt()).isNotNull();
+
+        ArgumentCaptor<EmojiPack> captor = ArgumentCaptor.forClass(EmojiPack.class);
+        verify(packs).save(captor.capture());
+        assertThat(captor.getValue().getItems()).extracting(EmojiPackItem::getCustomEmojiId)
                 .containsExactly("x", "y");
-        assertThat(saved.getRefreshedAt()).isNotNull();
     }
 
     @Test

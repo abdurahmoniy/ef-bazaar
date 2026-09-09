@@ -28,18 +28,18 @@ public class AdminEmojiPackController {
 
     @GetMapping
     public List<PackSummary> list() {
-        return service.list().stream().map(PackSummary::from).toList();
+        return service.list();
     }
 
     @GetMapping("/{id}")
     public PackDetail get(@PathVariable UUID id) {
-        return PackDetail.from(service.get(id));
+        return service.get(id);
     }
 
     @PostMapping
     public PackSummary add(@Valid @RequestBody AddPackRequest request,
                            @AuthenticationPrincipal AuthenticatedUser admin) {
-        return PackSummary.from(service.add(request.link(), admin.userId()));
+        return service.add(request.link(), admin.userId());
     }
 
     @DeleteMapping("/{id}")
