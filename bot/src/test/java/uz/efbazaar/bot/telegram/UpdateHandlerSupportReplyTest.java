@@ -128,4 +128,39 @@ class UpdateHandlerSupportReplyTest {
 
         verify(kafka, never()).send(anyString(), anyString(), any());
     }
+
+    @Test
+    @DisplayName("Kafka send istisno (exception) berganda handle metodi buzilmaydi")
+    void supportTopicReply_kafkaThrows_handledGracefully() throws Exception {
+        String json = """
+        {
+          "update_id": 10003,
+          "message": {
+            "message_id": 557,
+            "message_thread_id": 77,
+            "chat": {
+              "id": -100123456789,
+              "type": "supergroup"
+            },
+            "from": {
+              "id": 999002,
+              "first_name": "Admin"
+            },
+            "reply_to_message": {
+              "message_id": 12346,
+              "text": "Savol"
+            },
+            "text": "Javob"
+          }
+        }
+        """;
+
+        when(kafka.send(anyString(), anyString(), any()))
+                .thenThrow(new RuntimeException("Kafka broker down"));
+
+        // Should not throw
+        handler.handle(mapper.readTree(json));
+
+        verify(kafka).send(eq("efbazaar.bot.support-reply-received"), eq("12346"), any());
+    }
 }

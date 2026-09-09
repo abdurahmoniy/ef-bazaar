@@ -40,7 +40,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useTelegramMainButton } from '@/hooks/use-telegram-main-button';
 import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
 import { ChannelPicker } from '@/components/marketplace/channel-picker';
 import { MeasuredBottomBar } from '@/components/marketplace/measured-bottom-bar';
@@ -386,16 +385,6 @@ export function ListingForm({
 	const submitLabel = advertising && advertisingAllowed
 		? (editMode ? 'Saqlash va reklama' : 'Yaratish va reklama')
 		: (editMode ? 'Saqlash' : "E'lon yaratish");
-	useTelegramMainButton({
-		text: pending
-			? 'Yuborilmoqda...'
-			: step === 'review'
-				? submitLabel
-				: 'Davom etish',
-		onClick: () => (step === 'review' ? handleSubmit() : goNext()),
-		disabled: pending || (!canProceed && step !== 'review'),
-		loading: pending,
-	});
 
 	const showErrors = touchedSteps.has(step);
 	const progressPercent = Math.min(100, Math.round(((stepIndex + 1) / 4) * 100));

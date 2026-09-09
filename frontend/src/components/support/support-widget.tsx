@@ -79,18 +79,18 @@ export function SupportWidget({ user }: SupportWidgetProps) {
     <>
       {/* Floating Trigger Button */}
       {!isOpen && (
-        <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-40">
+        <div className="fixed bottom-[calc(var(--marketplace-bottom-bar-height,4.5rem)+0.75rem)] sm:bottom-6 right-4 sm:right-6 z-40">
           <button
             type="button"
             onClick={handleOpenWidget}
             aria-label="Qo‘llab-quvvatlash chati"
-            className="group relative flex h-13 w-13 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-xl transition-all duration-300 hover:scale-105 hover:shadow-primary/30 active:scale-95"
+            className="group relative flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl border-2 border-background ring-1 ring-primary/20 transition-all duration-300 hover:scale-105 hover:shadow-primary/30 active:scale-95"
           >
-            <Headphones className="h-6 w-6 transition-transform group-hover:scale-110" />
+            <Headphones className="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover:scale-110" />
             {hasUnreadReply && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4">
+              <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-background" />
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-background" />
               </span>
             )}
           </button>

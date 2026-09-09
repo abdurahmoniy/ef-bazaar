@@ -2,8 +2,10 @@ package uz.efbazaar.marketplace.support.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,14 +39,19 @@ public class SupportChatService {
 
     @Transactional
     public SupportChatResponse createChat(AuthenticatedUser user, CreateSupportChatRequest request) {
+        if (request == null || !StringUtils.hasText(request.message())) {
+            throw new MarketplaceException(HttpStatus.BAD_REQUEST, "empty_message", "Xabar matni bo'sh bo'lishi mumkin emas");
+        }
+
         UUID userId = (user != null) ? user.userId() : null;
         String guestSessionId = (user == null) ? request.guestSessionId() : null;
 
+        SupportCategory category = request.category() != null ? request.category() : SupportCategory.SUPPORT;
         String senderName = resolveSenderName(user, request.senderName());
         String senderContact = resolveSenderContact(user, request.senderContact());
 
         SupportChat chat = SupportChat.builder()
-                .category(request.category())
+                .category(category)
                 .status(SupportChatStatus.OPEN)
                 .userId(userId)
                 .guestSessionId(guestSessionId)
@@ -83,6 +90,10 @@ public class SupportChatService {
 
     @Transactional
     public SupportMessageResponse sendMessage(UUID chatId, AuthenticatedUser user, SendSupportMessageRequest request) {
+        if (request == null || !StringUtils.hasText(request.content())) {
+            throw new MarketplaceException(HttpStatus.BAD_REQUEST, "empty_message", "Xabar matni bo'sh bo'lishi mumkin emas");
+        }
+
         SupportChat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new MarketplaceException(HttpStatus.NOT_FOUND, "support_chat_not_found", "Murojaat topilmadi"));
 
@@ -225,14 +236,16 @@ public class SupportChatService {
 
         SupportChat chat = chatOpt.get();
         String displayAdminName = StringUtils.hasText(adminName)
-                ? adminName
-                : (StringUtils.hasText(adminUsername) ? "@" + adminUsername : "Admin");
+                ? adminName.trim()
+                : (StringUtils.hasText(adminUsername) ? "@" + adminUsername.trim() : "Admin");
+
+        String contentText = StringUtils.hasText(text) ? text.trim() : "[Xabar / Media]";
 
         SupportMessage adminMessage = SupportMessage.builder()
                 .supportChatId(chat.getId())
                 .senderType(SupportSenderType.ADMIN)
                 .senderName(displayAdminName)
-                .content(text.trim())
+                .content(contentText)
                 .telegramMessageId(telegramMessageId)
                 .createdAt(Instant.now())
                 .build();
@@ -254,8 +267,27 @@ public class SupportChatService {
             String search,
             Pageable pageable
     ) {
-        String cleanSearch = StringUtils.hasText(search) ? search.trim() : null;
-        Page<SupportChat> chats = chatRepository.findForAdmin(category, status, cleanSearch, pageable);
+        Specification<SupportChat> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new java.util.ArrayList<>();
+            if (category != null) {
+                predicates.add(cb.equal(root.get("category"), category));
+            }
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (StringUtils.hasText(search)) {
+                String pattern = "%" + search.trim().toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("senderName")), pattern),
+                        cb.like(cb.lower(root.get("senderContact")), pattern)
+                ));
+            }
+            return predicates.isEmpty()
+                    ? cb.conjunction()
+                    : cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<SupportChat> chats = chatRepository.findAll(spec, pageable);
         return chats.map(chat -> {
             String preview = messageRepository.findFirstBySupportChatIdOrderByCreatedAtDesc(chat.getId())
                     .map(SupportMessage::getContent)
@@ -280,11 +312,15 @@ public class SupportChatService {
 
     @Transactional
     public SupportMessageResponse replyAsAdmin(UUID chatId, AuthenticatedUser adminUser, AdminSupportReplyRequest request) {
+        if (request == null || !StringUtils.hasText(request.content())) {
+            throw new MarketplaceException(HttpStatus.BAD_REQUEST, "empty_message", "Xabar matni bo'sh bo'lishi mumkin emas");
+        }
+
         SupportChat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new MarketplaceException(HttpStatus.NOT_FOUND, "support_chat_not_found", "Murojaat topilmadi"));
 
         String adminName = (adminUser != null && StringUtils.hasText(adminUser.displayName()))
-                ? adminUser.displayName()
+                ? adminUser.displayName().trim()
                 : "Admin";
         UUID adminId = (adminUser != null) ? adminUser.userId() : null;
 
@@ -358,17 +394,20 @@ public class SupportChatService {
 
     private String resolveSenderName(AuthenticatedUser user, String requestedName) {
         if (user != null && StringUtils.hasText(user.displayName())) {
-            return user.displayName();
+            String name = user.displayName().trim();
+            return name.length() > 128 ? name.substring(0, 128) : name;
         }
         if (StringUtils.hasText(requestedName)) {
-            return requestedName.trim();
+            String name = requestedName.trim();
+            return name.length() > 128 ? name.substring(0, 128) : name;
         }
         return (user != null) ? "Foydalanuvchi" : "Mehmon";
     }
 
     private String resolveSenderContact(AuthenticatedUser user, String requestedContact) {
         if (StringUtils.hasText(requestedContact)) {
-            return requestedContact.trim();
+            String contact = requestedContact.trim();
+            return contact.length() > 128 ? contact.substring(0, 128) : contact;
         }
         if (user != null && user.telegramId() != null) {
             return "tg:" + user.telegramId();

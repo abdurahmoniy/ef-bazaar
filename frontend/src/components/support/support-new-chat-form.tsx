@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Send, Sparkles, HelpCircle, Handshake, Wrench } from 'lucide-react';
+import { Send, HelpCircle, Handshake, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -156,10 +156,7 @@ export function SupportNewChatForm({
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-2">
-        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-          <Sparkles className="h-3 w-3 text-primary" /> Xabaringiz Telegram guruhidagi adminlarga yetkaziladi
-        </span>
+      <div className="flex items-center justify-end pt-2">
         <Button type="submit" disabled={isPending || !message.trim()} className="gap-1.5 shrink-0">
           <Send className="h-4 w-4" />
           {isPending ? 'Yuborilmoqda...' : 'Yuborish'}

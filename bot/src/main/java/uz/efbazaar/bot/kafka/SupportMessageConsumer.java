@@ -57,8 +57,12 @@ public class SupportMessageConsumer {
                 log.info("Posted support message to Telegram: chatId={} msgId={} telegramMsgId={}",
                         e.chatId(), e.messageId(), telegramMsgId);
 
-                kafka.send("efbazaar.bot.support-message-bound", e.chatId().toString(),
-                        new SupportMessageBoundDto(e.chatId(), e.messageId(), telegramMsgId, Instant.now()));
+                try {
+                    kafka.send("efbazaar.bot.support-message-bound", e.chatId().toString(),
+                            new SupportMessageBoundDto(e.chatId(), e.messageId(), telegramMsgId, Instant.now()));
+                } catch (Exception kex) {
+                    log.error("Failed to publish support message bound event to Kafka: chatId={}", e.chatId(), kex);
+                }
             } else {
                 log.warn("Telegram failed to deliver support message for chatId={}", e.chatId());
             }
@@ -88,7 +92,8 @@ public class SupportMessageConsumer {
         }
         sb.append("\n");
 
-        String shortChatId = e.chatId().toString().substring(0, 8);
+        String chatIdStr = e.chatId().toString();
+        String shortChatId = chatIdStr.length() >= 8 ? chatIdStr.substring(0, 8) : chatIdStr;
         sb.append("🆔 <b>Chat ID:</b> <code>#").append(shortChatId).append("</code>\n");
         sb.append("────────────────────\n");
         sb.append(escape(e.content()));
