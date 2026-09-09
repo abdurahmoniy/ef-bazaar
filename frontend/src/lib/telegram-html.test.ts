@@ -249,3 +249,28 @@ describe('custom emoji — zaxira belgi atribut chegarasini buzmaydi', () => {
     expect(img?.getAttribute('data-fallback')).toContain('onmouseover');
   });
 });
+
+describe('preview — emoji poster bilan', () => {
+  it('poster berilsa video uni ko\'rsatadi', () => {
+    // Video yuklanmasa yoki brauzer uni chiza olmasa, `<video>` JIMGINA
+    // bo'sh joy qoldiradi — xabar puffagi bo'm-bo'sh ko'rinadi va admin
+    // nima yozganini ko'rmaydi. Poster statik kadr beradi: emoji darrov
+    // ko'rinadi, video esa yuklangach jonlanadi.
+    const html = telegramHtmlToPreview(
+      '<tg-emoji emoji-id="1">🙂</tg-emoji>',
+      new Map([['1', '/bot/emoji/FILE']]),
+      new Map([['1', '/bot/emoji/THUMB']]),
+    );
+
+    expect(html).toContain('poster="/bot/emoji/THUMB"');
+    expect(html).toContain('src="/bot/emoji/FILE"');
+  });
+
+  it('postersiz ham ishlaydi', () => {
+    const html = telegramHtmlToPreview('<tg-emoji emoji-id="1">🙂</tg-emoji>',
+      new Map([['1', '/u']]));
+
+    expect(html).toContain('<video');
+    expect(html).not.toContain('poster=');
+  });
+});

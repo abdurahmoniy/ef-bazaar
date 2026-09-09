@@ -203,6 +203,7 @@ export function AdminBotBroadcast() {
             <h2 className="mb-2 text-sm font-semibold">Telegramda qanday ko&apos;rinadi</h2>
             <TelegramPreview
               emojiUrls={emoji.fileUrls}
+              emojiPosters={emoji.thumbnailUrls}
               html={text}
               bannerUrl={bannerEnabled ? bannerUrl : null}
               buttons={buttons}

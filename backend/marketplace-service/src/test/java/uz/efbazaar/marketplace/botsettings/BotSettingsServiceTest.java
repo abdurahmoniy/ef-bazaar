@@ -192,4 +192,38 @@ class BotSettingsServiceTest {
         assertThatCode(() -> save("⚽".repeat(BotSettingsService.CAPTION_MAX_LENGTH)))
                 .doesNotThrowAnyException();
     }
+
+    @org.junit.jupiter.api.Nested
+    @org.junit.jupiter.api.DisplayName("custom emoji")
+    class CustomEmoji {
+
+        @Test
+        @DisplayName("<tg-emoji> qabul qilinadi")
+        void tgEmojiIsAllowed() {
+            // Telegram uni qo'llab-quvvatlaydi va bot egasi Premium bo'lsa
+            // shaxsiy chat va guruhlarga yuboriladi. Ro'yxatda bo'lmagani
+            // uchun admin panel xabarni umuman saqlay olmasdi.
+            service.validateHtml("salom <tg-emoji emoji-id=\"5332713063516753296\">🇵🇹</tg-emoji>");
+        }
+
+        @Test
+        @DisplayName("emoji-id siz <tg-emoji> rad etiladi")
+        void tgEmojiNeedsAnId() {
+            // Telegram bunday tegni "can't parse entities" bilan rad etadi va
+            // butun xabar yuborilmaydi. Bu yerda tutib qolish arzonroq:
+            // u yerda sabab admin ko'rmaydigan joyda chiqadi.
+            assertThatThrownBy(() -> service.validateHtml("<tg-emoji>🙂</tg-emoji>"))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .hasMessageContaining("emoji-id");
+        }
+
+        @Test
+        @DisplayName("emoji-id raqam bo'lishi kerak")
+        void theIdMustBeNumeric() {
+            assertThatThrownBy(() ->
+                    service.validateHtml("<tg-emoji emoji-id=\"abc\">🙂</tg-emoji>"))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .hasMessageContaining("emoji-id");
+        }
+    }
 }

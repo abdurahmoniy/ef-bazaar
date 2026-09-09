@@ -174,8 +174,10 @@ export function telegramHtmlToEditor(
 export function telegramHtmlToPreview(
   html: string,
   emojiUrls?: ReadonlyMap<string, string>,
+  emojiPosters?: ReadonlyMap<string, string>,
 ): string {
-  return sanitizeTelegramHtml(html, { spoilerAsSpan: true, emojiUrls }).replace(/\n/g, '<br>');
+  return sanitizeTelegramHtml(html, { spoilerAsSpan: true, emojiUrls, emojiPosters })
+    .replace(/\n/g, '<br>');
 }
 
 /**
@@ -190,6 +192,8 @@ function sanitizeTelegramHtml(
     emojiUrls?: ReadonlyMap<string, string>;
     /** Muharrirda tahrirlanadigan element, preview'da harakatli video. */
     emojiAs?: 'video' | 'img';
+    /** Video uchun statik kadr — yuklanmasa ham emoji ko'rinib turadi. */
+    emojiPosters?: ReadonlyMap<string, string>;
   },
 ): string {
   const escaped = escapeHtml(html);
@@ -216,9 +220,11 @@ function sanitizeTelegramHtml(
           : `<span class="tg-emoji-fallback" ${attrs}>${fallback}</span>`;
       }
       if (!url) return fallback;
+      const poster = opts.emojiPosters?.get(id);
       return (
-        `<video src="${escapeHtml(url)}" class="tg-custom-emoji" ` +
-        'autoplay loop muted playsinline></video>'
+        `<video src="${escapeAttr(url)}" class="tg-custom-emoji" `
+        + (poster ? `poster="${escapeAttr(poster)}" ` : '')
+        + 'autoplay loop muted playsinline></video>'
       );
     },
   );
