@@ -27,6 +27,7 @@ import {
   UserPlus,
   UsersRound,
   X,
+  Video,
 } from 'lucide-react';
 
 import { FEATURES } from '@/lib/feature-flags';
@@ -188,6 +189,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Bot sozlamalari',
         shortLabel: 'Bot',
         icon: Bot,
+      },
+      {
+        href: '/admin/guides',
+        label: "Video qo'llanmalar",
+        shortLabel: "Qo'llanmalar",
+        icon: Video,
       },
     ],
   },

@@ -139,6 +139,50 @@ public class MediaUploadController {
         return new FileUploadResponse(uploaded.get().fileId(), uploaded.get().messageId());
     }
 
+    /**
+     * Video sifatida yuklash — qo'llanmalar uchun.
+     *
+     * <p>{@code upload-file} dan farqi: u document yuboradi va klient uni
+     * FAYL qilib ko'rsatadi, bosib yuklab olish kerak. Video esa chat ichida
+     * o'ynaydi va Telegram uni o'z kompressori bilan siqadi.
+     *
+     * <p>Media topikiga tushadi va o'sha yerda qoladi: `file_id` faqat
+     * Telegram'da xabar mavjud ekan amal qiladi, ya'ni uni o'chirish
+     * qo'llanmani yo'q qilardi.
+     */
+    @PostMapping(value = "/upload-video", consumes = "multipart/form-data")
+    @ResponseStatus(HttpStatus.OK)
+    public FileUploadResponse uploadVideo(@RequestParam("file") MultipartFile file,
+                                          @RequestParam(value = "caption", required = false)
+                                          String caption) {
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "file majburiy");
+        }
+        MediaFile mediaFile;
+        try {
+            mediaFile = new MediaFile(
+                    file.getBytes(),
+                    file.getOriginalFilename() != null ? file.getOriginalFilename() : "video.mp4",
+                    file.getContentType());
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Fayl o'qib bo'lmadi: " + file.getOriginalFilename());
+        }
+
+        var uploaded = telegram.sendVideo(
+                props.groupChatId(), props.topics().media(), mediaFile, caption);
+        if (uploaded.isEmpty()) {
+            // Eng ko'p uchraydigan sabab — 50 MB chegarasi. Bot API bundan
+            // kattasini qabul qilmaydi va xabar shuni aytishi kerak, aks
+            // holda admin sababni topa olmaydi.
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "Telegram videoni qabul qilmadi. Eng ko'p uchraydigan sabab — "
+                            + "hajm 50 MB dan katta.");
+        }
+        log.info("Uploaded video to media topic: messageId={}", uploaded.get().messageId());
+        return new FileUploadResponse(uploaded.get().fileId(), uploaded.get().messageId());
+    }
+
     public record UploadResponse(List<String> fileIds, List<Integer> messageIds) {}
 
     public record FileUploadResponse(String fileId, int messageId) {}

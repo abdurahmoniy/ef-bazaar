@@ -61,6 +61,8 @@ class MarketplaceApplicationTests {
     @Autowired @Qualifier("dataSource") DataSource marketplaceDataSource;
 
     @MockBean uz.efbazaar.marketplace.emoji.EmojiPackRepository emojiPackRepository;
+    @MockBean uz.efbazaar.marketplace.guide.GuideRepositories.GuideRepository guideRepository;
+    @MockBean uz.efbazaar.marketplace.guide.GuideRepositories.GuideButtonRepository guideButtonRepository;
     @MockBean ListingRepository listingRepository;
     @MockBean LikeRepository likeRepository;
     @MockBean ChatRepository chatRepository;
