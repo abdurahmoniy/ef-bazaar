@@ -47,6 +47,8 @@ interface TelegramPreviewProps {
   html: string;
   /** custom_emoji_id → asl fayl; berilmasa zaxira belgi ko'rinadi. */
   emojiUrls?: ReadonlyMap<string, string>;
+  /** custom_emoji_id → statik kadr; video yuklanmasa ham emoji ko'rinadi. */
+  emojiPosters?: ReadonlyMap<string, string>;
   bannerUrl: string | null;
   /**
    * Xabar ostidagi inline tugmalar. Start xabarida ular kodda belgilangan
@@ -56,9 +58,14 @@ interface TelegramPreviewProps {
   buttons: InlineButtonRows;
 }
 
-export function TelegramPreview({ html, bannerUrl, buttons, emojiUrls }: TelegramPreviewProps) {
+export function TelegramPreview({
+  html, bannerUrl, buttons, emojiUrls, emojiPosters,
+}: TelegramPreviewProps) {
   const pattern = useMemo(buildPatternUrl, []);
-  const rendered = useMemo(() => telegramHtmlToPreview(html, emojiUrls), [html, emojiUrls]);
+  const rendered = useMemo(
+    () => telegramHtmlToPreview(html, emojiUrls, emojiPosters),
+    [html, emojiUrls, emojiPosters],
+  );
 
   return (
     <div

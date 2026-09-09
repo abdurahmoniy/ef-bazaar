@@ -311,6 +311,7 @@ export function AdminBotSettings({ initial }: AdminBotSettingsProps) {
             <h2 className="mb-2 text-sm font-semibold">Telegramda qanday ko&apos;rinadi</h2>
             <TelegramPreview
               emojiUrls={emoji.fileUrls}
+              emojiPosters={emoji.thumbnailUrls}
               html={text}
               bannerUrl={bannerEnabled ? shownBannerUrl : null}
               buttons={START_MESSAGE_BUTTONS}

@@ -61,7 +61,18 @@ public class BotSettingsService {
      */
     private static final Set<String> ALLOWED_TAGS = Set.of(
             "b", "strong", "i", "em", "u", "ins", "s", "strike", "del",
-            "a", "code", "pre", "blockquote", "span", "tg-spoiler");
+            "a", "code", "pre", "blockquote", "span", "tg-spoiler", "tg-emoji");
+
+    /**
+     * Custom emoji tegi id'siz ma'nosiz.
+     *
+     * <p>Telegram bunday tegni "can't parse entities" bilan rad etadi va
+     * BUTUN xabar yuborilmaydi. U yerdagi sabab adminga ko'rinmaydi —
+     * xato ommaviy jo'natish oqimining ichida qoladi. Shuning uchun uni
+     * saqlashdan oldin shu yerda tutamiz.
+     */
+    private static final Pattern TG_EMOJI_ID =
+            Pattern.compile("emoji-id\\s*=\\s*\"(\\d{1,32})\"", Pattern.CASE_INSENSITIVE);
 
     private static final Pattern TAG = Pattern.compile("</?([a-zA-Z][a-zA-Z0-9-]*)[^>]*>");
 
@@ -220,6 +231,14 @@ public class BotSettingsService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "<" + name + "> tegini Telegram qo'llab-quvvatlamaydi. "
                                 + "Ruxsat etilgan: " + String.join(", ", ALLOWED_TAGS.stream().sorted().toList()));
+            }
+            if ("tg-emoji".equals(name) && !raw.startsWith("</")) {
+                Matcher id = TG_EMOJI_ID.matcher(raw);
+                if (!id.find()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "<tg-emoji> tegida emoji-id bo'lishi kerak, masalan "
+                                    + "<tg-emoji emoji-id=\"5332713063516753296\">🙂</tg-emoji>");
+                }
             }
             if (raw.startsWith("</")) {
                 if (open.isEmpty() || !open.pop().equals(name)) {
