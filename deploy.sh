@@ -109,6 +109,7 @@ write_env() {
   # number would put user ids into somebody else's thread.
   upsert_env .env TELEGRAM_TOPIC_PAYMENTS     "${TELEGRAM_TOPIC_PAYMENTS:-}"
   upsert_env .env TELEGRAM_TOPIC_EMAIL        "${TELEGRAM_TOPIC_EMAIL:-}"
+  upsert_env .env TELEGRAM_TOPIC_SUPPORT      "${TELEGRAM_TOPIC_SUPPORT:-}"
   upsert_env .env TELEGRAM_WEBHOOK_URL        "${TELEGRAM_WEBHOOK_URL:-}"
   upsert_env .env TELEGRAM_WEBHOOK_SECRET     "${TELEGRAM_WEBHOOK_SECRET:-}"
 

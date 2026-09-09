@@ -5,6 +5,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.util.StringUtils;
+import uz.efbazaar.bot.config.TelegramProperties;
+import uz.efbazaar.bot.kafka.SupportReplyReceivedDto;
 import uz.efbazaar.bot.partner.ChannelVerifier;
 import uz.efbazaar.bot.guide.GuideMessenger;
 import uz.efbazaar.bot.referral.PendingReferralClient;
@@ -13,6 +17,7 @@ import uz.efbazaar.bot.settings.BotSettingsClient.BotSettingsView;
 import uz.efbazaar.bot.telegram.TelegramApiClient.UrlButton;
 import uz.efbazaar.bot.telegram.TelegramApiClient.WebAppButton;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -30,6 +35,8 @@ public class UpdateHandler {
     private final PendingReferralClient pendingReferrals;
     private final PremiumEmojiInspector premiumEmoji;
     private final GuideMessenger guides;
+    private final TelegramProperties props;
+    private final KafkaTemplate<String, Object> kafka;
 
     @Value("${app.web.base-url:https://efbazaar.uz}")
     private String webBaseUrl;
@@ -56,8 +63,14 @@ public class UpdateHandler {
         JsonNode message = update.path("message");
         if (message.isMissingNode()) return;
 
-        String text = message.path("text").asText("");
         long chatId = message.path("chat").path("id").asLong();
+
+        // Murojaatlar topicidagi reply javoblar (admin saytdagi foydalanuvchiga javob berishi)
+        if (handleSupportTopicReply(message, chatId)) {
+            return;
+        }
+
+        String text = message.path("text").asText("");
 
         if (text.startsWith("/start")) {
             String code = startPayload(text);
@@ -207,5 +220,54 @@ public class UpdateHandler {
                 + "• /partner — kanalingizni hamkorlikka bog'lash\n\n"
                 + "Aksariyat amallar saytda — pastdagi tugma orqali oching.";
         telegram.sendMessageWithKeyboard(String.valueOf(chatId), text, startKeyboard());
+    }
+
+    private boolean handleSupportTopicReply(JsonNode message, long chatId) {
+        if (!StringUtils.hasText(props.groupChatId())) return false;
+        if (!props.groupChatId().equals(String.valueOf(chatId))) return false;
+
+        Integer topicId = props.topics() != null ? props.topics().support() : null;
+        if (topicId == null) return false;
+
+        int messageThreadId = message.path("message_thread_id").asInt(0);
+        if (messageThreadId != topicId) return false;
+
+        JsonNode replyTo = message.path("reply_to_message");
+        if (replyTo.isMissingNode()) return false;
+
+        long replyToId = replyTo.path("message_id").asLong();
+        long messageId = message.path("message_id").asLong();
+
+        String text = message.path("text").asText("");
+        if (text.isBlank()) {
+            text = message.path("caption").asText("");
+        }
+        if (text.isBlank()) return false;
+
+        JsonNode from = message.path("from");
+        String firstName = from.path("first_name").asText("");
+        String lastName = from.path("last_name").asText("");
+        String adminName = (firstName + " " + lastName).trim();
+        String adminUsername = from.hasNonNull("username") ? from.path("username").asText() : null;
+
+        var event = new SupportReplyReceivedDto(
+                replyToId,
+                messageId,
+                adminName,
+                adminUsername,
+                text,
+                Instant.now()
+        );
+
+        kafka.send("efbazaar.bot.support-reply-received", String.valueOf(replyToId), event)
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish support reply event: replyToId={}", replyToId, ex);
+                    } else {
+                        log.info("Published support reply event: replyToId={} messageId={}", replyToId, messageId);
+                    }
+                });
+
+        return true;
     }
 }

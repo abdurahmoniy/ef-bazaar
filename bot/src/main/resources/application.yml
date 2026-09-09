@@ -104,6 +104,7 @@ app:
       # No default number: an unset topic means "do not post", not "post into
       # topic 2". The real value is a secret and lives only in .env.
       payments:     ${TELEGRAM_TOPIC_PAYMENTS:}
+      support:      ${TELEGRAM_TOPIC_SUPPORT:}
     webhook-url:    ${TELEGRAM_WEBHOOK_URL:}
     webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
 

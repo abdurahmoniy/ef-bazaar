@@ -68,6 +68,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/attributes", "/api/v1/attributes/*").permitAll()
                         // Public — health
                         .requestMatchers("/actuator/**", "/api/v1/ping").permitAll()
+                        // Public + authenticated — support chat
+                        .requestMatchers("/api/v1/support/**").permitAll()
                         // Public — OpenAPI (api.* subdomain nginx basic auth ostida)
                         .requestMatchers(
                                 "/v3/api-docs/**",

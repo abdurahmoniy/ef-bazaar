@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Sparkles,
+  Headphones,
   UploadCloud,
   Wallet,
   X,
@@ -219,15 +220,24 @@ export function HelpView({
             </p>
           </div>
 
-          <Link
-            href={siteConfig.links.telegram}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-black text-primary-foreground shadow-card transition hover:bg-primary/90"
-          >
-            <Send className="h-4 w-4" />
-            Telegramda yozish
-          </Link>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              href="/support?category=SUPPORT"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-black text-primary-foreground shadow-card transition hover:bg-primary/90"
+            >
+              <Headphones className="h-4 w-4" />
+              Chat orqali yozish
+            </Link>
+            <Link
+              href={siteConfig.links.telegram}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-bold text-foreground transition hover:bg-muted"
+            >
+              <Send className="h-4 w-4" />
+              Telegram bot
+            </Link>
+          </div>
         </div>
       </section>
     </div>
