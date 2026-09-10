@@ -3,6 +3,7 @@
 import type { PlatformCardCreateRequest } from './platform-card-draft';
 import type {
   ObservationResponse,
+  PaymentAnalyticsOverview,
   PlatformCardResponse,
   TradeCommissionConfig,
   UpdateTradeCommissionConfigRequest,
@@ -86,6 +87,19 @@ export function reorderCards(ids: string[]): Promise<void> {
     method: 'POST',
     body: JSON.stringify({ orderedIds: ids }),
   });
+}
+
+/**
+ * Removes a card that never took a payment. A card with history answers 409 —
+ * the caller shows that message rather than retrying, because deactivating is
+ * the operation for that one and the backend will keep refusing this.
+ */
+export function deletePlatformCard(id: string): Promise<void> {
+  return call<void>(`/cards/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function getPaymentAnalytics(): Promise<PaymentAnalyticsOverview> {
+  return call<PaymentAnalyticsOverview>('/analytics/overview');
 }
 
 export function listUnmatched(): Promise<ObservationResponse[]> {

@@ -126,3 +126,61 @@ export interface UpdateTradeCommissionConfigRequest {
   lowMinSom: number;
   highMinSom: number;
 }
+
+/**
+ * One transaction kind's effect on the platform's equity.
+ *
+ * Both figures arrive POSITIVE — the backend flips the ledger's sign so this
+ * screen never has to. `inTiyin` grew the platform's own money, `outTiyin`
+ * spent it.
+ */
+export interface RevenueFlowRow {
+  kind: TransactionKind;
+  inTiyin: number;
+  outTiyin: number;
+}
+
+/**
+ * Money that has settled on one card.
+ *
+ * Not profit: commission is posted against the trade that earned it and carries
+ * no card, so no per-card profit exists in the data. This is the pipe's volume.
+ */
+export interface CardThroughputRow {
+  cardId: string;
+  throughputTiyin: number;
+  paidInvoices: number;
+}
+
+/**
+ * The finance dashboard's single read. Every amount is tiyin, and every one is
+ * already in the direction a person reads it.
+ */
+export interface PaymentAnalyticsOverview {
+  /** What the ledger says is on the cards. */
+  ledgerCardsTiyin: number;
+  /** What the userbot last saw there. Short by `unobservedCards` cards. */
+  observedCardsTiyin: number;
+  unobservedCards: number;
+
+  userAvailableTiyin: number;
+  userHeldTiyin: number;
+  userWithdrawPendingTiyin: number;
+  /** The three above: what the platform owes its users. */
+  usersTotalTiyin: number;
+  /** `ledgerCards − usersTotal`. Negative while referral spending runs ahead. */
+  platformOwnTiyin: number;
+
+  revenueInTiyin: number;
+  revenueOutTiyin: number;
+  feesTiyin: number;
+  /** `revenueIn − revenueOut − fees`. A negative value is a business state, not an alert. */
+  netTiyin: number;
+  referralRewardTiyin: number;
+  referralPayouts: number;
+  referralRecipients: number;
+  revenueByKind: RevenueFlowRow[];
+
+  cardThroughput: CardThroughputRow[];
+  computedAt: string;
+}

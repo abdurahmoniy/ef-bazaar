@@ -5,12 +5,13 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PlatformCardList } from './platform-card-list';
-import type { PlatformCardResponse } from '@/lib/payment-types';
+import type { CardThroughputRow, PlatformCardResponse } from '@/lib/payment-types';
 
 const clientMocks = vi.hoisted(() => ({
   listPlatformCards: vi.fn(),
   activateCard: vi.fn(),
   deactivateCard: vi.fn(),
+  deletePlatformCard: vi.fn(),
   reorderCards: vi.fn(),
   createPlatformCard: vi.fn(),
 }));
@@ -53,8 +54,17 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-async function render(initialCards: PlatformCardResponse[]) {
-  await act(async () => root.render(createElement(PlatformCardList, { initialCards })));
+async function render(
+  initialCards: PlatformCardResponse[],
+  throughput?: CardThroughputRow[],
+) {
+  await act(async () =>
+    root.render(createElement(PlatformCardList, { initialCards, throughput })));
+}
+
+function buttonLabelledEndingWith(suffix: string) {
+  return [...container.querySelectorAll<HTMLButtonElement>('button[aria-label]')]
+    .find((b) => b.getAttribute('aria-label')!.endsWith(suffix));
 }
 
 function articles() {
@@ -86,7 +96,7 @@ describe('PlatformCardList', () => {
 
   it('keeps deactivated cards in their own section', async () => {
     await render([card('a', 1), card('x', 2, false)]);
-    expect(container.textContent).toContain("O'chirilgan kartalar (1)");
+    expect(container.textContent).toContain('Faolsizlantirilgan kartalar (1)');
     expect(container.textContent).toContain('Faol kartalar (1)');
   });
 
@@ -120,7 +130,7 @@ describe('PlatformCardList', () => {
 
     await act(async () => {
       [...container.querySelectorAll('button')]
-        .find((b) => b.textContent === "O'chirish")!.click();
+        .find((b) => b.textContent === 'Faolsizlantirish')!.click();
     });
 
     expect(clientMocks.deactivateCard).toHaveBeenCalledWith('a');
@@ -160,9 +170,59 @@ describe('PlatformCardList', () => {
 
     await act(async () => {
       [...container.querySelectorAll('button')]
-        .find((b) => b.textContent === "O'chirish")!.click();
+        .find((b) => b.textContent === 'Faolsizlantirish')!.click();
     });
 
     expect(articles().length).toBe(1);
+  });
+  it('deletes a card once the confirmation is clicked through', async () => {
+    clientMocks.deletePlatformCard.mockResolvedValue(undefined);
+    clientMocks.listPlatformCards.mockResolvedValue([]);
+    await render([card('a', 1)]);
+
+    await act(async () => buttonLabelledEndingWith("kartasini butunlay o'chirish")!.click());
+    await act(async () => buttonLabelledEndingWith("kartasini o'chirishni tasdiqlash")!.click());
+
+    expect(clientMocks.deletePlatformCard).toHaveBeenCalledWith('a');
+    expect(container.textContent).toContain("Faol karta yo'q");
+  });
+
+  /**
+   * payment-service refuses a card any payment ever named. This component
+   * cannot know a card's payment history, so it does not pre-empt that — it
+   * shows what the backend said.
+   */
+  it('shows the backend reason when a delete is refused', async () => {
+    clientMocks.deletePlatformCard.mockRejectedValue(
+      new Error("Bu karta orqali to'lov o'tgan"),
+    );
+    clientMocks.listPlatformCards.mockResolvedValue([card('a', 1)]);
+    await render([card('a', 1)]);
+
+    await act(async () => buttonLabelledEndingWith("kartasini butunlay o'chirish")!.click());
+    await act(async () => buttonLabelledEndingWith("kartasini o'chirishni tasdiqlash")!.click());
+
+    expect(container.querySelector('[role="alert"]')?.textContent)
+      .toBe("Bu karta orqali to'lov o'tgan");
+    expect(articles().length).toBe(1);
+  });
+
+  it('joins the throughput onto the card it belongs to', async () => {
+    await render([card('a', 1), card('b', 2)], [
+      { cardId: 'a', throughputTiyin: 900_000, paidInvoices: 4 },
+    ]);
+
+    expect(articles()[0].textContent).toContain('Aylanma');
+    expect(articles()[0].textContent).toContain('4 ta');
+    // Nothing measured for the second card — no bar rather than a zero one.
+    expect(articles()[1].textContent).not.toContain('Aylanma');
+  });
+
+  /** The analytics read is independent and may fail on its own. */
+  it('manages the queue with no throughput data at all', async () => {
+    await render([card('a', 1)]);
+
+    expect(articles().length).toBe(1);
+    expect(container.textContent).not.toContain('Aylanma');
   });
 });

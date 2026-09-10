@@ -56,6 +56,8 @@ async function render(card: PlatformCardResponse, props: Handlers = {}) {
  */
 const MOVE_UP = `${baseCard.maskedPan} kartasini yuqoriga surish`;
 const MOVE_DOWN = `${baseCard.maskedPan} kartasini pastga surish`;
+const DELETE = `${baseCard.maskedPan} kartasini butunlay o'chirish`;
+const CONFIRM_DELETE = `${baseCard.maskedPan} kartasini o'chirishni tasdiqlash`;
 
 function buttonLabelled(label: string) {
   return [...container.querySelectorAll('button')]
@@ -115,7 +117,7 @@ describe('PlatformCard', () => {
     const onDeactivate = vi.fn();
     await render(baseCard, { onDeactivate });
 
-    await act(async () => buttonLabelled("O'chirish").click());
+    await act(async () => buttonLabelled('Faolsizlantirish').click());
     expect(onDeactivate).toHaveBeenCalledWith(baseCard.id);
   });
 
@@ -138,6 +140,13 @@ describe('PlatformCard', () => {
     expect(buttons.every((b) => b.disabled)).toBe(true);
   });
 
+  it('locks the delete button too', async () => {
+    await render(baseCard, { busy: true, onDelete: () => {} });
+    const buttons = [...container.querySelectorAll('button')];
+    expect(buttons.length).toBe(2);
+    expect(buttons.every((b) => b.disabled)).toBe(true);
+  });
+
   it('falls back to the raw brand rather than an empty label', async () => {
     // BRAND_LABEL is a total Record over today's four brands. A fifth added to
     // the backend must not render as a blank corner — see UNKNOWN_KIND_LABEL.
@@ -149,7 +158,7 @@ describe('PlatformCard', () => {
     await render(baseCard);
     expect(container.querySelector('article')?.getAttribute('aria-label'))
       .toBe(`HUMO ${baseCard.maskedPan}`);
-    expect(buttonLabelled(`${baseCard.maskedPan} kartasini o'chirish`)).toBeDefined();
+    expect(buttonLabelled(`${baseCard.maskedPan} kartasini faolsizlantirish`)).toBeDefined();
   });
 
   it('never puts anything but the masked number in an accessible name', async () => {
@@ -159,5 +168,57 @@ describe('PlatformCard', () => {
     ];
     expect(labels.length).toBeGreaterThan(0);
     expect(labels.every((label) => !/\d{6,}/.test(label))).toBe(true);
+  });
+  it('offers no delete button unless the list supplies a handler', async () => {
+    await render(baseCard);
+    expect(buttonLabelled(DELETE)).toBeUndefined();
+  });
+
+  /**
+   * Deleting cannot be undone and no screen in this panel can put the row back.
+   * One stray click on an icon must not be enough.
+   */
+  it('does not delete on the first click', async () => {
+    const onDelete = vi.fn();
+    await render(baseCard, { onDelete });
+
+    await act(async () => buttonLabelled(DELETE).click());
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Qaytarib bo'lmaydi");
+  });
+
+  it('deletes once the second, deliberate click confirms it', async () => {
+    const onDelete = vi.fn();
+    await render(baseCard, { onDelete });
+
+    await act(async () => buttonLabelled(DELETE).click());
+    await act(async () => buttonLabelled(CONFIRM_DELETE).click());
+    expect(onDelete).toHaveBeenCalledWith(baseCard.id);
+  });
+
+  it('backs out of the confirmation without deleting', async () => {
+    const onDelete = vi.fn();
+    await render(baseCard, { onDelete });
+
+    await act(async () => buttonLabelled(DELETE).click());
+    await act(async () => buttonLabelled('Bekor qilish').click());
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(buttonLabelled(DELETE)).toBeDefined();
+  });
+
+  it('draws the throughput it is given, scaled against the list', async () => {
+    await render(baseCard, {
+      throughput: { throughputTiyin: 5_000_000, paidInvoices: 3 },
+      throughputScaleTiyin: 10_000_000,
+    });
+
+    expect(container.textContent).toContain(`50${NBSP}000 so'm`);
+    expect(container.textContent).toContain('3 ta');
+  });
+
+  /** The analytics read can fail on its own; the row still has to work. */
+  it('omits the throughput block rather than drawing an empty bar', async () => {
+    await render(baseCard);
+    expect(container.textContent).not.toContain('Aylanma');
   });
 });
