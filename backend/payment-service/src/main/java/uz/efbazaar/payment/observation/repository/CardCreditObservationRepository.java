@@ -17,6 +17,15 @@ public interface CardCreditObservationRepository
 
     Optional<CardCreditObservation> findByTelegramMessageId(long telegramMessageId);
 
+    /**
+     * Whether the userbot ever saw money land on this card number.
+     *
+     * <p>There is no foreign key here — an observation names a card by its last
+     * four digits, not by id — so nothing in the database would stop a card
+     * with real credits behind it from being deleted. This is that stop.
+     */
+    boolean existsByCardLast4(String last4);
+
     List<CardCreditObservation> findByStatusOrderByObservedAtAsc(ObservationStatus status);
 
     /**
