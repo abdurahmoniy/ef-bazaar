@@ -1,8 +1,13 @@
-"""Humo bot message -> structured top-up.
+"""Humo bot message -> structured movement.
 
-A pure function over text. No Telegram import belongs in this file: keeping it
-dependency-free is what makes the filter testable, and the filter is the line
-between crediting a real deposit and crediting somebody else's withdrawal.
+Two pure functions over text, one per direction. No Telegram import belongs in
+this file: keeping it dependency-free is what makes the filter testable, and
+the filter is the line between crediting a real deposit and crediting somebody
+else's withdrawal.
+
+The two are deliberately symmetrical and deliberately exclusive: a message
+carrying the other direction's sign is refused outright by both, so no text can
+ever be read as a top-up AND a debit.
 """
 
 from __future__ import annotations
@@ -26,6 +31,14 @@ _AMOUNT = re.compile(r"➕\s*([\d.\s]+(?:,\d+)?)\s*UZS")
 _CARD = re.compile(r"💳[^*\n]*\*(\d{4})(?!\d)")
 # "💰 31.659,16 UZS" — the card balance after the movement.
 _BALANCE = re.compile(r"💰\s*([\d.\s]+(?:,\d+)?)\s*UZS")
+
+# "➖ 10.000,00 UZS" — the mirror of _AMOUNT.
+_DEBIT_AMOUNT = re.compile(r"➖\s*([\d.\s]+(?:,\d+)?)\s*UZS")
+# "⚠️ Komissiya: 0,00 UZS" — absent on some notices, so always optional.
+_COMMISSION = re.compile(r"Komissiya:\s*([\d.\s]+(?:,\d+)?)\s*UZS")
+# "📍 Openbank P2P HUMO OT" — where the money went. Free text from the bank:
+# it is stored and shown to admins, never parsed for meaning.
+_DESCRIPTION = re.compile(r"📍\s*(.+)")
 
 _TOPUP_MARKER = "To'ldirish"
 
@@ -127,4 +140,84 @@ def parse_topup(text: str | None) -> TopUp | None:
         amount_tiyin=_to_tiyin(amount_match.group(1)),
         card_last4=card_match.group(1),
         card_balance_tiyin=_to_tiyin(balance_match.group(1)) if balance_match else None,
+    )
+
+
+@dataclass(frozen=True)
+class Debit:
+    """Money that LEFT one of the platform's cards.
+
+    Purely an observation. payment-service does not post it to the ledger —
+    a payout is already written there when an admin closes the withdrawal
+    ticket, and a second posting would count every payout twice.
+    """
+
+    amount_tiyin: int
+    card_last4: str
+    card_balance_tiyin: int | None
+    commission_tiyin: int | None
+    description: str | None
+
+
+def parse_debit(text: str | None) -> Debit | None:
+    """Return a Debit, or None when the message is not one.
+
+    The mirror of :func:`parse_topup`, and the checks are deliberately the same
+    ones in the same order — the two functions must never both accept the same
+    text.
+
+    No heading is required. Real captures say "💸 Amaliyot" where an earlier
+    reconstruction guessed "💸 Yechish", which is exactly the failure the card
+    pattern's comment above records: pinning a literal the bank never promised
+    is how a filter stops seeing real money. The direction sign and a single
+    card tail are what identify this message.
+    """
+    if not text:
+        return None
+
+    # A top-up marker anywhere means this is not a debit, full stop. Humo puts
+    # an "Oldingi To'ldirish: ➕ ..." footer on some notices, and reading that
+    # footer's card tail as this message's would attribute the movement to
+    # whatever card the previous operation touched.
+    if "➕" in text:
+        return None
+
+    folded = text.translate(_APOSTROPHES)
+    first_line = folded.splitlines()[0]
+
+    # "Yechish bekor qilindi" — the money came back. Recording it as a debit
+    # would show the card draining twice for one reversal.
+    if any(word in first_line.casefold() for word in _NEGATIONS):
+        return None
+
+    # A digest carrying several rows: the amount and the card tail may belong
+    # to different ones. Refuse rather than guess.
+    amounts = _DEBIT_AMOUNT.findall(text)
+    cards = _CARD.findall(text)
+    if len(amounts) != 1 or len(cards) != 1:
+        return None
+
+    amount_match = _DEBIT_AMOUNT.search(text)
+    card_match = _CARD.search(text)
+    if not amount_match or not card_match:
+        return None
+
+    # '➖  UZS' matches on whitespace alone and int('') would raise.
+    if not any(ch.isdigit() for ch in amount_match.group(1)):
+        return None
+
+    commission_match = _COMMISSION.search(text)
+    balance_match = _BALANCE.search(text)
+    description_match = _DESCRIPTION.search(text)
+
+    return Debit(
+        amount_tiyin=_to_tiyin(amount_match.group(1)),
+        card_last4=card_match.group(1),
+        card_balance_tiyin=_to_tiyin(balance_match.group(1)) if balance_match else None,
+        commission_tiyin=(
+            _to_tiyin(commission_match.group(1))
+            if commission_match and any(ch.isdigit() for ch in commission_match.group(1))
+            else None
+        ),
+        description=description_match.group(1).strip() if description_match else None,
     )
