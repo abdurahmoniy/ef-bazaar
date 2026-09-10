@@ -30,6 +30,7 @@ import {
   formatPriceUZS,
 } from '@/lib/marketplace-format';
 import { listingMediaUrls } from '@/lib/marketplace-media';
+import { isMobileListingPlatform } from '@/lib/listing-platform-attributes';
 import {
   attributeBoolean,
   attributeCardList,
@@ -70,10 +71,11 @@ export function MarketplaceListingDetail({
   const division = attributeNumber(listing, 'highest_division_level');
   const divisionBadgeLevel = toDivisionLevel(division);
   const teamStrength = attributeNumber(listing, 'team_strength');
+  const isMobile = isMobileListingPlatform(listing.attributes.platform);
   // A store link (Google Play / Game Center) can't be removed, so the previous
   // owner keeps a way back into a transferred account — surface it as a caution.
-  const hasGooglePlayLink = attributeBoolean(listing, 'has_google_play_link');
-  const hasGameCenterLink = attributeBoolean(listing, 'has_game_center_link');
+  const hasGooglePlayLink = isMobile && attributeBoolean(listing, 'has_google_play_link');
+  const hasGameCenterLink = isMobile && attributeBoolean(listing, 'has_game_center_link');
   const linkedStores = [
     hasGooglePlayLink && 'Google Play',
     hasGameCenterLink && 'Game Center',
@@ -83,11 +85,12 @@ export function MarketplaceListingDetail({
   // eFootball caps "transfer data to new device" at 10 sign-ins per month and
   // a handover burns at least two (moderator check + buyer). A listing sitting
   // near the floor can stall mid-trade, so the count is buyer-facing.
-  const deviceTransferLimit = attributeNumber(listing, 'device_transfer_limit');
+  const deviceTransferLimit = isMobile ? attributeNumber(listing, 'device_transfer_limit') : undefined;
   const transferLimitTight =
     deviceTransferLimit !== undefined && deviceTransferLimit <= 3;
-  const androidCoins = attributeNumber(listing, 'android_coins');
-  const iosCoins = attributeNumber(listing, 'ios_coins');
+  const androidCoins = isMobile ? attributeNumber(listing, 'android_coins') : undefined;
+  const iosCoins = isMobile ? attributeNumber(listing, 'ios_coins') : undefined;
+  const coins = isMobile ? undefined : attributeNumber(listing, 'coins');
   const exchangeMode = attributeString(listing, 'exchange_mode');
   const acceptsExchange = listingAcceptsExchange(listing);
   const playersCount = attributeNumber(listing, 'players_count');
@@ -219,8 +222,10 @@ export function MarketplaceListingDetail({
             />
             <StatCard
               icon={<Coins className="h-4 w-4" />}
-              label="Coins"
-              value={formatCompactNumber((androidCoins ?? 0) + (iosCoins ?? 0))}
+              label={isMobile ? 'Coins' : 'Coin balansi'}
+              value={isMobile
+                ? formatCompactNumber((androidCoins ?? 0) + (iosCoins ?? 0))
+                : coins === undefined ? '—' : formatCompactNumber(coins)}
             />
             <StatCard
               icon={<Sparkles className="h-4 w-4" />}
@@ -241,11 +246,13 @@ export function MarketplaceListingDetail({
           )}
 
           <AttributeTable
+            isMobile={isMobile}
             division={division}
             teamStrength={teamStrength}
             playersCount={playersCount}
             androidCoins={androidCoins}
             iosCoins={iosCoins}
+            coins={coins}
             hasGooglePlayLink={hasGooglePlayLink}
             hasGameCenterLink={hasGameCenterLink}
             exchangeMode={exchangeMode}
@@ -357,21 +364,25 @@ function StatCard({
 }
 
 function AttributeTable({
+  isMobile,
   division,
   teamStrength,
   playersCount,
   androidCoins,
   iosCoins,
+  coins,
   hasGooglePlayLink,
   hasGameCenterLink,
   exchangeMode,
   priceNegotiable,
 }: {
+  isMobile: boolean;
   division?: number;
   teamStrength?: number;
   playersCount?: number;
   androidCoins?: number;
   iosCoins?: number;
+  coins?: number;
   hasGooglePlayLink: boolean;
   hasGameCenterLink: boolean;
   exchangeMode?: string;
@@ -381,9 +392,20 @@ function AttributeTable({
     { label: 'Eng yuqori Division', value: division === undefined ? '—' : divisionLabel(division) },
     { label: 'Team Strength', value: teamStrength === undefined ? '—' : formatCompactNumber(teamStrength) },
     { label: "Jami o'yinchilar", value: playersCount === undefined ? '—' : formatCompactNumber(playersCount) },
-    { label: 'Google Play ulangan', value: hasGooglePlayLink ? 'Ha' : "Yo'q" },
-    { label: 'Game Center ulangan', value: hasGameCenterLink ? 'Ha' : "Yo'q" },
   ];
+  if (isMobile) {
+    rows.push(
+      { label: 'Google Play ulangan', value: hasGooglePlayLink ? 'Ha' : "Yo'q" },
+      { label: 'Game Center ulangan', value: hasGameCenterLink ? 'Ha' : "Yo'q" },
+    );
+  }
+  if (coins !== undefined) {
+    rows.push({
+      label: 'Coin balansi',
+      value: formatCompactNumber(coins),
+      negative: coins < 0,
+    });
+  }
   if (androidCoins !== undefined) {
     rows.push({
       label: 'Android coin',

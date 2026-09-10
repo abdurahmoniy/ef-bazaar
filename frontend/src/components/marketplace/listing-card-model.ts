@@ -1,4 +1,5 @@
 import { formatListingDate, formatPriceUZS } from '@/lib/marketplace-format';
+import { isMobileListingPlatform } from '@/lib/listing-platform-attributes';
 import {
   attributeCardList,
   attributeNumber,
@@ -23,6 +24,7 @@ export interface ListingCardModel {
   teamStrength?: number;
   androidCoins?: number;
   iosCoins?: number;
+  coins?: number;
   valuableCount: number;
   hasMetaCard: boolean;
   matchLabel: string | null;
@@ -93,9 +95,10 @@ export function buildListingCardModel(
     .map(({ card }) => card.name.trim())
     .filter(Boolean);
 
-  const googleLink = booleanAttribute(listing.attributes.has_google_play_link);
-  const gameCenterLink = booleanAttribute(listing.attributes.has_game_center_link);
-  const transferLimit = attributeNumber(listing, 'device_transfer_limit');
+  const isMobile = isMobileListingPlatform(listing.attributes.platform);
+  const googleLink = isMobile ? booleanAttribute(listing.attributes.has_google_play_link) : undefined;
+  const gameCenterLink = isMobile ? booleanAttribute(listing.attributes.has_game_center_link) : undefined;
+  const transferLimit = isMobile ? attributeNumber(listing, 'device_transfer_limit') : undefined;
   const risks = Number(googleLink === true)
     + Number(gameCenterLink === true)
     + Number(transferLimit !== undefined && transferLimit <= 3);
@@ -103,14 +106,14 @@ export function buildListingCardModel(
     && gameCenterLink !== undefined
     && transferLimit !== undefined;
 
-  const androidCoins = nonZeroNumberAttribute(listing, 'android_coins');
-  const iosCoins = nonZeroNumberAttribute(listing, 'ios_coins');
-  const googlePlayLinked = listing.attributes.has_google_play_link === true;
-  const gameCenterLinked = listing.attributes.has_game_center_link === true;
+  const androidCoins = isMobile ? nonZeroNumberAttribute(listing, 'android_coins') : undefined;
+  const iosCoins = isMobile ? nonZeroNumberAttribute(listing, 'ios_coins') : undefined;
+  const googlePlayLinked = isMobile && listing.attributes.has_google_play_link === true;
+  const gameCenterLinked = isMobile && listing.attributes.has_game_center_link === true;
   const hasNegativeCoins =
     (androidCoins !== undefined && androidCoins < 0) ||
     (iosCoins !== undefined && iosCoins < 0);
-  const clean = !googlePlayLinked && !gameCenterLinked && !hasNegativeCoins;
+  const clean = isMobile && !googlePlayLinked && !gameCenterLinked && !hasNegativeCoins;
 
   return {
     title: listing.description.split('\n')[0]?.trim() || 'eFootball akkount',
@@ -127,6 +130,7 @@ export function buildListingCardModel(
     teamStrength: attributeNumber(listing, 'team_strength'),
     androidCoins,
     iosCoins,
+    coins: isMobile ? undefined : attributeNumber(listing, 'coins'),
     valuableCount: valuable.length,
     hasMetaCard: valuable.some((card) => card.metaTier === 'META'),
     matchLabel: details

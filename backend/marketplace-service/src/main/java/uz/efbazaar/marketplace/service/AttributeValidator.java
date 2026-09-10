@@ -35,6 +35,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AttributeValidator {
 
+    private static final Set<String> MOBILE_ONLY_KEYS = Set.of(
+            "android_coins", "ios_coins", "has_google_play_link", "has_game_center_link", "device_transfer_limit");
+
     private final AttributeDefinitionRepository repository;
     private final CardIdentityVerifier cardIdentities;
 
@@ -51,8 +54,19 @@ public class AttributeValidator {
             }
         }
 
+        // A missing platform keeps legacy mobile behavior; its definition still
+        // enforces required/enum validation below. Match enum whitespace coercion.
+        Object platform = values.get("platform");
+        boolean console = platform instanceof String value
+                && Set.of("STEAM", "PLAYSTATION").contains(value.strip());
         Map<String, Object> normalized = new HashMap<>();
         for (AttributeDefinition def : definitions) {
+            // Drop stale fields before required/default/type checks so switching
+            // platform also cleans the map that create/update persists.
+            if ((console && MOBILE_ONLY_KEYS.contains(def.getKey()))
+                    || (!console && "coins".equals(def.getKey()))) {
+                continue;
+            }
             Object raw = values.get(def.getKey());
             if (raw == null) {
                 if (def.isRequired()) {

@@ -162,6 +162,14 @@ export function adminDeleteListing(listingId: string): Promise<ActionResult<null
   );
 }
 
+export function adminMarkListingSold(listingId: string): Promise<ActionResult<ListingResponse>> {
+  return marketplaceRequest<ListingResponse>(
+    ['v1', 'admin', 'listings', listingId, 'sold'],
+    { method: 'POST' },
+    "E'lonni sotilgan deb belgilab bo'lmadi",
+  );
+}
+
 export function adminRestoreListing(listingId: string): Promise<ActionResult<unknown>> {
   return marketplaceRequest<unknown>(
     ['v1', 'admin', 'listings', listingId, 'restore'],

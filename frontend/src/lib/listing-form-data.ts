@@ -1,3 +1,4 @@
+import { isListingAttributeApplicable } from './listing-platform-attributes'
 import { normalizePlayerList } from './marketplace-format'
 import type {
   ListingAttributeDefinition,
@@ -78,6 +79,15 @@ export const SEEDED_LISTING_ATTRIBUTE_DEFINITIONS: FormAttributeDefinition[] = [
     groupKey: 'monetization',
     constraints: {},
     legacyFieldName: 'iosCoins',
+  },
+  {
+    key: 'coins',
+    labelUz: 'Coin balansi',
+    type: 'INT',
+    required: false,
+    position: 55,
+    groupKey: 'monetization',
+    constraints: {},
   },
   {
     key: 'platform',
@@ -198,8 +208,9 @@ function collectAttributes(
   definitions: readonly ListingAttributeDefinition[],
 ): ListingAttributes | string {
   const attributes: ListingAttributes = {}
+  const platform = textField(formData, buildAttributeFieldName('platform'))
   const activeDefinitions = definitions
-    .filter((definition) => definition.active !== false)
+    .filter((definition) => definition.active !== false && isListingAttributeApplicable(definition.key, platform))
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
 
   for (const definition of activeDefinitions) {

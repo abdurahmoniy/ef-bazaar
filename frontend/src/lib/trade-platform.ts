@@ -1,3 +1,5 @@
+import { listingShareUrl } from './listing-share';
+import { siteConfig } from './site';
 import { formatPriceUZS } from './marketplace-format';
 
 interface PlatformListing {
@@ -24,20 +26,19 @@ export function tradePlatformLabel(platform: unknown): string {
   return 'Platformasi aniqlanmagan akkount';
 }
 
-export function tradeAdminSupportHref({ chatId, listingId, platform, amountUzs }: {
-  chatId: string;
+export function tradeAdminTelegramHref({ listingId, platform, amountUzs }: {
   listingId?: string | null;
   platform: unknown;
   amountUzs?: number;
 }): string {
   const message = [
     `${tradePlatformLabel(platform)} akkount savdosi uchun admin yordami kerak.`,
-    listingId ? `E'lon: /marketplace/${encodeURIComponent(listingId)}` : null,
-    `Xaridor va sotuvchi chati: /chats/${encodeURIComponent(chatId)}`,
+    listingId ? `E'lon: ${listingShareUrl(siteConfig.url, listingId)}` : null,
     amountUzs != null && Number.isFinite(amountUzs) && amountUzs > 0
       ? `Taklif narxi: ${formatPriceUZS(amountUzs)}`
       : 'Kelishilgan narx yoki almashish shartlari: ',
     'Iltimos, kelishuvni ikkala tomon bilan tekshirib, akkountni topshirish va to‘lov tartibini tushuntiring.',
   ].filter(Boolean).join('\n');
-  return `/support?${new URLSearchParams({ category: 'SUPPORT', message })}`;
+  // Direct-chat links accept plain text only; Markdown/HTML links are not parsed.
+  return `https://t.me/abdurahmoniy?${new URLSearchParams({ text: message })}`;
 }

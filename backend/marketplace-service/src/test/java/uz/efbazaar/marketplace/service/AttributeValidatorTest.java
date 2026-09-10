@@ -3,6 +3,8 @@ package uz.efbazaar.marketplace.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -11,6 +13,8 @@ import uz.efbazaar.marketplace.domain.AttributeType;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -131,6 +135,125 @@ class AttributeValidatorTest {
         assertThatThrownBy(() -> validator.validate(Map.of("valuable_players", thirtyOne)))
                 .isInstanceOf(MarketplaceException.class)
                 .hasMessageContaining("maksimum 30");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"STEAM", "PLAYSTATION", " STEAM "})
+    void console_attributes_do_not_require_or_default_mobile_fields(String platform) {
+        stubPlatformAttributes(true);
+
+        assertThat(validator.validate(Map.of("platform", platform, "team_strength", 3200)))
+                .containsExactlyInAnyOrderEntriesOf(Map.of("platform", platform.strip(), "team_strength", 3200L));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"STEAM", "PLAYSTATION"})
+    void console_attributes_drop_stale_mobile_values_before_validation(String platform) {
+        stubPlatformAttributes(true);
+        Map<String, Object> input = new HashMap<>(Map.of(
+                "platform", platform, "team_strength", 3200, "coins", "-250",
+                "android_coins", "invalid", "ios_coins", 1.5,
+                "has_google_play_link", "invalid", "has_game_center_link", "invalid",
+                "device_transfer_limit", 0));
+
+        assertThat(validator.validate(input)).containsExactlyInAnyOrderEntriesOf(
+                Map.of("platform", platform, "team_strength", 3200L, "coins", -250L));
+        assertThat(input).containsEntry("device_transfer_limit", 0);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"STEAM", "PLAYSTATION"})
+    void console_coins_must_be_an_integer(String platform) {
+        stubPlatformAttributes(true);
+
+        assertThatThrownBy(() -> validator.validate(Map.of(
+                "platform", platform, "team_strength", 3200, "coins", 1.5)))
+                .isInstanceOf(MarketplaceException.class)
+                .hasMessageContaining("coins");
+    }
+
+    @Test
+    void mobile_drops_console_coins_and_preserves_mobile_defaults_and_global_attributes() {
+        stubPlatformAttributes(true);
+
+        assertThat(validator.validate(Map.of(
+                "platform", "MOBILE", "team_strength", 3200, "device_transfer_limit", 2,
+                "coins", "invalid", "has_google_play_link", true)))
+                .containsExactlyInAnyOrderEntriesOf(Map.of(
+                        "platform", "MOBILE", "team_strength", 3200L, "device_transfer_limit", 2L,
+                        "android_coins", 0L, "ios_coins", 0L, "has_google_play_link", true));
+    }
+
+    @Test
+    void mobile_transfer_requirement_and_sellable_floor_remain_enforced() {
+        stubPlatformAttributes(true);
+
+        assertThatThrownBy(() -> validator.validate(Map.of("platform", "MOBILE", "team_strength", 3200)))
+                .isInstanceOf(MarketplaceException.class)
+                .hasMessageContaining("device_transfer_limit");
+        assertThatThrownBy(() -> validator.validate(Map.of(
+                "platform", "MOBILE", "team_strength", 3200, "device_transfer_limit", 1)))
+                .isInstanceOf(MarketplaceException.class)
+                .satisfies(e -> assertThat(((MarketplaceException) e).getCode())
+                        .isEqualTo("attribute_below_sellable_minimum"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"MOBILE", "STEAM", "PLAYSTATION"})
+    void global_required_attributes_remain_required_on_every_platform(String platform) {
+        stubPlatformAttributes(true);
+
+        assertThatThrownBy(() -> validator.validate(Map.of("platform", platform, "device_transfer_limit", 2)))
+                .isInstanceOf(MarketplaceException.class)
+                .hasMessageContaining("team_strength");
+    }
+
+    @Test
+    void missing_optional_platform_keeps_legacy_mobile_behavior() {
+        stubPlatformAttributes(false);
+
+        assertThat(validator.validate(Map.of("team_strength", 3200, "device_transfer_limit", 2, "coins", 50)))
+                .containsExactlyInAnyOrderEntriesOf(Map.of("team_strength", 3200L, "device_transfer_limit", 2L,
+                        "android_coins", 0L, "ios_coins", 0L));
+        assertThatThrownBy(() -> validator.validate(Map.of("team_strength", 3200)))
+                .isInstanceOf(MarketplaceException.class)
+                .hasMessageContaining("device_transfer_limit");
+    }
+
+    @Test
+    void required_or_invalid_platform_is_still_rejected() {
+        stubPlatformAttributes(true);
+
+        assertThatThrownBy(() -> validator.validate(Map.of("team_strength", 3200, "device_transfer_limit", 2)))
+                .isInstanceOf(MarketplaceException.class)
+                .hasMessageContaining("platform");
+        assertThatThrownBy(() -> validator.validate(Map.of(
+                "platform", "PS", "team_strength", 3200, "device_transfer_limit", 2)))
+                .isInstanceOf(MarketplaceException.class)
+                .hasMessageContaining("platform");
+    }
+
+    private void stubPlatformAttributes(boolean platformRequired) {
+        when(repository.findAllByActiveTrueOrderByPositionAsc()).thenReturn(platformDefinitions(platformRequired));
+    }
+
+    static List<AttributeDefinition> platformDefinitions(boolean platformRequired) {
+        List<AttributeDefinition> definitions = new ArrayList<>();
+        AttributeDefinition platform = definition("platform", "Platforma",
+                "{\"options\":[\"MOBILE\",\"STEAM\",\"PLAYSTATION\"]}");
+        platform.setType(AttributeType.ENUM);
+        platform.setRequired(platformRequired);
+        definitions.add(platform);
+        definitions.add(definition("team_strength", "Team Strength", "{\"min\":1000,\"max\":5000}"));
+        definitions.add(definition("device_transfer_limit", "Qurilma almashtirish limiti",
+                "{\"min\":0,\"max\":10,\"min_sellable\":2}"));
+        for (String key : List.of("android_coins", "ios_coins", "coins", "has_google_play_link", "has_game_center_link")) {
+            AttributeDefinition def = definition(key, key, "{}");
+            def.setRequired(false);
+            if (key.startsWith("has_")) def.setType(AttributeType.BOOLEAN);
+            definitions.add(def);
+        }
+        return definitions;
     }
 
     private void stubDeviceTransferLimit() {

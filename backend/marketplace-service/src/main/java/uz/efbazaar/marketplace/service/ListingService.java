@@ -357,6 +357,23 @@ public class ListingService {
         return saved;
     }
 
+    /** An admin records a manually completed sale without impersonating the seller. */
+    @Transactional
+    public Listing adminMarkSold(UUID id, UUID adminId) {
+        Listing listing = listings.findById(id).orElseThrow(MarketplaceException::listingNotFound);
+        if (listing.getStatus() != ListingStatus.ACTIVE) {
+            throw MarketplaceException.listingNotActive();
+        }
+        listing.setStatus(ListingStatus.SOLD);
+        listing.setSoldAt(java.time.Instant.now());
+        Listing saved = listings.save(listing);
+        soldPosts.onSold(saved);
+        events.listingDeleted(saved.getId(), saved.getSellerId(), ListingStatus.SOLD);
+        log.info("Listing marked sold by admin: id={} sellerId={} adminId={}",
+                id, saved.getSellerId(), adminId);
+        return saved;
+    }
+
     /** Bring a SOLD/DELETED listing back to ACTIVE (e.g. after a mistaken takedown). */
     @Transactional
     public Listing adminRestore(UUID id, UUID adminId) {

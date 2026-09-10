@@ -295,7 +295,6 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
 
       {role !== null && !smartAdminAvailable ? (
         <TradeAdminHandoff
-          chatId={chat.id}
           listingId={accountRequest?.listingId ?? selectedListing?.id}
           platform={selectedListing?.attributes?.platform}
         />
@@ -1457,13 +1456,12 @@ function PendingProposalCard({
   onAcceptModalClose: () => void;
   onAccepted: () => void;
 }) {
-  const { chat, listing, accountRequest, requiresAdminHandoff } = useTradeContext();
+  const { listing, accountRequest, requiresAdminHandoff } = useTradeContext();
   const selectedListing = resolveTradeListing(accountRequest, listing);
   const proposalListing = [selectedListing, listing].find((item) => item?.id === proposal.listingId);
   if (requiresAdminHandoff) {
     return (
       <TradeAdminHandoff
-        chatId={chat.id}
         listingId={proposal.listingId}
         platform={proposalListing?.attributes?.platform}
         amountUzs={proposal.priceUzs}
@@ -1671,7 +1669,6 @@ function ProposeModal({
     return (
       <ModalShell title="Admin orqali savdo" onClose={onClose}>
         <TradeAdminHandoff
-          chatId={chat.id}
           listingId={accountRequest?.listingId ?? effectiveListing?.id}
           platform={effectiveListing?.attributes?.platform}
         />
@@ -2084,7 +2081,7 @@ function AcceptModal({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
-  const { chat, listing, accountRequest } = useTradeContext();
+  const { listing, accountRequest } = useTradeContext();
   const selectedListing = resolveTradeListing(accountRequest, listing);
   const proposalListing = proposal.listingId
     ? [selectedListing, listing].find((item) => item?.id === proposal.listingId) ?? null
@@ -2114,7 +2111,6 @@ function AcceptModal({
     return (
       <ModalShell title="Admin orqali savdo" onClose={onClose}>
         <TradeAdminHandoff
-          chatId={chat.id}
           listingId={proposal.listingId}
           platform={proposalListing?.attributes?.platform}
           amountUzs={proposal.priceUzs}
