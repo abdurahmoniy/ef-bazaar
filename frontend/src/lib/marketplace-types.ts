@@ -71,6 +71,7 @@ export interface ListingResponse {
   status: ListingStatus;
   soldAt?: string | null;
   forwardCount: number;
+  viewCount?: number | null;
   likeCount: number;
   likedByMe?: boolean | null;
   /** 0..100 squad coverage — present only when the request carried a dream team. */

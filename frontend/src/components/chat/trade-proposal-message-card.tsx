@@ -27,6 +27,7 @@ export function TradeProposalMessageCard({
   viewerId,
 }: TradeProposalMessageCardProps) {
   const {
+    requiresAdminHandoff,
     proposal,
     activeTrade,
     isSeller,
@@ -114,10 +115,10 @@ export function TradeProposalMessageCard({
                   type="button"
                   size="sm"
                   className="flex-1 font-bold shadow-sm"
-                  onClick={() => setShowAcceptModal(true)}
+                  onClick={() => requiresAdminHandoff ? setIsDrawerOpen(true) : setShowAcceptModal(true)}
                 >
                   <ShieldCheck className="mr-1.5 h-4 w-4" />
-                  Qabul qilish
+                  {requiresAdminHandoff ? 'Adminga murojaat' : 'Qabul qilish'}
                 </Button>
                 <Button
                   type="button"

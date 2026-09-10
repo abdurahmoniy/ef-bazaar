@@ -16,15 +16,16 @@ import { cn } from '@/lib/utils';
 
 interface SupportChatViewProps {
   initialChat: SupportChat;
+  initialMessage?: string;
   onNewChatClick?: () => void;
 }
 
 const POLL_INTERVAL_MS = 4000;
 
-export function SupportChatView({ initialChat, onNewChatClick }: SupportChatViewProps) {
+export function SupportChatView({ initialChat, onNewChatClick, initialMessage = '' }: SupportChatViewProps) {
   const [chat, setChat] = useState<SupportChat>(initialChat);
   const [messages, setMessages] = useState<SupportMessage[]>(initialChat.messages || []);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(initialMessage);
   const [error, setError] = useState<string | null>(null);
   const [isSending, startSend] = useTransition();
   const listRef = useRef<HTMLDivElement>(null);

@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
-import { SupportNewChatForm } from '@/components/support/support-new-chat-form';
 import { SupportPageContainer } from '@/components/support/support-page-container';
 import { getMe } from '@/lib/auth';
 import { resolveOptionalUser } from '@/lib/optional-auth';
@@ -17,12 +16,15 @@ export const metadata: Metadata = {
 interface SupportPageProps {
   searchParams?: Promise<{
     category?: string;
+    message?: string;
   }>;
 }
 
 export default async function SupportPage({ searchParams }: SupportPageProps) {
   const params = searchParams ? await searchParams : {};
   const user = await resolveOptionalUser(getMe);
+
+  const initialMessage = typeof params.message === 'string' ? params.message.slice(0, 4000) : '';
 
   let initialCategory: SupportCategory = 'SUPPORT';
   if (params.category === 'PARTNERSHIP') initialCategory = 'PARTNERSHIP';
@@ -36,7 +38,7 @@ export default async function SupportPage({ searchParams }: SupportPageProps) {
       backLabel="Yordamga qaytish"
     >
       <div className="mx-auto w-full max-w-2xl py-4 sm:py-6">
-        <SupportPageContainer user={user} initialCategory={initialCategory} />
+        <SupportPageContainer key={initialMessage} user={user} initialCategory={initialCategory} initialMessage={initialMessage} />
       </div>
     </MarketplaceShell>
   );

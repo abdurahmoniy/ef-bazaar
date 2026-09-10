@@ -1,3 +1,4 @@
+import { canUseSmartAdmin } from '@/lib/trade-platform';
 import {
   ArrowLeftRight,
   Coins,
@@ -14,6 +15,7 @@ import { ListingActions } from '@/components/marketplace/listing-actions';
 import { ListingAdvertisingCard } from '@/components/marketplace/listing-advertising-card';
 import { ListingCard } from '@/components/marketplace/listing-card';
 import { ListingMediaGallery } from '@/components/marketplace/listing-media-gallery';
+import { ListingViewCount } from '@/components/marketplace/listing-view-count';
 import { MatchBreakdown } from '@/components/marketplace/match-breakdown';
 import { PlayerCardTile } from '@/components/marketplace/player-card-tile';
 import { SellerCard } from '@/components/marketplace/seller-card';
@@ -128,6 +130,11 @@ export function MarketplaceListingDetail({
                   <p className="mt-1 text-xs text-muted-foreground">
                     {formatListingDate(listing.createdAt)} • ID: {listing.id.slice(0, 8)}
                   </p>
+                  <ListingViewCount
+                    listingId={listing.id}
+                    initialCount={listing.viewCount ?? 0}
+                    track={!isOwner && listing.status === 'ACTIVE'}
+                  />
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -245,15 +252,23 @@ export function MarketplaceListingDetail({
             priceNegotiable={listing.priceNegotiable}
           />
 
-          <TipCallout
-            variant="security"
-            dismissible
-            dismissKey="listing_detail_escrow_security"
-            learnMoreHref="/help#how-escrow-works"
-            learnMoreLabel="Garov qanday ishlaydi?"
-          >
-            Xavfsiz xarid: Hech qachon to‘g‘ridan-to‘g‘ri karta orqali pul o‘tkazmang. Bitimni sotuvchi bilan chatda &quot;Garov&quot; ochish orqali amalga oshiring.
-          </TipCallout>
+          {canUseSmartAdmin(listing) ? (
+            <TipCallout
+              variant="security"
+              dismissible
+              dismissKey="listing_detail_escrow_security"
+              learnMoreHref="/help#how-escrow-works"
+              learnMoreLabel="Garov qanday ishlaydi?"
+            >
+              Xavfsiz xarid: Hech qachon to‘g‘ridan-to‘g‘ri karta orqali pul o‘tkazmang. Bitimni sotuvchi bilan chatda &quot;Garov&quot; ochish orqali amalga oshiring.
+            </TipCallout>
+          ) : (
+            <TipCallout variant="security">
+              Smart admin faqat Mobile uchun ishlaydi. Steam va PlayStation savdosida
+              sotuvchi bilan narx va shartlarni chatda kelishib oling, so‘ng
+              &quot;Adminga murojaat&quot; orqali akkountni topshirish va to‘lov tartibini kelishing.
+            </TipCallout>
+          )}
         </div>
 
         {/* Media leads on mobile; the price + CTA live in the sticky bottom bar

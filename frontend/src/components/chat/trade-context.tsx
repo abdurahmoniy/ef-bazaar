@@ -15,6 +15,8 @@ import {
   roleInRequest,
   type AccountRequest,
 } from '@/lib/account-request';
+import { canUseSmartAdmin, resolveTradeListing } from '@/lib/trade-platform';
+import { isHumanProposal } from '@/lib/trade-human';
 import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
 import { getPublicTradeCommissionConfig } from '@/lib/payment-client';
 import type { TradeCommissionConfig } from '@/lib/payment-types';
@@ -32,6 +34,7 @@ import {
 const POLL_INTERVAL_MS = 4000;
 
 export interface PendingProposal {
+  listingId?: string | null;
   id: string;
   priceUzs: number;
   expiresAt: string;
@@ -78,6 +81,7 @@ interface TradeContextValue {
   setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   scrollToTradePanel: () => void;
   commissionConfig: TradeCommissionConfig | null;
+  requiresAdminHandoff: boolean;
 }
 
 const TradeContext = createContext<TradeContextValue | null>(null);
@@ -118,6 +122,7 @@ export function TradeProvider({
     initialPendingProposal
       ? {
           id: initialPendingProposal.proposalId,
+          listingId: initialPendingProposal.listingId,
           priceUzs: initialPendingProposal.amountUzs,
           expiresAt: initialPendingProposal.expiresAt,
           mode: initialPendingProposal.mode ?? undefined,
@@ -192,6 +197,7 @@ export function TradeProvider({
           if (p) {
             setProposal({
               id: p.proposalId,
+              listingId: p.listingId,
               priceUzs: p.amountUzs,
               expiresAt: p.expiresAt,
               mode: p.mode ?? undefined,
@@ -223,6 +229,7 @@ export function TradeProvider({
     ) => {
       setProposal({
         id: p.proposalId,
+        listingId: accountRequest?.listingId ?? listing?.id,
         priceUzs,
         expiresAt: p.expiresAt,
         mode,
@@ -231,7 +238,7 @@ export function TradeProvider({
       });
       setShowProposeModal(false);
     },
-    [],
+    [accountRequest?.listingId, listing?.id],
   );
 
   const handleProposalAccepted = useCallback(async () => {
@@ -251,6 +258,12 @@ export function TradeProvider({
       }, 2000);
     }
   }, []);
+
+  const selectedListing = resolveTradeListing(accountRequest, listing);
+  const tradeListing = proposal
+    ? [selectedListing, listing].find((item) => item?.id === proposal.listingId) ?? null
+    : selectedListing;
+  const requiresAdminHandoff = !(proposal && isHumanProposal(proposal)) && !canUseSmartAdmin(tradeListing);
 
   const value: TradeContextValue = {
     chat,
@@ -282,6 +295,7 @@ export function TradeProvider({
     setIsDrawerOpen,
     scrollToTradePanel,
     commissionConfig,
+    requiresAdminHandoff,
   };
 
   return <TradeContext.Provider value={value}>{children}</TradeContext.Provider>;

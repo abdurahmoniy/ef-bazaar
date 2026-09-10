@@ -39,6 +39,7 @@ import { useTradeContext } from './trade-context';
 
 export function TradePinnedBar() {
   const {
+    requiresAdminHandoff,
     trades,
     activeTrade,
     lastFinished,
@@ -92,7 +93,7 @@ export function TradePinnedBar() {
               <p className="truncate text-[10.5px] text-muted-foreground">
                 {isSeller
                   ? 'Xaridor javobini kutmoqda'
-                  : 'Sizga taklif yuborildi — qabul qiling'}
+                  : requiresAdminHandoff ? 'Kelishuvdan so‘ng adminga murojaat qiling' : 'Sizga taklif yuborildi — qabul qiling'}
                 {proposal.expiresAt && (
                   <>
                     {' · '}
@@ -111,11 +112,12 @@ export function TradePinnedBar() {
                 className="h-8 px-2.5 text-xs font-semibold shadow-sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowAcceptModal(true);
+                  if (requiresAdminHandoff) setIsDrawerOpen(true);
+                  else setShowAcceptModal(true);
                 }}
               >
                 <Sparkles className="mr-1 h-3.5 w-3.5" />
-                Qabul qilish
+                {requiresAdminHandoff ? 'Adminga murojaat' : 'Qabul qilish'}
               </Button>
             )}
             <Button
@@ -235,7 +237,11 @@ export function TradePinnedBar() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
-            {isSeller ? (
+            {requiresAdminHandoff ? (
+              <Button type="button" size="sm" className="h-7 px-2.5 text-[11.5px]" onClick={() => setIsDrawerOpen(true)}>
+                Adminga murojaat
+              </Button>
+            ) : isSeller ? (
               <Button
                 type="button"
                 size="sm"

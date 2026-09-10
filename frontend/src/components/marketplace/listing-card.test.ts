@@ -81,6 +81,16 @@ afterEach(async () => {
 });
 
 describe('ListingCard', () => {
+  it.each([undefined, 0, 123])('shows the saved view count %s in muted text', (viewCount) => {
+    container.innerHTML = renderToStaticMarkup(createElement(ListingCard, {
+      listing: listing({ viewCount }),
+    }));
+    const label = Array.from(container.querySelectorAll('p'))
+      .find((element) => element.textContent === `Ko'rishlar: ${viewCount ?? 0}`);
+    expect(label).toBeDefined();
+    expect(label?.classList.contains('text-muted-foreground')).toBe(true);
+  });
+
   it('ships the coin mark with a transparent canvas instead of a white tile', async () => {
     const { data, info } = await sharp(resolve(process.cwd(), 'public/icons/efootball-coin.png'))
       .ensureAlpha()
