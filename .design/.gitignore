@@ -1,0 +1,4 @@
+# Seeded canvas payloads — ~2.5 MB each and fully regenerable from the
+# .dc.html sources beside them. See README.md for the command.
+*/[a-z]*-*.html
+!*/*.dc.html

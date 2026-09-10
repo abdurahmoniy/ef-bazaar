@@ -1,0 +1,11 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 900, "h": 640, "title": "Platforma balansi" },
+    { "file": "Foyda.dc.html", "x": 1000, "y": 0, "w": 900, "h": 720, "title": "Foyda tarkibi" },
+    { "file": "Kartalar.dc.html", "x": 0, "y": 860, "w": 1120, "h": 780, "title": "Kartalar navbati" }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 2010, "y": 0, "w": 300, "text": "Uchta savol, uchta ekran:\n1) Kartadagi pulning qanchasi userniki, qanchasi bizniki — va hisob tengmi?\n2) Komissiyadan qancha qoldi, referalga qancha ketdi?\n3) Qaysi karta navbatda, qoldig'i qancha?\n\nZarar qizil emas — o'sish uchun sarf tabiiy holat." }
+  ],
+  "launch": { "view": "canvas" }
+}
