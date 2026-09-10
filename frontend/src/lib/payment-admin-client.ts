@@ -2,6 +2,7 @@
 
 import type { PlatformCardCreateRequest } from './platform-card-draft';
 import type {
+  CardMovement,
   ObservationResponse,
   PaymentAnalyticsOverview,
   PlatformCardResponse,
@@ -100,6 +101,20 @@ export function deletePlatformCard(id: string): Promise<void> {
 
 export function getPaymentAnalytics(): Promise<PaymentAnalyticsOverview> {
   return call<PaymentAnalyticsOverview>('/analytics/overview');
+}
+
+/**
+ * Recent movements on the platform's cards, newest first.
+ *
+ * `last4` narrows to one card; omit it for every card. The backend caps
+ * `limit`, so asking for more than it allows is not an error.
+ */
+export function listCardHistory(last4?: string, limit?: number): Promise<CardMovement[]> {
+  const params = new URLSearchParams();
+  if (last4) params.set('last4', last4);
+  if (limit) params.set('limit', String(limit));
+  const query = params.toString();
+  return call<CardMovement[]>(`/cards/history${query ? `?${query}` : ''}`);
 }
 
 export function listUnmatched(): Promise<ObservationResponse[]> {

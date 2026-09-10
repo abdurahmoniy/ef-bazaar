@@ -184,3 +184,34 @@ export interface PaymentAnalyticsOverview {
   cardThroughput: CardThroughputRow[];
   computedAt: string;
 }
+
+/**
+ * One movement on a platform card, whichever way it went.
+ *
+ * `amountTiyin` is always positive — the direction is a field, never a sign, so
+ * nothing here can negate it twice. Credits and debits live in separate tables
+ * on the backend (a debit must never reach the credit reconciliation queue,
+ * where it could be attributed to a user and create money); this is the merged
+ * read of both.
+ */
+export interface CardMovement {
+  id: string;
+  direction: 'IN' | 'OUT';
+  cardLast4: string;
+  amountTiyin: number;
+  /** Debits only, and only when the bank's notice stated one. */
+  commissionTiyin?: number;
+  /** What the card held afterwards, when the notice said. */
+  cardBalanceTiyin?: number;
+  /** Debits only: the bank's own words for where the money went. */
+  description?: string;
+  /** Credits only: MATCHED, UNMATCHED, MANUALLY_RESOLVED or IGNORED. */
+  creditStatus?: string;
+  /**
+   * Debits only: whether the card is one the platform owns. Absent on a credit
+   * — that table records a card by its last four digits and nothing else, so
+   * there is nothing to answer it from.
+   */
+  ownCard?: boolean;
+  observedAt: string;
+}

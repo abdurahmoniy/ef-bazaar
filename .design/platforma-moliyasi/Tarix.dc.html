@@ -1,0 +1,160 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; padding: 0; background: #090B10; }
+    * { box-sizing: border-box; }
+    a { color: #6EE7B7; text-decoration: none; }
+    a:hover { color: #A8EDCE; }
+  </style>
+</helmet>
+
+<div style="min-height: 980px; background: #090B10; color: #E8EBF2; font-family: Manrope, system-ui, sans-serif; -webkit-font-smoothing: antialiased; padding: 34px 28px;">
+
+  <div style="margin-bottom: 18px;">
+    <h1 style="margin: 0 0 8px; font-size: 26px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em;">Karta harakatlari</h1>
+    <p style="margin: 0; max-width: 620px; font-size: 14px; line-height: 1.6; color: #8B94A7; text-wrap: pretty;">Userbot ko'rgan kirim va chiqimlar. Bu bank aytgan haqiqat — adminka yozuvlari emas, shuning uchun ikkisi farq qilsa shu yerdan boshlanadi.</p>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 18px;">
+    <button type="button" style="padding: 8px 15px; border-radius: 10px; border: 1px solid #E8EBF2; background: #E8EBF2; color: #090B10; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;">Barchasi</button>
+    <button type="button" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1); background: transparent; color: #C3CAD8; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;">
+      <span style="width: 7px; height: 7px; border-radius: 2px; background: #22B07D;"></span>•••• 4412
+    </button>
+    <button type="button" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,.1); background: transparent; color: #C3CAD8; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;">
+      <span style="width: 7px; height: 7px; border-radius: 2px; background: #4A7BD4;"></span>•••• 4962
+    </button>
+    <button type="button" style="display: inline-flex; align-items: center; gap: 7px; padding: 8px 15px; border-radius: 10px; border: 1px dashed rgba(255,255,255,.13); background: transparent; color: #7A8497; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;">
+      <span style="width: 7px; height: 7px; border-radius: 2px; background: #5E687B;"></span>•••• 9999
+    </button>
+  </div>
+
+  <sc-for list="{{ days }}" as="day" hint-placeholder-count="2">
+    <div style="margin-bottom: 26px;">
+
+      <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px;">
+        <span style="font-size: 13px; font-weight: 800; letter-spacing: .01em; color: #E8EBF2; white-space: nowrap;">{{ day.label }}</span>
+        <span style="flex: 1; height: 1px; background: rgba(255,255,255,.07);"></span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #6EE7B7; white-space: nowrap;">
+          <span style="width: 7px; height: 7px; border-radius: 2px; background: #059669;"></span>+{{ day.inLabel }}
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9FADE4; white-space: nowrap;">
+          <span style="width: 7px; height: 7px; border-radius: 2px; background: #6C7FD4;"></span>−{{ day.outLabel }}
+        </span>
+      </div>
+
+      <div style="display: flex; height: 6px; gap: 2px; border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
+        <div style="width: {{ day.inPct }}; background: #059669; border-radius: 3px;"></div>
+        <div style="width: {{ day.outPct }}; background: #6C7FD4; border-radius: 3px;"></div>
+        <div style="flex: 1; background: #1A2130; border-radius: 3px;"></div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <sc-for list="{{ day.rows }}" as="row" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 16px; background: #10141C; border: 1px solid rgba(255,255,255,.07); border-radius: 14px; padding: 13px 18px;">
+
+            <span style="display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 11px; background: {{ row.tintBg }}; color: {{ row.tint }}; flex: none;">
+              <sc-if value="{{ row.outgoing }}" hint-placeholder-val="{{ true }}">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>
+              </sc-if>
+              <sc-if value="{{ row.incoming }}" hint-placeholder-val="{{ false }}">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7 7 17M15 17H7V9"/></svg>
+              </sc-if>
+            </span>
+
+            <div style="width: 168px; flex: none;">
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 15.5px; font-weight: 700; color: {{ row.amountColor }};">{{ row.amountLabel }}</div>
+              <div style="display: flex; align-items: center; gap: 7px; margin-top: 4px;">
+                <span style="width: 6px; height: 6px; border-radius: 2px; background: {{ row.cardTint }}; flex: none;"></span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #7A8497;">{{ row.cardLabel }}</span>
+              </div>
+            </div>
+
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 13.5px; color: #C3CAD8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ row.detail }}</div>
+              <sc-if value="{{ row.hasBadge }}" hint-placeholder-val="{{ true }}">
+                <span style="display: inline-block; margin-top: 5px; padding: 3px 9px; border-radius: 999px; background: {{ row.badgeBg }}; border: 1px solid {{ row.badgeBorder }}; font-size: 11px; font-weight: 700; color: {{ row.badgeColor }};">{{ row.badge }}</span>
+              </sc-if>
+            </div>
+
+            <div style="width: 130px; flex: none; text-align: right;">
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #8B94A7;">{{ row.time }}</div>
+              <div style="font-size: 11.5px; color: #5E687B; margin-top: 3px;">qoldiq {{ row.balanceLabel }}</div>
+            </div>
+
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+
+  <div style="display: flex; align-items: center; justify-content: center; gap: 10px; padding: 15px; border: 1px dashed rgba(255,255,255,.1); border-radius: 14px; color: #6C7689; font-size: 13px;">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    Oxirgi 50 ta harakat ko'rsatilmoqda
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1120,"height":980}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const fmt = n => n.toLocaleString('ru-RU').replace(/ /g, ' ');
+    const IN = '#059669', OUT = '#6C7FD4';
+
+    const raw = [
+      { label: 'Bugun · 11 sentabr', rows: [
+        { out: true,  amount: 1000000, card: '4962', tint: '#4A7BD4', detail: 'Openbank P2P HUMO OT', time: '01:34', balance: 4400000 },
+        { out: false, amount: 700000,  card: '4412', tint: '#22B07D', detail: "So'rovga biriktirildi", time: '00:58', balance: 12750000 },
+        { out: false, amount: 250000,  card: '4412', tint: '#22B07D', detail: 'Mos so’rov topilmadi', time: '00:41', balance: 12050000, badge: 'Tekshirilmagan' }
+      ]},
+      { label: '10 sentabr', rows: [
+        { out: true,  amount: 402000,  card: '9999', tint: '#5E687B', detail: 'SQB MOBILE HUMO P2P', time: '23:43', balance: 98000, badge: 'Bizning karta emas' },
+        { out: false, amount: 1500000, card: '4962', tint: '#4A7BD4', detail: "So'rovga biriktirildi", time: '19:02', balance: 5400000 }
+      ]}
+    ];
+
+    const days = raw.map(day => {
+      const inSum = day.rows.filter(r => !r.out).reduce((s, r) => s + r.amount, 0);
+      const outSum = day.rows.filter(r => r.out).reduce((s, r) => s + r.amount, 0);
+      const top = Math.max(inSum + outSum, 1) * 1.25;
+      return {
+        label: day.label,
+        inLabel: fmt(inSum), outLabel: fmt(outSum),
+        inPct: (inSum / top * 100).toFixed(1) + '%',
+        outPct: (outSum / top * 100).toFixed(1) + '%',
+        rows: day.rows.map(r => ({
+          outgoing: !!r.out,
+          incoming: !r.out,
+          tint: r.out ? OUT : IN,
+          tintBg: r.out ? 'rgba(108,127,212,.12)' : 'rgba(5,150,105,.14)',
+          amountLabel: (r.out ? '−' : '+') + fmt(r.amount),
+          amountColor: r.out ? '#C3CAD8' : '#6EE7B7',
+          cardLabel: '•••• ' + r.card,
+          cardTint: r.tint,
+          detail: r.detail,
+          hasBadge: !!r.badge,
+          badge: r.badge || '',
+          badgeBg: 'rgba(255,255,255,.05)',
+          badgeBorder: 'rgba(255,255,255,.12)',
+          badgeColor: '#A6B0C4',
+          time: r.time,
+          balanceLabel: fmt(r.balance)
+        }))
+      };
+    });
+
+    return { days };
+  }
+}
+</script>
+</body>
+</html>
