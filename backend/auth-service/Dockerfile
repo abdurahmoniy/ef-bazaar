@@ -17,9 +17,10 @@ WORKDIR /workspace
 # qayta uriniladi, 429 esa to'liq HTTP javob va Maven uni "server javob berdi"
 # deb hisoblaydi. Shuning uchun qayta urinish qobiq darajasida — u nima sababdan
 # yiqilganidan qat'i nazar ishlaydi.
+# GHA cache RUN qatlamlarini saqlaydi, cache mount ichidagi ~/.m2 ni emas.
+# Kutubxonalar oddiy qatlamda qolsin: src o'zgarganda ham keyingi runner oladi.
 COPY pom.xml .
-RUN --mount=type=cache,target=/root/.m2 \
-    n=0; until mvn -B -q dependency:go-offline; do \
+RUN n=0; until mvn -B -ntp dependency:go-offline; do \
       n=$((n+1)); \
       if [ "$n" -ge 5 ]; then echo "Maven 5 urinishdan keyin ham yiqildi"; exit 1; fi; \
       echo "Maven yiqildi (urinish $n/5) — $((n*20))s dan keyin qayta"; \
@@ -28,8 +29,7 @@ RUN --mount=type=cache,target=/root/.m2 \
 
 # Source layer
 COPY src ./src
-RUN --mount=type=cache,target=/root/.m2 \
-    n=0; until mvn -B -q clean package -DskipTests; do \
+RUN n=0; until mvn -B -ntp clean package -DskipTests; do \
       n=$((n+1)); \
       if [ "$n" -ge 5 ]; then echo "Maven 5 urinishdan keyin ham yiqildi"; exit 1; fi; \
       echo "Maven yiqildi (urinish $n/5) — $((n*20))s dan keyin qayta"; \

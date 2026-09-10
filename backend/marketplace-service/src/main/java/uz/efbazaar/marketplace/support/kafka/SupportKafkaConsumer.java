@@ -16,7 +16,15 @@ public class SupportKafkaConsumer {
     @KafkaListener(
             topics = SupportEvents.TOPIC_SUPPORT_MESSAGE_BOUND,
             groupId = "marketplace-support-binder",
-            properties = {"spring.json.value.default.type=uz.efbazaar.marketplace.support.kafka.SupportEvents$SupportMessageBoundEvent"}
+            properties = {
+                    "spring.json.value.default.type=uz.efbazaar.marketplace.support.kafka.SupportEvents$SupportMessageBoundEvent",
+                    // Boshqa servis `__TypeId__` sarlavhasini qo\'yadi va
+                    // undagi klass bizda YO\'Q — DTO mahalliy nusxa.
+                    // Sarlavhaga ishonsak, xato poll() ichida yuz beradi:
+                    // offset commit qilinmaydi va konteyner o\'sha xabarni
+                    // cheksiz qayta o\'qiydi.
+                    "spring.json.use.type.headers=false"
+            }
     )
     public void onMessageBound(SupportEvents.SupportMessageBoundEvent event) {
         if (event == null) return;
@@ -32,7 +40,15 @@ public class SupportKafkaConsumer {
     @KafkaListener(
             topics = SupportEvents.TOPIC_SUPPORT_REPLY_RECEIVED,
             groupId = "marketplace-support-replies",
-            properties = {"spring.json.value.default.type=uz.efbazaar.marketplace.support.kafka.SupportEvents$SupportReplyReceivedEvent"}
+            properties = {
+                    "spring.json.value.default.type=uz.efbazaar.marketplace.support.kafka.SupportEvents$SupportReplyReceivedEvent",
+                    // Boshqa servis `__TypeId__` sarlavhasini qo\'yadi va
+                    // undagi klass bizda YO\'Q — DTO mahalliy nusxa.
+                    // Sarlavhaga ishonsak, xato poll() ichida yuz beradi:
+                    // offset commit qilinmaydi va konteyner o\'sha xabarni
+                    // cheksiz qayta o\'qiydi.
+                    "spring.json.use.type.headers=false"
+            }
     )
     public void onReplyReceived(SupportEvents.SupportReplyReceivedEvent event) {
         if (event == null) return;

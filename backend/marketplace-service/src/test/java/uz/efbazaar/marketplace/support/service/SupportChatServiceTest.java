@@ -2,6 +2,7 @@ package uz.efbazaar.marketplace.support.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -363,7 +364,64 @@ class SupportChatServiceTest {
         ArgumentCaptor<SupportMessage> msgCaptor = ArgumentCaptor.forClass(SupportMessage.class);
         verify(messageRepository).save(msgCaptor.capture());
         SupportMessage saved = msgCaptor.getValue();
-        assertThat(saved.getSenderName()).isEqualTo("Admin");
+        // Ism berilmagan bo'lsa ham ko'rinadigan nom o'zgarmaydi: u endi
+        // Telegram'dan kelmaydi, doimiy.
+        assertThat(saved.getSenderName()).isEqualTo("efBazaar Admin");
         assertThat(saved.getContent()).isEqualTo("[Xabar / Media]");
+    }
+
+    @Nested
+    @DisplayName("admin javobining ko'rinishi")
+    class AdminIdentity {
+
+        @Test
+        @DisplayName("javob har doim \"efBazaar Admin\" nomi ostida ko'rinadi")
+        void repliesAreShownUnderOneName() {
+            // Murojaatchi qaysi xodim javob berganini bilishi shart emas.
+            // Shaxsiy ism ko'rsatilsa, unga to'g'ridan-to'g'ri yozishga
+            // urinish boshlanadi va bu yordam oqimidan tashqarida qoladi.
+            SupportChat chat = SupportChat.builder()
+                    .id(UUID.randomUUID())
+                    .category(SupportCategory.SUPPORT)
+                    .status(SupportChatStatus.OPEN)
+                    .userId(userId)
+                    .senderName("Alisher")
+                    .telegramRootMessageId(555L)
+                    .lastMessageAt(Instant.now())
+                    .build();
+            when(messageRepository.existsByTelegramMessageId(777L)).thenReturn(false);
+            when(chatRepository.findByAnyTelegramMessageId(555L)).thenReturn(Optional.of(chat));
+
+            service.handleAdminReply(555L, 777L, "Xusniddin", "abdurahmoniy", "javob");
+
+            ArgumentCaptor<SupportMessage> saved = ArgumentCaptor.forClass(SupportMessage.class);
+            verify(messageRepository).save(saved.capture());
+            assertThat(saved.getValue().getSenderName()).isEqualTo("efBazaar Admin");
+            assertThat(saved.getValue().getSenderName()).doesNotContain("Xusniddin");
+        }
+
+        @Test
+        @DisplayName("kim javob bergani audit uchun saqlanadi")
+        void theRealAdminIsStillRecorded() {
+            // Ko'rsatmaslik — yashirish emas. Noto'g'ri javob yoki shikoyat
+            // bo'lsa, uni kim yozganini topa olishimiz kerak.
+            SupportChat chat = SupportChat.builder()
+                    .id(UUID.randomUUID())
+                    .category(SupportCategory.SUPPORT)
+                    .status(SupportChatStatus.OPEN)
+                    .userId(userId)
+                    .senderName("Alisher")
+                    .telegramRootMessageId(555L)
+                    .lastMessageAt(Instant.now())
+                    .build();
+            when(messageRepository.existsByTelegramMessageId(777L)).thenReturn(false);
+            when(chatRepository.findByAnyTelegramMessageId(555L)).thenReturn(Optional.of(chat));
+
+            service.handleAdminReply(555L, 777L, "Xusniddin", "abdurahmoniy", "javob");
+
+            ArgumentCaptor<SupportMessage> saved = ArgumentCaptor.forClass(SupportMessage.class);
+            verify(messageRepository).save(saved.capture());
+            assertThat(saved.getValue().getAdminTelegramUsername()).isEqualTo("abdurahmoniy");
+        }
     }
 }

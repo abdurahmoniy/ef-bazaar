@@ -33,6 +33,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SupportChatService {
 
+    /**
+     * Murojaatchi ko'radigan yagona nom.
+     *
+     * <p>Haqiqiy admin `admin_telegram_username` ustunida saqlanadi —
+     * ko'rsatmaslik yashirish emas, javobgarlik saqlanadi.
+     */
+    private static final String ADMIN_DISPLAY_NAME = "efBazaar Admin";
+
     private final SupportChatRepository chatRepository;
     private final SupportMessageRepository messageRepository;
     private final SupportKafkaPublisher publisher;
@@ -235,16 +243,20 @@ public class SupportChatService {
         }
 
         SupportChat chat = chatOpt.get();
-        String displayAdminName = StringUtils.hasText(adminName)
-                ? adminName.trim()
-                : (StringUtils.hasText(adminUsername) ? "@" + adminUsername.trim() : "Admin");
-
         String contentText = StringUtils.hasText(text) ? text.trim() : "[Xabar / Media]";
 
         SupportMessage adminMessage = SupportMessage.builder()
                 .supportChatId(chat.getId())
                 .senderType(SupportSenderType.ADMIN)
-                .senderName(displayAdminName)
+                // Har doim bitta nom. Ilgari Telegram'dagi shaxsiy ism
+                // ko'chirilardi va murojaatchi uni ko'rardi — o'shanda unga
+                // to'g'ridan-to'g'ri yozishga urinish boshlanadi va yordam
+                // oqimidan tashqarida qoladi.
+                .senderName(ADMIN_DISPLAY_NAME)
+                // Kim javob berganini BIZ bilamiz: noto'g'ri javob yoki
+                // shikoyat bo'lsa uni izlash mumkin bo'lsin.
+                .adminTelegramUsername(StringUtils.hasText(adminUsername)
+                        ? adminUsername.trim() : null)
                 .content(contentText)
                 .telegramMessageId(telegramMessageId)
                 .createdAt(Instant.now())
