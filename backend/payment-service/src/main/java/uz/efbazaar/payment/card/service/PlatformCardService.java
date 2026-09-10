@@ -15,6 +15,7 @@ import uz.efbazaar.payment.card.repository.PlatformCardAuditRepository;
 import uz.efbazaar.payment.card.repository.PlatformCardRepository;
 import uz.efbazaar.payment.crypto.EncryptedField;
 import uz.efbazaar.payment.crypto.PaymentCrypto;
+import uz.efbazaar.payment.debit.repository.CardDebitObservationRepository;
 import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
 import uz.efbazaar.payment.observation.repository.CardCreditObservationRepository;
 
@@ -32,6 +33,7 @@ public class PlatformCardService {
     private final PlatformCardAuditRepository audits;
     private final InvoiceRepository invoices;
     private final CardCreditObservationRepository observations;
+    private final CardDebitObservationRepository debits;
     private final PaymentCrypto crypto;
 
     @Transactional
@@ -112,12 +114,13 @@ public class PlatformCardService {
     /**
      * Removes a card for good.
      *
-     * <p>Only a card no money ever passed through. Once an invoice has named it
-     * the row is part of the payment record: the invoice's {@code card_id}
-     * points at it, and an unmatched observation is attributed by its last four
-     * digits. Deleting it would leave a payment nobody can explain, so the
-     * answer is 409 and the advice is to deactivate — which already hides the
-     * card from users and takes it out of the allocation queue.
+     * <p>Only a card no money ever passed through, in either direction. Once an
+     * invoice has named it the row is part of the payment record: the invoice's
+     * {@code card_id} points at it, an unmatched credit is attributed by its
+     * last four digits, and a debit holds a real foreign key to it. Deleting it
+     * would leave a payment nobody can explain, so the answer is 409 and the
+     * advice is to deactivate — which already hides the card from users and
+     * takes it out of the allocation queue.
      *
      * <p>The audit row is written before the delete and outlives it:
      * {@code platform_card_audit.card_id} carries no foreign key.
@@ -126,7 +129,9 @@ public class PlatformCardService {
     public void delete(UUID actorId, UUID cardId) {
         PlatformCard card = require(cardId);
 
-        if (invoices.existsByCardId(cardId) || observations.existsByCardLast4(card.getLast4())) {
+        if (invoices.existsByCardId(cardId)
+                || observations.existsByCardLast4(card.getLast4())
+                || debits.existsByCardId(cardId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Bu karta orqali to'lov o'tgan — o'chirib bo'lmaydi. "
                             + "Uni faolsizlantiring: navbatdan chiqadi, tarixi esa saqlanib qoladi.");

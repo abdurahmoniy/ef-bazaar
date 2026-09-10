@@ -83,6 +83,23 @@ public class AdminTelegramNotifier {
     }
 
     /**
+     * Money left one of the platform's own cards.
+     *
+     * <p>Sent for every debit on a card we own, expected or not. An admin who
+     * just paid a withdrawal out reads it as a receipt; anyone else reads it as
+     * the first news that the card is moving without them — and from the card's
+     * side those two look identical, so the topic gets both.
+     */
+    public void cardDebited(DebitNotice n) {
+        if (!enabled) return;
+        try {
+            bot.postPaymentNotice(renderDebit(n));
+        } catch (Exception e) {
+            log.warn("Card debit {} was not announced: {}", n.observationId(), e.toString());
+        }
+    }
+
+    /**
      * A withdrawal ticket nobody has paid yet.
      *
      * <p>The money is already frozen by the time this posts, so the topic is
@@ -174,6 +191,30 @@ public class AdminTelegramNotifier {
                         n.holderName(), n.phone(),
                         n.telegramUsername() == null ? "" : " \u00B7 @" + n.telegramUsername(),
                         n.userId());
+    }
+
+    /**
+     * The optional lines are omitted rather than printed empty: "📍" alone or
+     * "Qoldiq: —" is noise in a topic an admin scans on a phone.
+     */
+    private String renderDebit(DebitNotice n) {
+        StringBuilder sb = new StringBuilder("""
+                💸 <b>Kartadan pul yechildi</b>
+                💳 %s
+                💵 Summa: <b>%s so'm</b>"""
+                .formatted(mask(n.cardLast4()), exactUzs(n.amountTiyin())));
+
+        if (n.commissionTiyin() != null && n.commissionTiyin() > 0) {
+            sb.append("\n⚠️ Komissiya: ").append(exactUzs(n.commissionTiyin())).append(" so'm");
+        }
+        if (n.description() != null && !n.description().isBlank()) {
+            sb.append("\n📍 ").append(esc(n.description()));
+        }
+        sb.append("\n🕓 ").append(CLOCK.format(n.observedAt()));
+        if (n.cardBalanceTiyin() != null) {
+            sb.append("\n💰 Qoldiq: ").append(exactUzs(n.cardBalanceTiyin())).append(" so'm");
+        }
+        return sb.toString();
     }
 
     private String renderUnmatched(UnmatchedNotice n) {

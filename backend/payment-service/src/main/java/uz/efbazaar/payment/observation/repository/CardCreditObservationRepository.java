@@ -1,6 +1,7 @@
 package uz.efbazaar.payment.observation.repository;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -27,6 +28,15 @@ public interface CardCreditObservationRepository
     boolean existsByCardLast4(String last4);
 
     List<CardCreditObservation> findByStatusOrderByObservedAtAsc(ObservationStatus status);
+
+    /**
+     * The card history's credit half, newest first. Paged: this table grows
+     * with every deposit and a history screen shows one page of it.
+     */
+    List<CardCreditObservation> findAllByOrderByObservedAtDesc(Pageable pageable);
+
+    List<CardCreditObservation> findByCardLast4OrderByObservedAtDesc(
+            String cardLast4, Pageable pageable);
 
     /**
      * Qo'lda hal qilinganlar tarixi — eng yangisidan.

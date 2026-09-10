@@ -10,6 +10,7 @@ import uz.efbazaar.payment.card.domain.PlatformCard;
 import uz.efbazaar.payment.card.service.PlatformCardService;
 import uz.efbazaar.payment.invoice.domain.Invoice;
 import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
+import uz.efbazaar.payment.debit.repository.CardDebitObservationRepository;
 import uz.efbazaar.payment.observation.repository.CardCreditObservationRepository;
 
 import java.util.Optional;
@@ -31,6 +32,7 @@ public class InvoiceNoticeListener {
 
     private final InvoiceRepository invoices;
     private final CardCreditObservationRepository observations;
+    private final CardDebitObservationRepository debits;
     private final PlatformCardService cards;
     private final AdminTelegramNotifier notifier;
     private final uz.efbazaar.payment.withdrawal.repository.WithdrawalTicketRepository withdrawals;
@@ -104,6 +106,23 @@ public class InvoiceNoticeListener {
     public void onExpired(InvoiceNoticeEvents.InvoicesExpired event) {
         // No transaction needed: this only deletes messages.
         event.messageIds().forEach(notifier::invoiceExpired);
+    }
+
+    /**
+     * Announces money leaving one of our cards.
+     *
+     * <p>Re-read after commit like the rest: a notice sent from inside the
+     * ingest transaction could describe a movement the rollback took back, and
+     * there is no retraction to send afterwards.
+     */
+    @TransactionalEventListener
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onCardDebited(InvoiceNoticeEvents.CardDebited event) {
+        debits.findById(event.observationId()).ifPresent(obs ->
+                notifier.cardDebited(new DebitNotice(
+                        obs.getId(), obs.getCardLast4(), obs.getAmountTiyin(),
+                        obs.getCommissionTiyin(), obs.getCardBalanceTiyin(),
+                        obs.getDescription(), obs.getObservedAt())));
     }
 
     @TransactionalEventListener
