@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,6 +47,15 @@ public class AdminPlatformCardController {
     @PostMapping("/{id}/activate")
     public void activate(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable UUID id) {
         cards.activate(me.userId(), id);
+    }
+
+    /**
+     * Permanently removes a card that has never taken a payment. A card with
+     * history answers 409 — deactivate is the operation for that one.
+     */
+    @DeleteMapping("/{id}")
+    public void delete(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable UUID id) {
+        cards.delete(me.userId(), id);
     }
 
     @PostMapping("/reorder")

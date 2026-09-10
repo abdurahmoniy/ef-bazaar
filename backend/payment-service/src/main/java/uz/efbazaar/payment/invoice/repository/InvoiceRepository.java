@@ -17,6 +17,14 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     Optional<Invoice> findByUserIdAndStatus(UUID userId, InvoiceStatus status);
 
     /**
+     * Whether any invoice — live, paid, expired or cancelled — was ever issued
+     * against this card. {@code invoices.card_id} is a foreign key, so a delete
+     * that ignored this would be refused by PostgreSQL with a constraint name
+     * instead of a sentence an admin can act on.
+     */
+    boolean existsByCardId(UUID cardId);
+
+    /**
      * Candidates for an incoming transfer. Expired invoices are excluded
      * deliberately: their slot has been released and may already belong to
      * somebody else's live invoice, so crediting on amount alone would credit

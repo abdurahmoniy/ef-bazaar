@@ -7,14 +7,21 @@ import { PlatformCard } from '@/components/payment/platform-card';
 import {
   activateCard,
   deactivateCard,
+  deletePlatformCard,
   listPlatformCards,
   reorderCards,
 } from '@/lib/payment-admin-client';
-import type { PlatformCardResponse } from '@/lib/payment-types';
+import type { CardThroughputRow, PlatformCardResponse } from '@/lib/payment-types';
 import { moveCard, orderedIds, splitCards } from '@/lib/platform-card-order';
 
 interface PlatformCardListProps {
   initialCards: PlatformCardResponse[];
+  /**
+   * Settled volume per card, from the analytics read. Empty when that read
+   * failed — the queue still has to be manageable without it, so the bars are
+   * simply absent rather than the page refusing to render.
+   */
+  throughput?: CardThroughputRow[];
 }
 
 /**
@@ -23,12 +30,17 @@ interface PlatformCardListProps {
  * rewritten server-side for the whole active set and a locally patched copy
  * would drift.
  */
-export function PlatformCardList({ initialCards }: PlatformCardListProps) {
+export function PlatformCardList({ initialCards, throughput = [] }: PlatformCardListProps) {
   const [cards, setCards] = useState(initialCards);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { active, inactive } = splitCards(cards);
+
+  const volumes = new Map(throughput.map((row) => [row.cardId, row]));
+  // One scale across both sections, so a bar in the deactivated list is
+  // directly comparable with a bar in the queue above it.
+  const scale = Math.max(0, ...throughput.map((row) => row.throughputTiyin));
 
   /** A failed re-read keeps what is on screen rather than blanking the page. */
   async function refresh() {
@@ -58,6 +70,21 @@ export function PlatformCardList({ initialCards }: PlatformCardListProps) {
     void run(() => reorderCards(orderedIds(moved)));
   }
 
+  function cardProps(card: PlatformCardResponse) {
+    return {
+      card,
+      busy,
+      throughput: volumes.get(card.id),
+      throughputScaleTiyin: scale,
+      onDeactivate: (id: string) => void run(() => deactivateCard(id)),
+      onActivate: (id: string) => void run(() => activateCard(id)),
+      // The backend refuses a card any payment ever named and says so; that
+      // message lands in `error` above rather than being pre-empted here,
+      // because this component cannot know a card's payment history.
+      onDelete: (id: string) => void run(() => deletePlatformCard(id)),
+    };
+  }
+
   return (
     <div className="space-y-5">
       <AddCardForm onAdded={() => void refresh()} />
@@ -83,15 +110,12 @@ export function PlatformCardList({ initialCards }: PlatformCardListProps) {
             ishlaydi.
           </p>
         ) : (
-          <ul className="mt-3 grid gap-4 sm:grid-cols-2">
+          <ul className="mt-3 space-y-3">
             {active.map((card, index) => (
               <li key={card.id}>
                 <PlatformCard
-                  card={card}
+                  {...cardProps(card)}
                   position={index + 1}
-                  busy={busy}
-                  onDeactivate={(id) => void run(() => deactivateCard(id))}
-                  onActivate={(id) => void run(() => activateCard(id))}
                   onMoveUp={index > 0 ? (id) => handleMove(id, -1) : undefined}
                   onMoveDown={index < active.length - 1 ? (id) => handleMove(id, 1) : undefined}
                 />
@@ -104,17 +128,15 @@ export function PlatformCardList({ initialCards }: PlatformCardListProps) {
       {inactive.length > 0 && (
         <section>
           <h2 className="text-base font-black text-foreground">
-            O&apos;chirilgan kartalar ({inactive.length})
+            Faolsizlantirilgan kartalar ({inactive.length})
           </h2>
-          <ul className="mt-3 grid gap-4 sm:grid-cols-2">
+          <p className="mt-1 text-sm text-muted-foreground">
+            Navbatda qatnashmaydi, ammo qoldig&apos;i umumiy hisobga kiradi.
+          </p>
+          <ul className="mt-3 space-y-3">
             {inactive.map((card) => (
               <li key={card.id}>
-                <PlatformCard
-                  card={card}
-                  busy={busy}
-                  onDeactivate={(id) => void run(() => deactivateCard(id))}
-                  onActivate={(id) => void run(() => activateCard(id))}
-                />
+                <PlatformCard {...cardProps(card)} />
               </li>
             ))}
           </ul>

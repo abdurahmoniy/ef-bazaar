@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; padding: 0; background: #090B10; }
+    * { box-sizing: border-box; }
+    a { color: #6EE7B7; text-decoration: none; }
+    a:hover { color: #A8EDCE; }
+  </style>
+</helmet>
+
+<div style="min-height: 700px; background: #090B10; color: #E8EBF2; font-family: Manrope, system-ui, sans-serif; -webkit-font-smoothing: antialiased; padding: 34px 28px;">
+
+  <div style="margin-bottom: 22px;">
+    <h1 style="margin: 0 0 9px; font-size: 30px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em;">Foyda tarkibi</h1>
+    <p style="margin: 0; max-width: 660px; font-size: 14.5px; line-height: 1.6; color: #8B94A7; text-wrap: pretty;">Komissiyadan tushgan pul, undan chiqib ketgan xarajat va referal mukofotlari. Pastdagi qatorlar ketma-ket ayiriladi.</p>
+  </div>
+
+  <div style="background: #10141C; border: 1px solid rgba(255,255,255,.07); border-radius: 20px; padding: 26px 28px; margin-bottom: 16px;">
+
+    <div style="display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 6px;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 44px; font-weight: 700; letter-spacing: -.01em; line-height: 1; color: {{ netColor }};">{{ netLabel }}</div>
+      <div style="font-size: 14px; font-weight: 600; color: #8B94A7;">{{ netCaption }}</div>
+    </div>
+    <p style="margin: 0 0 24px; font-size: 13px; color: #6C7689;">{{ periodLabel }} · barcha savdolar bo'yicha</p>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+
+      <div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 7px;">
+          <span style="display: flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 700;">
+            <span style="width: 10px; height: 10px; border-radius: 3px; background: #059669; flex: none;"></span>
+            Komissiya tushumi
+          </span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px;">+{{ revenueLabel }}</span>
+        </div>
+        <div style="height: 14px; border-radius: 4px; background: #059669; width: {{ revenueBar }};"></div>
+      </div>
+
+      <div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 7px;">
+          <span style="display: flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 700;">
+            <span style="width: 10px; height: 10px; border-radius: 3px; background: #6C7FD4; flex: none;"></span>
+            Referal mukofotlari
+          </span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #C3CAD8;">−{{ referralLabel }}</span>
+        </div>
+        <div style="height: 14px; border-radius: 4px; background: #6C7FD4; width: {{ referralBar }};"></div>
+      </div>
+
+      <div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 7px;">
+          <span style="display: flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 700;">
+            <span style="width: 10px; height: 10px; border-radius: 3px; background: #4A5570; flex: none;"></span>
+            Operatsion xarajat
+          </span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #C3CAD8;">−{{ feesLabel }}</span>
+        </div>
+        <div style="height: 14px; border-radius: 4px; background: #4A5570; width: {{ feesBar }};"></div>
+      </div>
+
+    </div>
+
+    <div style="height: 1px; background: rgba(255,255,255,.07); margin: 22px 0 16px;"></div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+      <span style="font-size: 13.5px; font-weight: 700; color: #8B94A7;">Qoladi</span>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 19px; font-weight: 700; color: {{ netColor }};">{{ netLabel }}</span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px;">
+    <div style="background: #10141C; border: 1px solid rgba(255,255,255,.07); border-radius: 16px; padding: 18px 20px;">
+      <div style="font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: #6C7689; font-weight: 700;">Har 100 so'm tushumdan</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; margin-top: 10px;">{{ referralPer100 }}</div>
+      <div style="font-size: 12px; color: #6C7689; margin-top: 5px;">so'm referalga ketdi</div>
+    </div>
+    <div style="background: #10141C; border: 1px solid rgba(255,255,255,.07); border-radius: 16px; padding: 18px 20px;">
+      <div style="font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: #6C7689; font-weight: 700;">Mukofot olganlar</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; margin-top: 10px;">126</div>
+      <div style="font-size: 12px; color: #6C7689; margin-top: 5px;">ta foydalanuvchi · 341 to'lov</div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 13px; align-items: flex-start; background: rgba(108,127,212,.07); border: 1px solid rgba(108,127,212,.2); border-radius: 14px; padding: 16px 18px;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8FA0E4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+    <p style="margin: 0; font-size: 13px; line-height: 1.6; color: #A6B0C4; text-wrap: pretty;">Referal mukofoti — bu o'sish uchun qilingan sarf, yo'qotilgan pul emas. Minus natija platformaning yomon ishlayotganini bildirmaydi.</p>
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"referralShare":{"editor":"range","default":58,"min":0,"max":140,"step":2,"unit":"%","tsType":"number","section":"Model"}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const revenue = 41800000;
+    const fees = 3900000;
+    const referral = Math.round(revenue * (this.props.referralShare ?? 58) / 100);
+    const net = revenue - fees - referral;
+    const scale = Math.max(revenue, fees, referral) || 1;
+    const fmt = n => Math.abs(n).toLocaleString('ru-RU').replace(/ /g, ' ');
+    const pct = n => (n / scale * 100).toFixed(1) + '%';
+    return {
+      revenueLabel: fmt(revenue), feesLabel: fmt(fees), referralLabel: fmt(referral),
+      revenueBar: pct(revenue), feesBar: pct(fees), referralBar: pct(referral),
+      netLabel: (net < 0 ? '−' : '+') + fmt(net) + " so'm",
+      netColor: net < 0 ? '#C3CAD8' : '#6EE7B7',
+      netCaption: net < 0 ? "sarf tushumdan ko'p" : 'foydada',
+      periodLabel: 'Butun davr uchun',
+      referralPer100: (referral / revenue * 100).toFixed(0)
+    };
+  }
+}
+</script>
+</body>
+</html>

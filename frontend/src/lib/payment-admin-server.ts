@@ -4,6 +4,7 @@ import { apiFetch, ApiException } from './api';
 import type { WithdrawalTicket } from './withdrawal';
 import type {
   ObservationResponse,
+  PaymentAnalyticsOverview,
   PlatformCardResponse,
   TradeCommissionConfig,
   UserbotStatusResponse,
@@ -35,6 +36,20 @@ export async function listPlatformCardsSSR(): Promise<PlatformCardResponse[] | n
   const path = `${PREFIX}/cards`;
   try {
     return await apiFetch<PlatformCardResponse[]>(path);
+  } catch (error) {
+    return report(path, error);
+  }
+}
+
+/**
+ * The finance dashboard's figures. Server-rendered so the page arrives with its
+ * numbers already on it — an admin opening this screen is looking for one
+ * total, not waiting for a spinner.
+ */
+export async function getPaymentAnalyticsSSR(): Promise<PaymentAnalyticsOverview | null> {
+  const path = `${PREFIX}/analytics/overview`;
+  try {
+    return await apiFetch<PaymentAnalyticsOverview>(path);
   } catch (error) {
     return report(path, error);
   }
