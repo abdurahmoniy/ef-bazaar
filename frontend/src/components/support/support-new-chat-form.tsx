@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 
 interface SupportNewChatFormProps {
   user: User | null;
+  initialMessage?: string;
   initialCategory?: SupportCategory;
   onChatCreated: (chat: SupportChat) => void;
 }
@@ -27,6 +28,7 @@ const CATEGORY_ICONS: Record<SupportCategory, React.ElementType> = {
 
 export function SupportNewChatForm({
   user,
+  initialMessage = '',
   initialCategory = 'SUPPORT',
   onChatCreated,
 }: SupportNewChatFormProps) {
@@ -35,7 +37,7 @@ export function SupportNewChatForm({
   const [senderContact, setSenderContact] = useState(
     user?.telegramUsername ? `@${user.telegramUsername}` : ''
   );
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(initialMessage);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 

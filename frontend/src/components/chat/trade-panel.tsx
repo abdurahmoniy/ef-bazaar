@@ -82,6 +82,8 @@ import {
 import { cn } from '@/lib/utils';
 import { FEATURES } from '@/lib/feature-flags';
 import { sellerProceedsSom, tradeFeeSom } from '@/lib/trade-commission';
+import { canUseSmartAdmin, resolveTradeListing } from '@/lib/trade-platform';
+import { TradeAdminHandoff } from './trade-admin-handoff';
 import { useTradeContext, type PendingProposal } from './trade-context';
 
 export interface TradePanelProps {
@@ -173,6 +175,9 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
     setShowAcceptModal,
   } = useTradeContext();
 
+  const selectedListing = resolveTradeListing(accountRequest, listing);
+  const smartAdminAvailable = canUseSmartAdmin(selectedListing);
+
   // Nothing to render while the first fetch is in flight
   if (trades === null) {
     return (
@@ -262,14 +267,14 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
           <p className="text-sm font-semibold text-foreground">
             {role === null
               ? 'Qaysi akkount?'
-              : isSeller
-                ? 'Xaridorga taklif yuboring'
-                : 'Sotuvchi taklifini kuting'}
+              : !smartAdminAvailable
+                ? 'Kelishuvdan so‘ng adminga murojaat qiling'
+                : isSeller ? 'Xaridorga taklif yuboring' : 'Sotuvchi taklifini kuting'}
           </p>
         </div>
       </div>
 
-      {!isInsideDrawer && (
+      {!isInsideDrawer && smartAdminAvailable && (
         <TipCallout
           variant="security"
           learnMoreHref="/help#100-percent-secure-trade-guarantee"
@@ -288,7 +293,13 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
         />
       )}
 
-      {isSeller ? (
+      {role !== null && !smartAdminAvailable ? (
+        <TradeAdminHandoff
+          chatId={chat.id}
+          listingId={accountRequest?.listingId ?? selectedListing?.id}
+          platform={selectedListing?.attributes?.platform}
+        />
+      ) : isSeller ? (
         <>
           <Button
             type="button"
@@ -1446,6 +1457,20 @@ function PendingProposalCard({
   onAcceptModalClose: () => void;
   onAccepted: () => void;
 }) {
+  const { chat, listing, accountRequest, requiresAdminHandoff } = useTradeContext();
+  const selectedListing = resolveTradeListing(accountRequest, listing);
+  const proposalListing = [selectedListing, listing].find((item) => item?.id === proposal.listingId);
+  if (requiresAdminHandoff) {
+    return (
+      <TradeAdminHandoff
+        chatId={chat.id}
+        listingId={proposal.listingId}
+        platform={proposalListing?.attributes?.platform}
+        amountUzs={proposal.priceUzs}
+      />
+    );
+  }
+
   return (
     <div className="mx-auto max-w-md rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3 shadow-card">
       <div className="mb-2 flex items-center gap-2">
@@ -1519,7 +1544,7 @@ function ProposeModal({
   onClose: () => void;
   onCreated: (p: ProposalResponse, priceUzs: number, mode: TradeMode, adminFeeUzs?: number, kind?: TradeKind) => void;
 }) {
-  const effectiveListing = accountRequest?.listing ?? listing;
+  const effectiveListing = resolveTradeListing(accountRequest, listing);
   const originalPrice = effectiveListing ? Number(effectiveListing.price) : 0;
   const initialPrice = originalPrice > 0 ? String(Math.trunc(originalPrice)) : '';
   const coverUrl =
@@ -1640,6 +1665,18 @@ function ProposeModal({
       }
       onCreated(result.data, effectiveAmountUzs, mode, mode === 'HUMAN' ? feeUzs : undefined, kind);
     });
+  }
+
+  if (!canUseSmartAdmin(effectiveListing)) {
+    return (
+      <ModalShell title="Admin orqali savdo" onClose={onClose}>
+        <TradeAdminHandoff
+          chatId={chat.id}
+          listingId={accountRequest?.listingId ?? effectiveListing?.id}
+          platform={effectiveListing?.attributes?.platform}
+        />
+      </ModalShell>
+    );
   }
 
   return (
@@ -2047,9 +2084,16 @@ function AcceptModal({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
+  const { chat, listing, accountRequest } = useTradeContext();
+  const selectedListing = resolveTradeListing(accountRequest, listing);
+  const proposalListing = proposal.listingId
+    ? [selectedListing, listing].find((item) => item?.id === proposal.listingId) ?? null
+    : null;
+  const requiresAdmin = !isHumanProposal(proposal) && !canUseSmartAdmin(proposalListing);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (requiresAdmin) return;
     setError(null);
     const payload: ProposalAcceptRequest = {};
     startSubmit(async () => {
@@ -2066,6 +2110,19 @@ function AcceptModal({
     });
   }
 
+  if (requiresAdmin) {
+    return (
+      <ModalShell title="Admin orqali savdo" onClose={onClose}>
+        <TradeAdminHandoff
+          chatId={chat.id}
+          listingId={proposal.listingId}
+          platform={proposalListing?.attributes?.platform}
+          amountUzs={proposal.priceUzs}
+        />
+      </ModalShell>
+    );
+  }
+
   return (
     <ModalShell title="Taklifni qabul qilish" onClose={onClose}>
       <form className="space-y-3" onSubmit={handleSubmit}>
@@ -2076,7 +2133,7 @@ function AcceptModal({
               {TRADE_KIND_LABEL_UZ[proposal.kind ?? 'SALE']}
             </b>
           </p>
-          {isSwap(proposal.kind) && (
+          {isSwap(proposal.kind) && !isHumanProposal(proposal) && (
             <p className="mt-0.5">
               Siz ham o&apos;z akkountingizni platforma pochtasiga
               o&apos;tkazasiz. Ikkalangiz tasdiqlagach akkountlar almashinadi.

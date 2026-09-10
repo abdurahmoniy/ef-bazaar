@@ -70,6 +70,12 @@ public class Listing {
     @Builder.Default
     private int forwardCount = 0;
 
+    // Only the atomic view increment writes this column; listing edits must
+    // not overwrite a newer count from a concurrent visit.
+    @Column(name = "unique_view_count", nullable = false, updatable = false)
+    @Builder.Default
+    private long viewCount = 0;
+
     /**
      * Read-only aggregate — computed by Hibernate via a subquery so JPA sorts
      * like {@code ?sort=likeCount,desc} bind to a real column reference. Not

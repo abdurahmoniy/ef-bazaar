@@ -113,6 +113,9 @@ export function ListingCard({
             />
           )}
         </div>
+        <p className="text-[10px] text-muted-foreground sm:text-xs">
+          Ko'rishlar: {listing.viewCount ?? 0}
+        </p>
       </div>
     </article>
   );

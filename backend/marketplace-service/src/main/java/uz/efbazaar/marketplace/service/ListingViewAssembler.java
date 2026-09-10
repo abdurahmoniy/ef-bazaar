@@ -57,7 +57,7 @@ public class ListingViewAssembler {
         return new ListingResponse(
                 r.id(), r.sellerId(), seller, r.description(),
                 r.price(), r.priceNegotiable(), r.attributes(), r.mediaMessageIds(),
-                r.status(), r.soldAt(), r.forwardCount(), likeCount, likedByMe,
+                r.status(), r.soldAt(), r.forwardCount(), r.viewCount(), likeCount, likedByMe,
                 r.matchPercent(), r.matchDetails(), r.createdAt(), r.updatedAt()
         );
     }

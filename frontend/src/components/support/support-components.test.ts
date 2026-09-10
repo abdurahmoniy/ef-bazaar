@@ -3,6 +3,7 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SupportPageContainer } from './support-page-container';
 import { SupportNewChatForm } from './support-new-chat-form';
 import { SupportChatView } from './support-chat-view';
 import { SupportWidget } from './support-widget';
@@ -38,6 +39,16 @@ afterEach(async () => {
 });
 
 describe('SupportNewChatForm', () => {
+  it('prefills an editable trade request without submitting it', async () => {
+    await act(async () => {
+      root.render(createElement(SupportNewChatForm, {
+        user: null, initialMessage: 'Steam /marketplace/listing-1 /chats/chat-1', onChatCreated: vi.fn(),
+      }));
+    });
+    expect(container.querySelector('textarea')!.value).toContain('/marketplace/listing-1');
+    expect(supportApi.createSupportChat).not.toHaveBeenCalled();
+  });
+
   it('renders category options and submits new chat', async () => {
     const onCreated = vi.fn();
     const user = { id: 'u-1', displayName: 'Alisher Test' } as any;
@@ -91,6 +102,21 @@ describe('SupportNewChatForm', () => {
 });
 
 describe('SupportChatView', () => {
+  it('prefills the existing support chat without sending automatically', async () => {
+    const chat: supportApi.SupportChat = {
+      id: 'existing', category: 'SUPPORT', status: 'OPEN', senderName: 'Buyer',
+      messages: [], lastMessageAt: '', createdAt: '',
+    };
+    await act(async () => {
+      root.render(createElement(SupportChatView, {
+        initialChat: chat, initialMessage: 'PlayStation trade /chats/chat-2',
+      }));
+    });
+    expect(container.querySelector('textarea')!.value).toContain('/chats/chat-2');
+    expect(supportApi.sendSupportMessage).not.toHaveBeenCalled();
+    expect(supportApi.createSupportChat).not.toHaveBeenCalled();
+  });
+
   it('renders chat messages with user and admin sender styles', async () => {
     const mockChat: supportApi.SupportChat = {
       id: 'chat-1',
@@ -144,5 +170,26 @@ describe('SupportWidget', () => {
 
     expect(container.textContent).toContain('efBazaar Qo‘llab-quvvatlash');
     expect(container.textContent).toContain('Murojaat yo‘nalishi');
+  });
+});
+
+describe('trade support handoff lifecycle', () => {
+  it('consumes the draft when a new support conversation is created', async () => {
+    vi.mocked(supportApi.getActiveSupportChat).mockResolvedValue(null);
+    vi.mocked(supportApi.createSupportChat).mockResolvedValue({
+      id: 'new', category: 'SUPPORT', status: 'OPEN', senderName: 'Buyer',
+      messages: [], createdAt: '', lastMessageAt: '',
+    });
+    await act(async () => {
+      root.render(createElement(SupportPageContainer, {
+        user: { id: 'buyer', displayName: 'Buyer' } as any,
+        initialCategory: 'SUPPORT', initialMessage: 'Steam trade request',
+      }));
+    });
+    await act(async () => {
+      container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    expect(supportApi.createSupportChat).toHaveBeenCalledWith(expect.objectContaining({ message: 'Steam trade request' }));
+    expect(container.querySelector('textarea')!.value).toBe('');
   });
 });

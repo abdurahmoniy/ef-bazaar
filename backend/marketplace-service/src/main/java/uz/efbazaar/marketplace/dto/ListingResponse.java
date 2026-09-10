@@ -23,6 +23,7 @@ public record ListingResponse(
         ListingStatus status,
         Instant soldAt,
         int forwardCount,
+        long viewCount,
         long likeCount,
         Boolean likedByMe,
         /**
@@ -40,14 +41,14 @@ public record ListingResponse(
     /** Same listing with a match percentage attached. */
     public ListingResponse withMatchPercent(Integer percent) {
         return new ListingResponse(id, sellerId, seller, description, price, priceNegotiable,
-                attributes, mediaMessageIds, status, soldAt, forwardCount, likeCount,
+                attributes, mediaMessageIds, status, soldAt, forwardCount, viewCount, likeCount,
                 likedByMe, percent, matchDetails, createdAt, updatedAt);
     }
 
     /** Attach the canonical explanation and mirror its percent for old clients. */
     public ListingResponse withMatchDetails(MatchDetails details) {
         return new ListingResponse(id, sellerId, seller, description, price, priceNegotiable,
-                attributes, mediaMessageIds, status, soldAt, forwardCount, likeCount,
+                attributes, mediaMessageIds, status, soldAt, forwardCount, viewCount, likeCount,
                 likedByMe, details == null ? null : details.percent(), details,
                 createdAt, updatedAt);
     }

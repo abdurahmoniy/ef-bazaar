@@ -1,3 +1,4 @@
+import type { ListingResponse } from '@/lib/marketplace-types';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
@@ -42,7 +43,7 @@ describe('TradeProposalMessageCard', () => {
         {
           chat: mockChat,
           viewerId: 'user-buyer',
-          listing: null,
+          listing: { id: 'listing-1', sellerId: 'user-seller', description: 'Mobile account', price: 500000, priceNegotiable: false, attributes: { platform: 'MOBILE' }, mediaMessageIds: [], status: 'ACTIVE', forwardCount: 0, likeCount: 0, createdAt: '', updatedAt: '' } satisfies ListingResponse,
           initialPendingProposal: {
             proposalId: 'p-1',
             marketplaceChatId: 'chat-1',

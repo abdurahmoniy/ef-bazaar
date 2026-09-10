@@ -13,13 +13,16 @@ import type { User } from '@/lib/types';
 
 interface SupportPageContainerProps {
   user: User | null;
+  initialMessage?: string;
   initialCategory: SupportCategory;
 }
 
 export function SupportPageContainer({
   user,
+  initialMessage = '',
   initialCategory,
 }: SupportPageContainerProps) {
+  const [handoffDraft, setHandoffDraft] = useState(initialMessage);
   const [activeChat, setActiveChat] = useState<SupportChat | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,13 +70,16 @@ export function SupportPageContainer({
       ) : activeChat && !isCreatingNew ? (
         <SupportChatView
           initialChat={activeChat}
+          initialMessage={handoffDraft}
           onNewChatClick={() => setIsCreatingNew(true)}
         />
       ) : (
         <SupportNewChatForm
           user={user}
           initialCategory={initialCategory}
+          initialMessage={handoffDraft}
           onChatCreated={(newChat) => {
+            setHandoffDraft('');
             setActiveChat(newChat);
             setIsCreatingNew(false);
           }}
