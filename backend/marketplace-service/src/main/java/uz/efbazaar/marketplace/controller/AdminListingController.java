@@ -54,6 +54,13 @@ public class AdminListingController {
         listingService.adminDelete(id, admin.userId());
     }
 
+    @PostMapping("/{id}/sold")
+    public ListingResponse markSold(@AuthenticationPrincipal AuthenticatedUser admin,
+                                    @PathVariable UUID id) {
+        Listing sold = listingService.adminMarkSold(id, admin.userId());
+        return assembler.assemble(sold, admin.userId());
+    }
+
     @PostMapping("/{id}/restore")
     public ListingResponse restore(@AuthenticationPrincipal AuthenticatedUser admin,
                                    @PathVariable UUID id) {

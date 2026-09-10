@@ -1,12 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { UserCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { tradeAdminSupportHref, tradePlatformLabel } from '@/lib/trade-platform';
+import { tradeAdminTelegramHref, tradePlatformLabel } from '@/lib/trade-platform';
 
-export function TradeAdminHandoff({ chatId, listingId, platform, amountUzs }: {
-  chatId: string;
+export function TradeAdminHandoff({ listingId, platform, amountUzs }: {
   listingId?: string | null;
   platform: unknown;
   amountUzs?: number;
@@ -23,13 +21,13 @@ export function TradeAdminHandoff({ chatId, listingId, platform, amountUzs }: {
         Narx va shartlarni chatda kelishib olgach, adminga murojaat qiling.
       </p>
       <p className="text-muted-foreground">
-        Murojaat matnini tekshirib yuborasiz. To‘lov va akkountni topshirish tartibini
+        Telegram’da @abdurahmoniy ga tayyor murojaat matnini tekshirib yuborasiz. To‘lov va akkountni topshirish tartibini
         admin bilan kelishasiz; bu tugma hamyondan pul yechmaydi.
       </p>
       <Button asChild className="w-full">
-        <Link href={tradeAdminSupportHref({ chatId, listingId, platform, amountUzs })}>
+        <a href={tradeAdminTelegramHref({ listingId, platform, amountUzs })} target="_blank" rel="noopener noreferrer">
           Kelishdik — adminga murojaat
-        </Link>
+        </a>
       </Button>
     </div>
   );

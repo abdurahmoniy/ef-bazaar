@@ -57,11 +57,12 @@ describe('trade platform handoff', () => {
     }
   });
 
-  it.each(['STEAM', 'PLAYSTATION'])('routes %s to support using the selected listing', (platform) => {
+  it.each(['STEAM', 'PLAYSTATION'])('routes %s directly to the Telegram admin using the selected listing', (platform) => {
     context.accountRequest!.listing!.attributes!.platform = platform;
     const html = render();
     expect(html).toContain('Kelishdik — adminga murojaat');
-    expect(html).toContain('/support?');
+    expect(html).toContain('https://t.me/abdurahmoniy?text=');
+    expect(html).not.toContain('/support?');
     expect(html).toContain('selected');
     expect(html).not.toContain('Taklif yuborish');
     expect(html).not.toContain('100% Kafolatlangan');

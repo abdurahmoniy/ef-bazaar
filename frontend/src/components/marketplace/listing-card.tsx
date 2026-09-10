@@ -48,7 +48,7 @@ export function ListingCard({
         : model.gameCenterLinked
           ? { service: 'game-center' as const, label: 'Game Center' }
           : null;
-  const hasCoins = model.androidCoins !== undefined || model.iosCoins !== undefined;
+  const hasCoins = model.coins !== undefined || model.androidCoins !== undefined || model.iosCoins !== undefined;
 
   return (
     <article
@@ -108,14 +108,12 @@ export function ListingCard({
           )}
           {hasCoins && (
             <CoinsPill
+              coins={model.coins}
               androidCoins={model.androidCoins}
               iosCoins={model.iosCoins}
             />
           )}
         </div>
-        <p className="text-[10px] text-muted-foreground sm:text-xs">
-          Ko'rishlar: {listing.viewCount ?? 0}
-        </p>
       </div>
     </article>
   );
@@ -165,18 +163,22 @@ function LinkedServiceWarning({
 }
 
 function CoinsPill({
+  coins,
   androidCoins,
   iosCoins,
 }: {
+  coins?: number;
   androidCoins?: number;
   iosCoins?: number;
 }) {
-  if (androidCoins === undefined && iosCoins === undefined) {
+  if (coins === undefined && androidCoins === undefined && iosCoins === undefined) {
     return null;
   }
 
   const ariaLabel =
-    androidCoins !== undefined && iosCoins !== undefined
+    coins !== undefined
+      ? `Coin balansi: ${coins}`
+      : androidCoins !== undefined && iosCoins !== undefined
       ? `Android coin: ${androidCoins}, iOS coin: ${iosCoins}`
       : androidCoins !== undefined
         ? `Android coin: ${androidCoins}`
@@ -198,6 +200,11 @@ function CoinsPill({
         className="h-3 w-3 shrink-0 object-contain sm:h-3.5 sm:w-3.5"
       />
       <div className="flex min-w-0 items-center truncate">
+        {coins !== undefined && (
+          <span className={cn('truncate', coins < 0 && 'text-destructive')}>
+            {formatCompactNumber(coins)}
+          </span>
+        )}
         {androidCoins !== undefined && (
           <span className="truncate">
             <span className="mr-0.5 font-medium text-muted-foreground sm:mr-1">Android</span>

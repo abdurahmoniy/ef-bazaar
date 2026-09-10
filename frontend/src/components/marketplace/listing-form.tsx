@@ -1,6 +1,12 @@
 'use client';
 
 import {
+	filterListingPlatformAttributes,
+	isListingAttributeApplicable,
+	isMobileListingPlatform,
+} from '@/lib/listing-platform-attributes';
+
+import {
 	AlertCircle,
 	ArrowLeft,
 	ArrowRight,
@@ -119,7 +125,7 @@ const STEP_META: Record<
 	gameplay: {
 		badge: '3-qadam / 4',
 		title: 'O‘yin ko‘rsatkichlari',
-		subtitle: 'Division, Team Strength va limitlar',
+		subtitle: 'Platforma, division va jamoa ko‘rsatkichlari',
 	},
 	pricing: {
 		badge: '4-qadam / 4',
@@ -947,7 +953,7 @@ function GameplayStep({
 	errors: string[];
 }) {
 	const relevant = definitions.filter(
-		(def) => def.active !== false && def.key !== 'valuable_players',
+		(def) => def.active !== false && def.key !== 'valuable_players' && isListingAttributeApplicable(def.key, state.attributes.platform),
 	);
 
 	const divDef = relevant.find((d) => d.key === 'highest_division_level');
@@ -956,6 +962,8 @@ function GameplayStep({
 	const platformDef = relevant.find((d) => d.key === 'platform');
 	const androidCoinDef = relevant.find((d) => d.key === 'android_coins');
 	const iosCoinDef = relevant.find((d) => d.key === 'ios_coins');
+	const coinDef = relevant.find((d) => d.key === 'coins');
+	const mobile = isMobileListingPlatform(state.attributes.platform);
 	const boolDefs = relevant
 		.filter((d) => d.type === 'BOOLEAN')
 		.sort((a, b) => {
@@ -973,6 +981,7 @@ function GameplayStep({
 		'platform',
 		'android_coins',
 		'ios_coins',
+		'coins',
 		...boolDefs.map((d) => d.key),
 	]);
 	const otherDefs = relevant.filter((d) => !handledKeys.has(d.key));
@@ -980,13 +989,25 @@ function GameplayStep({
 	function updateAttr(key: string, value: AttributeValue) {
 		setState((prev) => ({
 			...prev,
-			attributes: { ...prev.attributes, [key]: value },
+			attributes: key === 'platform'
+				? filterListingPlatformAttributes({ ...prev.attributes, [key]: value })
+				: { ...prev.attributes, [key]: value },
 		}));
 	}
 
 	return (
 		<div className='space-y-3'>
-			{/* 1. Division Selector (4-column grid) */}
+			{/* Platform determines which fields follow. */}
+			{platformDef && (
+				<PlatformSelector
+					definition={platformDef}
+					value={String(state.attributes[platformDef.key] || 'MOBILE')}
+					onChange={(val) => updateAttr(platformDef.key, val)}
+					error={errors.find((e) => e.includes(platformDef.labelUz))}
+				/>
+			)}
+
+			{/* Division Selector */}
 			{divDef && (
 				<DivisionSelector
 					definition={divDef}
@@ -996,8 +1017,8 @@ function GameplayStep({
 				/>
 			)}
 
-			{/* 2. Team Strength & Transfer Limit (2-Column Grid) */}
-			<div className='grid grid-cols-2 gap-2'>
+			{/* Shared team strength and Mobile transfer limit */}
+			<div className={cn('grid gap-2', limitDef && 'grid-cols-2')}>
 				{tsDef && (
 					<TeamStrengthInput
 						definition={tsDef}
@@ -1016,17 +1037,8 @@ function GameplayStep({
 				)}
 			</div>
 
-			{/* 3. Platform Selector (3-segmented buttons) */}
-			{platformDef && (
-				<PlatformSelector
-					definition={platformDef}
-					value={String(state.attributes[platformDef.key] || 'MOBILE')}
-					onChange={(val) => updateAttr(platformDef.key, val)}
-					error={errors.find((e) => e.includes(platformDef.labelUz))}
-				/>
-			)}
 
-			{/* 4. Optional Coins (Android & iOS) */}
+			{/* Mobile coin balances */}
 			{(androidCoinDef || iosCoinDef) && (
 				<div className='grid grid-cols-2 gap-2'>
 					{androidCoinDef && (
@@ -1048,7 +1060,16 @@ function GameplayStep({
 				</div>
 			)}
 
-			{/* 5. Boolean Store Links (Google Play / Game Center) */}
+			{coinDef && (
+				<CoinInput
+					label={coinDef.labelUz}
+					value={String(state.attributes[coinDef.key] ?? '')}
+					onChange={(val) => updateAttr(coinDef.key, val)}
+					error={errors.find((e) => e.includes(coinDef.labelUz))}
+				/>
+			)}
+
+			{/* Applicable boolean attributes */}
 			{boolDefs.length > 0 && (
 				<div className='grid grid-cols-2 gap-2 pt-0.5'>
 					{boolDefs.map((def) => {
@@ -1113,7 +1134,7 @@ function GameplayStep({
 				</div>
 			)}
 
-			<TipCallout
+			{mobile && <TipCallout
 				variant='info'
 				dismissible
 				dismissKey='listing_form_coins_tip'
@@ -1121,7 +1142,7 @@ function GameplayStep({
 				learnMoreLabel='Tangalar haqida'
 			>
 				Android va iOS tangalari Konami qoidalariga ko‘ra bir-biriga o‘tmaydi. Shu sababli ikkala platforma tangalarini to‘g‘ri va alohida kiriting.
-			</TipCallout>
+			</TipCallout>}
 		</div>
 	);
 }
@@ -1422,6 +1443,7 @@ function CoinInput({
 			<div className='relative'>
 				<Coins className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-amber-500' />
 				<Input
+					aria-label={label}
 					type='number'
 					inputMode='numeric'
 					placeholder='0'
@@ -1773,6 +1795,7 @@ function ReviewStep({
 	const divLevel = toDivisionLevel(state.attributes.highest_division_level);
 	const teamStrength = state.attributes.team_strength;
 	const platform = String(state.attributes.platform || 'MOBILE');
+	const mobile = isMobileListingPlatform(platform);
 	const transferLimit = state.attributes.device_transfer_limit;
 	const hasGooglePlay = Boolean(state.attributes.has_google_play_link);
 	const hasGameCenter = Boolean(state.attributes.has_game_center_link);
@@ -1869,12 +1892,12 @@ function ReviewStep({
 
 					<div className='py-2 px-1'>
 						<p className='text-[9px] font-bold uppercase tracking-wider text-muted-foreground'>
-							Transfer
+							{mobile ? 'Transfer' : 'Coin balansi'}
 						</p>
 						<p className='text-xs font-black text-foreground pt-0.5'>
-							{transferLimit !== undefined && transferLimit !== ''
-								? `${transferLimit}/10`
-								: '—'}
+							{mobile
+								? (transferLimit !== undefined && transferLimit !== '' ? `${transferLimit}/10` : '—')
+								: String(state.attributes.coins || '—')}
 						</p>
 					</div>
 				</div>
@@ -1884,7 +1907,7 @@ function ReviewStep({
 			<div className='rounded-xl border border-border bg-card p-3 space-y-2 text-xs'>
 				<div className='flex items-center justify-between'>
 					<span className='text-[10px] font-bold uppercase tracking-wider text-muted-foreground'>
-						Tavsif & Ulanishlar
+						{mobile ? 'Tavsif & Ulanishlar' : 'Tavsif'}
 					</span>
 					<button
 						type='button'
@@ -1922,7 +1945,7 @@ function ReviewStep({
 				)}
 
 				{/* Store Link Badges */}
-				<div className='flex items-center gap-2 pt-1 border-t border-border/50 text-[11px] font-semibold text-muted-foreground'>
+				{mobile && <div className='flex items-center gap-2 pt-1 border-t border-border/50 text-[11px] font-semibold text-muted-foreground'>
 					<span className='inline-flex items-center gap-1'>
 						<GooglePlayIcon className={cn('h-3 w-3', hasGooglePlay ? 'text-emerald-500' : 'text-muted-foreground/50')} />
 						{hasGooglePlay ? 'Google Play ulangan' : 'Google Play toza'}
@@ -1932,11 +1955,11 @@ function ReviewStep({
 						<AppleIcon className={cn('h-3 w-3', hasGameCenter ? 'text-foreground' : 'text-muted-foreground/50')} />
 						{hasGameCenter ? 'Game Center ulangan' : 'Game Center toza'}
 					</span>
-				</div>
+				</div>}
 			</div>
 
 			{/* Smart Transaction Proceeds Notice */}
-			{hasPrice && priceNum >= MIN_TRADE_PRICE_SOM && (
+			{mobile && hasPrice && priceNum >= MIN_TRADE_PRICE_SOM && (
 				<div className='flex items-center justify-between rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs'>
 					<span className='flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-300 text-[11px]'>
 						<ShieldCheck className='h-3.5 w-3.5 text-emerald-500' />
@@ -2159,7 +2182,7 @@ function validateStep(
 
 	if (step === 'gameplay') {
 		for (const def of definitions) {
-			if (def.active === false) continue;
+			if (def.active === false || !isListingAttributeApplicable(def.key, state.attributes.platform)) continue;
 			if (def.key === 'valuable_players') continue;
 			const value = state.attributes[def.key];
 			if (def.type === 'BOOLEAN') continue;
@@ -2215,7 +2238,7 @@ function buildRequest(
 ): ListingCreateRequest {
 	const attributes: Record<string, unknown> = {};
 	for (const def of definitions) {
-		if (def.active === false) continue;
+		if (def.active === false || !isListingAttributeApplicable(def.key, state.attributes.platform)) continue;
 		const raw = state.attributes[def.key];
 		if (def.type === 'BOOLEAN') {
 			attributes[def.key] = Boolean(raw);
@@ -2256,8 +2279,10 @@ function buildRequest(
 		}
 	}
 
-	if (attributes.android_coins === undefined) attributes.android_coins = 0;
-	if (attributes.ios_coins === undefined) attributes.ios_coins = 0;
+	if (isMobileListingPlatform(state.attributes.platform)) {
+		if (attributes.android_coins === undefined) attributes.android_coins = 0;
+		if (attributes.ios_coins === undefined) attributes.ios_coins = 0;
+	}
 
 	return {
 		description: state.description.trim(),

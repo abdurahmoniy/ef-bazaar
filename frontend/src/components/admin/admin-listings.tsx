@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-import { ExternalLink, PackageX, RotateCcw, Trash2 } from 'lucide-react';
+import { CheckCircle2, ExternalLink, PackageX, RotateCcw, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
   adminDeleteListing,
+  adminMarkListingSold,
   adminRestoreListing,
 } from '@/lib/marketplace-actions';
 import { formatListingDate, formatPriceUZS } from '@/lib/marketplace-format';
@@ -39,17 +40,20 @@ export function AdminListings({ listings, activeStatus, totalElements }: AdminLi
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function act(listingId: string, action: 'delete' | 'restore') {
+  function act(listingId: string, action: 'delete' | 'restore' | 'sold') {
     if (action === 'delete' && !window.confirm("E'lon o'chirilsinmi? (keyin tiklash mumkin)")) {
       return;
     }
+    if (action === 'sold' && !window.confirm("E'lon sotildi deb belgilansinmi?")) return;
     setBusyId(listingId);
     setError(null);
     startTransition(async () => {
       const result =
         action === 'delete'
           ? await adminDeleteListing(listingId)
-          : await adminRestoreListing(listingId);
+          : action === 'sold'
+            ? await adminMarkListingSold(listingId)
+            : await adminRestoreListing(listingId);
       setBusyId(null);
       if (!result.ok) {
         setError(result.message);
@@ -132,12 +136,23 @@ export function AdminListings({ listings, activeStatus, totalElements }: AdminLi
                   </Link>
                 </div>
 
-                <div className="flex shrink-0 gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {listing.status === 'ACTIVE' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isPending}
+                      onClick={() => act(listing.id, 'sold')}
+                    >
+                      <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                      {busy ? 'Saqlanmoqda…' : 'Sotildi deb belgilash'}
+                    </Button>
+                  )}
                   {listing.status !== 'DELETED' ? (
                     <Button
                       size="sm"
                       variant="destructive"
-                      disabled={busy}
+                      disabled={isPending}
                       onClick={() => act(listing.id, 'delete')}
                     >
                       <Trash2 className="mr-1.5 h-4 w-4" />
@@ -147,7 +162,7 @@ export function AdminListings({ listings, activeStatus, totalElements }: AdminLi
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={busy}
+                      disabled={isPending}
                       onClick={() => act(listing.id, 'restore')}
                     >
                       <RotateCcw className="mr-1.5 h-4 w-4" />

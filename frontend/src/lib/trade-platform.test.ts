@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canUseSmartAdmin, resolveTradeListing, tradeAdminSupportHref } from './trade-platform';
+import { canUseSmartAdmin, resolveTradeListing, tradeAdminTelegramHref } from './trade-platform';
 
 describe('platform trade routing', () => {
   it('only enables Smart Admin for explicitly mobile listings', () => {
@@ -19,15 +19,16 @@ describe('platform trade routing', () => {
     expect(resolveTradeListing(null, mobile)).toBe(mobile);
   });
 
-  it('prepares an editable admin request with trade references and the agreed amount', () => {
-    const href = tradeAdminSupportHref({ chatId: 'chat-1', listingId: 'listing-2', platform: 'STEAM', amountUzs: 250000 });
+  it('opens the named Telegram admin with a plain-text draft and an absolute listing link', () => {
+    const href = tradeAdminTelegramHref({ listingId: 'listing-2', platform: 'STEAM', amountUzs: 250000 });
     const url = new URL(href, 'https://efbazaar.uz');
-    expect(url.pathname).toBe('/support');
-    expect(url.searchParams.get('category')).toBe('SUPPORT');
-    const draft = url.searchParams.get('message')!;
+    expect(url.origin + url.pathname).toBe('https://t.me/abdurahmoniy');
+    const draft = url.searchParams.get('text')!;
     expect(draft).toContain('Steam');
-    expect(draft).toContain('/marketplace/listing-2');
-    expect(draft).toContain('/chats/chat-1');
+    expect(draft).toContain("E'lon: https://efbazaar.uz/marketplace/listing-2");
+    expect(draft).not.toContain('/chats/');
+    expect(draft).not.toContain('<a');
+    expect(draft).not.toContain("[E'lon]");
     expect(draft).toContain('250');
   });
 });

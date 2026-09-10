@@ -161,6 +161,52 @@ class ListingServiceTest {
     }
 
     @Test
+    void adminMarkSold_updatesAnotherSellersListingAndChannelPosts() {
+        UUID listingId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        Listing listing = Listing.builder()
+                .id(listingId).sellerId(sellerId).status(ListingStatus.ACTIVE).build();
+        when(repository.findById(listingId)).thenReturn(Optional.of(listing));
+        when(repository.save(listing)).thenReturn(listing);
+
+        Listing result = service.adminMarkSold(listingId, adminId);
+
+        assertThat(result.getStatus()).isEqualTo(ListingStatus.SOLD);
+        assertThat(result.getSoldAt()).isNotNull();
+        assertThat(result.getSellerId()).isEqualTo(sellerId);
+        assertThat(result.getSoldToUserId()).isNull();
+        verify(soldPosts).onSold(listing);
+        verify(events).listingDeleted(listingId, sellerId, ListingStatus.SOLD);
+    }
+
+    @Test
+    void adminMarkSold_rejectsInactiveListingsWithoutPublishing() {
+        for (ListingStatus status : List.of(ListingStatus.SOLD, ListingStatus.DELETED)) {
+            UUID listingId = UUID.randomUUID();
+            Listing listing = Listing.builder()
+                    .id(listingId).sellerId(sellerId).status(status).build();
+            when(repository.findById(listingId)).thenReturn(Optional.of(listing));
+
+            assertThatThrownBy(() -> service.adminMarkSold(listingId, UUID.randomUUID()))
+                    .isInstanceOf(MarketplaceException.class)
+                    .hasMessageContaining("aktiv emas");
+            assertThat(listing.getStatus()).isEqualTo(status);
+        }
+        org.mockito.Mockito.verify(repository, org.mockito.Mockito.never()).save(any(Listing.class));
+        verifyNoInteractions(soldPosts, events);
+    }
+
+    @Test
+    void adminMarkSold_rejectsMissingListing() {
+        UUID listingId = UUID.randomUUID();
+        when(repository.findById(listingId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.adminMarkSold(listingId, UUID.randomUUID()))
+                .isInstanceOf(MarketplaceException.class)
+                .hasMessageContaining("topilmadi");
+        verifyNoInteractions(soldPosts, events);
+    }
+
+    @Test
     void delete_setsStatusDeleted() {
         UUID listingId = UUID.randomUUID();
         Listing l = Listing.builder()

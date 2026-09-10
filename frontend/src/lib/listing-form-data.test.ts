@@ -246,3 +246,22 @@ describe('collectListingFiles', () => {
     expect(files.map((f) => f.name)).toEqual(['photo1.jpg', 'photo2.jpg']);
   });
 });
+
+describe('platform-specific form data', () => {
+  it.each(['STEAM', 'PLAYSTATION'])('accepts %s without mobile fields and drops stale mobile data', (platform) => {
+    const form = new FormData();
+    form.set('description', 'Account with rare players');
+    form.set('price', '250000');
+    form.set('attr.platform', platform);
+    form.set('attr.highest_division_level', '2');
+    form.set('attr.team_strength', '3100');
+    form.set('attr.coins', '-120');
+    form.set('attr.device_transfer_limit', '1');
+    form.set('attr.android_coins', '500');
+    form.set('attr.has_google_play_link', 'on');
+    expect(createListingRequestFromForm(form)).toEqual({
+      description: 'Account with rare players', price: 250000, priceNegotiable: false,
+      attributes: { platform, highest_division_level: '2', team_strength: 3100, coins: -120 },
+    });
+  });
+});

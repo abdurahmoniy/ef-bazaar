@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { saveDreamTeam } from './marketplace-actions';
+import { adminMarkListingSold, saveDreamTeam } from './marketplace-actions';
 
 describe('saveDreamTeam', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -26,6 +26,21 @@ describe('saveDreamTeam', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/marketplace/v1/dream-teams/me', expect.objectContaining({
       method: 'PUT',
       credentials: 'include',
+    }));
+  });
+});
+
+describe('adminMarkListingSold', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('uses the authenticated admin endpoint to mark a listing sold', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'listing-1', status: 'SOLD' }), {
+      status: 200, headers: { 'Content-Type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await adminMarkListingSold('listing-1')).toEqual({ ok: true, data: { id: 'listing-1', status: 'SOLD' } });
+    expect(fetchMock).toHaveBeenCalledWith('/api/marketplace/v1/admin/listings/listing-1/sold', expect.objectContaining({
+      method: 'POST', credentials: 'include',
     }));
   });
 });
