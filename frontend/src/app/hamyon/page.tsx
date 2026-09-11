@@ -65,6 +65,7 @@ export default async function WalletPage({
       {wallet ? (
         <WalletView
           wallet={wallet}
+          userId={user.id}
           initialInvoice={activeInvoice}
           history={history}
           telegramUsername={user.telegramUsername}
