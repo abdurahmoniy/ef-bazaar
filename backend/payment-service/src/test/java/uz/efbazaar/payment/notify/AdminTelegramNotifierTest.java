@@ -14,8 +14,23 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 class AdminTelegramNotifierTest {
 
+    /**
+     * Fixed ids, not random ones. The notice prints the user id, and the
+     * assertions below check that digit sequences from a card number are
+     * absent — a random UUID's hex can contain any four digits, so
+     * {@code UUID.randomUUID()} here failed the "8600" check on CI roughly
+     * once every few hundred runs, on a build that had changed nothing.
+     *
+     * <p>These two contain no run of digits that any assertion in this file
+     * looks for.
+     */
+    private static final UUID INVOICE_ID =
+            UUID.fromString("aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa");
+    private static final UUID USER_ID =
+            UUID.fromString("bbbbbbbb-2222-4222-9222-bbbbbbbbbbbb");
+
     private static final InvoiceNotice NOTICE = new InvoiceNotice(
-            UUID.randomUUID(), UUID.randomUUID(), "4556", "ISMOILOV XUSNIDDIN",
+            INVOICE_ID, USER_ID, "4556", "ISMOILOV XUSNIDDIN",
             10_000_000L, 10_010_000L, Instant.parse("2026-08-12T15:41:00Z"), null);
 
     /** Records what was sent; can be told to fail like a dead bot. */
@@ -220,9 +235,13 @@ class AdminTelegramNotifierTest {
 
         notifier(bot, true).cardDebited(DEBIT);
 
-        assertThat(bot.posted.get(0)).doesNotContain("4962 ");
-        assertThat(bot.posted.get(0)).containsPattern("\\d{4}");
-        assertThat(bot.posted.get(0).replaceAll("[^0-9]", "")).doesNotContain("1234567890123");
+        String html = bot.posted.get(0);
+        assertThat(html).contains("•••• 4962");
+        // Amounts are grouped with spaces and the clock with a colon, so the
+        // longest legitimate run of digits on this notice is four. A card
+        // number is twelve or more — this is the assertion that fails if a
+        // future edit ever puts one here.
+        assertThat(html).doesNotContainPattern("\\d{12}");
     }
 
     /**

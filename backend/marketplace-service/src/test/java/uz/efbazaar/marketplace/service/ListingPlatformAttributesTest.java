@@ -47,6 +47,7 @@ class ListingPlatformAttributesTest {
     @Mock MarketplaceEventPublisher events;
     @Mock BlacklistGuard blacklistGuard;
     @Mock ChannelPostService channelPosts;
+    @Mock uz.efbazaar.marketplace.partner.ads.ChannelTakedown channelTakedown;
     @Mock ListingPersistence persistence;
     @Mock ListingMatchRepository listingMatches;
 
@@ -54,7 +55,8 @@ class ListingPlatformAttributesTest {
 
     @BeforeEach
     void setUp() {
-        service = new ListingService(listings, officialChannel, soldPosts, Mappers.getMapper(ListingMapper.class),
+        service = new ListingService(listings, officialChannel, soldPosts, channelTakedown,
+                Mappers.getMapper(ListingMapper.class),
                 new AttributeValidator(definitions, cardIdentities), mediaService, captionBuilder, events,
                 definitions, blacklistGuard, channelPosts, persistence, listingMatches, org.mockito.Mockito.mock(uz.efbazaar.marketplace.security.AuthSummaryClient.class));
         when(definitions.findAllByActiveTrueOrderByPositionAsc())
