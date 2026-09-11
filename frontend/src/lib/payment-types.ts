@@ -32,6 +32,19 @@ export interface InvoiceResponse {
   status: InvoiceStatus;
 }
 
+/**
+ * The cheap read the wallet page polls while it waits for a transfer.
+ *
+ * Deliberately not {@link InvoiceResponse}: that one carries the full card
+ * number, and a page asking every few seconds has no business receiving it.
+ */
+export interface InvoiceStatusResponse {
+  id: string;
+  status: InvoiceStatus;
+  /** What reached the wallet, present only once paid. */
+  creditedTiyin?: number;
+}
+
 export type TransactionKind =
   | 'DEPOSIT'
   | 'TRADE_HOLD'
