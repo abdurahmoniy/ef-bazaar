@@ -318,7 +318,7 @@ describe('ListingCard', () => {
 });
 
 describe('ListingCardMedia', () => {
-  it('reserves 4:3 geometry and resets its fallback when the source changes', async () => {
+  it('reserves 19.5:9 geometry and resets its fallback when the source changes', async () => {
     await act(async () => root.render(createElement(ListingCardMedia, {
       src: '/bot/photo/one',
       alt: 'Birinchi rasm',
@@ -326,7 +326,7 @@ describe('ListingCardMedia', () => {
     })));
 
     const media = container.querySelector<HTMLElement>('[data-listing-card-media]');
-    expect(media?.className).toContain('aspect-[4/3]');
+    expect(media?.className).toContain('aspect-[19.5/9]');
     const firstImage = container.querySelector('img');
     expect(firstImage?.getAttribute('src')).toBe('/bot/photo/one');
     expect(firstImage?.getAttribute('data-unoptimized')).toBe('true');
@@ -352,6 +352,15 @@ describe('ListingCardMedia', () => {
     })));
 
     expect(container.querySelector('img')?.getAttribute('data-unoptimized')).toBeNull();
+  });
+
+  it('bypasses optimization for full https://efbazaar.uz/bot/photo/ URLs', async () => {
+    await act(async () => root.render(createElement(ListingCardMedia, {
+      src: 'https://efbazaar.uz/bot/photo/abc123',
+      alt: 'Proxy rasm',
+    })));
+
+    expect(container.querySelector('img')?.getAttribute('data-unoptimized')).toBe('true');
   });
 });
 

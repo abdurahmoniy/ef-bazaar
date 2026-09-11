@@ -1,6 +1,7 @@
 import type { ListingResponse } from './marketplace-types';
 
-const BOT_PHOTO_BASE_PATH = '/bot/photo';
+const BOT_PHOTO_BASE_PATH =
+  process.env.NEXT_PUBLIC_BOT_PHOTO_BASE_URL || 'https://efbazaar.uz/bot/photo';
 
 export function listingMediaUrl(fileId: string) {
   const normalized = fileId.trim();

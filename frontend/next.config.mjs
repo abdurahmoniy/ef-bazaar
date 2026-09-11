@@ -58,6 +58,8 @@ function buildContentSecurityPolicy() {
     "'self'",
     'data:',
     'blob:',
+    siteOrigin,
+    'https://efbazaar.uz',
     'https://t.me',
     'https://*.googleusercontent.com',
     'https://*.telegram.org',
@@ -128,10 +130,19 @@ const nextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: '/bot/:path*',
+        destination: 'https://efbazaar.uz/bot/:path*',
+      },
+    ];
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60 * 60 * 24 * 7,
     remotePatterns: [
+      { protocol: 'https', hostname: 'efbazaar.uz' },
       { protocol: 'https', hostname: 't.me' },
       { protocol: 'https', hostname: '*.googleusercontent.com' },
       { protocol: 'https', hostname: 'api.efbazaar.uz' },

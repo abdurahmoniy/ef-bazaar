@@ -12,6 +12,7 @@ public final class GuideRepositories {
 
     public interface GuideRepository extends JpaRepository<Guide, UUID> {
         List<Guide> findAllByOrderBySortOrderAscCreatedAtAsc();
+        List<Guide> findAllByCategoryOrderBySortOrderAscCreatedAtAsc(String category);
     }
 
     public interface GuideButtonRepository extends JpaRepository<GuideButton, UUID> {

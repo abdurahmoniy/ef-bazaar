@@ -14,13 +14,22 @@ public final class GuideDtos {
     private GuideDtos() {}
 
     public record GuideResponse(UUID id, String title, String description,
-                                String videoFileId, Instant createdAt) {
+                                String videoFileId, String mediaKind, String category,
+                                Instant createdAt) {
 
         public static GuideResponse from(Guide g) {
             return new GuideResponse(g.getId(), g.getTitle(), g.getDescription(),
-                    g.getVideoFileId(), g.getCreatedAt());
+                    g.getVideoFileId(), g.getMediaKind(),
+                    g.getCategory() == null || g.getCategory().isBlank() ? "start" : g.getCategory(),
+                    g.getCreatedAt());
         }
     }
+
+    public record UpdateCategoryRequest(
+            @NotBlank(message = "Toifa bo'sh bo'lmasin")
+            @Size(max = 32, message = "Toifa 32 belgidan oshmasin")
+            String category) {}
+
 
     /** Bitta tugma: yozuv va u ochadigan qo'llanma. */
     public record ButtonRequest(

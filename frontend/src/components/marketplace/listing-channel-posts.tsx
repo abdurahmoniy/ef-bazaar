@@ -236,7 +236,7 @@ export function ListingChannelPosts({ listingId, initialChannelIds = [] }: Props
     else void submit();
   }
 
-  useTelegramMainButton({ text: actionText, onClick: primaryAction, disabled: actionDisabled, loading: !!busy || statusLoading });
+  const hasTelegramMainButton = useTelegramMainButton({ text: actionText, onClick: primaryAction, disabled: actionDisabled, loading: !!busy || statusLoading });
 
   function selectChannels(channels: ChannelCard[]) {
     if (actionLock.current) return;
@@ -273,7 +273,9 @@ export function ListingChannelPosts({ listingId, initialChannelIds = [] }: Props
                   paddingBottom: 'calc(0.75rem + var(--app-content-safe-bottom, 0px))',
                 }}>
                   <div className="flex items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{selected.length} ta kanal</p><p className="text-lg font-semibold">{total === 0 && selected.length > 0 ? 'Bepul' : formatAdvertisingPrice(total)}</p></div>
-                  <Button type="button" className="w-full" onClick={primaryAction} disabled={actionDisabled}>{busy && <Loader2 className="animate-spin" />}{busy ? actionText : 'Tanlovni ko‘rib chiqish'}<ArrowRight /></Button>
+                  {!hasTelegramMainButton && (
+                    <Button type="button" className="w-full" onClick={primaryAction} disabled={actionDisabled}>{busy && <Loader2 className="animate-spin" />}{busy ? actionText : 'Tanlovni ko‘rib chiqish'}<ArrowRight /></Button>
+                  )}
                   <p className="text-center text-xs text-muted-foreground">Hozir pul olinmaydi. Keyingi qadam — tekshirish.</p>
                 </section>
               </MeasuredBottomBar>
@@ -309,7 +311,9 @@ export function ListingChannelPosts({ listingId, initialChannelIds = [] }: Props
               <p className="text-xs leading-relaxed text-muted-foreground">Yuborishdan oldin narx va mablag‘ yana tekshiriladi. Yakuniy hisob buyurtma paytidagi kanal narxi bo‘yicha olinadi. Qayta joylash — yangi buyurtma; avvalgi post kanalda qolishi mumkin.</p>
               {historyError && <p role="alert" className="text-sm text-muted-foreground">{historyError} Oldingi chiqishlar hozir ko‘rinmasligi mumkin.</p>}
               {actionError && <p role="alert" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">{actionError}</p>}
-              {missing > 0 ? <Button asChild className="w-full"><Link href={fundingHref}>{actionText}</Link></Button> : <Button type="button" className="w-full" disabled={actionDisabled} onClick={primaryAction}>{busy && <Loader2 className="animate-spin" />}{actionText}</Button>}
+              {!hasTelegramMainButton && (
+                missing > 0 ? <Button asChild className="w-full"><Link href={fundingHref}>{actionText}</Link></Button> : <Button type="button" className="w-full" disabled={actionDisabled} onClick={primaryAction}>{busy && <Loader2 className="animate-spin" />}{actionText}</Button>
+              )}
             </section>
           )}
 
@@ -320,7 +324,9 @@ export function ListingChannelPosts({ listingId, initialChannelIds = [] }: Props
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{phase === 'accepted' ? 'Bu xabar to‘lov va post chiqishini hali tasdiqlamaydi. Natijani chiqish tarixi va hamyonda tekshiring.' : 'Javob kelmadi, lekin buyurtma bajarilgan bo‘lishi mumkin. Qayta buyurtma berishdan oldin chiqish tarixi va hamyonni tekshiring.'}</p>
               </div></div>
               <p className="text-sm text-muted-foreground">{selected.length} ta kanal · tanlov summasi {formatAdvertisingPrice(lastOrderTotal.current)}</p>
-              <Button type="button" className="w-full" disabled={actionDisabled} onClick={primaryAction}>{statusLoading ? <Loader2 className="animate-spin" /> : <RefreshCw />}{actionText}</Button>
+              {!hasTelegramMainButton && (
+                <Button type="button" className="w-full" disabled={actionDisabled} onClick={primaryAction}>{statusLoading ? <Loader2 className="animate-spin" /> : <RefreshCw />}{actionText}</Button>
+              )}
               <div className="flex flex-wrap gap-2"><Button asChild variant="outline"><Link href={walletHref}>Hamyonni ko‘rish</Link></Button><Button asChild variant="ghost"><Link href={`/marketplace/${listingId}`}>E’longa qaytish</Link></Button></div>
               {wallet && <p className="text-sm text-muted-foreground">Hamyonda hozir: {formatAdvertisingPrice(wallet.availableTiyin / 100)} · ushlangan: {formatAdvertisingPrice(wallet.heldTiyin / 100)}</p>}
               {walletError && <p role="alert" className="text-sm text-destructive">{walletError}</p>}

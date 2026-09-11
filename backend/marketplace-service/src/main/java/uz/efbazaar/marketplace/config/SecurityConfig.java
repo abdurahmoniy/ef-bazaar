@@ -67,6 +67,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/blacklist", "/api/v1/blacklist/check").permitAll()
                         // Public — attribute definitions (form rendering + filter discovery)
                         .requestMatchers(HttpMethod.GET, "/api/v1/attributes", "/api/v1/attributes/*").permitAll()
+                        // Public — video qo'llanmalar (Yordam markazi /help)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/guides").permitAll()
                         // Public — health
                         .requestMatchers("/actuator/**", "/api/v1/ping").permitAll()
                         // Public + authenticated — support chat

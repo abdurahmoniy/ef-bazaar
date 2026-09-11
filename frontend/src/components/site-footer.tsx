@@ -9,6 +9,7 @@ import {
 import { siteConfig } from '@/lib/site';
 import { cn } from '@/lib/utils';
 import { GrowthLink } from '@/components/growth/growth-link';
+import { SocialLinksRow } from '@/components/brand/social-icons';
 
 const GROUP_ORDER: readonly MarketplaceLandingGroup[] = ['division', 'platform', 'player'];
 
@@ -38,6 +39,9 @@ export function SiteFooter({ embedded = false }: SiteFooterProps) {
               O&apos;zbekiston uchun eFootball akkountlar bozori — divizion, jamoa kuchi va narxi
               ochiq, sotuvchi Telegram&apos;da.
             </p>
+            <div className="mt-4">
+              <SocialLinksRow />
+            </div>
           </div>
 
           <FooterColumn title="Bozor">
@@ -66,7 +70,13 @@ export function SiteFooter({ embedded = false }: SiteFooterProps) {
               <GrowthLink href="/partnership" event="partnership_open" placement="footer" className="inline-flex min-h-11 items-center text-sm font-semibold text-muted-foreground hover:text-foreground">Telegram kanal egalari uchun</GrowthLink>
             </li>
             <li>
-              <FooterLink href={siteConfig.links.telegram}>Telegram bot</FooterLink>
+              <FooterExternalLink href={siteConfig.links.telegramChannel}>Telegram kanal</FooterExternalLink>
+            </li>
+            <li>
+              <FooterExternalLink href={siteConfig.links.telegram}>Telegram bot</FooterExternalLink>
+            </li>
+            <li>
+              <FooterExternalLink href={siteConfig.links.instagram}>Instagram</FooterExternalLink>
             </li>
           </FooterColumn>
 
@@ -81,9 +91,14 @@ export function SiteFooter({ embedded = false }: SiteFooterProps) {
           ))}
         </div>
 
-        <p className="mt-8 border-t border-border pt-4 text-xs font-semibold text-muted-foreground">
-          © {new Date().getFullYear()} eFBazaar
-        </p>
+        <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-border pt-4 sm:flex-row">
+          <p className="text-xs font-semibold text-muted-foreground">
+            © {new Date().getFullYear()} eFBazaar
+          </p>
+          <div className="flex sm:hidden">
+            <SocialLinksRow iconSize="sm" />
+          </div>
+        </div>
       </div>
     </footer>
   );
@@ -106,5 +121,18 @@ function FooterLink({ href, children }: { href: string; children: React.ReactNod
     >
       {children}
     </Link>
+  );
+}
+
+function FooterExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm font-bold text-muted-foreground transition hover:text-foreground"
+    >
+      {children}
+    </a>
   );
 }

@@ -41,6 +41,15 @@ public class GuideService {
                 .map(GuideResponse::from).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<GuideResponse> listByCategory(String category) {
+        if (category == null || category.isBlank() || "all".equalsIgnoreCase(category.strip())) {
+            return list();
+        }
+        return guides.findAllByCategoryOrderBySortOrderAscCreatedAtAsc(category.strip()).stream()
+                .map(GuideResponse::from).toList();
+    }
+
     /**
      * Video Telegram'ga yuklanadi, bizda faqat `file_id` qoladi.
      *
@@ -49,21 +58,33 @@ public class GuideService {
      * yubora olmasdi.
      */
     @Transactional
-    public GuideResponse create(String title, String description,
+    public GuideResponse create(String title, String description, String category,
                                 MultipartFile video, UUID adminId) {
         GuideVideoUploader.UploadResponse uploaded = uploader.upload(video, description);
 
+        String cat = category == null || category.isBlank() ? "start" : category.strip();
         Guide guide = Guide.builder()
                 .id(UUID.randomUUID())
                 .title(title.strip())
                 .description(description.strip())
                 .videoFileId(uploaded.fileId())
                 .mediaKind(uploaded.kindOrVideo())
+                .category(cat)
                 .createdBy(adminId)
                 .createdAt(Instant.now())
                 .sortOrder((int) guides.count())
                 .build();
-        log.info("Qo'llanma qo'shildi: {} (admin={})", guide.getTitle(), adminId);
+        log.info("Qo'llanma qo'shildi: {} (category={}, admin={})", guide.getTitle(), cat, adminId);
+        return GuideResponse.from(guides.save(guide));
+    }
+
+    @Transactional
+    public GuideResponse updateCategory(UUID id, String category) {
+        Guide guide = guides.findById(id).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Qo'llanma topilmadi"));
+        String cat = category == null || category.isBlank() ? "start" : category.strip();
+        guide.setCategory(cat);
+        log.info("Qo'llanma toifasi yangilandi: {} -> {}", guide.getTitle(), cat);
         return GuideResponse.from(guides.save(guide));
     }
 

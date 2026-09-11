@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import uz.efbazaar.marketplace.guide.GuideDtos.ButtonResponse;
 import uz.efbazaar.marketplace.guide.GuideDtos.GuideResponse;
 import uz.efbazaar.marketplace.guide.GuideDtos.SaveButtonsRequest;
+import uz.efbazaar.marketplace.guide.GuideDtos.UpdateCategoryRequest;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
 
 import java.util.List;
@@ -37,9 +39,16 @@ public class AdminGuideController {
     @PostMapping(consumes = "multipart/form-data")
     public GuideResponse create(@RequestParam("title") String title,
                                 @RequestParam("description") String description,
+                                @RequestParam(value = "category", required = false, defaultValue = "start") String category,
                                 @RequestParam("video") MultipartFile video,
                                 @AuthenticationPrincipal AuthenticatedUser admin) {
-        return service.create(title, description, video, admin.userId());
+        return service.create(title, description, category, video, admin.userId());
+    }
+
+    @PatchMapping("/{id}/category")
+    public GuideResponse updateCategory(@PathVariable UUID id,
+                                        @Valid @RequestBody UpdateCategoryRequest request) {
+        return service.updateCategory(id, request.category());
     }
 
     @DeleteMapping("/{id}")
