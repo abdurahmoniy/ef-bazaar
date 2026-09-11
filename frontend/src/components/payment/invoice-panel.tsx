@@ -221,7 +221,8 @@ export function InvoicePanel({ invoice, onExpired, onDismiss }: InvoicePanelProp
 
       <p className="mt-3.5 text-xs sm:text-sm text-muted-foreground leading-relaxed">
         {running
-          ? 'To‘lov tushgach hamyoningiz avtomatik to‘ldiriladi. Sahifani yopsangiz ham bo‘ladi.'
+          ? 'To‘lov tushgach hamyoningiz shu yerda avtomatik yangilanadi — sahifani yangilash shart emas. '
+            + 'Sahifani yopsangiz ham bo‘ladi, pul baribir tushadi.'
           : 'Muddat tugadi. Agar pulni allaqachon o‘tkazgan bo‘lsangiz, qayta o‘tkazmang — '
             + 'to‘lov qo‘lda tekshiriladi va hamyoningizga tushadi. Aks holda yangi so‘rov yarating.'}
       </p>

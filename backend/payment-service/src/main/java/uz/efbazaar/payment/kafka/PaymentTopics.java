@@ -4,6 +4,13 @@ package uz.efbazaar.payment.kafka;
 public final class PaymentTopics {
 
     public static final String CARD_CREDIT_OBSERVED = "efbazaar.payment.card-credit-observed";
+    /**
+     * Money leaving a platform card. A separate topic from the credit one, and
+     * separate all the way down to its own table: the credit table doubles as
+     * the admin's reconciliation queue, where a row can be attributed to a user
+     * and CREATE money. A debit must never reach that queue.
+     */
+    public static final String CARD_DEBIT_OBSERVED  = "efbazaar.payment.card-debit-observed";
     public static final String USERBOT_HEARTBEAT    = "efbazaar.payment.userbot-heartbeat";
     public static final String DEPOSIT_CREDITED     = "efbazaar.payment.deposit-credited";
     public static final String WITHDRAWAL_REQUESTED = "efbazaar.payment.withdrawal-requested";

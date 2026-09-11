@@ -12,6 +12,7 @@ import uz.efbazaar.payment.health.UserbotHealth;
 import uz.efbazaar.payment.invoice.domain.Invoice;
 import uz.efbazaar.payment.invoice.domain.InvoiceStatus;
 import uz.efbazaar.payment.invoice.dto.InvoiceResponse;
+import uz.efbazaar.payment.invoice.dto.InvoiceStatusResponse;
 import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
 import uz.efbazaar.payment.notify.AdminTelegramNotifier;
 import uz.efbazaar.payment.notify.InvoiceNotice;
@@ -92,6 +93,25 @@ public class InvoiceService {
         return invoices.findByUserIdAndStatus(userId, InvoiceStatus.PENDING)
                 .filter(i -> i.getExpiresAt().isAfter(Instant.now()))
                 .map(this::render);
+    }
+
+    /**
+     * Whether this invoice has been paid yet.
+     *
+     * <p>The read behind the wallet page's poll, so it is kept cheap and
+     * PAN-free on purpose — see {@link InvoiceStatusResponse}.
+     *
+     * <p>Somebody else's invoice answers 404, not 403: a 403 would confirm that
+     * the id exists, and invoice ids are the only thing standing between a
+     * guess and knowing somebody is in the middle of a deposit.
+     */
+    @Transactional(readOnly = true)
+    public InvoiceStatusResponse statusOf(UUID userId, UUID invoiceId) {
+        return invoices.findById(invoiceId)
+                .filter(i -> i.getUserId().equals(userId))
+                .map(InvoiceStatusResponse::of)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "So'rov topilmadi"));
     }
 
     @Transactional(readOnly = true)

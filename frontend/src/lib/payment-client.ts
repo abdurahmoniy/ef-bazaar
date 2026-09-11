@@ -2,6 +2,7 @@
 
 import type {
   InvoiceResponse,
+  InvoiceStatusResponse,
   TradeCommissionConfig,
   WalletEntryResponse,
   WalletResponse,
@@ -39,6 +40,14 @@ export function getWalletHistory(limit = 50): Promise<WalletEntryResponse[]> {
 
 export function getActiveInvoice(): Promise<InvoiceResponse | null> {
   return call<InvoiceResponse | null>('/invoices/active');
+}
+
+/**
+ * Whether a transfer has landed yet. Polled by the wallet page, so it carries
+ * no card number — see `InvoiceStatusResponse`.
+ */
+export function getInvoiceStatus(id: string): Promise<InvoiceStatusResponse> {
+  return call<InvoiceStatusResponse>(`/invoices/${encodeURIComponent(id)}/status`);
 }
 
 export function createInvoice(amountUzs: number): Promise<InvoiceResponse> {

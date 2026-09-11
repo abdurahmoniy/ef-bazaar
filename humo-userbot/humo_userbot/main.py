@@ -1,11 +1,13 @@
-"""Telegram userbot: watches the Humo bot's chat and reports every top-up.
+"""Telegram userbot: watches the Humo bot's chat and reports every movement.
 
 Runs continuously rather than starting per invoice. Reconnecting churns the
 Telegram session and drops whatever arrives during the gap, and a dropped
 message is money the platform cannot see.
 
-This module knows nothing about invoices, users or money rules. It observes
-and reports; payment-service decides what an observation means.
+Both directions are reported: a top-up is what funds a deposit, and a debit is
+how a payout looks from the card's side. This module knows nothing about
+invoices, users or money rules. It observes and reports; payment-service
+decides what an observation means.
 """
 
 from __future__ import annotations
@@ -19,13 +21,15 @@ from pyrogram import Client, filters
 from humo_userbot.config import as_chat_ref, get_settings
 from humo_userbot.kafka_client import (
     CARD_CREDIT_OBSERVED,
+    CARD_DEBIT_OBSERVED,
     USERBOT_HEARTBEAT,
     KafkaClient,
     build_card_credit_payload,
+    build_card_debit_payload,
     iso_z,
 )
 from humo_userbot.observability.kafka_log_forwarder import KafkaLogForwarder
-from humo_userbot.parser import parse_topup
+from humo_userbot.parser import parse_debit, parse_topup
 
 settings = get_settings()
 
@@ -67,36 +71,75 @@ app = Client(
 @app.on_message(filters.chat(as_chat_ref(settings.source_chat)) & filters.incoming)
 async def on_humo_message(_client, message) -> None:
     text = message.text or message.caption
-    parsed = parse_topup(text)
-    if parsed is None:
-        log.debug("message %s is not a top-up, ignoring", message.id)
+    observed_at = message.date or datetime.now(UTC)
+
+    # The two parsers are mutually exclusive by construction — each refuses a
+    # message carrying the other's direction sign — so the order of these two
+    # branches carries no meaning and cannot double-report one message.
+    topup = parse_topup(text)
+    if topup is not None:
+        await _report(
+            CARD_CREDIT_OBSERVED,
+            build_card_credit_payload(
+                telegram_message_id=message.id,
+                card_last4=topup.card_last4,
+                amount_tiyin=topup.amount_tiyin,
+                card_balance_tiyin=topup.card_balance_tiyin,
+                observed_at=observed_at,
+                raw_text=text,
+            ),
+            message.id,
+        )
+        log.info(
+            "observed top-up %s tiyin on card *%s (message %s)",
+            topup.amount_tiyin,
+            topup.card_last4,
+            message.id,
+        )
         return
 
-    payload = build_card_credit_payload(
-        telegram_message_id=message.id,
-        card_last4=parsed.card_last4,
-        amount_tiyin=parsed.amount_tiyin,
-        card_balance_tiyin=parsed.card_balance_tiyin,
-        observed_at=message.date or datetime.now(UTC),
-        raw_text=text,
-    )
+    debit = parse_debit(text)
+    if debit is not None:
+        await _report(
+            CARD_DEBIT_OBSERVED,
+            build_card_debit_payload(
+                telegram_message_id=message.id,
+                card_last4=debit.card_last4,
+                amount_tiyin=debit.amount_tiyin,
+                commission_tiyin=debit.commission_tiyin,
+                card_balance_tiyin=debit.card_balance_tiyin,
+                description=debit.description,
+                observed_at=observed_at,
+                raw_text=text,
+            ),
+            message.id,
+        )
+        log.info(
+            "observed debit %s tiyin on card *%s (message %s)",
+            debit.amount_tiyin,
+            debit.card_last4,
+            message.id,
+        )
+        return
+
+    log.debug("message %s is neither a top-up nor a debit, ignoring", message.id)
+
+
+async def _report(topic: str, payload: dict, message_id: int) -> None:
+    """Publishes one observation and keeps the heartbeat honest.
+
+    A failure scoped to one topic would otherwise leave the beat going while
+    every observation is dropped, and payment-service would keep accepting
+    deposits nothing is watching for. Both directions gate the same flag: a
+    producer that cannot publish a debit cannot publish a credit either.
+    """
     global _reporting_ok
     try:
-        await kafka.publish(CARD_CREDIT_OBSERVED, payload, key=str(message.id))
+        await kafka.publish(topic, payload, key=str(message_id))
     except Exception:
-        # Withhold the heartbeat until reporting works again. A failure scoped
-        # to this one topic would otherwise leave the beat going while every
-        # observation is dropped, and payment-service would keep accepting
-        # deposits nothing is watching for.
         _reporting_ok = False
         raise
     _reporting_ok = True
-    log.info(
-        "observed top-up %s tiyin on card *%s (message %s)",
-        parsed.amount_tiyin,
-        parsed.card_last4,
-        message.id,
-    )
 
 
 def observation_is_possible() -> tuple[bool, str]:

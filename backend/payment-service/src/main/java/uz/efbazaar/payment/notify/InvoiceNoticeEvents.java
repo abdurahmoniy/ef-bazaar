@@ -31,4 +31,14 @@ public final class InvoiceNoticeEvents {
 
     /** Paid or refunded — the listener re-reads the row to find out which. */
     public record WithdrawalClosed(UUID ticketId) {}
+
+    /**
+     * Money left one of the platform's own cards.
+     *
+     * <p>Announced whether or not anybody expected it. A payout an admin made
+     * on purpose is worth a receipt in the topic; a movement nobody made is the
+     * thing they most need to hear about, and the two are indistinguishable
+     * from the card's side.
+     */
+    public record CardDebited(UUID observationId) {}
 }

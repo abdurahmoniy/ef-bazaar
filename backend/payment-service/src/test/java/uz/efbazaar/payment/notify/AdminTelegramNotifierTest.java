@@ -189,4 +189,112 @@ class AdminTelegramNotifierTest {
                 UUID.randomUUID(), "4962", 100_000L, Instant.now())))
                 .doesNotThrowAnyException();
     }
+    // --- card debits -------------------------------------------------------
+
+    private static final DebitNotice DEBIT = new DebitNotice(
+            UUID.randomUUID(), "4962", 1_000_000L, 0L, 4_400_000L,
+            "Openbank P2P HUMO OT", Instant.parse("2026-09-10T20:34:00Z"));
+
+    @Test
+    void aDebitNoticeCarriesTheCardTheAmountTheTimeAndTheBalance() {
+        FakeBot bot = new FakeBot();
+
+        notifier(bot, true).cardDebited(DEBIT);
+
+        assertThat(bot.posted).hasSize(1);
+        String html = bot.posted.get(0);
+        assertThat(html).contains("Kartadan pul yechildi");
+        assertThat(html).contains("•••• 4962");
+        assertThat(html).contains("10 000 so'm");
+        assertThat(html).contains("Openbank P2P HUMO OT");
+        // Asia/Tashkent is UTC+5, so 20:34Z reads as 01:34 the next day —
+        // the same clock the bank's own notice printed.
+        assertThat(html).contains("01:34");
+        assertThat(html).contains("44 000 so'm");
+    }
+
+    /** The masked tail only, wherever the notice goes. */
+    @Test
+    void aDebitNoticeNeverCarriesMoreThanTheMaskedTail() {
+        FakeBot bot = new FakeBot();
+
+        notifier(bot, true).cardDebited(DEBIT);
+
+        assertThat(bot.posted.get(0)).doesNotContain("4962 ");
+        assertThat(bot.posted.get(0)).containsPattern("\\d{4}");
+        assertThat(bot.posted.get(0).replaceAll("[^0-9]", "")).doesNotContain("1234567890123");
+    }
+
+    /**
+     * A commission of zero is stated by the bank on some notices and omitted on
+     * others. Printing "Komissiya: 0" every time is noise in a topic an admin
+     * scans on a phone.
+     */
+    @Test
+    void aZeroCommissionIsNotPrinted() {
+        FakeBot bot = new FakeBot();
+
+        notifier(bot, true).cardDebited(DEBIT);
+
+        assertThat(bot.posted.get(0)).doesNotContain("Komissiya");
+    }
+
+    @Test
+    void aRealCommissionIsPrinted() {
+        FakeBot bot = new FakeBot();
+
+        notifier(bot, true).cardDebited(new DebitNotice(
+                UUID.randomUUID(), "4962", 1_000_000L, 50_000L, 4_400_000L,
+                null, Instant.parse("2026-09-10T20:34:00Z")));
+
+        assertThat(bot.posted.get(0)).contains("Komissiya: 500 so'm");
+    }
+
+    /**
+     * The bank omits these lines on some notices. An empty "📍" or a
+     * "Qoldiq: —" is worse than no line at all.
+     */
+    @Test
+    void theOptionalLinesAreOmittedRatherThanPrintedEmpty() {
+        FakeBot bot = new FakeBot();
+
+        notifier(bot, true).cardDebited(new DebitNotice(
+                UUID.randomUUID(), "7272", 402_000L, null, null,
+                null, Instant.parse("2026-09-10T20:43:00Z")));
+
+        String html = bot.posted.get(0);
+        assertThat(html).doesNotContain("📍");
+        assertThat(html).doesNotContain("Qoldiq");
+        assertThat(html).contains("4 020 so'm");
+    }
+
+    /** Free text from the bank goes through HTML — it must not be able to break it. */
+    @Test
+    void aDescriptionCarryingMarkupIsEscaped() {
+        FakeBot bot = new FakeBot();
+
+        notifier(bot, true).cardDebited(new DebitNotice(
+                UUID.randomUUID(), "4962", 1_000L, null, null,
+                "<b>P2P</b> & co", Instant.parse("2026-09-10T20:34:00Z")));
+
+        assertThat(bot.posted.get(0)).contains("&lt;b&gt;P2P&lt;/b&gt; &amp; co");
+    }
+
+    /** A Telegram outage must never propagate into the ingest path. */
+    @Test
+    void aDeadBotDoesNotThrowOutOfTheDebitNotice() {
+        FakeBot bot = new FakeBot();
+        bot.explode = true;
+
+        assertThatCode(() -> notifier(bot, true).cardDebited(DEBIT)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void aDisabledNotifierSendsNoDebitNotice() {
+        FakeBot bot = new FakeBot();
+
+        notifier(bot, false).cardDebited(DEBIT);
+
+        assertThat(bot.posted).isEmpty();
+    }
 }

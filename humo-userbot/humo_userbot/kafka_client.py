@@ -21,6 +21,7 @@ from aiokafka import AIOKafkaProducer
 log = logging.getLogger(__name__)
 
 CARD_CREDIT_OBSERVED = "efbazaar.payment.card-credit-observed"
+CARD_DEBIT_OBSERVED = "efbazaar.payment.card-debit-observed"
 USERBOT_HEARTBEAT = "efbazaar.payment.userbot-heartbeat"
 
 
@@ -86,3 +87,36 @@ class KafkaClient:
             raise RuntimeError("Kafka producer not started")
         await self._producer.send_and_wait(topic, value=value, key=key)
         log.debug("published to %s key=%s", topic, key)
+
+
+def build_card_debit_payload(
+    telegram_message_id: int,
+    card_last4: str,
+    amount_tiyin: int,
+    commission_tiyin: int | None,
+    card_balance_tiyin: int | None,
+    description: str | None,
+    observed_at: datetime,
+    raw_text: str,
+) -> dict[str, Any]:
+    """The card-debit wire payload.
+
+    A separate topic and a separate record from the credit one, not a
+    `direction` field on the existing payload. The two are consumed into
+    different tables for a reason: the credit table doubles as the admin's
+    reconciliation queue, and a debit landing in it could be "attributed" to a
+    user — turning money that LEFT a card into a wallet credit.
+
+    Key names are a contract with a Java record; see the note on
+    build_card_credit_payload.
+    """
+    return {
+        "telegramMessageId": telegram_message_id,
+        "cardLast4": card_last4,
+        "amountTiyin": amount_tiyin,
+        "commissionTiyin": commission_tiyin,
+        "cardBalanceTiyin": card_balance_tiyin,
+        "description": description,
+        "observedAt": iso_z(observed_at),
+        "rawText": raw_text,
+    }

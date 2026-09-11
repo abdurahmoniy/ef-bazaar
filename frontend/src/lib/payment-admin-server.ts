@@ -3,6 +3,7 @@ import 'server-only';
 import { apiFetch, ApiException } from './api';
 import type { WithdrawalTicket } from './withdrawal';
 import type {
+  CardMovement,
   ObservationResponse,
   PaymentAnalyticsOverview,
   PlatformCardResponse,
@@ -50,6 +51,19 @@ export async function getPaymentAnalyticsSSR(): Promise<PaymentAnalyticsOverview
   const path = `${PREFIX}/analytics/overview`;
   try {
     return await apiFetch<PaymentAnalyticsOverview>(path);
+  } catch (error) {
+    return report(path, error);
+  }
+}
+
+/**
+ * The first page of card movements, server-rendered so the history is on the
+ * page when it arrives. The client re-reads it when an admin picks a card.
+ */
+export async function listCardHistorySSR(): Promise<CardMovement[] | null> {
+  const path = `${PREFIX}/cards/history`;
+  try {
+    return await apiFetch<CardMovement[]>(path);
   } catch (error) {
     return report(path, error);
   }

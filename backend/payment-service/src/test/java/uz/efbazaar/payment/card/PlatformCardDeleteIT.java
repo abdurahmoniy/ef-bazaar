@@ -40,12 +40,17 @@ class PlatformCardDeleteIT extends AbstractPostgresIT {
     @Autowired PlatformCardAuditRepository auditRepo;
     @Autowired InvoiceRepository invoices;
     @Autowired CardCreditObservationRepository observations;
+    @Autowired uz.efbazaar.payment.debit.repository.CardDebitObservationRepository debits;
 
-    /** Children before parents: invoices carry a foreign key to platform_cards. */
+    /**
+     * Children before parents, all the way down: a credit observation points at
+     * an invoice, and an invoice points at a card.
+     */
     @BeforeEach
     void clean() {
-        invoices.deleteAll();
         observations.deleteAll();
+        debits.deleteAll();
+        invoices.deleteAll();
         auditRepo.deleteAll();
         cardRepo.deleteAll();
     }
