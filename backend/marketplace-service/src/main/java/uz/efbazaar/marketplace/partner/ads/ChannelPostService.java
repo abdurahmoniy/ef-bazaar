@@ -183,6 +183,16 @@ public class ChannelPostService {
     @Transactional
     public void onPosted(UUID postId, String telegramMessageId) {
         posts.findById(postId).ifPresent(post -> {
+            // A post we took down and put back. The partner was paid for this
+            // advertisement when it first went out, so settling again would pay
+            // twice for one order — and charge the seller twice for it.
+            if (State.POSTED.name().equals(post.getState()) && post.getRemovedAt() != null) {
+                post.setTelegramMessageId(telegramMessageId);
+                post.setRemovedAt(null);
+                post.setPostedAt(Instant.now());
+                posts.save(post);
+                return;
+            }
             if (!State.HELD.name().equals(post.getState())) return;
 
             PartnerChannel channel = channels.findById(post.getPartnerChannelId()).orElseThrow();
@@ -198,6 +208,27 @@ public class ChannelPostService {
 
             replacePrevious(post, channel);
         });
+    }
+
+    /**
+     * Olib tashlangan postlarni kanalga qaytaradi — e'lon tiklangani uchun.
+     *
+     * <p>Pul harakati YO'Q: hamkorga bu reklama uchun birinchi chiqqanda
+     * to'langan, sotuvchidan esa o'shanda yechilgan. Yangi xabar
+     * identifikatori {@code onPosted} ning qaytarish tarmog'ida yoziladi.
+     *
+     * <p>Almashtirilgan postlarga tegilmaydi: ularning o'rnida kanalda
+     * yangisi turibdi va ikkinchi nusxa chiqarish obunachiga bir e'lonni
+     * ikki marta ko'rsatardi.
+     */
+    @Transactional
+    public void republishRemoved(UUID listingId) {
+        for (ListingChannelPost post : posts.findByListingIdAndRemovedAtIsNotNull(listingId)) {
+            if (!State.POSTED.name().equals(post.getState())) continue;
+            if (post.getReplacedAt() != null) continue;
+            channels.findById(post.getPartnerChannelId())
+                    .ifPresent(channel -> publish(post, channel));
+        }
     }
 
     /**

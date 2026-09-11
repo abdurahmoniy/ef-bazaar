@@ -31,6 +31,8 @@ public final class PartnerAdRepositories {
                 UUID listingId, UUID partnerChannelId, String state);
         List<ListingChannelPost> findByPartnerChannelIdOrderByCreatedAtDesc(UUID partnerChannelId);
         List<ListingChannelPost> findByPartnerChannelIdAndState(UUID partnerChannelId, String state);
+        /** Posts this listing's takedown removed from a channel — the restore path's input. */
+        List<ListingChannelPost> findByListingIdAndRemovedAtIsNotNull(UUID listingId);
     }
 
     public interface PartnerClickRepository extends JpaRepository<PartnerClick, Long> {
