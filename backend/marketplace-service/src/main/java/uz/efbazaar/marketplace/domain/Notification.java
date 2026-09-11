@@ -52,6 +52,17 @@ public class Notification {
     @Column(name = "actor_display_name", length = 64)
     private String actorDisplayName;
 
+    /** WALLET_CREDITED: how much arrived. */
+    @Column(name = "amount_tiyin")
+    private Long amountTiyin;
+
+    /**
+     * The ledger transaction a money row came from, and the key that stops a
+     * Kafka redelivery writing the same notification twice.
+     */
+    @Column(name = "payment_ref")
+    private UUID paymentRef;
+
     @Column(name = "read_at")
     private Instant readAt;
 

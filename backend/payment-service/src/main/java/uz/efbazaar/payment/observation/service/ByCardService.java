@@ -144,10 +144,21 @@ public class ByCardService {
                     "Izoh majburiy — nima uchun biriktirilgani yozilishi kerak");
         }
 
-        ledger.post(TransactionKind.ADJUSTMENT, "obs-manual-" + obs.getId(), adminId, note,
+        UUID txId = ledger.post(TransactionKind.ADJUSTMENT, "obs-manual-" + obs.getId(),
+                adminId, note,
                 List.of(new Posting(LedgerAccount.PLATFORM_CARDS, null, obs.getAmountTiyin()),
                         new Posting(LedgerAccount.USER_AVAILABLE, targetUserId,
                                 -obs.getAmountTiyin())));
+
+        // The same announcement the automatic path makes. This path used to be
+        // silent: an admin attributed a payment by hand and the person whose
+        // money it was learned nothing — which is the case where they have been
+        // waiting longest and are least sure anything is happening.
+        //
+        // No invoice id: there was no invoice. To the recipient the two paths
+        // are one event, so they are announced identically.
+        appEvents.publishEvent(new PaymentEventPublisher.DepositCreditedSignal(
+                targetUserId, obs.getAmountTiyin(), null, txId));
 
         obs.setStatus(ObservationStatus.MANUALLY_RESOLVED);
         obs.setResolvedBy(adminId);
@@ -208,7 +219,8 @@ public class ByCardService {
             postings.add(new Posting(LedgerAccount.PLATFORM_REVENUE, null, -bump));
         }
 
-        ledger.post(TransactionKind.DEPOSIT, "invoice-" + invoice.getId(), null, null, postings);
+        UUID txId = ledger.post(
+                TransactionKind.DEPOSIT, "invoice-" + invoice.getId(), null, null, postings);
 
         // Both of these fire only after this transaction commits, never inside
         // it. A deposit-credited record on the wire before a rollback has a
@@ -217,7 +229,7 @@ public class ByCardService {
         // has always been AFTER_COMMIT. See InvoiceNoticeListener and
         // PaymentEventPublisher.
         appEvents.publishEvent(new PaymentEventPublisher.DepositCreditedSignal(
-                invoice.getUserId(), credited, invoice.getId()));
+                invoice.getUserId(), credited, invoice.getId(), txId));
         appEvents.publishEvent(new InvoiceNoticeEvents.InvoicePaid(invoice.getId()));
         return true;
     }

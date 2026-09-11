@@ -13,6 +13,8 @@ public enum NotificationType {
     TRUST_UNBLOCKED,
     /** A seller invited me to run their trade as a human trade admin. */
     TRADE_ADMIN_INVITED,
+    /** Money reached my wallet — a matched deposit, or one an admin attributed. */
+    WALLET_CREDITED,
     /** Admin-facing: somebody asked to withdraw and the money is frozen. */
     WITHDRAWAL_REQUESTED,
     /** My payout was sent. */

@@ -150,6 +150,33 @@ public class NotificationService {
         }
     }
 
+    /**
+     * Money reached somebody's wallet.
+     *
+     * <p>One row for both paths that put it there — a deposit matched to an
+     * invoice, and one an admin attributed by hand. To the person whose money
+     * it is those are the same event, and naming the second one differently
+     * would suggest something went wrong when nothing did.
+     *
+     * <p>The amount is stored; the balance afterwards deliberately is not. This
+     * list is read days later, and a balance frozen at one row's moment would
+     * be wrong by then while looking authoritative. The row links to the
+     * wallet, which is live.
+     */
+    @Transactional
+    public void walletCredited(UUID userId, long amountTiyin, UUID paymentRef) {
+        if (paymentRef != null && notifications.existsByUserIdAndPaymentRef(userId, paymentRef)) {
+            log.debug("deposit-credited replay for user={} tx={}, skipping", userId, paymentRef);
+            return;
+        }
+        notifications.save(Notification.builder()
+                .userId(userId)
+                .type(NotificationType.WALLET_CREDITED)
+                .amountTiyin(amountTiyin)
+                .paymentRef(paymentRef)
+                .build());
+    }
+
     /** Tells the wallet owner how their payout ended. */
     @Transactional
     public void withdrawalClosed(UUID userId, UUID withdrawalId, boolean paid) {

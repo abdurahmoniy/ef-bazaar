@@ -41,6 +41,15 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     /** Redelivery guard for trade-service events — one invite notice per (admin, trade). */
     boolean existsByUserIdAndTypeAndWithdrawalId(UUID userId, NotificationType type, UUID withdrawalId);
 
+    /**
+     * Whether this exact money movement has already been announced.
+     *
+     * <p>Keyed on the ledger transaction rather than the invoice: a payment an
+     * admin attributes by hand has no invoice, and a redelivery of that event
+     * would otherwise tell the user twice that their wallet was topped up.
+     */
+    boolean existsByUserIdAndPaymentRef(UUID userId, UUID paymentRef);
+
     boolean existsByUserIdAndTypeAndTradeId(UUID userId, NotificationType type, UUID tradeId);
 
     @Modifying

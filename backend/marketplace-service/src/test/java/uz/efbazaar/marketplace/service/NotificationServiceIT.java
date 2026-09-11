@@ -78,6 +78,50 @@ class NotificationServiceIT {
         assertThat(notifications.findAll()).hasSize(2);
     }
 
+    @Test
+    void aCreditedDepositBecomesOneBellRowCarryingTheAmount() {
+        NotificationService service = new NotificationService(notifications);
+        UUID userId = UUID.randomUUID();
+        UUID txId = UUID.randomUUID();
+
+        service.walletCredited(userId, 5_000_000L, txId);
+
+        assertThat(notifications.findAll()).singleElement().satisfies(n -> {
+            assertThat(n.getType()).isEqualTo(NotificationType.WALLET_CREDITED);
+            assertThat(n.getUserId()).isEqualTo(userId);
+            assertThat(n.getAmountTiyin()).isEqualTo(5_000_000L);
+            assertThat(n.getPaymentRef()).isEqualTo(txId);
+        });
+    }
+
+    /**
+     * Kafka is at-least-once. Told twice, a user would read that their wallet
+     * was topped up twice and go looking for money that was never sent.
+     */
+    @Test
+    void aRedeliveredDepositWritesExactlyOneRow() {
+        NotificationService service = new NotificationService(notifications);
+        UUID userId = UUID.randomUUID();
+        UUID txId = UUID.randomUUID();
+
+        service.walletCredited(userId, 5_000_000L, txId);
+        service.walletCredited(userId, 5_000_000L, txId);
+
+        assertThat(notifications.findAll()).hasSize(1);
+    }
+
+    /** Two real deposits of the same amount are two events, not a replay. */
+    @Test
+    void twoDistinctDepositsOfTheSameAmountBothLand() {
+        NotificationService service = new NotificationService(notifications);
+        UUID userId = UUID.randomUUID();
+
+        service.walletCredited(userId, 5_000_000L, UUID.randomUUID());
+        service.walletCredited(userId, 5_000_000L, UUID.randomUUID());
+
+        assertThat(notifications.findAll()).hasSize(2);
+    }
+
     /** Minimal config that pulls only the repository under test into the slice. */
     @org.springframework.boot.autoconfigure.domain.EntityScan(basePackageClasses = Notification.class)
     @org.springframework.data.jpa.repository.config.EnableJpaRepositories(basePackageClasses = NotificationRepository.class)

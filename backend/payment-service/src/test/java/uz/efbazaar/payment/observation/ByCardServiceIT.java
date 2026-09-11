@@ -5,6 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.payment.card.dto.PlatformCardCreateRequest;
 import uz.efbazaar.payment.card.repository.PlatformCardAuditRepository;
@@ -14,6 +16,7 @@ import uz.efbazaar.payment.invoice.domain.Invoice;
 import uz.efbazaar.payment.invoice.domain.InvoiceStatus;
 import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
 import uz.efbazaar.payment.invoice.service.SlotAllocator;
+import uz.efbazaar.payment.kafka.PaymentEventPublisher.DepositCreditedSignal;
 import uz.efbazaar.payment.observation.domain.ObservationStatus;
 import uz.efbazaar.payment.observation.repository.CardCreditObservationRepository;
 import uz.efbazaar.payment.observation.service.ByCardService;
@@ -45,6 +48,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * teardown is noise nobody should have to diagnose.
  */
 @SpringBootTest
+@RecordApplicationEvents
 class ByCardServiceIT extends AbstractIntegrationIT {
 
     @Autowired ByCardService byCard;
@@ -55,6 +59,7 @@ class ByCardServiceIT extends AbstractIntegrationIT {
     @Autowired PlatformCardRepository cardRepo;
     @Autowired PlatformCardAuditRepository auditRepo;
     @Autowired LedgerService ledger;
+    @Autowired ApplicationEvents events;
 
     private static final AtomicLong MSG = new AtomicLong(1);
 
@@ -279,5 +284,71 @@ class ByCardServiceIT extends AbstractIntegrationIT {
         assertThat(toA + toB)
                 .as("the money arrived exactly once")
                 .isEqualTo(7_777_777);
+    }
+    // --- announcing the credit ---------------------------------------------
+    //
+    // Both paths that put money in a wallet must say so. The manual one used to
+    // be silent, which is the case where the user has been waiting longest and
+    // is least sure anything is happening.
+
+    private List<DepositCreditedSignal> creditSignals() {
+        return events.stream(DepositCreditedSignal.class).toList();
+    }
+
+    @Test
+    void aMatchedDepositAnnouncesWhatReachedTheWallet() {
+        UUID user = UUID.randomUUID();
+        Invoice inv = allocator.allocate(user, 10_000_000);
+
+        byCard.ingest(new CardCreditEvent(MSG.getAndIncrement(), "0101",
+                inv.getTransferAmountTiyin(), null, Instant.now(), "raw"));
+
+        assertThat(creditSignals()).singleElement().satisfies(signal -> {
+            assertThat(signal.userId()).isEqualTo(user);
+            // What the wallet received, not what was transferred: the bump is
+            // the platform's disambiguation charge, not the user's deposit.
+            assertThat(signal.amountTiyin()).isEqualTo(10_000_000L);
+            assertThat(signal.invoiceId()).isEqualTo(inv.getId());
+            assertThat(signal.transactionId())
+                    .as("the dedupe key a consumer needs")
+                    .isNotNull();
+        });
+    }
+
+    @Test
+    void aManuallyAttributedPaymentAnnouncesItTheSameWay() {
+        UUID user = UUID.randomUUID();
+        var obs = byCard.ingest(new CardCreditEvent(MSG.getAndIncrement(), "0101",
+                777_000L, null, Instant.now(), "raw"));
+        assertThat(obs.getStatus()).isEqualTo(ObservationStatus.UNMATCHED);
+
+        byCard.resolveManually(obs.getId(), user, UUID.randomUUID(), "bank cheki tekshirildi");
+
+        assertThat(creditSignals()).singleElement().satisfies(signal -> {
+            assertThat(signal.userId()).isEqualTo(user);
+            assertThat(signal.amountTiyin()).isEqualTo(777_000L);
+            // There was no invoice. Absence is the shape of this path, not a
+            // defect a consumer should reject the record over.
+            assertThat(signal.invoiceId()).isNull();
+            assertThat(signal.transactionId()).isNotNull();
+        });
+    }
+
+    /** An unmatched payment is not money in anybody's wallet yet. */
+    @Test
+    void aQueuedPaymentAnnouncesNothing() {
+        byCard.ingest(new CardCreditEvent(MSG.getAndIncrement(), "0101",
+                4_242_000L, null, Instant.now(), "raw"));
+
+        assertThat(creditSignals()).isEmpty();
+    }
+
+    /** Neither is one on a card the platform does not own. */
+    @Test
+    void aPaymentOnSomebodyElsesCardAnnouncesNothing() {
+        byCard.ingest(new CardCreditEvent(MSG.getAndIncrement(), "9999",
+                1_000_000L, null, Instant.now(), "raw"));
+
+        assertThat(creditSignals()).isEmpty();
     }
 }

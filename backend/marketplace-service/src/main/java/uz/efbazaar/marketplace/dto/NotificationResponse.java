@@ -16,6 +16,8 @@ public record NotificationResponse(
         UUID tradeId,
         /** Payout ticket, for WITHDRAWAL_* rows — the admin queue links by it. */
         UUID withdrawalId,
+        /** WALLET_CREDITED: how much reached the wallet. */
+        Long amountTiyin,
         String actorDisplayName,
         Instant readAt,
         Instant createdAt
@@ -23,6 +25,7 @@ public record NotificationResponse(
     public static NotificationResponse from(Notification n) {
         return new NotificationResponse(n.getId(), n.getType(), n.getChatId(),
                 n.getListingId(), n.getTradeId(), n.getWithdrawalId(),
-                n.getActorDisplayName(), n.getReadAt(), n.getCreatedAt());
+                n.getAmountTiyin(), n.getActorDisplayName(),
+                n.getReadAt(), n.getCreatedAt());
     }
 }
