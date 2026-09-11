@@ -4,6 +4,9 @@ import * as React from 'react';
 
 import { getTelegramWebApp } from '@/lib/telegram';
 
+const useIsomorphicLayoutEffect =
+  typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
+
 interface UseTelegramMainButtonOptions {
   text: string;
   onClick: () => void;
@@ -22,6 +25,8 @@ interface UseTelegramMainButtonOptions {
  * outside a Mini App. Additive only — callers keep their in-page button as
  * the source of truth; this just syncs a native affordance on top of it, so
  * nothing regresses if a given Telegram client lacks a given method.
+ * Returns whether Telegram's native MainButton is currently active and
+ * visible, allowing callers to hide redundant in-page action buttons.
  */
 export function useTelegramMainButton({
   text,
@@ -29,14 +34,23 @@ export function useTelegramMainButton({
   disabled,
   loading,
   enabled = true,
-}: UseTelegramMainButtonOptions) {
+}: UseTelegramMainButtonOptions): boolean {
+  const [isActive, setIsActive] = React.useState(false);
   const onClickRef = React.useRef(onClick);
   onClickRef.current = onClick;
 
-  React.useEffect(() => {
-    if (!enabled) return;
+  useIsomorphicLayoutEffect(() => {
+    if (!enabled) {
+      setIsActive(false);
+      return;
+    }
     const mainButton = getTelegramWebApp()?.MainButton;
-    if (!mainButton) return;
+    if (!mainButton) {
+      setIsActive(false);
+      return;
+    }
+
+    setIsActive(true);
 
     const handleClick = () => {
       getTelegramWebApp()?.HapticFeedback?.impactOccurred('medium');
@@ -49,6 +63,7 @@ export function useTelegramMainButton({
     return () => {
       mainButton.offClick(handleClick);
       mainButton.hide();
+      setIsActive(false);
     };
   }, [enabled]);
 
@@ -63,4 +78,6 @@ export function useTelegramMainButton({
     if (loading) mainButton.showProgress(false);
     else mainButton.hideProgress();
   }, [text, disabled, loading, enabled]);
+
+  return isActive;
 }

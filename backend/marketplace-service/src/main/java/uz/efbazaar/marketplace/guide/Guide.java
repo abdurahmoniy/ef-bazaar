@@ -44,6 +44,9 @@ public class Guide {
     @Column(name = "media_kind", nullable = false)
     private String mediaKind;
 
+    @Column(nullable = false)
+    private String category;
+
     @Column(name = "created_by")
     private UUID createdBy;
 

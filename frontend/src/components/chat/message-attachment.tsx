@@ -5,6 +5,7 @@ import { FileText } from 'lucide-react';
 
 import { MediaLightbox } from '@/components/chat/media-lightbox';
 import { VoicePlayer } from '@/components/chat/voice-player';
+import { listingMediaUrl } from '@/lib/marketplace-media';
 import type { MessageResponse } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
 
@@ -20,9 +21,9 @@ export function MessageAttachment({ message, mine }: { message: MessageResponse;
   const fileId = message.attachmentFileId;
   if (!fileId || !message.attachmentType) return null;
 
-  const photoUrl = `/bot/photo/${encodeURIComponent(fileId)}`;
+  const photoUrl = listingMediaUrl(fileId) ?? `https://efbazaar.uz/bot/photo/${encodeURIComponent(fileId)}`;
   const fileUrl =
-    `/bot/file/${encodeURIComponent(fileId)}` +
+    `https://efbazaar.uz/bot/file/${encodeURIComponent(fileId)}` +
     (message.attachmentName ? `?name=${encodeURIComponent(message.attachmentName)}` : '');
 
   switch (message.attachmentType) {

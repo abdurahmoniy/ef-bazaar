@@ -17,6 +17,7 @@ import {
   Moon,
   Package,
   Settings,
+  Share2,
   ShieldAlert,
   ShieldCheck,
   Star,
@@ -37,6 +38,8 @@ import { useTheme } from '@/components/theme/use-theme';
 import { fetchUnreadCount } from '@/lib/notifications-client';
 import { FEATURES } from '@/lib/feature-flags';
 import { isAdmin, isPartner } from '@/lib/admin';
+import { siteConfig } from '@/lib/site';
+import { InstagramIcon, TelegramIcon } from '@/components/brand/social-icons';
 import { InvitationCard } from '@/components/growth/invitation-card';
 import { ChannelOwnerCard } from '@/components/growth/channel-owner-card';
 import { isTradeAdmin } from '@/lib/trade-human';
@@ -368,7 +371,68 @@ export function ProfileAccount({
         </CardContent>
       </Card>
 
-      {/* 4. System Info & Security Card */}
+      {/* 4. Social Media & Community Card */}
+      <Card className="rounded-2xl border-border/80 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Share2 className="h-5 w-5 text-primary" />
+            Biz ijtimoiy tarmoqlarda
+          </CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
+            Rasmiy kanal va sahifalarimizga a&apos;zo bo&apos;ling, yangiliklar va maxsus takliflarni kuzatib boring.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <a
+              href={siteConfig.links.telegramChannel}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-xl border border-border/70 bg-card p-3 transition hover:border-[#24A1DE]/40 hover:bg-[#24A1DE]/5 active:scale-98 shadow-2xs"
+            >
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#24A1DE]/10 text-[#24A1DE]">
+                <TelegramIcon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">Telegram kanal</p>
+                <p className="text-xs text-muted-foreground truncate">Rasmiy kanal</p>
+              </div>
+            </a>
+
+            <a
+              href={siteConfig.links.telegram}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-xl border border-border/70 bg-card p-3 transition hover:border-[#229ED9]/40 hover:bg-[#229ED9]/5 active:scale-98 shadow-2xs"
+            >
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#229ED9]/10 text-[#229ED9]">
+                <TelegramIcon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">Telegram bot</p>
+                <p className="text-xs text-muted-foreground truncate">@{botUsername}</p>
+              </div>
+            </a>
+
+            <a
+              href={siteConfig.links.instagram}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-xl border border-border/70 bg-card p-3 transition hover:border-[#E1306C]/40 hover:bg-[#E1306C]/5 active:scale-98 shadow-2xs"
+            >
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#E1306C]/10 text-[#E1306C]">
+                <InstagramIcon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">Instagram</p>
+                <p className="text-xs text-muted-foreground truncate">@efbazaar.uz</p>
+              </div>
+            </a>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 5. System Info & Security Card */}
       <Card className="rounded-2xl border-border/80 shadow-sm overflow-hidden">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base sm:text-lg">

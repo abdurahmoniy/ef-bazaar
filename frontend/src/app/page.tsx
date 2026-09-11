@@ -83,7 +83,11 @@ const structuredData = {
 				width: 512,
 				height: 512,
 			},
-			sameAs: [siteConfig.links.telegram],
+			sameAs: [
+				siteConfig.links.telegram,
+				siteConfig.links.telegramChannel,
+				siteConfig.links.instagram,
+			],
 		},
 		{
 			'@type': 'WebSite',

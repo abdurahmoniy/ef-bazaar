@@ -10,8 +10,9 @@ const { push, native } = vi.hoisted(() => ({
   push: vi.fn(),
   native: { onClick: vi.fn(), offClick: vi.fn(), show: vi.fn(), hide: vi.fn(), setText: vi.fn(), disable: vi.fn(), enable: vi.fn(), showProgress: vi.fn(), hideProgress: vi.fn() },
 }));
+let telegramWebAppMock: { MainButton?: typeof native } | undefined = undefined;
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
-vi.mock('@/lib/telegram', () => ({ getTelegramWebApp: () => ({ MainButton: native }) }));
+vi.mock('@/lib/telegram', () => ({ getTelegramWebApp: () => telegramWebAppMock }));
 vi.mock('@/lib/partner-channels', async original => ({ ...await original<typeof import('@/lib/partner-channels')>(), searchChannels: vi.fn(), listPostedChannels: vi.fn(), orderChannelPosts: vi.fn() }));
 vi.mock('@/lib/payment-client', () => ({ getWallet: vi.fn() }));
 vi.mock('./channel-picker', () => ({ ChannelPicker: ({ selected, onChange, disabled }: { selected: ChannelCard[]; onChange: (value: ChannelCard[]) => void; disabled?: boolean }) => createElement('div', { 'data-selected': selected.map(c => c.channelId).join(',') }, createElement('button', { disabled, onClick: () => onChange([channelA, channelB]) }, 'Ikkala kanalni tanlash')) }));
@@ -22,6 +23,7 @@ let root: Root; let container: HTMLDivElement;
 beforeEach(() => {
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   vi.resetAllMocks();
+  telegramWebAppMock = undefined;
   vi.mocked(searchChannels).mockResolvedValue([channelA, channelB]); vi.mocked(getWallet).mockResolvedValue(wallet());
   vi.mocked(listPostedChannels).mockResolvedValue([]); vi.mocked(orderChannelPosts).mockResolvedValue();
   container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
@@ -108,7 +110,6 @@ describe('ListingChannelPosts purchase journey', () => {
     await confirm(); expect(orderChannelPosts).not.toHaveBeenCalled();
     const topup = container.querySelector<HTMLAnchorElement>('a[href^="/hamyon?"]');
     expect(new URL(topup!.href).searchParams.get('toldirish')).toBe('8000');
-    expect(native.setText).toHaveBeenLastCalledWith('Hamyonni to‘ldirish');
   });
   it('allows a free order even if wallet loading fails', async () => {
     vi.mocked(searchChannels).mockResolvedValue([{ ...channelA, priceSom: 0 }]); vi.mocked(getWallet).mockRejectedValue(new Error('Hamyon yuklanmadi'));
@@ -120,7 +121,6 @@ describe('ListingChannelPosts purchase journey', () => {
     vi.mocked(getWallet).mockResolvedValue(wallet(40));
     await render();
     expect(button('buyurtma berish')?.textContent).toMatch(/0[.,]4\s*so/);
-    expect(native.setText.mock.lastCall?.[0]).toMatch(/0[.,]4\s*so/);
     expect(container.textContent?.match(/0[.,]4\s*so/g)).toHaveLength(4);
     await confirm(); expect(orderChannelPosts).toHaveBeenCalledOnce();
   });
@@ -144,16 +144,28 @@ describe('ListingChannelPosts purchase journey', () => {
     vi.mocked(getWallet).mockResolvedValue(wallet()); await click('Hamyonni qayta tekshirish');
     expect(button('buyurtma berish')?.disabled).toBe(false); expect(orderChannelPosts).not.toHaveBeenCalled();
   });
-  it('locks both native and in-page actions synchronously against duplicate taps', async () => {
+  it('locks in-page actions synchronously against duplicate taps', async () => {
     await render();
     let resolve!: () => void; vi.mocked(orderChannelPosts).mockImplementation(() => new Promise<void>(done => { resolve = done; }));
+    const btn = button('buyurtma berish')!;
+    await act(async () => { btn.click(); btn.click(); });
+    expect(orderChannelPosts).toHaveBeenCalledTimes(1);
+    expect(button('Ikkala kanalni tanlash')).toBeUndefined();
+    await act(async () => resolve());
+  });
+  it('locks native actions synchronously against duplicate taps in Telegram mode', async () => {
+    telegramWebAppMock = { MainButton: native };
+    await render();
+    expect(button('buyurtma berish')).toBeUndefined();
+    let resolve!: () => void; vi.mocked(orderChannelPosts).mockImplementation(() => new Promise<void>(done => { resolve = done; }));
     const nativeClick = native.onClick.mock.calls[0][0] as () => void;
-    await act(async () => { nativeClick(); nativeClick(); button('buyurtma berish')?.click(); });
+    await act(async () => { nativeClick(); nativeClick(); });
     expect(orderChannelPosts).toHaveBeenCalledTimes(1); expect(native.onClick).toHaveBeenCalledTimes(1);
     expect(button('Ikkala kanalni tanlash')).toBeUndefined();
     await act(async () => resolve());
   });
-  it('does not race a manual status refresh with the native purchase action', async () => {
+  it('does not race a manual status refresh with the native purchase action in Telegram mode', async () => {
+    telegramWebAppMock = { MainButton: native };
     await render();
     let resolveWallet!: (value: ReturnType<typeof wallet>) => void;
     vi.mocked(getWallet).mockImplementationOnce(() => new Promise(resolve => { resolveWallet = resolve; }));
@@ -161,13 +173,39 @@ describe('ListingChannelPosts purchase journey', () => {
     await act(async () => { button('Yangilash')!.click(); nativeClick(); });
     await act(async () => resolveWallet(wallet()));
     expect(orderChannelPosts).not.toHaveBeenCalled();
-    expect(button('buyurtma berish')?.disabled).toBe(false);
   });
   it('unregisters its single native action when leaving the purchase page', async () => {
+    telegramWebAppMock = { MainButton: native };
     await render(); expect(native.onClick).toHaveBeenCalledOnce();
     const listener = native.onClick.mock.calls[0][0];
     await act(async () => root.render(null));
     expect(native.offClick).toHaveBeenCalledWith(listener); expect(native.hide).toHaveBeenCalledOnce();
+  });
+  it('hides inline action buttons and uses native MainButton when inside Telegram WebApp', async () => {
+    telegramWebAppMock = { MainButton: native };
+    await render([]);
+    expect(button('Tanlovni ko‘rib chiqish')).toBeUndefined();
+    expect(container.querySelector('[data-advertising-summary]')).not.toBeNull();
+    expect(native.show).toHaveBeenCalled();
+    expect(native.setText).toHaveBeenCalledWith('Tanlovni ko‘rib chiqish · 0 so‘m');
+
+    // Pick channels and trigger action via native button
+    await click('Ikkala kanalni tanlash');
+    const chooseClick = native.onClick.mock.calls[0][0] as () => void;
+    await act(async () => chooseClick());
+    expect(container.textContent).toContain('Buyurtmani tekshiring');
+
+    // In review phase, inline button is hidden and native button confirms
+    expect(button('buyurtma berish')).toBeUndefined();
+    expect(native.setText).toHaveBeenLastCalledWith(expect.stringContaining('buyurtma berish'));
+    const reviewClick = native.onClick.mock.calls[0][0] as () => void;
+    await act(async () => reviewClick());
+    expect(orderChannelPosts).toHaveBeenCalledWith('listing-one', ['channel-a', 'channel-b']);
+
+    // In finished phase, inline button is hidden and native button shows refresh
+    expect(container.textContent).toContain('Buyurtma qabul qilindi');
+    expect(button('Tarix va hamyonni tekshirish')).toBeUndefined();
+    expect(native.setText).toHaveBeenLastCalledWith('Tarix va hamyonni tekshirish');
   });
   it('treats network failure after ordering as uncertain and never immediately resends', async () => {
     vi.mocked(orderChannelPosts).mockRejectedValue(new TypeError('Network failed'));

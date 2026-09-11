@@ -1805,7 +1805,7 @@ function ReviewStep({
 			{/* Hero Visual Card */}
 			<div className='group relative overflow-hidden rounded-2xl border border-border bg-muted/40 shadow-sm'>
 				{/* Media Container */}
-				<div className='relative aspect-[16/8] w-full overflow-hidden bg-black/40'>
+				<div className='relative aspect-[19.5/9] w-full overflow-hidden bg-black/40'>
 					{coverUrl ? (
 						<img
 							src={coverUrl}

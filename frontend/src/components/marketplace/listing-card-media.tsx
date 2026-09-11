@@ -15,7 +15,7 @@ interface ListingCardMediaProps {
 
 /** Telegram's file-id proxy already returns the final bytes; Next's optimizer rejects it. */
 export function shouldBypassImageOptimization(src: string) {
-  return src.startsWith('/bot/photo/');
+  return src.startsWith('/bot/photo/') || src.includes('/bot/photo/');
 }
 
 /** A single reserved media box shared by real images and the branded fallback. */
@@ -33,7 +33,7 @@ export function ListingCardMedia({
     <div
       data-listing-card-media
       className={cn(
-        'listing-card__media relative aspect-[4/3] w-full overflow-hidden bg-muted',
+        'listing-card__media relative aspect-[19.5/9] w-full overflow-hidden bg-muted',
         className,
       )}
     >

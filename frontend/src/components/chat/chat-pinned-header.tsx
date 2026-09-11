@@ -41,7 +41,7 @@ function ListingCard({ listing }: { listing: ListingResponse }) {
       className="mx-auto block max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-card transition hover:border-primary/40 hover:shadow-card-hover"
     >
       {cover && (
-        <div className="aspect-[16/10] w-full overflow-hidden bg-muted">
+        <div className="aspect-[19.5/9] w-full overflow-hidden bg-muted">
           <img
             src={cover}
             alt={`${title} rasmi`}

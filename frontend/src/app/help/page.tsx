@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { HelpView } from '@/components/help/help-view';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
+import { listPublicGuides, type Guide } from '@/lib/guides';
 import { HELP_ITEMS, type HelpCategory } from '@/lib/help-data';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 import { absoluteUrl, siteConfig } from '@/lib/site';
@@ -67,6 +68,13 @@ export default async function HelpPage({ searchParams }: HelpPageProps) {
   const initialCategory = (params.category as HelpCategory) || 'all';
   const initialQuery = params.q || '';
 
+  let initialGuides: Guide[] = [];
+  try {
+    initialGuides = await listPublicGuides();
+  } catch {
+    initialGuides = [];
+  }
+
   return (
     <>
       <script
@@ -83,6 +91,7 @@ export default async function HelpPage({ searchParams }: HelpPageProps) {
           <HelpView
             initialCategory={initialCategory}
             initialQuery={initialQuery}
+            initialGuides={initialGuides}
           />
         </div>
       </MarketplaceShell>
