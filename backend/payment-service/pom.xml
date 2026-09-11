@@ -100,13 +100,6 @@
         </dependency>
 
         <!-- Auth (nginx-header pattern, matches marketplace) -->
-        <!-- STOMP over WebSocket: the wallet's live push. Same starter and the
-             same auth shape trade-service already uses for /ws/trade. -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-websocket</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>

@@ -26,7 +26,6 @@ import { InvoicePanel } from '@/components/payment/invoice-panel';
 import { TipCallout } from '@/components/help/tip-callout';
 import { TopUpForm } from '@/components/payment/top-up-form';
 import { WithdrawForm } from '@/components/payment/withdraw-form';
-import { useWalletLive } from '@/hooks/use-wallet-live';
 import { getWalletHistory } from '@/lib/payment-client';
 import { formatTiyin } from '@/lib/money';
 import type {
@@ -41,12 +40,6 @@ import { GrowthLink } from '@/components/growth/growth-link';
 
 interface WalletViewProps {
   wallet: WalletResponse;
-  /**
-   * The signed-in user, for the live wallet socket. Optional so a static
-   * render still works — without it the page simply behaves as it did before:
-   * correct on load, stale until the next one.
-   */
-  userId?: string | null;
   initialInvoice: InvoiceResponse | null;
   initialHistory?: WalletEntryResponse[];
   history?: WalletEntryResponse[];
@@ -168,7 +161,6 @@ function getTransactionIcon(kind: TransactionKind, incoming: boolean): TxIcon {
 
 export function WalletView({
   wallet,
-  userId,
   initialInvoice,
   initialHistory,
   history: legacyHistory,
@@ -186,25 +178,6 @@ export function WalletView({
     initialHistory === undefined && legacyHistory === undefined,
   );
   const [filter, setFilter] = useState<HistoryFilter>('all');
-  /** Set by the live push, so the page can say what just happened. */
-  const [creditedTiyin, setCreditedTiyin] = useState<number | null>(null);
-
-  /**
-   * Only while there is a payment to wait for. An idle wallet page holding a
-   * socket open buys nothing — a deposit cannot arrive without an invoice.
-   */
-  useWalletLive({
-    userId,
-    enabled: invoice !== null,
-    onCredited: useCallback((push) => {
-      setCreditedTiyin(push.amountTiyin);
-      setInvoice(null);
-      setActiveTab('topup');
-      // The balance and the history are server-rendered; this is what moves
-      // them. The success card above does not wait for it.
-      router.refresh();
-    }, [router]),
-  });
 
   useEffect(() => {
     let active = true;
@@ -240,8 +213,6 @@ export function WalletView({
   const handleCreated = useCallback((created: InvoiceResponse) => {
     setInvoice(created);
     setActiveTab('topup');
-    // A second top-up must not sit under the previous one's receipt.
-    setCreditedTiyin(null);
   }, []);
 
   const handleExpired = useCallback(() => {
@@ -375,39 +346,7 @@ export function WalletView({
             onDismiss={handleDismissed}
           />
         ) : (
-          <>
-            {creditedTiyin !== null && (
-              <section
-                role="status"
-                className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 shadow-xs sm:p-6"
-              >
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                  <div>
-                    <h2 className="text-base font-bold text-foreground">
-                      To&lsquo;lov qabul qilindi
-                    </h2>
-                    <p className="mt-1 text-sm text-foreground">
-                      Hamyoningizga{' '}
-                      <strong className="tabular-nums">
-                        {formatTiyin(creditedTiyin)} so&lsquo;m
-                      </strong>{' '}
-                      tushdi.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setCreditedTiyin(null)}
-                  className="mt-4 min-h-11 w-full rounded-xl font-semibold sm:w-auto"
-                >
-                  Yopish
-                </Button>
-              </section>
-            )}
-            <TopUpForm onCreated={handleCreated} initialAmount={topUpAmount} />
-          </>
+          <TopUpForm onCreated={handleCreated} initialAmount={topUpAmount} />
         )
       )}
 

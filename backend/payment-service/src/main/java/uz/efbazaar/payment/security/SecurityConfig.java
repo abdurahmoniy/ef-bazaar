@@ -77,13 +77,6 @@ public class SecurityConfig {
                         // The tariffs themselves are a shop window — comparing
                         // them before signing in is the point of having them.
                         .requestMatchers(HttpMethod.GET, "/api/v1/payments/plans").permitAll()
-                        // The STOMP handshake. Authentication happens on the
-                        // CONNECT frame and authorization on SUBSCRIBE, both in
-                        // WebSocketConfig — permitAll here only lets the
-                        // upgrade through, exactly as trade-service does for
-                        // /ws/trade. The headers nginx injects are read there.
-                        .requestMatchers(new AntPathRequestMatcher("/ws/payment/**")).permitAll()
-                        .requestMatchers(new AntPathRequestMatcher("/ws/payment")).permitAll()
                         .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
                         .anyRequest().authenticated())
                 // Inside the chain, as marketplace-service registers it. Left to
