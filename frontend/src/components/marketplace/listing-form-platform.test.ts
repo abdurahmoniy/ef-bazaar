@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
 import type { ListingResponse } from '@/lib/marketplace-types';
+vi.mock('@/app/auth/actions', () => ({ linkTelegramAction: vi.fn() }));
 import { ListingForm } from './listing-form';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));

@@ -78,6 +78,20 @@ public class AuthSummaryClient {
         }
     }
 
+    /** Fresh identity check for actions that require Telegram notifications. Never fail open. */
+    public void requireTelegramLinked(UUID userId) {
+        UserSummary user = resolve(userId).orElseThrow(() ->
+                new uz.efbazaar.marketplace.exception.MarketplaceException(
+                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                        "telegram_check_unavailable",
+                        "Telegram ulanishini tekshirib bo'lmadi. Qayta urinib ko'ring."));
+        if (user.telegramId() == null) {
+            throw new uz.efbazaar.marketplace.exception.MarketplaceException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "telegram_required",
+                    "Davom etish uchun Telegram akkauntingizni ulang.");
+        }
+    }
+
     public Optional<UserSummary> resolve(UUID userId) {
         if (userId == null) return Optional.empty();
         return Optional.ofNullable(resolveAll(List.of(userId)).get(userId));

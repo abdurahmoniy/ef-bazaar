@@ -148,6 +148,29 @@ class GuideMessengerTest {
         verify(telegram, never()).deleteMessage(anyString(), anyLong());
     }
 
+    @Test
+    @DisplayName("sendGuide mavjud qo'llanmani muvaffaqiyatli yuboradi")
+    void sendGuideSendsVideo() {
+        sendingSucceeds();
+        when(guides.buttons()).thenReturn(List.of(button()));
+
+        boolean result = messenger.sendGuide(42L, GUIDE);
+
+        assertThat(result).isTrue();
+        verify(telegram).sendVideoByFileId(eq("42"), eq("FILE123"), eq("Tavsif"), any());
+    }
+
+    @Test
+    @DisplayName("sendGuide mavjud bo'lmagan qo'llanma uchun false qaytaradi")
+    void sendGuideReturnsFalseWhenNotFound() {
+        when(guides.buttons()).thenReturn(List.of());
+
+        boolean result = messenger.sendGuide(42L, UUID.randomUUID());
+
+        assertThat(result).isFalse();
+        verify(telegram, never()).sendVideoByFileId(anyString(), anyString(), anyString(), any());
+    }
+
     private com.fasterxml.jackson.databind.JsonNode query() {
         try {
             return mapper.readTree("""

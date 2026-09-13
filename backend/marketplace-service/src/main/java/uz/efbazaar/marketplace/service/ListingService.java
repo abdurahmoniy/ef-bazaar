@@ -52,6 +52,7 @@ public class ListingService {
     private final uz.efbazaar.marketplace.partner.ads.ChannelPostService channelPosts;
     private final ListingPersistence persistence;
     private final ListingMatchRepository listingMatches;
+    private final uz.efbazaar.marketplace.security.AuthSummaryClient telegramUsers;
 
     /**
      * Atomic create — validates payload/attrs first (fail fast, no side effect),
@@ -64,6 +65,7 @@ public class ListingService {
         if (blacklistGuard.isBlacklisted(sellerId)) {
             throw MarketplaceException.userBlacklisted();
         }
+        telegramUsers.requireTelegramLinked(sellerId);
         mediaService.validate(files);
         Map<String, Object> validated = attributeValidator.validate(request.attributes());
 

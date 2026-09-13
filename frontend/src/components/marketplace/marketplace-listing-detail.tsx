@@ -301,6 +301,8 @@ export function MarketplaceListingDetail({
             <ListingActions
               listingId={listing.id}
               authenticated={authenticated}
+              telegramLinked={viewer?.telegramLinked ?? false}
+              botUsername={(process.env.NEXT_PUBLIC_TELEGRAM_BOT ?? process.env.TELEGRAM_BOT_USERNAME ?? '').replace('@', '')}
               isOwner={isOwner}
               initialLiked={listing.likedByMe}
               initialLikeCount={listing.likeCount}

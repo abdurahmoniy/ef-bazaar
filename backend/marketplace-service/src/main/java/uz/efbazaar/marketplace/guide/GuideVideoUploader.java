@@ -29,13 +29,11 @@ import java.io.InputStream;
 public class GuideVideoUploader {
 
     /**
-     * Telegram bot API orqali 50 MB dan kattasini qabul qilmaydi.
-     *
-     * <p>Bu yerda tekshiramiz, Telegram'ga borib qaytishdan oldin: katta
-     * fayl tarmoqqa chiqib, yuklanib, keyin rad etilardi — admin esa
-     * daqiqalab kutib, tushunarsiz xato olardi.
+     * Veb-saytda ijro etish uchun Telegram Bot API getFile limiti 20 MB.
+     * 20 MB dan katta fayllar Telegram Bot API tomonidan "file is too big"
+     * xatosi bilan rad etiladi va veb-brauzerda o'ynamaydi.
      */
-    static final long MAX_BYTES = 50L * 1024 * 1024;
+    static final long MAX_BYTES = 20L * 1024 * 1024;
 
     @Qualifier("botClient")
     private final RestClient botClient;
@@ -46,7 +44,8 @@ public class GuideVideoUploader {
         }
         if (video.getSize() > MAX_BYTES) {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
-                    "Video 50 MB dan katta. Telegram boti bundan kattasini qabul qilmaydi.");
+                    "Video 20 MB dan katta. Veb-saytda ijro etish uchun video 20 MB dan oshmasligi kerak. "
+                            + "Iltimos, videoni MP4 formatda siqib qayta yuklang.");
         }
 
         MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();

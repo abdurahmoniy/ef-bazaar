@@ -36,12 +36,14 @@ public class ChatService {
     private final NotificationService notifications;
     private final BlacklistGuard blacklistGuard;
     private final ChatAccountRequestService accountRequests;
+    private final uz.efbazaar.marketplace.security.AuthSummaryClient telegramUsers;
 
     @Transactional
     public Chat start(UUID buyerId, UUID listingId) {
         if (blacklistGuard.isBlacklisted(buyerId)) {
             throw MarketplaceException.userBlacklisted();
         }
+        telegramUsers.requireTelegramLinked(buyerId);
         Listing listing = listings.findById(listingId)
                 .orElseThrow(MarketplaceException::listingNotFound);
         if (listing.getStatus() != ListingStatus.ACTIVE) {

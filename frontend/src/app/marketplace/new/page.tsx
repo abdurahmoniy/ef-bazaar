@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
 import { ListingForm } from '@/components/marketplace/listing-form';
+import { TelegramRequiredPrompt } from '@/components/auth/telegram-required-prompt';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
 import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
@@ -18,6 +19,7 @@ export const metadata: Metadata = {
 export default async function NewListingPage() {
   const user = await resolveOptionalUser(getMe);
   if (!user) redirect('/auth/login?from=/marketplace/new');
+  const botUsername = (process.env.NEXT_PUBLIC_TELEGRAM_BOT ?? process.env.TELEGRAM_BOT_USERNAME ?? '').replace('@', '');
 
   const remoteDefinitions = await getAttributeDefinitions();
   const definitions =
@@ -33,7 +35,9 @@ export default async function NewListingPage() {
             Bir necha daqiqada e&apos;loningizni yarating — rasm, tavsif, narx.
           </p>
         </header>
-        <ListingForm attributeDefinitions={definitions} />
+        {user.telegramLinked ? <ListingForm attributeDefinitions={definitions} botUsername={botUsername} /> : (
+          <TelegramRequiredPrompt purpose="listing" botUsername={botUsername} />
+        )}
       </section>
     </MarketplaceShell>
   );

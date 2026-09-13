@@ -14,6 +14,7 @@ interface LinkTelegramButtonProps {
   botUsername: string;
   alreadyLinked: boolean;
   telegramUsername?: string | null;
+  onLinked?: () => void;
 }
 
 /**
@@ -30,6 +31,7 @@ export function LinkTelegramButton({
   botUsername,
   alreadyLinked,
   telegramUsername,
+  onLinked,
 }: LinkTelegramButtonProps) {
   const router = useRouter();
   const [error, setError] = React.useState<string | null>(null);
@@ -45,8 +47,9 @@ export function LinkTelegramButton({
       setError(res.error ?? 'Telegram ulanmadi');
       return;
     }
+    onLinked?.();
     router.refresh();
-  }, [router]);
+  }, [router, onLinked]);
 
   if (alreadyLinked) {
     return (

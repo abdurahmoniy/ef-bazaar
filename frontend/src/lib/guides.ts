@@ -45,7 +45,7 @@ export const VALID_GUIDE_CATEGORIES: ReadonlySet<string> = new Set([
 ]);
 
 const BOT_VIDEO_BASE_PATH =
-  process.env.NEXT_PUBLIC_BOT_VIDEO_BASE_URL || 'https://efbazaar.uz/bot/video';
+  process.env.NEXT_PUBLIC_BOT_VIDEO_BASE_URL || '/api/video';
 
 export function guideVideoUrl(fileId: string): string {
   const normalized = fileId.trim();

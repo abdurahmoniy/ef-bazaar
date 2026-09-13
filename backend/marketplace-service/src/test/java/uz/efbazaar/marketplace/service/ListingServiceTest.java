@@ -92,6 +92,7 @@ class ListingServiceTest {
     @Mock uz.efbazaar.marketplace.partner.ads.ChannelPostService channelPosts;
     @Mock uz.efbazaar.marketplace.partner.ads.OfficialChannelService officialChannel;
     @Mock uz.efbazaar.marketplace.partner.ads.SoldPostMarker soldPosts;
+    @Mock uz.efbazaar.marketplace.security.AuthSummaryClient telegramUsers;
     @InjectMocks ListingService service;
 
     private UUID sellerId;
@@ -343,5 +344,16 @@ class ListingServiceTest {
 
     private static AttributeDefinition definition(String key, AttributeType type) {
         return AttributeDefinition.builder().key(key).type(type).build();
+    }
+
+    @Test
+    void requiresTelegramBeforeAnySideEffects() {
+        org.mockito.Mockito.doThrow(new MarketplaceException(
+                org.springframework.http.HttpStatus.FORBIDDEN, "telegram_required", "Telegramni ulang"))
+                .when(telegramUsers).requireTelegramLinked(sellerId);
+        assertThatThrownBy(() -> service.create(sellerId, createReq, files))
+                .isInstanceOfSatisfying(MarketplaceException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo("telegram_required"));
+        org.mockito.Mockito.verifyNoInteractions(mediaService, persistence, events, channelPosts);
     }
 }

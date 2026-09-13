@@ -83,7 +83,7 @@ export function VideoGuideCard({ guide, category, onPlay }: VideoGuideCardProps)
         </button>
 
         <a
-          href={siteConfig.links.telegram}
+          href={guide.id ? `${siteConfig.links.telegram}?start=guide_${guide.id}` : siteConfig.links.telegram}
           target="_blank"
           rel="noopener noreferrer"
           title="Telegram botda ochish"

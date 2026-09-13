@@ -94,4 +94,25 @@ public class GuideMessenger {
         long messageId = message.path("message_id").asLong(0);
         if (messageId > 0) telegram.deleteMessage(chatId, messageId);
     }
+
+    /**
+     * Veb-saytdan /start guide_<id> chuqur havolasi orqali kelganda to'g'ridan-to'g'ri
+     * shu qo'llanma videosini yuboradi.
+     */
+    public boolean sendGuide(long chatId, UUID guideId) {
+        List<GuideClient.GuideButtonView> buttons = guides.buttons();
+        Optional<GuideClient.GuideButtonView> guide = buttons.stream()
+                .filter(b -> b.guideId().equals(guideId))
+                .findFirst();
+        if (guide.isEmpty()) {
+            log.info("Qo'llanma topilmadi: {}", guideId);
+            return false;
+        }
+
+        return "DOCUMENT".equals(guide.get().mediaKind())
+                ? telegram.sendDocumentByFileId(String.valueOf(chatId), guide.get().videoFileId(),
+                        guide.get().description(), keyboardOf(buttons)).isPresent()
+                : telegram.sendVideoByFileId(String.valueOf(chatId), guide.get().videoFileId(),
+                        guide.get().description(), keyboardOf(buttons)).isPresent();
+    }
 }

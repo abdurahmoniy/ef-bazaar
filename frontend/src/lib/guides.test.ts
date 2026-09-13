@@ -35,7 +35,7 @@ describe('buttonsAreValid', () => {
 
 describe('guideVideoUrl', () => {
   it('to\'g\'ri URL shakllantiradi', () => {
-    expect(guideVideoUrl('video-123')).toContain('/bot/video/video-123');
+    expect(guideVideoUrl('video-123')).toBe('/api/video/video-123');
   });
 
   it('bo\'sh fileId bo\'lsa bo\'sh qator qaytaradi', () => {

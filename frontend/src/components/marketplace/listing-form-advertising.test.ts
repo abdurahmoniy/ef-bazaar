@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ListingResponse } from '@/lib/marketplace-types';
 const { push, refresh, nativeButton } = vi.hoisted(()=>({push:vi.fn(),refresh:vi.fn(),nativeButton:vi.fn()}));
 vi.mock('next/navigation',()=>({useRouter:()=>({push,refresh})}));
+vi.mock('@/app/auth/actions', () => ({ linkTelegramAction: vi.fn() }));
 vi.mock('@/hooks/use-telegram-main-button',()=>({useTelegramMainButton:nativeButton}));
 vi.mock('@/components/marketplace/card-picker',()=>({CardPicker:()=>null}));
 vi.mock('@/lib/payment-client',()=>({getPublicTradeCommissionConfig:()=>Promise.resolve(null)}));
@@ -25,6 +26,13 @@ async function pricing(edit=false) {
 }
 async function requestBody() {const data=fetchMock.mock.calls[0][1].body.get('data') as Blob;return JSON.parse(await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsText(data);}));}
 describe('save listing before advertising purchase',()=>{
+ it('preserves the form and offers linking when the server requires Telegram', async () => {
+  fetchMock.mockResolvedValue({ok:false,status:403,text:async()=>JSON.stringify({code:'telegram_required'})});
+  await pricing();await click('Davom etish');await click("E'lon yaratish");
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Telegramni ulash');
+  expect(host.textContent).toContain('Test uchun yetarli tavsif');
+  expect(push).not.toHaveBeenCalled();
+ });
  it('creates without charging channels, then carries selected IDs into review',async()=>{
   await pricing();await click('Kanallarni tanlash');await click('Sinov kanalini tanlash');await click('Davom etish');
   expect(host.textContent).toContain('5 000');
