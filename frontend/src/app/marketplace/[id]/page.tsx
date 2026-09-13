@@ -201,6 +201,8 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
           listingId={listing.id}
           priceLabel={formatPriceUZS(listing.price)}
           authenticated={viewer !== null}
+          telegramLinked={viewer?.telegramLinked ?? false}
+          botUsername={(process.env.NEXT_PUBLIC_TELEGRAM_BOT ?? process.env.TELEGRAM_BOT_USERNAME ?? '').replace('@', '')}
           isOwner={viewer?.id === listing.sellerId}
           initialLiked={listing.likedByMe}
           initialLikeCount={listing.likeCount}

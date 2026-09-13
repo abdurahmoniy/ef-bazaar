@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+vi.mock('@/app/auth/actions', () => ({ linkTelegramAction: vi.fn() }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({

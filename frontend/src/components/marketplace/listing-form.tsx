@@ -42,6 +42,7 @@ import {
 } from '@/components/marketplace/division-badge';
 import { TipCallout } from '@/components/help/tip-callout';
 import { Button } from '@/components/ui/button';
+import { TelegramRequiredPrompt } from '@/components/auth/telegram-required-prompt';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
@@ -68,6 +69,7 @@ import { getPublicTradeCommissionConfig } from '@/lib/payment-client';
 import type { TradeCommissionConfig } from '@/lib/payment-types';
 
 interface ListingFormProps {
+	botUsername?: string;
 	attributeDefinitions?: readonly ListingAttributeDefinition[];
 	/** When provided, the form runs in edit mode: preloads values and PUTs to the listing id. */
 	initialListing?: ListingResponse;
@@ -142,8 +144,10 @@ const STEP_META: Record<
 export function ListingForm({
 	attributeDefinitions,
 	initialListing,
+	botUsername = '',
 }: ListingFormProps) {
 	const router = useRouter();
+	const [telegramRequired, setTelegramRequired] = useState(false);
 	const editMode = initialListing !== undefined;
 	// Save first. The dedicated advertising page owns any paid order.
 	const [advertising, setAdvertising] = useState(false);
@@ -340,6 +344,10 @@ export function ListingForm({
 
 			if (!response.ok) {
 				const payload = await safeJson(response);
+				if (payload && typeof payload === 'object' && 'code' in payload && payload.code === 'telegram_required') {
+					setTelegramRequired(true);
+					return;
+				}
 				setSubmitError(
 					response.status === 401 || response.status === 403
 						? 'Kirish talab qilinadi'
@@ -416,6 +424,9 @@ export function ListingForm({
 
 	return (
 		<div className='space-y-3 pb-4'>
+			{telegramRequired && (
+				<TelegramRequiredPrompt purpose="listing" botUsername={botUsername} onClose={() => setTelegramRequired(false)} />
+			)}
 			{/* Top Seamless Progress Track */}
 			<div className='h-1 w-full overflow-hidden rounded-full bg-muted/40'>
 				<div

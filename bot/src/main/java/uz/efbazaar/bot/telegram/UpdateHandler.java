@@ -19,6 +19,7 @@ import uz.efbazaar.bot.telegram.TelegramApiClient.WebAppButton;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Telegram dan kelgan update larni qayta ishlaydi.
@@ -83,11 +84,20 @@ public class UpdateHandler {
                 pendingReferrals.remember(message.path("from").path("id").asLong(), code);
             }
             sendStart(chatId);
-            // Salomlashishdan KEYIN alohida xabar. Bitta xabarga
-            // qo'shsak, /start matni va qo'llanmalar bir-birini bosardi;
-            // ustiga banner qo'yilgan bo'lsa izoh chegarasi 1024 ga
-            // tushadi va matn kesilardi.
-            guides.sendList(chatId);
+
+            UUID guideId = guidePayload(text);
+            if (guideId != null) {
+                boolean sent = guides.sendGuide(chatId, guideId);
+                if (!sent) {
+                    guides.sendList(chatId);
+                }
+            } else {
+                // Salomlashishdan KEYIN alohida xabar. Bitta xabarga
+                // qo'shsak, /start matni va qo'llanmalar bir-birini bosardi;
+                // ustiga banner qo'yilgan bo'lsa izoh chegarasi 1024 ga
+                // tushadi va matn kesilardi.
+                guides.sendList(chatId);
+            }
         } else if (text.startsWith("/help")) {
             sendHelp(chatId);
         } else if (text.startsWith("/partner")) {
@@ -129,6 +139,25 @@ public class UpdateHandler {
 
         String code = payload.substring("ref_".length()).toUpperCase();
         return REFERRAL_CODE.matcher(code).matches() ? code : null;
+    }
+
+    /**
+     * {@code /start guide_<UUID>} dan qo'llanma ID sini ajratadi.
+     */
+    static UUID guidePayload(String text) {
+        if (text == null) return null;
+        String[] parts = text.trim().split("\\s+", 2);
+        if (parts.length < 2) return null;
+
+        String payload = parts[1].trim();
+        if (!payload.startsWith("guide_")) return null;
+
+        String rawId = payload.substring("guide_".length()).trim();
+        try {
+            return UUID.fromString(rawId);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /**

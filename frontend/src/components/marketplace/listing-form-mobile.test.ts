@@ -25,6 +25,7 @@ vi.mock('@/lib/payment-client', () => ({
   getPublicTradeCommissionConfig: () => Promise.resolve(null),
 }));
 
+vi.mock('@/app/auth/actions', () => ({ linkTelegramAction: vi.fn() }));
 import { ListingForm } from './listing-form';
 
 describe('ListingForm mobile zooming and keyboard protection', () => {

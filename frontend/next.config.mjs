@@ -79,6 +79,15 @@ function buildContentSecurityPolicy() {
     'https://mc.yandex.com',
   ];
 
+  const mediaSrc = [
+    "'self'",
+    'blob:',
+    'data:',
+    siteOrigin,
+    'https://efbazaar.uz',
+    'https://*.efbazaar.uz',
+  ];
+
   return [
     "default-src 'self'",
     `script-src ${scriptSrc.join(' ')}`,
@@ -87,6 +96,7 @@ function buildContentSecurityPolicy() {
     "style-src 'self' 'unsafe-inline' https://accounts.google.com",
     "font-src 'self' data:",
     `img-src ${imgSrc.join(' ')}`,
+    `media-src ${mediaSrc.join(' ')}`,
     `connect-src ${connectSrc.join(' ')}`,
     `frame-src ${frameSrc.join(' ')}`,
     "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org",

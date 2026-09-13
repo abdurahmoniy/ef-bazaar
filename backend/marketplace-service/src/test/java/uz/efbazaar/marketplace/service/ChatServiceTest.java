@@ -36,6 +36,7 @@ class ChatServiceTest {
 
     @Mock uz.efbazaar.marketplace.trust.BlacklistGuard blacklistGuard;
     @Mock ChatAccountRequestService accountRequests;
+    @Mock uz.efbazaar.marketplace.security.AuthSummaryClient telegramUsers;
     @InjectMocks ChatService service;
 
     private UUID sellerId;
@@ -269,5 +270,16 @@ class ChatServiceTest {
         when(participants.findByChatIdAndUserId(chatId, buyerId)).thenReturn(Optional.of(mine));
 
         assertThat(service.countUnread(chatId, buyerId)).isZero();
+    }
+
+    @Test
+    void requiresTelegramBeforeAnySideEffects() {
+        org.mockito.Mockito.doThrow(new MarketplaceException(
+                org.springframework.http.HttpStatus.FORBIDDEN, "telegram_required", "Telegramni ulang"))
+                .when(telegramUsers).requireTelegramLinked(buyerId);
+        assertThatThrownBy(() -> service.start(buyerId, listingId))
+                .isInstanceOfSatisfying(MarketplaceException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo("telegram_required"));
+        org.mockito.Mockito.verifyNoInteractions(chats, accountRequests, participants);
     }
 }

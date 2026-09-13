@@ -6,6 +6,7 @@ import { useState, useTransition } from 'react';
 import { CheckCircle2, Flag, Heart, MessageCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { TelegramRequiredPrompt } from '@/components/auth/telegram-required-prompt';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { formatCompactNumber } from '@/lib/marketplace-format';
 import { markListingSold, toggleListingLike } from '@/lib/marketplace-actions';
@@ -24,6 +25,8 @@ interface ActionResult {
 interface ListingActionsProps {
   listingId: string;
   authenticated: boolean;
+  telegramLinked?: boolean;
+  botUsername?: string;
   isOwner?: boolean;
   initialLiked?: boolean | null;
   initialLikeCount: number;
@@ -40,6 +43,8 @@ interface ListingActionsProps {
 export function ListingActions({
   listingId,
   authenticated,
+  telegramLinked = false,
+  botUsername = '',
   isOwner = false,
   initialLiked,
   initialLikeCount,
@@ -48,6 +53,7 @@ export function ListingActions({
   priceLabel,
 }: ListingActionsProps) {
   const router = useRouter();
+  const [telegramRequired, setTelegramRequired] = useState(false);
   const [liked, setLiked] = useState(Boolean(initialLiked));
   const [likeCount, setLikeCount] = useState(initialLikeCount);
   const [currentStatus, setCurrentStatus] = useState<ListingStatus>(status);
@@ -87,10 +93,24 @@ export function ListingActions({
       router.push(`/auth/login?from=/marketplace/${listingId}`);
       return;
     }
+    if (!telegramLinked) {
+      setTelegramRequired(true);
+      return;
+    }
     startTransition(async () => {
       setMessage(null);
-      const result = await startChat(listingId);
+      let result: ActionResult;
+      try {
+        result = await startChat(listingId);
+      } catch {
+        setMessage({ tone: 'error', text: "Tarmoq xatoligi. Qayta urinib ko'ring." });
+        return;
+      }
       if (!result.ok) {
+        if (result.code === 'telegram_required') {
+          setTelegramRequired(true);
+          return;
+        }
         setMessage({ tone: 'error', text: result.error ?? 'Chat ochilmadi' });
         return;
       }
@@ -98,6 +118,10 @@ export function ListingActions({
       else setMessage({ tone: 'ok', text: 'Chat ochildi' });
     });
   }
+
+  const telegramPrompt = telegramRequired ? (
+    <TelegramRequiredPrompt purpose="contact" botUsername={botUsername} onClose={() => setTelegramRequired(false)} />
+  ) : null;
 
   function handleLike() {
     if (!authenticated) return router.push(`/auth/login?from=/marketplace/${listingId}`);
@@ -115,6 +139,7 @@ export function ListingActions({
   if (variant === 'bar') {
     return (
       <div className="space-y-1.5">
+        {telegramPrompt}
         {message && (
           <p
             className={cn(
@@ -332,6 +357,7 @@ export function ListingActions({
 
   return (
     <div className="space-y-2">
+      {telegramPrompt}
       <Button
         type="button"
         size="lg"

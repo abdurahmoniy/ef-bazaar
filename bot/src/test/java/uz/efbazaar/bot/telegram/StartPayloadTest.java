@@ -56,4 +56,21 @@ class StartPayloadTest {
         String code = "K7M4XQP2";
         assertThat(UpdateHandler.startPayload("/start " + "ref_" + code)).isEqualTo(code);
     }
+
+    @Test
+    @DisplayName("extracts guide UUID payload")
+    void extractsGuidePayload() {
+        java.util.UUID id = java.util.UUID.randomUUID();
+        assertThat(UpdateHandler.guidePayload("/start guide_" + id)).isEqualTo(id);
+    }
+
+    @Test
+    @DisplayName("invalid guide payload returns null")
+    void invalidGuidePayload() {
+        assertThat(UpdateHandler.guidePayload("/start guide_not-a-uuid")).isNull();
+        assertThat(UpdateHandler.guidePayload("/start guide_")).isNull();
+        assertThat(UpdateHandler.guidePayload("/start ref_ABCD1234")).isNull();
+        assertThat(UpdateHandler.guidePayload("/start")).isNull();
+        assertThat(UpdateHandler.guidePayload(null)).isNull();
+    }
 }
