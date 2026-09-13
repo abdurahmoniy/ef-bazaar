@@ -55,6 +55,10 @@ public class ByCardDebitService {
             String rawText) {}
 
     @Transactional
+    /**
+     * @return the stored observation, or {@code null} when the card is not the
+     *         platform's — in which case nothing at all is recorded
+     */
     public CardDebitObservation ingest(CardDebitEvent event) {
         Optional<CardDebitObservation> seen =
                 debits.findByTelegramMessageId(event.telegramMessageId());
@@ -63,12 +67,21 @@ public class ByCardDebitService {
             return seen.get();
         }
 
-        Optional<PlatformCard> card = cards.findActiveByLast4(event.cardLast4());
+        // A personal card of the account owner: not recorded at all. Its
+        // balance, and where the owner sends their own money, are none of the
+        // platform's business and must not sit in a table every admin can read.
+        // A deactivated platform card is still ours — see findOwnedByLast4.
+        Optional<PlatformCard> card = cards.findOwnedByLast4(event.cardLast4());
+        if (card.isEmpty()) {
+            log.debug("Debit on card *{} is not a platform card — not recorded",
+                    event.cardLast4());
+            return null;
+        }
 
         CardDebitObservation obs = CardDebitObservation.builder()
                 .id(UUID.randomUUID())
                 .telegramMessageId(event.telegramMessageId())
-                .cardId(card.map(PlatformCard::getId).orElse(null))
+                .cardId(card.get().getId())
                 .cardLast4(event.cardLast4())
                 .amountTiyin(event.amountTiyin())
                 .commissionTiyin(event.commissionTiyin())
@@ -80,15 +93,6 @@ public class ByCardDebitService {
                 .build();
 
         CardDebitObservation saved = debits.save(obs);
-
-        if (card.isEmpty()) {
-            // Not our card. The row is kept — a movement we cannot explain is
-            // worth having on record — but nobody is paged about somebody
-            // else's money.
-            log.info("Debit on card *{} which the platform does not own — recorded only",
-                    event.cardLast4());
-            return saved;
-        }
 
         if (event.cardBalanceTiyin() != null) {
             cards.recordBalance(card.get().getId(), event.cardBalanceTiyin(), event.observedAt());

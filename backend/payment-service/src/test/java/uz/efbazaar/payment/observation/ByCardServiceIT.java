@@ -144,10 +144,37 @@ class ByCardServiceIT extends AbstractIntegrationIT {
                 .isEqualTo(InvoiceStatus.PENDING);
     }
 
+    /**
+     * The userbot account also receives notices for its owner's personal cards.
+     * Nothing about them may be stored: not even an IGNORED row, which used to
+     * keep the full bank text readable by every admin.
+     */
     @Test
-    void aCardWeDoNotOwnIsIgnored() {
+    void aPersonalCardLeavesNoTraceAtAll() {
+        long before = observations.count();
+
         var obs = byCard.ingest(event("9999", 10_000_000));
-        assertThat(obs.getStatus()).isEqualTo(ObservationStatus.IGNORED);
+
+        assertThat(obs).isNull();
+        assertThat(observations.count()).isEqualTo(before);
+    }
+
+    /**
+     * A retired platform card is still the platform's. An invoice issued just
+     * before deactivation is still being paid into it; dropping that as a
+     * stranger's card would lose real platform money without a trace.
+     */
+    @Test
+    void aCreditOnADeactivatedPlatformCardIsStillRecorded() {
+        var card = cardRepo.findByLast4AndActiveTrue("0101").orElseThrow();
+        cards.deactivate(UUID.randomUUID(), card.getId());
+
+        var obs = byCard.ingest(event("0101", 4_321_000));
+
+        assertThat(obs).isNotNull();
+        assertThat(obs.getStatus())
+                .as("no live invoice to match, so it waits for an admin")
+                .isEqualTo(ObservationStatus.UNMATCHED);
     }
 
     @Test

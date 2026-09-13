@@ -107,12 +107,6 @@ describe('movementTotals', () => {
 });
 
 describe('movementBadge', () => {
-  /** The strangest row on the screen: the userbot is watching somebody else's card. */
-  it('flags a debit on a card the platform does not own', () => {
-    expect(movementBadge(movement({ direction: 'OUT', ownCard: false })))
-      .toBe('Bizning karta emas');
-  });
-
   it('flags a credit nobody has accounted for', () => {
     expect(movementBadge(movement({ creditStatus: 'UNMATCHED' })))
       .toBe('Tekshirilmagan');
@@ -121,13 +115,9 @@ describe('movementBadge', () => {
   /** A badge on every row is a badge on none — the list is scanned, not read. */
   it('leaves an ordinary movement unmarked', () => {
     expect(movementBadge(movement({ creditStatus: 'MATCHED' }))).toBeNull();
-    expect(movementBadge(movement({ direction: 'OUT', ownCard: true }))).toBeNull();
+    expect(movementBadge(movement({ direction: 'OUT' }))).toBeNull();
   });
 
-  /** A credit carries no ownCard at all; absent must not read as false. */
-  it('does not flag a credit for a missing ownCard', () => {
-    expect(movementBadge(movement({ direction: 'IN', creditStatus: 'MATCHED' }))).toBeNull();
-  });
 });
 
 describe('groupByDay', () => {

@@ -63,6 +63,10 @@ public class ByCardService {
             Instant observedAt,
             String rawText) {}
 
+    /**
+     * @return the stored observation, or {@code null} when the card is not the
+     *         platform's — in which case nothing at all is recorded
+     */
     @Transactional
     public CardCreditObservation ingest(CardCreditEvent event) {
         Optional<CardCreditObservation> seen =
@@ -70,6 +74,18 @@ public class ByCardService {
         if (seen.isPresent()) {
             log.debug("Telegram message {} already ingested", event.telegramMessageId());
             return seen.get();
+        }
+
+        // The userbot account also receives notices for the owner's PERSONAL
+        // cards. Those are not the platform's business: nothing is stored, so
+        // their balances and counterparties never reach this database or an
+        // admin screen. They used to be kept as IGNORED rows with the full bank
+        // text, readable by every admin.
+        Optional<PlatformCard> card = cards.findOwnedByLast4(event.cardLast4());
+        if (card.isEmpty()) {
+            log.debug("Credit on card *{} is not a platform card — not recorded",
+                    event.cardLast4());
+            return null;
         }
 
         CardCreditObservation obs = CardCreditObservation.builder()
@@ -83,14 +99,6 @@ public class ByCardService {
                 .status(ObservationStatus.UNMATCHED)
                 .createdAt(Instant.now())
                 .build();
-
-        Optional<PlatformCard> card = cards.findActiveByLast4(event.cardLast4());
-        if (card.isEmpty()) {
-            // Not our card. Nothing to reconcile and nothing to credit.
-            obs.setStatus(ObservationStatus.IGNORED);
-            obs.setResolutionNote("Bu karta platformaga tegishli emas");
-            return observations.save(obs);
-        }
 
         if (event.cardBalanceTiyin() != null) {
             cards.recordBalance(card.get().getId(), event.cardBalanceTiyin(), event.observedAt());

@@ -79,11 +79,8 @@ export function movementTotals(movements: CardMovement[]): MovementTotals {
  * badge on none — the list is scanned, not read.
  */
 export function movementBadge(movement: CardMovement): string | null {
-  // A debit on a card we do not own is the strangest thing on this screen:
-  // the userbot is watching a chat that carries somebody else's card.
-  if (movement.direction === 'OUT' && movement.ownCard === false) {
-    return "Bizning karta emas";
-  }
+  // No "not our card" case: payment-service no longer stores movements on the
+  // account owner's personal cards, so every row here is a platform card.
   if (movement.creditStatus === 'UNMATCHED') return 'Tekshirilmagan';
   if (movement.creditStatus === 'IGNORED') return "E'tiborsiz qoldirilgan";
   return null;
