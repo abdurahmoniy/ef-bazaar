@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { AlertCircle, Loader2, RotateCcw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 import { isSafeInternalPath } from '@/lib/safe-redirect';
 
@@ -23,6 +24,7 @@ const TELEGRAM_HASH_KEYS = [
 ] as const;
 const HYDRATION_INTERVAL_MS = 100;
 const HYDRATION_ATTEMPTS = 30;
+const LOGIN_TIMEOUT_MS = 15_000;
 const SUBMITTED_INIT_DATA_STORAGE_KEY = 'efbazaar.telegramWebAppAutoLogin.submittedInitData';
 
 export function readMiniAppInitData(): string | null {
@@ -80,6 +82,21 @@ function writeSubmittedInitDataMarker(marker: string) {
   }
 }
 
+async function hasMatchingSession(initData: string, signal: AbortSignal): Promise<boolean> {
+  try {
+    const user = JSON.parse(new URLSearchParams(initData).get('user') ?? 'null');
+    if (!Number.isSafeInteger(user?.id) || user.id <= 0) return false;
+    const response = await fetch('/api/telegram-webapp', {
+      credentials: 'include', cache: 'no-store', signal,
+    });
+    if (!response.ok) return false;
+    const session = await response.json();
+    return session.telegramId === user.id;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Auth'dan keyin qayerga qaytish:
  * 1. `?from=/...` bo'lsa (login sahifasiga server redirect qo'ygan) — o'sha yerga.
@@ -109,29 +126,64 @@ function resolvePostLoginTarget(): string {
  * komponent ko'rinmaydi va oddiy UX'ga ta'sir qilmaydi.
  */
 export function TelegramWebAppAutoLogin() {
+  const router = useRouter();
   const [state, setState] = React.useState<'idle' | 'authing' | 'error'>('idle');
   const [error, setError] = React.useState<string | null>(null);
   const submittedRef = React.useRef(false);
+  const initDataRef = React.useRef<string | null>(null);
+  const formRef = React.useRef<HTMLFormElement | null>(null);
   const [retryKey, setRetryKey] = React.useState(0);
+
+  React.useEffect(() => {
+    if (state !== 'authing') return;
+    const timeout = window.setTimeout(() => {
+      setError('Telegram orqali kirish cho‘zilib ketdi. Qayta urinib ko‘ring.');
+      setState('error');
+    }, LOGIN_TIMEOUT_MS);
+    return () => window.clearTimeout(timeout);
+  }, [state, retryKey]);
 
   React.useEffect(() => {
     if (submittedRef.current) return;
     const launchContext = hasTelegramLaunchContext();
     let cancelled = false;
     let timer: number | undefined;
+    let sessionTimer: number | undefined;
     let attempts = 0;
+    const controller = new AbortController();
 
-    const submitInitData = (initData: string) => {
+    const submitInitData = async (initData: string) => {
       if (cancelled || submittedRef.current) return;
       const submittedMarker = submittedInitDataMarker(initData);
-      if (!launchContext && readSubmittedInitDataMarker() === submittedMarker) {
-        submittedRef.current = true;
-        return;
-      }
+      const previouslySubmitted = !launchContext && readSubmittedInitDataMarker() === submittedMarker;
+      initDataRef.current = initData;
+      setState('authing');
+      const matchingSession = await Promise.race([
+        hasMatchingSession(initData, controller.signal),
+        new Promise<false>((resolve) => {
+          sessionTimer = window.setTimeout(() => {
+            controller.abort();
+            resolve(false);
+          }, 4000);
+        }),
+      ]);
+      window.clearTimeout(sessionTimer);
+      if (cancelled) return;
       submittedRef.current = true;
       writeSubmittedInitDataMarker(submittedMarker);
       removeTelegramLaunchHash();
-      setState('authing');
+      if (matchingSession) {
+        setState('idle');
+        const target = resolvePostLoginTarget();
+        const current = window.location.pathname + window.location.search + window.location.hash;
+        if (target !== current) router.replace(target);
+        return;
+      }
+      if (previouslySubmitted) {
+        setError('Telegram orqali kirish yakunlanmadi. Qayta urinib ko‘ring.');
+        setState('error');
+        return;
+      }
 
       try {
         const form = document.createElement('form');
@@ -152,6 +204,7 @@ export function TelegramWebAppAutoLogin() {
         addField('framed', window.self !== window.top ? '1' : '0');
 
         document.body.appendChild(form);
+        formRef.current = form;
         form.submit();
       } catch {
         submittedRef.current = false;
@@ -162,7 +215,7 @@ export function TelegramWebAppAutoLogin() {
 
     const attempt = () => {
       if (cancelled || submittedRef.current) return;
-      const initData = readMiniAppInitData();
+      const initData = readMiniAppInitData() ?? initDataRef.current;
       if (initData) {
         submitInitData(initData);
         return;
@@ -182,9 +235,11 @@ export function TelegramWebAppAutoLogin() {
     attempt();
     return () => {
       cancelled = true;
+      controller.abort();
+      window.clearTimeout(sessionTimer);
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [retryKey]);
+  }, [retryKey, router]);
 
   if (state === 'idle') return null;
 
@@ -209,6 +264,10 @@ export function TelegramWebAppAutoLogin() {
         <button
           type="button"
           onClick={() => {
+            submittedRef.current = false;
+            writeSubmittedInitDataMarker('');
+            formRef.current?.remove();
+            formRef.current = null;
             setError(null);
             setState('idle');
             setRetryKey((value) => value + 1);

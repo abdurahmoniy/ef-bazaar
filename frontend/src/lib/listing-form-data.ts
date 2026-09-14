@@ -7,6 +7,7 @@ import type {
 } from './marketplace-types'
 
 export const ATTRIBUTE_FIELD_PREFIX = 'attr.'
+export const MIN_LISTING_PRICE_SOM = 5_000
 
 interface FormAttributeDefinition extends ListingAttributeDefinition {
   legacyFieldName?: string
@@ -191,6 +192,7 @@ export function createListingRequestFromForm(
   if (!Number.isFinite(price)) {
     return "Raqamli maydonlarni to'ldiring"
   }
+  if (price < MIN_LISTING_PRICE_SOM) return "Narx kamida 5 000 so'm bo'lishi kerak."
 
   const attributeResult = collectAttributes(formData, definitions)
   if (typeof attributeResult === 'string') return attributeResult

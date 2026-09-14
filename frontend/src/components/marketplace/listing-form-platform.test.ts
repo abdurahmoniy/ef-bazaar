@@ -43,9 +43,9 @@ async function click(text: string) {
   expect(button, `Button: ${text}`).toBeDefined();
   await act(async () => button!.click());
 }
-async function draft(platform: string, step = 'gameplay') {
+async function draft(platform: string, step = 'gameplay', price = '250000') {
   localStorage.setItem('efbazaar:listing-draft-v2', JSON.stringify({ step, state: {
-    description: 'Account with rare players', price: '250000', priceNegotiable: false, attributes: attributes(platform),
+    description: 'Account with rare players', price, priceNegotiable: false, attributes: attributes(platform),
   } }));
   await act(async () => root.render(createElement(ListingForm, { attributeDefinitions: SEEDED_LISTING_ATTRIBUTE_DEFINITIONS })));
 }
@@ -61,6 +61,22 @@ async function submittedAttributes() {
 }
 
 describe('platform-specific listing wizard', () => {
+  it.each(['0', '4999'])('blocks a listing price of %s so‘m', async (price) => {
+    await draft('STEAM', 'pricing', price);
+    await click('Davom etish');
+    expect(host.querySelector('#price')).not.toBeNull();
+    expect(host.textContent).toContain("Narx kamida 5 000 so'm bo'lishi kerak.");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it.each(['5000', '10000'])('accepts a listing price of %s so‘m', async (price) => {
+    await draft('STEAM', 'pricing', price);
+    const input = host.querySelector<HTMLInputElement>('#price')!;
+    expect(input.min).toBe('5000');
+    expect(input.validity.stepMismatch).toBe(false);
+    await click('Davom etish');
+    expect(host.querySelector('#price')).toBeNull();
+    expect(host.textContent).toContain("E'lon yaratish");
+  });
   it.each(['STEAM', 'PLAYSTATION'])('does not ask %s sellers for mobile fields or block on stale transfer limit', async (platform) => {
     await draft(platform);
     for (const label of mobileLabels) expect(host.textContent).not.toContain(label);

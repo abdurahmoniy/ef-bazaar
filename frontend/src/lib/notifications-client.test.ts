@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { notificationHref, notificationLabel } from './notifications-client';
 import { siteConfig } from './site';
+import { FEATURES } from './feature-flags';
 import type { NotificationResponse } from './marketplace-types';
 
 describe('notification client helpers', () => {
+  const initialHumanAdmin = FEATURES.humanAdmin;
+  afterEach(() => Object.assign(FEATURES, { humanAdmin: initialHumanAdmin }));
+
   it('sends an approved partner to the panel, not back to the application', () => {
     // The panel is where the posting price lives and it starts at zero —
     // a partner who never opens it gives their channel away for free.
@@ -43,6 +47,7 @@ describe('notification client helpers', () => {
   });
 
   it('deep-links trade-admin invitations by trade id before chat id', () => {
+    Object.assign(FEATURES, { humanAdmin: true });
     const notification = {
       id: 'n1',
       type: 'TRADE_ADMIN_INVITED',
@@ -53,6 +58,38 @@ describe('notification client helpers', () => {
     } satisfies NotificationResponse;
 
     expect(notificationHref(notification)).toBe('/trade-admin?tradeId=trade-123');
+  });
+
+  it('keeps old admin invitations out of the disabled workspace', () => {
+    Object.assign(FEATURES, { humanAdmin: false });
+    expect(notificationHref({
+      id: 'invitation', type: 'TRADE_ADMIN_INVITED',
+      tradeId: 'trade-123', chatId: 'chat-123', createdAt: '',
+    })).toBe('/chats/chat-123');
+  });
+
+  it.each([
+    'TRADE_PROPOSAL_CREATED', 'TRADE_STARTED', 'TRADE_EMAIL_CHANGED',
+    'TRADE_PASSWORD_SENT', 'TRADE_SUCCESS', 'TRADE_REJECTED', 'TRADE_ORPHANED',
+  ] as const)('opens the participant chat for %s even with a trade id', (type) => {
+    for (const humanAdmin of [false, true]) {
+      Object.assign(FEATURES, { humanAdmin });
+      expect(notificationHref({
+        id: 'trade-event', type, tradeId: 'trade-123',
+        chatId: 'chat/123', listingId: 'listing-123', createdAt: '',
+      })).toBe('/chats/chat%2F123');
+    }
+  });
+
+  it('falls back to the listing or chats for trade events missing a chat id', () => {
+    const notification = {
+      id: 'old-trade-event', type: 'TRADE_REJECTED',
+      tradeId: 'trade-123', createdAt: '',
+    } satisfies NotificationResponse;
+    expect(notificationHref({ ...notification, listingId: 'listing-123' }))
+      .toBe('/marketplace/listing-123');
+    expect(notificationHref(notification)).toBe('/chats');
+    expect(notificationHref({ ...notification, tradeId: null })).toBeNull();
   });
 
   it('keeps existing chat and listing fallbacks', () => {
@@ -122,7 +159,7 @@ describe('notification client helpers', () => {
     } satisfies NotificationResponse;
 
     expect(notificationLabel(n)).toBe('Sizga yangi savdo taklifi yuborildi');
-    expect(notificationHref(n)).toBe('/trade-admin?tradeId=trade-456');
+    expect(notificationHref(n)).toBe('/chats/chat-456');
 
     const chatNotification = {
       id: 'n7',

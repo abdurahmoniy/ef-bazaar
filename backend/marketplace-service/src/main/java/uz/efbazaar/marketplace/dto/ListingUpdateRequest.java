@@ -17,7 +17,7 @@ public record ListingUpdateRequest(
         @Size(min = 10, max = 4000)
         String description,
 
-        @DecimalMin(value = "0.00", inclusive = true)
+        @DecimalMin(value = "5000.00", inclusive = true, message = "Narx kamida 5 000 so'm bo'lishi kerak.")
         BigDecimal price,
 
         Boolean priceNegotiable,

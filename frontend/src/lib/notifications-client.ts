@@ -1,4 +1,5 @@
 import { siteConfig } from './site';
+import { FEATURES } from './feature-flags';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import type { NotificationResponse, PageResponse } from '@/lib/marketplace-types';
 
@@ -116,8 +117,13 @@ export function notificationHref(n: NotificationResponse): string | null {
   if (n.type === 'TRADE_MAILBOX_RECEIVED' || n.type === 'TRADE_MAILBOX_RETURNED') {
     return siteConfig.mailUrl;
   }
-  if (n.tradeId) return `/trade-admin?tradeId=${encodeURIComponent(n.tradeId)}`;
+  // Only moderator invitations belong in the human-admin workspace. Trade
+  // participants use the chat, including when a notification carries a trade id.
+  if (n.type === 'TRADE_ADMIN_INVITED' && FEATURES.humanAdmin && n.tradeId) {
+    return `/trade-admin?tradeId=${encodeURIComponent(n.tradeId)}`;
+  }
   if (n.chatId) return `/chats/${encodeURIComponent(n.chatId)}`;
   if (n.listingId) return `/marketplace/${encodeURIComponent(n.listingId)}`;
+  if (n.tradeId) return '/chats';
   return null;
 }

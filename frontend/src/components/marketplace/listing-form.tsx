@@ -47,7 +47,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
+import { MIN_LISTING_PRICE_SOM, SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
 import { ChannelPicker } from '@/components/marketplace/channel-picker';
 import { MeasuredBottomBar } from '@/components/marketplace/measured-bottom-bar';
 import { formatAdvertisingPrice, totalPrice, type ChannelCard } from '@/lib/partner-channels';
@@ -1648,9 +1648,10 @@ function PricingStep({
 						id='price'
 						type='number'
 						inputMode='numeric'
-						min={0}
-						step={10000}
-						placeholder='0'
+						min={MIN_LISTING_PRICE_SOM}
+						step={1}
+						placeholder='5000'
+						aria-describedby='listing-price-minimum'
 						value={state.price}
 						onChange={(event) => {
 							let nextVal = event.target.value;
@@ -1671,6 +1672,9 @@ function PricingStep({
 					/>
 				</div>
 
+				<p id='listing-price-minimum' className='text-xs text-muted-foreground'>
+					Eng kam narx: 5 000 so‘m.
+				</p>
 				{priceError && (
 					<p className='flex items-center gap-1 text-[11px] font-bold text-destructive'>
 						<AlertCircle className='h-3.5 w-3.5 shrink-0' />
@@ -2235,8 +2239,8 @@ function validateStep(
 
 	if (step === 'pricing') {
 		const price = Number(state.price);
-		if (!Number.isFinite(price) || price <= 0)
-			errors.push("Narx 0 dan katta bo'lishi kerak.");
+		if (!Number.isFinite(price) || price < MIN_LISTING_PRICE_SOM)
+			errors.push("Narx kamida 5 000 so'm bo'lishi kerak.");
 		if (price > 1_000_000_000) errors.push('Narx juda katta.');
 	}
 
