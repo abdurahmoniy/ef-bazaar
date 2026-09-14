@@ -1,8 +1,7 @@
 import { AppliedFilterChips } from '@/components/marketplace/applied-filter-chips';
 import { ListingFilters, QuickChips } from '@/components/marketplace/listing-filters';
-import { ListingsPagination } from '@/components/marketplace/listings-pagination';
+import { MarketplaceListingFeed } from '@/components/marketplace/marketplace-listing-feed';
 import { MarketplaceFilterSheet } from '@/components/marketplace/marketplace-filter-sheet';
-import { MarketplaceScrollRestorer } from '@/components/marketplace/marketplace-scroll-restorer';
 import {
   MarketplaceResultsRegion,
   MarketplaceToolbar,
@@ -14,7 +13,6 @@ import {
   getMarketplaceEmptyState,
 } from '@/components/marketplace/marketplace-result-state';
 import {
-  ResponsiveListingGrid,
   ResponsiveListingGridSkeleton,
 } from '@/components/marketplace/responsive-listing-grid';
 import { type SortMenuOption } from '@/components/marketplace/sort-menu';
@@ -26,7 +24,6 @@ import {
 } from '@/lib/marketplace-applied-filters';
 import {
   marketplaceHref,
-  setMarketplacePage,
   setMarketplaceSort,
   type MarketplaceView,
 } from '@/lib/marketplace-query';
@@ -131,23 +128,13 @@ export function MarketplaceBrowser({
         ) : page === null || page.content.length === 0 ? (
           <MarketplaceEmptyState state={getMarketplaceEmptyState(rawParams)} />
         ) : (
-          <>
-            <ResponsiveListingGrid
-              listings={page.content}
-              view={view}
-              rawQuery={currentQuery}
-              matchCriteria={activeMatch.criteria}
-            />
-            <MarketplaceScrollRestorer
-              rawQuery={currentQuery}
-              listingIds={page.content.map((listing) => listing.id)}
-            />
-            <ListingsPagination
-              page={page.page}
-              totalPages={page.totalPages}
-              buildHref={(nextPage) => marketplaceHref(setMarketplacePage(rawParams, nextPage))}
-            />
-          </>
+          <MarketplaceListingFeed
+            initialPage={page}
+            filters={filters}
+            view={view}
+            rawQuery={currentQuery}
+            matchCriteria={activeMatch.criteria}
+          />
         )}
       </MarketplaceResultsRegion>
     </div>

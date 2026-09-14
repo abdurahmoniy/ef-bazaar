@@ -1,12 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { ApiException } from '@/lib/api';
-import { applyAuthCookies, telegramWebAppAuthTokens } from '@/lib/auth';
+import { applyAuthCookies, getMe, telegramWebAppAuthTokens } from '@/lib/auth';
 import { resolvePostLoginPath } from '@/lib/safe-redirect';
 import { telegramAuthErrorHref } from '@/lib/telegram-auth-error';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+// Cookie presence alone is insufficient: validate the session and compare its
+// Telegram identity before the client skips a redundant login navigation.
+export async function GET(): Promise<NextResponse> {
+  const user = await getMe().catch(() => null);
+  return NextResponse.json(
+    { telegramId: user?.telegramId ?? null },
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
+}
 
 /**
  * Telegram Mini App auto-login — TOP-LEVEL navigatsiya endpoint'i.

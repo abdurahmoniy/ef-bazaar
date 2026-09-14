@@ -8,6 +8,19 @@ import {
 import type { ListingAttributeDefinition } from './marketplace-types';
 
 describe('createListingRequestFromForm', () => {
+  it.each(['0', '4999'])('rejects listing prices below 5,000 so‘m (%s)', (price) => {
+    const form = new FormData();
+    form.set('description', 'Account with rare players');
+    form.set('price', price);
+    expect(createListingRequestFromForm(form, [])).toBe("Narx kamida 5 000 so'm bo'lishi kerak.");
+  });
+
+  it('accepts a listing priced at exactly 5,000 so‘m', () => {
+    const form = new FormData();
+    form.set('description', 'Account with rare players');
+    form.set('price', '5000');
+    expect(createListingRequestFromForm(form, [])).toMatchObject({ price: 5000 });
+  });
   it('allows up to thirty searchable valuable cards', () => {
     expect(SEEDED_LISTING_ATTRIBUTE_DEFINITIONS.find((definition) =>
       definition.key === 'valuable_players')?.constraints?.max_items).toBe(30);

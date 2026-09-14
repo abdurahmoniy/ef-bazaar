@@ -1,23 +1,15 @@
 'use client';
 
-import { useMemo } from 'react';
 import {
-  AlertTriangle,
-  ArrowUpRight,
   CheckCircle2,
   ChevronDown,
-  ChevronUp,
+  ChevronRight,
   Clock,
-  ExternalLink,
   Handshake,
   History,
-  KeyRound,
-  Mail,
-  RefreshCw,
   ShieldCheck,
   Sparkles,
   UserCog,
-  X,
 } from 'lucide-react';
 
 import { CountdownText } from '@/components/trade-admin/countdown-text';
@@ -26,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import { isHumanProposal, isHumanTrade } from '@/lib/trade-human';
 import {
+  hasClearedCurrentStep,
   isSwap,
   TRADE_KIND_LABEL_UZ,
 } from '@/lib/trade-swap';
@@ -40,7 +33,6 @@ import { useTradeContext } from './trade-context';
 export function TradePinnedBar() {
   const {
     requiresAdminHandoff,
-    trades,
     activeTrade,
     lastFinished,
     proposal,
@@ -48,40 +40,34 @@ export function TradePinnedBar() {
     setStartingNew,
     accountRequest,
     isSeller,
-    role,
     setShowAcceptModal,
     setShowProposeModal,
     setIsDrawerOpen,
-    isDrawerOpen,
-    scrollToTradePanel,
   } = useTradeContext();
 
   // 1. Pending Proposal Case (can render immediately even on SSR if initialPendingProposal is provided)
   if (proposal) {
     const isHuman = isHumanProposal(proposal);
     return (
-      <div className="sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20 border-b border-primary/20 bg-primary/10 px-3 py-2 backdrop-blur-md transition-all md:top-[3.5rem]">
+      <div className="shrink-0 border-b border-primary/20 bg-primary/10 px-3 py-2 backdrop-blur-md transition-all">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
-          <div
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
+            aria-label="Savdo taklifi tafsilotlari"
             onClick={() => setIsDrawerOpen(true)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') setIsDrawerOpen(true);
-            }}
-            className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/20 text-primary">
               <Handshake className="h-4 w-4" />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                 <span className="truncate text-xs font-bold text-foreground">
                   {isSwap(proposal.kind)
                     ? `Almashish (${TRADE_KIND_LABEL_UZ[proposal.kind ?? 'SWAP']})`
                     : 'Savdo taklifi'}
                 </span>
-                <span className="shrink-0 text-xs font-black text-primary">
+                <span className="whitespace-nowrap text-xs font-semibold text-foreground">
                   {formatPriceUZS(proposal.priceUzs)}
                 </span>
                 {isHuman && (
@@ -102,14 +88,14 @@ export function TradePinnedBar() {
                 )}
               </p>
             </div>
-          </div>
+          </button>
 
           <div className="flex shrink-0 items-center gap-1.5">
             {!isSeller && (
               <Button
                 type="button"
                 size="sm"
-                className="h-8 px-2.5 text-xs font-semibold shadow-sm"
+                className="min-h-11 px-2.5 text-xs font-semibold shadow-sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (requiresAdminHandoff) setIsDrawerOpen(true);
@@ -124,12 +110,12 @@ export function TradePinnedBar() {
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 px-2 text-xs"
+              className="min-h-11 min-w-11 px-2 text-xs"
               onClick={() => setIsDrawerOpen(true)}
               aria-label="Savdo tafsilotlari"
             >
-              Batafsil
-              <ChevronDown className="ml-1 h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only">Batafsil</span>
+              <ChevronDown className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
@@ -147,16 +133,13 @@ export function TradePinnedBar() {
     const isSuccess = lastFinished.state === 'SUCCESS';
     const isRejected = lastFinished.state === 'REJECTED';
     return (
-      <div className="sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20 border-b border-border bg-muted/70 px-3 py-1.5 backdrop-blur-md md:top-[3.5rem]">
+      <div className="shrink-0 border-b border-border bg-muted/70 px-3 py-1.5 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
-          <div
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
+            aria-label="Oxirgi savdo tafsilotlari"
             onClick={() => setIsDrawerOpen(true)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') setIsDrawerOpen(true);
-            }}
-            className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span
               className={cn(
@@ -182,13 +165,13 @@ export function TradePinnedBar() {
                 ({formatPriceUZS(lastFinished.priceUzs)})
               </span>
             </div>
-          </div>
+          </button>
           <div className="flex shrink-0 items-center gap-1.5">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-7 px-2 text-[11px]"
+              className="min-h-11 px-2 text-[11px]"
               onClick={() => setStartingNew(true)}
             >
               Yangi savdo
@@ -197,10 +180,11 @@ export function TradePinnedBar() {
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 px-1.5 text-[11px]"
+              className="min-h-11 min-w-11 px-1.5 text-[11px]"
               onClick={() => setIsDrawerOpen(true)}
             >
-              Ko'rish
+              <span className="sr-only sm:not-sr-only">Ko'rish</span>
+              <ChevronDown className="h-3.5 w-3.5 sm:hidden" />
             </Button>
           </div>
         </div>
@@ -211,41 +195,38 @@ export function TradePinnedBar() {
   // 4. Pre-trade / Selected Account Request Case
   if (accountRequest) {
     return (
-      <div className="sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20 border-b border-border/80 bg-card/90 px-3 py-1.5 backdrop-blur-md md:top-[3.5rem]">
+      <div className="shrink-0 border-b border-border/80 bg-card/90 px-3 py-1.5 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
-          <div
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
+            aria-label="So‘ralgan akkount tafsilotlari"
             onClick={() => setIsDrawerOpen(true)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') setIsDrawerOpen(true);
-            }}
-            className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
               <Handshake className="h-3.5 w-3.5" />
             </span>
             <div className="min-w-0 flex-1">
-              <span className="truncate text-xs font-semibold text-foreground">
+              <span className="block text-xs font-semibold text-foreground">
                 {isSeller ? 'So‘ralgan akkount' : 'Siz so‘ragan akkount'}
               </span>
               {accountRequest.listing && (
-                <span className="ml-1.5 text-xs font-bold text-primary">
+                <span className="block whitespace-nowrap text-xs text-muted-foreground">
                   {formatPriceUZS(accountRequest.listing.price)}
                 </span>
               )}
             </div>
-          </div>
+          </button>
           <div className="flex shrink-0 items-center gap-1.5">
             {requiresAdminHandoff ? (
-              <Button type="button" size="sm" className="h-7 px-2.5 text-[11.5px]" onClick={() => setIsDrawerOpen(true)}>
+              <Button type="button" size="sm" className="min-h-11 px-2.5 text-[11.5px]" onClick={() => setIsDrawerOpen(true)}>
                 Adminga murojaat
               </Button>
             ) : isSeller ? (
               <Button
                 type="button"
                 size="sm"
-                className="h-7 px-2.5 text-[11.5px]"
+                className="min-h-11 px-2.5 text-[11.5px]"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowProposeModal(true);
@@ -262,10 +243,11 @@ export function TradePinnedBar() {
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 px-1.5 text-[11px]"
+              className="min-h-11 min-w-11 px-1.5 text-[11px]"
               onClick={() => setIsDrawerOpen(true)}
             >
-              Ko'rish
+              <span className="sr-only sm:not-sr-only">Ko'rish</span>
+              <ChevronDown className="h-3.5 w-3.5 sm:hidden" />
             </Button>
           </div>
         </div>
@@ -276,7 +258,7 @@ export function TradePinnedBar() {
   // 5. Default initial state - subtle prompt to start trade if role is seller
   if (isSeller) {
     return (
-      <div className="sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20 border-b border-border/80 bg-card/85 px-3 py-1.5 backdrop-blur-md md:top-[3.5rem]">
+      <div className="shrink-0 border-b border-border/80 bg-card/85 px-3 py-1.5 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
@@ -290,7 +272,7 @@ export function TradePinnedBar() {
             type="button"
             size="sm"
             variant="outline"
-            className="h-7 px-2.5 text-xs"
+            className="min-h-11 px-2.5 text-xs"
             onClick={() => setShowProposeModal(true)}
           >
             Taklif yuborish
@@ -304,113 +286,84 @@ export function TradePinnedBar() {
 }
 
 function ActiveTradePinnedBar({ trade }: { trade: TradeResponse }) {
-  const { viewerId, setIsDrawerOpen } = useTradeContext();
+  const { viewerId, setIsDrawerOpen, isDrawerOpen } = useTradeContext();
   const isHuman = isHumanTrade(trade);
   const isSeller = trade.sellerId === viewerId;
   const isBuyer = trade.buyerId === viewerId;
-  const shortId = trade.id.slice(0, 8);
+  const viewerRole = isSeller ? 'SELLER' : isBuyer ? 'BUYER' : null;
+  const canTransfer = isSeller || (isBuyer && isSwap(trade.kind));
+  const canVerify = isBuyer || (isSeller && isSwap(trade.kind));
+  const confirmed = isSeller ? trade.sellerConfirmedAt : isBuyer ? trade.buyerConfirmedAt : null;
   const terminal = isTerminalState(trade.state);
+  let nextStep = TRADE_STATE_LABEL_UZ[trade.state];
+  let actionRequired = false;
 
-  const quickActionText = useMemo(() => {
+  if (hasClearedCurrentStep(trade, viewerRole) || (trade.state === 'WAITING_CLOSE_CONFIRM' && confirmed)) {
+    nextStep = 'Ikkinchi taraf kutilmoqda';
+  } else {
     switch (trade.state) {
       case 'WAITING_EMAIL_CHANGE':
-        return isSeller ? "Email o'zgartirish" : 'Sotuvchini kuting';
+        nextStep = canTransfer ? 'Emailni almashtiring' : 'Sotuvchi emailni almashtirmoqda';
+        actionRequired = canTransfer;
+        break;
       case 'VERIFYING_KONAMI_LINK':
-        return isSeller ? 'Konami tekshiruv' : 'Tekshirilmoqda';
+        nextStep = canTransfer ? 'Konami tekshiruvini bajaring' : 'Konami tekshirilmoqda';
+        actionRequired = canTransfer;
+        break;
       case 'WAITING_PASSWORD':
-        return isSeller ? 'Parol kiritish' : 'Parol kutilmoqda';
+        nextStep = canTransfer ? 'Konami parolini yuboring' : 'Sotuvchidan parol kutilmoqda';
+        actionRequired = canTransfer;
+        break;
       case 'WAITING_BUYER_VERIFY':
-        return isBuyer ? 'Parolni ochish' : 'Xaridorni kuting';
+        nextStep = canVerify ? 'Akkountni tekshiring' : 'Xaridor akkountni tekshirmoqda';
+        actionRequired = canVerify;
+        break;
       case 'WAITING_ADMIN':
-        return isSeller ? 'Admin tanlash' : 'Admin kutilmoqda';
+        nextStep = isSeller ? 'Adminni tanlang' : 'Admin kutilmoqda';
+        actionRequired = isSeller;
+        break;
       case 'WAITING_CLOSE_CONFIRM':
-        return 'Tasdiqlash';
-      case 'SUCCESS':
-        return 'Muvaffaqiyatli';
-      default:
-        return 'Batafsil';
+        nextStep = 'Savdoni tasdiqlang';
+        actionRequired = isSeller || isBuyer;
+        break;
     }
-  }, [trade.state, isSeller, isBuyer]);
-
-  const highlightAction =
-    (trade.state === 'WAITING_EMAIL_CHANGE' && isSeller) ||
-    (trade.state === 'VERIFYING_KONAMI_LINK' && isSeller) ||
-    (trade.state === 'WAITING_PASSWORD' && isSeller) ||
-    (trade.state === 'WAITING_BUYER_VERIFY' && isBuyer) ||
-    (trade.state === 'WAITING_CLOSE_CONFIRM');
+  }
 
   return (
-    <div
-      className={cn(
-        'sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-20 border-b backdrop-blur-md transition-all md:top-[3.5rem]',
-        highlightAction
-          ? 'border-primary/30 bg-primary/10 shadow-sm'
-          : 'border-border/80 bg-card/95',
-      )}
-    >
-      <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-3 py-2">
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => setIsDrawerOpen(true)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') setIsDrawerOpen(true);
-          }}
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
-        >
-          <span
-            className={cn(
-              'grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs',
-              isHuman
-                ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
-                : 'bg-primary/20 text-primary',
+    <div className={cn('shrink-0 border-b border-border/80', actionRequired ? 'bg-primary/5' : 'bg-card')}>
+      <button
+        type="button"
+        aria-label="Savdo tafsilotlari"
+        aria-expanded={Boolean(isDrawerOpen)}
+        onClick={() => setIsDrawerOpen(true)}
+        className="mx-auto flex min-h-14 w-full max-w-3xl items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      >
+        <span className="hidden h-8 w-8 shrink-0 place-items-center rounded-full bg-muted text-foreground sm:grid" aria-hidden="true">
+          {isHuman ? <UserCog className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+        </span>
+        <span className="grid min-w-0 flex-1 gap-1">
+          <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <span className="whitespace-nowrap text-sm font-semibold text-foreground">
+              {trade.kind === 'SWAP' ? 'Akkount almashish' : formatPriceUZS(trade.priceUzs)}
+            </span>
+            {trade.stateDeadline && !terminal && (
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+                <Clock className="h-3 w-3" aria-hidden="true" />
+                <CountdownText until={trade.stateDeadline} prefix="Qoldi:" />
+              </span>
             )}
-          >
-            {isHuman ? <UserCog className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
           </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <span className="truncate text-xs font-bold text-foreground">
-                Savdo · {shortId}
-              </span>
-              <span className="shrink-0 text-xs font-black text-primary">
-                {formatPriceUZS(trade.priceUzs)}
-              </span>
-              <Badge
-                variant={terminal ? 'muted' : 'verified'}
-                className="hidden py-0 text-[10px] sm:inline-flex"
-              >
-                {TRADE_STATE_LABEL_UZ[trade.state]}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
-              <span className="truncate sm:hidden">{TRADE_STATE_LABEL_UZ[trade.state]}</span>
-              {trade.stateDeadline && !terminal && (
-                <span className="flex items-center gap-0.5 text-primary">
-                  <Clock className="h-3 w-3" />
-                  <CountdownText until={trade.stateDeadline} prefix="Qoldi: " />
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            type="button"
-            size="sm"
-            variant={highlightAction ? 'default' : 'outline'}
-            className={cn(
-              'h-8 px-2.5 text-xs font-semibold transition',
-              highlightAction && 'shadow-sm animate-pulse',
-            )}
-            onClick={() => setIsDrawerOpen(true)}
-          >
-            {quickActionText}
-            <ChevronDown className="ml-1 h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
+          <span className="flex items-center justify-between gap-3">
+            <span className={cn('text-xs leading-4', actionRequired ? 'font-medium text-foreground' : 'text-muted-foreground')}>
+              {nextStep}
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-foreground">
+              {actionRequired ? 'Davom etish' : 'Batafsil'}
+              <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </span>
+          </span>
+        </span>
+      </button>
     </div>
   );
 }
