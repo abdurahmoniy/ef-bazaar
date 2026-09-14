@@ -71,6 +71,21 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
     Optional<Trade> findByMailboxId(UUID mailboxId);
 
     /**
+     * Whether a trade still in progress uses this mailbox — as the trade's own
+     * box or as either party's side box in a swap. {@code mailboxes.trade_id}
+     * cannot answer this: placeholder boxes reserved for a trade never set it.
+     */
+    @Query("""
+            SELECT COUNT(t) > 0 FROM Trade t
+             WHERE t.state IN :states
+               AND (t.mailboxId = :mailboxId
+                 OR EXISTS (SELECT s FROM TradeSide s
+                             WHERE s.id.tradeId = t.id AND s.mailboxId = :mailboxId))
+            """)
+    boolean existsLiveWithMailbox(@Param("mailboxId") UUID mailboxId,
+                                  @Param("states") java.util.Collection<TradeState> states);
+
+    /**
      * Live SMART trades for the admin's "Faol savdolar" queue, most recently
      * moved first. HUMAN trades have their own admin surface and a person
      * already working them, so they are left out on purpose.
