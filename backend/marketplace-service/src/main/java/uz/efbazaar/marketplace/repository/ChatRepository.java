@@ -14,6 +14,22 @@ import java.util.UUID;
 
 public interface ChatRepository extends JpaRepository<Chat, UUID> {
 
+    /** Every conversation on the platform, most recently active first — admin read-only view. */
+    Page<Chat> findAllByOrderByLastMessageAtDesc(Pageable pageable);
+
+    /**
+     * Admin search over the name snapshots of either party. {@code pattern} is
+     * a lower-cased LIKE pattern whose own {@code %} / {@code _} are escaped
+     * with a backslash.
+     */
+    @Query("""
+            SELECT c FROM Chat c
+            WHERE LOWER(COALESCE(c.buyerDisplayName, '')) LIKE :pattern ESCAPE '\\'
+               OR LOWER(COALESCE(c.sellerDisplayName, '')) LIKE :pattern ESCAPE '\\'
+            ORDER BY c.lastMessageAt DESC
+            """)
+    Page<Chat> searchByName(@Param("pattern") String pattern, Pageable pageable);
+
     /**
      * The pair's conversation, whichever way round the roles were recorded.
      */
