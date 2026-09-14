@@ -73,6 +73,18 @@ public class ListingChannelPost {
     @Column(name = "replaced_at")
     private Instant replacedAt;
 
+    /**
+     * We deleted this message from the channel because the listing was taken
+     * down, and we may put it back if the listing is restored.
+     *
+     * <p>Deliberately not {@link #replacedAt}: that one means a newer post
+     * superseded this one, which is permanent. This one is reversible, and
+     * folding them together would make a restored post look superseded and it
+     * would never be marked SOLD again.
+     */
+    @Column(name = "removed_at")
+    private Instant removedAt;
+
     @Column(name = "posted_at")
     private Instant postedAt;
 

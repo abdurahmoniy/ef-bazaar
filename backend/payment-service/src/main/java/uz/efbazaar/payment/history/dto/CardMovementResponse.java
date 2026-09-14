@@ -32,15 +32,6 @@ public record CardMovementResponse(
         String description,
         /** Credits only: whether it was matched to an invoice, queued, or ignored. */
         String creditStatus,
-        /**
-         * Debits only: whether the movement was on a card the platform owns.
-         *
-         * <p>Null on a credit, and not for want of trying —
-         * {@code card_credit_observations} records a card by its last four
-         * digits and nothing else, so there is no row to answer this from. A
-         * credit that arrived on somebody else's card shows as IGNORED instead.
-         */
-        Boolean ownCard,
         Instant observedAt
 ) {
 
@@ -54,14 +45,13 @@ public record CardMovementResponse(
     public static CardMovementResponse of(CardCreditObservation c) {
         return new CardMovementResponse(
                 c.getId(), Direction.IN, c.getCardLast4(), c.getAmountTiyin(),
-                null, c.getCardBalanceTiyin(), null, c.getStatus().name(), null,
-                c.getObservedAt());
+                null, c.getCardBalanceTiyin(), null, c.getStatus().name(), c.getObservedAt());
     }
 
     public static CardMovementResponse of(CardDebitObservation d) {
         return new CardMovementResponse(
                 d.getId(), Direction.OUT, d.getCardLast4(), d.getAmountTiyin(),
                 d.getCommissionTiyin(), d.getCardBalanceTiyin(), d.getDescription(),
-                null, d.getCardId() != null, d.getObservedAt());
+                null, d.getObservedAt());
     }
 }

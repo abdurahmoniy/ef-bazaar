@@ -55,7 +55,24 @@ public class PartnerAdEventPublisher {
     public void postDeleteRequested(ListingChannelPost post, PartnerChannel channel) {
         send(TOPIC_CHANNEL_POST_DELETE_REQUESTED, post.getId().toString(),
                 new ChannelPostDeletePayload(post.getId(), channel.getTelegramChannelId(),
+                        String.valueOf(channel.getTelegramChannelId()),
                         post.getTelegramMessageId(), Instant.now()));
+    }
+
+    /**
+     * "Shu xabarni rasmiy kanaldan o'chir" — e'lon olib tashlangani uchun.
+     *
+     * <p>Alohida metod, chunki rasmiy kanal sozlamada MATN bo'lib turadi
+     * (@username ham bo'lishi mumkin), hamkor kanali esa raqamli
+     * identifikator. Bitta payload ikkalasini ham olib yuradi:
+     * {@code chatId} — bot ishlatadigan qiymat, {@code telegramChannelId}
+     * esa eski bot versiyalari uchun qolgan.
+     */
+    public void officialPostDeleteRequested(UUID listingId, String officialChannel,
+                                            String telegramMessageId) {
+        send(TOPIC_CHANNEL_POST_DELETE_REQUESTED, officialChannel + ":" + telegramMessageId,
+                new ChannelPostDeletePayload(listingId, null, officialChannel,
+                        telegramMessageId, Instant.now()));
     }
 
     /**
@@ -92,9 +109,17 @@ public class PartnerAdEventPublisher {
             Long sourceChannelId,
             String sourceMessageId) {}
 
+    /**
+     * @param telegramChannelId hamkor kanalining raqamli identifikatori, rasmiy
+     *                          kanal uchun null. Eski bot versiyalari faqat
+     *                          shuni o'qiydi, shuning uchun olib tashlanmadi.
+     * @param chatId            bot aslida ishlatadigan qiymat: raqam ham,
+     *                          {@code @username} ham bo'lishi mumkin.
+     */
     public record ChannelPostDeletePayload(
             UUID postId,
             Long telegramChannelId,
+            String chatId,
             String telegramMessageId,
             Instant occurredAt) {}
 

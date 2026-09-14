@@ -26,7 +26,15 @@ import java.util.UUID;
 @NoArgsConstructor
 public class OfficialChannelPost {
 
-    public enum State { PENDING, POSTED, FAILED }
+    public enum State {
+        PENDING, POSTED, FAILED,
+        /**
+         * We deleted it from the channel because the listing was taken down.
+         * Distinct from PENDING, which means "not sent yet" — a takedown that
+         * is never restored would otherwise look like a forgotten post.
+         */
+        REMOVED
+    }
 
     @Id
     @Column(name = "listing_id", nullable = false, updatable = false, columnDefinition = "uuid")

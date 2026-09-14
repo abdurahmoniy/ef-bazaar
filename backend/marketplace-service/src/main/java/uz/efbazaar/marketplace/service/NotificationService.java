@@ -150,9 +150,42 @@ public class NotificationService {
         }
     }
 
-    /** Tells the wallet owner how their payout ended. */
+    /**
+     * Money reached somebody's wallet.
+     *
+     * <p>One row for both paths that put it there — a deposit matched to an
+     * invoice, and one an admin attributed by hand. To the person whose money
+     * it is those are the same event, and naming the second one differently
+     * would suggest something went wrong when nothing did.
+     *
+     * <p>The amount is stored; the balance afterwards deliberately is not. This
+     * list is read days later, and a balance frozen at one row's moment would
+     * be wrong by then while looking authoritative. The row links to the
+     * wallet, which is live.
+     */
+    @Transactional
+    public void walletCredited(UUID userId, long amountTiyin, UUID paymentRef) {
+        if (paymentRef != null && notifications.existsByUserIdAndPaymentRef(userId, paymentRef)) {
+            log.debug("deposit-credited replay for user={} tx={}, skipping", userId, paymentRef);
+            return;
+        }
+        notifications.save(Notification.builder()
+                .userId(userId)
+                .type(NotificationType.WALLET_CREDITED)
+                .amountTiyin(amountTiyin)
+                .paymentRef(paymentRef)
+                .build());
+    }
+
+    /**
+     * Tells the wallet owner how their payout ended, and takes the ticket off
+     * every admin's badge — it is no longer work waiting for anyone. The
+     * second half runs before the replay guard: it is idempotent, and a
+     * redelivery must still heal a badge a failed first attempt left behind.
+     */
     @Transactional
     public void withdrawalClosed(UUID userId, UUID withdrawalId, boolean paid) {
+        notifications.markWithdrawalRequestsRead(withdrawalId, Instant.now());
         NotificationType type = paid
                 ? NotificationType.WITHDRAWAL_PAID
                 : NotificationType.WITHDRAWAL_REJECTED;

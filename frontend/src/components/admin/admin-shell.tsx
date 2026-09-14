@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
+  Activity,
   ArrowLeft,
   ArrowUpFromLine,
   Bot,
@@ -17,6 +18,7 @@ import {
   LayoutDashboard,
   Mail,
   Menu,
+  MessagesSquare,
   Package,
   Percent,
   ShieldAlert,
@@ -81,6 +83,18 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: "E'lonlar katalogi",
         shortLabel: "E'lonlar",
         icon: Package,
+      },
+      {
+        href: '/admin/trades',
+        label: 'Faol savdolar',
+        shortLabel: 'Savdolar',
+        icon: Activity,
+      },
+      {
+        href: '/admin/chats',
+        label: 'Chatlar (anonim)',
+        shortLabel: 'Chatlar',
+        icon: MessagesSquare,
       },
       {
         href: '/admin/reports',

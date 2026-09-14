@@ -18,13 +18,11 @@ import uz.efbazaar.marketplace.mapper.ChatMapper;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
 import uz.efbazaar.marketplace.service.ChatAttachmentService;
 import uz.efbazaar.marketplace.service.ChatService;
+import uz.efbazaar.marketplace.service.MessageViewAssembler;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/chats/{chatId}/messages")
@@ -34,13 +32,14 @@ public class MessageController {
     private final ChatService chatService;
     private final ChatAttachmentService attachments;
     private final ChatMapper mapper;
+    private final MessageViewAssembler views;
 
     @GetMapping
     public PageResponse<MessageResponse> list(@AuthenticationPrincipal AuthenticatedUser user,
                                               @PathVariable UUID chatId,
                                               @PageableDefault(size = 50) Pageable pageable) {
         Page<ChatMessage> page = chatService.listMessages(chatId, user.userId(), pageable);
-        List<MessageResponse> content = withReplyPreviews(page.getContent());
+        List<MessageResponse> content = views.withReplyPreviews(page.getContent());
         return new PageResponse<>(content, page.getNumber(), page.getSize(),
                 page.getTotalElements(), page.getTotalPages());
     }
@@ -52,7 +51,7 @@ public class MessageController {
                                 @Valid @RequestBody SendMessageRequest request) {
         ChatMessage sent = chatService.sendMessage(
                 chatId, user.userId(), request.content(), request.replyToId());
-        return withReplyPreviews(List.of(sent)).get(0);
+        return views.withReplyPreviews(List.of(sent)).get(0);
     }
 
     /** Edit own message content (attachments immutable). */
@@ -63,7 +62,7 @@ public class MessageController {
                                 @Valid @RequestBody EditMessageRequest request) {
         ChatMessage edited = chatService.editMessage(
                 chatId, messageId, user.userId(), request.content());
-        return withReplyPreviews(List.of(edited)).get(0);
+        return views.withReplyPreviews(List.of(edited)).get(0);
     }
 
     /** Delete own message — hard delete, gone for both sides. */
@@ -95,29 +94,5 @@ public class MessageController {
         ChatAttachmentService.Uploaded uploaded = attachments.upload(file, voice);
         return mapper.toMessageResponse(
                 chatService.sendAttachment(chatId, user.userId(), uploaded, caption));
-    }
-
-    // ----- internal -----
-
-    /** Attaches quoted-message previews with a single batch lookup. */
-    private List<MessageResponse> withReplyPreviews(List<ChatMessage> raw) {
-        Set<UUID> replyIds = raw.stream()
-                .map(ChatMessage::getReplyToId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Map<UUID, ChatMessage> replied = chatService.messagesByIds(replyIds);
-
-        return raw.stream().map(m -> {
-            MessageResponse base = mapper.toMessageResponse(m);
-            if (m.getReplyToId() == null) return base;
-            ChatMessage quoted = replied.get(m.getReplyToId());
-            if (quoted == null) return base; // deleted quote — frontend shows placeholder
-            return new MessageResponse(base.id(), base.chatId(), base.senderId(),
-                    base.content(), base.attachmentType(), base.attachmentFileId(),
-                    base.attachmentName(), base.attachmentMime(), base.attachmentSize(),
-                    base.replyToId(), quoted.getSenderId(), ChatService.previewOf(quoted),
-                    base.editedAt(), base.createdAt(),
-                    base.messageType(), base.proposalId(), base.proposalOutcome());
-        }).toList();
     }
 }

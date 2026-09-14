@@ -19,6 +19,7 @@ import uz.efbazaar.trade.mailbox.exception.MailboxAlreadyExistsException;
 import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
 import uz.efbazaar.trade.mailbox.repository.MailboxSpecs;
 import uz.efbazaar.trade.trade.domain.Trade;
+import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
 
 import java.time.Instant;
@@ -415,5 +416,77 @@ public class MailboxService {
         m.setTradeId(null);
         m.setOwnerUserId(null);
         mailboxes.save(m);
+    }
+
+    // ---------- admin: egalikni o'zgartirish ----------
+
+    /**
+     * Admin takes a mailbox away from its owner; nobody holds it afterwards.
+     *
+     * <p>Dropping ownership closes mail.efbazaar.uz at once, since mail access
+     * is authorised on ownership. The password is rotated as well: the owner
+     * may have it saved in another client, and the Konami account behind the
+     * box would otherwise stay within their reach. {@code handed_off_at} is
+     * left alone — nothing was handed to anyone.
+     */
+    @Transactional
+    public void detachOwner(UUID adminId, UUID mailboxId) {
+        Mailbox m = requireManageable(mailboxId);
+        UUID previous = m.getOwnerUserId();
+        if (previous == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Bu pochta qutisi hech kimga biriktirilmagan");
+        }
+        m.setOwnerUserId(null);
+        mailboxes.save(m);
+        rotateIfProvisioned(m);
+        log.info("Admin {} detached mailbox {} from user {}", adminId, mailboxId, previous);
+    }
+
+    /**
+     * Admin gives a mailbox to another user — or to a first one, when it had
+     * none. Same rotation as {@link #detachOwner}: the new owner gets a
+     * password the previous one never saw, read through the reveal endpoint.
+     */
+    @Transactional
+    public Mailbox reassignOwner(UUID adminId, UUID mailboxId, UUID newOwnerId) {
+        Mailbox m = requireManageable(mailboxId);
+        UUID previous = m.getOwnerUserId();
+        if (newOwnerId.equals(previous)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Pochta qutisi allaqachon shu foydalanuvchida");
+        }
+        m.setOwnerUserId(newOwnerId);
+        m.setTradeId(null);
+        m.setHandedOffAt(Instant.now());
+        Mailbox saved = mailboxes.save(m);
+        rotateIfProvisioned(m);
+        log.info("Admin {} moved mailbox {} from user {} to user {}", adminId, mailboxId, previous, newOwnerId);
+        return saved;
+    }
+
+    /**
+     * A box in a live trade is not the admin's to move: the trade is reading
+     * Konami's mail from it right now, and rotating its password mid-trade
+     * would lock the trade out.
+     */
+    private Mailbox requireManageable(UUID mailboxId) {
+        Mailbox m = mailboxes.findById(mailboxId)
+                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
+        if (m.getDeletedAt() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bu pochta qutisi o'chirilgan");
+        }
+        if (trades.existsLiveWithMailbox(mailboxId, TradeState.nonTerminal())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Bu pochta qutisi davom etayotgan savdoda ishlatilmoqda — savdo tugagach o'zgartiring");
+        }
+        return m;
+    }
+
+    /** A box Mailcow has not created yet has no password to rotate. */
+    private void rotateIfProvisioned(Mailbox m) {
+        if (m.getProvisionedAt() != null) {
+            events.mailboxRotateRequest(m.getId());
+        }
     }
 }

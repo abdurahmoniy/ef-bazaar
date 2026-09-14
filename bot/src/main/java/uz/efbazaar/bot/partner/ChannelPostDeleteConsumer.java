@@ -13,10 +13,16 @@ import uz.efbazaar.bot.telegram.TelegramApiClient;
  * yuqoriga chiqaradi. Eskisi qolsa obunachi bir xil e'lonni ikki marta
  * ko'rar, pastdagi eskirgan narxli postga tushib qolardi.
  *
+ * <p>Ikkinchi holat: e'lon platformadan butunlay olib tashlandi. Unda
+ * kanaldagi nusxa ham ketishi kerak — aks holda olib tashlangan narsa
+ * aynan reklama qilinib turaveradi, va tugmasi mavjud bo'lmagan e'longa
+ * olib boradi.
+ *
  * <p>O'chira olmaslik kechiriladi: botda "xabar o'chirish" huquqi
  * bo'lmasligi yoki xabar allaqachon qo'lda o'chirilgan bo'lishi
- * mumkin. YANGI POST ALLAQACHON CHIQQAN va sotuvchi to'lagan narsasini
- * olgan — buning uchun hech narsani orqaga qaytarmaymiz.
+ * mumkin. Qayta yuborishda YANGI POST ALLAQACHON CHIQQAN va sotuvchi
+ * to'lagan narsasini olgan — buning uchun hech narsani orqaga
+ * qaytarmaymiz.
  */
 @Slf4j
 @Component
@@ -34,8 +40,10 @@ public class ChannelPostDeleteConsumer {
             }
     )
     public void onDeleteRequested(ChannelPostDeleteRequest e) {
-        if (e == null || e.telegramChannelId() == null
-                || e.telegramMessageId() == null || e.telegramMessageId().isBlank()) {
+        // Manzil raqamli identifikator ham, @username ham bo'lishi mumkin:
+        // rasmiy kanal sozlamada matn bo'lib turadi.
+        String chat = e == null ? null : e.chatOrChannel();
+        if (chat == null || e.telegramMessageId() == null || e.telegramMessageId().isBlank()) {
             log.warn("channel-post-delete-requested noto'liq keldi: {}", e);
             return;
         }
@@ -46,7 +54,7 @@ public class ChannelPostDeleteConsumer {
             log.warn("Post {} xabar identifikatori raqam emas: {}", e.postId(), e.telegramMessageId());
             return;
         }
-        boolean deleted = telegram.deleteMessage(String.valueOf(e.telegramChannelId()), messageId);
+        boolean deleted = telegram.deleteMessage(chat, messageId);
         if (!deleted) {
             log.info("Post {} kanaldan o'chirilmadi (huquq yo'q yoki xabar allaqachon yo'q)",
                     e.postId());

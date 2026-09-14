@@ -42,6 +42,7 @@ public class ListingService {
     private final ListingRepository listings;
     private final uz.efbazaar.marketplace.partner.ads.OfficialChannelService officialChannel;
     private final uz.efbazaar.marketplace.partner.ads.SoldPostMarker soldPosts;
+    private final uz.efbazaar.marketplace.partner.ads.ChannelTakedown channelTakedown;
     private final ListingMapper mapper;
     private final AttributeValidator attributeValidator;
     private final MediaService mediaService;
@@ -142,6 +143,10 @@ public class ListingService {
         Listing listing = getOwned(id, sellerId);
         listing.setStatus(ListingStatus.DELETED);
         Listing saved = listings.save(listing);
+        // Kanallardagi nusxalar ham ketadi: aks holda olib tashlangan e'lon
+        // tugmasi bilan reklama qilinishda davom etardi va tugma mavjud
+        // bo'lmagan e'longa olib borardi.
+        channelTakedown.onRemoved(saved);
         events.listingDeleted(saved.getId(), sellerId, ListingStatus.DELETED);
         log.info("Listing deleted (soft): id={} sellerId={}", id, sellerId);
         return saved;
@@ -353,6 +358,9 @@ public class ListingService {
         Listing listing = listings.findById(id).orElseThrow(MarketplaceException::listingNotFound);
         listing.setStatus(ListingStatus.DELETED);
         Listing saved = listings.save(listing);
+        // Moderatsiya yo'li uchun bu eng muhim qadam: olib tashlanayotgan
+        // narsa ko'pincha aynan kanallarga chiqib ketgan noto'g'ri kontent.
+        channelTakedown.onRemoved(saved);
         events.listingDeleted(saved.getId(), saved.getSellerId(), ListingStatus.DELETED);
         log.info("Listing deleted by admin: id={} sellerId={} adminId={}",
                 id, saved.getSellerId(), adminId);
@@ -385,6 +393,10 @@ public class ListingService {
         }
         listing.setStatus(ListingStatus.ACTIVE);
         Listing saved = listings.save(listing);
+        // Olib tashlanganda kanallardan o'chirilgan nusxalar qaytariladi.
+        // Telegram o'chirilgan xabarni tiklamaydi, ya'ni bu yangi postlar —
+        // obunachi e'lonni ikkinchi marta ko'radi, va bu tiklashning narxi.
+        channelTakedown.onRestored(saved);
         events.listingUpdated(saved);
         log.info("Listing restored by admin: id={} sellerId={} adminId={}",
                 id, saved.getSellerId(), adminId);

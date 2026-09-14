@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 
 import { apiFetch, ApiException } from '@/lib/api';
 import type { AdminMailbox, CreateMailboxInput } from '@/lib/mailbox-admin-types';
+import type { PageResponse } from '@/lib/marketplace-types';
+import type { User } from '@/lib/types';
 
 export interface CreateMailboxResult {
   ok: boolean;
@@ -112,5 +114,70 @@ export async function deleteMailboxAction(mailboxId: string): Promise<DeleteMail
       return { ok: false, error: error.message };
     }
     return { ok: false, error: "Trade-service bilan bog'lanib bo'lmadi" };
+  }
+}
+
+export interface OwnerChangeResult {
+  ok: boolean;
+  error?: string;
+}
+
+async function ownerChange(path: string, body?: unknown): Promise<OwnerChangeResult> {
+  try {
+    await apiFetch<unknown>(path, { method: 'POST', ...(body ? { body } : {}) });
+    revalidatePath('/admin/mailboxes');
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof ApiException) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: false, error: "Trade-service bilan bog'lanib bo'lmadi" };
+  }
+}
+
+/**
+ * Takes a mailbox away from its owner. trade-service rotates the password and
+ * refuses while a trade in progress uses the box — its message is shown as is.
+ */
+export async function detachMailboxAction(mailboxId: string): Promise<OwnerChangeResult> {
+  return ownerChange(`/trade/v1/admin/mailboxes/${encodeURIComponent(mailboxId)}/detach`);
+}
+
+/** Hands a mailbox to another user; the password is rotated the same way. */
+export async function reassignMailboxAction(
+  mailboxId: string,
+  ownerUserId: string,
+): Promise<OwnerChangeResult> {
+  if (!ownerUserId) return { ok: false, error: 'Foydalanuvchi tanlanmagan' };
+  return ownerChange(`/trade/v1/admin/mailboxes/${encodeURIComponent(mailboxId)}/reassign`, {
+    ownerUserId,
+  });
+}
+
+export interface MailboxUserOption {
+  id: string;
+  displayName: string;
+  telegramUsername: string | null;
+  email: string | null;
+}
+
+/**
+ * Users matching a name, username or e-mail, for picking the next owner. Any
+ * user, not just the newest: the create form's dropdown only lists 50.
+ */
+export async function searchMailboxUsersAction(query: string): Promise<MailboxUserOption[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const params = new URLSearchParams({ search: q, page: '0', size: '10', sort: 'createdAt,desc' });
+  try {
+    const page = await apiFetch<PageResponse<User>>(`/auth/v1/admin/users?${params.toString()}`);
+    return page.content.map((user) => ({
+      id: user.id,
+      displayName: user.displayName,
+      telegramUsername: user.telegramUsername ?? null,
+      email: user.email ?? null,
+    }));
+  } catch {
+    return [];
   }
 }

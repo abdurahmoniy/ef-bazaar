@@ -82,6 +82,24 @@ public class AdminMailboxController {
     }
 
     /**
+     * Takes the mailbox away from its owner and rotates its password. Refused
+     * while a trade in progress uses it.
+     */
+    @PostMapping("/{id}/detach")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void detach(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable UUID id) {
+        service.detachOwner(me.userId(), id);
+    }
+
+    /** Hands the mailbox to another user and rotates its password. */
+    @PostMapping("/{id}/reassign")
+    public AdminMailboxResponse reassign(@AuthenticationPrincipal AuthenticatedUser me,
+                                         @PathVariable UUID id,
+                                         @Valid @RequestBody uz.efbazaar.trade.mailbox.dto.ReassignMailboxRequest request) {
+        return mapper.toAdminResponse(service.reassignOwner(me.userId(), id, request.ownerUserId()));
+    }
+
+    /**
      * The mailbox's current password, for handing to whoever ends up with it.
      *
      * <p>Its own endpoint rather than a field on the list, for the same reason
