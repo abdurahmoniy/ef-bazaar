@@ -486,7 +486,7 @@ public class MailboxService {
     /** A box Mailcow has not created yet has no password to rotate. */
     private void rotateIfProvisioned(Mailbox m) {
         if (m.getProvisionedAt() != null) {
-            events.mailboxRotateRequest(m.getId());
+            events.mailboxRotateRequest(m.getId(), m.getEmail());
         }
     }
 }

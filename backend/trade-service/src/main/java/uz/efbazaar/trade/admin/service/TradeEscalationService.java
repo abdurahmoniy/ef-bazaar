@@ -71,7 +71,7 @@ public class TradeEscalationService {
         // fresh password instead of locking them out. The next owner is written
         // by the IN_PROGRESS on-enter handler when the new admin accepts.
         mailboxes.revokeOwner(t.getMailboxId());
-        events.mailboxRotateRequest(t.getMailboxId());
+        events.mailboxRotateRequest(t.getMailboxId(), mailboxes.getRaw(t.getMailboxId()).getEmail());
 
         t.setAssignedAdminId(newAdminId);
         t.setAdminFeeUzs(feeUzs);

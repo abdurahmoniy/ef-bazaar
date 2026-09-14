@@ -60,7 +60,14 @@ class MailboxProvisionRequest:
 
 @dataclass(frozen=True, slots=True)
 class MailboxRotateRequest:
+    """Rotate a mailbox's password.
+
+    ``mailbox_email`` is optional only so a request queued by an older
+    trade-service still decodes; every current publisher sends it.
+    """
+
     mailbox_id: UUID
+    mailbox_email: str | None = None
 
 
 @dataclass(frozen=True)
