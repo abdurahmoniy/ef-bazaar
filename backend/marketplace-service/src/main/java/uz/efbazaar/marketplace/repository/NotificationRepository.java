@@ -52,6 +52,21 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     boolean existsByUserIdAndTypeAndTradeId(UUID userId, NotificationType type, UUID tradeId);
 
+    /**
+     * A payout ticket was closed: every admin's "new request" row for it stops
+     * being unread. Otherwise the admin badge counts tickets that are already
+     * paid or rejected, since it counts exactly these rows.
+     */
+    @Modifying
+    @Query("""
+            UPDATE Notification n
+               SET n.readAt = :ts
+             WHERE n.type = uz.efbazaar.marketplace.domain.NotificationType.WITHDRAWAL_REQUESTED
+               AND n.withdrawalId = :withdrawalId
+               AND n.readAt IS NULL
+            """)
+    int markWithdrawalRequestsRead(@Param("withdrawalId") UUID withdrawalId, @Param("ts") Instant ts);
+
     @Modifying
     @Query("""
             UPDATE Notification n

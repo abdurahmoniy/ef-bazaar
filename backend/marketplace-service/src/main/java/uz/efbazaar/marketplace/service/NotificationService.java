@@ -177,9 +177,15 @@ public class NotificationService {
                 .build());
     }
 
-    /** Tells the wallet owner how their payout ended. */
+    /**
+     * Tells the wallet owner how their payout ended, and takes the ticket off
+     * every admin's badge — it is no longer work waiting for anyone. The
+     * second half runs before the replay guard: it is idempotent, and a
+     * redelivery must still heal a badge a failed first attempt left behind.
+     */
     @Transactional
     public void withdrawalClosed(UUID userId, UUID withdrawalId, boolean paid) {
+        notifications.markWithdrawalRequestsRead(withdrawalId, Instant.now());
         NotificationType type = paid
                 ? NotificationType.WITHDRAWAL_PAID
                 : NotificationType.WITHDRAWAL_REJECTED;
