@@ -34,6 +34,7 @@ class MailboxAdminServiceTest {
 
     private MailboxRepository repo;
     private uz.efbazaar.trade.kafka.TradeEventPublisher events;
+    private TradeRepository trades;
     private MailboxService svc;
 
     private final Pageable page = PageRequest.of(0, 20);
@@ -42,7 +43,8 @@ class MailboxAdminServiceTest {
     void setUp() {
         repo = mock(MailboxRepository.class);
         events = mock(uz.efbazaar.trade.kafka.TradeEventPublisher.class);
-        svc = new MailboxService(repo, mock(TradeRepository.class), mock(TradeCrypto.class), events);
+        trades = mock(TradeRepository.class);
+        svc = new MailboxService(repo, trades, mock(TradeCrypto.class), events);
     }
 
     @Test
@@ -162,5 +164,91 @@ class MailboxAdminServiceTest {
         svc.deleteUnheld(box.getId());
 
         org.mockito.Mockito.verify(events).mailboxDeleteRequest(box.getId(), "box@efbazaar.uz");
+    }
+
+    // ---------- detach / reassign ----------
+
+    private Mailbox ownedBox(UUID owner, boolean provisioned) {
+        Mailbox m = Mailbox.builder()
+                .id(UUID.randomUUID())
+                .email("box@efbazaar.uz")
+                .ownerUserId(owner)
+                .encryptedPassword(new byte[]{1})
+                .passwordIv(new byte[12])
+                .passwordTag(new byte[16])
+                .provisionedAt(provisioned ? java.time.Instant.now() : null)
+                .build();
+        when(repo.findById(m.getId())).thenReturn(Optional.of(m));
+        when(repo.save(any(Mailbox.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(trades.existsLiveWithMailbox(eq(m.getId()), any())).thenReturn(false);
+        return m;
+    }
+
+    @Test
+    void detachingDropsTheOwnerAndRotatesThePassword() {
+        Mailbox m = ownedBox(UUID.randomUUID(), true);
+
+        svc.detachOwner(UUID.randomUUID(), m.getId());
+
+        assertThat(m.getOwnerUserId()).isNull();
+        assertThat(m.getHandedOffAt()).as("nothing was handed to anyone").isNull();
+        verify(events).mailboxRotateRequest(m.getId());
+    }
+
+    @Test
+    void reassigningMovesTheBoxStampsTheHandoffAndRotates() {
+        Mailbox m = ownedBox(UUID.randomUUID(), true);
+        UUID next = UUID.randomUUID();
+
+        svc.reassignOwner(UUID.randomUUID(), m.getId(), next);
+
+        assertThat(m.getOwnerUserId()).isEqualTo(next);
+        assertThat(m.getHandedOffAt()).isNotNull();
+        verify(events).mailboxRotateRequest(m.getId());
+    }
+
+    /** Mailcow has not created it yet — there is no password to rotate, and asking would fail. */
+    @Test
+    void aPendingBoxChangesHandsWithoutARotation() {
+        Mailbox m = ownedBox(null, false);
+
+        svc.reassignOwner(UUID.randomUUID(), m.getId(), UUID.randomUUID());
+
+        verify(events, never()).mailboxRotateRequest(any());
+    }
+
+    @Test
+    void aBoxInALiveTradeIsNotMoved() {
+        Mailbox m = ownedBox(UUID.randomUUID(), true);
+        when(trades.existsLiveWithMailbox(eq(m.getId()), any())).thenReturn(true);
+
+        assertThatThrownBy(() -> svc.detachOwner(UUID.randomUUID(), m.getId()))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(() -> svc.reassignOwner(UUID.randomUUID(), m.getId(), UUID.randomUUID()))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        verify(repo, never()).save(any());
+        verify(events, never()).mailboxRotateRequest(any());
+    }
+
+    @Test
+    void pointlessChangesAreRefused() {
+        UUID owner = UUID.randomUUID();
+        Mailbox owned = ownedBox(owner, true);
+        Mailbox free = ownedBox(null, true);
+
+        assertThatThrownBy(() -> svc.reassignOwner(UUID.randomUUID(), owned.getId(), owner))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(() -> svc.detachOwner(UUID.randomUUID(), free.getId()))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        verify(events, never()).mailboxRotateRequest(any());
+    }
+
+    @Test
+    void aDeletedBoxCannotBeGivenToAnyone() {
+        Mailbox m = ownedBox(null, true);
+        m.setDeletedAt(java.time.Instant.now());
+
+        assertThatThrownBy(() -> svc.reassignOwner(UUID.randomUUID(), m.getId(), UUID.randomUUID()))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
 }

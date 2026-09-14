@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import { MailboxDeleteButton } from '@/components/admin/mailbox-delete-button';
+import { MailboxOwnerActions } from '@/components/admin/mailbox-owner-actions';
 import { MailboxPasswordReveal } from '@/components/admin/mailbox-password-reveal';
 import { MailboxStatusBadge } from '@/components/admin/mailbox-status-badge';
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
@@ -100,6 +101,13 @@ export default async function AdminMailboxPage({ params, searchParams }: AdminMa
                 deletedAt={mailbox.deletedAt}
               />
             </div>
+            <MailboxOwnerActions
+              mailboxId={mailbox.id}
+              email={mailbox.email}
+              ownerUserId={mailbox.ownerUserId}
+              ownerName={owner?.displayName ?? null}
+              deletedAt={mailbox.deletedAt}
+            />
           </div>
 
           {mailbox.ownerUserId && (
