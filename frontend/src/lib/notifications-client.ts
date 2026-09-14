@@ -1,3 +1,4 @@
+import { formatTiyin } from './money';
 import { siteConfig } from './site';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import type { NotificationResponse, PageResponse } from '@/lib/marketplace-types';
@@ -62,6 +63,14 @@ export function notificationLabel(n: NotificationResponse): string {
       return `${actor} sizga xabar yozdi`;
     case 'TRADE_ADMIN_INVITED':
       return `${actor} sizni inson admin savdosiga chaqirdi`;
+    case 'WALLET_CREDITED':
+      // The amount is stored on the row; the balance deliberately is not. This
+      // list is read days later, and a balance frozen at one row's moment would
+      // be wrong by then while looking authoritative — the wallet it links to
+      // is the live figure.
+      return n.amountTiyin != null
+        ? `Hamyoningiz ${formatTiyin(n.amountTiyin)} so\u2018mga to\u2018ldirildi`
+        : 'Hamyoningiz to\u2018ldirildi';
     case 'WITHDRAWAL_REQUESTED':
       return 'Yangi pul yechish so\u2019rovi';
     case 'WITHDRAWAL_PAID':
@@ -104,6 +113,7 @@ export function notificationHref(n: NotificationResponse): string | null {
     return `/admin/payments/withdrawals?ticket=${encodeURIComponent(n.withdrawalId ?? '')}`;
   }
   if (n.type === 'WITHDRAWAL_PAID' || n.type === 'WITHDRAWAL_REJECTED') return '/hamyon';
+  if (n.type === 'WALLET_CREDITED') return '/hamyon';
   // Tasdiqlangani PANELGA: hamkor u yerda e'lon narxini qo'yadi va u
   // hozir nolda turibdi. Qolgan ikkisida panel yopiq, ariza sahifasi
   // esa nima bo'lganini va sababini ko'rsatadi.

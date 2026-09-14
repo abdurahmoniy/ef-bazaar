@@ -116,15 +116,9 @@ describe('CardHistory', () => {
     expect(container.textContent).toContain('Tekshirilmagan');
   });
 
-  it('flags a debit on a card the platform does not own', async () => {
-    await render([movement({ direction: 'OUT', ownCard: false })]);
-    expect(container.textContent).toContain('Bizning karta emas');
-  });
-
   it('leaves an ordinary movement unflagged', async () => {
     await render([movement({ creditStatus: 'MATCHED' })]);
     expect(container.textContent).not.toContain('Tekshirilmagan');
-    expect(container.textContent).not.toContain('Bizning karta emas');
   });
 
   it('offers no card filter when every movement is on one card', async () => {

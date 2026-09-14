@@ -126,18 +126,29 @@ class ByCardDebitServiceIT extends AbstractPostgresIT {
     }
 
     /**
-     * Somebody else's card. The row is still kept — a movement we cannot
-     * explain is worth having on record — but no card balance is touched.
+     * The owner's personal card. Its balance and where the owner sends their
+     * own money are none of the platform's business: nothing is stored.
      */
     @Test
-    void aDebitOnACardWeDoNotOwnIsRecordedWithNoCard() {
+    void aDebitOnAPersonalCardLeavesNoTraceAtAll() {
         ourCard();
 
         CardDebitObservation obs = debits.ingest(event(88_004L, "9999", 500_000L));
 
-        assertThat(obs.getCardId()).isNull();
-        assertThat(obs.getCardLast4()).isEqualTo("9999");
-        assertThat(repo.count()).isEqualTo(1);
+        assertThat(obs).isNull();
+        assertThat(repo.count()).isZero();
+    }
+
+    /** A retired platform card is still ours, and so is the money leaving it. */
+    @Test
+    void aDebitOnADeactivatedPlatformCardIsStillRecorded() {
+        PlatformCard card = ourCard();
+        cards.deactivate(UUID.randomUUID(), card.getId());
+
+        CardDebitObservation obs = debits.ingest(event(88_007L, card.getLast4(), 700_000L));
+
+        assertThat(obs).isNotNull();
+        assertThat(obs.getCardId()).isEqualTo(card.getId());
     }
 
     /**

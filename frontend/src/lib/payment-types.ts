@@ -220,11 +220,5 @@ export interface CardMovement {
   description?: string;
   /** Credits only: MATCHED, UNMATCHED, MANUALLY_RESOLVED or IGNORED. */
   creditStatus?: string;
-  /**
-   * Debits only: whether the card is one the platform owns. Absent on a credit
-   * — that table records a card by its last four digits and nothing else, so
-   * there is nothing to answer it from.
-   */
-  ownCard?: boolean;
   observedAt: string;
 }

@@ -109,6 +109,54 @@ public class OfficialChannelService {
         });
     }
 
+    /**
+     * E'lon platformadan olib tashlandi — rasmiy nusxa ham ketadi.
+     *
+     * <p>Sotilganidan farqli o'laroq ustidan chizilmaydi, o'chiriladi.
+     * Sotilgan e'lon haqiqiy edi va tarixda qolishi o'rinli; olib
+     * tashlangani esa ko'pincha noto'g'ri yoki zararli kontent, va uni
+     * ustidan chizib qoldirish e'lonni reklama qilishda davom etardi.
+     *
+     * <p>FORWARD bo'lgan nusxa ham o'chadi. Tahrirlab bo'lmasligi
+     * SOTILDI belgisini ishlatmagan edi, o'chirish esa forward uchun ham
+     * xuddi shunday ishlaydi.
+     */
+    @Transactional
+    public void onListingRemoved(UUID listingId) {
+        if (!enabled()) return;
+        official.findById(listingId)
+                .filter(row -> OfficialChannelPost.State.POSTED.name().equals(row.getState()))
+                .filter(row -> row.getTelegramMessageId() != null
+                        && !row.getTelegramMessageId().isBlank())
+                .ifPresent(row -> {
+                    events.officialPostDeleteRequested(
+                            listingId, officialChannel, row.getTelegramMessageId());
+                    row.setState(OfficialChannelPost.State.REMOVED.name());
+                    official.save(row);
+                });
+    }
+
+    /**
+     * E'lon tiklandi — rasmiy nusxa qaytadan chiqariladi.
+     *
+     * <p>Telegram o'chirilgan xabarni tiklamaydi, ya'ni bu yangi post va
+     * yangi identifikator. Rasmiy nusxa bepul, shuning uchun qaytarishning
+     * moliyaviy narxi yo'q — hamkor kanalidagidan farqli o'laroq.
+     */
+    @Transactional
+    public void onListingRestored(Listing listing) {
+        if (!enabled()) return;
+        official.findById(listing.getId())
+                .filter(row -> OfficialChannelPost.State.REMOVED.name().equals(row.getState()))
+                .ifPresent(row -> {
+                    row.setState(OfficialChannelPost.State.PENDING.name());
+                    row.setTelegramMessageId(null);
+                    row.setPostedAt(null);
+                    official.save(row);
+                    publishDirect(listing, row);
+                });
+    }
+
     /** Rasmiy kanaldagi tirik nusxalar — sotilganda tahrirlanadi. */
     @Transactional(readOnly = true)
     public Optional<OfficialChannelPost> deliveredFor(UUID listingId) {

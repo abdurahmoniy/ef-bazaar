@@ -133,4 +133,37 @@ describe('notification client helpers', () => {
 
     expect(notificationHref(chatNotification)).toBe('/chats/chat-456');
   });
+  /**
+   * Silence was the bug: money arrived and the user only found out by opening
+   * the wallet and looking.
+   */
+  it('says how much reached the wallet', () => {
+    expect(notificationLabel({
+      id: 'n-credited',
+      type: 'WALLET_CREDITED',
+      amountTiyin: 5_000_000,
+      createdAt: '2026-09-11T00:00:00Z',
+    } satisfies NotificationResponse)).toBe('Hamyoningiz 50\u00A0000 so\u2018mga to\u2018ldirildi');
+  });
+
+  /**
+   * A row written before the amount column existed, or by a producer that
+   * omitted it. Still worth showing — a vaguer sentence beats a blank row.
+   */
+  it('still says something when the amount is missing', () => {
+    expect(notificationLabel({
+      id: 'n-credited-bare',
+      type: 'WALLET_CREDITED',
+      createdAt: '2026-09-11T00:00:00Z',
+    } satisfies NotificationResponse)).toBe('Hamyoningiz to\u2018ldirildi');
+  });
+
+  it('sends a credited wallet to the wallet', () => {
+    expect(notificationHref({
+      id: 'n-credited',
+      type: 'WALLET_CREDITED',
+      amountTiyin: 100,
+      createdAt: '2026-09-11T00:00:00Z',
+    } satisfies NotificationResponse)).toBe('/hamyon');
+  });
 });

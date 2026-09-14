@@ -196,6 +196,20 @@ class NotificationServiceTest {
                 .isEqualTo(fresh);
     }
 
+    /** Even a replayed close clears the badge: the mark is idempotent and may be what the first try missed. */
+    @Test
+    void aClosedTicketLeavesTheAdminBadgeEvenOnReplay() {
+        UUID user = UUID.randomUUID();
+        UUID ticket = UUID.randomUUID();
+        when(notifications.existsByUserIdAndTypeAndWithdrawalId(
+                user, NotificationType.WITHDRAWAL_PAID, ticket)).thenReturn(true);
+
+        service.withdrawalClosed(user, ticket, true);
+
+        verify(notifications).markWithdrawalRequestsRead(
+                org.mockito.ArgumentMatchers.eq(ticket), org.mockito.ArgumentMatchers.any());
+    }
+
     @Test
     void aPaidPayoutAndARejectedOneReadDifferently() {
         UUID user = UUID.randomUUID();

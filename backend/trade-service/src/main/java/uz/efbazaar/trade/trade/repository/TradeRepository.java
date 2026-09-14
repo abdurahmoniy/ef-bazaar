@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import uz.efbazaar.trade.trade.domain.Trade;
+import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.domain.TradeState;
 
 import java.time.Instant;
@@ -68,6 +69,14 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
                                                     Instant cutoff);
 
     Optional<Trade> findByMailboxId(UUID mailboxId);
+
+    /**
+     * Live SMART trades for the admin's "Faol savdolar" queue, most recently
+     * moved first. HUMAN trades have their own admin surface and a person
+     * already working them, so they are left out on purpose.
+     */
+    List<Trade> findByModeAndStateInOrderByUpdatedAtDesc(TradeMode mode,
+                                                         java.util.Collection<TradeState> states);
 
     /**
      * How many trades this admin has ACCEPTED and not yet finished. Feeds the

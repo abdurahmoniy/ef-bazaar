@@ -477,6 +477,7 @@ export type NotificationType =
   | 'CHAT_CREATED'
   | 'CHAT_MESSAGE'
   | 'TRADE_ADMIN_INVITED'
+  | 'WALLET_CREDITED'
   | 'WITHDRAWAL_REQUESTED'
   | 'WITHDRAWAL_PAID'
   | 'WITHDRAWAL_REJECTED'
@@ -501,6 +502,8 @@ export interface NotificationResponse {
   tradeId?: string | null;
   /** Payout ticket, for WITHDRAWAL_* rows. */
   withdrawalId?: string | null;
+  /** WALLET_CREDITED: how much reached the wallet, in tiyin. */
+  amountTiyin?: number | null;
   actorDisplayName?: string | null;
   readAt?: string | null;
   createdAt: string;

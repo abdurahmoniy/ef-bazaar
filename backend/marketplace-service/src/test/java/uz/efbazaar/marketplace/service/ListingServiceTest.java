@@ -93,6 +93,7 @@ class ListingServiceTest {
     @Mock uz.efbazaar.marketplace.partner.ads.OfficialChannelService officialChannel;
     @Mock uz.efbazaar.marketplace.partner.ads.SoldPostMarker soldPosts;
     @Mock uz.efbazaar.marketplace.security.AuthSummaryClient telegramUsers;
+    @Mock uz.efbazaar.marketplace.partner.ads.ChannelTakedown channelTakedown;
     @InjectMocks ListingService service;
 
     private UUID sellerId;
@@ -355,5 +356,61 @@ class ListingServiceTest {
                 .isInstanceOfSatisfying(MarketplaceException.class,
                         ex -> assertThat(ex.getCode()).isEqualTo("telegram_required"));
         org.mockito.Mockito.verifyNoInteractions(mediaService, persistence, events, channelPosts);
+    }
+
+    // --- e'lon olib tashlansa kanallardagi nusxalari ham ketadi -------------
+    //
+    // Muammo: e'lon efBazaar'dan o'chirilar, hamkor va rasmiy kanallardagi
+    // nusxalari esa tugmasi bilan tirik qolardi. Olib tashlanayotgan narsa
+    // reklama qilinishda davom etardi.
+
+    private Listing listingIn(ListingStatus status) {
+        UUID id = UUID.randomUUID();
+        Listing l = Listing.builder().id(id).sellerId(sellerId).status(status).build();
+        when(repository.findById(id)).thenReturn(Optional.of(l));
+        when(repository.save(any(Listing.class))).thenAnswer(inv -> inv.getArgument(0));
+        return l;
+    }
+
+    @Test
+    void delete_removesTheListingFromEveryChannel() {
+        Listing l = listingIn(ListingStatus.ACTIVE);
+
+        service.delete(l.getId(), sellerId);
+
+        verify(channelTakedown).onRemoved(l);
+    }
+
+    /** Moderatsiya yo'li — foydalanuvchi aynan shu holatni so'ragan. */
+    @Test
+    void adminDelete_removesTheListingFromEveryChannel() {
+        Listing l = listingIn(ListingStatus.ACTIVE);
+
+        service.adminDelete(l.getId(), UUID.randomUUID());
+
+        verify(channelTakedown).onRemoved(l);
+    }
+
+    @Test
+    void adminRestore_putsTheChannelCopiesBack() {
+        Listing l = listingIn(ListingStatus.DELETED);
+
+        service.adminRestore(l.getId(), UUID.randomUUID());
+
+        verify(channelTakedown).onRestored(l);
+    }
+
+    /**
+     * Sotilgan e'lon kanalda QOLADI, ustidan chiziladi: hamkor to'lov olgan
+     * reklamasini yo'qotmasligi kerak, va sotilgan e'lon haqiqiy edi.
+     */
+    @Test
+    void markSold_leavesTheChannelCopiesInPlace() {
+        Listing l = listingIn(ListingStatus.ACTIVE);
+
+        service.markSold(l.getId(), sellerId);
+
+        verify(channelTakedown, org.mockito.Mockito.never()).onRemoved(any());
+        verify(soldPosts).onSold(l);
     }
 }

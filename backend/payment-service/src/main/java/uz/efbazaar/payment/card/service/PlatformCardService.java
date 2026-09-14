@@ -185,6 +185,25 @@ public class PlatformCardService {
         return cards.findByLast4AndActiveTrue(last4);
     }
 
+    /**
+     * The platform card these digits belong to, whether or not it is still in
+     * the allocation queue — or empty when the card is not the platform's at all.
+     *
+     * <p>This, not {@link #findActiveByLast4}, is the question "is this our
+     * money?". The userbot account also receives notices for the owner's
+     * PERSONAL cards, which must never be stored or shown. But a deactivated
+     * platform card is still ours: an invoice issued just before deactivation is
+     * still being paid into it, and treating that card as a stranger's would
+     * drop real platform money without a trace.
+     *
+     * <p>The active card wins when a retired one shares its last four digits.
+     */
+    @Transactional(readOnly = true)
+    public Optional<PlatformCard> findOwnedByLast4(String last4) {
+        return cards.findByLast4AndActiveTrue(last4)
+                .or(() -> cards.findFirstByLast4OrderByCreatedAtDesc(last4));
+    }
+
     @Transactional(readOnly = true)
     public Optional<PlatformCard> findById(UUID cardId) {
         return cards.findById(cardId);

@@ -391,4 +391,82 @@ class ChannelPostServiceTest {
         verify(payments).hold(any(), eq(seller), eq(new BigDecimal("5000.00")));
         assertThat(captureSavedPosts()).hasSize(1);
     }
+    // --- olib tashlangan postni qaytarish ----------------------------------
+
+    private ListingChannelPost removedPost(PartnerChannel channel) {
+        ListingChannelPost p = new ListingChannelPost();
+        p.setId(UUID.randomUUID());
+        p.setListingId(listing);
+        p.setPartnerChannelId(channel.getId());
+        p.setState(State.POSTED.name());
+        p.setTelegramMessageId("9001");
+        p.setRemovedAt(java.time.Instant.now());
+        when(posts.findById(p.getId())).thenReturn(Optional.of(p));
+        return p;
+    }
+
+    /**
+     * Eng muhim sinov: hamkorga bu reklama uchun birinchi chiqqanda
+     * to'langan. Qaytarishda yana to'lash bitta buyurtma uchun ikki marta
+     * to'lash — va sotuvchidan ikki marta yechish — bo'lardi.
+     */
+    @Test
+    @DisplayName("qaytarilgan post uchun ikkinchi marta to'lanmaydi")
+    void qaytarilganPostUchunTolanmaydi() {
+        ListingChannelPost removed = removedPost(cheap);
+
+        service.onPosted(removed.getId(), "9500");
+
+        verify(payments, never()).settle(any(), any(), any(), any());
+        assertThat(removed.getTelegramMessageId())
+                .as("eski identifikator o'lik — SOTILDI belgisi unga bormasligi kerak")
+                .isEqualTo("9500");
+        assertThat(removed.getRemovedAt())
+                .as("post yana kanalda — belgi olinadi")
+                .isNull();
+    }
+
+    /** Qaytarishda almashtiriladigan eski post yo'q. */
+    @Test
+    void qaytarilganPostEskisiniOchirmaydi() {
+        ListingChannelPost removed = removedPost(cheap);
+
+        service.onPosted(removed.getId(), "9500");
+
+        verify(events, never()).postDeleteRequested(any(), any());
+    }
+
+    @Test
+    void faqatOlibTashlanganlarQaytariladi() {
+        ListingChannelPost removed = removedPost(cheap);
+        ListingChannelPost replaced = new ListingChannelPost();
+        replaced.setId(UUID.randomUUID());
+        replaced.setListingId(listing);
+        replaced.setPartnerChannelId(cheap.getId());
+        replaced.setState(State.POSTED.name());
+        replaced.setRemovedAt(java.time.Instant.now());
+        // Kanalda o'rnida yangisi turibdi: ikkinchi nusxa chiqarish
+        // obunachiga bir e'lonni ikki marta ko'rsatardi.
+        replaced.setReplacedAt(java.time.Instant.now());
+
+        when(posts.findByListingIdAndRemovedAtIsNotNull(listing))
+                .thenReturn(List.of(removed, replaced));
+        when(channels.findById(cheap.getId())).thenReturn(Optional.of(cheap));
+        when(listings.findById(listing)).thenReturn(Optional.empty());
+
+        service.republishRemoved(listing);
+
+        // E'lon topilmagani uchun ikkalasi ham chiqmaydi, lekin
+        // almashtirilgani hatto urinishga ham yetmaydi.
+        verify(events, never()).postRequested(eq(replaced), any());
+    }
+
+    @Test
+    void qaytariladiganPostYoqBolsa_hechNarsaQilinmaydi() {
+        when(posts.findByListingIdAndRemovedAtIsNotNull(listing)).thenReturn(List.of());
+
+        service.republishRemoved(listing);
+
+        verify(events, never()).postRequested(any(), any());
+    }
 }

@@ -63,6 +63,10 @@ public class ByCardService {
             Instant observedAt,
             String rawText) {}
 
+    /**
+     * @return the stored observation, or {@code null} when the card is not the
+     *         platform's — in which case nothing at all is recorded
+     */
     @Transactional
     public CardCreditObservation ingest(CardCreditEvent event) {
         Optional<CardCreditObservation> seen =
@@ -70,6 +74,18 @@ public class ByCardService {
         if (seen.isPresent()) {
             log.debug("Telegram message {} already ingested", event.telegramMessageId());
             return seen.get();
+        }
+
+        // The userbot account also receives notices for the owner's PERSONAL
+        // cards. Those are not the platform's business: nothing is stored, so
+        // their balances and counterparties never reach this database or an
+        // admin screen. They used to be kept as IGNORED rows with the full bank
+        // text, readable by every admin.
+        Optional<PlatformCard> card = cards.findOwnedByLast4(event.cardLast4());
+        if (card.isEmpty()) {
+            log.debug("Credit on card *{} is not a platform card — not recorded",
+                    event.cardLast4());
+            return null;
         }
 
         CardCreditObservation obs = CardCreditObservation.builder()
@@ -83,14 +99,6 @@ public class ByCardService {
                 .status(ObservationStatus.UNMATCHED)
                 .createdAt(Instant.now())
                 .build();
-
-        Optional<PlatformCard> card = cards.findActiveByLast4(event.cardLast4());
-        if (card.isEmpty()) {
-            // Not our card. Nothing to reconcile and nothing to credit.
-            obs.setStatus(ObservationStatus.IGNORED);
-            obs.setResolutionNote("Bu karta platformaga tegishli emas");
-            return observations.save(obs);
-        }
 
         if (event.cardBalanceTiyin() != null) {
             cards.recordBalance(card.get().getId(), event.cardBalanceTiyin(), event.observedAt());
@@ -144,10 +152,21 @@ public class ByCardService {
                     "Izoh majburiy — nima uchun biriktirilgani yozilishi kerak");
         }
 
-        ledger.post(TransactionKind.ADJUSTMENT, "obs-manual-" + obs.getId(), adminId, note,
+        UUID txId = ledger.post(TransactionKind.ADJUSTMENT, "obs-manual-" + obs.getId(),
+                adminId, note,
                 List.of(new Posting(LedgerAccount.PLATFORM_CARDS, null, obs.getAmountTiyin()),
                         new Posting(LedgerAccount.USER_AVAILABLE, targetUserId,
                                 -obs.getAmountTiyin())));
+
+        // The same announcement the automatic path makes. This path used to be
+        // silent: an admin attributed a payment by hand and the person whose
+        // money it was learned nothing — which is the case where they have been
+        // waiting longest and are least sure anything is happening.
+        //
+        // No invoice id: there was no invoice. To the recipient the two paths
+        // are one event, so they are announced identically.
+        appEvents.publishEvent(new PaymentEventPublisher.DepositCreditedSignal(
+                targetUserId, obs.getAmountTiyin(), null, txId));
 
         obs.setStatus(ObservationStatus.MANUALLY_RESOLVED);
         obs.setResolvedBy(adminId);
@@ -208,7 +227,8 @@ public class ByCardService {
             postings.add(new Posting(LedgerAccount.PLATFORM_REVENUE, null, -bump));
         }
 
-        ledger.post(TransactionKind.DEPOSIT, "invoice-" + invoice.getId(), null, null, postings);
+        UUID txId = ledger.post(
+                TransactionKind.DEPOSIT, "invoice-" + invoice.getId(), null, null, postings);
 
         // Both of these fire only after this transaction commits, never inside
         // it. A deposit-credited record on the wire before a rollback has a
@@ -217,7 +237,7 @@ public class ByCardService {
         // has always been AFTER_COMMIT. See InvoiceNoticeListener and
         // PaymentEventPublisher.
         appEvents.publishEvent(new PaymentEventPublisher.DepositCreditedSignal(
-                invoice.getUserId(), credited, invoice.getId()));
+                invoice.getUserId(), credited, invoice.getId(), txId));
         appEvents.publishEvent(new InvoiceNoticeEvents.InvoicePaid(invoice.getId()));
         return true;
     }

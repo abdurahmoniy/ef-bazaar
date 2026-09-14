@@ -152,4 +152,82 @@ class OfficialChannelServiceTest {
         c.setTelegramChannelId(telegramChannelId);
         return c;
     }
+    // --- e'lon olib tashlandi / tiklandi ------------------------------------
+
+    private OfficialChannelPost officialRow(OfficialChannelPost.State state, String messageId) {
+        OfficialChannelPost row = new OfficialChannelPost();
+        row.setListingId(listingId);
+        row.setState(state.name());
+        row.setTelegramMessageId(messageId);
+        when(official.findById(listingId)).thenReturn(Optional.of(row));
+        return row;
+    }
+
+    /**
+     * Sotilganidan farqli: ustidan chizilmaydi, o'chiriladi. Olib
+     * tashlangan e'lon ko'pincha noto'g'ri yoki zararli kontent, va uni
+     * chizib qoldirish uni reklama qilishda davom etardi.
+     */
+    @Test
+    @DisplayName("olib tashlangan e'lon rasmiy kanaldan o'chiriladi")
+    void olibTashlanganEllonOchiriladi() {
+        OfficialChannelPost row = officialRow(OfficialChannelPost.State.POSTED, "7001");
+
+        service.onListingRemoved(listingId);
+
+        verify(events).officialPostDeleteRequested(listingId, CHANNEL, "7001");
+        assertThat(row.getState()).isEqualTo(OfficialChannelPost.State.REMOVED.name());
+    }
+
+    @Test
+    void chiqmaganNusxaOchirilmaydi() {
+        officialRow(OfficialChannelPost.State.PENDING, null);
+
+        service.onListingRemoved(listingId);
+
+        verify(events, never()).officialPostDeleteRequested(any(), any(), any());
+    }
+
+    /** Identifikatorsiz o'chirib bo'lmaydi. */
+    @Test
+    void identifikatorsizNusxaOtkazibYuboriladi() {
+        officialRow(OfficialChannelPost.State.POSTED, null);
+
+        service.onListingRemoved(listingId);
+
+        verify(events, never()).officialPostDeleteRequested(any(), any(), any());
+    }
+
+    @Test
+    void ikkiMartaOchirilmaydi() {
+        officialRow(OfficialChannelPost.State.REMOVED, "7001");
+
+        service.onListingRemoved(listingId);
+
+        verify(events, never()).officialPostDeleteRequested(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("tiklangan e'lon rasmiy kanalga qaytadan chiqadi")
+    void tiklanganEllonQaytaChiqadi() {
+        OfficialChannelPost row = officialRow(OfficialChannelPost.State.REMOVED, "7001");
+
+        service.onListingRestored(listing());
+
+        verify(events).officialPostRequested(any(OfficialPostPayload.class));
+        assertThat(row.getState()).isEqualTo(OfficialChannelPost.State.PENDING.name());
+        assertThat(row.getTelegramMessageId())
+                .as("eski identifikator o'lik — yangisi botdan keladi")
+                .isNull();
+    }
+
+    /** Olib tashlanmagan nusxa qayta chiqarilmaydi — kanalda ikki nusxa bo'lardi. */
+    @Test
+    void tirikNusxaQaytaChiqarilmaydi() {
+        officialRow(OfficialChannelPost.State.POSTED, "7001");
+
+        service.onListingRestored(listing());
+
+        verify(events, never()).officialPostRequested(any());
+    }
 }

@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
+import uz.efbazaar.payment.wallet.service.LedgerService;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -15,6 +16,7 @@ import java.util.UUID;
 public class PaymentEventPublisher {
 
     private final KafkaTemplate<String, Object> kafka;
+    private final LedgerService ledger;
 
     /**
      * Publishes without letting a broker outage reach the caller.
@@ -37,14 +39,31 @@ public class PaymentEventPublisher {
         }
     }
 
-    /** What goes on the wire. */
-    public record DepositCredited(UUID userId, long amountTiyin, UUID invoiceId, Instant occurredAt) {}
+    /**
+     * What goes on the wire.
+     *
+     * @param invoiceId null when an admin attributed the payment by hand —
+     *                  there was no invoice to match. Consumers must not treat
+     *                  its absence as a malformed record; to the person whose
+     *                  wallet it is, the two paths are the same event.
+     * @param transactionId the ledger transaction. Always present, and the
+     *                  key a consumer should deduplicate on: Kafka is
+     *                  at-least-once, and the invoice id cannot serve because
+     *                  the manual path has none.
+     * @param balanceAfterTiyin what the wallet holds now, or null if it could
+     *                  not be read. A figure, not a promise — another credit
+     *                  can land between this being read and anybody seeing it.
+     */
+    public record DepositCredited(UUID userId, long amountTiyin, UUID invoiceId,
+                                  UUID transactionId, Long balanceAfterTiyin,
+                                  Instant occurredAt) {}
 
     /**
      * The in-process request to send one, published inside the crediting
      * transaction and acted on only once that transaction commits.
      */
-    public record DepositCreditedSignal(UUID userId, long amountTiyin, UUID invoiceId) {}
+    public record DepositCreditedSignal(UUID userId, long amountTiyin, UUID invoiceId,
+                                        UUID transactionId) {}
 
     /**
      * {@code AFTER_COMMIT}, the same shape the Telegram notice already used.
@@ -55,12 +74,31 @@ public class PaymentEventPublisher {
      */
     @TransactionalEventListener
     public void onDepositCredited(DepositCreditedSignal signal) {
-        depositCredited(signal.userId(), signal.amountTiyin(), signal.invoiceId());
+        depositCredited(signal.userId(), signal.amountTiyin(),
+                signal.invoiceId(), signal.transactionId());
     }
 
-    public void depositCredited(UUID userId, long amountTiyin, UUID invoiceId) {
+    public void depositCredited(UUID userId, long amountTiyin, UUID invoiceId, UUID transactionId) {
         publish(PaymentTopics.DEPOSIT_CREDITED, userId.toString(),
-                new DepositCredited(userId, amountTiyin, invoiceId, Instant.now()));
+                new DepositCredited(userId, amountTiyin, invoiceId, transactionId,
+                        balanceOrNull(userId), Instant.now()));
+    }
+
+    /**
+     * The balance to quote in the message the user receives.
+     *
+     * <p>Read here rather than inside the crediting transaction on purpose: it
+     * is a courtesy on an announcement, and a failure to read it must cost the
+     * announcement its last line, never the announcement itself. Null simply
+     * means the message omits it.
+     */
+    private Long balanceOrNull(UUID userId) {
+        try {
+            return ledger.balanceOf(userId).getAvailableTiyin();
+        } catch (Exception e) {
+            log.warn("Could not read the balance to announce for {}: {}", userId, e.toString());
+            return null;
+        }
     }
 
     // ----- withdrawals -----
