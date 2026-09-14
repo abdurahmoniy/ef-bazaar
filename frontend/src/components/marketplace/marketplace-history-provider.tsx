@@ -2,6 +2,7 @@
 
 import { usePathname, useSearchParams } from 'next/navigation';
 import * as React from 'react';
+import type { ListingResponse, PageResponse } from '@/lib/marketplace-types';
 
 import {
   detailBackMarkerFromPending,
@@ -14,11 +15,13 @@ import {
 interface MarketplaceHistoryContextValue {
   popstateMarker: MarketplaceFeedMarker | null;
   clearPopstateMarker: () => void;
+  feedCache: React.RefObject<Map<string, PageResponse<ListingResponse>[]>> | null;
 }
 
 const MarketplaceHistoryContext = React.createContext<MarketplaceHistoryContextValue>({
   popstateMarker: null,
   clearPopstateMarker: () => undefined,
+  feedCache: null,
 });
 
 export function MarketplaceHistoryProvider({ children }: { children: React.ReactNode }) {
@@ -26,6 +29,7 @@ export function MarketplaceHistoryProvider({ children }: { children: React.React
   const searchParams = useSearchParams();
   const search = searchParams.toString();
   const [popstateMarker, setPopstateMarker] = React.useState<MarketplaceFeedMarker | null>(null);
+  const feedCache = React.useRef(new Map<string, PageResponse<ListingResponse>[]>());
 
   React.useEffect(() => {
     let raw: string | null = null;
@@ -73,7 +77,7 @@ export function MarketplaceHistoryProvider({ children }: { children: React.React
 
   const clearPopstateMarker = React.useCallback(() => setPopstateMarker(null), []);
   const value = React.useMemo(
-    () => ({ popstateMarker, clearPopstateMarker }),
+    () => ({ popstateMarker, clearPopstateMarker, feedCache }),
     [clearPopstateMarker, popstateMarker],
   );
 
