@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  Activity,
   ArrowUpFromLine,
   Bot,
   ClipboardCheck,
@@ -31,6 +32,7 @@ const TABS: Array<{ href: string; label: string; icon: React.ReactNode }> = [
   { href: '/admin/listings', label: "E'lonlar", icon: <Package className="h-4 w-4" /> },
   { href: '/admin/users', label: 'Foydalanuvchilar', icon: <UsersRound className="h-4 w-4" /> },
   { href: '/admin/trade-admin-applications', label: 'Admin arizalari', icon: <ClipboardCheck className="h-4 w-4" /> },
+  { href: '/admin/trades', label: 'Faol savdolar', icon: <Activity className="h-4 w-4" /> },
   { href: '/admin/mailboxes', label: 'Pochtalar', icon: <Mail className="h-4 w-4" /> },
   // The active check below is `startsWith`, so no `/admin/payments` parent
   // entry may be added — it would light up on both children. Sibling routes
