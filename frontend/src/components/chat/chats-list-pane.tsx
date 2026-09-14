@@ -41,8 +41,8 @@ export function ChatsListPane({ chats, viewerId }: ChatsListPaneProps) {
   }, [chats, query, filter, viewerId]);
 
   return (
-    <section className="flex h-full min-h-0 flex-col bg-background pt-[env(safe-area-inset-top)] md:pt-0">
-      <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-card px-3 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] md:pt-2">
+    <section className="flex h-full min-h-0 flex-col bg-background">
+      <header className="sticky top-0 z-30 flex shrink-0 items-center gap-2 border-b border-border bg-card px-3 py-2 pt-[calc(var(--app-content-safe-top)+0.5rem)] md:pt-2">
         <Button asChild variant="ghost" size="sm" className="-ml-1 h-9 w-9 p-0">
           <Link href="/marketplace" aria-label="Bozorga qaytish" title="Bozorga qaytish">
             <ChevronLeft className="h-5 w-5" />
@@ -97,7 +97,7 @@ export function ChatsListPane({ chats, viewerId }: ChatsListPaneProps) {
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 pb-[calc(var(--app-content-safe-bottom)+0.5rem)]">
         {filtered.length === 0 ? (
           <EmptyState hasChats={chats.length > 0} filter={filter} query={query} />
         ) : (

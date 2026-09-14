@@ -1,11 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useChatViewport } from '@/hooks/use-chat-viewport';
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import {
   AlertTriangle,
   ArrowRight,
-  ArrowUpRight,
   CheckCircle2,
   Coins,
   Copy,
@@ -110,38 +111,13 @@ export function TradePanel(_props?: TradePanelProps) {
 }
 
 function TradeDrawerModal() {
-  const { isDrawerOpen, setIsDrawerOpen, scrollToTradePanel } = useTradeContext();
+  const { isDrawerOpen, setIsDrawerOpen } = useTradeContext();
 
   if (!isDrawerOpen) return null;
 
   return (
-    <ModalShell title="Savdo boshqaruvi" onClose={() => setIsDrawerOpen(false)}>
-      <div className="space-y-3">
-        <TradePanelContent isInsideDrawer />
-        <div className="flex items-center justify-between border-t border-border pt-3">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setIsDrawerOpen(false);
-              scrollToTradePanel();
-            }}
-            className="text-xs text-primary hover:text-primary"
-          >
-            Chatdagi joyiga o‘tish
-            <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setIsDrawerOpen(false)}
-          >
-            Yopish
-          </Button>
-        </div>
-      </div>
+    <ModalShell title="Savdo tafsilotlari" sheet onClose={() => setIsDrawerOpen(false)}>
+      <TradePanelContent isInsideDrawer />
     </ModalShell>
   );
 }
@@ -205,6 +181,7 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
         viewerId={viewerId}
         onRefresh={reload}
         refreshing={refreshing}
+        embedded={isInsideDrawer}
       />
     );
   }
@@ -218,6 +195,7 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
           viewerId={viewerId}
           onRefresh={reload}
           refreshing={refreshing}
+          embedded={isInsideDrawer}
         />
         <Button
           type="button"
@@ -485,11 +463,13 @@ function ActiveTradeCard({
   viewerId,
   onRefresh,
   refreshing,
+  embedded = false,
 }: {
   trade: TradeResponse;
   viewerId: string;
   onRefresh: () => Promise<void> | void;
   refreshing: boolean;
+  embedded?: boolean;
 }) {
   const isBuyer = trade.buyerId === viewerId;
   const isSeller = trade.sellerId === viewerId;
@@ -502,27 +482,25 @@ function ActiveTradeCard({
   }, [trade.state]);
 
   return (
-    <div className="mx-auto max-w-md space-y-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
-      <div className="flex items-center gap-2">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-          <ShieldCheck className="h-4 w-4" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            Savdo · {shortId}
-          </p>
-          <p className="text-sm font-semibold text-foreground">
+    <div className={cn(
+      'mx-auto max-w-md space-y-4',
+      !embedded && 'rounded-2xl border border-border bg-card p-4 shadow-card',
+    )}>
+      <div className="space-y-2.5 border-b border-border pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <p className="whitespace-nowrap text-xl font-bold tracking-tight text-foreground">
             {formatPriceUZS(trade.priceUzs)}
           </p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-0.5">
-          <Badge variant="verified">{TRADE_STATE_LABEL_UZ[trade.state]}</Badge>
           {trade.stateDeadline && !isTerminalState(trade.state) && (
-            <span className="text-[10px] text-muted-foreground">
+            <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
               <CountdownText until={trade.stateDeadline} prefix="Qoldi:" />
             </span>
           )}
         </div>
+        <p className="flex items-start gap-2 text-sm font-medium leading-snug text-foreground">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          {TRADE_STATE_LABEL_UZ[trade.state]}
+        </p>
       </div>
 
       <CounterpartLine trade={trade} viewerRole={trade.role ?? null} />
@@ -544,20 +522,20 @@ function ActiveTradeCard({
         </div>
       )}
 
-      <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-        <span>
-          Rol:{' '}
+      <div className="flex items-center justify-between gap-2 border-t border-border pt-2 text-xs text-muted-foreground">
+        <span className="min-w-0">
           {trade.role === 'SELLER'
             ? 'Sotuvchi'
             : trade.role === 'BUYER'
               ? 'Xaridor'
               : '—'}
+          <span className="ml-2 text-[11px]">· {shortId}</span>
         </span>
         <button
           type="button"
           onClick={() => void onRefresh()}
           disabled={refreshing}
-          className="text-primary underline underline-offset-2 disabled:opacity-50"
+          className="min-h-11 shrink-0 rounded-lg px-2 font-medium text-foreground underline-offset-2 hover:underline disabled:opacity-50"
         >
           {refreshing ? 'Yangilanmoqda…' : 'Yangilash'}
         </button>
@@ -776,72 +754,73 @@ function WaitingEmailChangeSellerPanel({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="rounded-lg bg-primary/5 px-3 py-2 text-xs">
-        <p className="mb-1 font-semibold text-foreground">Konami email manzili</p>
+    <div className="space-y-4">
+      <div className="space-y-2 text-sm">
+        <p className="font-semibold text-foreground">1. Konami emailini o‘zgartiring</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Konami saytida akkount emailini quyidagi manzilga o‘zgartiring.
+        </p>
         {email ? (
-          <div className="flex items-center gap-2">
-            <code className="flex-1 truncate rounded border border-border/80 bg-background/80 px-2.5 py-1.5 text-[11px] font-mono text-foreground select-all dark:bg-background/90 dark:border-border/60">
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 py-1 pl-3 pr-1">
+            <code className="min-w-0 flex-1 break-all py-2 font-mono text-sm leading-relaxed text-foreground select-all">
               {email}
             </code>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 px-2"
+              className="h-11 w-11 shrink-0 px-0"
               onClick={copyEmail}
-              aria-label="Nusxa olish"
+              aria-label="Emailni nusxa olish"
             >
-              <Copy className="mr-1 h-3.5 w-3.5" />
-              {copied ? 'Nusxalandi' : 'Nusxa'}
+              {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              <span className="sr-only" role="status">{copied ? 'Nusxalandi' : ''}</span>
             </Button>
           </div>
         ) : (
           <p className="text-muted-foreground">Manzil tayyorlanmoqda…</p>
         )}
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Konami saytiga kirib akkount email manzilini yuqoridagi manzilga
-          o&apos;zgartiring.
-        </p>
       </div>
 
-      <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
-        <p className="mb-1 font-semibold text-foreground">Konami tasdiqlash kodi</p>
+      <div className="space-y-2 text-sm">
+        <p className="font-semibold text-foreground">2. Tasdiqlash kodini kiriting</p>
         {code ? (
-          <div className="flex items-center gap-2">
-            <code className="flex-1 rounded border border-border/80 bg-background/80 px-2.5 py-1.5 text-center text-lg font-mono font-bold tracking-widest text-primary select-all dark:bg-background/90 dark:border-border/60">
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 py-1 pl-3 pr-1">
+            <code className="min-w-0 flex-1 break-all py-2 font-mono text-xl font-bold tracking-widest text-foreground select-all">
               {code}
             </code>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-9 px-2"
+              className="h-11 w-11 shrink-0 px-0"
               onClick={copyCode}
               aria-label="Kodni nusxa olish"
             >
-              <Copy className="mr-1 h-3.5 w-3.5" />
-              {codeCopied ? 'Nusxalandi' : 'Nusxa'}
+              {codeCopied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              <span className="sr-only" role="status">{codeCopied ? 'Nusxalandi' : ''}</span>
             </Button>
           </div>
         ) : (
-          <p className="text-muted-foreground">
-            Konami dan tasdiqlash kodini kutmoqda…
-          </p>
+          <div className="flex items-center gap-2 rounded-xl bg-muted/40 p-3 text-muted-foreground" role="status">
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+            Konami tasdiqlash kodi kutilmoqda…
+          </div>
         )}
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Bu kodni Konami sahifasidagi email o&apos;zgartirish oynasiga kiriting.
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {code
+            ? 'Bu kodni Konami sahifasidagi email o‘zgartirish oynasiga kiriting.'
+            : 'Kod shu yerda avtomatik chiqadi. Kod kelgach tasdiqlash tugmasi faollashadi.'}
         </p>
       </div>
 
       <Button
         type="button"
-        className="w-full"
+        className="w-full disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
         onClick={() => setShowModal(true)}
         disabled={submitting || !email || !code}
-        title={!code ? "Avval Konami tasdiqlash kodini kiriting va kuting" : undefined}
       >
-        Email o&apos;zgartirdim
+        Email o‘zgartirdim
       </Button>
       {showModal && email && (
         <ConfirmModal
@@ -927,37 +906,36 @@ function VerifyingKonamiSellerPanel({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
-        <p className="font-medium">Konami sahifasida forgot password so&apos;rang</p>
-        <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
-          <li>Pastdagi tugma orqali Konami forgot-password sahifasini oching.</li>
+      <div className="text-sm">
+        <p className="font-semibold">Konami parolini tiklashni so‘rang</p>
+        <ol className="mt-2 list-decimal space-y-2 pl-5 leading-relaxed text-muted-foreground">
+          <li>Pastdagi tugma orqali Konami parol tiklash sahifasini oching.</li>
           <li>Sahifada quyidagi emailni kiriting (yoki nusxa oling) va &quot;Send&quot; tugmasini bosing.</li>
-          <li>Konami xatni <b>{mailboxEmail || 'escrow mailbox'}</b> ga yuboradi. Kelishini avtomatik kutamiz — kelgach yangi tab o&apos;zi yopiladi.</li>
+          <li>Xat kelishini avtomatik tekshiramiz. Kelgach savdo keyingi bosqichga o‘tadi.</li>
         </ol>
       </div>
 
       {mailboxEmail && (
-        <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2">
-          <code className="flex-1 truncate text-xs font-mono">{mailboxEmail}</code>
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 py-1 pl-3 pr-1">
+          <code className="min-w-0 flex-1 break-all py-2 font-mono text-sm leading-relaxed select-all">{mailboxEmail}</code>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs"
+            className="h-11 w-11 shrink-0 px-0"
             onClick={copyEmail}
+            aria-label="Emailni nusxa olish"
           >
-            {copied ? '✓ Nusxa olindi' : 'Nusxa'}
+            {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            <span className="sr-only" role="status">{copied ? 'Nusxalandi' : ''}</span>
           </Button>
         </div>
       )}
 
       <Button type="button" className="w-full" onClick={openKonami}>
-        Konami forgot-password sahifasini ochish
+        Konami sahifasini ochish
       </Button>
 
-      <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-        Xat kelgach state avtomatik yangilanadi. Yoki qo&apos;lda tekshirish uchun:
-      </div>
       <Button
         type="button"
         variant="secondary"
@@ -966,7 +944,7 @@ function VerifyingKonamiSellerPanel({
         disabled={submitting}
       >
         <RefreshCw className={cn('mr-2 h-3.5 w-3.5', submitting && 'animate-spin')} />
-        {submitting ? 'Tekshirilmoqda…' : 'Qayta tekshir'}
+        {submitting ? 'Tekshirilmoqda…' : 'Xat kelganini tekshirish'}
       </Button>
     </div>
   );
@@ -984,6 +962,9 @@ function WaitingPasswordSellerPanel({
   const [showModal, setShowModal] = useState(false);
   return (
     <>
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        Yangi Konami parolini xavfsiz shakl orqali yuboring. Xaridor uni savdoning keyingi bosqichida ochadi.
+      </p>
       <Button
         type="button"
         className="w-full"
@@ -1097,55 +1078,55 @@ function WaitingBuyerVerifyBuyerPanel({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {revealedPassword ? (
         <>
-          <div className="space-y-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
+          <div className="space-y-3">
             {mailboxEmail && (
               <div>
-                <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary">
+                <p className="mb-2 text-sm font-semibold text-foreground">
                   Konami email
                 </p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 truncate rounded border border-border/80 bg-background/80 px-2.5 py-1.5 font-mono text-sm text-foreground select-all dark:bg-background/90 dark:border-border/60">
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 py-1 pl-3 pr-1">
+                  <code className="min-w-0 flex-1 break-all py-2 font-mono text-sm leading-relaxed text-foreground select-all">
                     {mailboxEmail}
                   </code>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-8 px-2"
+                    className="h-11 w-11 shrink-0 px-0"
                     onClick={copyEmail}
                     aria-label="Emailni nusxa olish"
                   >
-                    <Copy className="mr-1 h-3.5 w-3.5" />
-                    {emailCopied ? 'Nusxalandi' : 'Nusxa'}
+                    {emailCopied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    <span className="sr-only" role="status">{emailCopied ? 'Nusxalandi' : ''}</span>
                   </Button>
                 </div>
               </div>
             )}
             <div>
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-primary">
+              <p className="mb-2 text-sm font-semibold text-foreground">
                 Konami paroli
               </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 truncate rounded border border-border/80 bg-background/80 px-2.5 py-1.5 font-mono text-sm text-foreground select-all dark:bg-background/90 dark:border-border/60">
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 py-1 pl-3 pr-1">
+                <code className="min-w-0 flex-1 break-all py-2 font-mono text-sm leading-relaxed text-foreground select-all">
                   {revealedPassword}
                 </code>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-8 px-2"
+                  className="h-11 w-11 shrink-0 px-0"
                   onClick={copyPw}
-                  aria-label="Nusxa olish"
+                  aria-label="Parolni nusxa olish"
                 >
-                  <Copy className="mr-1 h-3.5 w-3.5" />
-                  {copied ? 'Nusxalandi' : 'Nusxa'}
+                  {copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  <span className="sr-only" role="status">{copied ? 'Nusxalandi' : ''}</span>
                 </Button>
               </div>
             </div>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               Yuqoridagi email + parol bilan Konami akkauntga kira olganingizni
               tekshiring. Parol qayta ochilmaydi.
             </p>
@@ -2186,39 +2167,75 @@ function ModalShell({
   title,
   children,
   onClose,
+  sheet = false,
 }: {
   title: string;
   children: React.ReactNode;
   onClose: () => void;
+  sheet?: boolean;
 }) {
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const viewport = useChatViewport();
+  const content = (
+    <Dialog.Overlay style={viewport ? {
+      top: viewport.offsetTop,
+      bottom: 'auto',
+      height: `min(${viewport.height}px, var(--tg-viewport-height, 100dvh))`,
+      paddingTop: 'max(1rem, var(--app-content-safe-top, 0px))',
+      paddingLeft: 'max(0.75rem, var(--app-content-safe-left, 0px))',
+      paddingRight: 'max(0.75rem, var(--app-content-safe-right, 0px))',
+      ...(sheet ? {
+        paddingLeft: 'var(--app-content-safe-left, 0px)',
+        paddingRight: 'var(--app-content-safe-right, 0px)',
+      } : {}),
+    } : undefined} className={cn(
+      'fixed inset-0 z-50 flex justify-center bg-black/60 sm:items-center sm:p-4',
+      sheet ? 'items-end' : 'items-center p-3',
+    )}>
+      <Dialog.Content
+        aria-describedby={undefined}
+        style={viewport ? { maxHeight: '100%' } : undefined}
+        onOpenAutoFocus={() => {
+          returnFocusRef.current = document.activeElement instanceof HTMLElement
+            ? document.activeElement : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          returnFocusRef.current?.focus();
+        }}
+        className={cn(
+          'relative flex w-full max-w-md flex-col overflow-hidden border border-border bg-card shadow-card-hover outline-none',
+          sheet
+            ? 'max-h-[calc(100dvh-1rem)] rounded-t-2xl sm:max-h-[90dvh] sm:rounded-2xl'
+            : 'max-h-[90dvh] rounded-2xl',
+        )}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2">
+          <Dialog.Title className="min-w-0 pr-2 text-base font-bold text-foreground">{title}</Dialog.Title>
+          <Dialog.Close asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 shrink-0 text-muted-foreground hover:text-foreground"
+              aria-label="Yopish"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </Dialog.Close>
+        </div>
+        <div className={cn(
+          'min-h-0 overflow-y-auto overscroll-contain p-4',
+          sheet && 'pb-[calc(1rem+var(--app-content-safe-bottom,0px))]',
+        )}>{children}</div>
+      </Dialog.Content>
+    </Dialog.Overlay>
+  );
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="relative w-full max-w-md max-h-[92vh] flex flex-col rounded-2xl border border-border bg-card shadow-card-hover overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-auto">
-        <div className="flex items-center justify-between border-b border-border/50 px-3.5 py-2.5 sm:px-4 sm:py-3 shrink-0">
-          <h2 className="text-sm sm:text-base font-black text-foreground truncate pr-2">{title}</h2>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 sm:h-9 sm:w-9 p-0 rounded-lg text-muted-foreground hover:text-foreground shrink-0"
-            onClick={onClose}
-            aria-label="Yopish"
-          >
-            <X className="h-4 w-4 sm:h-5 sm:w-5" />
-          </Button>
-        </div>
-        <div className="p-3.5 sm:p-4 overflow-y-auto overscroll-contain">
-          {children}
-        </div>
-      </div>
-    </div>
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      {sheet ? <Dialog.Portal>{content}</Dialog.Portal> : content}
+    </Dialog.Root>
   );
 }
 

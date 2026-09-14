@@ -2,21 +2,22 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import {
   AlertTriangle,
+  ArrowDown,
   ChevronLeft,
   Paperclip,
   Pencil,
   Reply,
   Send,
   Star,
-  StarOff,
-  Trash2,
   X,
 } from 'lucide-react';
 
 import { ChatPinnedHeader } from '@/components/chat/chat-pinned-header';
+import { ChatComposerInput } from '@/components/chat/chat-composer-input';
+import { ChatOptions } from '@/components/chat/chat-options';
 import { MessageActionSheet } from '@/components/chat/message-action-sheet';
 import { TradeProvider } from '@/components/chat/trade-context';
 import { TradePinnedBar } from '@/components/chat/trade-pinned-bar';
@@ -25,9 +26,9 @@ import { TradeProposalMessageCard } from '@/components/chat/trade-proposal-messa
 import { TipCallout } from '@/components/help/tip-callout';
 import { MessageAttachment, formatBytes } from '@/components/chat/message-attachment';
 import { VoiceRecorder } from '@/components/chat/voice-recorder';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { useChatScroll } from '@/hooks/use-chat-scroll';
+import { useVirtualKeyboard } from '@/hooks/use-virtual-keyboard';
 import {
   avatarTone,
   formatDayLabel,
@@ -75,7 +76,8 @@ export function ChatView({
   const [error, setError] = useState<string | null>(null);
   const [isSending, startSend] = useTransition();
   const [isUpdating, startUpdate] = useTransition();
-  const listRef = useRef<HTMLDivElement>(null);
+  const { listRef, onScroll, scrollToBottom, hasNewMessages, followNextMessage } = useChatScroll(messages.at(-1)?.id);
+  const isKeyboardOpen = useVirtualKeyboard();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const name = partnerName(chat, viewerId);
@@ -108,15 +110,6 @@ export function ChatView({
     if (messages.length > 0) markChatRead(chat.id);
   }, [chat.id, messages.length]);
 
-  const scrollToBottom = useCallback(() => {
-    const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, []);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages.length, scrollToBottom]);
-
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
@@ -137,6 +130,7 @@ export function ChatView({
   }, [chat.id]);
 
   function handleSend() {
+    if (isSending) return;
     const content = draft.trim();
     if (!content && !pendingFile) return;
     setError(null);
@@ -162,6 +156,7 @@ export function ChatView({
       setDraft('');
       setPendingFile(null);
       setReplyTo(null);
+      followNextMessage();
       setMessages((prev) => mergeMessages(prev, [result.message]));
     });
   }
@@ -214,7 +209,7 @@ export function ChatView({
   }
 
   function handlePickFile(file: File | null) {
-    if (!file) return;
+    if (!file || isSending) return;
     if (file.size > 10 * 1024 * 1024) {
       setError('Fayl hajmi 10MB dan oshmasligi kerak');
       return;
@@ -231,6 +226,7 @@ export function ChatView({
         setError(result.error ?? 'Yuborilmadi');
         return;
       }
+      followNextMessage();
       setMessages((prev) => mergeMessages(prev, [result.message]));
     });
   }
@@ -275,16 +271,16 @@ export function ChatView({
       listing={listing}
       initialPendingProposal={initialPendingProposal}
     >
-      <div className="flex h-full min-h-0 w-full flex-col bg-background animate-in slide-in-from-right duration-300 md:animate-none">
-        <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-card px-2 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] md:pt-2">
-          <Button asChild variant="ghost" size="sm" className="-ml-1 h-10 w-10 shrink-0 p-0 md:hidden">
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-background">
+        <header className="relative z-10 flex shrink-0 items-center gap-2 border-b border-border bg-card px-2 py-1 pt-[calc(var(--app-content-safe-top,0px)+0.25rem)] md:py-2">
+          <Button asChild variant="ghost" size="sm" className="-ml-1 h-11 w-11 shrink-0 p-0 md:hidden">
             <Link href="/chats" aria-label="Chatlar ro'yxatiga qaytish">
               <ChevronLeft className="h-5 w-5" />
             </Link>
           </Button>
           <div
             className={cn(
-              'grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold uppercase',
+              'grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold uppercase',
               avatarTone(partnerId),
             )}
           >
@@ -293,45 +289,23 @@ export function ChatView({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <p className="truncate text-sm font-black text-foreground">{name}</p>
-              {chat.important && <Badge variant="warn">Muhim</Badge>}
+              {chat.important && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" aria-label="Muhim" />}
             </div>
             <p className="text-[11px] text-muted-foreground">
-              {messages.length} xabar
+              Savdo suhbati
             </p>
           </div>
-          <div className="flex items-center gap-0.5">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-10 w-10 p-0"
-              disabled={isUpdating}
-              onClick={handleToggleImportant}
-              title={chat.important ? "Muhimni olib tashlash" : 'Muhim deb belgilash'}
-              aria-label={chat.important ? "Muhimni olib tashlash" : 'Muhim deb belgilash'}
-            >
-              {chat.important ? <StarOff className="h-5 w-5" /> : <Star className="h-5 w-5" />}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              disabled={isUpdating}
-              onClick={handleDelete}
-              title="Chatni o'chirish"
-              aria-label="Chatni o'chirish"
-            >
-              <Trash2 className="h-5 w-5" />
-            </Button>
-          </div>
+          <ChatOptions important={chat.important} disabled={isUpdating} onToggleImportant={handleToggleImportant} onDelete={handleDelete} />
         </header>
 
         <TradePinnedBar />
 
+        <div className="relative min-h-0 flex-1">
         <div
           ref={listRef}
-          className="flex-1 space-y-2 overflow-y-auto px-3 py-4"
+          onScroll={onScroll}
+          aria-label="Xabarlar"
+          className="h-full space-y-2 overflow-y-auto overscroll-contain px-3 py-3"
         >
           <ChatPinnedHeader listing={listing} />
           <TradePanel />
@@ -417,7 +391,6 @@ export function ChatView({
                     {hasAttachment && (
                       // Media controls (lightbox, play, download) must not open
                       // the message action sheet.
-                      // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
                       <span className="block" onClick={(e) => e.stopPropagation()}>
                         <MessageAttachment message={message} mine={mine} />
                       </span>
@@ -438,6 +411,12 @@ export function ChatView({
           );
         })}
       </div>
+      {hasNewMessages && (
+        <Button variant="secondary" className="absolute bottom-3 right-3 min-h-11 gap-2 rounded-full border border-border shadow-lg" onClick={scrollToBottom}>
+          Yangi xabarlar <ArrowDown className="h-4 w-4" />
+        </Button>
+      )}
+      </div>
 
       {error && (
         <div className="flex items-center gap-2 border-t border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive">
@@ -446,7 +425,7 @@ export function ChatView({
         </div>
       )}
 
-      <div className="border-t border-border bg-card px-3 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+      <div className={cn('shrink-0 border-t border-border bg-card px-2 py-2', !isKeyboardOpen && 'pb-[calc(var(--app-content-safe-bottom,0px)+0.5rem)]')}>
           {(replyTo || editing) && (
             <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
               {editing ? (
@@ -507,7 +486,7 @@ export function ChatView({
               </Button>
             </div>
           )}
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-1.5">
             <input
               ref={fileInputRef}
               type="file"
@@ -533,16 +512,12 @@ export function ChatView({
                     <Paperclip className="h-5 w-5" />
                   </Button>
                 )}
-                <Textarea
+                <ChatComposerInput
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
+                  onSend={handleSend}
                   onPaste={(e) => {
+                    if (isSending) { e.preventDefault(); return; }
                     if (editing) return;
                     const item = Array.from(e.clipboardData.items).find(
                       (i) => i.kind === 'file' && i.type.startsWith('image/'),
@@ -554,9 +529,7 @@ export function ChatView({
                     }
                   }}
                   placeholder={pendingFile ? 'Izoh (ixtiyoriy)…' : 'Xabar yozing…'}
-                  rows={2}
-                  className="min-h-11 resize-none"
-                  disabled={isSending}
+                  readOnly={isSending}
                 />
               </>
             )}
@@ -572,9 +545,11 @@ export function ChatView({
               <Button
                 type="button"
                 size="lg"
-                className="h-11 shrink-0"
+                className="h-11 w-11 shrink-0 rounded-full p-0"
                 onClick={handleSend}
-                disabled={isSending}
+                onPointerDown={(event) => event.preventDefault()}
+                aria-label={editing ? 'Tahrirni saqlash' : 'Xabarni yuborish'}
+                disabled={isSending || (!draft.trim() && !pendingFile)}
               >
                 <Send className="h-4 w-4" />
               </Button>

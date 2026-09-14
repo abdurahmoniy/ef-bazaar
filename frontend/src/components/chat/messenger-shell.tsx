@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { ChatsListPane } from '@/components/chat/chats-list-pane';
+import { useChatViewport } from '@/hooks/use-chat-viewport';
 import type { ChatResponse } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
 
@@ -29,9 +30,16 @@ export function MessengerShell({ chats, viewerId, children }: MessengerShellProp
   const pathname = usePathname();
   const openChatId = pathname?.startsWith('/chats/') ? pathname.slice('/chats/'.length) : null;
   const isChatOpen = Boolean(openChatId);
+  const viewport = useChatViewport();
 
   return (
-    <div className="fixed inset-0 flex bg-background md:grid md:grid-cols-[320px,1fr]">
+    <div
+      className="fixed inset-x-0 top-0 flex h-[var(--tg-viewport-height,100dvh)] bg-background pl-[var(--app-content-safe-left)] pr-[var(--app-content-safe-right)] md:grid md:grid-cols-[320px,1fr]"
+      style={viewport ? {
+        top: viewport.offsetTop,
+        height: `min(${viewport.height}px, var(--tg-viewport-height, 100dvh))`,
+      } : undefined}
+    >
       <aside
         className={cn(
           // NOT overflow-hidden: the notification dropdown must escape the
