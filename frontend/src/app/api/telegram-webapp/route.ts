@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { ApiException } from '@/lib/api';
+import { ACCESS_REQUIREMENTS_UNMET, accessRequiredHref } from '@/lib/access-requirements';
+import { ACCESS_COOKIE_NAME, ApiException, REFRESH_COOKIE_NAME } from '@/lib/api';
 import { applyAuthCookies, getMe, telegramWebAppAuthTokens } from '@/lib/auth';
+import { getAuthCookieClearOptions } from '@/lib/auth-cookies';
 import { resolvePostLoginPath } from '@/lib/safe-redirect';
 import { telegramAuthErrorHref } from '@/lib/telegram-auth-error';
 
@@ -65,6 +67,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       code,
       status: e instanceof ApiException ? e.status : undefined,
     });
+    if (code === ACCESS_REQUIREMENTS_UNMET) {
+      // Eski sessiya ham o'chiriladi: aks holda 30 kunlik refresh token
+      // bilan odam shartlarni bajarmasdan kirgan holda qolardi.
+      const res = seeOther(accessRequiredHref(target));
+      for (const cookieOpts of getAuthCookieClearOptions()) {
+        res.cookies.set(ACCESS_COOKIE_NAME, '', cookieOpts);
+        res.cookies.set(REFRESH_COOKIE_NAME, '', cookieOpts);
+      }
+      return res;
+    }
     return seeOther(telegramAuthErrorHref(code, target));
   }
 }
