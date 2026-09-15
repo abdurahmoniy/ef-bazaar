@@ -4,7 +4,7 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { TradeProposalMessageCard } from './trade-proposal-message-card';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TradePanel } from './trade-panel';
 import { TradePinnedBar } from './trade-pinned-bar';
 import { useTradeContext } from './trade-context';
@@ -14,7 +14,13 @@ vi.mock('./trade-context', () => ({ useTradeContext: vi.fn() }));
 
 type Context = ReturnType<typeof useTradeContext>;
 let context: Context;
+let container: HTMLDivElement;
+let root: ReturnType<typeof createRoot>;
 beforeEach(() => {
+  (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  container = document.createElement('div');
+  document.body.append(container);
+  root = createRoot(container);
   context = {
     chat: { id: 'chat-1' }, viewerId: 'seller', otherPartyId: 'buyer',
     listing: { id: 'original', mediaMessageIds: [], attributes: { platform: 'MOBILE' } },
@@ -24,13 +30,21 @@ beforeEach(() => {
     },
     trades: [], activeTrade: null, lastFinished: null, proposal: null,
     role: 'SELLER', isSeller: true, requiresAdminHandoff: true,
-    showPicker: false, showProposeModal: false, isDrawerOpen: false,
+    showPicker: false, showProposeModal: false, isDrawerOpen: true, setIsDrawerOpen: vi.fn(),
     commissionConfig: null,
   } as unknown as Context;
   vi.mocked(useTradeContext).mockImplementation(() => context);
 });
 
-const render = () => renderToStaticMarkup(createElement(TradePanel));
+afterEach(async () => {
+  await act(async () => root.unmount());
+  container.remove();
+});
+
+const render = async () => {
+  await act(async () => root.render(createElement(TradePanel)));
+  return document.body.innerHTML;
+};
 
 describe('trade platform handoff', () => {
   it('opens the admin handoff from a pending proposal message', async () => {
@@ -57,9 +71,9 @@ describe('trade platform handoff', () => {
     }
   });
 
-  it.each(['STEAM', 'PLAYSTATION'])('routes %s directly to the Telegram admin using the selected listing', (platform) => {
+  it.each(['STEAM', 'PLAYSTATION'])('routes %s directly to the Telegram admin using the selected listing', async (platform) => {
     context.accountRequest!.listing!.attributes!.platform = platform;
-    const html = render();
+    const html = await render();
     expect(html).toContain('Kelishdik — adminga murojaat');
     expect(html).toContain('https://t.me/abdurahmoniy?text=');
     expect(html).not.toContain('/support?');
@@ -69,40 +83,40 @@ describe('trade platform handoff', () => {
     expect(renderToStaticMarkup(createElement(TradePinnedBar))).toContain('Adminga murojaat');
   });
 
-  it('gives the buyer the same handoff after negotiation', () => {
+  it('gives the buyer the same handoff after negotiation', async () => {
     context.isSeller = false;
     context.role = 'BUYER';
-    expect(render()).toContain('Kelishdik — adminga murojaat');
+    expect(await render()).toContain('Kelishdik — adminga murojaat');
   });
 
-  it('retains the mobile proposal form', () => {
+  it('retains the mobile proposal form', async () => {
     context.accountRequest!.listing!.attributes!.platform = 'MOBILE';
     context.requiresAdminHandoff = false;
     context.showProposeModal = true;
-    const html = render();
+    const html = await render();
     expect(html).toContain('trade-price');
     expect(html).toContain('Taklif yuborish');
     expect(html).not.toContain('Kelishdik — adminga murojaat');
   });
 
-  it('replaces a previously opened Smart modal when the selected account changes', () => {
+  it('replaces a previously opened Smart modal when the selected account changes', async () => {
     context.showProposeModal = true;
-    expect(render()).not.toContain('trade-price');
+    expect(await render()).not.toContain('trade-price');
   });
 
-  it('routes old non-mobile proposals to admins without rendering acceptance controls', () => {
+  it('routes old non-mobile proposals to admins without rendering acceptance controls', async () => {
     context.proposal = { id: 'proposal', listingId: 'selected', priceUzs: 250000, expiresAt: '', mode: 'SMART' };
     context.showAcceptModal = true;
     context.isSeller = false;
-    const html = render();
+    const html = await render();
     expect(html).toContain('Kelishdik — adminga murojaat');
     expect(html).not.toContain('Tasdiqlash');
     expect(html).not.toContain('hamyoningizdan yechilib');
   });
 
-  it('does not infer mobile from a different original listing when the selected account is deleted', () => {
+  it('does not infer mobile from a different original listing when the selected account is deleted', async () => {
     context.accountRequest!.listing = null;
-    expect(render()).toContain('Platformasi aniqlanmagan');
-    expect(render()).not.toContain('trade-price');
+    expect(await render()).toContain('Platformasi aniqlanmagan');
+    expect(await render()).not.toContain('trade-price');
   });
 });

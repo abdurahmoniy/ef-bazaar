@@ -49,6 +49,31 @@ const buttonWith = (text: string) => Array.from(dialog().querySelectorAll('butto
   .find((button) => button.textContent?.includes(text))!;
 
 describe('trade details', () => {
+  it.each(['active', 'finished', 'proposal', 'no-request'])('keeps the listing link available in the %s state', async (state) => {
+    context.listing = { id: 'original-listing' } as NonNullable<Context['listing']>;
+    if (state === 'finished') {
+      context.lastFinished = { ...context.activeTrade!, state: 'ORPHANED' };
+    }
+    if (state !== 'active') context.activeTrade = null;
+    if (state === 'proposal') context.proposal = { id: 'proposal', listingId: 'offered-listing', priceUzs: 20000, expiresAt: '' };
+    if (state === 'no-request') context.role = null;
+    await render();
+    expect(dialog().querySelector('a')?.getAttribute('href')).toBe(
+      `/marketplace/${state === 'proposal' ? 'offered-listing' : 'original-listing'}`,
+    );
+  });
+
+  it('keeps trade instructions out of the conversation until details are opened', async () => {
+    context.isDrawerOpen = false;
+    await render();
+    expect(container.textContent).toBe('');
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    context.isDrawerOpen = true;
+    await render();
+    expect(dialog().textContent).toContain(email);
+    expect(container.textContent).toBe('');
+  });
+
   it('keeps the portaled sheet inside the visible area when a phone keyboard opens', async () => {
     const width = window.innerWidth;
     const original = window.visualViewport;

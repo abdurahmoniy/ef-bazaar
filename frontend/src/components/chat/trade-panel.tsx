@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useChatViewport } from '@/hooks/use-chat-viewport';
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
@@ -34,7 +35,6 @@ import { CountdownText } from '@/components/trade-admin/countdown-text';
 import { HumanPartyTradePanel } from '@/components/trade-admin/human-party-trade-panel';
 import { TradeAdminPicker } from '@/components/trade-admin/trade-admin-picker';
 import { SellerRatingForm } from '@/components/chat/seller-rating-form';
-import { TipCallout } from '@/components/help/tip-callout';
 import { CompletedTradeInvite } from '@/components/growth/completed-trade-invite';
 import { DivisionBadge, toDivisionLevel } from '@/components/marketplace/division-badge';
 import { Badge } from '@/components/ui/badge';
@@ -87,68 +87,80 @@ import { canUseSmartAdmin, resolveTradeListing } from '@/lib/trade-platform';
 import { TradeAdminHandoff } from './trade-admin-handoff';
 import { useTradeContext, type PendingProposal } from './trade-context';
 
-export interface TradePanelProps {
-  chat?: ChatResponse;
-  viewerId?: string;
-  listing?: ListingResponse | null;
-  initialPendingProposal?: PendingProposalResponse | null;
-}
+/** Trade details stay in a sheet; primary actions can open their own dialog. */
+export function TradePanel() {
+  const { isDrawerOpen, setIsDrawerOpen, proposal, accountRequest, listing } = useTradeContext();
+  const listingId = proposal?.listingId ?? accountRequest?.listingId ?? listing?.id;
 
-/**
- * Full-lifecycle trade driver rendered in the chat stream, synchronized with the pinned bar.
- */
-export function TradePanel(_props?: TradePanelProps) {
-  const { isDrawerOpen } = useTradeContext();
-
-  return (
-    <>
-      <div id="chat-trade-panel" className="scroll-mt-24 transition-all duration-300">
-        <TradePanelContent />
-      </div>
-      {isDrawerOpen && <TradeDrawerModal />}
-    </>
-  );
-}
-
-function TradeDrawerModal() {
-  const { isDrawerOpen, setIsDrawerOpen } = useTradeContext();
-
-  if (!isDrawerOpen) return null;
+  if (!isDrawerOpen) return <TradeActionModals />;
 
   return (
     <ModalShell title="Savdo tafsilotlari" sheet onClose={() => setIsDrawerOpen(false)}>
-      <TradePanelContent isInsideDrawer />
+      <TradePanelContent />
+      {listingId && (
+        <Link href={`/marketplace/${listingId}`} className="mt-3 flex min-h-11 items-center justify-center gap-2 text-sm font-medium text-primary hover:underline">
+          E’lonni ko‘rish <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      )}
+      <TradeActionModals />
     </ModalShell>
   );
 }
 
-function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolean }) {
+// Keep one modal host, including when an action is started from the pinned bar.
+function TradeActionModals() {
   const {
-    chat,
-    viewerId,
-    listing,
-    otherPartyId,
-    accountRequest,
-    setAccountRequest,
-    role,
-    isSeller,
-    trades,
-    activeTrade,
-    lastFinished,
-    proposal,
-    setProposal,
-    startingNew,
-    setStartingNew,
-    refreshing,
-    reload,
-    handleProposalCreated,
-    handleProposalAccepted,
-    showPicker,
-    setShowPicker,
-    showProposeModal,
-    setShowProposeModal,
-    showAcceptModal,
-    setShowAcceptModal,
+    chat, viewerId, listing, otherPartyId, accountRequest, setAccountRequest,
+    trades, activeTrade, lastFinished, startingNew, proposal, isSeller,
+    requiresAdminHandoff, showPicker, setShowPicker, showProposeModal,
+    setShowProposeModal, showAcceptModal, setShowAcceptModal,
+    handleProposalCreated, handleProposalAccepted,
+  } = useTradeContext();
+
+  if (trades === null || activeTrade || (lastFinished && !startingNew && !proposal)) return null;
+
+  if (proposal) {
+    return showAcceptModal && !isSeller && !requiresAdminHandoff ? (
+      <AcceptModal
+        proposal={proposal}
+        onClose={() => setShowAcceptModal(false)}
+        onAccepted={handleProposalAccepted}
+      />
+    ) : null;
+  }
+
+  return (
+    <>
+      {showProposeModal && isSeller && canUseSmartAdmin(resolveTradeListing(accountRequest, listing)) && (
+        <ProposeModal
+          chat={chat}
+          viewerId={viewerId}
+          listing={listing}
+          otherPartyId={otherPartyId}
+          accountRequest={accountRequest}
+          onClose={() => setShowProposeModal(false)}
+          onCreated={handleProposalCreated}
+        />
+      )}
+      {showPicker && (
+        <AccountPickerModal
+          chatId={chat.id}
+          onClose={() => setShowPicker(false)}
+          onPicked={(req) => {
+            setAccountRequest(req);
+            setShowPicker(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function TradePanelContent() {
+  const {
+    viewerId, listing, accountRequest, role, isSeller, trades, activeTrade,
+    lastFinished, proposal, setProposal, startingNew, setStartingNew,
+    refreshing, reload, setShowPicker, setShowProposeModal, setShowAcceptModal,
   } = useTradeContext();
 
   const selectedListing = resolveTradeListing(accountRequest, listing);
@@ -181,7 +193,7 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
         viewerId={viewerId}
         onRefresh={reload}
         refreshing={refreshing}
-        embedded={isInsideDrawer}
+        embedded
       />
     );
   }
@@ -195,7 +207,7 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
           viewerId={viewerId}
           onRefresh={reload}
           refreshing={refreshing}
-          embedded={isInsideDrawer}
+          embedded
         />
         <Button
           type="button"
@@ -205,7 +217,7 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
         >
           Yangi savdo boshlash
         </Button>
-        {!isInsideDrawer && <CompletedTradeInvite state={lastFinished.state} />}
+        <CompletedTradeInvite state={lastFinished.state} />
       </div>
     );
   }
@@ -218,21 +230,13 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
         isSeller={isSeller}
         onAcceptClick={() => setShowAcceptModal(true)}
         onDismiss={() => setProposal(null)}
-        showAcceptModal={showAcceptModal}
-        onAcceptModalClose={() => setShowAcceptModal(false)}
-        onAccepted={handleProposalAccepted}
       />
     );
   }
 
   // ---- no trade, no pending proposal ----
   return (
-    <div
-      className={cn(
-        'mx-auto max-w-md rounded-2xl border border-border bg-card px-4 py-3 shadow-card',
-        isInsideDrawer && 'border-none p-0 shadow-none',
-      )}
-    >
+    <div className="mx-auto max-w-md">
       {lastFinished && <LastTradeLine trade={lastFinished} />}
       <div className="mb-2 flex items-center gap-2">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
@@ -252,17 +256,6 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
         </div>
       </div>
 
-      {!isInsideDrawer && smartAdminAvailable && (
-        <TipCallout
-          variant="security"
-          learnMoreHref="/help#100-percent-secure-trade-guarantee"
-          learnMoreLabel="Kafolat shartlari"
-          className="mb-3"
-        >
-          <strong>100% Kafolatlangan va Xavfsiz Bitim:</strong> Mablag‘ to‘liq platforma depozitida muzlatiladi. Akkount topshirilmaguncha pul berilmaydi, to‘lov qilinmaguncha akkount o‘tmaydi.
-        </TipCallout>
-      )}
-
       {accountRequest && (
         <SelectedAccountCard
           request={accountRequest}
@@ -277,50 +270,23 @@ function TradePanelContent({ isInsideDrawer = false }: { isInsideDrawer?: boolea
           platform={selectedListing?.attributes?.platform}
         />
       ) : isSeller ? (
-        <>
-          <Button
-            type="button"
-            className="w-full"
-            onClick={() => setShowProposeModal(true)}
-          >
-            Taklif yuborish
-          </Button>
-          {showProposeModal && (
-            <ProposeModal
-              chat={chat}
-              viewerId={viewerId}
-              listing={listing}
-              otherPartyId={otherPartyId}
-              accountRequest={accountRequest}
-              onClose={() => setShowProposeModal(false)}
-              onCreated={handleProposalCreated}
-            />
-          )}
-        </>
-      ) : role === 'BUYER' ? (
-        <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          Sotuvchi hali taklif yubormagan.
-        </p>
+        <Button
+          type="button"
+          className="w-full"
+          onClick={() => setShowProposeModal(true)}
+        >
+          Taklif yuborish
+        </Button>
       ) : null}
 
-      <Button
-        type="button"
-        variant={role === null ? 'default' : 'outline'}
-        className="mt-2 w-full"
-        onClick={() => setShowPicker(true)}
-      >
-        {role === null ? 'Akkount so’rash' : 'Boshqa akkount so’rash'}
-      </Button>
-
-      {showPicker && (
-        <AccountPickerModal
-          chatId={chat.id}
-          onClose={() => setShowPicker(false)}
-          onPicked={(req) => {
-            setAccountRequest(req);
-            setShowPicker(false);
-          }}
-        />
+      {!accountRequest && (
+        <Button
+          type="button"
+          className="mt-2 w-full"
+          onClick={() => setShowPicker(true)}
+        >
+          Akkount so’rash
+        </Button>
       )}
     </div>
   );
@@ -364,7 +330,9 @@ function SelectedAccountCard({
       </p>
       {listing ? (
         <>
-          <p className="line-clamp-2 text-xs text-foreground">{listing.description}</p>
+          <p className="line-clamp-2 text-sm font-semibold text-foreground">
+            {listing.description.split('\n')[0]?.trim() || "E’lon"}
+          </p>
           <p className="mt-1 text-sm font-semibold text-foreground">
             {formatPriceUZS(listing.price)}
           </p>
@@ -375,9 +343,9 @@ function SelectedAccountCard({
       <button
         type="button"
         onClick={onChange}
-        className="mt-1 text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+        className="mt-1 min-h-11 text-xs font-medium text-primary underline-offset-2 hover:underline"
       >
-        O’zgartirish
+        Boshqa akkount tanlash
       </button>
     </div>
   );
@@ -1425,17 +1393,11 @@ function PendingProposalCard({
   isSeller,
   onAcceptClick,
   onDismiss,
-  showAcceptModal,
-  onAcceptModalClose,
-  onAccepted,
 }: {
   proposal: PendingProposal;
   isSeller: boolean;
   onAcceptClick: () => void;
   onDismiss: () => void;
-  showAcceptModal: boolean;
-  onAcceptModalClose: () => void;
-  onAccepted: () => void;
 }) {
   const { listing, accountRequest, requiresAdminHandoff } = useTradeContext();
   const selectedListing = resolveTradeListing(accountRequest, listing);
@@ -1492,13 +1454,6 @@ function PendingProposalCard({
             Yashirish
           </Button>
         </div>
-      )}
-      {showAcceptModal && !isSeller && (
-        <AcceptModal
-          proposal={proposal}
-          onClose={onAcceptModalClose}
-          onAccepted={onAccepted}
-        />
       )}
     </div>
   );

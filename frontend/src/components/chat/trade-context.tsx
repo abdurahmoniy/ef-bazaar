@@ -79,7 +79,6 @@ interface TradeContextValue {
   setShowAcceptModal: React.Dispatch<React.SetStateAction<boolean>>;
   isDrawerOpen: boolean;
   setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  scrollToTradePanel: () => void;
   commissionConfig: TradeCommissionConfig | null;
   requiresAdminHandoff: boolean;
 }
@@ -248,17 +247,6 @@ export function TradeProvider({
     router.refresh();
   }, [reload, router]);
 
-  const scrollToTradePanel = useCallback(() => {
-    const el = document.getElementById('chat-trade-panel');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.add('ring-2', 'ring-primary', 'transition-all', 'duration-500');
-      setTimeout(() => {
-        el.classList.remove('ring-2', 'ring-primary');
-      }, 2000);
-    }
-  }, []);
-
   const selectedListing = resolveTradeListing(accountRequest, listing);
   const tradeListing = proposal
     ? [selectedListing, listing].find((item) => item?.id === proposal.listingId) ?? null
@@ -293,7 +281,6 @@ export function TradeProvider({
     setShowAcceptModal,
     isDrawerOpen,
     setIsDrawerOpen,
-    scrollToTradePanel,
     commissionConfig,
     requiresAdminHandoff,
   };

@@ -15,7 +15,6 @@ import {
   X,
 } from 'lucide-react';
 
-import { ChatPinnedHeader } from '@/components/chat/chat-pinned-header';
 import { ChatComposerInput } from '@/components/chat/chat-composer-input';
 import { ChatOptions } from '@/components/chat/chat-options';
 import { MessageActionSheet } from '@/components/chat/message-action-sheet';
@@ -23,7 +22,6 @@ import { TradeProvider } from '@/components/chat/trade-context';
 import { TradePinnedBar } from '@/components/chat/trade-pinned-bar';
 import { TradePanel } from '@/components/chat/trade-panel';
 import { TradeProposalMessageCard } from '@/components/chat/trade-proposal-message-card';
-import { TipCallout } from '@/components/help/tip-callout';
 import { MessageAttachment, formatBytes } from '@/components/chat/message-attachment';
 import { VoiceRecorder } from '@/components/chat/voice-recorder';
 import { Button } from '@/components/ui/button';
@@ -299,6 +297,7 @@ export function ChatView({
         </header>
 
         <TradePinnedBar />
+        <TradePanel />
 
         <div className="relative min-h-0 flex-1">
         <div
@@ -307,22 +306,15 @@ export function ChatView({
           aria-label="Xabarlar"
           className="h-full space-y-2 overflow-y-auto overscroll-contain px-3 py-3"
         >
-          <ChatPinnedHeader listing={listing} />
-          <TradePanel />
-        <TipCallout
-          variant="security"
-          dismissible
-          dismissKey="chat_safety_banner"
-          learnMoreHref="/help#safety"
-          learnMoreLabel="Xavfsizlik qoidalari"
-          className="my-2"
-        >
-          Firibgarlikdan saqlaning: parollarni yoki bank karta ma‘lumotlarini ochiq chatda yubormang. Garov tizimi orqali xavfsiz bitim tuzing.
-        </TipCallout>
         {messages.length === 0 && (
-          <p className="pt-4 text-center text-xs text-muted-foreground">
-            Hali xabarlar yo'q. Birinchi bo'lib salom bering.
-          </p>
+          <div className="flex h-full min-h-24 items-center justify-center text-center">
+            <div className="max-w-xs px-4">
+              <p className="text-sm font-semibold text-foreground">Suhbatni boshlang</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Salom bering yoki akkount haqida savol yozing.
+              </p>
+            </div>
+          </div>
         )}
         {messages.map((message, index) => {
           const mine = message.senderId === viewerId;
