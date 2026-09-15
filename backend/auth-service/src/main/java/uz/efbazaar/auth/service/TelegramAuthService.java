@@ -34,21 +34,43 @@ public class TelegramAuthService {
     private final TelegramWebAppValidator webAppValidator;
     private final AuthEventPublisher events;
     private final TokenIssuer tokenIssuer;
+    private final AccessGate accessGate;
 
     @Transactional
     public TokenResponse authenticate(TelegramAuthRequest req) {
         if (!loginWidgetValidator.isValid(req.toPayload())) {
             throw AuthException.invalidTelegramHash();
         }
-        return registerOrLogin(new TelegramProfile(
-                req.id(), req.firstName(), req.lastName(), req.username(), req.photoUrl()));
+        TelegramProfile profile = new TelegramProfile(
+                req.id(), req.firstName(), req.lastName(), req.username(), req.photoUrl());
+        ensureAccess(profile.id());
+        return registerOrLogin(profile);
     }
 
     @Transactional
     public TokenResponse authenticateWebApp(TelegramWebAppRequest req) {
         TelegramProfile profile = webAppValidator.validate(req.initData())
                 .orElseThrow(AuthException::invalidTelegramHash);
+        ensureAccess(profile.id());
         return registerOrLogin(profile);
+    }
+
+    /**
+     * Kirish shartlari — imzo tekshirilgandan KEYIN (soxta telegram id bilan
+     * kanal a'zoligini so'rab bo'lmasin) va foydalanuvchi yaratilishidan OLDIN
+     * (shartni bajarmagan odam bazaga tushmasin).
+     *
+     * <p>Adminlar tekshirilmaydi: sharoit noto'g'ri sozlansa (masalan admin
+     * o'zi obuna bo'lmagan kanal qo'shsa) panelga kirib uni tuzata olishi kerak.
+     */
+    private void ensureAccess(long telegramId) {
+        boolean admin = userRepository.findByTelegramId(telegramId)
+                .map(user -> user.getRole() == Role.ADMIN)
+                .orElse(false);
+        if (admin) return;
+        if (!accessGate.allows(telegramId)) {
+            throw AuthException.accessRequirementsUnmet();
+        }
     }
 
     /**

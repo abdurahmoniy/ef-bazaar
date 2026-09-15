@@ -9,6 +9,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import uz.efbazaar.auth.domain.Role;
 import uz.efbazaar.auth.domain.User;
 import uz.efbazaar.auth.dto.TelegramAuthRequest;
+import uz.efbazaar.auth.dto.TelegramWebAppRequest;
+import uz.efbazaar.auth.dto.TokenResponse;
 import uz.efbazaar.auth.event.AuthEventPublisher;
 import uz.efbazaar.auth.exception.AuthException;
 import uz.efbazaar.auth.repository.UserRepository;
@@ -20,7 +22,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +36,7 @@ class TelegramAuthServiceTest {
     @Mock TelegramWebAppValidator webAppValidator;
     @Mock AuthEventPublisher events;
     @Mock TokenIssuer tokenIssuer;
+    @Mock AccessGate accessGate;
 
     @InjectMocks TelegramAuthService service;
 
@@ -97,5 +103,63 @@ class TelegramAuthServiceTest {
         assertThatThrownBy(() -> service.link(UUID.randomUUID(), widgetRequest))
                 .isInstanceOf(AuthException.class)
                 .hasMessageContaining("noto'g'ri");
+    }
+
+    // ---------- access requirements ----------
+
+    @Test
+    void webApp_rejectsBeforeRegistering_whenAccessRequirementsUnmet() {
+        when(webAppValidator.validate("init")).thenReturn(Optional.of(profile()));
+        when(userRepository.findByTelegramId(123L)).thenReturn(Optional.empty());
+        when(accessGate.allows(123L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.authenticateWebApp(new TelegramWebAppRequest("init")))
+                .isInstanceOf(AuthException.class)
+                .extracting("code").isEqualTo("ACCESS_REQUIREMENTS_UNMET");
+        verify(userRepository, never()).save(any());
+        verify(tokenIssuer, never()).issue(any());
+    }
+
+    @Test
+    void widget_rejects_whenAccessRequirementsUnmet() {
+        when(loginWidgetValidator.isValid(anyMap())).thenReturn(true);
+        when(userRepository.findByTelegramId(123L)).thenReturn(Optional.empty());
+        when(accessGate.allows(123L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.authenticate(widgetRequest))
+                .extracting("code").isEqualTo("ACCESS_REQUIREMENTS_UNMET");
+    }
+
+    @Test
+    void webApp_logsIn_whenAccessRequirementsMet() {
+        User user = User.builder().id(UUID.randomUUID()).telegramId(123L).role(Role.USER).build();
+        when(webAppValidator.validate("init")).thenReturn(Optional.of(profile()));
+        when(userRepository.findByTelegramId(123L)).thenReturn(Optional.of(user));
+        when(accessGate.allows(123L)).thenReturn(true);
+        when(tokenIssuer.issue(user)).thenReturn(TOKENS);
+
+        service.authenticateWebApp(new TelegramWebAppRequest("init"));
+
+        verify(tokenIssuer).issue(user);
+    }
+
+    @Test
+    void webApp_skipsAccessCheck_forAdmins() {
+        User admin = User.builder().id(UUID.randomUUID()).telegramId(123L).role(Role.ADMIN).build();
+        when(webAppValidator.validate("init")).thenReturn(Optional.of(profile()));
+        when(userRepository.findByTelegramId(123L)).thenReturn(Optional.of(admin));
+        when(tokenIssuer.issue(admin)).thenReturn(TOKENS);
+
+        service.authenticateWebApp(new TelegramWebAppRequest("init"));
+
+        verify(accessGate, never()).allows(123L);
+        verify(tokenIssuer).issue(admin);
+    }
+
+    // registerOrLogin() Optional.map ichida — null token "user yo'q" deb o'qilardi.
+    private static final TokenResponse TOKENS = new TokenResponse("access", "refresh", 900, 2_592_000, null);
+
+    private static TelegramProfile profile() {
+        return new TelegramProfile(123L, "Shukhrat", "Bozorov", "shukhrat", null);
     }
 }
