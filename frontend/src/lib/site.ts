@@ -41,7 +41,7 @@ export const siteConfig = {
   name: 'eFBazaar',
   title: 'eFBazaar — eFootball akkount bozori: Epic, Big Time, Show Time kartalar',
   description:
-    "Messi Epic, Ronaldo Big Time, Show Time — yulduz karta bo'yicha eFootball akkountlarini toping. Diviziyon, jamoa kuchi, Android/iOS tangalari va obmen shartlari — hammasi ochiq. O'zbekiston uchun Telegram-first marketplace.",
+    "O‘zbekiston uchun eFootball akkountlar bozori: Epic, Big Time, Show Time kartalari bo‘yicha qidiruv. Mobile uchun Garov (Escrow) va oldindan ko‘rinadigan komissiya; Steam va PlayStation uchun admin yordami.",
   locale: 'uz_UZ',
   language: 'uz',
   url: normalizeSiteUrl(process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL),

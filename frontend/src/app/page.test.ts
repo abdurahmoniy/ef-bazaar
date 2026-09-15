@@ -12,7 +12,7 @@ describe('HomePage redesign contract', () => {
     const markup = renderLanding();
 
     expect(markup).toContain('eFBazaar');
-    expect(markup).toContain('Diviziyon, jamoa kuchi');
+    expect(markup).toContain('Kartaga qarab akkountni toping.');
     expect(markup).toContain('href="/marketplace"');
     expect(markup).toContain('href="/marketplace/new"');
     expect(markup).not.toContain('Browse with signal');
@@ -26,8 +26,12 @@ describe('HomePage redesign contract', () => {
 
     expect(markup).toContain('telegram');
     expect(markup).toContain('google');
-    expect(markup).toContain('24 soat');
-    expect(markup).not.toContain('escrow');
+    expect(markup).toContain('mobile uchun garov (escrow)');
+    expect(markup).toContain('komissiya');
+    expect(markup).toContain('steam va playstation uchun admin yordami');
+    expect(markup).not.toContain('24 soat');
+    expect(markup).not.toContain("to'lovni o'z ichiga olmaydi");
+    expect(markup).not.toContain('login-parol platformada saqlanmaydi');
     expect(markup).not.toContain('ai pricing');
     expect(markup).not.toContain('konami');
   });

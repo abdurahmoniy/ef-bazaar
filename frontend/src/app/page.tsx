@@ -3,7 +3,6 @@ import {
 	ArrowRight,
 	BadgeCheck,
 	Bot,
-	Clock3,
 	Coins,
 	Filter,
 	Heart,
@@ -55,17 +54,22 @@ const FAQ_ITEMS = [
 	{
 		question: "To'lovni qanday amalga oshiraman?",
 		answer:
-			"eFBazaar to'lovni o'z ichiga olmaydi — narx va to'lov usulini sotuvchi bilan chat orqali kelishasiz. Login-parolini esa faqat kelishuv yakunida, ishonchli xaridoringizga bering.",
+			"Mobile akkount savdosida narxni chatda kelishib, Smart Admin orqali Garov (Escrow) bitimini ochasiz. Xaridor mablag'i efBazaar hamyonida muzlatiladi. Bitim yakunlangach, komissiya chegirilib, qolgan summa sotuvchining hamyoniga o'tadi. Steam va PlayStation savdolarida admin yordamiga murojaat qilasiz.",
 	},
 	{
-		question: 'Sotuvchiga yozgan xabarim qancha turadi?',
+		question: 'efBazaar komissiyasi qanday olinadi?',
 		answer:
-			'Sotuvchi bilan chat 24 soat davom etadi — shu vaqt ichida javob bo\'lmasa, avtomatik yopiladi. Kelishuv jiddiy bo\'lsa, chatni "Muhim" deb belgilab, saqlab qolasiz.',
+			"efBazaar yakunlangan Garov bitimidan xizmat haqi oladi. Sotuvda komissiya sotuvchiga o'tkaziladigan summadan chegiriladi. Amaldagi komissiya va qo'lingizga tegadigan sof summani narx belgilashda ko'rasiz. Obmen bitimlarida ham xizmat haqi bor.",
+	},
+	{
+		question: 'Sotuvchi bilan chat avtomatik yopiladimi?',
+		answer:
+			'Yo‘q. Suhbatni keyin ham davom ettirishingiz mumkin. Kerakli chatlarni "Muhim" deb belgilab qo‘ying.',
 	},
 	{
 		question: "Akkount ma'lumotlarim xavfsizmi?",
 		answer:
-			"Platformadagi barcha amallar — layk, savatga qo'shish, chat ochish — tasdiqlangan sessiyangiz orqali sizning nomingizdan amalga oshiriladi. Akkountning login-paroli DB'da saqlanmaydi, uni faqat siz sotuvchi sifatida xaridoringizga topshirasiz.",
+			"Mobile akkountni topshirishda Smart Admin bitimidagi ko'rsatmalarga amal qiling. Login, parol va tasdiqlash kodlarini oddiy xaridor-sotuvchi chatiga yubormang. Steam va PlayStation uchun topshirish tartibini admin bilan kelishing.",
 	},
 ]
 
@@ -117,11 +121,6 @@ const structuredData = {
 			operatingSystem: 'Web, Telegram',
 			inLanguage: 'uz-UZ',
 			description: siteConfig.description,
-			offers: {
-				'@type': 'Offer',
-				price: '0',
-				priceCurrency: 'UZS',
-			},
 		},
 		{
 			'@type': 'FAQPage',
@@ -208,7 +207,7 @@ const EXCHANGE_MODES = [
 		key: 'exchange',
 		icon: RefreshCcw,
 		title: 'Faqat obmen',
-		body: "Naqd pul yo'q — akkountga akkount. Sotuvchi qanaqa akkount izlashini tavsifda aytadi.",
+		body: "Akkountga akkount almashinuv. Sotuvchi qanday akkount izlashini tavsifda aytadi. Garov bitimi uchun xizmat haqi bor.",
 	},
 	{
 		key: 'exchange_plus',
@@ -228,8 +227,8 @@ const BUYER_STEPS = [
 		body: "Har bir e'londa D1–D4+ badge, jamoa kuchi (1000–5000), Android/iOS tangalari va platforma aniq ko'rsatilgan.",
 	},
 	{
-		title: "Sotuvchiga to'g'ridan-to'g'ri yozing",
-		body: '"Egasi bilan bog\'lanish" tugmasi orqali chat oching — 24 soat ichida javobsiz qolmaydi. Xohlasangiz obmen ham taklif qilasiz.',
+		title: 'Kelishing va bitimni boshlang',
+		body: 'Narx yoki obmen shartlarini chatda kelishing. Mobile uchun Smart Admin orqali Garov bitimini oching va hamyonni to‘ldiring. Steam va PlayStation uchun admin yordamiga murojaat qiling.',
 	},
 ]
 
@@ -244,7 +243,7 @@ const SELLER_STEPS = [
 	},
 	{
 		title: 'Sotuv yoki obmen shartini tanlang',
-		body: "Narx qo'yasizmi, obmenmi yoki ikkalasi — o'zingiz belgilaysiz. Layk va chat so'rovlari real vaqtda profilingizga tushadi.",
+		body: "Narx va shartlarni belgilang, komissiya hamda sof summani ko'ring. Mobile savdosida akkountni Smart Admin ko'rsatmalari bilan topshiring. Bitim yakunlangach, sof summa hamyoningizga o'tadi.",
 	},
 ]
 
@@ -266,8 +265,8 @@ const TRUST_POINTS = [
 	},
 	{
 		icon: ShieldCheck,
-		title: 'Har bir amal serverda tekshiriladi',
-		body: "Layk, savat, chat — barchasi tasdiqlangan sessiya orqali. Login-parol platformada saqlanmaydi, faqat siz o'z xaridoringizga topshirasiz.",
+		title: 'Mobile uchun Garov (Escrow)',
+		body: 'Smart Admin bitimida xaridor mablag‘i akkount topshirilguncha muzlatiladi. Bitim yakunlangach, komissiyadan qolgan summa sotuvchiga o‘tadi. Steam va PlayStation savdolarida admin yordam beradi.',
 	},
 	{
 		icon: Bot,
@@ -275,9 +274,9 @@ const TRUST_POINTS = [
 		body: "Bir bosishda Telegram orqali kirasiz. Bot bilan yangi e'lonlar haqida darhol xabar olasiz.",
 	},
 	{
-		icon: Clock3,
-		title: '24 soatlik chat oynasi',
-		body: 'Sotuvchi bilan chat 24 soatdan keyin avtomatik yopiladi. Muhim kelishuvni "Muhim" deb belgilab saqlab qolasiz.',
+		icon: Coins,
+		title: 'Komissiya oldindan ko‘rinadi',
+		body: 'efBazaar yakunlangan Garov bitimidan xizmat haqi oladi. Narx belgilashda komissiya va sotuvdan qo‘lingizga tegadigan sof summa ko‘rsatiladi. Obmen uchun ham xizmat haqi bor.',
 	},
 ]
 
@@ -395,11 +394,10 @@ function Hero() {
 							Qaysi yulduzni izlayapsiz? Kartaga qarab akkountni toping.
 						</h1>
 						<p className='mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:mt-5 sm:text-lg sm:leading-8'>
-							Messi Epic, Mbappe Big Time, Ronaldo Show Time — har bir
-							e&apos;longa yulduz kartalar biriktirilgan. Diviziyon, jamoa
-							kuchi, Android/iOS tangalari va obmen shartlari filtrda ochiq.
-							Sotuvchi bilan bevosita Telegram&apos;da gaplashasiz — oraliqda
-							hech kim yo&apos;q.
+							Epic, Big Time, Show Time kartalari bo‘yicha akkount toping va
+							shartlarni chatda kelishing. Mobile savdolari Smart Admin va
+							Garov (Escrow) orqali, Steam va PlayStation savdolari admin
+							yordamida amalga oshiriladi. Garov bitimi komissiyasi oldindan ko‘rinadi.
 						</p>
 
 						<div className='mt-5 flex flex-col gap-3 sm:mt-7 sm:flex-row'>
