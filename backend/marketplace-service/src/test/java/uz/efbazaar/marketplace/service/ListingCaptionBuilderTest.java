@@ -2,17 +2,23 @@ package uz.efbazaar.marketplace.service;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import uz.efbazaar.marketplace.domain.AttributeDefinition;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
+import uz.efbazaar.marketplace.security.AuthSummaryClient;
+import uz.efbazaar.marketplace.security.AuthSummaryClient.UserSummary;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,8 +30,80 @@ class ListingCaptionBuilderTest {
     @Mock
     AttributeDefinitionRepository definitions;
 
+    @Mock
+    AuthSummaryClient users;
+
     @InjectMocks
     ListingCaptionBuilder builder;
+
+    @ParameterizedTest
+    @ValueSource(strings = {"seller_name", "@seller_name", "  seller_name  "})
+    void seller_username_is_shown_before_listing_details(String username) {
+        Listing listing = listing(List.of());
+        when(users.resolve(listing.getSellerId())).thenReturn(Optional.of(
+                seller(listing, username, 123456789L)));
+
+        String out = builder.build(listing);
+
+        assertThat(out).contains("</code>\n<b>Sotuvchi:</b> @seller_name\n<b>Narx:</b>");
+        assertThat(out).doesNotContain("@@", "Sotuvchi Telegram ID:");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    void seller_telegram_id_is_shown_when_username_is_missing(String username) {
+        Listing listing = listing(List.of());
+        when(users.resolve(listing.getSellerId())).thenReturn(Optional.of(
+                seller(listing, username, 123456789L)));
+
+        String out = builder.build(listing);
+
+        assertThat(out).contains("<b>Sotuvchi Telegram ID:</b> <code>123456789</code>\n");
+        assertThat(out).doesNotContain("<b>Sotuvchi:</b> @");
+    }
+
+    @Test
+    void missing_seller_summary_does_not_prevent_caption_creation() {
+        Listing listing = listing(List.of());
+        when(users.resolve(listing.getSellerId())).thenReturn(Optional.empty());
+
+        String out = builder.build(listing);
+
+        assertThat(out).contains("<b>Listing</b>", "<b>Narx:</b>");
+        assertThat(out).doesNotContain("Sotuvchi:", "Sotuvchi Telegram ID:", "null");
+    }
+
+    @Test
+    void seller_username_is_html_escaped() {
+        Listing listing = listing(List.of());
+        when(users.resolve(listing.getSellerId())).thenReturn(Optional.of(
+                seller(listing, "seller<&>", 123456789L)));
+
+        assertThat(builder.build(listing)).contains("@seller&lt;&amp;&gt;");
+    }
+
+    @Test
+    void seller_identity_survives_long_caption_truncation() {
+        Listing listing = listing(List.of());
+        listing.setAttributes(Map.of("note", "x".repeat(1500)));
+        when(definitions.findAllByActiveTrueOrderByPositionAsc())
+                .thenReturn(List.of(attrDef("note", "Izoh")));
+        when(users.resolve(listing.getSellerId())).thenReturn(Optional.of(
+                seller(listing, "seller_name", 123456789L)));
+
+        String out = builder.build(listing);
+
+        assertThat(out).contains("<b>Sotuvchi:</b> @seller_name");
+        assertThat(out.length()).isLessThanOrEqualTo(1024);
+        assertThat(countOccurrences(out, "<b>")).isEqualTo(countOccurrences(out, "</b>"));
+        assertThat(countOccurrences(out, "<code>")).isEqualTo(countOccurrences(out, "</code>"));
+    }
+
+    private static UserSummary seller(Listing listing, String username, Long telegramId) {
+        return new UserSummary(listing.getSellerId(), "Seller", username, telegramId,
+                false, null, false);
+    }
 
     @Test
     void card_list_over_five_is_capped_with_summary_tail() {
@@ -88,6 +166,7 @@ class ListingCaptionBuilderTest {
     private static Listing listing(List<Map<String, Object>> players) {
         Listing l = new Listing();
         l.setId(UUID.fromString("2c2052ab-0000-0000-0000-000000000000"));
+        l.setSellerId(UUID.fromString("aaaaaaaa-0000-0000-0000-000000000000"));
         l.setPrice(new BigDecimal("300000"));
         l.setPriceNegotiable(true);
         Map<String, Object> attrs = new java.util.HashMap<>();

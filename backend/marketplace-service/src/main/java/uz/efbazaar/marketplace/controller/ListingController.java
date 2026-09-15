@@ -93,8 +93,6 @@ public class ListingController {
                                @RequestParam(name = "matchCard", required = false) List<String> matchCards,
                                @RequestParam(name = "matchStrictness", required = false) Integer matchStrictness) {
         UUID viewerId = viewer == null ? null : viewer.userId();
-        // Sotilgan e'lon faqat egasi va xaridoriga: kanaldagi post
-        // ustidan chizilgan bo'lsa ham havolasi qolib ketishi mumkin.
         Listing listing = listingService.getForViewer(id, viewerId);
         ListingResponse response = assembler.assemble(listing, viewerId);
         return matchRequestParser.parse(matchCards, matchStrictness)

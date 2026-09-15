@@ -170,28 +170,10 @@ public class ListingService {
         return listings.findById(id).orElseThrow(MarketplaceException::listingNotFound);
     }
 
-    /**
-     * Ko'ruvchi uchun e'lon.
-     *
-     * <p>Sotilgan e'lon FAQAT egasi va xaridoriga ochiq. Kanaldagi post
-     * ustidan chizilgan bo'lsa ham havolasi qolib ketishi mumkin —
-     * eski forward, saqlangan havola, boshqa joyga ko'chirilgan xabar.
-     * Uni bosgan begona odam mavjud bo'lmagan taklif ustida vaqt
-     * sarflardi va sotuvchiga yozib bezovta qilardi.
-     *
-     * <p>Egasi va xaridoriga ochiq qoladi: chatdagi va
-     * bildirishnomalardagi havolalar ular uchun ishlashi kerak, aks
-     * holda o'z savdolarining yozuviga kira olmasdilar.
-     */
+    /** Sold listings remain visible on their detail pages to every viewer. */
     @Transactional(readOnly = true)
     public Listing getForViewer(UUID id, UUID viewerId) {
-        Listing listing = getById(id);
-        if (listing.getStatus() != ListingStatus.SOLD) return listing;
-        boolean party = viewerId != null
-                && (viewerId.equals(listing.getSellerId())
-                    || viewerId.equals(listing.getSoldToUserId()));
-        if (!party) throw MarketplaceException.listingNotFound();
-        return listing;
+        return getById(id);
     }
 
     @Transactional(readOnly = true)
