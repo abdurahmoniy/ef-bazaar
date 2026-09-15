@@ -6,10 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminListings } from './admin-listings';
 import type { ListingResponse, ListingStatus } from '@/lib/marketplace-types';
 
-const mocks = vi.hoisted(() => ({ refresh: vi.fn(), sold: vi.fn() }));
+const mocks = vi.hoisted(() => ({ refresh: vi.fn(), sold: vi.fn(), restore: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
 vi.mock('@/lib/marketplace-actions', () => ({
-  adminMarkListingSold: mocks.sold, adminDeleteListing: vi.fn(), adminRestoreListing: vi.fn(),
+  adminMarkListingSold: mocks.sold, adminDeleteListing: vi.fn(), adminRestoreListing: mocks.restore,
 }));
 let container: HTMLDivElement;
 let root: Root;
@@ -30,6 +30,44 @@ async function render(status: ListingStatus = 'ACTIVE') {
   await act(async () => root.render(createElement(AdminListings, { listings: [listing(status)], totalElements: 1 })));
 }
 const soldButton = () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Sotildi deb belgilash'));
+const relistButton = () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes("Qayta sotuvga qo'yish"));
+
+describe('admin listing relist action', () => {
+  it('returns a sold listing to sale through the admin restore endpoint', async () => {
+    mocks.restore.mockResolvedValue({ ok: true, data: listing('ACTIVE') });
+    await render('SOLD');
+    expect(relistButton()).toBeDefined();
+    await act(async () => relistButton()!.click());
+    expect(mocks.restore).toHaveBeenCalledWith('listing-1');
+    expect(mocks.refresh).toHaveBeenCalledOnce();
+  });
+
+  it.each(['ACTIVE', 'DELETED'] as const)('does not offer relisting for %s listings', async status => {
+    await render(status);
+    expect(relistButton()).toBeUndefined();
+    if (status === 'DELETED') expect(container.textContent).toContain('Tiklash');
+  });
+
+  it('disables relisting while the request is pending', async () => {
+    let complete!: (value: unknown) => void;
+    mocks.restore.mockReturnValue(new Promise(resolve => { complete = resolve; }));
+    await render('SOLD');
+    const button = relistButton();
+    expect(button).toBeDefined();
+    await act(async () => button!.click());
+    expect(button!.disabled).toBe(true);
+    await act(async () => complete({ ok: true, data: listing('ACTIVE') }));
+  });
+
+  it('shows relisting errors without refreshing the panel', async () => {
+    mocks.restore.mockResolvedValue({ ok: false, status: 409, message: "E'lon allaqachon aktiv" });
+    await render('SOLD');
+    expect(relistButton()).toBeDefined();
+    await act(async () => relistButton()!.click());
+    expect(container.textContent).toContain("E'lon allaqachon aktiv");
+    expect(mocks.refresh).not.toHaveBeenCalled();
+  });
+});
 
 describe('admin listing sold action', () => {
   it('marks another seller’s active listing sold and refreshes the panel', async () => {

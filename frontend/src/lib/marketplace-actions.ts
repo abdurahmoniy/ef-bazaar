@@ -67,9 +67,9 @@ async function marketplaceRequest<T>(
         ok: false,
         status: response.status,
         message:
-          response.status === 401 || response.status === 403
+          response.status === 401
             ? 'Kirish talab qilinadi'
-            : messageFrom(payload, fallbackMessage),
+            : messageFrom(payload, response.status === 403 ? 'Kirish talab qilinadi' : fallbackMessage),
         code: codeFrom(payload),
       };
     }
@@ -137,6 +137,15 @@ export function markListingSold(listingId: string): Promise<ActionResult<Listing
     ['v1', 'listings', listingId, 'sold'],
     { method: 'POST' },
     "E'lonni sotilgan deb belgilab bo'lmadi",
+  );
+}
+
+/** Return the authenticated seller's sold listing to active sale. */
+export function relistListing(listingId: string): Promise<ActionResult<ListingResponse>> {
+  return marketplaceRequest<ListingResponse>(
+    ['v1', 'listings', listingId, 'relist'],
+    { method: 'POST' },
+    "E'lonni qayta sotuvga qo'yib bo'lmadi",
   );
 }
 

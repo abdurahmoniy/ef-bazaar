@@ -165,6 +165,26 @@ public class ListingService {
         return saved;
     }
 
+    /** The seller can return a sold listing to sale without recreating it. */
+    @Transactional
+    public Listing relist(UUID id, UUID sellerId) {
+        Listing listing = getOwned(id, sellerId);
+        if (listing.getStatus() != ListingStatus.SOLD) {
+            throw MarketplaceException.listingNotSold();
+        }
+        if (blacklistGuard.isBlacklisted(sellerId)) {
+            throw MarketplaceException.userBlacklisted();
+        }
+        telegramUsers.requireTelegramLinked(sellerId);
+        listing.setStatus(ListingStatus.ACTIVE);
+        listing.setSoldAt(null);
+        listing.setSoldToUserId(null);
+        Listing saved = listings.save(listing);
+        events.listingUpdated(saved);
+        log.info("Listing relisted: id={} sellerId={}", id, sellerId);
+        return saved;
+    }
+
     @Transactional(readOnly = true)
     public Listing getById(UUID id) {
         return listings.findById(id).orElseThrow(MarketplaceException::listingNotFound);
@@ -374,6 +394,8 @@ public class ListingService {
             throw MarketplaceException.listingAlreadyActive();
         }
         listing.setStatus(ListingStatus.ACTIVE);
+        listing.setSoldAt(null);
+        listing.setSoldToUserId(null);
         Listing saved = listings.save(listing);
         // Olib tashlanganda kanallardan o'chirilgan nusxalar qaytariladi.
         // Telegram o'chirilgan xabarni tiklamaydi, ya'ni bu yangi postlar —

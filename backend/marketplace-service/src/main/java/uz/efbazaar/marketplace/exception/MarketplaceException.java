@@ -30,6 +30,11 @@ public class MarketplaceException extends RuntimeException {
                 "E'lon aktiv emas (sotilgan yoki o'chirilgan)");
     }
 
+    public static MarketplaceException listingNotSold() {
+        return new MarketplaceException(HttpStatus.CONFLICT, "listing_not_sold",
+                "Faqat sotilgan e'lonni qayta sotuvga qo'yish mumkin");
+    }
+
     public static MarketplaceException accountRequestNotFound() {
         return new MarketplaceException(HttpStatus.NOT_FOUND, "account_request_not_found",
                 "Akkount so'rovi topilmadi");

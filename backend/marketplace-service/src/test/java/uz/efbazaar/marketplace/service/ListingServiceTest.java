@@ -224,6 +224,102 @@ class ListingServiceTest {
     }
 
     @Test
+    void relist_returnsOwnedSoldListingToSale() {
+        UUID id = UUID.randomUUID();
+        Listing listing = Listing.builder().id(id).sellerId(sellerId)
+                .status(ListingStatus.SOLD).soldAt(java.time.Instant.now())
+                .soldToUserId(UUID.randomUUID()).mediaMessageIds(List.of("photo"))
+                .price(new BigDecimal("300000")).build();
+        when(repository.findById(id)).thenReturn(Optional.of(listing));
+        when(repository.save(listing)).thenReturn(listing);
+
+        Listing result = service.relist(id, sellerId);
+
+        assertThat(result).isSameAs(listing);
+        assertThat(result.getStatus()).isEqualTo(ListingStatus.ACTIVE);
+        assertThat(result.getSoldAt()).isNull();
+        assertThat(result.getSoldToUserId()).isNull();
+        assertThat(result.getSellerId()).isEqualTo(sellerId);
+        assertThat(result.getMediaMessageIds()).containsExactly("photo");
+        assertThat(result.getPrice()).isEqualByComparingTo("300000");
+        verify(telegramUsers).requireTelegramLinked(sellerId);
+        verify(events).listingUpdated(listing);
+        verifyNoInteractions(mediaService, channelPosts, officialChannel, soldPosts, channelTakedown);
+    }
+
+    @Test
+    void relist_rejectsOtherSellers() {
+        UUID id = UUID.randomUUID();
+        Listing listing = Listing.builder().id(id).sellerId(sellerId).status(ListingStatus.SOLD).build();
+        when(repository.findById(id)).thenReturn(Optional.of(listing));
+
+        assertThatThrownBy(() -> service.relist(id, UUID.randomUUID()))
+                .isInstanceOfSatisfying(MarketplaceException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("not_owner"));
+        assertThat(listing.getStatus()).isEqualTo(ListingStatus.SOLD);
+        verify(repository, org.mockito.Mockito.never()).save(any());
+        verifyNoInteractions(events, telegramUsers);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = ListingStatus.class, names = {"ACTIVE", "DELETED"})
+    void relist_rejectsListingsThatAreNotSold(ListingStatus status) {
+        UUID id = UUID.randomUUID();
+        Listing listing = Listing.builder().id(id).sellerId(sellerId).status(status).build();
+        when(repository.findById(id)).thenReturn(Optional.of(listing));
+
+        assertThatThrownBy(() -> service.relist(id, sellerId))
+                .isInstanceOfSatisfying(MarketplaceException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("listing_not_sold"));
+        assertThat(listing.getStatus()).isEqualTo(status);
+        verify(repository, org.mockito.Mockito.never()).save(any());
+        verifyNoInteractions(events, telegramUsers);
+    }
+
+    @Test
+    void relist_rejectsMissingListing() {
+        UUID id = UUID.randomUUID();
+        when(repository.findById(id)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.relist(id, sellerId))
+                .isInstanceOfSatisfying(MarketplaceException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("listing_not_found"));
+        verifyNoInteractions(events, telegramUsers);
+    }
+
+    @Test
+    void relist_rejectsBlacklistedSeller() {
+        UUID id = UUID.randomUUID();
+        Listing listing = Listing.builder().id(id).sellerId(sellerId).status(ListingStatus.SOLD).build();
+        when(repository.findById(id)).thenReturn(Optional.of(listing));
+        when(blacklistGuard.isBlacklisted(sellerId)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.relist(id, sellerId))
+                .isInstanceOfSatisfying(MarketplaceException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("user_blacklisted"));
+        assertThat(listing.getStatus()).isEqualTo(ListingStatus.SOLD);
+        verify(repository, org.mockito.Mockito.never()).save(any());
+        verifyNoInteractions(events, telegramUsers);
+    }
+
+    @Test
+    void relist_requiresLinkedTelegramBeforeChangingStatus() {
+        UUID id = UUID.randomUUID();
+        Listing listing = Listing.builder().id(id).sellerId(sellerId).status(ListingStatus.SOLD).build();
+        when(repository.findById(id)).thenReturn(Optional.of(listing));
+        org.mockito.Mockito.doThrow(new MarketplaceException(org.springframework.http.HttpStatus.FORBIDDEN,
+                "telegram_required", "Telegram akkauntingizni ulang."))
+                .when(telegramUsers).requireTelegramLinked(sellerId);
+
+        assertThatThrownBy(() -> service.relist(id, sellerId))
+                .isInstanceOfSatisfying(MarketplaceException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("telegram_required"));
+        assertThat(listing.getStatus()).isEqualTo(ListingStatus.SOLD);
+        verify(repository, org.mockito.Mockito.never()).save(any());
+        verifyNoInteractions(events);
+    }
+
+    @Test
     void delete_setsStatusDeleted() {
         UUID listingId = UUID.randomUUID();
         Listing l = Listing.builder()
@@ -404,6 +500,20 @@ class ListingServiceTest {
         service.adminDelete(l.getId(), UUID.randomUUID());
 
         verify(channelTakedown).onRemoved(l);
+    }
+
+    @Test
+    void adminRestore_clearsSaleDetailsWhenRelisting() {
+        Listing listing = listingIn(ListingStatus.SOLD);
+        listing.setSoldAt(java.time.Instant.now());
+        listing.setSoldToUserId(UUID.randomUUID());
+
+        Listing result = service.adminRestore(listing.getId(), UUID.randomUUID());
+
+        assertThat(result.getStatus()).isEqualTo(ListingStatus.ACTIVE);
+        assertThat(result.getSoldAt()).isNull();
+        assertThat(result.getSoldToUserId()).isNull();
+        verify(events).listingUpdated(listing);
     }
 
     @Test
