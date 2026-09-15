@@ -119,6 +119,34 @@ function resolvePostLoginTarget(): string {
 }
 
 /**
+ * initData'ni top-level form POST bilan `/api/telegram-webapp` ga yuboradi.
+ * Cookie aynan shu navigatsiya javobida keladi (route.ts izohiga qarang).
+ * Shartlar ekranidagi "Tekshirish" tugmasi ham shu yo'ldan qayta kiradi.
+ */
+export function submitTelegramWebAppLogin(initData: string, from: string): HTMLFormElement {
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/api/telegram-webapp';
+  form.acceptCharset = 'utf-8';
+  form.style.display = 'none';
+
+  const addField = (name: string, value: string) => {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = name;
+    input.value = value;
+    form.appendChild(input);
+  };
+  addField('initData', initData);
+  addField('from', from);
+  addField('framed', window.self !== window.top ? '1' : '0');
+
+  document.body.appendChild(form);
+  form.submit();
+  return form;
+}
+
+/**
  * Mini App context aniqlansa avtomatik login qiladi.
  *
  * Root layout'ga qo'yiladi → har qanday entry point'da (landing, /auth/login,
@@ -146,6 +174,10 @@ export function TelegramWebAppAutoLogin() {
   React.useEffect(() => {
     if (submittedRef.current) return;
     const launchContext = hasTelegramLaunchContext();
+    // Shartlar ekranida o'zi qayta urinmaydi: shart bajarilmagani uchun shu
+    // yerga kelindi, avtomatik urinish esa sahifani cheksiz aylantirardi.
+    // Qayta kirish faqat foydalanuvchi "Tekshirish" ni bosganda.
+    if (!launchContext && window.location.pathname.startsWith('/access-required')) return;
     let cancelled = false;
     let timer: number | undefined;
     let sessionTimer: number | undefined;
@@ -186,26 +218,7 @@ export function TelegramWebAppAutoLogin() {
       }
 
       try {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/api/telegram-webapp';
-        form.acceptCharset = 'utf-8';
-        form.style.display = 'none';
-
-        const addField = (name: string, value: string) => {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = name;
-          input.value = value;
-          form.appendChild(input);
-        };
-        addField('initData', initData);
-        addField('from', resolvePostLoginTarget());
-        addField('framed', window.self !== window.top ? '1' : '0');
-
-        document.body.appendChild(form);
-        formRef.current = form;
-        form.submit();
+        formRef.current = submitTelegramWebAppLogin(initData, resolvePostLoginTarget());
       } catch {
         submittedRef.current = false;
         setError('Telegram orqali kirib bo‘lmadi. Mini Appni qayta oching.');

@@ -69,6 +69,9 @@ jobs:
             payment:
               - 'backend/payment-service/**'
               - '.github/workflows/build.yml'
+            access:
+              - 'backend/access-service/**'
+              - '.github/workflows/build.yml'
             bot:
               - 'bot/**'
               - '.github/workflows/build.yml'
@@ -101,6 +104,7 @@ jobs:
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.marketplace }}"    == "true" ]]; then add marketplace-service    backend/marketplace-service    marketplace-service;    fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.trade }}"          == "true" ]]; then add trade-service          backend/trade-service          trade-service;          fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.payment }}"        == "true" ]]; then add payment-service        backend/payment-service        payment-service;        fi
+          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.access }}"         == "true" ]]; then add access-service         backend/access-service         access-service;         fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.bot }}"            == "true" ]]; then add bot                    bot                            bot;                    fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.frontend }}"       == "true" ]]; then add frontend               frontend                       frontend;               fi
           if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.mail }}"           == "true" ]]; then add mail-frontend          mail                           mail-frontend;          fi

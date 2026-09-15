@@ -236,6 +236,41 @@ public class TelegramApiClient {
                 objectMapper.createObjectNode().put("callback_query_id", callbackQueryId));
     }
 
+    /** Tasdiq + foydalanuvchiga qisqa matn; {@code showAlert} — oyna, aks holda yuqorida toast. */
+    public void answerCallbackQuery(String callbackQueryId, String text, boolean showAlert) {
+        postJson("answerCallbackQuery", objectMapper.createObjectNode()
+                .put("callback_query_id", callbackQueryId)
+                .put("text", text)
+                .put("show_alert", showAlert));
+    }
+
+    /**
+     * Har bir havola alohida qatorda, oxirida bitta callback tugma. Kirish
+     * shartlari xabari shunday: kanallarga havolalar va "Obuna bo'ldim".
+     */
+    public Optional<Integer> sendMessageWithLinksAndAction(String chatId, String html,
+                                                           List<UrlButton> links, CallbackButton action) {
+        ArrayNode keyboard = objectMapper.createArrayNode();
+        for (UrlButton link : links) {
+            keyboard.add(objectMapper.createArrayNode().add(objectMapper.createObjectNode()
+                    .put("text", link.text())
+                    .put("url", link.url())));
+        }
+        keyboard.add(objectMapper.createArrayNode().add(objectMapper.createObjectNode()
+                .put("text", action.text())
+                .put("callback_data", action.data())));
+        ObjectNode markup = objectMapper.createObjectNode();
+        markup.set("inline_keyboard", keyboard);
+
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("text", html)
+                .put("parse_mode", "HTML")
+                .put("disable_web_page_preview", true);
+        body.set("reply_markup", markup);
+        return postJson("sendMessage", body).map(this::extractMessageId);
+    }
+
     /**
      * sendVideo — o'ynatiladigan video sifatida yuklaydi.
      *
@@ -482,6 +517,23 @@ public class TelegramApiClient {
     public Optional<JsonNode> getChat(long chatId) {
         ObjectNode body = objectMapper.createObjectNode().put("chat_id", chatId);
         return postJson("getChat", body);
+    }
+
+    /**
+     * Ommaviy kanal yoki guruhni username bo'yicha topadi ({@code @name}).
+     * Bo'sh natija — Telegram "chat not found" dedi yoki so'rov yiqildi.
+     */
+    public Optional<JsonNode> getChatByUsername(String username) {
+        ObjectNode body = objectMapper.createObjectNode().put("chat_id", "@" + username);
+        return postJson("getChat", body);
+    }
+
+    /** To'liq {@code ChatMember} obyekti: {@code status} va restricted uchun {@code is_member}. */
+    public Optional<JsonNode> getChatMemberResult(long chatId, long userId) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("user_id", userId);
+        return postJson("getChatMember", body);
     }
 
     /**

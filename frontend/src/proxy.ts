@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { ACCESS_REQUIRED_PATH } from './lib/access-requirements';
 import { getAuthCookieClearOptions, getAuthCookieOptions } from './lib/auth-cookies';
 import { rewriteCookieHeader } from './lib/proxy-refresh-cookies';
 import { readCodeFromSearch, REFERRAL_COOKIE } from './lib/referral-capture';
@@ -103,26 +104,32 @@ async function resolveSession(request: NextRequest): Promise<{
   hasSession: boolean;
   refreshed: RefreshedTokens | null;
   clearCookies: boolean;
+  accessRequired: boolean;
 }> {
   if (request.cookies.has(ACCESS_COOKIE)) {
-    return { hasSession: true, refreshed: null, clearCookies: false };
+    return { hasSession: true, refreshed: null, clearCookies: false, accessRequired: false };
   }
 
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
   if (!refreshToken) {
-    return { hasSession: false, refreshed: null, clearCookies: false };
+    return { hasSession: false, refreshed: null, clearCookies: false, accessRequired: false };
   }
 
   const result = await refreshSession(refreshToken);
   if (result.ok) {
-    return { hasSession: true, refreshed: result.tokens, clearCookies: false };
+    return { hasSession: true, refreshed: result.tokens, clearCookies: false, accessRequired: false };
   }
-  return { hasSession: false, refreshed: null, clearCookies: result.definitive };
+  return {
+    hasSession: false,
+    refreshed: null,
+    clearCookies: result.definitive,
+    accessRequired: result.accessRequired === true,
+  };
 }
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  const { hasSession, refreshed, clearCookies } = await resolveSession(request);
+  const { hasSession, refreshed, clearCookies, accessRequired } = await resolveSession(request);
 
   if (refreshed) {
     // Shu request'ni bajaradigan Server Component / Route Handler'lar ham yangi
@@ -150,6 +157,17 @@ export async function proxy(request: NextRequest) {
     }
     return applySecurityHeaders(applyReferralCode(request, response));
   };
+
+  // Token kirish shartlari sababli yangilanmadi — sahifa so'rovi shartlar
+  // ekraniga boradi. API so'rovlari redirect qilinmaydi (fetch uni kutmaydi),
+  // ular faqat cookie tozalanishini oladi.
+  if (accessRequired && !pathname.startsWith('/api/') && !pathname.startsWith(ACCESS_REQUIRED_PATH)) {
+    const target = request.nextUrl.clone();
+    target.pathname = ACCESS_REQUIRED_PATH;
+    target.search = '';
+    target.searchParams.set('from', `${pathname}${search}`);
+    return finalize(NextResponse.redirect(target));
+  }
 
   if (isProtectedPath(pathname) && !hasSession) {
     const login = request.nextUrl.clone();

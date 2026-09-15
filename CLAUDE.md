@@ -48,6 +48,7 @@ efBazaar/
 | marketplace-service | 8082 | /api/marketplace/** |
 | bot | 8084 | /bot/webhook |
 | trade-service | 8085 | /api/v1/trades/** |
+| access-service | 8088 | /api/access/** (kirish shartlari; `/internal/access/**` — auth-service login paytida, fail-open) |
 | smart-admin-worker | 8086 | — (internal only) |
 | frontend | 80 | / |
 | mail-frontend | 3000 | mail.efbazaar.uz/ (Mailcow: /api, /SOGo, ActiveSync saqlanadi) |

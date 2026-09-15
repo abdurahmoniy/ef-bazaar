@@ -38,7 +38,17 @@ class MailboxRotateHandler:
         self._registry = registry
 
     async def handle(self, event: e.MailboxRotateRequest) -> None:
-        email = await self._email_provider(event.mailbox_id)
+        # The request carries the address. The in-process cache is only a
+        # fallback for requests queued before it did: it is empty for any box
+        # this process did not provision itself — admin-created boxes, and
+        # every box after a restart — and Mailcow answers an empty username
+        # with ``username_invalid``.
+        email = event.mailbox_email or await self._email_provider(event.mailbox_id)
+        if not email:
+            raise ValueError(
+                f"mailbox {event.mailbox_id}: no address to rotate — "
+                "request carries none and it is not in the worker cache"
+            )
         # Stop watching this box before the password under it changes. Every
         # trade ending routes through here — SUCCESS, REJECTED and ORPHANED
         # all call TradeStateHandler.handOver, which rotates each mailbox — so

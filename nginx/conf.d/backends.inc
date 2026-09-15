@@ -10,6 +10,7 @@ set $backend_marketplace "marketplace-service:8082";
 set $backend_bot         "bot:8084";
 set $backend_trade       "trade-service:8085";
 set $backend_payment     "payment-service:8087";
+set $backend_access      "access-service:8088";
 # Chempionat-X — bir xost, shared docker network (co-location). nginx
 # `chempionat-api` (REST) va `chempox-front` (Next.js static) ni docker DNS
 # orqali topadi. `/api/tournaments/**` integratsiya yo'li ham, chempox.uz /

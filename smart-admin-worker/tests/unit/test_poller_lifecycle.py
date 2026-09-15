@@ -132,6 +132,54 @@ async def test_rotating_a_mailbox_stops_its_pollers_before_the_password_changes(
     assert order == ["cancel", "rotate"]
 
 
+async def test_rotate_uses_the_address_in_the_request_when_the_cache_is_empty():
+    # An admin-created box, or any box after a worker restart, is not in the
+    # in-process cache. Asking the cache handed Mailcow an empty username and
+    # the rotate failed with username_invalid.
+    mailcow = AsyncMock()
+    cache = AsyncMock(return_value="")
+
+    await MailboxRotateHandler(
+        mailcow=mailcow,
+        encryptor=FieldEncryptor(b"\x00" * 32),
+        producer=AsyncMock(),
+        email_provider=cache,
+        registry=AsyncMock(),
+    ).handle(e.MailboxRotateRequest(mailbox_id=uuid4(), mailbox_email=BOX))
+
+    assert mailcow.rotate_password.await_args.args[0] == BOX
+    cache.assert_not_awaited()
+
+
+async def test_rotate_with_no_address_anywhere_never_reaches_mailcow():
+    mailcow = AsyncMock()
+
+    with pytest.raises(ValueError):
+        await MailboxRotateHandler(
+            mailcow=mailcow,
+            encryptor=FieldEncryptor(b"\x00" * 32),
+            producer=AsyncMock(),
+            email_provider=AsyncMock(return_value=""),
+            registry=AsyncMock(),
+        ).handle(e.MailboxRotateRequest(mailbox_id=uuid4()))
+
+    mailcow.rotate_password.assert_not_awaited()
+
+
+def test_a_rotate_request_decodes_with_and_without_the_address():
+    mailbox_id = uuid4()
+    new = e.from_json(
+        e.topics.TOPIC_MAILBOX_ROTATE_REQ,
+        f'{{"mailboxId": "{mailbox_id}", "mailboxEmail": "{BOX}"}}'.encode(),
+    )
+    old = e.from_json(
+        e.topics.TOPIC_MAILBOX_ROTATE_REQ, f'{{"mailboxId": "{mailbox_id}"}}'.encode()
+    )
+
+    assert new == e.MailboxRotateRequest(mailbox_id=mailbox_id, mailbox_email=BOX)
+    assert old.mailbox_email is None
+
+
 async def test_deleting_a_mailbox_stops_its_pollers():
     # The address stops existing; a poller left on it can only fail-login for
     # ever.

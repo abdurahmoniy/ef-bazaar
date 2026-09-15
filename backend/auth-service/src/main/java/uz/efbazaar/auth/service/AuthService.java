@@ -24,6 +24,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final TokenBlacklistService blacklist;
     private final TokenIssuer tokenIssuer;
+    private final AccessGate accessGate;
 
     public TokenResponse refresh(RefreshRequest request) {
         Claims claims;
@@ -43,6 +44,13 @@ public class AuthService {
 
         Instant oldExpiry = claims.getExpiration().toInstant();
         blacklist.blacklist(jti, oldExpiry);
+
+        // Kirish shartlari login'dan keyin ham amal qiladi: aks holda oldin
+        // kirgan odam 30 kunlik refresh token bilan obunasiz qolaverardi.
+        // Eski token yuqorida blacklist'ga tushgan — rad etilsa sessiya tugaydi.
+        if (!AccessGate.exempt(user) && !accessGate.allows(user.getTelegramId())) {
+            throw AuthException.accessRequirementsUnmet();
+        }
 
         return tokenIssuer.issue(user);
     }

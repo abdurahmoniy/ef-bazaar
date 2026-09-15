@@ -42,6 +42,12 @@ public class AuthException extends RuntimeException {
                 "Telegram login ma'lumotlari noto'g'ri");
     }
 
+    /** Kirish shartlari (masalan rasmiy kanalga a'zolik) bajarilmagan — frontend shartlar ekranini ochadi. */
+    public static AuthException accessRequirementsUnmet() {
+        return new AuthException(HttpStatus.FORBIDDEN, "ACCESS_REQUIREMENTS_UNMET",
+                "Kirish uchun avval shartlarni bajaring");
+    }
+
     public static AuthException userNotFound() {
         return new AuthException(HttpStatus.NOT_FOUND, "user_not_found",
                 "Foydalanuvchi topilmadi");

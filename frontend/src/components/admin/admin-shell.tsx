@@ -16,6 +16,7 @@ import {
   Flag,
   Inbox,
   LayoutDashboard,
+  ListChecks,
   Mail,
   Menu,
   MessagesSquare,
@@ -166,6 +167,11 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/referrals',
         label: 'Referallar',
         icon: UserPlus,
+      },
+      {
+        href: '/admin/access-requirements',
+        label: 'Kirish shartlari',
+        icon: ListChecks,
       },
       ...(FEATURES.humanAdmin
         ? [

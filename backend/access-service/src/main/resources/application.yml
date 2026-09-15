@@ -1,0 +1,88 @@
+spring:
+  mvc:
+    problemdetails:
+      enabled: true
+  application:
+    name: access-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  # Foydalanuvchi autentifikatsiyasi nginx headerlaridan o'qiladi —
+  # Spring'ning standart UserDetailsService'i kerak emas.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:access_db}
+    username: ${POSTGRES_USER:efbazaar}
+    password: ${POSTGRES_PASSWORD:efbazaar}
+    driver-class-name: org.postgresql.Driver
+    # Jadval kichik va so'rovlar qisqa. Ulanish byudjeti auth-service
+    # application.yml da — yig'indi 50 dan oshmasin.
+    hikari:
+      maximum-pool-size: 4
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      # Kesh ixtiyoriy. Redis sekin bo'lsa login uni kutib qolmasin.
+      timeout: 300ms
+
+server:
+  port: 8088
+  forward-headers-strategy: framework
+
+app:
+  internal:
+    # /internal/** uchun umumiy sir. Bo'sh bo'lsa hamma ichki so'rov rad
+    # etiladi — auth-service buni "tekshirib bo'lmadi" deb o'tkazib yuboradi.
+    secret: ${INTERNAL_API_SECRET:}
+  bot:
+    internal-base-url: ${BOT_INTERNAL_BASE_URL:http://bot:8084}
+  check:
+    # Shart bajarilgan natija shuncha vaqt eslab qolinadi. Obunani bekor
+    # qilgan odam eng ko'pi shuncha kechikib to'siladi.
+    met-cache-ttl: ${ACCESS_MET_CACHE_TTL:10m}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  health:
+    # Redis kesh — u tushsa servis ishlashda davom etadi, healthcheck DOWN
+    # bo'lib konteyner qayta ishga tushmasin.
+    redis:
+      enabled: false
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      minimum-expected-value:
+        http.server.requests: 10ms
+      maximum-expected-value:
+        http.server.requests: 5s
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    enabled: false
+  show-actuator: false

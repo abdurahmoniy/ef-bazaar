@@ -76,6 +76,7 @@ write_env() {
   upsert_env .env MARKETPLACE_DB_NAME        marketplace_db
   upsert_env .env TRADE_DB_NAME              trade_db
   upsert_env .env PAYMENT_DB_NAME            payment_db
+  upsert_env .env ACCESS_DB_NAME             access_db
 
   upsert_env .env REDIS_HOST                 redis
   upsert_env .env REDIS_PORT                 6379
@@ -384,6 +385,16 @@ payment_bootstrap() {
   ensure_db "$payment_db"
 }
 
+# ─── Access-service bootstrap ───────────────────────────────────────────────
+# access_db — kirish shartlari. POSTGRES_MULTIPLE_DATABASES faqat birinchi
+# initda ishlaydi, mavjud serverda baza shu yerda yaratiladi.
+# ─────────────────────────────────────────────────────────────────────────────
+access_bootstrap() {
+  local access_db="${ACCESS_DB_NAME:-access_db}"
+
+  ensure_db "$access_db"
+}
+
 # ─── Smart-admin-worker bootstrap ──────────────────────────────────────────
 # Writes mailcow_api_key from the CI-injected env var (same pattern as
 # master_key). If the env var is empty we leave any existing file untouched
@@ -553,6 +564,7 @@ docker compose up -d postgres
 sync_db_password
 trade_bootstrap
 payment_bootstrap
+access_bootstrap
 sa_worker_bootstrap
 
 # Force-all override

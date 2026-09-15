@@ -140,7 +140,8 @@ public class TradeStateHandler {
         if (both.isEmpty()) {
             // Pre-sides trade: the old single-mailbox rule.
             UUID receives = crossed ? trade.getBuyerId() : trade.getSellerId();
-            events.mailboxRotateRequest(trade.getMailboxId());
+            events.mailboxRotateRequest(trade.getMailboxId(),
+                    mailboxes.getRaw(trade.getMailboxId()).getEmail());
             mailboxes.assignOwner(trade.getMailboxId(), receives);
             tell(trade, trade.getMailboxId(), receives, crossed);
             return;
@@ -152,7 +153,8 @@ public class TradeStateHandler {
             UUID theOther = side.role() == ParticipantRole.SELLER
                     ? trade.getBuyerId() : trade.getSellerId();
             UUID receives = crossed ? theOther : putItUp;
-            events.mailboxRotateRequest(side.getMailboxId());
+            events.mailboxRotateRequest(side.getMailboxId(),
+                    mailboxes.getRaw(side.getMailboxId()).getEmail());
             mailboxes.assignOwner(side.getMailboxId(), receives);
             tell(trade, side.getMailboxId(), receives, crossed);
         }

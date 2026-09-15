@@ -192,7 +192,7 @@ class MailboxAdminServiceTest {
 
         assertThat(m.getOwnerUserId()).isNull();
         assertThat(m.getHandedOffAt()).as("nothing was handed to anyone").isNull();
-        verify(events).mailboxRotateRequest(m.getId());
+        verify(events).mailboxRotateRequest(m.getId(), "box@efbazaar.uz");
     }
 
     @Test
@@ -204,7 +204,7 @@ class MailboxAdminServiceTest {
 
         assertThat(m.getOwnerUserId()).isEqualTo(next);
         assertThat(m.getHandedOffAt()).isNotNull();
-        verify(events).mailboxRotateRequest(m.getId());
+        verify(events).mailboxRotateRequest(m.getId(), "box@efbazaar.uz");
     }
 
     /** Mailcow has not created it yet — there is no password to rotate, and asking would fail. */
@@ -214,7 +214,7 @@ class MailboxAdminServiceTest {
 
         svc.reassignOwner(UUID.randomUUID(), m.getId(), UUID.randomUUID());
 
-        verify(events, never()).mailboxRotateRequest(any());
+        verify(events, never()).mailboxRotateRequest(any(), any());
     }
 
     @Test
@@ -227,7 +227,7 @@ class MailboxAdminServiceTest {
         assertThatThrownBy(() -> svc.reassignOwner(UUID.randomUUID(), m.getId(), UUID.randomUUID()))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         verify(repo, never()).save(any());
-        verify(events, never()).mailboxRotateRequest(any());
+        verify(events, never()).mailboxRotateRequest(any(), any());
     }
 
     @Test
@@ -240,7 +240,7 @@ class MailboxAdminServiceTest {
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         assertThatThrownBy(() -> svc.detachOwner(UUID.randomUUID(), free.getId()))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        verify(events, never()).mailboxRotateRequest(any());
+        verify(events, never()).mailboxRotateRequest(any(), any());
     }
 
     @Test
