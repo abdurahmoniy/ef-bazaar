@@ -1,8 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Flame, Loader2, Search, X } from 'lucide-react';
 
+import { CardPickerMobileDialog } from '@/components/marketplace/card-picker-mobile-dialog';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { PlayerCardTile } from '@/components/marketplace/player-card-tile';
 import { Input } from '@/components/ui/input';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
@@ -64,6 +66,9 @@ export function CardPicker({
   selectedVariant = 'pill',
   showMetaShortcut = true,
 }: CardPickerProps) {
+  const isMobile = useMediaQuery('(max-width: 767px)');
+  const listId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PlayerCard[]>([]);
   const [loading, setLoading] = useState(false);
@@ -130,13 +135,14 @@ export function CardPicker({
   }, [trimmedQuery, metaOnly]);
 
   useEffect(() => {
+    if (isMobile) return;
     function onDown(event: MouseEvent) {
       if (!containerRef.current) return;
       if (!containerRef.current.contains(event.target as Node)) setOpen(false);
     }
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, []);
+  }, [isMobile]);
 
   const selectedIds = useMemo(
     () => new Set(value.map((card) => card.efhubId)),
@@ -159,11 +165,11 @@ export function CardPicker({
       }
       if (cardSelectionBlockReason(value, card, max)) return;
       onChange?.([...value, card]);
-      setQuery('');
+      if (!isMobile) setQuery('');
       setActiveIndex(-1);
-      inputRef.current?.focus();
+      inputRef.current?.focus({ preventScroll: true });
     },
-    [mode, onChange, value, max],
+    [mode, onChange, value, max, isMobile],
   );
 
   const removeCard = useCallback(
@@ -202,6 +208,90 @@ export function CardPicker({
     [showDropdown, results, activeIndex, selectCard, trimmedQuery.length],
   );
 
+  const searchControls = (
+    <>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          ref={inputRef}
+          id={isMobile && id ? `${id}-search` : id}
+          type="text"
+          role="combobox"
+          aria-expanded={showDropdown}
+          aria-label={placeholder}
+          aria-controls={showDropdown ? listId : undefined}
+          aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
+          aria-autocomplete="list"
+          autoComplete="off"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setMetaOnly(false);
+            setOpen(true);
+            setActiveIndex(-1);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKey}
+          disabled={isMultiFull}
+          placeholder={isMultiFull ? `Maksimum ${max} ta tanlangan` : placeholder}
+          className="h-11 pl-9 pr-9 text-base sm:text-base md:text-sm"
+        />
+        {loading && (
+          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+        )}
+      </div>
+
+      {showMetaShortcut && !isMultiFull && (
+        <button
+          type="button"
+          onClick={() => {
+            setMetaOnly((current) => !current);
+            setQuery('');
+            setOpen(true);
+          }}
+          aria-pressed={metaOnly}
+          className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-amber-400/50 px-3 text-xs font-bold text-amber-600 transition hover:bg-amber-400/10 dark:text-amber-300"
+        >
+          <Flame className="h-4 w-4" />
+          {metaOnly ? 'META kartalar ko‘rsatilmoqda' : 'META kartalardan tez tanlash'}
+        </button>
+      )}
+    </>
+  );
+
+  const resultList = (
+    <div
+      id={listId}
+      role="listbox"
+      aria-label="O'yinchilar"
+      aria-busy={loading}
+      className={cn(
+        isMobile
+          ? 'min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]'
+          : 'absolute inset-x-0 top-full z-30 mt-1 max-h-96 overflow-y-auto rounded-lg border border-border bg-card shadow-lg',
+      )}
+    >
+      {loading && <p role="status" className="p-4 text-center text-sm text-muted-foreground">Qidirilmoqda…</p>}
+      {!showDropdown && <p className="p-4 text-center text-sm text-muted-foreground">Qidirish uchun kamida 2 ta harf yozing</p>}
+      {showDropdown && !loading && results.length === 0 && (
+        <p className="p-4 text-center text-sm text-muted-foreground">Karta topilmadi</p>
+      )}
+      {showDropdown && !loading && results.map((card, index) => (
+        <CardOption
+          key={card.efhubId}
+          id={`${listId}-${index}`}
+          card={card}
+          active={activeIndex === index}
+          disabled={mode === 'multi' && (
+            isMultiFull || selectedIds.has(card.efhubId)
+              || (card.playerId ? selectedPlayerIds.has(card.playerId) : false)
+          )}
+          onSelect={() => selectCard(card)}
+        />
+      ))}
+    </div>
+  );
+
   return (
     <div ref={containerRef} className={cn('relative', className)}>
       {value.length > 0 && (
@@ -230,68 +320,37 @@ export function CardPicker({
         </div>
       )}
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          ref={inputRef}
-          id={id}
-          type="text"
-          role="combobox"
-          aria-expanded={showDropdown}
-          aria-autocomplete="list"
-          autoComplete="off"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setMetaOnly(false);
-            setOpen(true);
-            setActiveIndex(-1);
-          }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={handleKey}
-          disabled={isMultiFull}
-          placeholder={isMultiFull ? `Maksimum ${max} ta tanlangan` : placeholder}
-          className="h-11 pl-9 pr-9"
-        />
-        {loading && (
-          <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
-        )}
-      </div>
-
-      {showMetaShortcut && !isMultiFull && (
-        <button
-          type="button"
-          onClick={() => {
-            setMetaOnly((current) => !current);
-            setQuery('');
-            setOpen(true);
-          }}
-          aria-pressed={metaOnly}
-          className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-amber-400/50 px-3 text-xs font-bold text-amber-600 transition hover:bg-amber-400/10 dark:text-amber-300"
-        >
-          <Flame className="h-4 w-4" />
-          {metaOnly ? 'META kartalar ko‘rsatilmoqda' : 'META kartalardan tez tanlash'}
-        </button>
-      )}
-
-      {showDropdown && (
-        <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-96 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
-          {!loading && results.length === 0 && (
-            <div className="p-3 text-center text-sm text-muted-foreground">Karta topilmadi</div>
-          )}
-          {results.map((card, index) => (
-            <CardOption
-              key={card.efhubId}
-              card={card}
-              active={activeIndex === index}
-              disabled={mode === 'multi' && (
-                selectedIds.has(card.efhubId)
-                  || (card.playerId ? selectedPlayerIds.has(card.playerId) : false)
-              )}
-              onSelect={() => selectCard(card)}
-            />
-          ))}
-        </div>
+      {isMobile ? (
+        <>
+          <button
+            ref={triggerRef}
+            id={id}
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            disabled={isMultiFull}
+            onClick={() => setOpen(true)}
+            className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-input bg-card px-3 py-2 text-left text-base text-muted-foreground disabled:opacity-50"
+          >
+            <Search className="h-4 w-4 shrink-0" />
+            <span>{isMultiFull ? `Maksimum ${max} ta tanlangan` : placeholder}</span>
+          </button>
+          <CardPickerMobileDialog
+            open={open}
+            onOpenChange={setOpen}
+            inputRef={inputRef}
+            triggerRef={triggerRef}
+            selectedCount={value.length}
+            max={mode === 'single' ? 1 : max}
+            search={searchControls}
+            results={resultList}
+          />
+        </>
+      ) : (
+        <>
+          {searchControls}
+          {showDropdown && resultList}
+        </>
       )}
     </div>
   );
@@ -408,11 +467,13 @@ function RemoveButton({
 }
 
 function CardOption({
+  id,
   card,
   active,
   disabled,
   onSelect,
 }: {
+  id: string;
   card: PlayerCard;
   active: boolean;
   disabled: boolean;
@@ -421,13 +482,14 @@ function CardOption({
   return (
     <button
       type="button"
+      id={id}
       role="option"
       aria-selected={active}
       disabled={disabled}
       onMouseDown={(event) => {
         event.preventDefault();
-        if (!disabled) onSelect();
       }}
+      onClick={onSelect}
       className={cn(
         'flex w-full items-center gap-3 border-b border-border/60 px-3 py-2 text-left transition last:border-b-0',
         active ? 'bg-accent/60' : 'bg-transparent',

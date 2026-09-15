@@ -33,7 +33,6 @@ export function TradeProposalMessageCard({
     isSeller,
     setShowAcceptModal,
     setIsDrawerOpen,
-    scrollToTradePanel,
   } = useTradeContext();
 
   const isMine = message.senderId === viewerId;
@@ -151,13 +150,7 @@ export function TradeProposalMessageCard({
               size="sm"
               variant="outline"
               className="w-full font-semibold"
-              onClick={() => {
-                if (activeTrade) {
-                  setIsDrawerOpen(true);
-                } else {
-                  scrollToTradePanel();
-                }
-              }}
+              onClick={() => setIsDrawerOpen(true)}
             >
               <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
               Savdo jarayonini ko&apos;rish

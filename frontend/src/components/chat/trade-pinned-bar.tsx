@@ -39,6 +39,10 @@ export function TradePinnedBar() {
     startingNew,
     setStartingNew,
     accountRequest,
+    listing,
+    trades,
+    isDrawerOpen,
+    setShowPicker,
     isSeller,
     setShowAcceptModal,
     setShowProposeModal,
@@ -172,7 +176,7 @@ export function TradePinnedBar() {
               variant="outline"
               size="sm"
               className="min-h-11 px-2 text-[11px]"
-              onClick={() => setStartingNew(true)}
+              onClick={() => { setStartingNew(true); setIsDrawerOpen(true); }}
             >
               Yangi savdo
             </Button>
@@ -192,97 +196,58 @@ export function TradePinnedBar() {
     );
   }
 
-  // 4. Pre-trade / Selected Account Request Case
-  if (accountRequest) {
+  // One account summary, using the current request even if this chat began with another listing.
+  const selectedListing = accountRequest ? accountRequest.listing : listing;
+  if (selectedListing || accountRequest) {
+    const title = selectedListing?.description.split('\n')[0]?.trim() || 'Akkount';
     return (
-      <div className="shrink-0 border-b border-border/80 bg-card/90 px-3 py-1.5 backdrop-blur-md">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
+      <div className="shrink-0 border-b border-border bg-card px-3 py-1.5">
+        <div className="mx-auto flex max-w-3xl items-center gap-2">
           <button
             type="button"
             aria-label="So‘ralgan akkount tafsilotlari"
+            aria-expanded={Boolean(isDrawerOpen)}
             onClick={() => setIsDrawerOpen(true)}
             className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-              <Handshake className="h-3.5 w-3.5" />
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+              <Handshake className="h-4 w-4" />
             </span>
-            <div className="min-w-0 flex-1">
-              <span className="block text-xs font-semibold text-foreground">
-                {isSeller ? 'So‘ralgan akkount' : 'Siz so‘ragan akkount'}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-semibold text-foreground">{title}</span>
+              <span className="block truncate text-[11px] text-muted-foreground">
+                {selectedListing ? formatPriceUZS(selectedListing.price) : 'E’lon o’chirilgan'}
+                {accountRequest && !isSeller && !requiresAdminHandoff && ' · Taklif kutilmoqda'}
               </span>
-              {accountRequest.listing && (
-                <span className="block whitespace-nowrap text-xs text-muted-foreground">
-                  {formatPriceUZS(accountRequest.listing.price)}
-                </span>
-              )}
-            </div>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           </button>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {requiresAdminHandoff ? (
-              <Button type="button" size="sm" className="min-h-11 px-2.5 text-[11.5px]" onClick={() => setIsDrawerOpen(true)}>
-                Adminga murojaat
-              </Button>
-            ) : isSeller ? (
-              <Button
-                type="button"
-                size="sm"
-                className="min-h-11 px-2.5 text-[11.5px]"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowProposeModal(true);
-                }}
-              >
-                Taklif yuborish
-              </Button>
-            ) : (
-              <Badge variant="muted" className="py-0.5 text-[10.5px]">
-                Taklif kutilmoqda
-              </Badge>
-            )}
+          {accountRequest && (requiresAdminHandoff || isSeller) && (
             <Button
               type="button"
-              variant="ghost"
               size="sm"
-              className="min-h-11 min-w-11 px-1.5 text-[11px]"
-              onClick={() => setIsDrawerOpen(true)}
+              className="min-h-11 shrink-0 px-2.5 text-xs"
+              onClick={() => requiresAdminHandoff ? setIsDrawerOpen(true) : setShowProposeModal(true)}
             >
-              <span className="sr-only sm:not-sr-only">Ko'rish</span>
-              <ChevronDown className="h-3.5 w-3.5 sm:hidden" />
+              {requiresAdminHandoff ? 'Adminga murojaat' : 'Taklif yuborish'}
             </Button>
-          </div>
+          )}
         </div>
       </div>
     );
   }
 
-  // 5. Default initial state - subtle prompt to start trade if role is seller
-  if (isSeller) {
-    return (
-      <div className="shrink-0 border-b border-border/80 bg-card/85 px-3 py-1.5 backdrop-blur-md">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-              <Handshake className="h-3.5 w-3.5" />
-            </span>
-            <span className="text-xs text-muted-foreground">
-              Xaridor bilan xavfsiz savdoni boshlang
-            </span>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="min-h-11 px-2.5 text-xs"
-            onClick={() => setShowProposeModal(true)}
-          >
-            Taklif yuborish
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  if (trades === null) return null;
 
-  return null;
+  return (
+    <div className="shrink-0 border-b border-border bg-card px-3 py-1">
+      <Button type="button" variant="ghost" className="min-h-11 w-full justify-start gap-2 text-xs" onClick={() => setShowPicker(true)}>
+        <Handshake className="h-4 w-4" />
+        Akkount tanlash
+        <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
+      </Button>
+    </div>
+  );
 }
 
 function ActiveTradePinnedBar({ trade }: { trade: TradeResponse }) {
