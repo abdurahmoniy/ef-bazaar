@@ -637,6 +637,8 @@ services:
       # Sirsiz bot standart matn bilan ishlaydi — bu yiqilish emas, degradatsiya.
       APP_BASE_URL: ${APP_BASE_URL}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
+      # /start da kirish shartlari (kanal a'zoligi). Javob bo'lmasa /start odatdagidek.
+      ACCESS_INTERNAL_BASE_URL: ${ACCESS_INTERNAL_BASE_URL:-http://access-service:8088}
       # Ommaviy xabar jo'natish tezligi. Telegram butun bot uchun sekundiga
       # ~30 xabar beradi va bu jilov faqat ommaviy xabarlarni sanaydi —
       # qolgani chat bildirishnomalari va loglar uchun zaxira.

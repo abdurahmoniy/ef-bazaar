@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { ACCESS_REQUIREMENTS_UNMET, accessRequiredHref } from '@/lib/access-requirements';
-import { ACCESS_COOKIE_NAME, ApiException, REFRESH_COOKIE_NAME } from '@/lib/api';
+import { ACCESS_COOKIE_NAME, ApiException, apiFetch, REFRESH_COOKIE_NAME } from '@/lib/api';
 import { applyAuthCookies, getMe, telegramWebAppAuthTokens } from '@/lib/auth';
 import { getAuthCookieClearOptions } from '@/lib/auth-cookies';
 import { resolvePostLoginPath } from '@/lib/safe-redirect';
@@ -14,8 +14,17 @@ export const dynamic = 'force-dynamic';
 // Telegram identity before the client skips a redundant login navigation.
 export async function GET(): Promise<NextResponse> {
   const user = await getMe().catch(() => null);
+  let telegramId = user?.telegramId ?? null;
+  if (telegramId != null) {
+    // Kirish shartlari sessiya bor odamga ham amal qiladi. Bajarilmagan bo'lsa
+    // sessiya "mos emas" deb qaytadi: auto-login to'liq login qiladi, auth
+    // uni rad etadi va POST oqimi shartlar ekraniga olib boradi. Tekshirib
+    // bo'lmasa (null) sessiya saqlanadi — fail-open.
+    const access = await apiFetch<{ allowed: boolean }>('/auth/v1/users/me/access').catch(() => null);
+    if (access?.allowed === false) telegramId = null;
+  }
   return NextResponse.json(
-    { telegramId: user?.telegramId ?? null },
+    { telegramId },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }

@@ -18,6 +18,7 @@ import uz.efbazaar.auth.dto.UserResponse;
 import uz.efbazaar.auth.mapper.UserMapper;
 import uz.efbazaar.auth.security.AuthenticatedUser;
 import uz.efbazaar.auth.security.TelegramFileClient;
+import uz.efbazaar.auth.service.AccessGate;
 import uz.efbazaar.auth.service.UserService;
 
 import java.time.Duration;
@@ -32,10 +33,25 @@ public class UserController {
     private final UserService userService;
     private final UserMapper userMapper;
     private final TelegramFileClient telegramFileClient;
+    private final AccessGate accessGate;
 
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal AuthenticatedUser principal) {
         return userMapper.toResponse(userService.getById(principal.userId()));
+    }
+
+    public record AccessStatus(boolean allowed) {}
+
+    /**
+     * Joriy sessiya kirish shartlarini hali ham bajaradimi. Mini App ochilganda
+     * frontend so'raydi: sessiya bor odam login qilmaydi, shuning uchun
+     * tekshiruv shu yerda bo'lmasa obunani bekor qilgan odam kirib yuraverardi.
+     * Fail-open — AccessGate izohiga qarang.
+     */
+    @GetMapping("/me/access")
+    public AccessStatus myAccess(@AuthenticationPrincipal AuthenticatedUser principal) {
+        User user = userService.getById(principal.userId());
+        return new AccessStatus(AccessGate.exempt(user) || accessGate.allows(user.getTelegramId()));
     }
 
     /**

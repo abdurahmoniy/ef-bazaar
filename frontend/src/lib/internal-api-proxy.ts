@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
+import { ACCESS_REQUIREMENTS_UNMET } from './access-requirements';
 import { getAuthCookieClearOptions, getAuthCookieOptions } from './auth-cookies';
 import { refreshSession, type RefreshedTokens } from './session-refresh';
 
@@ -133,6 +134,16 @@ export async function proxyInternalApiRequest(
           console.error(`[api-proxy] ${request.method} ${upstreamUrl} -> network error:`, error);
           return jsonError(502, 'bad_gateway', `${options.serviceName} API unreachable`, result.tokens);
         }
+      } else if (result.accessRequired) {
+        // Kirish shartlari bajarilmagan: sessiya tugadi. Kod bilan qaytariladi
+        // — mijoz uni oddiy 401 dan ajrata oladi.
+        await upstreamResponse.body?.cancel().catch(() => undefined);
+        const response = NextResponse.json(
+          { status: 403, code: ACCESS_REQUIREMENTS_UNMET, message: 'Kirish shartlari bajarilmagan' },
+          { status: 403 },
+        );
+        clearAuthCookies(response);
+        return response;
       } else if (result.definitive) {
         // The session is genuinely over: the refresh token is expired, already
         // spent, or the user is gone. Cookies are cleared below.

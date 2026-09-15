@@ -64,10 +64,10 @@ public class TelegramAuthService {
      * o'zi obuna bo'lmagan kanal qo'shsa) panelga kirib uni tuzata olishi kerak.
      */
     private void ensureAccess(long telegramId) {
-        boolean admin = userRepository.findByTelegramId(telegramId)
-                .map(user -> user.getRole() == Role.ADMIN)
+        boolean exempt = userRepository.findByTelegramId(telegramId)
+                .map(AccessGate::exempt)
                 .orElse(false);
-        if (admin) return;
+        if (exempt) return;
         if (!accessGate.allows(telegramId)) {
             throw AuthException.accessRequirementsUnmet();
         }

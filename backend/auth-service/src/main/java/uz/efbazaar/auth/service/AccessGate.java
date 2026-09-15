@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import uz.efbazaar.auth.domain.Role;
+import uz.efbazaar.auth.domain.User;
 import uz.efbazaar.auth.security.InternalApiProperties;
 
 import java.time.Duration;
@@ -38,6 +40,15 @@ public class AccessGate {
         this.enabled = baseUrl != null && !baseUrl.isBlank();
         this.client = enabled ? builder.baseUrl(baseUrl).requestFactory(factory).build() : null;
         this.secret = internal.secret();
+    }
+
+    /**
+     * Tekshirilmaydigan foydalanuvchi: Telegram'siz (Google-only) akkaunt —
+     * kanal a'zoligini so'rashga id yo'q; admin — sharoit noto'g'ri sozlansa
+     * panelga kirib tuzata olishi kerak.
+     */
+    public static boolean exempt(User user) {
+        return user.getTelegramId() == null || user.getRole() == Role.ADMIN;
     }
 
     /** {@code false} — faqat access-service shartlar bajarilmaganini aniq aytganda. */
