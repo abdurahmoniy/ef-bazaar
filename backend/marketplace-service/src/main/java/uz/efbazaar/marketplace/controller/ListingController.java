@@ -147,6 +147,13 @@ public class ListingController {
         return assembler.assemble(sold, user.userId());
     }
 
+    @PostMapping("/{id}/relist")
+    public ListingResponse relist(@AuthenticationPrincipal AuthenticatedUser user,
+                                  @PathVariable UUID id) {
+        Listing listing = listingService.relist(id, user.userId());
+        return assembler.assemble(listing, user.userId());
+    }
+
     @GetMapping("/me")
     public PageResponse<ListingResponse> mine(@AuthenticationPrincipal AuthenticatedUser user,
                                               @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {

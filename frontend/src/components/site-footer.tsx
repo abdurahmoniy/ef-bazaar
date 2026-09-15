@@ -36,8 +36,8 @@ export function SiteFooter({ embedded = false }: SiteFooterProps) {
               eFBazaar
             </Link>
             <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
-              O&apos;zbekiston uchun eFootball akkountlar bozori — divizion, jamoa kuchi va narxi
-              ochiq, sotuvchi Telegram&apos;da.
+              O‘zbekiston uchun eFootball akkountlar bozori. Mobile uchun Garov (Escrow)
+              va oldindan ko‘rinadigan komissiya, Steam va PlayStation uchun admin yordami.
             </p>
             <div className="mt-4">
               <SocialLinksRow />

@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { CheckCircle2, Flag, Heart, MessageCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { TelegramRequiredPrompt } from '@/components/auth/telegram-required-prompt';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { formatCompactNumber } from '@/lib/marketplace-format';
-import { markListingSold, toggleListingLike } from '@/lib/marketplace-actions';
+import { markListingSold, relistListing, toggleListingLike } from '@/lib/marketplace-actions';
 import { cn } from '@/lib/utils';
 import type { ChatResponse, ListingStatus } from '@/lib/marketplace-types';
 
@@ -61,6 +61,10 @@ export function ListingActions({
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    setCurrentStatus(status);
+  }, [status]);
+
   function withStatus<T extends ActionResult>(action: () => Promise<T>, okMessage: string) {
     startTransition(async () => {
       setMessage(null);
@@ -84,6 +88,20 @@ export function ListingActions({
       setCurrentStatus('SOLD');
       setConfirmingSold(false);
       setMessage({ tone: 'ok', text: "E'lon sotilgan deb belgilandi" });
+      router.refresh();
+    });
+  }
+
+  function handleRelist() {
+    startTransition(async () => {
+      setMessage(null);
+      const result = await relistListing(listingId);
+      if (!result.ok) {
+        setMessage({ tone: 'error', text: result.message });
+        return;
+      }
+      setCurrentStatus(result.data.status);
+      setMessage({ tone: 'ok', text: "E'lon qayta sotuvga qo'yildi" });
       router.refresh();
     });
   }
@@ -167,7 +185,16 @@ export function ListingActions({
             </div>
           </div>
 
-          {currentStatus === 'SOLD' ? (
+          {currentStatus === 'SOLD' && isOwner ? (
+            <Button
+              type="button"
+              className="ml-auto h-auto min-h-11 max-w-[60%] whitespace-normal rounded-lg px-3 py-2 text-center"
+              disabled={isPending}
+              onClick={handleRelist}
+            >
+              {isPending ? "Sotuvga qo'yilmoqda…" : "Qayta sotuvga qo'yish"}
+            </Button>
+          ) : currentStatus === 'SOLD' ? (
             <div className="ml-auto flex items-center gap-2">
               <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                 Sotilgan
@@ -234,6 +261,26 @@ export function ListingActions({
               E&apos;lon sotilganlar qatorida saqlanadi.
             </p>
           </div>
+          <Button
+            type="button"
+            size="lg"
+            className="w-full rounded-lg"
+            disabled={isPending}
+            onClick={handleRelist}
+          >
+            {isPending ? "Sotuvga qo'yilmoqda…" : "Qayta sotuvga qo'yish"}
+          </Button>
+          {message && (
+            <p
+              role="status"
+              className={cn(
+                'text-center text-xs font-semibold',
+                message.tone === 'ok' ? 'text-primary' : 'text-destructive',
+              )}
+            >
+              {message.text}
+            </p>
+          )}
         </div>
       );
     }

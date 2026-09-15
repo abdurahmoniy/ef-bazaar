@@ -148,6 +148,17 @@ export function AdminListings({ listings, activeStatus, totalElements }: AdminLi
                       {busy ? 'Saqlanmoqda…' : 'Sotildi deb belgilash'}
                     </Button>
                   )}
+                  {listing.status === 'SOLD' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isPending}
+                      onClick={() => act(listing.id, 'restore')}
+                    >
+                      <RotateCcw className="mr-1.5 h-4 w-4" />
+                      {busy ? 'Saqlanmoqda…' : "Qayta sotuvga qo'yish"}
+                    </Button>
+                  )}
                   {listing.status !== 'DELETED' ? (
                     <Button
                       size="sm"
