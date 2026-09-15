@@ -10,6 +10,8 @@
  * shuning uchun bir xil token uchun in-flight promise'ni bo'lishamiz.
  */
 
+import { ACCESS_REQUIREMENTS_UNMET } from './access-requirements';
+
 const BASE = process.env.INTERNAL_API_BASE_URL || 'http://nginx:8080/api';
 const REFRESH_TIMEOUT_MS = 5_000;
 
@@ -27,7 +29,12 @@ export type RefreshResult =
    * cookie'larni tozalash kerak. definitive=false — vaqtinchalik xato (tarmoq,
    * 5xx): cookie'larga tegilmaydi, keyingi so'rovda qayta uriniladi.
    */
-  | { ok: false; definitive: boolean };
+  /**
+   * accessRequired=true — auth-service tokenni kirish shartlari (kanal
+   * a'zoligi) bajarilmagani uchun rad etdi: sessiya tugadi va foydalanuvchi
+   * shartlar ekraniga yo'naltirilishi kerak.
+   */
+  | { ok: false; definitive: boolean; accessRequired?: boolean };
 
 const inflight = new Map<string, Promise<RefreshResult>>();
 
@@ -129,6 +136,15 @@ async function doRefresh(
   }
 
   if (!res.ok) {
+    if (res.status === 403) {
+      const code = await res
+        .json()
+        .then((body: { code?: unknown }) => body?.code)
+        .catch(() => undefined);
+      if (code === ACCESS_REQUIREMENTS_UNMET) {
+        return { ok: false, definitive: true, accessRequired: true };
+      }
+    }
     return { ok: false, definitive: res.status >= 400 && res.status < 500 };
   }
 
