@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 import uz.efbazaar.marketplace.domain.AttributeDefinition;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
+import uz.efbazaar.marketplace.security.AuthSummaryClient;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
@@ -41,6 +42,7 @@ public class ListingCaptionBuilder {
     static { PRICE_FORMAT.setGroupingSize(3); }
 
     private final AttributeDefinitionRepository definitions;
+    private final AuthSummaryClient users;
 
     public String build(Listing listing) {
         StringBuilder sb = new StringBuilder(512);
@@ -48,6 +50,16 @@ public class ListingCaptionBuilder {
         sb.append("<b>Listing</b> <code>")
                 .append(escape(shortId(listing.getId().toString())))
                 .append("</code>\n");
+        users.resolve(listing.getSellerId()).ifPresent(seller -> {
+            String username = seller.telegramUsername() == null ? "" : seller.telegramUsername().strip();
+            if (username.startsWith("@")) username = username.substring(1);
+            if (!username.isBlank()) {
+                sb.append("<b>Sotuvchi:</b> @").append(escape(username)).append('\n');
+            } else if (seller.telegramId() != null) {
+                sb.append("<b>Sotuvchi Telegram ID:</b> <code>")
+                        .append(seller.telegramId()).append("</code>\n");
+            }
+        });
         sb.append("<b>Narx:</b> ").append(escape(formatPrice(listing.getPrice()))).append(" so'm");
         if (listing.isPriceNegotiable()) {
             sb.append(" <i>(kelishuvli)</i>");
