@@ -8,6 +8,7 @@ import { TelegramSwitchHint } from '@/components/auth/telegram-switch-hint';
 import { GoogleButton } from '@/components/auth/google-button';
 import { Separator } from '@/components/ui/separator';
 import { googleLoginAction, telegramAuthAction } from '@/app/auth/actions';
+import { ACCESS_REQUIREMENTS_UNMET, accessRequiredHref } from '@/lib/access-requirements';
 import type { TelegramAuthData } from '@/lib/types';
 
 interface LoginFormProps {
@@ -27,6 +28,10 @@ export function LoginForm({ botUsername, googleClientId, from, initialError = nu
     setPending(true);
     const res = await telegramAuthAction(data, from);
     setPending(false);
+    if (!res.ok && res.code === ACCESS_REQUIREMENTS_UNMET) {
+      window.location.assign(accessRequiredHref(from));
+      return;
+    }
     if (!res.ok) setError(res.error ?? 'Telegram auth ishlamadi');
   }, [from]);
 

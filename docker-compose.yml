@@ -47,7 +47,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_MULTIPLE_DATABASES: ${AUTH_DB_NAME},${MARKETPLACE_DB_NAME},${TRADE_DB_NAME},${PAYMENT_DB_NAME},${EFBAZAAR_DB_NAME:-efbazaar}
+      POSTGRES_MULTIPLE_DATABASES: ${AUTH_DB_NAME},${MARKETPLACE_DB_NAME},${TRADE_DB_NAME},${PAYMENT_DB_NAME},${ACCESS_DB_NAME:-access_db},${EFBAZAAR_DB_NAME:-efbazaar}
     # 127.0.0.1 ga bog'langan — serverning o'zidan ko'rinadi, internetdan yo'q.
     #
     # Ilgari "${POSTGRES_PORT_HOST:-5432}:5432" edi, ya'ni 0.0.0.0 — va
@@ -326,6 +326,9 @@ services:
       # Server-to-server shared secret (/internal/** endpoints). Bo'sh bo'lsa
       # internal endpointlar fail-closed — chat display-name snapshot ishlamaydi.
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
+      # Kirish shartlari (kanal a'zoligi). access-service javob bermasa login
+      # baribir o'tadi — bu bog'liqlik auth'ni to'xtatmaydi.
+      ACCESS_INTERNAL_BASE_URL: ${ACCESS_INTERNAL_BASE_URL:-http://access-service:8088}
     depends_on:
       postgres:
         condition: service_healthy
@@ -474,6 +477,40 @@ services:
         condition: service_started
     mem_limit: 384m
     memswap_limit: 512m
+    networks:
+      - efbazaar-net
+
+  # ---------- Access service (kirish shartlari) ----------
+  # Login oldidan tekshiriladigan talablar: Telegram kanal a'zoligi va h.k.
+  # auth-service fail-open chaqiradi — bu konteyner tushsa ham login ishlaydi.
+  access-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-access-service:${IMAGE_TAG:-latest}
+    build:
+      context: ./backend/access-service
+    container_name: efbazaar-access
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      JAVA_OPTS: "-Xms64m -Xmx200m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${ACCESS_DB_NAME:-access_db}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Telegram so'rovlari bot orqali — token faqat botda.
+      BOT_INTERNAL_BASE_URL: ${BOT_INTERNAL_BASE_URL:-http://bot:8084}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    mem_limit: 300m
+    memswap_limit: 400m
     networks:
       - efbazaar-net
 

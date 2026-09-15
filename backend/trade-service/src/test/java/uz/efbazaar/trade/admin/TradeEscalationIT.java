@@ -145,7 +145,7 @@ class TradeEscalationIT extends AbstractIntegrationIT {
         assertThat(after.getAdminAcceptedAt())
                 .as("the new admin's timer starts when they accept")
                 .isNull();
-        verify(events).mailboxRotateRequest(eq(t.getMailboxId()));
+        verify(events).mailboxRotateRequest(eq(t.getMailboxId()), org.mockito.ArgumentMatchers.anyString());
         assertThat(profiles.findById(oldAdmin).orElseThrow().getAbandonedCount()).isEqualTo(1);
         // The rotate alone achieves nothing: MailboxRotatedConsumer writes the
         // NEW password into the same mailbox row, and MailService authorises

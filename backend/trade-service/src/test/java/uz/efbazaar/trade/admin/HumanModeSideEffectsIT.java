@@ -108,7 +108,7 @@ class HumanModeSideEffectsIT extends AbstractIntegrationIT {
 
         assertThat(done.getState()).isEqualTo(TradeState.SUCCESS);
         assertThat(done.getTerminalReason()).isEqualTo("ADMIN_CLOSED_CONFIRMED");
-        verify(events).mailboxRotateRequest(eq(t.getMailboxId()));
+        verify(events).mailboxRotateRequest(eq(t.getMailboxId()), org.mockito.ArgumentMatchers.anyString());
         assertThat(mailboxes.getRaw(t.getMailboxId()).getOwnerUserId())
                 .isEqualTo(done.getBuyerId());
 

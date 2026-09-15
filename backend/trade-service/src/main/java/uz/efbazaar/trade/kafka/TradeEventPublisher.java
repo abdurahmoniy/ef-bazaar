@@ -53,9 +53,9 @@ public class TradeEventPublisher {
                 new TradeEvents.MailboxProvisionRequest(mailboxId, localPart));
     }
 
-    public void mailboxRotateRequest(UUID mailboxId) {
+    public void mailboxRotateRequest(UUID mailboxId, String mailboxEmail) {
         send(TradeEvents.TOPIC_MAILBOX_ROTATE_REQ, mailboxId.toString(),
-                new TradeEvents.MailboxRotateRequest(mailboxId));
+                new TradeEvents.MailboxRotateRequest(mailboxId, mailboxEmail));
     }
 
     public void listingSold(UUID listingId, UUID buyerId, UUID sellerId, long priceUzs) {

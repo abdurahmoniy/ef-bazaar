@@ -485,6 +485,23 @@ public class TelegramApiClient {
     }
 
     /**
+     * Ommaviy kanal yoki guruhni username bo'yicha topadi ({@code @name}).
+     * Bo'sh natija — Telegram "chat not found" dedi yoki so'rov yiqildi.
+     */
+    public Optional<JsonNode> getChatByUsername(String username) {
+        ObjectNode body = objectMapper.createObjectNode().put("chat_id", "@" + username);
+        return postJson("getChat", body);
+    }
+
+    /** To'liq {@code ChatMember} obyekti: {@code status} va restricted uchun {@code is_member}. */
+    public Optional<JsonNode> getChatMemberResult(long chatId, long userId) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("user_id", userId);
+        return postJson("getChatMember", body);
+    }
+
+    /**
      * Emoji to'plamini butunlay o'qiydi.
      *
      * <p>Nom `https://t.me/addemoji/<nom>` havolasining oxirgi bo'lagi.

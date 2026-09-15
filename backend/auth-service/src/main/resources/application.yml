@@ -25,8 +25,8 @@ spring:
     # 10 ta ulanishni ochib USHLAB turadi. Beshta servis + marketplace'ning
     # ikkinchi (cards) datasource'i = 5 hovuz × 10 = 50. Sig'im 50.
     #
-    # Joriy taqsimot (jami 32, qolgan 18 — admin, backup, psql uchun):
-    #   auth 6 | marketplace 8 (+cards 4) | trade 8 | payment 6
+    # Joriy taqsimot (jami 36, qolgan 14 — admin, backup, psql uchun):
+    #   auth 6 | marketplace 8 (+cards 4) | trade 8 | payment 6 | access 4
     #
     # Yangi servis yoki datasource qo'shsangiz, shu jadvalni yangilang va
     # yig'indi 50 dan past qolishiga ishonch hosil qiling.
@@ -132,6 +132,10 @@ app:
   # endpoints refuse every request (fail-closed).
   internal:
     secret: ${INTERNAL_API_SECRET:}
+  # Kirish shartlari (kanal a'zoligi) — access-service. Bo'sh bo'lsa tekshiruv
+  # o'chiq; servis javob bermasa login baribir o'tadi (AccessGate izohi).
+  access:
+    internal-base-url: ${ACCESS_INTERNAL_BASE_URL:}
 
 springdoc:
   api-docs:

@@ -146,8 +146,15 @@ public final class TradeEvents {
             byte[] iv,
             byte[] tag) {}
 
+    /**
+     * Carries the address as well as the id: the worker used to look the
+     * address up in its own memory, which is empty for a box it never
+     * provisioned in this process (admin-created, or any box after a restart),
+     * and Mailcow then got an empty username.
+     */
     public record MailboxRotateRequest(
-            UUID mailboxId) {}
+            UUID mailboxId,
+            String mailboxEmail) {}
 
     public record MailboxRotated(
             UUID mailboxId,
