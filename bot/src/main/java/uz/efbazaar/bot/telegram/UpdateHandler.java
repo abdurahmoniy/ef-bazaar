@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.util.StringUtils;
+import uz.efbazaar.bot.access.AccessCheckClient;
 import uz.efbazaar.bot.config.TelegramProperties;
 import uz.efbazaar.bot.kafka.SupportReplyReceivedDto;
 import uz.efbazaar.bot.partner.ChannelVerifier;
@@ -31,6 +32,7 @@ import java.util.UUID;
 public class UpdateHandler {
 
     private final TelegramApiClient telegram;
+    private final AccessCheckClient access;
     private final BotSettingsClient settings;
     private final ChannelVerifier channels;
     private final PendingReferralClient pendingReferrals;
@@ -57,6 +59,10 @@ public class UpdateHandler {
         // Inline tugma bosildi — qo'llanma so'ralgan.
         JsonNode callbackQuery = update.path("callback_query");
         if (!callbackQuery.isMissingNode()) {
+            if (callbackQuery.path("data").asText("").startsWith(ACCESS_CALLBACK)) {
+                onAccessCallback(callbackQuery);
+                return;
+            }
             guides.onCallback(callbackQuery);
             return;
         }
@@ -83,21 +89,19 @@ public class UpdateHandler {
                 // odamni ko'rsatadigani `from`.
                 pendingReferrals.remember(message.path("from").path("id").asLong(), code);
             }
-            sendStart(chatId);
-
             UUID guideId = guidePayload(text);
-            if (guideId != null) {
-                boolean sent = guides.sendGuide(chatId, guideId);
-                if (!sent) {
-                    guides.sendList(chatId);
-                }
-            } else {
-                // Salomlashishdan KEYIN alohida xabar. Bitta xabarga
-                // qo'shsak, /start matni va qo'llanmalar bir-birini bosardi;
-                // ustiga banner qo'yilgan bo'lsa izoh chegarasi 1024 ga
-                // tushadi va matn kesilardi.
-                guides.sendList(chatId);
+
+            // Kirish shartlari: bajarilmagan bo'lsa web app tugmalari o'rniga
+            // obuna xabari. Referal yuqorida saqlangan, qo'llanma id si esa
+            // "Obuna bo'ldim" tugmasiga yoziladi — obunadan keyin ikkalasi
+            // ham yo'qolmaydi.
+            List<AccessCheckClient.Requirement> unmet =
+                    access.unmet(message.path("from").path("id").asLong());
+            if (!unmet.isEmpty()) {
+                sendAccessGate(chatId, unmet, guideId);
+                return;
             }
+            sendWelcome(chatId, guideId);
         } else if (text.startsWith("/help")) {
             sendHelp(chatId);
         } else if (text.startsWith("/partner")) {
@@ -111,6 +115,80 @@ public class UpdateHandler {
                     premiumEmoji.describe(message));
         }
         // Boshqa xabarlar: ignore
+    }
+
+    /**
+     * "Obuna bo'ldim" tugmasining callback'i. Qo'llanma havolasi bilan kelgan
+     * bo'lsa id qo'shiladi: {@code access:check:<uuid>} — 49 bayt, Telegram
+     * chegarasi 64.
+     */
+    static final String ACCESS_CALLBACK = "access:check";
+
+    /** Salomlashish va qo'llanmalar — shartlar bajarilgan (yoki tekshirib bo'lmagan) holat. */
+    private void sendWelcome(long chatId, UUID guideId) {
+        sendStart(chatId);
+        if (guideId != null) {
+            boolean sent = guides.sendGuide(chatId, guideId);
+            if (!sent) {
+                guides.sendList(chatId);
+            }
+        } else {
+            // Salomlashishdan KEYIN alohida xabar. Bitta xabarga
+            // qo'shsak, /start matni va qo'llanmalar bir-birini bosardi;
+            // ustiga banner qo'yilgan bo'lsa izoh chegarasi 1024 ga
+            // tushadi va matn kesilardi.
+            guides.sendList(chatId);
+        }
+    }
+
+    /**
+     * Shartlar bajarilmagan: kanallarga havolalar va "Obuna bo'ldim" tugmasi.
+     * Web app tugmalari ATAYLAB yo'q. Bu yagona to'siq emas — Mini App
+     * ochilganda auth-service ham tekshiradi — lekin botda ochiq tugma
+     * "kirsa bo'ladi" degan noto'g'ri signal berardi.
+     */
+    private void sendAccessGate(long chatId, List<AccessCheckClient.Requirement> unmet, UUID guideId) {
+        String text = "🔒 <b>Botdan foydalanish uchun obuna bo'ling</b>\n\n"
+                + "efBazaar'dan foydalanish uchun quyidagi "
+                + (unmet.size() > 1 ? "kanallarga" : "kanalga")
+                + " obuna bo'ling, so'ng «✅ Obuna bo'ldim» tugmasini bosing.";
+        List<UrlButton> links = unmet.stream()
+                .filter(r -> r.url() != null && !r.url().isBlank())
+                .map(r -> new UrlButton("📢 " + r.label(), r.url()))
+                .toList();
+        String data = guideId == null ? ACCESS_CALLBACK : ACCESS_CALLBACK + ":" + guideId;
+        telegram.sendMessageWithLinksAndAction(String.valueOf(chatId), text, links,
+                new TelegramApiClient.CallbackButton("✅ Obuna bo'ldim", data));
+    }
+
+    private void onAccessCallback(JsonNode callbackQuery) {
+        String callbackId = callbackQuery.path("id").asText("");
+        long userId = callbackQuery.path("from").path("id").asLong();
+        JsonNode message = callbackQuery.path("message");
+        long chatId = message.path("chat").path("id").asLong();
+        if (chatId == 0) return;
+
+        if (!access.unmet(userId).isEmpty()) {
+            telegram.answerCallbackQuery(callbackId,
+                    "Hali barcha kanallarga obuna bo'lmadingiz. Obuna bo'lib, qayta bosing.", true);
+            return;
+        }
+
+        telegram.answerCallbackQuery(callbackId, "✅ Rahmat! Obuna tasdiqlandi", false);
+        // Eski obuna xabari chatda qolmasin — tugmasi endi keraksiz.
+        if (message.has("message_id")) {
+            telegram.deleteMessage(String.valueOf(chatId), message.path("message_id").asLong());
+        }
+        sendWelcome(chatId, accessCallbackGuideId(callbackQuery.path("data").asText("")));
+    }
+
+    static UUID accessCallbackGuideId(String data) {
+        if (data == null || !data.startsWith(ACCESS_CALLBACK + ":")) return null;
+        try {
+            return UUID.fromString(data.substring(ACCESS_CALLBACK.length() + 1));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /** Kod shakli — ReferralCodeService dagi alifbo va uzunlik. */

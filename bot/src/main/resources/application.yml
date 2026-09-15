@@ -88,6 +88,10 @@ app:
   broadcast:
     messages-per-second: ${BROADCAST_MESSAGES_PER_SECOND:20}
     progress-every: ${BROADCAST_PROGRESS_EVERY:50}
+  # Kirish shartlari (kanal a'zoligi) — /start shu yerdan tekshiriladi.
+  # Servis javob bermasa /start odatdagidek ishlaydi.
+  access:
+    internal-base-url: ${ACCESS_INTERNAL_BASE_URL:http://access-service:8088}
   marketplace:
     internal-base-url: ${MARKETPLACE_INTERNAL_BASE_URL:http://marketplace-service:8082}
     # Docker tarmog'idagi servislar bitta umumiy sirni bo'lishadi.

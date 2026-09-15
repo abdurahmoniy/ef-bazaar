@@ -236,6 +236,41 @@ public class TelegramApiClient {
                 objectMapper.createObjectNode().put("callback_query_id", callbackQueryId));
     }
 
+    /** Tasdiq + foydalanuvchiga qisqa matn; {@code showAlert} — oyna, aks holda yuqorida toast. */
+    public void answerCallbackQuery(String callbackQueryId, String text, boolean showAlert) {
+        postJson("answerCallbackQuery", objectMapper.createObjectNode()
+                .put("callback_query_id", callbackQueryId)
+                .put("text", text)
+                .put("show_alert", showAlert));
+    }
+
+    /**
+     * Har bir havola alohida qatorda, oxirida bitta callback tugma. Kirish
+     * shartlari xabari shunday: kanallarga havolalar va "Obuna bo'ldim".
+     */
+    public Optional<Integer> sendMessageWithLinksAndAction(String chatId, String html,
+                                                           List<UrlButton> links, CallbackButton action) {
+        ArrayNode keyboard = objectMapper.createArrayNode();
+        for (UrlButton link : links) {
+            keyboard.add(objectMapper.createArrayNode().add(objectMapper.createObjectNode()
+                    .put("text", link.text())
+                    .put("url", link.url())));
+        }
+        keyboard.add(objectMapper.createArrayNode().add(objectMapper.createObjectNode()
+                .put("text", action.text())
+                .put("callback_data", action.data())));
+        ObjectNode markup = objectMapper.createObjectNode();
+        markup.set("inline_keyboard", keyboard);
+
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("chat_id", chatId)
+                .put("text", html)
+                .put("parse_mode", "HTML")
+                .put("disable_web_page_preview", true);
+        body.set("reply_markup", markup);
+        return postJson("sendMessage", body).map(this::extractMessageId);
+    }
+
     /**
      * sendVideo — o'ynatiladigan video sifatida yuklaydi.
      *

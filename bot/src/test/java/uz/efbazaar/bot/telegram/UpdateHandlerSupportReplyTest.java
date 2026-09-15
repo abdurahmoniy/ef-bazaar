@@ -28,6 +28,7 @@ class UpdateHandlerSupportReplyTest {
     @Mock private TelegramApiClient telegram;
     @Mock private BotSettingsClient settings;
     @Mock private ChannelVerifier channels;
+    @Mock private uz.efbazaar.bot.access.AccessCheckClient access;
     @Mock private PendingReferralClient pendingReferrals;
     @Mock private PremiumEmojiInspector premiumEmoji;
     @Mock private GuideMessenger guides;
@@ -50,6 +51,7 @@ class UpdateHandlerSupportReplyTest {
         );
         handler = new UpdateHandler(
                 telegram,
+                access,
                 settings,
                 channels,
                 pendingReferrals,
