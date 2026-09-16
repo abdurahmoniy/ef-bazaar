@@ -253,6 +253,13 @@ public class ChatService {
 
     public static String previewOf(ChatMessage m) {
         String content = m.getContent() == null ? "" : m.getContent().trim();
+        // Savdo taklifi xabarining matni — summaning o'zi. Obmenda u nol
+        // bo'ladi va chat ro'yxatida oxirgi xabar "0" bo'lib ko'rinardi.
+        // Summa bu yerda baribir keraksiz: taklif kartochkasi chatning
+        // ichida to'liq ko'rinadi.
+        if (m.getMessageType() == ChatMessageType.TRADE_PROPOSAL) {
+            return "🤝 Savdo taklifi";
+        }
         if (m.getAttachmentType() != null) {
             String label = switch (m.getAttachmentType()) {
                 case IMAGE -> "🖼 Rasm";
