@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { ArrowRight, Clock, Handshake, ShoppingCart, Star, Store } from 'lucide-react';
 
-import { formatListingDate, formatPriceUZS } from '@/lib/marketplace-format';
+import { formatListingDate } from '@/lib/marketplace-format';
+import { tradeAmountLabel } from '@/lib/trade-swap';
 import {
   isTerminalState,
   TRADE_STATE_LABEL_UZ,
@@ -71,7 +72,7 @@ export function ProfileTrades({ trades }: ProfileTradesProps) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-black text-foreground">
-                    {formatPriceUZS(trade.priceUzs)}
+                    {tradeAmountLabel(trade.kind, trade.priceUzs)}
                   </span>
                   <span className="text-[11px] font-semibold text-muted-foreground">
                     {buying ? 'Sotib olish' : 'Sotish'}

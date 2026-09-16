@@ -20,9 +20,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { formatListingDate, formatPriceUZS } from '@/lib/marketplace-format';
+import { formatListingDate } from '@/lib/marketplace-format';
 import { buildTradeApiPath } from '@/lib/trade-client-api';
 import { humanStepCompletion, validateAdminFee } from '@/lib/trade-human';
+import { tradeAmountLabel } from '@/lib/trade-swap';
 import {
   TRADE_STATE_LABEL_UZ,
   type TradeAdminProfileResponse,
@@ -304,7 +305,7 @@ function TradeList({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-sm font-black text-foreground">{formatPriceUZS(trade.priceUzs)}</p>
+                    <p className="text-sm font-black text-foreground">{tradeAmountLabel(trade.kind, trade.priceUzs)}</p>
                     <p className="text-[10.5px] text-muted-foreground">{trade.id.slice(0, 8)}</p>
                   </div>
                   <Badge variant={trade.state === 'IN_PROGRESS' ? 'verified' : 'muted'}>
@@ -442,7 +443,7 @@ function WorkspaceTradeDetail({
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
             Savdo {trade.id.slice(0, 8)}
           </p>
-          <h2 className="text-lg font-black text-foreground">{formatPriceUZS(trade.priceUzs)}</h2>
+          <h2 className="text-lg font-black text-foreground">{tradeAmountLabel(trade.kind, trade.priceUzs)}</h2>
           <div className="mt-1 flex flex-wrap gap-2">
             <Badge variant="verified">{TRADE_STATE_LABEL_UZ[trade.state]}</Badge>
             {trade.escalatedAt && <Badge variant="warn">Eskalatsiya</Badge>}

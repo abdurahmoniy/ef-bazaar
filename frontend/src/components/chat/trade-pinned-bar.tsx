@@ -19,7 +19,9 @@ import { formatPriceUZS } from '@/lib/marketplace-format';
 import { isHumanProposal, isHumanTrade } from '@/lib/trade-human';
 import {
   hasClearedCurrentStep,
+  hasTradeAmount,
   isSwap,
+  tradeAmountLabel,
   TRADE_KIND_LABEL_UZ,
 } from '@/lib/trade-swap';
 import {
@@ -71,9 +73,11 @@ export function TradePinnedBar() {
                     ? `Almashish (${TRADE_KIND_LABEL_UZ[proposal.kind ?? 'SWAP']})`
                     : 'Savdo taklifi'}
                 </span>
-                <span className="whitespace-nowrap text-xs font-semibold text-foreground">
-                  {formatPriceUZS(proposal.priceUzs)}
-                </span>
+                {hasTradeAmount(proposal.kind, proposal.priceUzs) && (
+                  <span className="whitespace-nowrap text-xs font-semibold text-foreground">
+                    {formatPriceUZS(proposal.priceUzs)}
+                  </span>
+                )}
                 {isHuman && (
                   <Badge variant="info" className="hidden py-0 text-[10px] sm:inline-flex">
                     Inson admin
@@ -166,7 +170,7 @@ export function TradePinnedBar() {
                 Oxirgi savdo: {TRADE_STATE_LABEL_UZ[lastFinished.state]}
               </span>
               <span className="ml-1.5 hidden text-[11px] text-muted-foreground sm:inline">
-                ({formatPriceUZS(lastFinished.priceUzs)})
+                ({tradeAmountLabel(lastFinished.kind, lastFinished.priceUzs)})
               </span>
             </div>
           </button>
@@ -309,7 +313,7 @@ function ActiveTradePinnedBar({ trade }: { trade: TradeResponse }) {
         <span className="grid min-w-0 flex-1 gap-1">
           <span className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <span className="whitespace-nowrap text-sm font-semibold text-foreground">
-              {trade.kind === 'SWAP' ? 'Akkount almashish' : formatPriceUZS(trade.priceUzs)}
+              {tradeAmountLabel(trade.kind, trade.priceUzs)}
             </span>
             {trade.stateDeadline && !terminal && (
               <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">

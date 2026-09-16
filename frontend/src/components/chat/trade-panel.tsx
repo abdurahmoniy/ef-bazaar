@@ -54,6 +54,8 @@ import {
   counterpartStatus,
   isSwap,
   hasClearedCurrentStep,
+  hasTradeAmount,
+  tradeAmountLabel,
   isWaitingForCounterpart,
   needsAmount,
   TRADE_KIND_HINT_UZ,
@@ -457,7 +459,7 @@ function ActiveTradeCard({
       <div className="space-y-2.5 border-b border-border pb-4">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <p className="whitespace-nowrap text-xl font-bold tracking-tight text-foreground">
-            {formatPriceUZS(trade.priceUzs)}
+            {tradeAmountLabel(trade.kind, trade.priceUzs)}
           </p>
           {trade.stateDeadline && !isTerminalState(trade.state) && (
             <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
@@ -1195,8 +1197,9 @@ function SuccessPanel({
           Savdo muvaffaqiyatli yakunlandi
         </div>
         <p>
-          {formatPriceUZS(trade.priceUzs)} to&apos;landi va Konami akkaunti
-          o&apos;tkazildi. Tabriklaymiz!
+          {trade.kind === 'SWAP'
+            ? 'Akkountlar o‘zaro almashtirildi. Tabriklaymiz!'
+            : `${formatPriceUZS(trade.priceUzs)} to‘landi va Konami akkaunti o‘tkazildi. Tabriklaymiz!`}
         </p>
       </div>
 
@@ -1891,7 +1894,7 @@ function ProposeModal({
           <div className="rounded-xl border border-border bg-muted/20 p-2.5 sm:p-3 space-y-1.5 text-xs min-w-0">
             <div className="flex items-center justify-between gap-2 text-muted-foreground text-[11.5px]">
               <span className="shrink-0">Qarshi taraf to‘laydi:</span>
-              <span className="font-bold text-foreground truncate">0 so'm (Obmen)</span>
+              <span className="font-bold text-foreground truncate">Pul o‘tmaydi</span>
             </div>
             <div className="flex items-center justify-between gap-2 text-muted-foreground text-[11.5px]">
               <span className="shrink-0">Smart-admin xizmati:</span>
@@ -2088,7 +2091,9 @@ function AcceptModal({
             <p className="mt-0.5">Tasdiqlagach savdo boshlanadi.</p>
           )}
         </div>
-        {!isHumanProposal(proposal) && (
+        {/* Toza obmenda hamyondan hech narsa yechilmaydi — bu qator
+            "0 so'm yechilib..." bo'lib chiqardi. */}
+        {!isHumanProposal(proposal) && hasTradeAmount(proposal.kind, proposal.priceUzs) && (
           <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
             <span className="font-semibold text-foreground">
               {formatPriceUZS(proposal.priceUzs)}
