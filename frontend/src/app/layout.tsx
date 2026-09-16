@@ -8,6 +8,7 @@ import { TelegramBackProvider } from '@/components/telegram/telegram-back-provid
 import { TelegramViewportBootstrap } from '@/components/telegram/telegram-viewport-bootstrap';
 import { ThemeScript } from '@/components/theme/theme-script';
 import { absoluteUrl, siteConfig } from '@/lib/site';
+import { PushProvider } from '@/components/notifications/push-provider';
 import { StoreProvider } from '@/store/provider';
 
 const YANDEX_METRIKA_ID = 110535295;
@@ -119,7 +120,7 @@ export default function RootLayout({
         <TelegramWebAppAutoLogin />
 
         <TelegramBackProvider>
-          <StoreProvider>{children}</StoreProvider>
+          <StoreProvider><PushProvider>{children}</PushProvider></StoreProvider>
         </TelegramBackProvider>
 
         <Script id="yandex-metrika" strategy="afterInteractive">

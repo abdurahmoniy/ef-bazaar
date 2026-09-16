@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 class NotificationServiceTest {
 
     @Mock NotificationRepository notifications;
+    @Mock org.springframework.context.ApplicationEventPublisher events;
 
     @InjectMocks NotificationService service;
 
@@ -37,6 +38,11 @@ class NotificationServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(notifications.save(any())).thenAnswer(invocation -> {
+            Notification n = invocation.getArgument(0);
+            if (n.getId() == null) n.setId(UUID.randomUUID());
+            return n;
+        });
         buyerId = UUID.randomUUID();
         sellerId = UUID.randomUUID();
         chat = Chat.builder()
@@ -154,6 +160,23 @@ class NotificationServiceTest {
         Instant first = result.getReadAt();
         service.markRead(id, buyerId); // idempotent
         assertThat(result.getReadAt()).isEqualTo(first);
+    }
+
+    @Test
+    void newNotificationPublishesPushEvent() {
+        service.chatCreated(chat);
+        verify(events).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void coalescedUnreadMessageStillPublishesPushEvent() {
+        Notification existing = Notification.builder().id(UUID.randomUUID()).userId(sellerId)
+                .type(NotificationType.CHAT_MESSAGE).chatId(chat.getId()).build();
+        when(notifications.findFirstByUserIdAndChatIdAndTypeAndReadAtIsNull(
+                sellerId, chat.getId(), NotificationType.CHAT_MESSAGE)).thenReturn(Optional.of(existing));
+        service.newMessage(chat, buyerId);
+        verify(notifications, never()).save(any());
+        verify(events).publishEvent(any(Object.class));
     }
 
     // ---------- withdrawals ----------

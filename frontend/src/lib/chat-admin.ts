@@ -1,4 +1,4 @@
-import type { AdminChatResponse } from './chat-admin-types';
+import type { AdminChatListingEvent, AdminChatResponse } from './chat-admin-types';
 import type { MessageResponse } from './marketplace-types';
 
 export type ChatParty = 'BUYER' | 'SELLER';
@@ -27,6 +27,34 @@ export function partyName(chat: AdminChatResponse, party: ChatParty): string {
  */
 export function chronological(messages: MessageResponse[]): MessageResponse[] {
   return [...messages].reverse();
+}
+
+export type AdminChatTimelineItem =
+  | ({ type: 'message' } & MessageResponse)
+  | ({ type: 'listing' } & AdminChatListingEvent);
+
+/** Anchors keep selections in the correct page, including gaps between messages. */
+export function buildAdminChatTimeline(
+  messages: MessageResponse[],
+  listings: AdminChatListingEvent[],
+  oldestPage: boolean,
+): AdminChatTimelineItem[] {
+  const afterMessage = new Map<string | null, AdminChatListingEvent[]>();
+  for (const listing of listings) {
+    const group = afterMessage.get(listing.afterMessageId) ?? [];
+    group.push(listing);
+    afterMessage.set(listing.afterMessageId, group);
+  }
+  const result: AdminChatTimelineItem[] = [];
+  const appendListings = (id: string | null) => {
+    for (const listing of afterMessage.get(id) ?? []) result.push({ ...listing, type: 'listing' });
+  };
+  if (oldestPage) appendListings(null);
+  for (const message of chronological(messages)) {
+    result.push({ ...message, type: 'message' });
+    appendListings(message.id);
+  }
+  return result;
 }
 
 /** Page number from a search param: a non-negative integer, else 0. */

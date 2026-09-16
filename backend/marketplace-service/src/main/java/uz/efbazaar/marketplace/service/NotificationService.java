@@ -27,11 +27,17 @@ import java.util.UUID;
 public class NotificationService {
 
     private final NotificationRepository notifications;
+    private final org.springframework.context.ApplicationEventPublisher events;
+
+    private void saveAndNotify(Notification notification) {
+        notifications.save(notification);
+        events.publishEvent(uz.efbazaar.marketplace.push.NotificationPushEvent.from(notification));
+    }
 
     /** Buyer opened a chat on the seller's listing → notify seller. */
     @Transactional
     public void chatCreated(Chat chat) {
-        notifications.save(Notification.builder()
+        saveAndNotify(Notification.builder()
                 .userId(chat.getSellerId())
                 .type(NotificationType.CHAT_CREATED)
                 .chatId(chat.getId())
@@ -43,7 +49,7 @@ public class NotificationService {
     /** Buyer requested a listing / opened account request → notify partner. */
     @Transactional
     public void accountRequested(UUID recipientUserId, UUID chatId, UUID listingId, String requesterDisplayName) {
-        notifications.save(Notification.builder()
+        saveAndNotify(Notification.builder()
                 .userId(recipientUserId)
                 .type(NotificationType.CHAT_CREATED)
                 .chatId(chatId)
@@ -66,8 +72,11 @@ public class NotificationService {
         notifications.findFirstByUserIdAndChatIdAndTypeAndReadAtIsNull(
                         recipient, chat.getId(), NotificationType.CHAT_MESSAGE)
                 .ifPresentOrElse(
-                        existing -> existing.setCreatedAt(Instant.now()),
-                        () -> notifications.save(Notification.builder()
+                        existing -> {
+                            existing.setCreatedAt(Instant.now());
+                            events.publishEvent(uz.efbazaar.marketplace.push.NotificationPushEvent.from(existing));
+                        },
+                        () -> saveAndNotify(Notification.builder()
                                 .userId(recipient)
                                 .type(NotificationType.CHAT_MESSAGE)
                                 .chatId(chat.getId())
@@ -79,7 +88,7 @@ public class NotificationService {
     /** Trust-module notice (warning/block/unblock) — no chat/listing context. */
     @Transactional
     public void trustNotice(UUID userId, NotificationType type) {
-        notifications.save(Notification.builder()
+        saveAndNotify(Notification.builder()
                 .userId(userId)
                 .type(type)
                 .build());
@@ -101,7 +110,7 @@ public class NotificationService {
             log.debug("admin-invited replay for admin={} trade={}, skipping", adminId, tradeId);
             return;
         }
-        notifications.save(Notification.builder()
+        saveAndNotify(Notification.builder()
                 .userId(adminId)
                 .type(NotificationType.TRADE_ADMIN_INVITED)
                 .tradeId(tradeId)
@@ -121,7 +130,7 @@ public class NotificationService {
             log.debug("mailbox-handed-over replay for user={} trade={}, skipping", userId, tradeId);
             return;
         }
-        notifications.save(Notification.builder()
+        saveAndNotify(Notification.builder()
                 .userId(userId)
                 .type(type)
                 .tradeId(tradeId)
@@ -142,7 +151,7 @@ public class NotificationService {
                     adminId, NotificationType.WITHDRAWAL_REQUESTED, withdrawalId)) {
                 continue;
             }
-            notifications.save(Notification.builder()
+            saveAndNotify(Notification.builder()
                     .userId(adminId)
                     .type(NotificationType.WITHDRAWAL_REQUESTED)
                     .withdrawalId(withdrawalId)
@@ -169,7 +178,7 @@ public class NotificationService {
             log.debug("deposit-credited replay for user={} tx={}, skipping", userId, paymentRef);
             return;
         }
-        notifications.save(Notification.builder()
+        saveAndNotify(Notification.builder()
                 .userId(userId)
                 .type(NotificationType.WALLET_CREDITED)
                 .amountTiyin(amountTiyin)
@@ -193,7 +202,7 @@ public class NotificationService {
             log.debug("withdrawal-closed replay for user={} ticket={}, skipping", userId, withdrawalId);
             return;
         }
-        notifications.save(Notification.builder()
+        saveAndNotify(Notification.builder()
                 .userId(userId)
                 .type(type)
                 .withdrawalId(withdrawalId)
@@ -202,7 +211,7 @@ public class NotificationService {
 
     @Transactional
     public void tradeAction(UUID userId, UUID tradeId, UUID chatId, NotificationType type) {
-        notifications.save(Notification.builder()
+        saveAndNotify(Notification.builder()
                 .userId(userId)
                 .type(type)
                 .tradeId(tradeId)
@@ -220,7 +229,7 @@ public class NotificationService {
      */
     @Transactional
     public void partnerDecision(UUID userId, NotificationType type) {
-        notifications.save(Notification.builder()
+        saveAndNotify(Notification.builder()
                 .userId(userId)
                 .type(type)
                 .build());

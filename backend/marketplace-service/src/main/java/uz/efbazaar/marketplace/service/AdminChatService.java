@@ -5,9 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.marketplace.domain.Chat;
 import uz.efbazaar.marketplace.domain.ChatMessage;
 import uz.efbazaar.marketplace.dto.AdminChatResponse;
+import uz.efbazaar.marketplace.dto.AdminChatListingEventResponse;
+import uz.efbazaar.marketplace.dto.AdminChatListingEventResponse.ListingSummary;
+import uz.efbazaar.marketplace.repository.ChatAccountRequestRepository;
+import uz.efbazaar.marketplace.repository.ListingRepository;
 import uz.efbazaar.marketplace.dto.MessageResponse;
 import uz.efbazaar.marketplace.dto.PageResponse;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
@@ -16,6 +21,7 @@ import uz.efbazaar.marketplace.repository.ChatRepository;
 import uz.efbazaar.marketplace.security.AuthSummaryClient;
 import uz.efbazaar.marketplace.security.AuthSummaryClient.UserSummary;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -25,7 +31,7 @@ import java.util.UUID;
  * Anonymous, read-only view of buyer–seller chats for admins.
  *
  * <p>"Anonymous" is kept by construction rather than by care: this service
- * reads only the chat and message tables and never goes near participant rows,
+ * reads chats, messages and listing-selection history, never participant rows,
  * so opening a chat cannot move a read cursor, un-hide a conversation, change
  * an unread badge or back-fill a name. Nothing is published to the chat's live
  * channel either. The parties see exactly what they saw before.
@@ -45,6 +51,8 @@ public class AdminChatService {
     private final ChatMessageRepository messages;
     private final AuthSummaryClient users;
     private final MessageViewAssembler views;
+    private final ChatAccountRequestRepository requests;
+    private final ListingRepository listings;
 
     public PageResponse<AdminChatResponse> list(String query, int page, int size) {
         PageRequest pageable = PageRequest.of(Math.max(0, page), clamp(size, MAX_CHATS_PAGE));
@@ -69,10 +77,45 @@ public class AdminChatService {
     /** Newest first: page 0 is the latest messages, higher pages go back in time. */
     public PageResponse<MessageResponse> messages(UUID chatId, int page, int size) {
         require(chatId);
-        Page<ChatMessage> result = messages.findByChatIdOrderByCreatedAtDesc(
+        Page<ChatMessage> result = messages.findByChatIdOrderByCreatedAtDescIdDesc(
                 chatId, PageRequest.of(Math.max(0, page), clamp(size, MAX_MESSAGES_PAGE)));
         return new PageResponse<>(views.withReplyPreviews(result.getContent()),
                 result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
+
+    /**
+     * Anchor each selection to its preceding message, so cards stay on the
+     * correct message page even when selections happened in a gap between pages.
+     * No participant state, read cursors, notifications or chat messages are changed.
+     */
+    @Transactional(readOnly = true)
+    public List<AdminChatListingEventResponse> listingHistory(UUID chatId) {
+        Chat chat = require(chatId);
+        var history = requests.findByChatIdOrderByCreatedAtAscIdAsc(chatId);
+        List<UUID> listingIds = history.isEmpty()
+                ? List.of(chat.getListingId())
+                : history.stream().map(r -> r.getListingId()).distinct().toList();
+        var summaries = new java.util.HashMap<UUID, ListingSummary>();
+        for (var listing : listings.findAllById(listingIds)) {
+            summaries.put(listing.getId(), ListingSummary.of(listing));
+        }
+        if (history.isEmpty()) {
+            // Legacy chats without selections still retain the listing they opened on.
+            return List.of(new AdminChatListingEventResponse(chat.getId(), chat.getListingId(),
+                    chat.getBuyerId(), chat.getCreatedAt(), null, true, summaries.get(chat.getListingId())));
+        }
+        var result = new ArrayList<AdminChatListingEventResponse>(history.size());
+        for (var selection : history) {
+            UUID afterMessageId = messages
+                    .findFirstByChatIdAndCreatedAtLessThanEqualOrderByCreatedAtDescIdDesc(chatId, selection.getCreatedAt())
+                    .map(ChatMessage::getId).orElse(null);
+            // Selection rows do not prove which listing originally opened a legacy chat.
+            // Deleted messages can also leave a later selection without a preceding anchor.
+            result.add(new AdminChatListingEventResponse(selection.getId(), selection.getListingId(),
+                    selection.getRequesterId(), selection.getCreatedAt(), afterMessageId,
+                    false, summaries.get(selection.getListingId())));
+        }
+        return result;
     }
 
     private Chat require(UUID chatId) {

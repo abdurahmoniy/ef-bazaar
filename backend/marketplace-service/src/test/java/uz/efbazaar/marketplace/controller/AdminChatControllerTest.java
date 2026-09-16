@@ -60,4 +60,21 @@ class AdminChatControllerTest {
         // method; what matters is that nothing behind the controller ran.
         verifyNoInteractions(service);
     }
+    @Test
+    void adminReadsListingHistory() throws Exception {
+        UUID chatId = UUID.randomUUID();
+        mvc.perform(get("/api/v1/admin/chats/{id}/listing-history", chatId)
+                        .header("X-User-Id", UUID.randomUUID().toString()).header("X-User-Roles", "ROLE_ADMIN"))
+                .andExpect(status().isOk());
+        verify(service).listingHistory(chatId);
+    }
+
+    @Test
+    void aParticipantCannotUseTheAdminListingHistoryEndpoint() throws Exception {
+        mvc.perform(get("/api/v1/admin/chats/{id}/listing-history", UUID.randomUUID())
+                        .header("X-User-Id", UUID.randomUUID().toString()).header("X-User-Roles", "ROLE_USER"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
+
 }

@@ -1,3 +1,4 @@
+import { removePushSubscription } from './push-server';
 import 'server-only';
 
 import { cookies } from 'next/headers';
@@ -30,6 +31,8 @@ async function setAuthCookies(auth: AuthResponse) {
 }
 
 export async function clearAuthCookies() {
+  // Revoke while the authentication cookies still identify the current account.
+  await removePushSubscription().catch(() => undefined);
   const jar = await cookies();
   for (const cookieOpts of getAuthCookieClearOptions()) {
     jar.set(ACCESS_COOKIE_NAME, '', cookieOpts);

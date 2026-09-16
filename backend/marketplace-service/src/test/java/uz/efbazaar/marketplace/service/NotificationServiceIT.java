@@ -47,11 +47,12 @@ class NotificationServiceIT {
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Autowired NotificationRepository notifications;
+    @Autowired org.springframework.context.ApplicationEventPublisher events;
     @Autowired org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager entityManager;
 
     @Test
     void replayedAdminInvitedWritesExactlyOneRow() {
-        NotificationService service = new NotificationService(notifications);
+        NotificationService service = new NotificationService(notifications, events);
         UUID adminId = UUID.randomUUID();
         UUID tradeId = UUID.randomUUID();
 
@@ -68,7 +69,7 @@ class NotificationServiceIT {
 
     @Test
     void distinctTradesForTheSameAdminBothLandNotifications() {
-        NotificationService service = new NotificationService(notifications);
+        NotificationService service = new NotificationService(notifications, events);
         UUID adminId = UUID.randomUUID();
         UUID tradeA = UUID.randomUUID();
         UUID tradeB = UUID.randomUUID();
@@ -81,7 +82,7 @@ class NotificationServiceIT {
 
     @Test
     void aCreditedDepositBecomesOneBellRowCarryingTheAmount() {
-        NotificationService service = new NotificationService(notifications);
+        NotificationService service = new NotificationService(notifications, events);
         UUID userId = UUID.randomUUID();
         UUID txId = UUID.randomUUID();
 
@@ -101,7 +102,7 @@ class NotificationServiceIT {
      */
     @Test
     void aRedeliveredDepositWritesExactlyOneRow() {
-        NotificationService service = new NotificationService(notifications);
+        NotificationService service = new NotificationService(notifications, events);
         UUID userId = UUID.randomUUID();
         UUID txId = UUID.randomUUID();
 
@@ -114,7 +115,7 @@ class NotificationServiceIT {
     /** Two real deposits of the same amount are two events, not a replay. */
     @Test
     void twoDistinctDepositsOfTheSameAmountBothLand() {
-        NotificationService service = new NotificationService(notifications);
+        NotificationService service = new NotificationService(notifications, events);
         UUID userId = UUID.randomUUID();
 
         service.walletCredited(userId, 5_000_000L, UUID.randomUUID());
@@ -130,7 +131,7 @@ class NotificationServiceIT {
      */
     @Test
     void closingATicketTakesItOffEveryAdminsBadgeAndNothingElse() {
-        NotificationService service = new NotificationService(notifications);
+        NotificationService service = new NotificationService(notifications, events);
         UUID adminA = UUID.randomUUID();
         UUID adminB = UUID.randomUUID();
         UUID paid = UUID.randomUUID();

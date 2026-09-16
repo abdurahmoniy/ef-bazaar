@@ -347,6 +347,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     environment:
+      FIREBASE_PUSH_ENABLED: ${FIREBASE_PUSH_ENABLED:-false}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
       # efBazaar rasmiy kanali — bo'sh bo'lsa rasmiy postlar o'chiq.
       OFFICIAL_CHANNEL: ${OFFICIAL_CHANNEL:-}
       # Kanal postlaridagi e'lon havolalarining asosi.
@@ -661,6 +663,11 @@ services:
     restart: unless-stopped
     logging: *default-logging
     environment:
+      FIREBASE_WEB_API_KEY: ${FIREBASE_WEB_API_KEY:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_MESSAGING_SENDER_ID: ${FIREBASE_MESSAGING_SENDER_ID:-}
+      FIREBASE_WEB_APP_ID: ${FIREBASE_WEB_APP_ID:-}
+      FIREBASE_WEB_VAPID_KEY: ${FIREBASE_WEB_VAPID_KEY:-}
       # Server (Node) ichidan backend'ga ichki tarmoq orqali ulanish
       INTERNAL_API_BASE_URL: http://nginx:8080/api
       AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-efbazaar.uz}

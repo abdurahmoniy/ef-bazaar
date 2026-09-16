@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { apiFetch, ApiException } from './api';
-import type { AdminChatResponse } from './chat-admin-types';
+import type { AdminChatListingEvent, AdminChatResponse } from './chat-admin-types';
 import type { FetchResult } from './marketplace-server';
 import type { MessageResponse, PageResponse } from './marketplace-types';
 
@@ -47,6 +47,10 @@ export async function getAdminChats(
 
 export async function getAdminChat(id: string): Promise<FetchResult<AdminChatResponse>> {
   return safeFetch<AdminChatResponse>(`${PREFIX}/${encodeURIComponent(id)}`);
+}
+
+export async function getAdminChatListingHistory(id: string): Promise<FetchResult<AdminChatListingEvent[]>> {
+  return safeFetch<AdminChatListingEvent[]>(`${PREFIX}/${encodeURIComponent(id)}/listing-history`);
 }
 
 /** Newest first: page 0 holds the latest messages. */

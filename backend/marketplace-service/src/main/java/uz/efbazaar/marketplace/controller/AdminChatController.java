@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import uz.efbazaar.marketplace.dto.AdminChatResponse;
+import uz.efbazaar.marketplace.dto.AdminChatListingEventResponse;
+import java.util.List;
 import uz.efbazaar.marketplace.dto.MessageResponse;
 import uz.efbazaar.marketplace.dto.PageResponse;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
@@ -46,4 +48,9 @@ public class AdminChatController {
                                                   @RequestParam(defaultValue = "100") int size) {
         return service.messages(id, page, size);
     }
+    @GetMapping("/{id}/listing-history")
+    public List<AdminChatListingEventResponse> listingHistory(@PathVariable UUID id) {
+        return service.listingHistory(id);
+    }
+
 }

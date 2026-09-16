@@ -12,3 +12,19 @@ export interface AdminChatResponse {
   messageCount: number;
   lastMessagePreview: string | null;
 }
+
+/** A saved account selection, anchored to the message immediately before it. */
+export interface AdminChatListingEvent {
+  id: string;
+  listingId: string;
+  requesterId: string;
+  createdAt: string;
+  afterMessageId: string | null;
+  initial: boolean;
+  listing: {
+    description: string;
+    price: number | string;
+    coverMessageId: string | null;
+    status: 'ACTIVE' | 'SOLD' | 'DELETED';
+  } | null;
+}
