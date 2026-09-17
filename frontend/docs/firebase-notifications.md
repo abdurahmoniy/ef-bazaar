@@ -27,7 +27,9 @@ Set these in the deployment's root `.env` (or the frontend `.env.local` for loca
 
 The frontend reads web configuration at runtime through `/api/push/config`; these values do not require build arguments. The worker at `/firebase-messaging-sw.js` uses the installed SDK's exact version. Production CSP permits the Firebase installation and registration API endpoints and the existing Google-hosted SDK scripts.
 
-For a server using Compose and a credential file, start the rebuilt images with the main compose file plus the optional overlay:
+For GitHub Actions deployment, add the variables above as repository Actions secrets. The deploy workflow forwards them to the server, and `deploy.sh` writes them into the root `.env` on each deployment. Set `FIREBASE_PUSH_ENABLED` to `true`. If `FIREBASE_CREDENTIALS_FILE` is set, deployment verifies that it is an absolute path to an existing readable file and automatically enables the credential overlay. The JSON must already exist on the deployment server; a path on your laptop does not upload the file. Keep the file outside the repository, for example `/opt/efbazaar-secrets/firebase-admin.json`.
+
+For a manual deployment using Compose and a credential file, start the rebuilt images with the main compose file plus the optional overlay:
 
 ```sh
 docker compose -f docker-compose.yml -f frontend/docs/firebase-push.compose.yml up -d marketplace-service frontend
@@ -36,6 +38,8 @@ docker compose -f docker-compose.yml -f frontend/docs/firebase-push.compose.yml 
 The overlay mounts the credential file read-only only into marketplace-service. On environments that already provide Google Application Default Credentials through their workload identity, the overlay is unnecessary. The `FIREBASE_PROJECT_ID` must match the web app and credentials.
 
 Flyway creates `notification_push_tokens` automatically. Push is disabled by default. The settings UI only offers opt-in when both frontend and backend configuration are enabled. No credentials have been supplied or installed by this code change.
+
+If the enable button is missing, open `/api/push/config` while signed in. A populated `config` and nonempty `vapidKey` indicate that configuration is available. A null `config` means the frontend settings, sign-in, or backend enablement are missing; a 503 indicates a failed authentication/backend request. Permission is requested only after tapping **Bildirishnomalarni yoqish**, never automatically when opening the page.
 
 ## Delivery and account behavior
 
