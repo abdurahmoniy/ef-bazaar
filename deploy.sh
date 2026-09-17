@@ -52,6 +52,29 @@ require_env() {
   fi
 }
 
+# Validate enabled push before rewriting .env or changing running services.
+configure_firebase_push() {
+  local key
+  for key in FIREBASE_WEB_API_KEY FIREBASE_PROJECT_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_WEB_APP_ID FIREBASE_WEB_VAPID_KEY FIREBASE_PUSH_ENABLED FIREBASE_CREDENTIALS_FILE; do
+    assert_safe_for_env "$key" "${!key:-}"
+  done
+  case "${FIREBASE_PUSH_ENABLED:-false}" in
+    false) return ;;
+    true) ;;
+    *) echo "!! FIREBASE_PUSH_ENABLED must be true or false" >&2; return 1 ;;
+  esac
+  for key in FIREBASE_WEB_API_KEY FIREBASE_PROJECT_ID FIREBASE_MESSAGING_SENDER_ID FIREBASE_WEB_APP_ID FIREBASE_WEB_VAPID_KEY; do
+    require_env "$key" "${!key:-}"
+  done
+  if [[ -n "${FIREBASE_CREDENTIALS_FILE:-}" ]]; then
+    if [[ "$FIREBASE_CREDENTIALS_FILE" != /* || ! -f "$FIREBASE_CREDENTIALS_FILE" || ! -r "$FIREBASE_CREDENTIALS_FILE" ]]; then
+      echo "!! FIREBASE_CREDENTIALS_FILE must be an absolute path to a readable file on the deployment server" >&2
+      return 1
+    fi
+    export COMPOSE_FILE="docker-compose.yml:frontend/docs/firebase-push.compose.yml"
+  fi
+}
+
 # ─── Sync .env from CI secrets ──────────────────────────────────────────────
 write_env() {
   require_env CARD_INTEREST_HMAC_SECRET "${CARD_INTEREST_HMAC_SECRET:-}"
@@ -136,6 +159,15 @@ write_env() {
   # Google OAuth — ID token flow uses only client_id (audience check on backend,
   # browser GIS init on frontend). Client secret is NOT needed for this flow.
   upsert_env .env GOOGLE_CLIENT_ID        "${GOOGLE_CLIENT_ID:-}"
+
+  # Public web configuration plus backend push enablement and file location.
+  upsert_env .env FIREBASE_WEB_API_KEY "${FIREBASE_WEB_API_KEY:-}"
+  upsert_env .env FIREBASE_PROJECT_ID "${FIREBASE_PROJECT_ID:-}"
+  upsert_env .env FIREBASE_MESSAGING_SENDER_ID "${FIREBASE_MESSAGING_SENDER_ID:-}"
+  upsert_env .env FIREBASE_WEB_APP_ID "${FIREBASE_WEB_APP_ID:-}"
+  upsert_env .env FIREBASE_WEB_VAPID_KEY "${FIREBASE_WEB_VAPID_KEY:-}"
+  upsert_env .env FIREBASE_PUSH_ENABLED "${FIREBASE_PUSH_ENABLED:-false}"
+  upsert_env .env FIREBASE_CREDENTIALS_FILE "${FIREBASE_CREDENTIALS_FILE:-}"
 
   # Server-to-server shared secret. nginx injects it as X-Internal-Secret on
   # /api/tournaments/** (Chempionat-X header-auth), and auth/marketplace guard
@@ -552,6 +584,7 @@ EOF
 
 # ─── Main flow ──────────────────────────────────────────────────────────────
 
+configure_firebase_push
 write_env
 write_alertmanager_config
 ghcr_login
