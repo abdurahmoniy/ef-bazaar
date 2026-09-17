@@ -201,7 +201,7 @@ export function MarketplaceShell({
       */}
       <ReferralCapture authenticated={!!user} />
       <header className={cn(
-        "relative z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)] md:sticky md:top-0",
+        "sticky top-0 z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)]",
         hideHeader && "hidden md:block"
       )}>
         <div className={cn(
@@ -209,7 +209,7 @@ export function MarketplaceShell({
           activeTab === 'home' && "pt-3 sm:pt-0"
         )}>
           {backHref && <TopBackButton href={backHref} label={backLabel} className="-ml-2" />}
-          <div className={cn("flex items-center", activeTab === 'home' && "hidden sm:flex")}>
+          <div className="flex items-center">
             <Logo size="sm" href="/marketplace" />
           </div>
 
@@ -229,6 +229,8 @@ export function MarketplaceShell({
               collapsible={collapsibleSearch}
             />
           )}
+
+          {user && <NotificationBell className="ml-auto shrink-0 sm:hidden" />}
 
           {/*
             Three zones, one primary. Chats and the bell are borderless icons

@@ -22,6 +22,8 @@ import {
 } from '@/lib/notifications-client';
 import { formatListingDate } from '@/lib/marketplace-format';
 import type { NotificationResponse } from '@/lib/marketplace-types';
+import { NOTIFICATIONS_CHANGED } from '@/lib/firebase-push';
+import { PushSettings } from './push-settings';
 import { cn } from '@/lib/utils';
 
 interface NotificationsViewProps {
@@ -41,12 +43,22 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
   }, [initialItems]);
 
   useEffect(() => {
-    loadNotifications();
+    void loadNotifications();
+    const refresh = () => { void loadNotifications(); };
+    window.addEventListener(NOTIFICATIONS_CHANGED, refresh);
+    window.addEventListener('focus', refresh);
+    const timer = window.setInterval(refresh, 30_000);
+    return () => {
+      window.removeEventListener(NOTIFICATIONS_CHANGED, refresh);
+      window.removeEventListener('focus', refresh);
+      window.clearInterval(timer);
+    };
   }, [loadNotifications]);
 
   const handleItemClick = async (n: NotificationResponse) => {
     if (!n.readAt) {
       await markNotificationRead(n.id);
+      window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
       setItems((prev) =>
         prev?.map((item) =>
           item.id === n.id ? { ...item, readAt: new Date().toISOString() } : item,
@@ -59,6 +71,7 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
 
   const handleReadAll = async () => {
     await markAllNotificationsRead();
+    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
     setItems((prev) =>
       prev?.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })) ?? prev,
     );
@@ -105,11 +118,11 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
   return (
     <div className="space-y-3 pb-24 min-h-[calc(100dvh-8rem)] flex flex-col">
       {/* Mobile App Sticky Top Header - Identical to E'lonlarim */}
-      <div className="-mx-4 -mt-4 sticky top-0 z-30 flex items-center justify-between border-b border-border/60 bg-background/95 px-4 py-3 backdrop-blur-md sm:mx-0 sm:mt-0 sm:rounded-2xl sm:border sm:px-5 sm:shadow-xs">
+      <div className="-mx-4 -mt-4 sticky top-0 z-30 flex items-center justify-between border-b border-border/60 bg-background/95 px-4 pb-3 pt-[calc(0.75rem+var(--app-content-safe-top))] backdrop-blur-md sm:pt-3 sm:mx-0 sm:mt-0 sm:rounded-2xl sm:border sm:px-5 sm:shadow-xs">
         <div className="flex items-center gap-3">
           <Link
-            href="/profile"
-            aria-label="Profilga qaytish"
+            href="/marketplace"
+            aria-label="Bozorga qaytish"
             className="grid h-9 w-9 place-items-center rounded-full bg-muted/60 text-foreground transition hover:bg-muted active:scale-90"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -138,6 +151,8 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
           </button>
         )}
       </div>
+
+      <PushSettings />
 
       {/* Main Content Area - Full screen width matching E'lonlarim */}
       {loading ? (

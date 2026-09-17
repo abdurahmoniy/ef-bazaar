@@ -46,6 +46,8 @@ function buildContentSecurityPolicy() {
     chempionatOrigin,
     'https://accounts.google.com',
     'https://oauth2.googleapis.com',
+    'https://firebaseinstallations.googleapis.com',
+    'https://fcmregistrations.googleapis.com',
     'https://*.telegram.org',
     'https://mc.yandex.ru',
     'https://mc.yandex.com',
@@ -90,6 +92,7 @@ function buildContentSecurityPolicy() {
 
   return [
     "default-src 'self'",
+    "worker-src 'self'",
     `script-src ${scriptSrc.join(' ')}`,
     // Google Identity Services fetches `accounts.google.com/gsi/style` for the
     // sign-in button; block that stylesheet and the button renders unstyled/broken.

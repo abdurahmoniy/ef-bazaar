@@ -195,3 +195,9 @@ logging:
   level:
     root: INFO
     uz.efbazaar: DEBUG
+
+# Enable only with Firebase Application Default Credentials configured.
+notifications:
+  push:
+    enabled: ${FIREBASE_PUSH_ENABLED:false}
+    project-id: ${FIREBASE_PROJECT_ID:}

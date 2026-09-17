@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell, CheckCheck, MessageCircle } from 'lucide-react';
 
+import { NOTIFICATIONS_CHANGED } from '@/lib/firebase-push';
 import { Button } from '@/components/ui/button';
 import {
   fetchNotifications,
@@ -51,8 +52,18 @@ export function NotificationBell({ className, dropdownAlign = 'right' }: Notific
   useEffect(() => {
     refreshCount();
     const timer = window.setInterval(refreshCount, POLL_INTERVAL_MS);
-    return () => window.clearInterval(timer);
-  }, [refreshCount]);
+    const refresh = () => {
+      void refreshCount();
+      if (open) void fetchNotifications().then(setItems);
+    };
+    window.addEventListener(NOTIFICATIONS_CHANGED, refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener(NOTIFICATIONS_CHANGED, refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [refreshCount, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -66,6 +77,10 @@ export function NotificationBell({ className, dropdownAlign = 'right' }: Notific
   }, [open]);
 
   async function toggleOpen() {
+    if (window.matchMedia('(max-width: 639px)').matches) {
+      router.push('/notifications');
+      return;
+    }
     const next = !open;
     setOpen(next);
     if (next) {
@@ -89,6 +104,7 @@ export function NotificationBell({ className, dropdownAlign = 'right' }: Notific
       prev?.map((n) => (n.readAt ? n : { ...n, readAt: new Date().toISOString() })) ?? prev,
     );
     await markAllNotificationsRead();
+    window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
   }
 
   return (
@@ -97,7 +113,8 @@ export function NotificationBell({ className, dropdownAlign = 'right' }: Notific
         type="button"
         variant="ghost"
         size="sm"
-        className="h-9 w-9 p-0"
+        className="h-11 w-11 rounded-full bg-primary/10 p-0 text-primary sm:h-9 sm:w-9 sm:bg-transparent sm:text-foreground"
+        aria-expanded={open}
         onClick={toggleOpen}
         aria-label={unread > 0 ? `Bildirishnomalar (${unread} o'qilmagan)` : 'Bildirishnomalar'}
       >

@@ -14,7 +14,10 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
     Page<ChatMessage> findByChatIdOrderByCreatedAtAsc(UUID chatId, Pageable pageable);
 
     /** Newest first, so page 0 of the admin transcript is where the conversation stands now. */
-    Page<ChatMessage> findByChatIdOrderByCreatedAtDesc(UUID chatId, Pageable pageable);
+    Page<ChatMessage> findByChatIdOrderByCreatedAtDescIdDesc(UUID chatId, Pageable pageable);
+
+    /** The concrete message preceding a listing selection, including timestamp ties. */
+    Optional<ChatMessage> findFirstByChatIdAndCreatedAtLessThanEqualOrderByCreatedAtDescIdDesc(UUID chatId, Instant createdAt);
 
     long countByChatId(UUID chatId);
 

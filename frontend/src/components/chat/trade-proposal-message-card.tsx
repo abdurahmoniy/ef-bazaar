@@ -12,9 +12,8 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatPriceUZS } from '@/lib/marketplace-format';
 import type { MessageResponse } from '@/lib/marketplace-types';
-import { isSwap, TRADE_KIND_LABEL_UZ } from '@/lib/trade-swap';
+import { isSwap, tradeAmountLabel, TRADE_KIND_LABEL_UZ } from '@/lib/trade-swap';
 import { useTradeContext } from './trade-context';
 
 interface TradeProposalMessageCardProps {
@@ -95,9 +94,15 @@ export function TradeProposalMessageCard({
 
         {/* Amount Section */}
         <div className="my-3 rounded-xl bg-muted/50 p-3 text-center dark:bg-muted/30">
-          <p className="text-[11px] font-semibold text-muted-foreground">Taklif qilingan summa</p>
+          <p className="text-[11px] font-semibold text-muted-foreground">
+            {kind === 'SWAP'
+              ? 'Almashish sharti'
+              : kind === 'SWAP_SURCHARGE'
+                ? 'Doplata'
+                : 'Taklif qilingan summa'}
+          </p>
           <p className="text-lg font-black tracking-tight text-primary">
-            {formatPriceUZS(priceUzs)}
+            {tradeAmountLabel(kind, priceUzs)}
           </p>
           {isSwapMode && kind === 'SWAP_SURCHARGE' && (
             <p className="mt-0.5 text-[10.5px] text-muted-foreground">Doplata bilan obmen</p>
