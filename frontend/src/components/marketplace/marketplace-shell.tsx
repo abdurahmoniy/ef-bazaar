@@ -206,10 +206,10 @@ export function MarketplaceShell({
       )}>
         <div className={cn(
           "mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center gap-x-2 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] sm:h-14 sm:flex-nowrap sm:gap-3",
-          activeTab === 'home' && "pt-3 sm:pt-0"
+          activeTab === 'home' && "marketplace-home-header py-3 sm:py-0"
         )}>
           {backHref && <TopBackButton href={backHref} label={backLabel} className="-ml-2" />}
-          <div className="flex items-center">
+          <div className={cn("flex items-center", activeTab === 'home' && "hidden sm:flex")}>
             <Logo size="sm" href="/marketplace" />
           </div>
 
