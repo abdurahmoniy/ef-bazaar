@@ -254,6 +254,22 @@
     opacity: 0;
   }
 
+  @media (max-width: 639px) {
+    .marketplace-home-header {
+      flex-wrap: nowrap;
+    }
+
+    .marketplace-home-header .marketplace-search {
+      order: 0;
+      padding-bottom: 0;
+    }
+
+    .marketplace-home-header .marketplace-search:not([data-phase='compact']) {
+      flex: 1 1 0%;
+      width: auto;
+    }
+  }
+
   @media (min-width: 640px) {
     .marketplace-search {
       order: 0;
