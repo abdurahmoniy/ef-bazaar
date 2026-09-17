@@ -8,6 +8,7 @@
  * stuck.
  */
 
+import { formatPriceUZS } from './marketplace-format';
 import type {
   ParticipantRole,
   TradeKind,
@@ -30,6 +31,36 @@ export const TRADE_KIND_HINT_UZ: Record<TradeKind, string> = {
   SWAP: 'Ikkala taraf ham akkountini beradi, pul o‘tmaydi',
   SWAP_SURCHARGE: 'Akkountlar almashinadi, ustiga doplata to‘lanadi',
 };
+
+/**
+ * Toza obmenda summa o'rniga chiqadigan matn.
+ *
+ * Bunday savdoda pul umuman o'tmaydi va narx 0 bo'lib saqlanadi — ekranda
+ * "0 so'm" esa savdo buzuq ochilgandek ko'rinadi.
+ */
+export const SWAP_AMOUNT_LABEL_UZ = 'Akkount almashish';
+
+/**
+ * Savdoda ko'rsatiladigan summa bormi.
+ *
+ * Doplatali obmenda bor (doplataning o'zi), toza obmenda yo'q. `kind` eski
+ * javoblarda bo'lmasligi mumkin: sotuvda narx hech qachon 0 bo'lmaydi —
+ * server 0 ni rad etadi — shuning uchun 0 narx obmen belgisi.
+ */
+export function hasTradeAmount(
+  kind: TradeKind | null | undefined,
+  priceUzs: number | null | undefined,
+): boolean {
+  return kind !== 'SWAP' && typeof priceUzs === 'number' && priceUzs > 0;
+}
+
+/** Summa, yoki toza obmen bo'lsa uning o'rniga savdo turi. */
+export function tradeAmountLabel(
+  kind: TradeKind | null | undefined,
+  priceUzs: number | null | undefined,
+): string {
+  return hasTradeAmount(kind, priceUzs) ? formatPriceUZS(priceUzs as number) : SWAP_AMOUNT_LABEL_UZ;
+}
 
 /**
  * Which formats a listing may be traded under.

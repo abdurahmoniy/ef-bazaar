@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatListingDate, formatPriceUZS } from '@/lib/marketplace-format';
 import { buildTradeApiPath } from '@/lib/trade-client-api';
 import { validateAdminFee } from '@/lib/trade-human';
+import { tradeAmountLabel } from '@/lib/trade-swap';
 import {
   type EscalatedTradeResponse,
   type TradeAdminCardResponse,
@@ -149,7 +150,8 @@ function EscalatedRow({
     <li className="rounded-lg border border-border bg-muted/20 p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-black text-foreground">{formatPriceUZS(trade.priceUzs)}</p>
+          {/* Eskalatsiya javobida savdo turi yo'q — 0 narx obmen demakdir. */}
+          <p className="text-sm font-black text-foreground">{tradeAmountLabel(null, trade.priceUzs)}</p>
           <p className="text-[10.5px] text-muted-foreground">
             {trade.id.slice(0, 8)} · eskalatsiya: {formatListingDate(trade.escalatedAt)}
           </p>

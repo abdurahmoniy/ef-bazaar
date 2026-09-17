@@ -4,9 +4,12 @@ import {
   allowedKinds,
   counterpartStatus,
   hasClearedCurrentStep,
+  hasTradeAmount,
   isWaitingForCounterpart,
   needsAmount,
   stepOf,
+  SWAP_AMOUNT_LABEL_UZ,
+  tradeAmountLabel,
 } from './trade-swap';
 import type { TradeResponse, TradeSideProgress } from './trade-types';
 
@@ -179,5 +182,27 @@ describe('hasClearedCurrentStep', () => {
   it('is false in a state that asks nobody for anything', () => {
     const trade = swapAt('WAITING_PAYMENT', [seller({ emailChanged: true }), buyer()]);
     expect(hasClearedCurrentStep(trade, 'SELLER')).toBe(false);
+  });
+});
+
+describe('tradeAmountLabel', () => {
+  it('hides the amount for a pure swap — it is always zero', () => {
+    expect(tradeAmountLabel('SWAP', 0)).toBe(SWAP_AMOUNT_LABEL_UZ);
+    expect(hasTradeAmount('SWAP', 0)).toBe(false);
+  });
+
+  it('shows the surcharge for a swap with doplata', () => {
+    expect(tradeAmountLabel('SWAP_SURCHARGE', 700_000)).toContain('700');
+    expect(hasTradeAmount('SWAP_SURCHARGE', 700_000)).toBe(true);
+  });
+
+  it('shows the price for a sale', () => {
+    expect(tradeAmountLabel('SALE', 250_000)).toContain('250');
+  });
+
+  it('treats a zero price as a swap when the kind is missing', () => {
+    // Eski javoblarda kind yo'q; sotuvda narx hech qachon 0 bo'lmaydi.
+    expect(tradeAmountLabel(null, 0)).toBe(SWAP_AMOUNT_LABEL_UZ);
+    expect(tradeAmountLabel(undefined, null)).toBe(SWAP_AMOUNT_LABEL_UZ);
   });
 });
