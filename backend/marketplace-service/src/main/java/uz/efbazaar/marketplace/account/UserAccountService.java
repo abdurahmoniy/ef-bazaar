@@ -98,7 +98,11 @@ public class UserAccountService {
         // Yuklash ATAYLAB tranzaksiyadan tashqarida. Metodda @Transactional
         // yo'q: saveAndFlush o'zining qisqa tranzaksiyasini ochadi va sekin
         // Telegram javobi baza qulfini ushlab turmaydi.
-        List<String> uploaded = media.uploadToBot(files, caption, account.getId());
+        //
+        // Bog'lanish AKKOUNTGA yoziladi: e'lon vaqtinchalik (sotiladi,
+        // o'chiriladi, qayta ochiladi), akkount esa doimiy va rasmlar u
+        // bilan qoladi.
+        List<String> uploaded = media.uploadToBotForAccount(files, caption, account.getId());
 
         account.setMediaMessageIds(new ArrayList<>(uploaded));
         UserAccount saved = accounts.saveAndFlush(account);

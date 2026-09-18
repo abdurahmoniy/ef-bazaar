@@ -19,6 +19,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -87,11 +88,14 @@ class UserAccountServiceTest {
         existing.setTitle("Asosiy");
         when(accounts.findByIdAndOwnerId(accountId, ownerId)).thenReturn(Optional.of(existing));
         when(accounts.saveAndFlush(existing)).thenReturn(existing);
-        when(media.uploadToBot(any(), any(), any())).thenReturn(List.of("msg-1", "msg-2"));
+        when(media.uploadToBotForAccount(any(), any(), eq(accountId)))
+                .thenReturn(List.of("msg-1", "msg-2"));
 
         service.replaceMedia(accountId, ownerId, List.of());
 
         verify(media).validate(any());
+        // Bog'lanish akkountga: e'lon id si bu yerda umuman ishlatilmaydi.
+        verify(media, never()).uploadToBot(any(), any(), any());
         assertThat(existing.getMediaMessageIds()).containsExactly("msg-1", "msg-2");
         verify(publisher).propagate(existing);
     }
