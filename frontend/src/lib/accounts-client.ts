@@ -1,5 +1,6 @@
 'use client';
 
+import { buildMarketplaceApiPath } from './marketplace-client-api';
 import { marketplaceRequest, type ActionResult } from './marketplace-actions';
 import type { AccountPayload, PublishAccountPayload, UserAccountResponse } from './accounts-types';
 import type { ListingResponse } from './marketplace-types';
@@ -69,4 +70,42 @@ export function unpublishAccount(id: string): Promise<ActionResult<UserAccountRe
     { method: 'POST' },
     "Bozordan olib bo'lmadi",
   );
+}
+
+/**
+ * Rasmlarni almashtirish — multipart.
+ *
+ * <p>`marketplaceRequest` ishlatilmaydi: u JSON sarlavhasini qo'yadi va
+ * FormData chegarasini (boundary) buzib yuborardi.
+ */
+export async function replaceAccountMedia(
+  id: string,
+  files: File[],
+): Promise<ActionResult<UserAccountResponse>> {
+  const body = new FormData();
+  for (const file of files) body.append('files', file);
+
+  try {
+    const response = await fetch(buildMarketplaceApiPath(['v1', 'accounts', id, 'media']), {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      credentials: 'include',
+      body,
+    });
+    const payload: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const record = typeof payload === 'object' && payload !== null
+        ? (payload as Record<string, unknown>)
+        : {};
+      return {
+        ok: false,
+        status: response.status,
+        message: typeof record.message === 'string' ? record.message : 'Rasmlar yuklanmadi',
+        code: typeof record.code === 'string' ? record.code : undefined,
+      };
+    }
+    return { ok: true, data: payload as UserAccountResponse };
+  } catch {
+    return { ok: false, status: 0, message: "Tarmoq xatoligi. Qayta urinib ko'ring." };
+  }
 }
