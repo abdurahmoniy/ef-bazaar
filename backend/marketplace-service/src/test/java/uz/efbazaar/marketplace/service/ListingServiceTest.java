@@ -109,6 +109,7 @@ class ListingServiceTest {
     @Mock uz.efbazaar.marketplace.partner.ads.SoldPostMarker soldPosts;
     @Mock uz.efbazaar.marketplace.security.AuthSummaryClient telegramUsers;
     @Mock uz.efbazaar.marketplace.partner.ads.ChannelTakedown channelTakedown;
+    @Mock uz.efbazaar.marketplace.account.ListingAccountLink accountLink;
     @InjectMocks ListingService service;
 
     private UUID sellerId;
@@ -156,6 +157,8 @@ class ListingServiceTest {
                 .containsEntry("valuable_players", List.of("Messi", "Ronaldo"));
         verify(persistence).saveWithCardInventory(saved);
         verify(events).listingCreated(saved);
+        // Har e'lon ortida akkount: sotuvga qo'ya olgan odam uning egasi.
+        verify(accountLink).onListingCreated(saved);
     }
 
     @Test

@@ -173,6 +173,12 @@ app:
   # env var as outbound so services on the docker network share one secret.
   internal:
     secret: ${INTERNAL_API_SECRET:}
+  # "Akkountlarim" joriy qilinishidan oldingi FAOL e'lonlar uchun bir
+  # martalik ta'mir. Qayta ishga tushirish xavfsiz: mavjud akkountlar
+  # o'tkazib yuboriladi.
+  user-account-backfill:
+    enabled: ${USER_ACCOUNT_BACKFILL_ENABLED:false}
+    batch-size: 200
   listing-card-backfill:
     # One-off repair for listings created before normalized card inventory.
     # Safe to enable again: it keyset-pages listings and replaces rows idempotently.

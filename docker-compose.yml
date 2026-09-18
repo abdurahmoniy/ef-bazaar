@@ -392,6 +392,8 @@ services:
       # Repair listings created before normalized player-card inventory existed.
       # The job skips listings that are already normalized, so it is safe to leave enabled.
       LISTING_CARD_BACKFILL_ENABLED: ${LISTING_CARD_BACKFILL_ENABLED:-true}
+      # Bir martalik ta'mir: eski faol e'lonlar ortida akkount ochiladi.
+      USER_ACCOUNT_BACKFILL_ENABLED: ${USER_ACCOUNT_BACKFILL_ENABLED:-false}
     depends_on:
       postgres:
         condition: service_healthy
