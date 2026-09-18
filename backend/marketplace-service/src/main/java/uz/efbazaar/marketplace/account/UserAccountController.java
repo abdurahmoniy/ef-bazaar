@@ -16,8 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 import uz.efbazaar.marketplace.account.dto.UserAccountCreateRequest;
 import uz.efbazaar.marketplace.account.dto.UserAccountEmailRequest;
 import uz.efbazaar.marketplace.account.dto.UserAccountResponse;
+import uz.efbazaar.marketplace.account.dto.PublishAccountRequest;
 import uz.efbazaar.marketplace.account.dto.UserAccountUpdateRequest;
+import uz.efbazaar.marketplace.dto.ListingResponse;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
+import uz.efbazaar.marketplace.service.ListingViewAssembler;
 
 import java.util.List;
 import java.util.UUID;
@@ -34,6 +37,8 @@ import java.util.UUID;
 public class UserAccountController {
 
     private final UserAccountService accounts;
+    private final UserAccountPublisher publisher;
+    private final ListingViewAssembler listingView;
 
     @GetMapping
     public List<UserAccountResponse> list(@AuthenticationPrincipal AuthenticatedUser user) {
@@ -65,6 +70,20 @@ public class UserAccountController {
                                         @PathVariable UUID id,
                                         @Valid @RequestBody UserAccountEmailRequest request) {
         return UserAccountResponse.of(accounts.setEmail(id, user.userId(), request.email()));
+    }
+
+    /** Bozorga chiqarish: narx va shartlar shu so'rovda, qolgani akkountdan. */
+    @PostMapping("/{id}/publish")
+    public ListingResponse publish(@AuthenticationPrincipal AuthenticatedUser user,
+                                   @PathVariable UUID id,
+                                   @Valid @RequestBody PublishAccountRequest request) {
+        return listingView.assemble(publisher.publish(id, user.userId(), request), user.userId());
+    }
+
+    @PostMapping("/{id}/unpublish")
+    public UserAccountResponse unpublish(@AuthenticationPrincipal AuthenticatedUser user,
+                                         @PathVariable UUID id) {
+        return UserAccountResponse.of(publisher.unpublish(id, user.userId()));
     }
 
     @DeleteMapping("/{id}")

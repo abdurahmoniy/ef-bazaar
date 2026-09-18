@@ -24,6 +24,8 @@ class UserAccountControllerTest {
 
     @Autowired MockMvc mvc;
     @MockBean UserAccountService accounts;
+    @MockBean UserAccountPublisher publisher;
+    @MockBean uz.efbazaar.marketplace.service.ListingViewAssembler listingView;
 
     @Test
     void list_readsOnlyTheCallersAccounts() throws Exception {
@@ -36,6 +38,26 @@ class UserAccountControllerTest {
                 .andExpect(status().isOk());
 
         verify(accounts).list(ownerId);
+    }
+
+    @Test
+    void publish_passesTheCallerAsTheSeller() throws Exception {
+        UUID ownerId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        uz.efbazaar.marketplace.domain.Listing listing = new uz.efbazaar.marketplace.domain.Listing();
+        when(publisher.publish(org.mockito.ArgumentMatchers.eq(accountId),
+                org.mockito.ArgumentMatchers.eq(ownerId),
+                org.mockito.ArgumentMatchers.any())).thenReturn(listing);
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/v1/accounts/{id}/publish", accountId)
+                        .header("X-User-Id", ownerId.toString())
+                        .header("X-User-Roles", "ROLE_USER")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"price\":2400000,\"priceNegotiable\":true}"))
+                .andExpect(status().isOk());
+
+        verify(listingView).assemble(listing, ownerId);
     }
 
     /**

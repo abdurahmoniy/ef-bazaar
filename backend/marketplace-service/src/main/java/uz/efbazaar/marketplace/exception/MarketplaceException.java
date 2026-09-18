@@ -31,6 +31,12 @@ public class MarketplaceException extends RuntimeException {
                 "Akkount bozorda turibdi. Avval uni bozordan oling");
     }
 
+    /** Rasmsiz e'lon bozorda ham qabul qilinmaydi — akkountda ham shunday. */
+    public static MarketplaceException accountWithoutPhotos() {
+        return new MarketplaceException(HttpStatus.BAD_REQUEST, "account_without_photos",
+                "Akkountga kamida bitta rasm qo'shing, keyin bozorga chiqaring");
+    }
+
     public static MarketplaceException accountAlreadyPublished(java.util.UUID listingId) {
         return new MarketplaceException(HttpStatus.CONFLICT, "account_already_published",
                 "Bu akkount allaqachon bozorda: " + listingId);

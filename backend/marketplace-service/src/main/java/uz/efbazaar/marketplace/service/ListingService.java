@@ -80,6 +80,44 @@ public class ListingService {
         List<String> fileIds = mediaService.uploadToBot(files, caption, listing.getId());
         listing.setMediaMessageIds(fileIds);
 
+        return persistAndAnnounce(sellerId, request, listing, validated);
+    }
+
+    /**
+     * E'lon "Akkountlarim"dagi tayyor akkountdan chiqariladi: rasmlar
+     * Telegram'da allaqachon bor va faqat message id lar ko'chiriladi.
+     *
+     * <p>Qayta yuklash yangi id lar yasardi — o'shanda akkountdagi rasmlar
+     * bilan e'londagilari ikki xil nusxaga aylanib ketardi.
+     */
+    public Listing createWithUploadedMedia(UUID sellerId, ListingCreateRequest request,
+                                           List<String> mediaMessageIds) {
+        if (blacklistGuard.isBlacklisted(sellerId)) {
+            throw MarketplaceException.userBlacklisted();
+        }
+        telegramUsers.requireTelegramLinked(sellerId);
+        if (mediaMessageIds == null || mediaMessageIds.isEmpty()) {
+            throw MarketplaceException.accountWithoutPhotos();
+        }
+        Map<String, Object> validated = attributeValidator.validate(request.attributes());
+
+        Listing listing = mapper.toEntity(request);
+        listing.setId(UUID.randomUUID());
+        listing.setSellerId(sellerId);
+        listing.setStatus(ListingStatus.ACTIVE);
+        listing.setAttributes(validated);
+        listing.setMediaMessageIds(new ArrayList<>(mediaMessageIds));
+
+        return persistAndAnnounce(sellerId, request, listing, validated);
+    }
+
+    /**
+     * Ikkala yaratish yo'lining umumiy dumi — saqlash, kanal buyurtmalari,
+     * rasmiy kanal va hodisa. Ikki nusxa bo'lganida ular vaqt o'tib
+     * bir-biridan ajralib ketardi.
+     */
+    private Listing persistAndAnnounce(UUID sellerId, ListingCreateRequest request,
+                                       Listing listing, Map<String, Object> validated) {
         // save() opens its own short tx via Spring Data — no long-running DB lock
         // is held across the bot upload above.
         Listing saved = persistence.saveWithCardInventory(listing);
@@ -88,8 +126,6 @@ public class ListingService {
         // yetmasa buyurtma kutib turadi, e'lon esa joyida qoladi —
         // to'ldirilmagan hamyon uchun to'ldirilgan formani yo'qotish
         // himoyalab bo'lmaydigan narsa.
-        boolean partnerChannelsOrdered =
-                request.channelIds() != null && !request.channelIds().isEmpty();
         channelPosts.order(sellerId, saved.getId(), request.channelIds());
         // Rasmiy kanalga HAR e'lon tushadi, hamkor tanlangan-tanlanmaganidan
         // qat'i nazar. Hamkor tanlangan bo'lsa nusxa o'sha postdan forward
@@ -98,7 +134,7 @@ public class ListingService {
 
         events.listingCreated(saved);
         log.info("Listing created: id={} sellerId={} attributes={} media={}",
-                saved.getId(), sellerId, validated.keySet(), fileIds.size());
+                saved.getId(), sellerId, validated.keySet(), saved.getMediaMessageIds().size());
         return saved;
     }
 
