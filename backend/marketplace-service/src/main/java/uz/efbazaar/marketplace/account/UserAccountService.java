@@ -23,6 +23,7 @@ public class UserAccountService {
 
     private final UserAccountRepository accounts;
     private final UserAccountCardInventory inventory;
+    private final UserAccountPublisher publisher;
 
     @Transactional(readOnly = true)
     public List<UserAccount> list(UUID ownerId) {
@@ -73,6 +74,8 @@ public class UserAccountService {
 
         UserAccount saved = accounts.saveAndFlush(account);
         inventory.replace(saved.getId(), saved.getAttributes().get(SQUAD_KEY));
+        // Akkount yagona manba: bozorda tursa e'lon ham shu zahoti yangilanadi.
+        publisher.propagate(saved);
         return saved;
     }
 

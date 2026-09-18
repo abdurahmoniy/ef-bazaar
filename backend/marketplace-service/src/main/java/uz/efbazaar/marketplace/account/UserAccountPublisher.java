@@ -7,11 +7,13 @@ import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.marketplace.account.dto.PublishAccountRequest;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.dto.ListingCreateRequest;
+import uz.efbazaar.marketplace.dto.ListingUpdateRequest;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.service.ListingService;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -31,6 +33,8 @@ public class UserAccountPublisher {
      * "Emaildan boshqa hammasi" qoidasi bo'lganida, keyinchalik qo'shilgan
      * maxfiy ustun e'longa o'z-o'zidan sirg'alib o'tardi.
      */
+    private static final Set<String> LISTING_ONLY_ATTRIBUTES = Set.of("exchange_mode");
+
     private final UserAccountRepository accounts;
     private final ListingService listings;
 
@@ -77,6 +81,34 @@ public class UserAccountPublisher {
             log.info("Account unpublished: accountId={}", accountId);
         }
         return accounts.saveAndFlush(account);
+    }
+
+    /**
+     * Akkount o'zgardi — bozorda tursa e'lon ham o'sha zahoti yangilanadi.
+     *
+     * <p>E'lon topilmasa (sotilgan yoki o'chirilgan) akkount saqlanadi va
+     * bog'lanish uziladi: foydalanuvchining tahriri yo'qolmasligi kerak,
+     * lekin endi yangilanadigan e'lon ham yo'q.
+     */
+    @Transactional
+    public void propagate(UserAccount account) {
+        if (!account.isOnMarket()) {
+            return;
+        }
+
+        Map<String, Object> attributes = new HashMap<>(account.getAttributes());
+        LISTING_ONLY_ATTRIBUTES.forEach(attributes::remove);
+
+        try {
+            listings.updateContent(account.getCurrentListingId(), account.getOwnerId(),
+                    new ListingUpdateRequest(account.getDescription(), null, null, attributes),
+                    account.getMediaMessageIds());
+        } catch (MarketplaceException e) {
+            log.info("Propagation skipped, unlinking: accountId={} listingId={} code={}",
+                    account.getId(), account.getCurrentListingId(), e.getCode());
+            account.setCurrentListingId(null);
+            accounts.saveAndFlush(account);
+        }
     }
 
     private UserAccount owned(UUID accountId, UUID ownerId) {

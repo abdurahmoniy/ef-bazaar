@@ -174,6 +174,34 @@ public class ListingService {
         return saved;
     }
 
+    /**
+     * Mazmunni akkountdan olingan tayyor media id lar bilan yangilaydi.
+     *
+     * <p>{@link #update} fayl yuklashga mo'ljallangan; "Akkountlarim"dan
+     * kelgan tahrirda esa rasmlar Telegram'da allaqachon bor va faqat
+     * ro'yxat almashadi. Narx bilan savdolashish bayrog'i so'rovda null
+     * bo'lib keladi va ListingMapper ularni tegmasdan qoldiradi — sotuv
+     * sharti akkountga tegishli emas.
+     */
+    public Listing updateContent(UUID id, UUID sellerId, ListingUpdateRequest request,
+                                 List<String> mediaMessageIds) {
+        Listing listing = getActiveOwned(id, sellerId);
+
+        mapper.update(listing, request);
+        if (request.attributes() != null) {
+            listing.setAttributes(attributeValidator.validate(request.attributes()));
+        }
+        if (mediaMessageIds != null && !mediaMessageIds.isEmpty()) {
+            listing.setMediaMessageIds(new ArrayList<>(mediaMessageIds));
+        }
+
+        Listing saved = persistence.saveWithCardInventory(listing);
+        events.listingUpdated(saved);
+        log.info("Listing content updated from account: id={} sellerId={} media={}",
+                id, sellerId, saved.getMediaMessageIds().size());
+        return saved;
+    }
+
     @Transactional
     public Listing delete(UUID id, UUID sellerId) {
         Listing listing = getOwned(id, sellerId);

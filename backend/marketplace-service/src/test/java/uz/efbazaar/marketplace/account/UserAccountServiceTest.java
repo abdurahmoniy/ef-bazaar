@@ -28,6 +28,7 @@ class UserAccountServiceTest {
 
     @Mock UserAccountRepository accounts;
     @Mock UserAccountCardInventory inventory;
+    @Mock UserAccountPublisher publisher;
     @InjectMocks UserAccountService service;
 
     private final UUID ownerId = UUID.randomUUID();
@@ -49,7 +50,7 @@ class UserAccountServiceTest {
     }
 
     @Test
-    void update_writesSquadInventory() {
+    void update_writesSquadInventory_andPropagatesToTheListing() {
         UserAccount existing = account();
         when(accounts.findByIdAndOwnerId(accountId, ownerId)).thenReturn(Optional.of(existing));
         when(accounts.saveAndFlush(existing)).thenReturn(existing);
@@ -63,6 +64,7 @@ class UserAccountServiceTest {
         assertThat(existing.getDescription()).isEqualTo("tavsif");
         assertThat(existing.getMediaMessageIds()).containsExactly("msg-1");
         verify(inventory).replace(accountId, attributes.get("valuable_players"));
+        verify(publisher).propagate(existing);
     }
 
     @Test

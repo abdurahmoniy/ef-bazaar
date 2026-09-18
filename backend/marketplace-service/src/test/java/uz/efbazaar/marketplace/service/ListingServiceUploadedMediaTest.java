@@ -46,6 +46,30 @@ class ListingServiceUploadedMediaTest {
     @Mock MarketplaceEventPublisher events;
     @InjectMocks ListingService service;
 
+    @Mock uz.efbazaar.marketplace.repository.ListingRepository listings;
+
+    @Test
+    void updateContent_replacesMediaFromIdsWithoutUploading() {
+        UUID sellerId = UUID.randomUUID();
+        UUID listingId = UUID.randomUUID();
+        Listing existing = new Listing();
+        existing.setId(listingId);
+        existing.setSellerId(sellerId);
+        existing.setStatus(ListingStatus.ACTIVE);
+        when(listings.findById(listingId)).thenReturn(java.util.Optional.of(existing));
+        when(attributeValidator.validate(any())).thenReturn(Map.of("platform", "MOBILE"));
+        when(persistence.saveWithCardInventory(existing)).thenReturn(existing);
+
+        Listing saved = service.updateContent(listingId, sellerId,
+                new uz.efbazaar.marketplace.dto.ListingUpdateRequest(
+                        "yangi tavsif matni", null, null, Map.of("platform", "MOBILE")),
+                List.of("msg-7"));
+
+        assertThat(saved.getMediaMessageIds()).containsExactly("msg-7");
+        verify(mediaService, never()).uploadToBot(any(), any(), any());
+        verify(events).listingUpdated(existing);
+    }
+
     @Test
     void createWithUploadedMedia_skipsUploadAndKeepsTheGivenMessageIds() {
         UUID sellerId = UUID.randomUUID();
