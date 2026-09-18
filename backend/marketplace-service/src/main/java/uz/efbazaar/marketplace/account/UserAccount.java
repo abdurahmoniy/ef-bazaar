@@ -82,6 +82,15 @@ public class UserAccount {
     @Column(name = "source_listing_id")
     private UUID sourceListingId;
 
+    /**
+     * Qaysi savdodan kelgan (xaridorga ko'chgan akkountda).
+     *
+     * <p>Pochta manzili alohida hodisa bilan keladi va uni aynan shu savdo
+     * bo'yicha topish kerak.
+     */
+    @Column(name = "source_trade_id")
+    private UUID sourceTradeId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "archived_reason", length = 24)
     private ArchivedReason archivedReason;

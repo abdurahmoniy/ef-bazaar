@@ -23,6 +23,7 @@ import uz.efbazaar.marketplace.service.NotificationService;
 public class MailboxHandedOverConsumer {
 
     private final NotificationService notifications;
+    private final uz.efbazaar.marketplace.account.ListingAccountLink accounts;
 
     @KafkaListener(
             topics = "efbazaar.trade.mailbox-handed-over",
@@ -38,9 +39,16 @@ public class MailboxHandedOverConsumer {
             log.warn("mailbox-handed-over with no recipient, skipping");
             return;
         }
-        NotificationType type = "RECEIVED".equals(e.outcome())
+        boolean received = "RECEIVED".equals(e.outcome());
+        NotificationType type = received
                 ? NotificationType.TRADE_MAILBOX_RECEIVED
                 : NotificationType.TRADE_MAILBOX_RETURNED;
         notifications.tradeMailboxHandedOver(e.userId(), e.tradeId(), type);
+
+        // Faqat RECEIVED: qaytarilgan quti odamning o'z akkountiniki edi va
+        // u allaqachon biriktirilgan.
+        if (received) {
+            accounts.onMailboxHandedOver(e.tradeId(), e.userId(), e.mailboxEmail());
+        }
     }
 }

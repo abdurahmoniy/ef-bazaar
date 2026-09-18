@@ -7,5 +7,7 @@ public record TradeSucceededDto(
         UUID tradeId,
         UUID buyerId,
         UUID sellerId,
+        /** Eski hodisalarda yo'q — null bo'lsa akkount ko'chirilmaydi. */
+        UUID listingId,
         String mode,
         Instant occurredAt) {}

@@ -20,4 +20,6 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
     Optional<UserAccount> findByCurrentListingId(UUID listingId);
 
     boolean existsBySourceListingId(UUID listingId);
+
+    Optional<UserAccount> findByOwnerIdAndSourceTradeId(UUID ownerId, UUID tradeId);
 }

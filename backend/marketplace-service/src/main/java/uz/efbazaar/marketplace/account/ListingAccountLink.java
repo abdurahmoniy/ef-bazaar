@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.marketplace.domain.Listing;
+import uz.efbazaar.marketplace.repository.ListingRepository;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,6 +33,8 @@ public class ListingAccountLink {
 
     private final UserAccountRepository accounts;
     private final UserAccountCardInventory inventory;
+    private final ListingRepository listings;
+    private final PendingAccountEmailRepository pendingEmails;
 
     @Transactional
     public void onListingCreated(Listing listing) {
@@ -63,6 +66,144 @@ public class ListingAccountLink {
                 ? null : listing.getAttributes().get(SQUAD_KEY));
         log.info("Account created behind listing: accountId={} listingId={}",
                 saved.getId(), listing.getId());
+    }
+
+    /**
+     * Savdo platformada yakunlandi: akkount sotuvchidan xaridorga o'tadi.
+     *
+     * <p>Sotuvchida arxivga tushadi, xaridorda esa e'lon nusxasidan yangi
+     * kartochka ochiladi — bir xil ma'lumot, lekin endi boshqa odamniki.
+     * E'lon o'zi SOLD bo'lib qoladi va xaridorning akkounti bozorda emas.
+     *
+     * <p>Qayta yetkazilishi zararsiz: xaridorda shu savdo uchun akkount
+     * allaqachon bo'lsa, hech narsa qilinmaydi.
+     */
+    @Transactional
+    public void onTradeSucceeded(UUID tradeId, UUID listingId, UUID buyerId, UUID sellerId) {
+        // Obmenda sotuvchi ham akkount oladi — lekin uning ortida e'lon yo'q,
+        // shuning uchun faqat pochtasi bo'lgan bo'sh kartochka ochiladi.
+        // Busiz o'sha manzil kutish jadvalida abadiy qolib ketardi.
+        openAccountForWaitingEmail(tradeId, sellerId);
+
+        if (listingId == null || buyerId == null || tradeId == null) {
+            log.debug("trade-succeeded without ids, skipping account handover");
+            return;
+        }
+        if (accounts.findByOwnerIdAndSourceTradeId(buyerId, tradeId).isPresent()) {
+            log.debug("Account for trade {} already moved to {}", tradeId, buyerId);
+            return;
+        }
+
+        accounts.findByCurrentListingId(listingId).ifPresent(sellerAccount -> {
+            sellerAccount.setStatus(UserAccountStatus.ARCHIVED);
+            sellerAccount.setArchivedReason(ArchivedReason.SOLD_ON_PLATFORM);
+            // Pochta xaridorga o'tdi: sotuvchining ro'yxatida turishi chalg'itardi.
+            sellerAccount.setEmail(null);
+            sellerAccount.setEmailSource(null);
+            sellerAccount.setMailboxId(null);
+            sellerAccount.setCurrentListingId(null);
+            accounts.saveAndFlush(sellerAccount);
+            log.info("Seller account archived after trade: accountId={} tradeId={}",
+                    sellerAccount.getId(), tradeId);
+        });
+
+        Listing listing = listings.findById(listingId).orElse(null);
+        if (listing == null) {
+            log.warn("Listing {} is gone — buyer {} gets no account from trade {}",
+                    listingId, buyerId, tradeId);
+            return;
+        }
+
+        Map<String, Object> attributes = listing.getAttributes() == null
+                ? new HashMap<>() : new HashMap<>(listing.getAttributes());
+        LISTING_ONLY_ATTRIBUTES.forEach(attributes::remove);
+
+        UserAccount buyerAccount = UserAccount.builder()
+                .id(UUID.randomUUID())
+                .ownerId(buyerId)
+                .title(listing.getDescription() == null ? null : shortTitle(listing.getDescription()))
+                .description(listing.getDescription())
+                .attributes(attributes)
+                .mediaMessageIds(listing.getMediaMessageIds() == null
+                        ? new ArrayList<>() : new ArrayList<>(listing.getMediaMessageIds()))
+                .status(UserAccountStatus.ACTIVE)
+                .sourceTradeId(tradeId)
+                .build();
+
+        // Pochta hodisasi oldinroq kelgan bo'lsa, manzil kutib turibdi.
+        pendingEmails.findByTradeIdAndUserId(tradeId, buyerId).ifPresent(pending -> {
+            buyerAccount.setEmail(pending.getEmail());
+            buyerAccount.setEmailSource(EmailSource.PLATFORM);
+            pendingEmails.delete(pending);
+        });
+
+        UserAccount saved = accounts.saveAndFlush(buyerAccount);
+        inventory.replace(saved.getId(), listing.getAttributes() == null
+                ? null : listing.getAttributes().get(SQUAD_KEY));
+        log.info("Buyer account opened from trade: accountId={} buyerId={} tradeId={}",
+                saved.getId(), buyerId, tradeId);
+    }
+
+    /**
+     * Kutayotgan manzil bor, lekin uni biriktiradigan akkount yo'q —
+     * bo'sh kartochka ochiladi.
+     *
+     * <p>Obmenda ikkala taraf ham akkount oladi; e'lon esa bittasida.
+     * Ma'lumotini egasi keyin o'zi to'ldiradi, muhimi — manzil yo'qolmaydi
+     * va u qaysi savdodan kelgani ko'rinib turadi.
+     */
+    private void openAccountForWaitingEmail(UUID tradeId, UUID userId) {
+        if (tradeId == null || userId == null) return;
+        pendingEmails.findByTradeIdAndUserId(tradeId, userId).ifPresent(pending -> {
+            if (accounts.findByOwnerIdAndSourceTradeId(userId, tradeId).isPresent()) {
+                pendingEmails.delete(pending);
+                return;
+            }
+            UserAccount account = UserAccount.builder()
+                    .id(UUID.randomUUID())
+                    .ownerId(userId)
+                    .title("Savdodan kelgan akkount")
+                    .attributes(new HashMap<>())
+                    .mediaMessageIds(new ArrayList<>())
+                    .status(UserAccountStatus.ACTIVE)
+                    .sourceTradeId(tradeId)
+                    .email(pending.getEmail())
+                    .emailSource(EmailSource.PLATFORM)
+                    .build();
+            UserAccount saved = accounts.saveAndFlush(account);
+            pendingEmails.delete(pending);
+            log.info("Bare account opened for handed-over mailbox: accountId={} tradeId={}",
+                    saved.getId(), tradeId);
+        });
+    }
+
+    /**
+     * Savdo pochtasi egasini topdi — manzil akkountga yoziladi.
+     *
+     * <p>Akkount hali ochilmagan bo'lishi mumkin (hodisalar ikki xil
+     * topikda keladi): o'shanda manzil kutib turadi va akkount ochilganda
+     * unga biriktiriladi.
+     */
+    @Transactional
+    public void onMailboxHandedOver(UUID tradeId, UUID userId, String email) {
+        if (tradeId == null || userId == null || email == null || email.isBlank()) {
+            return;
+        }
+        accounts.findByOwnerIdAndSourceTradeId(userId, tradeId).ifPresentOrElse(account -> {
+            account.setEmail(email);
+            account.setEmailSource(EmailSource.PLATFORM);
+            accounts.saveAndFlush(account);
+            log.info("Mailbox attached to account: accountId={} tradeId={}", account.getId(), tradeId);
+        }, () -> {
+            pendingEmails.save(new PendingAccountEmail(tradeId, userId, email, null));
+            log.info("Mailbox address is waiting for its account: tradeId={} userId={}", tradeId, userId);
+        });
+    }
+
+    /** Kartochkada ko'rinadigan qisqa nom — tavsifning birinchi qatori. */
+    private static String shortTitle(String description) {
+        String firstLine = description.strip().split("\\R", 2)[0].strip();
+        return firstLine.length() <= 60 ? firstLine : firstLine.substring(0, 57) + "…";
     }
 
     /**

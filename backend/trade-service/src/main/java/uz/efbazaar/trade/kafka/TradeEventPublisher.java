@@ -107,6 +107,7 @@ public class TradeEventPublisher {
                         trade.getId(),
                         trade.getBuyerId(),
                         trade.getSellerId(),
+                        trade.getListingId(),
                         trade.getMode().name(),
                         Instant.now()));
     }
