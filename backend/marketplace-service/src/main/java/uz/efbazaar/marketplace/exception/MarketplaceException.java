@@ -15,6 +15,27 @@ public class MarketplaceException extends RuntimeException {
         this.code = code;
     }
 
+    public static MarketplaceException accountNotFound() {
+        return new MarketplaceException(HttpStatus.NOT_FOUND, "account_not_found",
+                "Akkount topilmadi");
+    }
+
+    /**
+     * Bozorda turgan akkount o'chirilmaydi.
+     *
+     * <p>O'chirish e'lonni ham olib tashlagan bo'lardi, lekin buni
+     * foydalanuvchi so'ramagan — u ikkita alohida qaror.
+     */
+    public static MarketplaceException accountOnMarket() {
+        return new MarketplaceException(HttpStatus.CONFLICT, "account_on_market",
+                "Akkount bozorda turibdi. Avval uni bozordan oling");
+    }
+
+    public static MarketplaceException accountAlreadyPublished(java.util.UUID listingId) {
+        return new MarketplaceException(HttpStatus.CONFLICT, "account_already_published",
+                "Bu akkount allaqachon bozorda: " + listingId);
+    }
+
     public static MarketplaceException listingNotFound() {
         return new MarketplaceException(HttpStatus.NOT_FOUND, "listing_not_found",
                 "E'lon topilmadi");
