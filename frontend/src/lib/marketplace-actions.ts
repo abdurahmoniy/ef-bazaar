@@ -47,7 +47,13 @@ function codeFrom(payload: unknown): string | undefined {
   return typeof payload.code === 'string' ? payload.code : undefined;
 }
 
-async function marketplaceRequest<T>(
+/**
+ * Bitta so'rov shakli: cookie bilan, xato matni serverdan.
+ *
+ * Eksport qilingan — "Akkountlarim" ham shu yo'ldan yuradi va ikkinchi
+ * nusxa qilinsa, xato matnlari ikki joyda ikki xil bo'lib ketardi.
+ */
+export async function marketplaceRequest<T>(
   path: string[],
   init: RequestInit,
   fallbackMessage: string,
