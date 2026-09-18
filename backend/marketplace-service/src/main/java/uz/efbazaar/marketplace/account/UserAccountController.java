@@ -3,6 +3,9 @@ package uz.efbazaar.marketplace.account;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -70,6 +73,19 @@ public class UserAccountController {
                                         @PathVariable UUID id,
                                         @Valid @RequestBody UserAccountEmailRequest request) {
         return UserAccountResponse.of(accounts.setEmail(id, user.userId(), request.email()));
+    }
+
+    /**
+     * Rasmlarni almashtirish — multipart, e'lon formasidagi kabi.
+     *
+     * <p>Alohida endpoint: rasm yuklash Telegram'ga boradi va uni JSON
+     * PATCH bilan aralashtirib bo'lmaydi.
+     */
+    @PostMapping(path = "/{id}/media", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public UserAccountResponse replaceMedia(@AuthenticationPrincipal AuthenticatedUser user,
+                                            @PathVariable UUID id,
+                                            @RequestPart("files") List<MultipartFile> files) {
+        return UserAccountResponse.of(accounts.replaceMedia(id, user.userId(), files));
     }
 
     /** Bozorga chiqarish: narx va shartlar shu so'rovda, qolgani akkountdan. */

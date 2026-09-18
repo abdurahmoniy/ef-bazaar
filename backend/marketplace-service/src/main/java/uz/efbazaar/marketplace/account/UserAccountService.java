@@ -6,7 +6,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.marketplace.account.dto.UserAccountCreateRequest;
 import uz.efbazaar.marketplace.account.dto.UserAccountUpdateRequest;
+import org.springframework.web.multipart.MultipartFile;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
+import uz.efbazaar.marketplace.service.MediaService;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,6 +26,7 @@ public class UserAccountService {
     private final UserAccountRepository accounts;
     private final UserAccountCardInventory inventory;
     private final UserAccountPublisher publisher;
+    private final MediaService media;
 
     @Transactional(readOnly = true)
     public List<UserAccount> list(UUID ownerId) {
@@ -76,6 +79,31 @@ public class UserAccountService {
         inventory.replace(saved.getId(), saved.getAttributes().get(SQUAD_KEY));
         // Akkount yagona manba: bozorda tursa e'lon ham shu zahoti yangilanadi.
         publisher.propagate(saved);
+        return saved;
+    }
+
+    /**
+     * Rasmlarni almashtiradi.
+     *
+     * <p>Yuklash Telegram'ga ketadi va JPA tranzaksiyasidan TASHQARIDA
+     * bo'ladi — sekin Telegram javobi baza qulfini ushlab turmasligi kerak
+     * ({@code ListingService.create} bilan bir xil qoida).
+     */
+    public UserAccount replaceMedia(UUID id, UUID ownerId, List<MultipartFile> files) {
+        UserAccount account = get(id, ownerId);
+        media.validate(files);
+        String caption = account.getTitle() == null || account.getTitle().isBlank()
+                ? "efBazaar akkount" : account.getTitle();
+
+        // Yuklash ATAYLAB tranzaksiyadan tashqarida. Metodda @Transactional
+        // yo'q: saveAndFlush o'zining qisqa tranzaksiyasini ochadi va sekin
+        // Telegram javobi baza qulfini ushlab turmaydi.
+        List<String> uploaded = media.uploadToBot(files, caption, account.getId());
+
+        account.setMediaMessageIds(new ArrayList<>(uploaded));
+        UserAccount saved = accounts.saveAndFlush(account);
+        publisher.propagate(saved);
+        log.info("Account media replaced: id={} media={}", id, uploaded.size());
         return saved;
     }
 

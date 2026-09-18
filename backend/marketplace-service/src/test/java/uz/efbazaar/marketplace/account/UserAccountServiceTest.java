@@ -29,6 +29,7 @@ class UserAccountServiceTest {
     @Mock UserAccountRepository accounts;
     @Mock UserAccountCardInventory inventory;
     @Mock UserAccountPublisher publisher;
+    @Mock uz.efbazaar.marketplace.service.MediaService media;
     @InjectMocks UserAccountService service;
 
     private final UUID ownerId = UUID.randomUUID();
@@ -78,6 +79,21 @@ class UserAccountServiceTest {
         assertThat(created.getStatus()).isEqualTo(UserAccountStatus.ACTIVE);
         assertThat(created.getEmail()).isNull();
         verify(inventory).replace(created.getId(), null);
+    }
+
+    @Test
+    void replaceMedia_uploadsThenStoresTheMessageIds() {
+        UserAccount existing = account();
+        existing.setTitle("Asosiy");
+        when(accounts.findByIdAndOwnerId(accountId, ownerId)).thenReturn(Optional.of(existing));
+        when(accounts.saveAndFlush(existing)).thenReturn(existing);
+        when(media.uploadToBot(any(), any(), any())).thenReturn(List.of("msg-1", "msg-2"));
+
+        service.replaceMedia(accountId, ownerId, List.of());
+
+        verify(media).validate(any());
+        assertThat(existing.getMediaMessageIds()).containsExactly("msg-1", "msg-2");
+        verify(publisher).propagate(existing);
     }
 
     @Test
