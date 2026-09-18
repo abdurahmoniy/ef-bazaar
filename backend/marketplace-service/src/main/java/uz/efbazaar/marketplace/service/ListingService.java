@@ -54,6 +54,7 @@ public class ListingService {
     private final ListingPersistence persistence;
     private final ListingMatchRepository listingMatches;
     private final uz.efbazaar.marketplace.security.AuthSummaryClient telegramUsers;
+    private final uz.efbazaar.marketplace.account.ListingAccountLink accountLink;
 
     /**
      * Atomic create — validates payload/attrs first (fail fast, no side effect),
@@ -80,7 +81,11 @@ public class ListingService {
         List<String> fileIds = mediaService.uploadToBot(files, caption, listing.getId());
         listing.setMediaMessageIds(fileIds);
 
-        return persistAndAnnounce(sellerId, request, listing, validated);
+        Listing saved = persistAndAnnounce(sellerId, request, listing, validated);
+        // Akkount e'londAN keyin ochiladi: sotuvga qo'ya olgan odam shu
+        // akkountning egasi, shuning uchun alohida belgi so'ralmaydi.
+        accountLink.onListingCreated(saved);
+        return saved;
     }
 
     /**
@@ -222,6 +227,8 @@ public class ListingService {
         listing.setStatus(ListingStatus.SOLD);
         listing.setSoldAt(java.time.Instant.now());
         Listing saved = listings.save(listing);
+        // Platformadan tashqarida sotilgan: akkount ham egasida qolmadi.
+        accountLink.onListingSoldByOwner(saved.getId());
         // Kanallardagi nusxalar ustidan chiziladi va tugmasi olinadi:
         // aks holda post kanalda "sotuvda" bo'lib turaveradi.
         soldPosts.onSold(saved);

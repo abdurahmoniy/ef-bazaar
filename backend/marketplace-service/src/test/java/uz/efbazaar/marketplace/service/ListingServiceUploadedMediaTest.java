@@ -44,6 +44,7 @@ class ListingServiceUploadedMediaTest {
     @Mock ChannelPostService channelPosts;
     @Mock OfficialChannelService officialChannel;
     @Mock MarketplaceEventPublisher events;
+    @Mock uz.efbazaar.marketplace.account.ListingAccountLink accountLink;
     @InjectMocks ListingService service;
 
     @Mock uz.efbazaar.marketplace.repository.ListingRepository listings;
@@ -89,5 +90,7 @@ class ListingServiceUploadedMediaTest {
         verify(mediaService, never()).validate(any());
         verify(officialChannel).onListingCreated(entity);
         verify(events).listingCreated(entity);
+        // Akkountdan chiqarilgan e'lon: akkount allaqachon bor, ikkinchisi ochilmaydi.
+        verify(accountLink, never()).onListingCreated(any());
     }
 }
