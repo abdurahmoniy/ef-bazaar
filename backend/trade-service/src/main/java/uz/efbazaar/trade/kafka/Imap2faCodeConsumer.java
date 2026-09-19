@@ -43,6 +43,10 @@ public class Imap2faCodeConsumer {
             groupId = "trade-service-imap-2fa",
             properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$Imap2faCode"}
     )
+    // Tranzaksiya SHART: kodni yozish @Modifying so'rovi orqali ketadi va
+    // tranzaksiyasiz u "No EntityManager with actual transaction" bilan
+    // yiqiladi — kod esa hech qachon tarafga yetib bormaydi.
+    @org.springframework.transaction.annotation.Transactional
     public void onCode(TradeEvents.Imap2faCode e) {
         ParticipantRole recipient = recipientOf(e);
         var chat = chats.findByTradeIdAndParticipant(e.tradeId(), recipient);
