@@ -2,6 +2,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+
 vi.mock('@/lib/marketplace-actions', () => ({ toggleListingLike: vi.fn() }));
 vi.mock('./listing-media-gallery', () => ({ ListingMediaGallery: () => null }));
 vi.mock('./listing-actions', () => ({ ListingActions: () => null }));

@@ -11,6 +11,8 @@ import {
 import type { ListingResponse } from '@/lib/marketplace-types';
 import type { MarketplaceView } from '@/lib/marketplace-query';
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+
 vi.mock('next/image', async () => {
   const React = await vi.importActual<typeof import('react')>('react');
   return {

@@ -29,6 +29,8 @@ import { resolveOptionalUser } from '@/lib/optional-auth';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
+// Browser route reuse only; listing mutations clear this through router.refresh.
+export const unstable_dynamicStaleTime = 30;
 
 interface ListingPageProps {
   params: Promise<{ id: string }>;

@@ -166,7 +166,7 @@ export function VoiceRecorder({
         type="button"
         size="lg"
         variant="outline"
-        className="h-11 w-11 shrink-0 p-0"
+        className="chat-voice-button mb-0.5 h-11 w-11 shrink-0 rounded-full p-0 shadow-sm [&_svg]:size-5"
         onClick={start}
         disabled={disabled}
         title="Ovozli xabar"
@@ -178,8 +178,8 @@ export function VoiceRecorder({
   }
 
   return (
-    <div className="flex h-11 flex-1 items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/5 px-3">
-      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-destructive" />
+    <div className="flex h-12 flex-1 items-center gap-3 rounded-[24px] border border-destructive/30 bg-card px-3 shadow-sm">
+      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-destructive motion-reduce:animate-none" />
       <span className="text-sm font-semibold tabular-nums text-foreground">
         {formatElapsed(elapsedMs)}
       </span>
@@ -191,7 +191,7 @@ export function VoiceRecorder({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-9 w-9 p-0 text-muted-foreground"
+          className="h-9 w-9 rounded-full p-0 text-muted-foreground"
           onClick={() => finish(true)}
           title="Bekor qilish"
           aria-label="Yozishni bekor qilish"
@@ -201,7 +201,7 @@ export function VoiceRecorder({
         <Button
           type="button"
           size="sm"
-          className={cn('h-9 w-9 p-0')}
+          className={cn('chat-send-button h-9 w-9 rounded-full p-0')}
           onClick={() => finish(false)}
           title="Yuborish"
           aria-label="Ovozli xabarni yuborish"

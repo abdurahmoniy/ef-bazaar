@@ -3,6 +3,7 @@
 import { usePathname, useSearchParams } from 'next/navigation';
 import * as React from 'react';
 import type { ListingResponse, PageResponse } from '@/lib/marketplace-types';
+import { subscribeListingLikeChanges } from '@/lib/listing-cache-event';
 
 import {
   detailBackMarkerFromPending,
@@ -30,6 +31,20 @@ export function MarketplaceHistoryProvider({ children }: { children: React.React
   const search = searchParams.toString();
   const [popstateMarker, setPopstateMarker] = React.useState<MarketplaceFeedMarker | null>(null);
   const feedCache = React.useRef(new Map<string, PageResponse<ListingResponse>[]>());
+
+  React.useEffect(() => subscribeListingLikeChanges(({ listingId, liked, totalLikes }) => {
+    for (const pages of feedCache.current.values()) {
+      for (const page of pages) {
+        for (const listing of page.content) {
+          if (listing.id !== listingId) continue;
+          // Appended feed state shares these rows with the Back cache. Patch
+          // them in place, retaining page depth and any pending scroll marker.
+          listing.likedByMe = liked;
+          listing.likeCount = totalLikes;
+        }
+      }
+    }
+  }), []);
 
   React.useEffect(() => {
     let raw: string | null = null;

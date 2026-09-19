@@ -70,4 +70,15 @@ describe('ChatsListPane', () => {
     expect(html).toContain('Aziz');
     expect(html).toContain('Muhim');
   });
+
+  it('exposes search, selected filters, and the actual unread message count', () => {
+    const html = renderToStaticMarkup(
+      createElement(ChatsListPane, { chats: mockChats, viewerId: 'user-me' }),
+    );
+
+    expect(html).toContain('aria-label="Chatlarni qidirish"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain('aria-label="2 ta o&#x27;qilmagan xabar"');
+    expect(html).toContain('aria-label="O&#x27;qilmagan, 1 ta chat"');
+  });
 });

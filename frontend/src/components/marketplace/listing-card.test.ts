@@ -15,7 +15,10 @@ import type { ListingResponse } from '@/lib/marketplace-types';
 
 const actionMocks = vi.hoisted(() => ({
   toggleListingLike: vi.fn(),
+  refresh: vi.fn(),
 }));
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: actionMocks.refresh }) }));
 
 vi.mock('@/lib/marketplace-actions', () => ({
   toggleListingLike: actionMocks.toggleListingLike,
@@ -72,6 +75,7 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   actionMocks.toggleListingLike.mockReset();
+  actionMocks.refresh.mockReset();
 });
 
 afterEach(async () => {
@@ -365,6 +369,17 @@ describe('ListingCardMedia', () => {
 });
 
 describe('ListingLikeButton', () => {
+  it('updates mounted hearts after a fresh server snapshot', async () => {
+    await act(async () => root.render(createElement(ListingLikeButton, {
+      listingId: 'listing-1', initialLiked: false, initialCount: 3, authenticated: true,
+    })));
+    await act(async () => root.render(createElement(ListingLikeButton, {
+      listingId: 'listing-1', initialLiked: true, initialCount: 4, authenticated: true,
+    })));
+    expect(container.querySelector('button')?.getAttribute('aria-pressed')).toBe('true');
+    expect(container.textContent).toContain('4');
+  });
+
   function renderFavorite() {
     return act(async () => root.render(createElement(ListingLikeButton, {
       listingId: 'listing-1',
@@ -398,6 +413,7 @@ describe('ListingLikeButton', () => {
     }));
     expect(button.getAttribute('aria-pressed')).toBe('true');
     expect(button.textContent).toContain('4');
+    expect(actionMocks.refresh).toHaveBeenCalledTimes(1);
   });
 
   it('rolls back the optimistic state for a non-ok response', async () => {
@@ -414,6 +430,7 @@ describe('ListingLikeButton', () => {
     expect(button.getAttribute('aria-pressed')).toBe('false');
     expect(button.textContent).toContain('3');
     expect(button.disabled).toBe(false);
+    expect(actionMocks.refresh).not.toHaveBeenCalled();
   });
 
   it('rolls back the optimistic state when the request throws', async () => {

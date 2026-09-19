@@ -15,6 +15,8 @@ import { browseListings } from '@/lib/marketplace-server';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 
 export const dynamic = 'force-dynamic';
+// Browser route reuse only; authenticated server requests remain uncached.
+export const unstable_dynamicStaleTime = 30;
 
 const PAGE_SIZE = 12;
 

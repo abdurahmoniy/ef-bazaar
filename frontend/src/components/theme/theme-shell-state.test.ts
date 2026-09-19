@@ -22,13 +22,20 @@ const marketplaceShell = readFileSync(
   join(process.cwd(), 'src', 'components', 'marketplace', 'marketplace-shell.tsx'),
   'utf8',
 );
+const mobileBottomNav = readFileSync(
+  join(process.cwd(), 'src', 'components', 'navigation', 'mobile-bottom-nav.tsx'),
+  'utf8',
+);
 const globals = readFileSync(join(process.cwd(), 'src', 'app', 'globals.css'), 'utf8');
 
 describe('responsive marketplace footer clearance', () => {
   it('uses the rendered measured bar for exact mobile footer clearance', () => {
     expect(marketplaceShell).toContain('<MeasuredBottomBar');
     expect(marketplaceShell).toContain('key="marketplace-action-bar"');
-    expect(marketplaceShell).toContain('key="marketplace-tab-bar"');
+    expect(marketplaceShell).toContain('<MobileBottomNav user={user} activeTab={activeTab} />');
+    expect(mobileBottomNav).toContain('<MeasuredBottomBar');
+    expect(mobileBottomNav).toContain('as="nav"');
+    expect(mobileBottomNav).toContain('pb-[var(--app-content-safe-bottom)]');
     expect(globals).toContain(
       'padding-bottom: calc(var(--marketplace-bottom-bar-height, 3.5rem) + 1rem);',
     );

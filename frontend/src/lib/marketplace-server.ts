@@ -120,8 +120,12 @@ export async function getMyListings(): Promise<ListingResponse[]> {
   return result.ok ? result.data.content : [];
 }
 
+export async function getMyChatsResult(): Promise<FetchResult<ChatResponse[]>> {
+  return safeFetch<ChatResponse[]>(`${MARKETPLACE_PREFIX}/chats/me`);
+}
+
 export async function getMyChats(): Promise<ChatResponse[]> {
-  const result = await safeFetch<ChatResponse[]>(`${MARKETPLACE_PREFIX}/chats/me`);
+  const result = await getMyChatsResult();
   return result.ok ? result.data : [];
 }
 

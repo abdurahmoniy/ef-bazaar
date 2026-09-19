@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
-import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+import { chatUnreadOptions } from '@/lib/chat-cache';
 import { cn } from '@/lib/utils';
 
 const POLL_INTERVAL_MS = 30_000;
@@ -10,33 +10,15 @@ const POLL_INTERVAL_MS = 30_000;
 /**
  * Small red counter of unread chat messages, rendered on top of the Chatlar
  * nav icon (mobile bottom nav + desktop top-bar button). Polls the aggregate
- * endpoint; hides itself at zero or when signed out (401 → null).
+ * endpoint, shares requests between nav instances, and hides itself at zero.
+ * Signed-out shells remove it and clear the account’s private query cache.
  */
-export function ChatsUnreadBadge({ className }: { className?: string }) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const res = await fetch(buildMarketplaceApiPath(['v1', 'chats', 'unread-total']), {
-          credentials: 'include',
-          headers: { Accept: 'application/json' },
-        });
-        if (!res.ok) return;
-        const payload = (await res.json()) as { count?: number };
-        if (!cancelled && typeof payload.count === 'number') setCount(payload.count);
-      } catch {
-        // keep the last known value
-      }
-    };
-    tick();
-    const timer = window.setInterval(tick, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, []);
+export function ChatsUnreadBadge({ viewerId, className }: { viewerId: string; className?: string }) {
+  const { data: count = 0 } = useQuery({
+    ...chatUnreadOptions(viewerId),
+    refetchInterval: POLL_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
 
   if (count === 0) return null;
 

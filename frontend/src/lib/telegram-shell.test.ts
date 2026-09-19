@@ -151,6 +151,10 @@ describe('Telegram shell source contract', () => {
     new URL('../components/marketplace/marketplace-shell.tsx', import.meta.url),
     'utf8',
   );
+  const mobileBottomNav = readFileSync(
+    new URL('../components/navigation/mobile-bottom-nav.tsx', import.meta.url),
+    'utf8',
+  );
   const globals = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
 
   it('keeps the raw theme fallback in head beside one official SDK load', () => {
@@ -225,7 +229,9 @@ describe('Telegram shell source contract', () => {
   it('consumes semantic safe areas throughout the marketplace shell', () => {
     expect(marketplaceShell).toContain('<MeasuredBottomBar');
     expect(marketplaceShell).toContain('key="marketplace-action-bar"');
-    expect(marketplaceShell).toContain('key="marketplace-tab-bar"');
+    expect(marketplaceShell).toContain('<MobileBottomNav user={user} activeTab={activeTab} />');
+    expect(mobileBottomNav).toContain('<MeasuredBottomBar');
+    expect(mobileBottomNav).toContain('as="nav"');
     expect(globals).toContain(
       'padding-bottom: calc(var(--marketplace-bottom-bar-height, 3.5rem) + 1rem);',
     );
@@ -233,7 +239,10 @@ describe('Telegram shell source contract', () => {
     expect(marketplaceShell).toContain(
       'pb-[calc(0.625rem+var(--app-content-safe-bottom))]',
     );
-    expect(marketplaceShell).toContain('pb-[var(--app-content-safe-bottom)]');
+    expect(mobileBottomNav).toContain('pb-[var(--app-content-safe-bottom)]');
+    expect(mobileBottomNav).toContain('pl-[var(--app-content-safe-left)]');
+    expect(mobileBottomNav).toContain('pr-[var(--app-content-safe-right)]');
     expect(marketplaceShell).not.toContain('env(safe-area-inset-');
+    expect(mobileBottomNav).not.toContain('env(safe-area-inset-');
   });
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { buildMarketplaceApiPath } from './marketplace-client-api';
+import { publishListingLikeChange } from './listing-cache-event';
 import type {
   AttributeDefinitionCreatePayload,
   AttributeDefinitionResponse,
@@ -83,14 +84,16 @@ async function marketplaceRequest<T>(
   }
 }
 
-export function toggleListingLike(
+export async function toggleListingLike(
   listingId: string,
 ): Promise<ActionResult<LikeToggleResponse>> {
-  return marketplaceRequest<LikeToggleResponse>(
+  const result = await marketplaceRequest<LikeToggleResponse>(
     ['v1', 'listings', listingId, 'like'],
     { method: 'POST' },
     'Like saqlanmadi',
   );
+  if (result.ok) publishListingLikeChange(result.data);
+  return result;
 }
 
 // ---------- admin (backend rejects non-ROLE_ADMIN callers with 403) ----------
