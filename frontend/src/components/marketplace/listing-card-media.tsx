@@ -28,7 +28,7 @@ export function ListingCardMedia({
     <div
       data-listing-card-media
       className={cn(
-        'listing-card__media relative aspect-[19.5/9] w-full overflow-hidden bg-muted',
+        'listing-card__media relative aspect-[4/3] w-full overflow-hidden bg-muted',
         className,
       )}
     >
@@ -37,7 +37,9 @@ export function ListingCardMedia({
           fill
           src={src}
           alt={alt}
-          sizes="(max-width: 331px) calc(100vw - 2rem), (max-width: 727px) calc(50vw - 1.375rem), (max-width: 1023px) calc(33vw - 1.5rem), (max-width: 1095px) calc((100vw - 21.5rem) / 2), 16rem"
+          quality={95}
+          // Allow for the 1.625× enlargement when a wide game screenshot fills a 4:3 crop.
+          sizes="(max-width: 331px) calc((100vw - 2rem) * 1.625), (max-width: 727px) calc((50vw - 1.375rem) * 1.625), (max-width: 1023px) calc((33vw - 1.5rem) * 1.625), (max-width: 1095px) calc((100vw - 21.5rem) * 0.8125), 26rem"
           priority={priority}
           className="object-cover transition duration-300 group-hover:scale-[1.03] motion-reduce:transition-none"
           onError={() => setFailedSrc(src)}

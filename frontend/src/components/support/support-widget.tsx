@@ -79,7 +79,7 @@ export function SupportWidget({ user }: SupportWidgetProps) {
     <>
       {/* Floating Trigger Button */}
       {!isOpen && (
-        <div className="flex justify-end px-4 pb-[calc(var(--marketplace-bottom-bar-height,4.5rem)+1rem)] sm:fixed sm:bottom-6 sm:right-6 sm:p-0 z-40">
+        <div className="fixed right-4 bottom-[calc(var(--marketplace-bottom-bar-height,4.5rem)+1rem)] z-40 sm:right-6 md:bottom-6">
           <button
             type="button"
             onClick={handleOpenWidget}

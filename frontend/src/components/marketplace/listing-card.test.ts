@@ -167,8 +167,8 @@ describe('ListingCard', () => {
     expect(markup).toContain('Neymar Jr');
     expect(markup).not.toContain('class="sr-only">Strong account with rare players</h2>');
     expect(markup).toContain('line-clamp-2');
-    expect(markup).toContain('Division');
-    expect(markup).toContain('3 150');
+    expect(markup).not.toContain('Division');
+    expect(markup).not.toContain('3 150');
     expect(markup).not.toContain('3 karta');
     expect(markup).not.toContain('transfer xavfi');
     expect(markup).not.toContain('29 iyun');
@@ -261,7 +261,7 @@ describe('ListingCard', () => {
     }));
 
     expect(cleanMarkup).toContain('data-clean-account-badge="true"');
-    expect(cleanMarkup).toContain('Ulanmagan');
+    expect(cleanMarkup).toContain('Toza');
     expect(cleanMarkup).toContain('text-emerald-700');
     expect(linkedMarkup).not.toContain('data-clean-account-badge');
     expect(negativeCoinMarkup).not.toContain('data-clean-account-badge');
@@ -322,7 +322,7 @@ describe('ListingCard', () => {
 });
 
 describe('ListingCardMedia', () => {
-  it('reserves 19.5:9 geometry and resets its fallback when the source changes', async () => {
+  it('reserves 4:3 geometry and resets its fallback when the source changes', async () => {
     await act(async () => root.render(createElement(ListingCardMedia, {
       src: '/bot/photo/one',
       alt: 'Birinchi rasm',
@@ -330,11 +330,11 @@ describe('ListingCardMedia', () => {
     })));
 
     const media = container.querySelector<HTMLElement>('[data-listing-card-media]');
-    expect(media?.className).toContain('aspect-[19.5/9]');
+    expect(media?.className).toContain('aspect-[4/3]');
     const firstImage = container.querySelector('img');
     expect(firstImage?.getAttribute('src')).toBe('/bot/photo/one');
     expect(firstImage?.getAttribute('data-unoptimized')).toBeNull();
-    expect(firstImage?.getAttribute('sizes')).toContain('(max-width: 727px) calc(50vw - 1.375rem)');
+    expect(firstImage?.getAttribute('sizes')).toContain('(max-width: 727px) calc((50vw - 1.375rem) * 1.625)');
 
     await act(async () => firstImage?.dispatchEvent(new Event('error', { bubbles: true })));
     expect(container.querySelector('[data-listing-card-fallback]')).not.toBeNull();

@@ -8,7 +8,6 @@ import {
   Check,
   ChevronRight,
   Copy,
-  CreditCard,
   Fingerprint,
   Handshake,
   Heart,
@@ -165,14 +164,6 @@ export function ProfileAccount({
           },
         ]
       : []),
-    {
-      id: 'kartalar',
-      label: 'To\'lov kartalarim',
-      description: 'Hisob-kitob uchun bank kartalari',
-      href: '/profile?tab=kartalar',
-      icon: <CreditCard className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
-      bg: 'bg-amber-500/10 dark:bg-amber-400/10',
-    },
     ...(partner
       ? [{
           id: 'partner',

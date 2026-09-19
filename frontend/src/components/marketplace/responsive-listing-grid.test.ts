@@ -88,7 +88,7 @@ describe('ResponsiveListingGrid', () => {
     expect(markup).toContain('aria-label="E‘lonlar yuklanmoqda"');
     expect(markup).toContain('data-view="auto"');
     expect((markup.match(/data-layout="auto"/g) ?? [])).toHaveLength(4);
-    expect((markup.match(/aspect-\[19\.5\/9\]/g) ?? [])).toHaveLength(4);
+    expect((markup.match(/aspect-\[4\/3\]/g) ?? [])).toHaveLength(4);
     expect((markup.match(/data-skeleton-price/g) ?? [])).toHaveLength(4);
     expect((markup.match(/data-skeleton-facts/g) ?? [])).toHaveLength(4);
     expect(markup).toContain('listing-card__facts');

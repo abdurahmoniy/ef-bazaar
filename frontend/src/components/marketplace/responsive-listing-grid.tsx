@@ -60,7 +60,7 @@ export function ResponsiveListingGridSkeleton({
             className="listing-card overflow-hidden rounded-xl border border-border bg-card shadow-card"
             data-layout="auto"
           >
-            <div className="listing-card__media aspect-[19.5/9] animate-pulse bg-muted motion-reduce:animate-none" />
+            <div className="listing-card__media aspect-[4/3] animate-pulse bg-muted motion-reduce:animate-none" />
             <div className="listing-card__content space-y-3 p-3">
               <div data-skeleton-price className="h-5 w-2/3 rounded bg-muted" />
               <div data-skeleton-facts className="listing-card__facts grid gap-2">
