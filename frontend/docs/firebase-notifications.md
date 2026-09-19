@@ -1,6 +1,18 @@
 # Firebase notifications setup
 
-The mobile marketplace header now keeps a notification bell visible while scrolling. It opens `/notifications`, where signed-in users can enable or disable push on their current browser. In-app notifications continue working without Firebase.
+The mobile marketplace header now keeps a notification bell visible while scrolling. It opens `/notifications`, where signed-in users can enable notifications. The setup card disappears once notifications are enabled. In-app notifications continue working without Firebase.
+
+## Telegram Mini App
+
+Inside Telegram, the app uses [Telegram’s native `requestWriteAccess`](https://core.telegram.org/bots/webapps#initializing-mini-apps) instead of Firebase Web Push. The server session must match the current Telegram user before prompting. No Firebase configuration or browser Notification API is required for this flow.
+
+- After the authenticated page loads, ask once per Telegram account per tab session. If Telegram requires a tap, the enable button remains available.
+- Approval lets the EfBazaar bot send messages and hides the setup card. Existing write access also hides it. Declining leaves a manual retry without repeatedly opening the popup on focus or reload. Closing the invitation is remembered separately from browser push preferences.
+- Clients older than Bot API 6.9 receive guidance to update Telegram.
+- Delivery uses the existing bot consumers: new-chat alerts to sellers, trade actions, wallet credits, and other bot-supported events. This change does not add a Telegram DM for every individual chat message or mirror every Firebase notification.
+- Telegram chat mute settings and device notification settings still determine whether bot messages make a sound or display a banner. The Mini App cannot override them.
+
+To verify on a real device, open the Mini App with a signed-in Telegram account, allow the native prompt, and confirm the setup card disappears. From another account, open a **new** chat on that seller’s listing and check the seller’s EfBazaar bot conversation. Existing chat messages alone do not trigger the new-chat bot consumer. Also check decline/manual retry and an account that already granted write access.
 
 ## Firebase project
 
@@ -39,11 +51,11 @@ The overlay mounts the credential file read-only only into marketplace-service. 
 
 Flyway creates `notification_push_tokens` automatically. Push is disabled by default. The settings UI only offers opt-in when both frontend and backend configuration are enabled. No credentials have been supplied or installed by this code change.
 
-If the enable button is missing, open `/api/push/config` while signed in. A populated `config` and nonempty `vapidKey` indicate that configuration is available. A null `config` means the frontend settings, sign-in, or backend enablement are missing; a 503 indicates a failed authentication/backend request. Permission is requested only after tapping **Bildirishnomalarni yoqish**, never automatically when opening the page.
+If the enable button is missing, open `/api/push/config` while signed in. A populated `config` and nonempty `vapidKey` indicate that configuration is available. A null `config` means the frontend settings, sign-in, or backend enablement are missing; a 503 indicates a failed authentication/backend request. Once authenticated configuration is ready, the app attempts the browser permission prompt automatically if permission is undecided. Browsers that require a user gesture retain the **Bildirishnomalarni yoqish** button as a fallback.
 
 ## Delivery and account behavior
 
-- Browser permission is requested only after a tap on **Bildirishnomalarni yoqish**.
+- An automatic permission request is attempted once per account per tab session after authenticated configuration loads. Reloading or focusing the page does not repeat it. Granted/blocked permissions and dismissed invitations are respected. The manual **Bildirishnomalarni yoqish** button works when a browser refuses automatic requests.
 - Signed-in users see an app-wide invitation to enable notifications on supported browsers. iPhone/iPad users outside an installed web app see Home Screen instructions; unsupported browsers receive browser guidance. Dismissing the invitation is remembered per account and browser, and users can still enable push from `/notifications`. Enabled, blocked, signed-out, and unconfigured sessions are not prompted. Disabling push also dismisses the invitation.
 - Device tokens belong to authenticated users. A browser can have one current account association, while each user can register multiple browsers/devices.
 - The server removes the current device association during logout, before clearing authentication cookies. Client reconciliation invalidates a previous account's Firebase token on account changes. Background messages additionally validate the current session before displaying content.
@@ -61,6 +73,6 @@ Use HTTPS in deployment (localhost is allowed for local development).
 3. From a second account, send a chat message. In the foreground, the unread count/list should refresh. With the page in the background, a notification should appear and open that chat when tapped.
 4. Send a second message while the in-app notification remains unread; it must still produce an updated push.
 5. Disable push, sign out, and switch accounts; the previous account's alerts must not appear on this browser.
-6. On iPhone/iPad, add the website to the Home Screen and open the installed web app before enabling push. Embedded browsers may not support Web Push and show fallback guidance. [Apple's requirements](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/).
+6. On iPhone/iPad, add the website to the Home Screen and open the installed web app before enabling push. Other embedded browsers may not support Web Push and show fallback guidance; the Telegram Mini App uses the separate bot-permission flow above. [Apple's requirements](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/).
 
 Real-device Firebase delivery requires the deployment settings above; unit tests cannot establish that the live project's credentials or browser delivery work.

@@ -119,6 +119,9 @@ export type TelegramWebAppEventCallback = (payload?: TelegramWebAppEventPayload)
  * Full surface: https://core.telegram.org/bots/webapps#initializing-mini-apps
  */
 export interface TelegramWebApp {
+  initDataUnsafe?: { user?: { id: number; allows_write_to_pm?: boolean } };
+  isVersionAtLeast?: (version: string) => boolean;
+  requestWriteAccess?: (callback?: (allowed: boolean) => void) => void;
   initData: string;
   ready: () => void;
   expand?: () => void;

@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Bell, X } from 'lucide-react';
+import { telegramPushDescriptions } from '@/lib/telegram-push';
 import type { PushState } from '@/lib/firebase-push';
 
 interface Props {
+  transport?: 'browser' | 'telegram';
   userId: string | null;
   state: PushState;
   busy: boolean;
@@ -20,13 +22,17 @@ export function dismissPushInvitation(userId: string) {
   try { localStorage.setItem(dismissalKey(userId, 'available'), 'dismissed'); } catch { /* Storage may be unavailable. */ }
 }
 
+export function isPushInvitationDismissed(userId: string) {
+  try { return localStorage.getItem(dismissalKey(userId, 'available')) === 'dismissed'; } catch { return false; }
+}
+
 export function PushPermissionPrompt(props: Props) {
   if (!props.userId || !['available', 'install', 'unsupported', 'error'].includes(props.state)) return null;
   const mode = props.state === 'error' ? 'available' : props.state;
   return <Invitation key={`${props.userId}:${mode}`} {...props} userId={props.userId} mode={mode} />;
 }
 
-function Invitation({ userId, state, mode, busy, enable }: Props & { userId: string; mode: string }) {
+function Invitation({ userId, state, mode, busy, enable, transport = 'browser' }: Props & { userId: string; mode: string }) {
   const [dismissed, setDismissed] = useState(() => {
     try { return localStorage.getItem(dismissalKey(userId, mode)) === 'dismissed'; } catch { return false; }
   });
@@ -38,7 +44,9 @@ function Invitation({ userId, state, mode, busy, enable }: Props & { userId: str
     setDismissed(true);
   }
 
-  const description = state === 'install'
+  const description = transport === 'telegram'
+    ? (telegramPushDescriptions[state as keyof typeof telegramPushDescriptions] ?? telegramPushDescriptions.available)
+    : state === 'install'
     ? 'iPhone yoki iPad’da saytni Safari’da oching, “Bosh ekranga qo‘shish” orqali o‘rnating va bosh ekrandan oching.'
     : state === 'unsupported'
       ? 'Bu brauzer push bildirishnomalarini qo‘llamaydi. Saytni Chrome yoki boshqa mos brauzerda oching.'

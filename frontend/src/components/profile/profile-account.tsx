@@ -38,7 +38,8 @@ import { useTheme } from '@/components/theme/use-theme';
 import { fetchUnreadCount } from '@/lib/notifications-client';
 import { FEATURES } from '@/lib/feature-flags';
 import { isAdmin } from '@/lib/admin';
-import { usePartnerStatus } from '@/hooks/use-partner-status';
+import { usePartnerDetails } from '@/hooks/use-partner-status';
+import { PartnerChannelCard } from '@/components/profile/partner-channel-card';
 import { siteConfig } from '@/lib/site';
 import { InstagramIcon, TelegramIcon } from '@/components/brand/social-icons';
 import { InvitationCard } from '@/components/growth/invitation-card';
@@ -103,7 +104,7 @@ export function ProfileAccount({
   };
 
   const admin = isAdmin(user);
-  const partner = usePartnerStatus(user);
+  const { partner, application: partnerApplication } = usePartnerDetails(user);
   const tradeAdmin = isTradeAdmin(user);
 
   const navMenuItems = [
@@ -274,6 +275,7 @@ export function ProfileAccount({
             </Link>
           </div>
         </div>
+        {partner && <PartnerChannelCard application={partnerApplication} />}
       </div>
 
       {/* 2. Grouped Navigation Menu (List Hub) */}
