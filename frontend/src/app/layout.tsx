@@ -10,6 +10,9 @@ import { ThemeScript } from '@/components/theme/theme-script';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 import { PushProvider } from '@/components/notifications/push-provider';
 import { StoreProvider } from '@/store/provider';
+import { RouteMotion } from '@/components/navigation/route-motion';
+import { NavigationCacheGuard } from '@/components/navigation/navigation-cache-guard';
+import { ClientQueryProvider } from '@/components/providers/client-query-provider';
 
 const YANDEX_METRIKA_ID = 110535295;
 
@@ -88,8 +91,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
   themeColor: [
@@ -120,7 +121,15 @@ export default function RootLayout({
         <TelegramWebAppAutoLogin />
 
         <TelegramBackProvider>
-          <StoreProvider><PushProvider>{children}</PushProvider></StoreProvider>
+          <ClientQueryProvider>
+            <StoreProvider>
+              <PushProvider>
+                <RouteMotion />
+                <NavigationCacheGuard />
+                {children}
+              </PushProvider>
+            </StoreProvider>
+          </ClientQueryProvider>
         </TelegramBackProvider>
 
         <Script id="yandex-metrika" strategy="afterInteractive">

@@ -5,6 +5,8 @@
  * when no chat is open, the messenger shell renders its own "Chatni tanlang"
  * placeholder on desktop and hides the right pane on mobile.
  */
+export const unstable_dynamicStaleTime = 30;
+
 export default function ChatsPage() {
   return null;
 }

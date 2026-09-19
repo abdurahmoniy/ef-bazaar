@@ -11,7 +11,10 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/marketplace', useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
-vi.mock('next/link', () => ({ default: ({ onNavigate: _onNavigate, ...props }: Record<string, unknown>) => createElement('a', props) }));
+vi.mock('next/link', () => ({
+  default: ({ onNavigate: _onNavigate, ...props }: Record<string, unknown>) => createElement('a', props),
+  useLinkStatus: () => ({ pending: false }),
+}));
 
 function listing(id: string): ListingResponse {
   return { id, sellerId: 'seller', description: `Account ${id}`, price: 50000,

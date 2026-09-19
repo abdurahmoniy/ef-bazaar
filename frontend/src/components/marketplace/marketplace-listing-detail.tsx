@@ -32,7 +32,6 @@ import {
 import { listingMediaUrls } from '@/lib/marketplace-media';
 import { isMobileListingPlatform } from '@/lib/listing-platform-attributes';
 import {
-  attributeBoolean,
   attributeCardList,
   attributeNumber,
   attributeString,
@@ -74,8 +73,8 @@ export function MarketplaceListingDetail({
   const isMobile = isMobileListingPlatform(listing.attributes.platform);
   // A store link (Google Play / Game Center) can't be removed, so the previous
   // owner keeps a way back into a transferred account — surface it as a caution.
-  const hasGooglePlayLink = isMobile && attributeBoolean(listing, 'has_google_play_link');
-  const hasGameCenterLink = isMobile && attributeBoolean(listing, 'has_game_center_link');
+  const hasGooglePlayLink = isMobile ? explicitLinkStatus(listing.attributes.has_google_play_link) : undefined;
+  const hasGameCenterLink = isMobile ? explicitLinkStatus(listing.attributes.has_game_center_link) : undefined;
   const linkedStores = [
     hasGooglePlayLink && 'Google Play',
     hasGameCenterLink && 'Game Center',
@@ -245,6 +244,7 @@ export function MarketplaceListingDetail({
             </div>
           )}
 
+          <p className="text-xs leading-relaxed text-muted-foreground">Sotuvchi taqdim etgan ma’lumotlar. Ulanish holati mustaqil tekshiruv yoki kafolat emas.</p>
           <AttributeTable
             isMobile={isMobile}
             division={division}
@@ -385,8 +385,8 @@ function AttributeTable({
   androidCoins?: number;
   iosCoins?: number;
   coins?: number;
-  hasGooglePlayLink: boolean;
-  hasGameCenterLink: boolean;
+  hasGooglePlayLink?: boolean;
+  hasGameCenterLink?: boolean;
   exchangeMode?: string;
   priceNegotiable: boolean;
 }) {
@@ -397,8 +397,8 @@ function AttributeTable({
   ];
   if (isMobile) {
     rows.push(
-      { label: 'Google Play ulangan', value: hasGooglePlayLink ? 'Ha' : "Yo'q" },
-      { label: 'Game Center ulangan', value: hasGameCenterLink ? 'Ha' : "Yo'q" },
+      { label: 'Google Play ulangan', value: hasGooglePlayLink === undefined ? 'Noma’lum' : hasGooglePlayLink ? 'Ha' : "Yo'q" },
+      { label: 'Game Center ulangan', value: hasGameCenterLink === undefined ? 'Noma’lum' : hasGameCenterLink ? 'Ha' : "Yo'q" },
     );
   }
   if (coins !== undefined) {
@@ -443,4 +443,10 @@ function AttributeTable({
       </dl>
     </div>
   );
+}
+
+function explicitLinkStatus(value: unknown): boolean | undefined {
+  if (value === true || value === 'true') return true;
+  if (value === false || value === 'false') return false;
+  return undefined;
 }

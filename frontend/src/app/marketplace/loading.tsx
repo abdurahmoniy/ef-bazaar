@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function MarketplaceLoading() {
   return (
-    <MarketplaceShell user={null} activeTab="home" collapsibleSearch>
+    <MarketplaceShell user={null} sessionPending activeTab="home" collapsibleSearch>
       <div
         data-marketplace-route-loading="true"
         className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:gap-6"

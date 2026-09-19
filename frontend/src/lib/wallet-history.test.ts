@@ -295,3 +295,11 @@ describe('hamkorlik va referal yozuvlari', () => {
     expect(movementOf('REFERRAL_REWARD', true)).toBe('in');
   });
 });
+
+it('links only explicit valid trade associations', () => {
+  const tradeId = '22222222-2222-4222-8222-222222222222';
+  expect(walletHistoryRows([entry({ kind: 'TRADE_HOLD', tradeId })])[0].tradeHref).toBe(`/hamyon/savdo/${tradeId}`);
+  expect(walletHistoryRows([entry()])[0].tradeHref).toBeNull();
+  expect(walletHistoryRows([entry({ tradeId: '//other.test' })])[0].tradeHref).toBeNull();
+  expect(walletHistoryRows([entry({ kind: 'DEPOSIT', tradeId })])[0].tradeHref).toBeNull();
+});

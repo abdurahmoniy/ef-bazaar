@@ -32,7 +32,7 @@ export function ChatComposerInput({ value, onSend, ...props }: ChatComposerInput
       value={value}
       rows={1}
       aria-label="Xabar"
-      className="min-h-11 max-h-32 resize-none rounded-2xl px-3 py-2.5 text-base leading-[22px] focus-visible:ring-1 sm:text-sm"
+      className="min-h-11 max-h-32 min-w-0 resize-none rounded-[22px] border-0 bg-transparent px-3 py-2.5 text-base leading-[22px] shadow-none focus-visible:ring-1 focus-visible:ring-inset sm:text-[15px]"
       onKeyDown={(event) => {
         if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing || event.keyCode === 229) return;
         // The phone keyboard's Return key adds a line; the adjacent Send button sends.

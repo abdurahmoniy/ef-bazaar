@@ -1,12 +1,9 @@
 import Link from 'next/link';
 import {
-  Home,
   MessageCircle,
   Plus,
   ShieldCheck,
-  Trophy,
   UserRound,
-  Wallet,
   UserPlus,
 } from 'lucide-react';
 
@@ -15,6 +12,7 @@ import { Logo } from '@/components/brand/logo';
 import { MarketplaceSearch } from '@/components/marketplace/marketplace-search';
 import { MeasuredBottomBar } from '@/components/marketplace/measured-bottom-bar';
 import { SlidingNav, type SlidingNavItem } from '@/components/navigation/sliding-nav';
+import { MobileBottomNav, type MarketplaceTab } from '@/components/navigation/mobile-bottom-nav';
 import { TopBackButton } from '@/components/navigation/top-back-button';
 import { ReferralCapture } from '@/components/referral/referral-capture';
 import { UserMenu } from '@/components/navigation/user-menu';
@@ -26,9 +24,14 @@ import type { User } from '@/lib/types';
 import { FEATURES } from '@/lib/feature-flags';
 import { GrowthLink } from '@/components/growth/growth-link';
 import { SupportWidget } from '@/components/support/support-widget';
+import { SessionCacheBoundary } from '@/components/providers/client-query-provider';
+
+export type { MarketplaceTab } from '@/components/navigation/mobile-bottom-nav';
 
 interface MarketplaceShellProps {
   user: User | null;
+  /** Loading shells do not yet know whether the viewer has signed out. */
+  sessionPending?: boolean;
   children: React.ReactNode;
   /**
    * Highlights the matching entry in the bottom tab bar and the desktop header
@@ -64,88 +67,6 @@ interface MarketplaceShellProps {
   hideBottomNav?: boolean;
 }
 
-export type MarketplaceTab =
-  | 'home'
-  | 'tournaments'
-  | 'safety'
-  | 'sell'
-  | 'chats'
-  | 'profile'
-  | 'wallet';
-
-interface NavItem {
-  id: MarketplaceTab;
-  href: string;
-  label: string;
-  icon: React.ReactNode;
-  requiresAuth: boolean;
-  /** Renders as a raised circular FAB in the bottom bar instead of a flat tab. */
-  primary?: boolean;
-}
-
-/**
- * Bottom tab bar (mobile). Five slots, no more — a sixth truncates labels on a
- * 360px phone. Sevimli is intentionally absent: it is a profile tab, and the
- * desktop header nav carries it.
- *
- * <p>Two entries are flag-gated and the budget only balances because one of
- * them is off: with FEATURES.wallet on and FEATURES.tournaments off this is
- * exactly five. Turning tournaments on makes it six and something has to give
- * — most likely Turnirlar moves to the desktop nav and the user menu, the way
- * Sevimli did. Do not just add it and hope; check it on a 360px viewport.
- */
-function buildNavItems(user: User | null): NavItem[] {
-  const all: NavItem[] = [
-    { id: 'home', href: '/marketplace', label: 'Bozor', icon: <Home className="h-5 w-5" />, requiresAuth: false },
-    {
-      id: 'tournaments',
-      href: '/tournaments',
-      label: 'Turnirlar',
-      icon: <Trophy className="h-5 w-5" />,
-      requiresAuth: false,
-    },
-    {
-      id: 'chats',
-      href: user ? '/chats' : '/auth/login?from=/chats',
-      label: 'Chatlar',
-      icon: (
-        <span className="relative">
-          <MessageCircle className="h-5 w-5" />
-          {user && <ChatsUnreadBadge />}
-        </span>
-      ),
-      requiresAuth: true,
-    },
-    {
-      id: 'sell',
-      href: '/marketplace/new',
-      label: 'Sotish',
-      icon: <Plus className="h-5 w-5" />,
-      requiresAuth: true,
-      primary: true,
-    },
-    {
-      id: 'wallet',
-      href: user ? '/hamyon' : '/auth/login?from=/hamyon',
-      label: 'Hamyon',
-      icon: <Wallet className="h-5 w-5" />,
-      requiresAuth: true,
-    },
-    {
-      id: 'profile',
-      href: user ? '/profile' : '/auth/login',
-      label: user ? 'Profil' : 'Kirish',
-      icon: <UserRound className="h-5 w-5" />,
-      requiresAuth: false,
-    },
-  ];
-  return all.filter((item) => {
-    if (item.id === 'tournaments') return FEATURES.tournaments;
-    if (item.id === 'wallet') return FEATURES.wallet;
-    return true;
-  });
-}
-
 /**
  * Desktop (md+) header nav. Before this existed the bottom bar was the only
  * navigation in the shell and it is {@code md:hidden} — desktop users had no
@@ -172,6 +93,7 @@ function buildDesktopLinks(): SlidingNavItem[] {
 
 export function MarketplaceShell({
   user,
+  sessionPending = false,
   children,
   activeTab,
   hideSearch = false,
@@ -184,7 +106,6 @@ export function MarketplaceShell({
   mobileActionBar,
   hideBottomNav = false,
 }: MarketplaceShellProps) {
-  const items = buildNavItems(user);
   const desktopLinks = buildDesktopLinks();
 
   return (
@@ -200,6 +121,7 @@ export function MarketplaceShell({
         sahifalarning aksariyatini o'raydi.
       */}
       <ReferralCapture authenticated={!!user} />
+      {!sessionPending && <SessionCacheBoundary accountId={user?.id ?? null} />}
       <header className={cn(
         "sticky top-0 z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)]",
         hideHeader && "hidden md:block"
@@ -247,14 +169,16 @@ export function MarketplaceShell({
               <UserPlus aria-hidden className="h-4 w-4" />
               Do&apos;st taklif qilish
             </GrowthLink>
-            {user ? (
+            {sessionPending ? (
+              <div role="status" aria-label="Profil yuklanmoqda" className="h-9 w-20 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
+            ) : user ? (
               <>
                 <div className="hidden items-center sm:flex">
                   <Button asChild variant="ghost" size="sm" className="h-9 w-9 p-0" title="Chatlar">
-                    <Link href="/chats" aria-label="Chatlar">
+                    <Link prefetch={false} href="/chats" aria-label="Chatlar">
                       <span className="relative">
                         <MessageCircle className="h-5 w-5" />
-                        <ChatsUnreadBadge />
+                        <ChatsUnreadBadge viewerId={user.id} />
                       </span>
                     </Link>
                   </Button>
@@ -264,7 +188,7 @@ export function MarketplaceShell({
                 <span aria-hidden className="hidden h-5 w-px bg-border sm:block" />
 
                 <Button asChild size="sm" className="hidden h-9 rounded-full px-3 sm:inline-flex lg:px-4">
-                  <Link href="/marketplace/new">
+                  <Link prefetch={false} href="/marketplace/new">
                     <Plus className="h-4 w-4" />
                     <span className="hidden lg:inline">Sotish</span>
                   </Link>
@@ -276,7 +200,7 @@ export function MarketplaceShell({
               <>
                 <ThemeToggle className="h-9 w-9 rounded-full" />
                 <Button asChild size="sm" className="h-9 rounded-full px-3 lg:px-4">
-                  <Link href="/auth/login">
+                  <Link prefetch={false} href="/auth/login">
                     <UserRound className="h-4 w-4" />
                     <span className="hidden sm:inline">Kirish</span>
                   </Link>
@@ -288,12 +212,12 @@ export function MarketplaceShell({
 
       </header>
 
-      {user && !user.verified && activeTab !== 'profile' && (
+      {user && !user.verified && !(user.googleLinked && user.telegramLinked) && activeTab !== 'profile' && (
         <div className="border-b border-border/70 bg-amber-50/70 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
           <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-1.5 text-[11px] font-semibold">
             <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
             <span className="marketplace-verification-copy min-w-0 flex-1 truncate">
-              Akkount tasdiqlanmagan — Telegram va Google ulang
+              {!user.telegramLinked && !user.googleLinked ? 'Telegram va Google ulang' : !user.telegramLinked ? 'Telegram ulang' : 'Google ulang'}
             </span>
             <Link
               href="/profile?tab=account"
@@ -305,7 +229,7 @@ export function MarketplaceShell({
         </div>
       )}
 
-      <main className="marketplace-shell-content mx-auto flex w-full max-w-6xl flex-col gap-4 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] pt-4 md:py-6">
+      <main data-page-transition className="marketplace-shell-content mx-auto flex w-full max-w-6xl flex-col gap-4 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] pt-4 md:py-6">
         {children}
       </main>
 
@@ -321,62 +245,8 @@ export function MarketplaceShell({
           </div>
         </MeasuredBottomBar>
       ) : hideBottomNav ? null : (
-        <MeasuredBottomBar
-          key="marketplace-tab-bar"
-          as="nav"
-          aria-label="Pastki navigatsiya"
-          className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden"
-        >
-          <div
-            className={cn(
-              'mx-auto grid max-w-md px-1 pb-[var(--app-content-safe-bottom)]',
-              items.length === 5 ? 'grid-cols-5' : 'grid-cols-4'
-            )}
-          >
-            {items.map((item) => (
-              <MobileNavLink key={item.id} item={item} active={item.id === activeTab} />
-            ))}
-          </div>
-        </MeasuredBottomBar>
+        <MobileBottomNav user={user} sessionPending={sessionPending} activeTab={activeTab} />
       )}
     </div>
-  );
-}
-
-function MobileNavLink({ item, active }: { item: NavItem; active: boolean }) {
-  if (item.primary) {
-    return (
-      <Link
-        href={item.href}
-        aria-current={active ? 'page' : undefined}
-        className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10.5px] font-semibold text-primary transition active:scale-95"
-      >
-        <span className="grid h-9 w-11 place-items-center rounded-full bg-primary text-primary-foreground shadow-card-hover transition hover:brightness-110">
-          {item.icon}
-        </span>
-        <span>{item.label}</span>
-      </Link>
-    );
-  }
-
-  return (
-    <Link
-      href={item.href}
-      aria-current={active ? 'page' : undefined}
-      className={cn(
-        'flex min-h-14 flex-col items-center justify-center gap-1 text-[10.5px] font-semibold transition active:scale-95',
-        active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
-      )}
-    >
-      <span
-        className={cn(
-          'grid h-8 w-14 place-items-center rounded-full transition',
-          active && 'bg-accent',
-        )}
-      >
-        {item.icon}
-      </span>
-      {item.label}
-    </Link>
   );
 }

@@ -61,6 +61,33 @@ class WalletControllerIT extends AbstractPostgresIT {
     }
 
     @Test
+    void tradeLinksAreProjectedOnlyForTheCallersOwnEntries() throws Exception {
+        UUID userA = UUID.randomUUID();
+        UUID userB = UUID.randomUUID();
+        UUID tradeA = UUID.randomUUID();
+        UUID tradeB = UUID.randomUUID();
+        for (UUID user : List.of(userA, userB)) {
+            ledger.post(TransactionKind.DEPOSIT, "trade-link-deposit-" + user, null, null, List.of(
+                    new Posting(LedgerAccount.PLATFORM_CARDS, null, 100_000),
+                    new Posting(LedgerAccount.USER_AVAILABLE, user, -100_000)));
+        }
+        ledger.post(TransactionKind.TRADE_HOLD, "trade-hold-" + tradeA, null, "private note", List.of(
+                new Posting(LedgerAccount.USER_AVAILABLE, userA, 50_000),
+                new Posting(LedgerAccount.USER_HELD, userA, -50_000)));
+        ledger.post(TransactionKind.TRADE_HOLD, "trade-hold-" + tradeB, null, "other private note", List.of(
+                new Posting(LedgerAccount.USER_AVAILABLE, userB, 50_000),
+                new Posting(LedgerAccount.USER_HELD, userB, -50_000)));
+
+        mvc.perform(get("/api/v1/payments/wallet/transactions").with(asUser(userA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[*].tradeId", hasItem(tradeA.toString())))
+                .andExpect(jsonPath("$[*].tradeId", not(hasItem(tradeB.toString()))))
+                .andExpect(jsonPath("$[*].idempotencyKey").doesNotExist())
+                .andExpect(jsonPath("$[*].note").doesNotExist());
+    }
+
+    @Test
     void anUnauthenticatedRequestIsRejected() throws Exception {
         mvc.perform(get("/api/v1/payments/wallet"))
                 .andExpect(status().isUnauthorized());

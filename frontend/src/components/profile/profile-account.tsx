@@ -27,6 +27,7 @@ import {
   Wallet,
 } from 'lucide-react';
 
+import { MailboxSlotsWarning } from '@/components/profile/mailbox-slots-warning';
 import { DeleteAccountButton } from '@/components/profile/delete-account-button';
 import { GoogleLinkButton } from '@/components/profile/google-link-button';
 import { LinkTelegramButton } from '@/components/profile/link-telegram-button';
@@ -269,23 +270,21 @@ export function ProfileAccount({
             <Link
               href="/profile/edit"
               aria-label="Profil sozlamalari"
-              className="grid h-9 w-9 place-items-center rounded-full border border-border/80 bg-muted/40 text-muted-foreground transition hover:border-primary/40 hover:text-foreground active:scale-95 shadow-2xs"
+              className="grid h-11 w-11 place-items-center rounded-full border border-border/80 bg-muted/40 text-muted-foreground transition hover:border-primary/40 hover:text-foreground active:scale-95 shadow-2xs"
             >
               <Settings className="h-4.5 w-4.5" />
             </Link>
           </div>
         </div>
-        {partner && <PartnerChannelCard application={partnerApplication} />}
       </div>
 
       {/* 2. Grouped Navigation Menu (List Hub) */}
-      <InvitationCard placement="profile" compact />
-      {!partner && <ChannelOwnerCard placement="profile" />}
       <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm divide-y divide-border/60">
         {navMenuItems.map((item) => (
           <Link
             key={item.id}
             href={item.href}
+            prefetch={false}
             className={cn(
               "flex items-center justify-between p-4 transition-colors hover:bg-muted/40 active:bg-muted/70 tap-press",
               item.mobileOnly && "md:hidden"
@@ -353,6 +352,8 @@ export function ProfileAccount({
         </button>
       </div>
 
+      <MailboxSlotsWarning />
+
       {/* 3. Account Verification Card */}
       <Card className="rounded-2xl border-border/80 shadow-sm overflow-hidden">
         <CardHeader className="pb-3">
@@ -361,17 +362,15 @@ export function ProfileAccount({
             Akkount tasdiqlash
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
-            Xavfsizlik va ishonch belgisini olish uchun Google hamda Telegram hisoblaringizni ulang.
+            {user.googleLinked && user.telegramLinked ? 'Google va Telegram hisoblaringiz ulangan.' : !user.googleLinked && !user.telegramLinked ? 'Profilingizni tasdiqlash uchun Google va Telegram hisoblaringizni ulang.' : !user.googleLinked ? 'Profilingizni tasdiqlash uchun Google hisobingizni ulang.' : 'Profilingizni tasdiqlash uchun Telegram hisobingizni ulang.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 pt-0">
-          <TipCallout
-            variant="tip"
-            learnMoreHref="/help#why-link-telegram-google"
-            learnMoreLabel="Nega bu muhim?"
-          >
-            <strong>Xaridorlar ishonchini oshiring:</strong> Telegram va Google hisoblaringizni ulab, profilingizga rasmiy <span className="font-bold text-emerald-600 dark:text-emerald-400">Tasdiqlangan</span> belgisini oling. Xaridorlar tasdiqlangan sotuvchilardan 3 barobar ko‘proq xarid qilishadi.
-          </TipCallout>
+          {!(user.googleLinked && user.telegramLinked) && (
+            <TipCallout variant="tip" learnMoreHref="/help#why-link-telegram-google" learnMoreLabel="Nega bu muhim?">
+              Ulangan hisoblar xaridorlarga sotuvchini tanishga yordam beradi. Bu e’lon yoki akkaunt holati mustaqil tekshirilganini anglatmaydi.
+            </TipCallout>
+          )}
           <GoogleLinkButton
             googleClientId={googleClientId}
             alreadyLinked={user.googleLinked}
@@ -384,6 +383,10 @@ export function ProfileAccount({
           />
         </CardContent>
       </Card>
+
+      {partner && <PartnerChannelCard application={partnerApplication} />}
+      <InvitationCard placement="profile" compact />
+      {!partner && <ChannelOwnerCard placement="profile" />}
 
       {/* 4. Social Media & Community Card */}
       <Card className="rounded-2xl border-border/80 shadow-sm overflow-hidden">

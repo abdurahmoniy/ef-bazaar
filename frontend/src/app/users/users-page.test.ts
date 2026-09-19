@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { ClientQueryProvider } from '@/components/providers/client-query-provider';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -95,7 +96,7 @@ describe('UserProfilePage', () => {
       params: Promise.resolve({ id: '123e4567-e89b-12d3-a456-426614174000' }),
     });
 
-    const html = renderToStaticMarkup(jsx);
+    const html = renderToStaticMarkup(createElement(ClientQueryProvider, null, jsx));
 
     expect(html).toContain('Lionel Messi');
     expect(html).toContain('@leomessi');

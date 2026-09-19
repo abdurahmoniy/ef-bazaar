@@ -10,6 +10,7 @@ import { formatTiyin } from '@/lib/money';
 import {
   createWithdrawal,
   DRAFT_PROBLEM_UZ,
+  MIN_WITHDRAWAL_TIYIN,
   formatPan,
   normalizeHolderName,
   validateDraft,
@@ -55,18 +56,32 @@ export function WithdrawForm({
       return;
     }
     startSubmit(async () => {
-      const result = await createWithdrawal(draft);
-      if (!result.ok) {
-        setError(result.error);
-        return;
+      try {
+        const result = await createWithdrawal(draft);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        onCreated(result.data);
+        setOpen(false);
+        setSom('');
+        setPan('');
+        setHolderName('');
+        setPhone('');
+      } catch {
+        setError('So‘rov yuborilmadi. Internet aloqasini tekshirib, qayta urinib ko‘ring.');
       }
-      onCreated(result.data);
-      setOpen(false);
-      setSom('');
-      setPan('');
-      setHolderName('');
-      setPhone('');
     });
+  }
+
+  if (availableTiyin < MIN_WITHDRAWAL_TIYIN) {
+    return (
+      <section className="space-y-2 rounded-2xl border border-border bg-card p-4" role="status">
+        <h2 className="font-bold">Pul yechish uchun balans yetarli emas</h2>
+        <p className="text-sm text-muted-foreground">Eng kam yechish summasi: {formatTiyin(MIN_WITHDRAWAL_TIYIN)} so‘m. Mavjud balans: {formatTiyin(availableTiyin)} so‘m.</p>
+        <p className="text-xs text-muted-foreground">Muzlatilgan yoki yechish jarayonidagi mablag‘ni qayta yechib bo‘lmaydi.</p>
+      </section>
+    );
   }
 
   if (!open) {

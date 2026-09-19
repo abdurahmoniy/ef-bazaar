@@ -2,11 +2,15 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import {
   AlertTriangle,
   ArrowDown,
+  Check,
   ChevronLeft,
+  LoaderCircle,
+  MessageCircle,
   Paperclip,
   Pencil,
   Reply,
@@ -18,13 +22,14 @@ import {
 import { ChatComposerInput } from '@/components/chat/chat-composer-input';
 import { ChatOptions } from '@/components/chat/chat-options';
 import { MessageActionSheet } from '@/components/chat/message-action-sheet';
-import { TradeProvider } from '@/components/chat/trade-context';
+import { TradeProvider, useTradeContext } from '@/components/chat/trade-context';
 import { TradePinnedBar } from '@/components/chat/trade-pinned-bar';
 import { TradePanel } from '@/components/chat/trade-panel';
 import { TradeProposalMessageCard } from '@/components/chat/trade-proposal-message-card';
 import { MessageAttachment, formatBytes } from '@/components/chat/message-attachment';
 import { VoiceRecorder } from '@/components/chat/voice-recorder';
 import { Button } from '@/components/ui/button';
+import { useChatDraft } from '@/hooks/use-chat-draft';
 import { useChatScroll } from '@/hooks/use-chat-scroll';
 import { useVirtualKeyboard } from '@/hooks/use-virtual-keyboard';
 import {
@@ -36,19 +41,23 @@ import {
   uzDayKey,
 } from '@/lib/chat-format';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+import { canGroupMessages } from '@/lib/chat-message-grouping';
+import { ChatRequestError, chatKeys, chatMessagesOptions, commitChatMessages, invalidateChatInbox, markCachedChatRead, mergeMessages } from '@/lib/chat-cache';
 import type {
   ChatResponse,
   ListingResponse,
   MessageResponse,
-  PageResponse,
 } from '@/lib/marketplace-types';
 import type { PendingProposalResponse } from '@/lib/trade-types';
 import { cn } from '@/lib/utils';
+import './chat-conversation.css';
 
 interface ChatViewProps {
   chat: ChatResponse;
   viewerId: string;
   initialMessages: MessageResponse[];
+  initialMessagesComplete: boolean;
+  initialFetchedAt: number;
   listing: ListingResponse | null;
   initialPendingProposal?: PendingProposalResponse | null;
 }
@@ -59,18 +68,63 @@ export function ChatView({
   chat: initialChat,
   viewerId,
   initialMessages,
+  initialMessagesComplete,
+  initialFetchedAt,
   listing,
   initialPendingProposal = null,
 }: ChatViewProps) {
   const router = useRouter();
-  const [chat, setChat] = useState(initialChat);
-  const [messages, setMessages] = useState(initialMessages);
-  const [draft, setDraft] = useState('');
+  const queryClient = useQueryClient();
+  const [chat, setChat] = useState(() => {
+    const inboxKey = chatKeys.inbox(viewerId);
+    if ((queryClient.getQueryState(inboxKey)?.dataUpdatedAt ?? 0) > initialFetchedAt) {
+      return queryClient.getQueryData<ChatResponse[]>(inboxKey)?.find(item => item.id === initialChat.id) ?? initialChat;
+    }
+    return initialChat;
+  });
+  const messagesQuery = useQuery({
+    ...chatMessagesOptions(queryClient, viewerId, initialChat.id),
+    initialData: initialMessages,
+    initialDataUpdatedAt: initialMessagesComplete ? initialFetchedAt : 0,
+    refetchInterval: query => {
+      const error = query.state.error;
+      if (error instanceof ChatRequestError && error.permanent) return false;
+      return error ? 30_000 : POLL_INTERVAL_MS;
+    },
+    retry: false,
+    refetchOnWindowFocus: query => !(query.state.error instanceof ChatRequestError && query.state.error.permanent),
+    refetchOnReconnect: query => !(query.state.error instanceof ChatRequestError && query.state.error.permanent),
+    refetchIntervalInBackground: false,
+  });
+  const messages = messagesQuery.data;
+
+  // Fresh server renders may improve the cache; an older cached route must not
+  // replace messages received or changed after that route was first rendered.
+  useEffect(() => {
+    const key = chatKeys.messages(viewerId, initialChat.id);
+    const cachedUpdatedAt = queryClient.getQueryState(key)?.dataUpdatedAt ?? 0;
+    if (initialFetchedAt > cachedUpdatedAt) {
+      queryClient.setQueryData<MessageResponse[]>(key, previous => initialMessagesComplete
+        ? initialMessages
+        : mergeMessages(previous ?? [], initialMessages), {
+        // A partial server page must neither truncate later cached messages nor
+        // mark their untouched content fresh. A partial-only seed refetches now.
+        updatedAt: initialMessagesComplete ? initialFetchedAt : cachedUpdatedAt,
+      });
+    }
+  }, [initialChat.id, initialFetchedAt, initialMessages, initialMessagesComplete, queryClient, viewerId]);
+
+  const setMessages = (update: (previous: MessageResponse[]) => MessageResponse[]) =>
+    commitChatMessages(queryClient, viewerId, initialChat.id, update);
+  const [savedDraft, setSavedDraft, clearSubmittedDraft] = useChatDraft(viewerId, initialChat.id);
+  const [editDraft, setEditDraft] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [actionTarget, setActionTarget] = useState<MessageResponse | null>(null);
   const [replyTo, setReplyTo] = useState<MessageResponse | null>(null);
   const [editing, setEditing] = useState<MessageResponse | null>(null);
+  const draft = editing ? editDraft : savedDraft;
+  const setDraft = editing ? setEditDraft : setSavedDraft;
   const [error, setError] = useState<string | null>(null);
   const [isSending, startSend] = useTransition();
   const [isUpdating, startUpdate] = useTransition();
@@ -88,44 +142,15 @@ export function ChatView({
     ? messages.find((m) => m.senderId !== viewerId && m.createdAt > newSince)?.id
     : undefined;
 
-  // On open: move the cursor, then router.refresh() so the chats-list layout
-  // (which persists across client navigations) refetches and clears this
-  // chat's unread badge.
+  // Mark reads locally and refresh only chat queries, preserving cached routes.
+  const lastMessageId = messages.at(-1)?.id;
   useEffect(() => {
     let cancelled = false;
-    markChatRead(chat.id).then(() => {
-      if (!cancelled) router.refresh();
+    void markChatRead(chat.id).then((ok) => {
+      if (ok && !cancelled) void markCachedChatRead(queryClient, viewerId, chat.id);
     });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chat.id]);
-
-  // Keep the cursor current while the chat stays on screen (new messages
-  // landing via polling; own sends included — harmless, one POST per change).
-  useEffect(() => {
-    if (messages.length > 0) markChatRead(chat.id);
-  }, [chat.id, messages.length]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const tick = async () => {
-      const page = await fetchMessages(chat.id);
-      if (cancelled || !page) return;
-      // Single-page fetch covers the whole history → treat the server as the
-      // source of truth so partner-side deletions and edits propagate; fall
-      // back to merge only when history is longer than one page.
-      setMessages((prev) =>
-        page.totalPages <= 1 ? page.content : mergeMessages(prev, page.content),
-      );
-    };
-    const timer = window.setInterval(tick, POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [chat.id]);
+    return () => { cancelled = true; };
+  }, [chat.id, lastMessageId, queryClient, viewerId]);
 
   function handleSend() {
     if (isSending) return;
@@ -141,7 +166,7 @@ export function ChatView({
         }
         setDraft('');
         setEditing(null);
-        setMessages((prev) => prev.map((m) => (m.id === result.message.id ? result.message : m)));
+        await setMessages((prev) => prev.map((m) => (m.id === result.message.id ? result.message : m)));
         return;
       }
       const result = pendingFile
@@ -151,11 +176,11 @@ export function ChatView({
         setError(result.error ?? 'Yuborilmadi');
         return;
       }
-      setDraft('');
+      clearSubmittedDraft(draft);
       setPendingFile(null);
       setReplyTo(null);
       followNextMessage();
-      setMessages((prev) => mergeMessages(prev, [result.message]));
+      await setMessages((prev) => mergeMessages(prev, [result.message]));
     });
   }
 
@@ -172,11 +197,11 @@ export function ChatView({
     setReplyTo(null);
     setPendingFile(null);
     setEditing(message);
-    setDraft(message.content);
+    setEditDraft(message.content);
   }
 
   function cancelComposerMode() {
-    if (editing) setDraft('');
+    setEditDraft('');
     setEditing(null);
     setReplyTo(null);
   }
@@ -200,7 +225,7 @@ export function ChatView({
         setError(result.error ?? "Xabar o'chirilmadi");
         return;
       }
-      setMessages((prev) => prev.filter((m) => m.id !== message.id));
+      await setMessages((prev) => prev.filter((m) => m.id !== message.id));
       if (replyTo?.id === message.id) setReplyTo(null);
       if (editing?.id === message.id) cancelComposerMode();
     });
@@ -225,7 +250,7 @@ export function ChatView({
         return;
       }
       followNextMessage();
-      setMessages((prev) => mergeMessages(prev, [result.message]));
+      await setMessages((prev) => mergeMessages(prev, [result.message]));
     });
   }
 
@@ -238,7 +263,11 @@ export function ChatView({
         return;
       }
       setChat(result.chat);
-      router.refresh();
+      await queryClient.cancelQueries({ queryKey: chatKeys.inbox(viewerId) });
+      queryClient.setQueryData<ChatResponse[]>(chatKeys.inbox(viewerId), previous =>
+        previous?.map(item => item.id === chat.id ? result.chat : item),
+      );
+      void invalidateChatInbox(queryClient, viewerId);
     });
   }
 
@@ -257,8 +286,13 @@ export function ChatView({
         setError(result.error ?? "Chat o'chirilmadi");
         return;
       }
+      await queryClient.cancelQueries({ queryKey: chatKeys.inbox(viewerId) });
+      queryClient.setQueryData<ChatResponse[]>(chatKeys.inbox(viewerId), previous =>
+        previous?.filter(item => item.id !== chat.id),
+      );
+      queryClient.removeQueries({ queryKey: chatKeys.messages(viewerId, chat.id) });
+      void invalidateChatInbox(queryClient, viewerId);
       router.push('/chats');
-      router.refresh();
     });
   }
 
@@ -269,8 +303,8 @@ export function ChatView({
       listing={listing}
       initialPendingProposal={initialPendingProposal}
     >
-      <div className="flex h-full min-h-0 w-full min-w-0 flex-col bg-background">
-        <header className="relative z-10 flex shrink-0 items-center gap-2 border-b border-border bg-card px-2 py-1 pt-[calc(var(--app-content-safe-top,0px)+0.25rem)] md:py-2">
+      <div className="chat-conversation flex h-full min-h-0 w-full min-w-0 flex-col">
+        <header className="relative z-10 flex shrink-0 items-center gap-2.5 border-b border-border/60 bg-card px-3 py-2 pt-[calc(var(--app-content-safe-top,0px)+0.5rem)] md:px-5 md:py-3">
           <Button asChild variant="ghost" size="sm" className="-ml-1 h-11 w-11 shrink-0 p-0 md:hidden">
             <Link href="/chats" aria-label="Chatlar ro'yxatiga qaytish">
               <ChevronLeft className="h-5 w-5" />
@@ -278,7 +312,7 @@ export function ChatView({
           </Button>
           <div
             className={cn(
-              'grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold uppercase',
+              'grid h-10 w-10 shrink-0 place-items-center rounded-full text-base font-semibold uppercase',
               avatarTone(partnerId),
             )}
           >
@@ -286,10 +320,10 @@ export function ChatView({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <p className="truncate text-sm font-black text-foreground">{name}</p>
+              <p className="truncate text-[15px] font-semibold text-foreground">{name}</p>
               {chat.important && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" aria-label="Muhim" />}
             </div>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Savdo suhbati
             </p>
           </div>
@@ -297,20 +331,32 @@ export function ChatView({
         </header>
 
         <TradePinnedBar />
+        <TradeSyncStatus />
         <TradePanel />
+        {messagesQuery.isError && (
+          <div role="status" className="flex shrink-0 items-center gap-2 border-b border-destructive/20 bg-destructive/5 px-3 py-1 text-xs text-destructive">
+            <span className="min-w-0 flex-1">Xabarlarni yangilab bo‘lmadi. Qayta urinib ko‘ring.</span>
+            <Button type="button" variant="ghost" className="min-h-11 shrink-0 px-2 text-xs" disabled={messagesQuery.isFetching} onClick={() => void messagesQuery.refetch()} aria-label="Xabarlarni qayta yuklash">
+              {messagesQuery.isFetching ? 'Yuklanmoqda…' : 'Qayta urinish'}
+            </Button>
+          </div>
+        )}
 
         <div className="relative min-h-0 flex-1">
         <div
           ref={listRef}
           onScroll={onScroll}
           aria-label="Xabarlar"
-          className="h-full space-y-2 overflow-y-auto overscroll-contain px-3 py-3"
+          className="chat-message-list h-full overflow-y-auto overscroll-contain px-4 py-4 md:px-8 md:py-5"
         >
-        {messages.length === 0 && (
+        {messages.length === 0 && !messagesQuery.isError && (
           <div className="flex h-full min-h-24 items-center justify-center text-center">
-            <div className="max-w-xs px-4">
+            <div className="max-w-xs rounded-3xl bg-card/80 px-6 py-5 shadow-sm backdrop-blur-sm">
+              <span className="chat-empty-icon mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full" aria-hidden="true">
+                <MessageCircle className="h-6 w-6" />
+              </span>
               <p className="text-sm font-semibold text-foreground">Suhbatni boshlang</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                 Salom bering yoki akkount haqida savol yozing.
               </p>
             </div>
@@ -321,22 +367,22 @@ export function ChatView({
           const hasAttachment = Boolean(message.attachmentType && message.attachmentFileId);
           const prev = index > 0 ? messages[index - 1] : null;
           const newDay = !prev || uzDayKey(prev.createdAt) !== uzDayKey(message.createdAt);
+          const startsGroup = !canGroupMessages(messages[index - 1], message, firstUnreadId);
+          const endsGroup = !canGroupMessages(message, messages[index + 1], firstUnreadId);
           return (
-            <div key={message.id}>
+            <div key={message.id} className="mx-auto max-w-3xl">
               {newDay && (
                 <div className="my-3 flex justify-center" role="separator">
-                  <span className="rounded-full bg-muted px-3 py-1 text-[10.5px] font-bold text-muted-foreground">
+                  <span className="chat-day-label rounded-full px-3 py-1 text-[11px] font-medium">
                     {formatDayLabel(message.createdAt)}
                   </span>
                 </div>
               )}
               {message.id === firstUnreadId && (
-                <div className="my-3 flex items-center gap-3" role="separator">
-                  <span className="h-px flex-1 bg-primary/30" />
-                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-primary">
+                <div className="my-4 flex justify-center" role="separator">
+                  <span className="chat-unread-label rounded-full px-3 py-1 text-[11px] font-medium">
                     Yangi xabarlar
                   </span>
-                  <span className="h-px flex-1 bg-primary/30" />
                 </div>
               )}
               {message.messageType === 'TRADE_PROPOSAL' ? (
@@ -346,33 +392,28 @@ export function ChatView({
                 />
               ) : (
                 <div
-                  className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}
+                  className={cn('flex', mine ? 'justify-end' : 'justify-start', startsGroup ? 'mt-3' : 'mt-1')}
                 >
                   <div
                     role="button"
                     tabIndex={0}
+                    data-mine={mine}
+                    data-group-start={startsGroup}
+                    data-group-end={endsGroup}
                     onClick={() => setActionTarget(message)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') setActionTarget(message);
+                      if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                      e.preventDefault();
+                      setActionTarget(message);
                     }}
                     className={cn(
-                      'max-w-[80%] cursor-pointer rounded-2xl text-left text-sm whitespace-pre-wrap break-words',
+                      'chat-message-bubble cursor-pointer text-left',
                       hasAttachment && message.attachmentType === 'IMAGE' ? 'p-1' : 'px-3 py-2',
-                      mine
-                        ? 'rounded-br-md bg-primary text-primary-foreground'
-                        : 'rounded-bl-md bg-muted text-foreground',
                     )}
                   >
                     {message.replyToId && (
-                      <span
-                        className={cn(
-                          'mb-1 block rounded-lg border-l-2 px-2 py-1 text-[11.5px]',
-                          mine
-                            ? 'border-primary-foreground/60 bg-white/10 text-primary-foreground/90'
-                            : 'border-primary bg-primary/5 text-muted-foreground',
-                        )}
-                      >
-                        <span className="block font-bold">
+                      <span className="chat-message-reply mb-1.5 block rounded-md border-l-[3px] px-2 py-1.5 text-xs">
+                        <span className="block font-semibold">
                           {message.replySenderId === viewerId ? 'Siz' : name}
                         </span>
                         <span className="block truncate">
@@ -388,15 +429,15 @@ export function ChatView({
                       </span>
                     )}
                     {message.content && (
-                      <span className={cn('block', hasAttachment && 'px-2 pb-1 pt-1.5')}>
+                      <span className={cn('whitespace-pre-wrap break-words', hasAttachment && 'block px-2 pb-1 pt-1.5')}>
                         {message.content}
                       </span>
                     )}
+                    <span className={cn('chat-message-meta', hasAttachment && 'px-2 pb-0.5')}>
+                      {message.editedAt && <span>tahrirlangan</span>}
+                      <time dateTime={message.createdAt}>{formatMessageTime(message.createdAt)}</time>
+                    </span>
                   </div>
-                  <span className="mt-0.5 text-[10px] text-muted-foreground">
-                    {formatMessageTime(message.createdAt)}
-                    {message.editedAt && ' · tahrirlangan'}
-                  </span>
                 </div>
               )}
             </div>
@@ -404,22 +445,23 @@ export function ChatView({
         })}
       </div>
       {hasNewMessages && (
-        <Button variant="secondary" className="absolute bottom-3 right-3 min-h-11 gap-2 rounded-full border border-border shadow-lg" onClick={scrollToBottom}>
+        <Button variant="outline" className="absolute bottom-4 right-4 min-h-11 gap-2 rounded-full border-border/60 bg-card shadow-lg" onClick={scrollToBottom}>
           Yangi xabarlar <ArrowDown className="h-4 w-4" />
         </Button>
       )}
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 border-t border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive">
+        <div role="alert" className="flex items-center gap-2 border-t border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive">
           <AlertTriangle className="h-3.5 w-3.5" />
           <span>{error}</span>
         </div>
       )}
 
-      <div className={cn('shrink-0 border-t border-border bg-card px-2 py-2', !isKeyboardOpen && 'pb-[calc(var(--app-content-safe-bottom,0px)+0.5rem)]')}>
+      <div className={cn('shrink-0 px-3 pb-2 pt-1 md:px-8 md:pb-4', !isKeyboardOpen && 'pb-[calc(var(--app-content-safe-bottom,0px)+0.5rem)]')}>
+        <div className="mx-auto max-w-3xl">
           {(replyTo || editing) && (
-            <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
+            <div className="mb-2 flex items-center gap-2 rounded-2xl bg-card px-3 py-2 shadow-sm">
               {editing ? (
                 <Pencil className="h-4 w-4 shrink-0 text-primary" />
               ) : (
@@ -450,7 +492,7 @@ export function ChatView({
             </div>
           )}
           {pendingFile && (
-            <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
+            <div className="mb-2 flex items-center gap-2 rounded-2xl bg-card px-3 py-2 shadow-sm">
               {pendingFile.type.startsWith('image/') && (
                 <img
                   src={URL.createObjectURL(pendingFile)}
@@ -478,7 +520,7 @@ export function ChatView({
               </Button>
             </div>
           )}
-          <div className="flex items-end gap-1.5">
+          <div className="flex items-end gap-2">
             <input
               ref={fileInputRef}
               type="file"
@@ -489,13 +531,13 @@ export function ChatView({
               }}
             />
             {!isRecording && (
-              <>
+              <div className="flex min-w-0 flex-1 items-end rounded-[24px] bg-card p-0.5 shadow-sm">
                 {!editing && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="lg"
-                    className="h-11 w-11 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                    className="h-11 w-11 shrink-0 rounded-full p-0 text-muted-foreground hover:text-foreground [&_svg]:size-5"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isSending}
                     title="Fayl biriktirish"
@@ -523,7 +565,7 @@ export function ChatView({
                   placeholder={pendingFile ? 'Izoh (ixtiyoriy)…' : 'Xabar yozing…'}
                   readOnly={isSending}
                 />
-              </>
+              </div>
             )}
             {draft.trim().length === 0 && !pendingFile && !editing && !replyTo ? (
               <VoiceRecorder
@@ -537,20 +579,22 @@ export function ChatView({
               <Button
                 type="button"
                 size="lg"
-                className="h-11 w-11 shrink-0 rounded-full p-0"
+                className="chat-send-button mb-0.5 h-11 w-11 shrink-0 rounded-full p-0 [&_svg]:size-5"
                 onClick={handleSend}
                 onPointerDown={(event) => event.preventDefault()}
                 aria-label={editing ? 'Tahrirni saqlash' : 'Xabarni yuborish'}
+                aria-busy={isSending}
                 disabled={isSending || (!draft.trim() && !pendingFile)}
               >
-                <Send className="h-4 w-4" />
+                {isSending ? <LoaderCircle className="animate-spin motion-reduce:animate-none" /> : editing ? <Check /> : <Send className="ml-0.5" />}
               </Button>
             )}
           </div>
-          <p className="mt-1 hidden text-[10px] text-muted-foreground md:block">
+          <p className="mt-1.5 hidden px-3 text-[10px] text-muted-foreground md:block">
             Enter — yuborish · Shift+Enter — yangi qator
           </p>
         </div>
+      </div>
 
       {actionTarget && (
         <MessageActionSheet
@@ -566,22 +610,6 @@ export function ChatView({
     </div>
   </TradeProvider>
   );
-}
-
-function mergeMessages(prev: MessageResponse[], next: MessageResponse[]) {
-  const map = new Map<string, MessageResponse>();
-  for (const m of prev) map.set(m.id, m);
-  for (const m of next) map.set(m.id, m);
-  return Array.from(map.values()).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-}
-
-async function fetchMessages(chatId: string): Promise<PageResponse<MessageResponse> | null> {
-  const response = await fetch(
-    buildMarketplaceApiPath(['v1', 'chats', chatId, 'messages']) + '?size=200&sort=createdAt,asc',
-    { credentials: 'include', headers: { Accept: 'application/json' } },
-  );
-  if (!response.ok) return null;
-  return (await response.json()) as PageResponse<MessageResponse>;
 }
 
 type SendResult =
@@ -671,14 +699,15 @@ async function toggleImportant(chatId: string): Promise<ChatResult> {
 }
 
 /** Fire-and-forget read-cursor bump — failures self-heal on the next call. */
-async function markChatRead(chatId: string): Promise<void> {
+async function markChatRead(chatId: string): Promise<boolean> {
   try {
-    await fetch(buildMarketplaceApiPath(['v1', 'chats', chatId, 'read']), {
+    const response = await fetch(buildMarketplaceApiPath(['v1', 'chats', chatId, 'read']), {
       method: 'POST',
       credentials: 'include',
     });
+    return response.ok;
   } catch {
-    // ignore
+    return false;
   }
 }
 
@@ -704,4 +733,18 @@ async function readErrorMessage(response: Response) {
   return response.status === 401 || response.status === 403
     ? 'Kirish talab qilinadi'
     : "So'rov bajarilmadi";
+}
+
+
+function TradeSyncStatus() {
+  const { loadError, refreshing, reload } = useTradeContext();
+  if (!loadError) return null;
+  return (
+    <div role="status" className="flex shrink-0 items-center gap-2 border-b border-destructive/20 bg-destructive/5 px-3 py-1 text-xs text-destructive">
+      <span className="min-w-0 flex-1">{loadError}</span>
+      <Button type="button" variant="ghost" className="min-h-11 shrink-0 px-2 text-xs" disabled={refreshing} onClick={() => void reload()} aria-label="Savdoni qayta yuklash">
+        {refreshing ? 'Yuklanmoqda…' : 'Qayta urinish'}
+      </Button>
+    </div>
+  );
 }

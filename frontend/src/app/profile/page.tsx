@@ -70,7 +70,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               href="/marketplace/new"
               title="Yangi e'lon joylash"
               aria-label="Yangi e'lon joylash"
-              className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary transition hover:bg-primary/20 active:scale-90"
+              className="grid h-11 w-11 place-items-center rounded-full bg-primary/10 text-primary transition hover:bg-primary/20 active:scale-90"
             >
               <Plus className="h-5 w-5" />
             </Link>
@@ -110,7 +110,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               <Link
                 href="/profile"
                 aria-label="Profilga qaytish"
-                className="grid h-9 w-9 place-items-center rounded-full bg-muted/60 text-foreground transition hover:bg-muted active:scale-90"
+                className="grid h-11 w-11 place-items-center rounded-full bg-muted/60 text-foreground transition hover:bg-muted active:scale-90"
               >
                 <ChevronLeft className="h-5 w-5" />
               </Link>
@@ -134,7 +134,6 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           va odam na sababni, na yechimni bilardi. Slot bo'shashi bilan
           bu blok o'zi yo'qoladi.
         */}
-        <MailboxSlotsWarning />
 
         {/* Tab content view */}
         <section key={activeTab} className="animate-panel-in">
@@ -154,6 +153,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
             />
           )}
         </section>
+        {activeTab !== 'account' && <MailboxSlotsWarning />}
       </div>
     </MarketplaceShell>
   );

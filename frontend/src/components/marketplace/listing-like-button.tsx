@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { Heart } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 import { toggleListingLike } from '@/lib/marketplace-actions';
 import { formatCompactNumber } from '@/lib/marketplace-format';
@@ -24,10 +25,16 @@ export function ListingLikeButton({
   authenticated,
   className,
 }: ListingLikeButtonProps) {
+  const router = useRouter();
   const [liked, setLiked] = useState(initialLiked);
   const [count, setCount] = useState(initialCount);
   const [isPending, setIsPending] = useState(false);
   const pendingRef = useRef(false);
+
+  useEffect(() => {
+    setLiked(initialLiked);
+    setCount(initialCount);
+  }, [listingId, initialLiked, initialCount]);
 
   async function handleClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -56,6 +63,7 @@ export function ListingLikeButton({
       }
       setLiked(result.data.liked);
       setCount(result.data.totalLikes);
+      router.refresh();
     } catch {
       setLiked(previousLiked);
       setCount(previousCount);

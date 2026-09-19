@@ -201,7 +201,7 @@ describe('marketplace search integration source contract', () => {
   });
 
   it('keeps verification outside sticky chrome and defines the two-phase animation', () => {
-    expect(shell.indexOf('</header>')).toBeLessThan(shell.indexOf('Akkount tasdiqlanmagan'));
+    expect(shell.indexOf('</header>')).toBeLessThan(shell.indexOf('marketplace-verification-copy'));
     expect(globals).toContain('.marketplace-search-inner');
     expect(globals).toContain('transform 180ms ease');
     expect(globals).toContain(".marketplace-search[data-phase='collapsing']");

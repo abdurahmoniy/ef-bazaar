@@ -15,7 +15,10 @@ import type { ListingResponse } from '@/lib/marketplace-types';
 
 const actionMocks = vi.hoisted(() => ({
   toggleListingLike: vi.fn(),
+  refresh: vi.fn(),
 }));
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: actionMocks.refresh }) }));
 
 vi.mock('@/lib/marketplace-actions', () => ({
   toggleListingLike: actionMocks.toggleListingLike,
@@ -72,6 +75,7 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   actionMocks.toggleListingLike.mockReset();
+  actionMocks.refresh.mockReset();
 });
 
 afterEach(async () => {
@@ -159,12 +163,12 @@ describe('ListingCard', () => {
     expect((markup.match(/data-efootball-coin-icon/g) ?? [])).toHaveLength(1);
 
     expect(markup).not.toContain('2/3 mos · 58%');
-    expect(markup).not.toContain('Lionel Messi');
-    expect(markup).not.toContain('Neymar Jr');
-    expect(markup).toContain('class="sr-only">Strong account with rare players</h2>');
-    expect(markup).not.toContain('line-clamp-2');
-    expect(markup).not.toContain('Division');
-    expect(markup).not.toContain('3 150');
+    expect(markup).toContain('Lionel Messi');
+    expect(markup).toContain('Neymar Jr');
+    expect(markup).not.toContain('class="sr-only">Strong account with rare players</h2>');
+    expect(markup).toContain('line-clamp-2');
+    expect(markup).toContain('Division');
+    expect(markup).toContain('3 150');
     expect(markup).not.toContain('3 karta');
     expect(markup).not.toContain('transfer xavfi');
     expect(markup).not.toContain('29 iyun');
@@ -257,7 +261,7 @@ describe('ListingCard', () => {
     }));
 
     expect(cleanMarkup).toContain('data-clean-account-badge="true"');
-    expect(cleanMarkup).toContain('Toza');
+    expect(cleanMarkup).toContain('Ulanmagan');
     expect(cleanMarkup).toContain('text-emerald-700');
     expect(linkedMarkup).not.toContain('data-clean-account-badge');
     expect(negativeCoinMarkup).not.toContain('data-clean-account-badge');
@@ -329,8 +333,8 @@ describe('ListingCardMedia', () => {
     expect(media?.className).toContain('aspect-[19.5/9]');
     const firstImage = container.querySelector('img');
     expect(firstImage?.getAttribute('src')).toBe('/bot/photo/one');
-    expect(firstImage?.getAttribute('data-unoptimized')).toBe('true');
-    expect(firstImage?.getAttribute('sizes')).toContain('(max-width: 551px) calc(100vw - 2rem)');
+    expect(firstImage?.getAttribute('data-unoptimized')).toBeNull();
+    expect(firstImage?.getAttribute('sizes')).toContain('(max-width: 727px) calc(50vw - 1.375rem)');
 
     await act(async () => firstImage?.dispatchEvent(new Event('error', { bubbles: true })));
     expect(container.querySelector('[data-listing-card-fallback]')).not.toBeNull();
@@ -354,17 +358,28 @@ describe('ListingCardMedia', () => {
     expect(container.querySelector('img')?.getAttribute('data-unoptimized')).toBeNull();
   });
 
-  it('bypasses optimization for full https://efbazaar.uz/bot/photo/ URLs', async () => {
+  it('optimizes full https://efbazaar.uz/bot/photo/ URLs', async () => {
     await act(async () => root.render(createElement(ListingCardMedia, {
       src: 'https://efbazaar.uz/bot/photo/abc123',
       alt: 'Proxy rasm',
     })));
 
-    expect(container.querySelector('img')?.getAttribute('data-unoptimized')).toBe('true');
+    expect(container.querySelector('img')?.getAttribute('data-unoptimized')).toBeNull();
   });
 });
 
 describe('ListingLikeButton', () => {
+  it('updates mounted hearts after a fresh server snapshot', async () => {
+    await act(async () => root.render(createElement(ListingLikeButton, {
+      listingId: 'listing-1', initialLiked: false, initialCount: 3, authenticated: true,
+    })));
+    await act(async () => root.render(createElement(ListingLikeButton, {
+      listingId: 'listing-1', initialLiked: true, initialCount: 4, authenticated: true,
+    })));
+    expect(container.querySelector('button')?.getAttribute('aria-pressed')).toBe('true');
+    expect(container.textContent).toContain('4');
+  });
+
   function renderFavorite() {
     return act(async () => root.render(createElement(ListingLikeButton, {
       listingId: 'listing-1',
@@ -398,6 +413,7 @@ describe('ListingLikeButton', () => {
     }));
     expect(button.getAttribute('aria-pressed')).toBe('true');
     expect(button.textContent).toContain('4');
+    expect(actionMocks.refresh).toHaveBeenCalledTimes(1);
   });
 
   it('rolls back the optimistic state for a non-ok response', async () => {
@@ -414,6 +430,7 @@ describe('ListingLikeButton', () => {
     expect(button.getAttribute('aria-pressed')).toBe('false');
     expect(button.textContent).toContain('3');
     expect(button.disabled).toBe(false);
+    expect(actionMocks.refresh).not.toHaveBeenCalled();
   });
 
   it('rolls back the optimistic state when the request throws', async () => {

@@ -97,8 +97,8 @@ export function TopUpForm({ onCreated, initialAmount }: TopUpFormProps) {
         ))}
       </div>
 
-      <form onSubmit={onSubmit} className="mt-3.5 flex flex-wrap gap-2">
-        <label htmlFor="top-up-amount" className="sr-only">
+      <form onSubmit={onSubmit} className="mt-3.5 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+        <label htmlFor="top-up-amount" className="text-xs font-semibold text-muted-foreground sm:col-span-2">
           Boshqa summa
         </label>
         <div className="relative min-w-0 flex-1">
@@ -140,7 +140,7 @@ export function TopUpForm({ onCreated, initialAmount }: TopUpFormProps) {
         learnMoreLabel="Batafsil"
         className="mt-4"
       >
-        <strong>100% xavfsiz to‘lov:</strong> Balans to‘ldirish Uzcard va Humo orqali 0% komissiyada lahzali amalga oshadi. Barcha mablag‘lar efBazaar kafolatida xavfsiz saqlanadi.
+        <strong>To‘lovni tekshirish:</strong> Keyingi qadamdagi aniq summa va karta raqamidan foydalaning. To‘lov tasdiqlangach balans yangilanadi; tekshirish biroz vaqt olishi mumkin.
       </TipCallout>
     </section>
   );

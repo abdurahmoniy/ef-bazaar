@@ -65,6 +65,11 @@ export function ListingActions({
     setCurrentStatus(status);
   }, [status]);
 
+  useEffect(() => {
+    setLiked(Boolean(initialLiked));
+    setLikeCount(initialLikeCount);
+  }, [listingId, initialLiked, initialLikeCount]);
+
   function withStatus<T extends ActionResult>(action: () => Promise<T>, okMessage: string) {
     startTransition(async () => {
       setMessage(null);
@@ -151,6 +156,7 @@ export function ListingActions({
       }
       setLiked(result.data.liked);
       setLikeCount(result.data.totalLikes);
+      router.refresh();
     });
   }
 

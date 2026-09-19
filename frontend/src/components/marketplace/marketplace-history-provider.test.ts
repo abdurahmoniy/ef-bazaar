@@ -22,6 +22,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('next/link', async () => {
   const ReactModule = await vi.importActual<typeof import('react')>('react');
   return {
+    useLinkStatus: () => ({ pending: false }),
     default: ({ onNavigate, onClick, children, ...props }: {
       onNavigate?: () => void;
       onClick?: React.MouseEventHandler<HTMLAnchorElement>;
@@ -52,6 +53,8 @@ import {
 import { MarketplaceListingLink } from './marketplace-listing-link';
 import { MarketplaceScrollRestorer } from './marketplace-scroll-restorer';
 import { MeasuredBottomBar } from './measured-bottom-bar';
+import { toggleListingLike } from '@/lib/marketplace-actions';
+import type { ListingResponse, PageResponse } from '@/lib/marketplace-types';
 import {
   MARKETPLACE_DETAIL_STATE_KEY,
   MARKETPLACE_FEED_STATE_KEY,
@@ -100,6 +103,7 @@ afterEach(async () => {
   window.sessionStorage.clear();
   delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('MarketplaceListingLink feed marker', () => {
@@ -180,6 +184,53 @@ describe('MarketplaceListingLink feed marker', () => {
 });
 
 describe('MarketplaceHistoryProvider lifecycle', () => {
+  it('patches a confirmed favorite in appended feed pages without losing loaded pages or the Back marker', async () => {
+    let latest: ReturnType<typeof useMarketplaceHistory> | undefined;
+    function Consumer() {
+      latest = useMarketplaceHistory();
+      return null;
+    }
+    await act(async () => root.render(React.createElement(
+      MarketplaceHistoryProvider, null, React.createElement(Consumer),
+    )));
+    const listing = {
+      id: 'page-two-listing', sellerId: 'seller', description: 'Listing', price: 100,
+      priceNegotiable: false, attributes: {}, mediaMessageIds: [], status: 'ACTIVE',
+      forwardCount: 0, likeCount: 3, likedByMe: false, createdAt: '', updatedAt: '',
+    } satisfies ListingResponse;
+    const page = (index: number, content: ListingResponse[]): PageResponse<ListingResponse> => ({
+      content, page: index, size: 12, totalElements: 36, totalPages: 3,
+    });
+    const other = { ...listing, id: 'untouched' };
+    const appendedPages = [page(1, [listing, other]), page(2, [{ ...other, id: 'last-page' }])];
+    const secondView = [page(1, [{ ...listing }])];
+    latest!.feedCache!.current.set('q=Messi', appendedPages);
+    latest!.feedCache!.current.set('sort=price', secondView);
+    await act(async () => window.dispatchEvent(new PopStateEvent('popstate', {
+      state: { [MARKETPLACE_FEED_STATE_KEY]: feed },
+    })));
+    const marker = latest!.popstateMarker;
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({
+      listingId: listing.id, liked: true, totalLikes: 4,
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await act(async () => { await toggleListingLike(listing.id); });
+
+    // The mounted feed retains these same page objects in its own state.
+    expect(listing).toMatchObject({ likedByMe: true, likeCount: 4 });
+    expect(secondView[0].content[0]).toMatchObject({ likedByMe: true, likeCount: 4 });
+    expect(other).toMatchObject({ likedByMe: false, likeCount: 3 });
+    expect(latest!.feedCache!.current.get('q=Messi')).toBe(appendedPages);
+    expect(appendedPages.map(item => item.page)).toEqual([1, 2]);
+    expect(latest!.popstateMarker).toBe(marker);
+    expect(window.scrollY).toBe(640);
+
+    fetchMock.mockResolvedValueOnce(new Response('Rejected', { status: 403 }));
+    await act(async () => { await toggleListingLike(listing.id); });
+    expect(listing).toMatchObject({ likedByMe: true, likeCount: 4 });
+  });
+
   it('finalizes detail state, always removes pending, and publishes only popstate feed state', async () => {
     const pending = { version: 1, targetHref: '/marketplace/listing-1?q=Messi', createdAt: Date.now(), feed };
     window.sessionStorage.setItem(MARKETPLACE_PENDING_STORAGE_KEY, JSON.stringify(pending));

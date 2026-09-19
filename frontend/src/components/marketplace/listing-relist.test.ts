@@ -3,13 +3,13 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { refresh, relist } = vi.hoisted(() => ({ refresh: vi.fn(), relist: vi.fn() }));
+const { refresh, relist, toggleLike } = vi.hoisted(() => ({ refresh: vi.fn(), relist: vi.fn(), toggleLike: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh }) }));
 vi.mock('@/app/auth/actions', () => ({ linkTelegramAction: vi.fn() }));
 vi.mock('@/lib/marketplace-actions', () => ({
   relistListing: relist,
   markListingSold: vi.fn(),
-  toggleListingLike: vi.fn(),
+  toggleListingLike: toggleLike,
 }));
 
 import { ListingActions } from './listing-actions';
@@ -90,5 +90,20 @@ describe.each(['panel', 'bar'] as const)('seller relisting in %s', variant => {
     await render(variant, true, 'ACTIVE');
     expect(relistButton()).toBeUndefined();
     expect(host.textContent).toContain('Tahrirlash');
+  });
+});
+
+describe('listing detail favorite cache', () => {
+  it('invalidates visited listings after a confirmed favorite and syncs refreshed props', async () => {
+    await render('bar', false, 'ACTIVE');
+    toggleLike.mockResolvedValue({ ok: true, data: { liked: true, totalLikes: 1 } });
+    const favorite = host.querySelector<HTMLButtonElement>('button[aria-pressed]')!;
+    await act(async () => favorite.click());
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(favorite.getAttribute('aria-pressed')).toBe('true');
+    await act(async () => root.render(createElement(ListingActions, {
+      listingId: 'listing-1', authenticated: true, initialLiked: false, initialLikeCount: 2, variant: 'bar',
+    })));
+    expect(favorite.getAttribute('aria-pressed')).toBe('false');
   });
 });

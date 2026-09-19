@@ -8,6 +8,7 @@ import { getChat, getChatMessages, getListing } from '@/lib/marketplace-server';
 import { getPendingProposal } from '@/lib/trade-server';
 
 export const dynamic = 'force-dynamic';
+export const unstable_dynamicStaleTime = 30;
 
 export const metadata: Metadata = {
   title: 'Chat',
@@ -34,6 +35,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
   }
 
   const chat = chatResult.data;
+  const messagesFetchedAt = Date.now();
   const [messagesPage, listingResult, pendingProposal] = await Promise.all([
     getChatMessages(chat.id, 0, 100),
     getListing(chat.listingId),
@@ -44,9 +46,12 @@ export default async function ChatPage({ params }: ChatPageProps) {
 
   return (
     <ChatView
+      key={`${user.id}:${chat.id}`}
       chat={chat}
       viewerId={user.id}
       initialMessages={messagesPage?.content ?? []}
+      initialMessagesComplete={messagesPage !== null && messagesPage.totalPages <= 1}
+      initialFetchedAt={messagesPage ? messagesFetchedAt : 0}
       listing={listing}
       initialPendingProposal={pendingProposal}
     />

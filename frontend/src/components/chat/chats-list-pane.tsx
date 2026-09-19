@@ -27,8 +27,13 @@ const FILTERS: { id: Filter; label: string }[] = [
 
 export function ChatsListPane({ chats, viewerId }: ChatsListPaneProps) {
   const [query, setQuery] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
   const [filter, setFilter] = useState<Filter>('all');
+  const unreadCount = chats.reduce((total, chat) => total + (chat.unreadCount ?? 0), 0);
+  const counts: Record<Filter, number> = {
+    all: chats.length,
+    unread: chats.filter((chat) => (chat.unreadCount ?? 0) > 0).length,
+    important: chats.filter((chat) => chat.important).length,
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -41,67 +46,73 @@ export function ChatsListPane({ chats, viewerId }: ChatsListPaneProps) {
   }, [chats, query, filter, viewerId]);
 
   return (
-    <section className="flex h-full min-h-0 flex-col bg-background">
-      <header className="sticky top-0 z-30 flex shrink-0 items-center gap-2 border-b border-border bg-card px-3 py-2 pt-[calc(var(--app-content-safe-top)+0.5rem)] md:pt-2">
-        <Button asChild variant="ghost" size="sm" className="-ml-1 h-9 w-9 p-0">
+    <section className="flex min-h-0 flex-1 flex-col bg-card">
+      <header className="relative z-30 flex shrink-0 items-center gap-2.5 bg-card px-4 py-3 pt-[calc(var(--app-content-safe-top)+0.75rem)] md:pt-3">
+        <Button asChild variant="ghost" size="sm" className="-ml-2 h-10 w-10 rounded-full p-0">
           <Link href="/marketplace" aria-label="Bozorga qaytish" title="Bozorga qaytish">
             <ChevronLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <h1 className="text-base font-black text-foreground">Chatlar</h1>
+        <h1 className="text-xl font-bold tracking-tight text-foreground">Chatlar</h1>
+        {unreadCount > 0 && (
+          <span aria-label={`${unreadCount} ta o'qilmagan xabar`} className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-primary dark:bg-sky-400/15 dark:text-sky-300">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-1">
           <NotificationBell dropdownAlign="left" />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-9 w-9 p-0"
-            onClick={() => setShowSearch((v) => !v)}
-            aria-label={showSearch ? 'Qidiruvni yopish' : 'Qidirish'}
-          >
-            {showSearch ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
-          </Button>
         </div>
       </header>
 
-      {showSearch && (
-        <div className="border-b border-border bg-card px-3 py-2">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ismi bo'yicha qidirish..."
-              className="h-10 pl-9"
-            />
-          </div>
+      <div className="shrink-0 px-4 pb-2" role="search">
+        <div className="relative">
+          <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            aria-label="Chatlarni qidirish"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Ismi bo'yicha qidirish"
+            className="h-11 rounded-full border-transparent bg-muted/70 pl-10 pr-10 text-sm shadow-none [&::-webkit-search-cancel-button]:appearance-none"
+          />
+          {query && (
+            <button type="button" onClick={() => setQuery('')} aria-label="Qidiruvni tozalash" className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <X aria-hidden className="h-4 w-4" />
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
-      <div className="flex gap-1.5 overflow-x-auto border-b border-border bg-card px-3 py-2">
+      <div role="group" aria-label="Chat filtrlari" className="no-scrollbar flex shrink-0 gap-4 overflow-x-auto border-b border-border/60 px-4">
         {FILTERS.map((f) => (
           <button
             key={f.id}
             type="button"
             onClick={() => setFilter(f.id)}
+            aria-pressed={filter === f.id}
+            aria-label={`${f.label}, ${counts[f.id]} ta chat`}
             className={cn(
-              'shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition',
+              'relative flex min-h-11 shrink-0 items-center gap-1.5 px-0.5 text-[13px] font-semibold transition-colors after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:rounded-t-full after:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
               filter === f.id
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:bg-accent',
+                ? 'text-primary after:bg-primary dark:text-sky-300 dark:after:bg-sky-300'
+                : 'text-muted-foreground after:bg-transparent hover:text-foreground',
             )}
           >
             {f.label}
+            {counts[f.id] > 0 && (
+              <span aria-hidden className={cn('rounded-full px-1.5 text-[10px] leading-[18px] tabular-nums', filter === f.id ? 'bg-primary/10 text-primary dark:bg-sky-400/15 dark:text-sky-300' : 'bg-muted text-muted-foreground')}>
+                {counts[f.id]}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2 pb-[calc(var(--app-content-safe-bottom)+0.5rem)]">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1 md:pb-[calc(var(--app-content-safe-bottom)+0.5rem)]">
         {filtered.length === 0 ? (
           <EmptyState hasChats={chats.length > 0} filter={filter} query={query} />
         ) : (
-          <div className="space-y-0.5">
+          <div>
             {filtered.map((chat) => (
               <ChatListItem key={chat.id} chat={chat} viewerId={viewerId} />
             ))}

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { LinkPendingIndicator } from '@/components/navigation/link-pending-indicator';
 
 import {
   feedMarkerState,
@@ -38,6 +39,7 @@ export function MarketplaceListingLink({
   return (
     <Link
       href={destination}
+      prefetch={false}
       className={className}
       data-marketplace-listing-link={listingId}
       onNavigate={trackFeedNavigation ? () => {
@@ -73,6 +75,7 @@ export function MarketplaceListingLink({
       } : undefined}
     >
       {children}
+      <LinkPendingIndicator className="absolute right-3 top-3 h-9 w-9 rounded-full bg-card/95 text-primary shadow-sm" />
     </Link>
   );
 }

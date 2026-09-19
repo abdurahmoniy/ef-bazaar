@@ -64,8 +64,8 @@ export async function deleteMailbox(id: string): Promise<void> {
  */
 export function slotWarning(status: MailboxSlotStatus | null): string | null {
   if (!status || !status.full || status.limit === null) return null;
-  return `Pochta qutilari to'ldi — ${status.used} tadan ${status.limit} tasi band. `
-    + 'Yangi savdo boshlash uchun eskisidan birini o‘chiring.';
+  return `Pochta limiti: ${status.limit} tadan ${status.used} ta joy ajratilgan. `
+    + 'Sizga tegishli va savdo uchun ajratilgan qutilar limitga kiradi. Yangi savdodan oldin qutilaringizni ko‘rib chiqing.';
 }
 
 /**

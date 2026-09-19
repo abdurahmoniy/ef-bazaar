@@ -197,6 +197,11 @@ describe('listing card model', () => {
     });
   });
 
+  it('does not call missing service-link answers clean', () => {
+    expect(buildListingCardModel(listing({ attributes: {} }), []).clean).toBe(false);
+    expect(buildListingCardModel(listing({ attributes: { has_google_play_link: false } }), []).clean).toBe(false);
+  });
+
   it('determines clean accounts based on links and coin balances', () => {
     expect(buildListingCardModel(listing({
       attributes: {

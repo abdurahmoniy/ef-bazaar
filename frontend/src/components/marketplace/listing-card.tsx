@@ -94,9 +94,20 @@ export function ListingCard({
           {model.exchange && <ExchangeBadge label={model.exchangeLabel} />}
         </div>
 
-        <h2 id={titleId} className="sr-only">
+        <h2 id={titleId} className="line-clamp-2 text-sm font-semibold leading-snug">
           {model.title}
         </h2>
+
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {listing.attributes.platform === 'STEAM' ? 'Steam' : listing.attributes.platform === 'PLAYSTATION' ? 'PlayStation' : 'Mobile'}
+          {model.teamStrength !== undefined && <> · {model.teamStrength.toLocaleString('ru-RU').replace(/\u00a0/g, ' ')} kuch</>}
+          {model.division !== undefined && <> · Division {model.division >= 4 ? '4+' : model.division}</>}
+        </p>
+        {model.playerNames.length > 0 && (
+          <p className="line-clamp-2 text-xs text-muted-foreground">
+            {model.playerNames.join(', ')}{model.playerRemainder > 0 && ` +${model.playerRemainder}`}
+          </p>
+        )}
 
         <div className="listing-card__facts flex flex-wrap items-center gap-1 pt-0.5 sm:gap-1.5">
           {model.clean && <CleanBadge />}
@@ -123,10 +134,11 @@ function CleanBadge() {
   return (
     <div
       data-clean-account-badge="true"
-      className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[10px]"
+      title="Sotuvchi ma’lumotiga ko‘ra Google Play va Game Center ulanmagan. Mustaqil tekshiruv emas."
+      className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs"
     >
       <ShieldCheck className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
-      <span className="truncate">Toza</span>
+      <span className="truncate">Ulanmagan</span>
     </div>
   );
 }
@@ -154,7 +166,7 @@ function LinkedServiceWarning({
   return (
     <div
       data-linked-service-warning={service}
-      className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-secondary/30 px-2 py-0.5 text-[9px] font-semibold text-secondary-foreground dark:bg-secondary/20 dark:text-secondary sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[10px]"
+      className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-secondary/30 px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground dark:bg-secondary/20 dark:text-secondary sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs"
     >
       <TriangleAlert className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
       <span className="truncate">{label}</span>
@@ -188,7 +200,7 @@ function CoinsPill({
     <div
       role="group"
       aria-label={ariaLabel}
-      className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[9px] font-semibold text-accent-foreground sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-[10px]"
+      className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-accent-foreground sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs"
     >
       <Image
         data-efootball-coin-icon

@@ -15,6 +15,8 @@ import { browseListings } from '@/lib/marketplace-server';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 
 export const dynamic = 'force-dynamic';
+// Browser route reuse only; authenticated server requests remain uncached.
+export const unstable_dynamicStaleTime = 30;
 
 const PAGE_SIZE = 12;
 
@@ -60,7 +62,6 @@ export default async function MarketplacePage({ searchParams }: MarketplacePageP
       marketplaceQuery={rawQuery}
       collapsibleSearch
     >
-      <div className="lg:hidden"><InvitationCard placement="marketplace" compact dismissible /></div>
       <MarketplaceBrowser
         filters={filters}
         activeFilter={activeFilter}
@@ -70,6 +71,7 @@ export default async function MarketplacePage({ searchParams }: MarketplacePageP
         view={view}
         authenticated={user !== null}
       />
+      {result.ok && result.data.content.length > 0 && <InvitationCard placement="marketplace" compact dismissible />}
     </MarketplaceShell>
   );
 }

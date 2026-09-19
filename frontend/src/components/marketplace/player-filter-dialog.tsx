@@ -165,7 +165,7 @@ export function PlayerFilterDialog({
           id="marketplace-player-filter"
           type="button"
           className={cn(
-            'tap-press relative inline-flex min-h-8 sm:min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors',
+            'tap-press relative inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors',
             activeCount > 0
               ? 'border-amber-400 bg-amber-400 text-amber-950 shadow-sm hover:bg-amber-300 hover:border-amber-300'
               : 'border-amber-400/40 bg-amber-400/10 text-amber-600 hover:border-amber-400/70 hover:bg-amber-400/20 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-200',
