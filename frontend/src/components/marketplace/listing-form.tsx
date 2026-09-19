@@ -107,8 +107,10 @@ const ACCEPTED_IMAGE_TYPES =
 const STEPS = ['photos', 'basics', 'gameplay', 'pricing', 'review'] as const;
 type StepId = (typeof STEPS)[number];
 
-/** Bump the version suffix when WizardState shape changes so old drafts are ignored. */
-const DRAFT_KEY = 'efbazaar:listing-draft-v2';
+/** Version service answers so legacy unchecked defaults can be safely migrated. */
+const DRAFT_KEY = 'efbazaar:listing-draft-v3';
+const LEGACY_DRAFT_KEY = 'efbazaar:listing-draft-v2';
+const SERVICE_LINK_KEYS = ['has_google_play_link', 'has_game_center_link'];
 
 const STEP_META: Record<
 	StepId,
@@ -181,6 +183,7 @@ export function ListingForm({
 			attributes: initialAttributes(defs),
 		};
 	});
+	const [draftRestored, setDraftRestored] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
 	const [commissionConfig, setCommissionConfig] = useState<TradeCommissionConfig | null>(null);
@@ -231,9 +234,10 @@ export function ListingForm({
 		if (editMode) return;
 		const draft = readDraft();
 		if (!draft) return;
-		if (draft.step && STEPS.includes(draft.step)) {
-			setStep(draft.step);
-		}
+		// Browser files cannot be restored from localStorage. Keep the text, then
+		// ask for photos again before allowing the wizard to continue.
+		setStep('photos');
+		setDraftRestored(true);
 		if (draft.state) {
 			setState((prev) => ({
 				description:
@@ -259,6 +263,10 @@ export function ListingForm({
 		if (editMode) return;
 		writeDraft(step, state);
 	}, [step, state, editMode]);
+
+	useEffect(() => {
+		setSubmitError(null);
+	}, [state, photos]);
 
 	const stepIndex = STEPS.indexOf(step);
 	const stepErrors = useMemo(
@@ -311,11 +319,14 @@ export function ListingForm({
 		submittedAt.current = Date.now();
 
 		const keepExistingMedia = editMode && existingMediaUrls.length > 0;
-		const allErrors = STEPS.flatMap((id) =>
-			validateStep(id, state, photos, definitions, keepExistingMedia),
+		const invalidStep = STEPS.find((id) =>
+			validateStep(id, state, photos, definitions, keepExistingMedia).length > 0,
 		);
-		if (allErrors.length > 0) {
-			setSubmitError(allErrors[0]);
+		if (invalidStep) {
+			setStep(invalidStep);
+			setTouchedSteps((prev) => new Set(prev).add(invalidStep));
+			setSubmitError(null);
+			window.scrollTo({ top: 0, behavior: 'smooth' });
 			telegramHaptic(getTelegramWebApp(), 'error', false);
 			return;
 		}
@@ -449,6 +460,12 @@ export function ListingForm({
 					</span>
 				</div>
 			</div>
+
+			{draftRestored && step === 'photos' && photos.length === 0 && (
+				<p role='status' className='rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm'>
+					Tavsif va narx saqlandi. Rasmlar saqlanmaydi — davom etish uchun ularni qayta tanlang.
+				</p>
+			)}
 
 			{/* Step Main Card */}
 			<div className='rounded-2xl border border-border bg-card p-3.5 shadow-card sm:p-5 transition-all'>
@@ -606,25 +623,31 @@ function PhotoStep({
 	const inputRef = useRef<HTMLInputElement>(null);
 	const photoError = errors[0];
 
-	const acceptedRegex = useMemo(() => /^image\/(jpeg|png|webp|heic|heif)$/i, []);
+	const [rejectedFiles, setRejectedFiles] = useState<string[]>([]);
 
 	function addFiles(files: FileList | File[]) {
-		const incoming = Array.from(files).filter((file) => {
-			if (!acceptedRegex.test(file.type)) return false;
-			if (file.size > MAX_FILE_BYTES) return false;
-			return true;
-		});
-		if (incoming.length === 0) return;
-		setPhotos((prev) => {
-			const remaining = Math.max(0, MAX_FILES - prev.length);
-			const additions = incoming.slice(0, remaining).map((file) => ({
-				id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
-				file,
-				previewUrl: URL.createObjectURL(file),
-			}));
-			return [...prev, ...additions];
-		});
-		telegramHaptic(getTelegramWebApp(), 'selection', false);
+		const additions: PhotoEntry[] = [];
+		const rejected: string[] = [];
+		for (const file of Array.from(files)) {
+			const supported = /^image\/(jpeg|png|webp|heic|heif)$/i.test(file.type)
+				|| (!file.type && /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name));
+			if (!supported) {
+				rejected.push(`${file.name}: format qo‘llab-quvvatlanmaydi.`);
+			} else if (file.size > MAX_FILE_BYTES) {
+				rejected.push(`${file.name}: 8 MB dan katta.`);
+			} else if (photos.length + additions.length >= MAX_FILES) {
+				rejected.push(`${file.name}: ko‘pi bilan ${MAX_FILES} ta rasm tanlash mumkin.`);
+			} else {
+				additions.push({
+					id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
+					file,
+					previewUrl: URL.createObjectURL(file),
+				});
+			}
+		}
+		setRejectedFiles(rejected);
+		if (additions.length > 0) setPhotos((prev) => [...prev, ...additions]);
+		telegramHaptic(getTelegramWebApp(), rejected.length > 0 ? 'error' : 'selection', false);
 	}
 
 	function removePhoto(id: string) {
@@ -696,7 +719,7 @@ function PhotoStep({
 							: 'Rasm tanlash yoki bu yerga tashlang'}
 					</p>
 					<p className='text-[11px] text-muted-foreground'>
-						Kamera yoki galereyadan tanlang (kamida 1 ta)
+						JPG, PNG, WEBP, HEIC, HEIF · har biri 8 MB gacha · 1–10 ta rasm
 					</p>
 				</div>
 
@@ -712,6 +735,12 @@ function PhotoStep({
 					}}
 				/>
 			</div>
+
+			{rejectedFiles.length > 0 && (
+				<ul role='alert' className='space-y-1 text-xs text-destructive'>
+					{rejectedFiles.map((message, index) => <li key={`${index}-${message}`}>{message}</li>)}
+				</ul>
+			)}
 
 			{photoError && (
 				<p className='flex items-center gap-1 text-[11px] font-bold text-destructive px-1'>
@@ -943,7 +972,7 @@ function BasicsStep({
 				learnMoreHref='/help#buyer'
 				learnMoreLabel='Yulduz kartalar qo‘llanmasi'
 			>
-				Akkountingizdagi eng muhim Epic, Big Time va Show Time kartalarni tanlang. Bu xaridorlar qidiruvida e‘loningizni 3-5 barobar ko‘proq ko‘rsatadi.
+				Akkountingizdagi eng muhim Epic, Big Time va Show Time kartalarni tanlang. Xaridorlar shu kartalar bo‘yicha e‘loningizni qidirib topishi mumkin.
 			</TipCallout>
 		</div>
 	);
@@ -1084,47 +1113,24 @@ function GameplayStep({
 			{boolDefs.length > 0 && (
 				<div className='grid grid-cols-2 gap-2 pt-0.5'>
 					{boolDefs.map((def) => {
-						const checked = Boolean(state.attributes[def.key]);
-						const isGoogle = def.key.includes('google');
+						const value = state.attributes[def.key];
+						const error = errors.find((message) => message.includes(def.labelUz));
 						return (
-							<button
-								key={def.key}
-								type='button'
-								role='switch'
-								aria-checked={checked}
-								onClick={() => {
-									updateAttr(def.key, !checked);
-									telegramHaptic(getTelegramWebApp(), 'selection', false);
-								}}
-								className={cn(
-									'tap-press flex items-center justify-between rounded-xl border p-2.5 text-left transition select-none',
-									checked
-										? 'border-amber-400/60 bg-amber-400/10'
-										: 'border-border bg-card hover:border-primary/40',
-								)}
-							>
-								<span className='inline-flex items-center gap-1.5 truncate text-xs font-bold text-foreground pr-1'>
-									{isGoogle ? (
-										<GooglePlayIcon className='text-emerald-500' />
-									) : (
-										<AppleIcon className='text-foreground' />
-									)}
-									<span className='truncate'>{def.labelUz.replace(' ulangan', '')}</span>
-								</span>
-								<div
-									className={cn(
-										'relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ease-in-out',
-										checked ? 'bg-primary' : 'bg-muted',
-									)}
+							<div key={def.key} className='space-y-1.5'>
+								<Label htmlFor={def.key}>{def.labelUz.replace(' ulangan', '')}</Label>
+								<Select
+									id={def.key}
+									value={typeof value === 'boolean' ? String(value) : ''}
+									aria-invalid={Boolean(error)}
+									aria-describedby={error ? `${def.key}-error` : undefined}
+									onChange={(event) => updateAttr(def.key, event.target.value === '' ? '' : event.target.value === 'true')}
 								>
-									<span
-										className={cn(
-											'inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out mt-0.5 ml-0.5',
-											checked ? 'translate-x-4' : 'translate-x-0',
-										)}
-									/>
-								</div>
-							</button>
+									<option value=''>Holatini tanlang</option>
+									<option value='true'>{SERVICE_LINK_KEYS.includes(def.key) ? 'Ulangan' : 'Ha'}</option>
+									<option value='false'>{SERVICE_LINK_KEYS.includes(def.key) ? 'Ulanmagan' : "Yo‘q"}</option>
+								</Select>
+								{error && <p id={`${def.key}-error`} role='alert' className='text-xs text-destructive'>{error}</p>}
+							</div>
 						);
 					})}
 				</div>
@@ -1774,7 +1780,7 @@ function PricingStep({
 				learnMoreHref='/help#transparent-pricing-commission'
 				learnMoreLabel='Komissiya va sof summa haqida'
 			>
-				<strong>Shaffof hisob-kitob va 100% kafolat:</strong> Xizmat haqi Garov (Escrow) tizimi orqali to‘lovni xavfsiz muzlatish va tekshirish uchun ushlab qolinadi. Hisoblangan <strong>Sof summa</strong> to‘liq hamyoningizga o‘tkaziladi — hech qanday yashirin to‘lovlarsiz.
+				<strong>Smart savdoda hisob-kitob:</strong> Xaridor to‘lovi savdo yakunlanguncha ushlab turiladi. Savdo muvaffaqiyatli yakunlangach, xizmat haqi chegirilib, <strong>Sof summa</strong> hamyoningizga o‘tkaziladi.
 			</TipCallout>
 		</div>
 	);
@@ -1812,8 +1818,8 @@ function ReviewStep({
 	const platform = String(state.attributes.platform || 'MOBILE');
 	const mobile = isMobileListingPlatform(platform);
 	const transferLimit = state.attributes.device_transfer_limit;
-	const hasGooglePlay = Boolean(state.attributes.has_google_play_link);
-	const hasGameCenter = Boolean(state.attributes.has_game_center_link);
+	const hasGooglePlay = state.attributes.has_google_play_link;
+	const hasGameCenter = state.attributes.has_game_center_link;
 
 	return (
 		<div className='space-y-3'>
@@ -1962,13 +1968,13 @@ function ReviewStep({
 				{/* Store Link Badges */}
 				{mobile && <div className='flex items-center gap-2 pt-1 border-t border-border/50 text-[11px] font-semibold text-muted-foreground'>
 					<span className='inline-flex items-center gap-1'>
-						<GooglePlayIcon className={cn('h-3 w-3', hasGooglePlay ? 'text-emerald-500' : 'text-muted-foreground/50')} />
-						{hasGooglePlay ? 'Google Play ulangan' : 'Google Play toza'}
+						<GooglePlayIcon className={cn('h-3 w-3', hasGooglePlay === true ? 'text-emerald-500' : 'text-muted-foreground/50')} />
+						{hasGooglePlay === true ? 'Google Play ulangan' : hasGooglePlay === false ? 'Google Play ulanmagan' : 'Google Play holati noma’lum'}
 					</span>
 					<span>•</span>
 					<span className='inline-flex items-center gap-1'>
-						<AppleIcon className={cn('h-3 w-3', hasGameCenter ? 'text-foreground' : 'text-muted-foreground/50')} />
-						{hasGameCenter ? 'Game Center ulangan' : 'Game Center toza'}
+						<AppleIcon className={cn('h-3 w-3', hasGameCenter === true ? 'text-foreground' : 'text-muted-foreground/50')} />
+						{hasGameCenter === true ? 'Game Center ulangan' : hasGameCenter === false ? 'Game Center ulanmagan' : 'Game Center holati noma’lum'}
 					</span>
 				</div>}
 			</div>
@@ -2032,7 +2038,7 @@ function renderAttributeValue(
 function defaultAttributeValue(
 	def: ListingAttributeDefinition,
 ): AttributeValue {
-	if (def.type === 'BOOLEAN') return false;
+	if (def.type === 'BOOLEAN') return '';
 	if (def.type === 'CARD_LIST') return [];
 	if (def.type === 'ENUM') {
 		const preset = def.constraints?.default;
@@ -2072,7 +2078,7 @@ function attributesFromListing(
 	for (const def of definitions) {
 		const value = raw?.[def.key];
 		if (def.type === 'BOOLEAN') {
-			out[def.key] = value === true || value === 'true';
+			out[def.key] = typeof value === 'boolean' ? value : value === 'true' ? true : value === 'false' ? false : '';
 			continue;
 		}
 		if (value === undefined || value === null) {
@@ -2200,7 +2206,12 @@ function validateStep(
 			if (def.active === false || !isListingAttributeApplicable(def.key, state.attributes.platform)) continue;
 			if (def.key === 'valuable_players') continue;
 			const value = state.attributes[def.key];
-			if (def.type === 'BOOLEAN') continue;
+			if (def.type === 'BOOLEAN') {
+				if ((def.required || SERVICE_LINK_KEYS.includes(def.key)) && typeof value !== 'boolean') {
+					errors.push(`${def.labelUz} holatini tanlang.`);
+				}
+				continue;
+			}
 			const raw = typeof value === 'string' ? value.trim() : '';
 			const isCoin = def.key === 'android_coins' || def.key === 'ios_coins';
 			const isRequired = def.required && !isCoin;
@@ -2256,7 +2267,7 @@ function buildRequest(
 		if (def.active === false || !isListingAttributeApplicable(def.key, state.attributes.platform)) continue;
 		const raw = state.attributes[def.key];
 		if (def.type === 'BOOLEAN') {
-			attributes[def.key] = Boolean(raw);
+			if (typeof raw === 'boolean') attributes[def.key] = raw;
 			continue;
 		}
 		if (def.type === 'CARD_LIST') {
@@ -2401,10 +2412,19 @@ function errorFromPayload(payload: unknown, fallback: string) {
 function readDraft(): { step?: StepId; state?: Partial<WizardState> } | null {
 	if (typeof window === 'undefined') return null;
 	try {
-		const raw = window.localStorage.getItem(DRAFT_KEY);
+		const current = window.localStorage.getItem(DRAFT_KEY);
+		const raw = current ?? window.localStorage.getItem(LEGACY_DRAFT_KEY);
 		if (!raw) return null;
 		const parsed = JSON.parse(raw) as unknown;
-		return isRecord(parsed) ? (parsed as { step?: StepId; state?: Partial<WizardState> }) : null;
+		if (!isRecord(parsed)) return null;
+		const draft = parsed as { step?: StepId; state?: Partial<WizardState> };
+		// Old unchecked switches were saved as false even without an answer.
+		if (!current && draft.state?.attributes) {
+			for (const key of SERVICE_LINK_KEYS) {
+				if (draft.state.attributes[key] === false) draft.state.attributes[key] = '';
+			}
+		}
+		return draft;
 	} catch {
 		return null;
 	}
@@ -2423,6 +2443,7 @@ function clearDraft() {
 	if (typeof window === 'undefined') return;
 	try {
 		window.localStorage.removeItem(DRAFT_KEY);
+		window.localStorage.removeItem(LEGACY_DRAFT_KEY);
 	} catch {
 		// ignore
 	}

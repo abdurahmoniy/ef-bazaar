@@ -88,9 +88,9 @@ export function MailboxSlotsWarning() {
           {mailboxes.map((mailbox) => (
             <li key={mailbox.id} className="flex items-center gap-3 p-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{mailbox.email}</p>
+                <p className="break-all text-sm font-medium">{mailbox.email}</p>
                 <p className="text-xs text-muted-foreground">
-                  {isDeletable(mailbox) ? 'Bo‘sh' : 'Savdoda ishlatilmoqda'}
+                  {isDeletable(mailbox) ? 'Sizga tegishli · faol savdoga biriktirilmagan' : 'Savdoga biriktirilgan'}
                 </p>
               </div>
               {isDeletable(mailbox) && (
@@ -98,7 +98,9 @@ export function MailboxSlotsWarning() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={busy === mailbox.id}
+                  aria-label={`${mailbox.email} pochta qutisini o‘chirish`}
+                  className="min-h-11 min-w-11"
+                  disabled={busy !== null}
                   onClick={() => remove(mailbox)}
                 >
                   {busy === mailbox.id

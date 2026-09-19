@@ -39,15 +39,15 @@ export function GoogleLinkButton({
 	)
 	if (alreadyLinked) {
 		return (
-			<div className='flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-muted/30 px-4 py-3 min-w-0'>
-				<div className='flex items-center gap-2.5 min-w-0 flex-1'>
+			<div className='flex flex-col items-start gap-3 rounded-xl sm:flex-row sm:items-center sm:justify-between border border-border/80 bg-muted/30 px-4 py-3 min-w-0'>
+				<div className='flex items-center gap-2.5 min-w-0 w-full flex-1'>
 					<div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
 						<Check className='h-4 w-4' />
 					</div>
-					<div className='min-w-0 flex-1'>
-						<p className='text-sm font-semibold text-foreground truncate'>Google ulangan</p>
+					<div className='min-w-0 w-full flex-1'>
+						<p className='text-sm font-semibold text-foreground'>Google ulangan</p>
 						{email && (
-							<p className='text-xs text-muted-foreground truncate'>{email}</p>
+							<p className='text-xs text-muted-foreground break-all'>{email}</p>
 						)}
 					</div>
 				</div>

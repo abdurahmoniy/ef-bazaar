@@ -10,7 +10,11 @@ describe('slotWarning', () => {
     // many inboxes have to go before a trade can start again.
     const warning = slotWarning(full);
     expect(warning).toContain('3');
-    expect(warning).toMatch(/o.chiring/);
+    expect(warning).toContain('ko‘rib chiqing');
+  });
+
+  it('puts capacity before allocated count, including over-limit accounts', () => {
+    expect(slotWarning({ used: 7, limit: 3, full: true, plan: 'STANDARD' })).toContain('3 tadan 7 ta');
   });
 
   it('says nothing while there is room — the banner must not become wallpaper', () => {

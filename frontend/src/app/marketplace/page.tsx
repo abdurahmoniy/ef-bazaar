@@ -62,7 +62,6 @@ export default async function MarketplacePage({ searchParams }: MarketplacePageP
       marketplaceQuery={rawQuery}
       collapsibleSearch
     >
-      <div className="lg:hidden"><InvitationCard placement="marketplace" compact dismissible /></div>
       <MarketplaceBrowser
         filters={filters}
         activeFilter={activeFilter}
@@ -72,6 +71,7 @@ export default async function MarketplacePage({ searchParams }: MarketplacePageP
         view={view}
         authenticated={user !== null}
       />
+      {result.ok && result.data.content.length > 0 && <InvitationCard placement="marketplace" compact dismissible />}
     </MarketplaceShell>
   );
 }

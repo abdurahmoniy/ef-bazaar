@@ -106,6 +106,7 @@ export function MarketplacePendingLink({
 
   return (
     <Link
+      prefetch={false}
       {...props}
       href={href}
       target={target}

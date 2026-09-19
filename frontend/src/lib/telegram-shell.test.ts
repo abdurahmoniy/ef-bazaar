@@ -229,7 +229,7 @@ describe('Telegram shell source contract', () => {
   it('consumes semantic safe areas throughout the marketplace shell', () => {
     expect(marketplaceShell).toContain('<MeasuredBottomBar');
     expect(marketplaceShell).toContain('key="marketplace-action-bar"');
-    expect(marketplaceShell).toContain('<MobileBottomNav user={user} activeTab={activeTab} />');
+    expect(marketplaceShell).toContain('<MobileBottomNav user={user} sessionPending={sessionPending} activeTab={activeTab} />');
     expect(mobileBottomNav).toContain('<MeasuredBottomBar');
     expect(mobileBottomNav).toContain('as="nav"');
     expect(globals).toContain(

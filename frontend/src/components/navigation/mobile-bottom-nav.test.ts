@@ -95,3 +95,11 @@ it('shows an accessible loading status while a link is pending', () => {
   expect(html).toContain('Yuklanmoqda');
   expect(html).toContain('motion-reduce:animate-none');
 });
+
+it('keeps protected destinations while the session is still loading', () => {
+  const html = renderToStaticMarkup(createElement(MobileBottomNav, { user: null, sessionPending: true }));
+  expect(html).toContain('href="/chats"');
+  expect(html).toContain('href="/hamyon"');
+  expect(html).toContain('href="/profile"');
+  expect(html).not.toContain('/auth/login');
+});

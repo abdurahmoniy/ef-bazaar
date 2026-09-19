@@ -169,11 +169,13 @@ export function MarketplaceShell({
               <UserPlus aria-hidden className="h-4 w-4" />
               Do&apos;st taklif qilish
             </GrowthLink>
-            {user ? (
+            {sessionPending ? (
+              <div role="status" aria-label="Profil yuklanmoqda" className="h-9 w-20 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
+            ) : user ? (
               <>
                 <div className="hidden items-center sm:flex">
                   <Button asChild variant="ghost" size="sm" className="h-9 w-9 p-0" title="Chatlar">
-                    <Link href="/chats" aria-label="Chatlar">
+                    <Link prefetch={false} href="/chats" aria-label="Chatlar">
                       <span className="relative">
                         <MessageCircle className="h-5 w-5" />
                         <ChatsUnreadBadge viewerId={user.id} />
@@ -186,7 +188,7 @@ export function MarketplaceShell({
                 <span aria-hidden className="hidden h-5 w-px bg-border sm:block" />
 
                 <Button asChild size="sm" className="hidden h-9 rounded-full px-3 sm:inline-flex lg:px-4">
-                  <Link href="/marketplace/new">
+                  <Link prefetch={false} href="/marketplace/new">
                     <Plus className="h-4 w-4" />
                     <span className="hidden lg:inline">Sotish</span>
                   </Link>
@@ -198,7 +200,7 @@ export function MarketplaceShell({
               <>
                 <ThemeToggle className="h-9 w-9 rounded-full" />
                 <Button asChild size="sm" className="h-9 rounded-full px-3 lg:px-4">
-                  <Link href="/auth/login">
+                  <Link prefetch={false} href="/auth/login">
                     <UserRound className="h-4 w-4" />
                     <span className="hidden sm:inline">Kirish</span>
                   </Link>
@@ -210,12 +212,12 @@ export function MarketplaceShell({
 
       </header>
 
-      {user && !user.verified && activeTab !== 'profile' && (
+      {user && !user.verified && !(user.googleLinked && user.telegramLinked) && activeTab !== 'profile' && (
         <div className="border-b border-border/70 bg-amber-50/70 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
           <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-1.5 text-[11px] font-semibold">
             <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
             <span className="marketplace-verification-copy min-w-0 flex-1 truncate">
-              Akkount tasdiqlanmagan — Telegram va Google ulang
+              {!user.telegramLinked && !user.googleLinked ? 'Telegram va Google ulang' : !user.telegramLinked ? 'Telegram ulang' : 'Google ulang'}
             </span>
             <Link
               href="/profile?tab=account"
@@ -243,7 +245,7 @@ export function MarketplaceShell({
           </div>
         </MeasuredBottomBar>
       ) : hideBottomNav ? null : (
-        <MobileBottomNav user={user} activeTab={activeTab} />
+        <MobileBottomNav user={user} sessionPending={sessionPending} activeTab={activeTab} />
       )}
     </div>
   );

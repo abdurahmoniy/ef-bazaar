@@ -44,10 +44,16 @@ async function click(text: string) {
   await act(async () => button!.click());
 }
 async function draft(platform: string, step = 'gameplay', price = '250000') {
-  localStorage.setItem('efbazaar:listing-draft-v2', JSON.stringify({ step, state: {
+  localStorage.setItem('efbazaar:listing-draft-v3', JSON.stringify({ step, state: {
     description: 'Account with rare players', price, priceNegotiable: false, attributes: attributes(platform),
   } }));
   await act(async () => root.render(createElement(ListingForm, { attributeDefinitions: SEEDED_LISTING_ATTRIBUTE_DEFINITIONS })));
+  if (step !== 'photos') {
+    const input = host.querySelector<HTMLInputElement>('input[type="file"]')!;
+    Object.defineProperty(input, 'files', { configurable: true, value: [new File(['photo'], 'photo.png', { type: 'image/png' })] });
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
+    for (let i = 0; i < ['photos', 'basics', 'gameplay', 'pricing', 'review'].indexOf(step); i++) await click('Davom etish');
+  }
 }
 async function submittedAttributes() {
   const blob = fetchMock.mock.calls[0][1].body.get('data') as Blob;
@@ -92,13 +98,13 @@ describe('platform-specific listing wizard', () => {
     expect(host.querySelector('input[aria-label="Coin balansi"]')).toBeNull();
     await click('Steam');
     for (const label of mobileLabels) expect(host.textContent).not.toContain(label);
-    const stored = JSON.parse(localStorage.getItem('efbazaar:listing-draft-v2')!).state.attributes;
+    const stored = JSON.parse(localStorage.getItem('efbazaar:listing-draft-v3')!).state.attributes;
     expect(stored).not.toHaveProperty('android_coins');
     expect(stored).not.toHaveProperty('device_transfer_limit');
     expect(stored.team_strength).toBe('3100');
     await click('Mobile');
     expect(host.querySelector('input[aria-label="Coin balansi"]')).toBeNull();
-    expect(JSON.parse(localStorage.getItem('efbazaar:listing-draft-v2')!).state.attributes).not.toHaveProperty('coins');
+    expect(JSON.parse(localStorage.getItem('efbazaar:listing-draft-v3')!).state.attributes).not.toHaveProperty('coins');
     await click('Davom etish');
     expect(host.textContent).toContain('limiti');
     expect(host.querySelector('#price')).toBeNull();

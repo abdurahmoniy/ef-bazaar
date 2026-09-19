@@ -71,6 +71,8 @@ export type LedgerAccount =
   | 'PLATFORM_FEES';
 
 export interface WalletEntryResponse {
+  /** Optional on older payment-service versions. */
+  tradeId?: string | null;
   transactionId: string;
   kind: TransactionKind;
   account: LedgerAccount;

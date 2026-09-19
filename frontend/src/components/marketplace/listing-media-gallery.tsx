@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import Image from 'next/image';
+import { useCallback, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 
 import { ZoomableLightbox } from '@/components/marketplace/zoomable-lightbox';
@@ -15,6 +16,10 @@ export function ListingMediaGallery({ title, urls }: ListingMediaGalleryProps) {
   const visibleUrls = urls.filter(Boolean).slice(0, 10);
   const [activeIndex, setActiveIndex] = useState(0);
   const [lightbox, setLightbox] = useState(false);
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const suppressClick = useRef(false);
 
   const goNext = useCallback(
     () => setActiveIndex((i) => (i + 1) % visibleUrls.length),
@@ -33,25 +38,57 @@ export function ListingMediaGallery({ title, urls }: ListingMediaGalleryProps) {
     );
   }
 
-  const active = visibleUrls[activeIndex];
+  const index = Math.min(activeIndex, visibleUrls.length - 1);
+  const active = visibleUrls[index];
 
   return (
     <section>
       <div className="relative overflow-hidden rounded-xl border border-border bg-card shadow-card">
         <button
           type="button"
-          className="group relative block h-full w-full"
-          onClick={() => setLightbox(true)}
+          className="group relative block aspect-[19.5/9] w-full touch-pan-y touch-pinch-zoom bg-muted"
+          onTouchStart={(event) => {
+            suppressClick.current = false;
+            touchStart.current = event.touches.length === 1
+              ? { x: event.touches[0].clientX, y: event.touches[0].clientY } : null;
+          }}
+          onTouchMove={(event) => { if (event.touches.length !== 1) touchStart.current = null; }}
+          onTouchCancel={() => { touchStart.current = null; }}
+          onTouchEnd={(event) => {
+            const start = touchStart.current;
+            touchStart.current = null;
+            const end = event.changedTouches[0];
+            if (!start || !end) return;
+            const dx = end.clientX - start.x;
+            const dy = end.clientY - start.y;
+            if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5 && visibleUrls.length > 1) {
+              suppressClick.current = true;
+              if (dx < 0) goNext(); else goPrev();
+            }
+          }}
+          onClick={() => {
+            if (suppressClick.current) { suppressClick.current = false; return; }
+            setLightbox(true);
+          }}
           aria-label="Rasmni kattalashtirish"
         >
-          <img
-            src={active}
-            alt={`${title} rasmi ${activeIndex + 1}`}
-            loading="eager"
-            decoding="async"
-            className="aspect-[19.5/9] w-full bg-black/95 object-contain transition duration-300 group-hover:scale-[1.01]"
-          />
-          <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-xs font-semibold text-white opacity-0 backdrop-blur transition group-hover:opacity-100">
+          {failedUrl === active ? (
+            <span className="grid h-full place-items-center px-12 text-sm text-muted-foreground">Rasm yuklanmadi. Asl rasmni ochish uchun bosing.</span>
+          ) : (
+            <Image
+              key={active}
+              fill
+              src={active}
+              alt={`${title} rasmi ${index + 1}`}
+              sizes="(max-width: 1023px) calc(100vw - 2rem), 44rem"
+              loading="eager"
+              onLoad={() => setLoadedUrl(active)}
+              onError={() => setFailedUrl(active)}
+              className="object-contain"
+            />
+          )}
+          {loadedUrl !== active && failedUrl !== active && <span role="status" className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">Rasm yuklanmoqda…</span>}
+          <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-xs font-semibold text-white backdrop-blur">
             <ZoomIn className="h-3.5 w-3.5" /> Kattalashtirish
           </span>
         </button>
@@ -75,7 +112,7 @@ export function ListingMediaGallery({ title, urls }: ListingMediaGalleryProps) {
               <ChevronRight className="h-4 w-4" />
             </button>
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white">
-              {activeIndex + 1} / {visibleUrls.length}
+              {index + 1} / {visibleUrls.length}
             </div>
           </>
         )}
@@ -93,8 +130,12 @@ export function ListingMediaGallery({ title, urls }: ListingMediaGalleryProps) {
                 index === activeIndex ? 'border-primary' : 'border-transparent hover:border-primary/40',
               )}
               aria-label={`Rasm ${index + 1}`}
+              aria-pressed={index === activeIndex}
             >
-              <img
+              <Image
+                width={112}
+                height={52}
+                sizes="112px"
                 src={url}
                 alt={`${title} rasmi ${index + 1}`}
                 loading="lazy"

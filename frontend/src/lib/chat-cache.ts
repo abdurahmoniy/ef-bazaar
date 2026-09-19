@@ -13,12 +13,22 @@ export const chatKeys = {
   messages: (viewerId: string, chatId: string) => ['private', viewerId, 'chats', chatId, 'messages'] as const,
 };
 
+export class ChatRequestError extends Error {
+  constructor(readonly status: number) {
+    super(`Chat request failed (${status})`);
+  }
+
+  get permanent() {
+    return this.status >= 400 && this.status < 500 && this.status !== 408 && this.status !== 429;
+  }
+}
+
 async function readChatData<T>(path: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(path, {
     credentials: 'include', cache: 'no-store', signal,
     headers: { Accept: 'application/json' },
   });
-  if (!response.ok) throw new Error(`Chat request failed (${response.status})`);
+  if (!response.ok) throw new ChatRequestError(response.status);
   return response.json() as Promise<T>;
 }
 

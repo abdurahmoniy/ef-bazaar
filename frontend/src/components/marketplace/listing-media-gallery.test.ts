@@ -13,8 +13,9 @@ describe('ListingMediaGallery', () => {
       }),
     );
 
-    expect(markup).toContain('src="/bot/photo/file-1"');
-    expect(markup).toContain('src="/bot/photo/file-2"');
+    expect(markup).not.toContain('src="/bot/photo/file-1"');
+    expect(markup).toContain('srcSet=');
+    expect(markup).not.toContain('src="/bot/photo/file-2"');
     expect(markup).toContain('alt="Strong account rasmi 1"');
     expect(markup).toContain('alt="Strong account rasmi 2"');
     expect(markup).toContain('aspect-[19.5/9]');

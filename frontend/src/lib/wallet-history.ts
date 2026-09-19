@@ -44,6 +44,7 @@ const INTERNAL_KINDS: ReadonlySet<TransactionKind> = new Set<TransactionKind>([
 ]);
 
 export interface WalletHistoryRow {
+  tradeHref: string | null;
   transactionId: string;
   /** Ikon SHU maydondan tanlanadi — matn bo'lagidan emas. */
   kind: TransactionKind;
@@ -130,6 +131,9 @@ export function walletHistoryRows(
     const movement = movementOf(entry.kind, incoming);
     return {
       transactionId: entry.transactionId,
+      tradeHref: ['TRADE_HOLD', 'TRADE_SETTLE', 'TRADE_RELEASE'].includes(entry.kind)
+        && entry.tradeId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entry.tradeId)
+        ? `/hamyon/savdo/${entry.tradeId}` : null,
       kind: entry.kind,
       label: walletEntryLabel(entry.kind, incoming),
       signedTiyin,

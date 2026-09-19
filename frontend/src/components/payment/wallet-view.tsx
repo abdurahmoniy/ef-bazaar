@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -271,10 +273,7 @@ export function WalletView({
           </p>
         </div>
 
-        <GrowthLink href="/invite" event="invite_open" placement="wallet"
-          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-primary dark:text-secondary transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <Gift aria-hidden className="h-4 w-4" /> Do‘st taklif qilish va mukofotlar
-        </GrowthLink>
+
 
         {(wallet.heldTiyin > 0 || wallet.withdrawPendingTiyin > 0) && (
           <div className="mt-4 space-y-2 border-t border-border/60 pt-3.5">
@@ -509,8 +508,13 @@ export function WalletView({
                         {icon}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">{row.label}</p>
+                        <p className="text-sm font-semibold text-foreground">{row.label}</p>
                         <p className="text-xs text-muted-foreground">{row.when}</p>
+                        <details className="mt-1 text-xs text-muted-foreground">
+                          <summary className="min-h-11 cursor-pointer py-3">Amaliyot raqami</summary>
+                          <p className="select-all break-all font-mono">{row.transactionId}</p>
+                        </details>
+                        {row.tradeHref && <Link href={row.tradeHref} prefetch={false} className="inline-flex min-h-11 items-center font-semibold text-primary underline">Savdoni ochish</Link>}
                       </div>
                     </div>
                     <span
@@ -536,6 +540,11 @@ export function WalletView({
         </section>
       )}
 
+        <GrowthLink href="/invite" event="invite_open" placement="wallet"
+          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-primary dark:text-secondary transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Gift aria-hidden className="h-4 w-4" /> Do‘st taklif qilish va mukofotlar
+        </GrowthLink>
+
       <TipCallout
         variant="info"
         dismissible
@@ -544,7 +553,7 @@ export function WalletView({
         learnMoreLabel="Hamyon qo‘llanmasi"
         className="mt-2"
       >
-        Mablag‘lar xavfsizligi kafolatlanadi. Balans to‘ldirish lahzali amalga oshadi, pul yechish so‘rovlari esa odatda 15-60 daqiqa ichida kartangizga o‘tkazib beriladi.
+        Balans to‘lov tasdiqlangach yangilanadi. Pul yechish so‘rovlari odatda 15–60 daqiqada ko‘rib chiqiladi; bu muddat kafolatlanmaydi. Amaliyot raqamini tarixdan topishingiz mumkin.
       </TipCallout>
     </div>
   );

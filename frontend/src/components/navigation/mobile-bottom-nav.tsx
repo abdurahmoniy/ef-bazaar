@@ -26,19 +26,19 @@ const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : us
 // can continue its movement across the marketplace and messenger layouts.
 let lastActiveTab: MarketplaceTab | undefined;
 
-function buildNavItems(user: User | null): NavItem[] {
+function buildNavItems(user: User | null, sessionPending = false): NavItem[] {
   const items: NavItem[] = [
     { id: 'home', href: '/marketplace', label: 'Bozor', icon: <Home className="h-5 w-5" /> },
     { id: 'tournaments', href: '/tournaments', label: 'Turnirlar', icon: <Trophy className="h-5 w-5" /> },
     {
       id: 'chats',
-      href: user ? '/chats' : '/auth/login?from=/chats',
+      href: user || sessionPending ? '/chats' : '/auth/login?from=/chats',
       label: 'Chatlar',
       icon: <span className="relative"><MessageCircle className="h-5 w-5" />{user && <ChatsUnreadBadge viewerId={user.id} />}</span>,
     },
     { id: 'sell', href: '/marketplace/new', label: 'Sotish', icon: <Plus className="h-5 w-5" />, primary: true },
-    { id: 'wallet', href: user ? '/hamyon' : '/auth/login?from=/hamyon', label: 'Hamyon', icon: <Wallet className="h-5 w-5" /> },
-    { id: 'profile', href: user ? '/profile' : '/auth/login', label: user ? 'Profil' : 'Kirish', icon: <UserRound className="h-5 w-5" /> },
+    { id: 'wallet', href: user || sessionPending ? '/hamyon' : '/auth/login?from=/hamyon', label: 'Hamyon', icon: <Wallet className="h-5 w-5" /> },
+    { id: 'profile', href: user || sessionPending ? '/profile' : '/auth/login', label: user || sessionPending ? 'Profil' : 'Kirish', icon: <UserRound className="h-5 w-5" /> },
   ];
   return items.filter((item) => {
     if (item.id === 'tournaments') return FEATURES.tournaments;
@@ -51,12 +51,14 @@ export function MobileBottomNav({
   user,
   activeTab,
   placement = 'fixed',
+  sessionPending = false,
 }: {
   user: User | null;
   activeTab?: MarketplaceTab;
   placement?: 'fixed' | 'inline';
+  sessionPending?: boolean;
 }) {
-  const items = buildNavItems(user);
+  const items = buildNavItems(user, sessionPending);
   const activeIndex = items.findIndex((item) => item.id === activeTab);
   const tabIds = items.map((item) => item.id).join(',');
   const markerRef = useRef<HTMLSpanElement>(null);
@@ -102,6 +104,7 @@ export function MobileBottomNav({
             <Link
               key={item.id}
               href={item.href}
+              prefetch={false}
               aria-current={item.id === activeTab ? 'page' : undefined}
               className={cn(
                 'relative flex h-16 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl text-[10.5px] font-semibold leading-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-safe:active:scale-95',

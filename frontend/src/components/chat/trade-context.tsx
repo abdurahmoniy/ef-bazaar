@@ -11,7 +11,6 @@ import React, {
 } from 'react';
 
 import {
-  fetchAccountRequest,
   roleInRequest,
   type AccountRequest,
 } from '@/lib/account-request';
@@ -20,9 +19,8 @@ import { isHumanProposal } from '@/lib/trade-human';
 import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
 import { getPublicTradeCommissionConfig } from '@/lib/payment-client';
 import type { TradeCommissionConfig } from '@/lib/payment-types';
-import { planPollTick } from '@/lib/trade-poll-plan';
+import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import {
-  isTerminalState,
   splitTrades,
   type PendingProposalResponse,
   type ProposalResponse,
@@ -32,6 +30,7 @@ import {
 } from '@/lib/trade-types';
 
 const POLL_INTERVAL_MS = 4000;
+const IDLE_POLL_INTERVAL_MS = 30000;
 
 export interface PendingProposal {
   listingId?: string | null;
@@ -61,6 +60,7 @@ interface TradeContextValue {
   startingNew: boolean;
   setStartingNew: React.Dispatch<React.SetStateAction<boolean>>;
   refreshing: boolean;
+  loadError: string | null;
   reload: () => Promise<void>;
   handleProposalCreated: (
     p: ProposalResponse,
@@ -117,7 +117,8 @@ export function TradeProvider({
   const isSeller = role === 'SELLER';
 
   const [trades, setTrades] = useState<TradeResponse[] | null>(null);
-  const [proposal, setProposal] = useState<PendingProposal | null>(
+  const proposalMutation = useRef(0);
+  const [proposal, setProposalState] = useState<PendingProposal | null>(
     initialPendingProposal
       ? {
           id: initialPendingProposal.proposalId,
@@ -131,11 +132,16 @@ export function TradeProvider({
         }
       : null,
   );
+  const setProposal = useCallback<React.Dispatch<React.SetStateAction<PendingProposal | null>>>((update) => {
+    proposalMutation.current++;
+    setProposalState(update);
+  }, []);
   const [startingNew, setStartingNew] = useState(false);
   const [showProposeModal, setShowProposeModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [commissionConfig, setCommissionConfig] = useState<TradeCommissionConfig | null>(null);
 
   useEffect(() => {
@@ -145,78 +151,80 @@ export function TradeProvider({
   }, []);
 
   const reloadInFlight = useRef(false);
-  const proposalPollInFlight = useRef(false);
-
+  const reloadQueued = useRef(false);
+  const automaticPollingStopped = useRef(false);
   const { active: activeTrade, lastFinished } = splitTrades(trades);
+  const hasActiveTrade = activeTrade !== null;
+  const hasProposal = proposal !== null;
 
-  const reload = useCallback(async () => {
-    if (reloadInFlight.current) return;
+  const refresh = useCallback(async (): Promise<void> => {
+    if (reloadInFlight.current || document.visibilityState === 'hidden' || !navigator.onLine) return;
     reloadInFlight.current = true;
+    const mutationAtStart = proposalMutation.current;
     setRefreshing(true);
     try {
-      const [list, request] = await Promise.all([
-        fetchTradesByChat(chat.id),
-        fetchAccountRequest(chat.id),
+      const [list, request, pending] = await Promise.allSettled([
+        readTradeData<TradeResponse[]>(`/api/trade/v1/trades?chatId=${encodeURIComponent(chat.id)}`),
+        readTradeData<AccountRequest | null>(buildMarketplaceApiPath(['v1', 'chats', chat.id, 'account-request'])),
+        readTradeData<PendingProposalResponse | null>(`/api/trade/v1/trades/proposals?chatId=${encodeURIComponent(chat.id)}`, true),
       ]);
-      setTrades(list);
-      setAccountRequest(request);
+      // A lookup that started before a create/accept/reject mutation cannot
+      // replace the result the user has just confirmed.
+      if (mutationAtStart !== proposalMutation.current) return;
+      // Successful resources may advance independently; failed requests must
+      // never erase the last known trade, account request, or proposal.
+      if (list.status === 'fulfilled') setTrades(list.value);
+      if (request.status === 'fulfilled') setAccountRequest(request.value);
+      if (pending.status === 'fulfilled') {
+        const p = pending.value;
+        setProposalState(p ? {
+          id: p.proposalId, listingId: p.listingId, priceUzs: p.amountUzs,
+          expiresAt: p.expiresAt, mode: p.mode ?? undefined,
+          adminId: p.adminId ?? undefined, adminFeeUzs: p.adminFeeUzs ?? undefined,
+          kind: p.kind ?? undefined,
+        } : null);
+      }
+      const failures = [list, request, pending].filter(result => result.status === 'rejected');
+      automaticPollingStopped.current = failures.some(result =>
+        result.reason instanceof TradeReadError && result.reason.permanent);
+      setLoadError(failures.length ? 'Savdo ma’lumotlarini yangilab bo‘lmadi. Qayta urinib ko‘ring.' : null);
     } finally {
       setRefreshing(false);
       reloadInFlight.current = false;
+      if (reloadQueued.current) {
+        reloadQueued.current = false;
+        void refresh();
+      }
     }
   }, [chat.id]);
 
-  useEffect(() => {
-    void reload();
-  }, [reload]);
+  const reload = useCallback(async () => {
+    automaticPollingStopped.current = false;
+    if (reloadInFlight.current) {
+      reloadQueued.current = true;
+      return;
+    }
+    await refresh();
+  }, [refresh]);
 
-  // Polling for active trade state while non-terminal
-  const activeTradeId = activeTrade?.id ?? null;
-  const activeTradeState = activeTrade?.state ?? null;
-  useEffect(() => {
-    if (!activeTradeId || !activeTradeState) return;
-    if (isTerminalState(activeTradeState)) return;
-    const id = window.setInterval(() => {
-      void reload();
-    }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [activeTradeId, activeTradeState, reload]);
+  useEffect(() => { void refresh(); }, [refresh]);
 
-  // Polling while no trade exists or proposal pending
-  const hasProposal = proposal !== null;
-  const hasActiveTrade = activeTrade !== null;
   useEffect(() => {
-    if (planPollTick({ hasActiveTrade, hasProposal }) === 'stop') return;
-    const tick = async () => {
-      if (proposalPollInFlight.current) return;
-      proposalPollInFlight.current = true;
-      try {
-        if (planPollTick({ hasActiveTrade, hasProposal }) === 'find-proposal') {
-          const p = await fetchPendingProposal(chat.id);
-          if (p) {
-            setProposal({
-              id: p.proposalId,
-              listingId: p.listingId,
-              priceUzs: p.amountUzs,
-              expiresAt: p.expiresAt,
-              mode: p.mode ?? undefined,
-              adminId: p.adminId ?? undefined,
-              adminFeeUzs: p.adminFeeUzs ?? undefined,
-              kind: p.kind ?? undefined,
-            });
-            return;
-          }
-        }
-        await reload();
-      } finally {
-        proposalPollInFlight.current = false;
-      }
+    const tick = () => {
+      if (!automaticPollingStopped.current) void refresh();
     };
-    const id = window.setInterval(() => {
-      void tick();
-    }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [hasActiveTrade, hasProposal, chat.id, reload]);
+    // Empty conversations and transient outages do not need a request every
+    // four seconds. An active negotiation retains the faster cadence.
+    const delay = loadError || (!hasActiveTrade && !hasProposal) ? IDLE_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
+    const id = window.setInterval(tick, delay);
+    document.addEventListener('visibilitychange', tick);
+    window.addEventListener('online', tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', tick);
+      window.removeEventListener('online', tick);
+    };
+  }, [hasActiveTrade, hasProposal, loadError, refresh]);
 
   const handleProposalCreated = useCallback(
     (
@@ -237,7 +245,7 @@ export function TradeProvider({
       });
       setShowProposeModal(false);
     },
-    [accountRequest?.listingId, listing?.id],
+    [accountRequest?.listingId, listing?.id, setProposal],
   );
 
   const handleProposalAccepted = useCallback(async () => {
@@ -245,7 +253,7 @@ export function TradeProvider({
     setShowAcceptModal(false);
     await reload();
     router.refresh();
-  }, [reload, router]);
+  }, [reload, router, setProposal]);
 
   const selectedListing = resolveTradeListing(accountRequest, listing);
   const tradeListing = proposal
@@ -270,6 +278,7 @@ export function TradeProvider({
     startingNew,
     setStartingNew,
     refreshing,
+    loadError,
     reload,
     handleProposalCreated,
     handleProposalAccepted,
@@ -288,31 +297,19 @@ export function TradeProvider({
   return <TradeContext.Provider value={value}>{children}</TradeContext.Provider>;
 }
 
-async function fetchTradesByChat(chatId: string): Promise<TradeResponse[]> {
-  try {
-    const response = await fetch(
-      `/api/trade/v1/trades?chatId=${encodeURIComponent(chatId)}`,
-      { credentials: 'include', headers: { Accept: 'application/json' } },
-    );
-    if (!response.ok) return [];
-    return (await response.json()) as TradeResponse[];
-  } catch {
-    return [];
+class TradeReadError extends Error {
+  permanent: boolean;
+  constructor(status: number) {
+    super(`Trade request failed (${status})`);
+    this.permanent = status >= 400 && status < 500 && status !== 408 && status !== 429;
   }
 }
 
-async function fetchPendingProposal(
-  chatId: string,
-): Promise<PendingProposalResponse | null> {
-  try {
-    const response = await fetch(
-      `/api/trade/v1/trades/proposals?chatId=${encodeURIComponent(chatId)}`,
-      { credentials: 'include', headers: { Accept: 'application/json' } },
-    );
-    if (response.status === 204 || response.status === 404) return null;
-    if (!response.ok) return null;
-    return (await response.json()) as PendingProposalResponse;
-  } catch {
-    return null;
-  }
+async function readTradeData<T>(path: string, proposalLookup = false): Promise<T> {
+  const response = await fetch(path, { credentials: 'include', headers: { Accept: 'application/json' } });
+  // TradeProposalController explicitly uses 404 for no accessible proposal.
+  // Other endpoints' 404s and all other non-success responses are failures.
+  if ((proposalLookup && response.status === 404) || response.status === 204) return null as T;
+  if (!response.ok) throw new TradeReadError(response.status);
+  return await response.json() as T;
 }

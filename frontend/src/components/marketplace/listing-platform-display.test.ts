@@ -92,6 +92,13 @@ describe('listing platform displays', () => {
     expect(buildListingCardModel(value, []).safety?.label).toBe('3 ta transfer xavfi');
   });
 
+  it('shows unanswered store-link information as unknown, not unlinked', () => {
+    const value = listing('MOBILE', { has_google_play_link: undefined, has_game_center_link: null });
+    const html = detail(value);
+    expect(html).toContain('Noma’lum');
+    expect(html).toContain('Sotuvchi taqdim etgan');
+  });
+
   it.each(['MOBILE', 'STEAM', 'PLAYSTATION'])('retains global facts on %s', (platform) => {
     const value = listing(platform);
     const page = detail(value);

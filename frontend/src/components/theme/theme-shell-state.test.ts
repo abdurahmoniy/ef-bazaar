@@ -32,7 +32,7 @@ describe('responsive marketplace footer clearance', () => {
   it('uses the rendered measured bar for exact mobile footer clearance', () => {
     expect(marketplaceShell).toContain('<MeasuredBottomBar');
     expect(marketplaceShell).toContain('key="marketplace-action-bar"');
-    expect(marketplaceShell).toContain('<MobileBottomNav user={user} activeTab={activeTab} />');
+    expect(marketplaceShell).toContain('<MobileBottomNav user={user} sessionPending={sessionPending} activeTab={activeTab} />');
     expect(mobileBottomNav).toContain('<MeasuredBottomBar');
     expect(mobileBottomNav).toContain('as="nav"');
     expect(mobileBottomNav).toContain('pb-[var(--app-content-safe-bottom)]');

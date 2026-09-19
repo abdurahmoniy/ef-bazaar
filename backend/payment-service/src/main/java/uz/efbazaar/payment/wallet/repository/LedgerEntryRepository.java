@@ -16,7 +16,7 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, Long> 
 
     @Query("""
            SELECT new uz.efbazaar.payment.wallet.dto.WalletEntryResponse(
-                    t.id, t.kind, e.account, e.amountTiyin, t.createdAt)
+                    t.id, t.kind, e.account, e.amountTiyin, t.createdAt, t.idempotencyKey)
            FROM LedgerEntry e
            JOIN WalletTransaction t ON t.id = e.transactionId
            WHERE e.userId = :userId

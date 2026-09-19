@@ -22,13 +22,14 @@ import {
 import { ChatComposerInput } from '@/components/chat/chat-composer-input';
 import { ChatOptions } from '@/components/chat/chat-options';
 import { MessageActionSheet } from '@/components/chat/message-action-sheet';
-import { TradeProvider } from '@/components/chat/trade-context';
+import { TradeProvider, useTradeContext } from '@/components/chat/trade-context';
 import { TradePinnedBar } from '@/components/chat/trade-pinned-bar';
 import { TradePanel } from '@/components/chat/trade-panel';
 import { TradeProposalMessageCard } from '@/components/chat/trade-proposal-message-card';
 import { MessageAttachment, formatBytes } from '@/components/chat/message-attachment';
 import { VoiceRecorder } from '@/components/chat/voice-recorder';
 import { Button } from '@/components/ui/button';
+import { useChatDraft } from '@/hooks/use-chat-draft';
 import { useChatScroll } from '@/hooks/use-chat-scroll';
 import { useVirtualKeyboard } from '@/hooks/use-virtual-keyboard';
 import {
@@ -41,7 +42,7 @@ import {
 } from '@/lib/chat-format';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { canGroupMessages } from '@/lib/chat-message-grouping';
-import { chatKeys, chatMessagesOptions, commitChatMessages, invalidateChatInbox, markCachedChatRead, mergeMessages } from '@/lib/chat-cache';
+import { ChatRequestError, chatKeys, chatMessagesOptions, commitChatMessages, invalidateChatInbox, markCachedChatRead, mergeMessages } from '@/lib/chat-cache';
 import type {
   ChatResponse,
   ListingResponse,
@@ -85,7 +86,14 @@ export function ChatView({
     ...chatMessagesOptions(queryClient, viewerId, initialChat.id),
     initialData: initialMessages,
     initialDataUpdatedAt: initialMessagesComplete ? initialFetchedAt : 0,
-    refetchInterval: POLL_INTERVAL_MS,
+    refetchInterval: query => {
+      const error = query.state.error;
+      if (error instanceof ChatRequestError && error.permanent) return false;
+      return error ? 30_000 : POLL_INTERVAL_MS;
+    },
+    retry: false,
+    refetchOnWindowFocus: query => !(query.state.error instanceof ChatRequestError && query.state.error.permanent),
+    refetchOnReconnect: query => !(query.state.error instanceof ChatRequestError && query.state.error.permanent),
     refetchIntervalInBackground: false,
   });
   const messages = messagesQuery.data;
@@ -108,12 +116,15 @@ export function ChatView({
 
   const setMessages = (update: (previous: MessageResponse[]) => MessageResponse[]) =>
     commitChatMessages(queryClient, viewerId, initialChat.id, update);
-  const [draft, setDraft] = useState('');
+  const [savedDraft, setSavedDraft, clearSubmittedDraft] = useChatDraft(viewerId, initialChat.id);
+  const [editDraft, setEditDraft] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [actionTarget, setActionTarget] = useState<MessageResponse | null>(null);
   const [replyTo, setReplyTo] = useState<MessageResponse | null>(null);
   const [editing, setEditing] = useState<MessageResponse | null>(null);
+  const draft = editing ? editDraft : savedDraft;
+  const setDraft = editing ? setEditDraft : setSavedDraft;
   const [error, setError] = useState<string | null>(null);
   const [isSending, startSend] = useTransition();
   const [isUpdating, startUpdate] = useTransition();
@@ -165,7 +176,7 @@ export function ChatView({
         setError(result.error ?? 'Yuborilmadi');
         return;
       }
-      setDraft('');
+      clearSubmittedDraft(draft);
       setPendingFile(null);
       setReplyTo(null);
       followNextMessage();
@@ -186,11 +197,11 @@ export function ChatView({
     setReplyTo(null);
     setPendingFile(null);
     setEditing(message);
-    setDraft(message.content);
+    setEditDraft(message.content);
   }
 
   function cancelComposerMode() {
-    if (editing) setDraft('');
+    setEditDraft('');
     setEditing(null);
     setReplyTo(null);
   }
@@ -320,7 +331,16 @@ export function ChatView({
         </header>
 
         <TradePinnedBar />
+        <TradeSyncStatus />
         <TradePanel />
+        {messagesQuery.isError && (
+          <div role="status" className="flex shrink-0 items-center gap-2 border-b border-destructive/20 bg-destructive/5 px-3 py-1 text-xs text-destructive">
+            <span className="min-w-0 flex-1">Xabarlarni yangilab bo‘lmadi. Qayta urinib ko‘ring.</span>
+            <Button type="button" variant="ghost" className="min-h-11 shrink-0 px-2 text-xs" disabled={messagesQuery.isFetching} onClick={() => void messagesQuery.refetch()} aria-label="Xabarlarni qayta yuklash">
+              {messagesQuery.isFetching ? 'Yuklanmoqda…' : 'Qayta urinish'}
+            </Button>
+          </div>
+        )}
 
         <div className="relative min-h-0 flex-1">
         <div
@@ -329,7 +349,7 @@ export function ChatView({
           aria-label="Xabarlar"
           className="chat-message-list h-full overflow-y-auto overscroll-contain px-4 py-4 md:px-8 md:py-5"
         >
-        {messages.length === 0 && (
+        {messages.length === 0 && !messagesQuery.isError && (
           <div className="flex h-full min-h-24 items-center justify-center text-center">
             <div className="max-w-xs rounded-3xl bg-card/80 px-6 py-5 shadow-sm backdrop-blur-sm">
               <span className="chat-empty-icon mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full" aria-hidden="true">
@@ -713,4 +733,18 @@ async function readErrorMessage(response: Response) {
   return response.status === 401 || response.status === 403
     ? 'Kirish talab qilinadi'
     : "So'rov bajarilmadi";
+}
+
+
+function TradeSyncStatus() {
+  const { loadError, refreshing, reload } = useTradeContext();
+  if (!loadError) return null;
+  return (
+    <div role="status" className="flex shrink-0 items-center gap-2 border-b border-destructive/20 bg-destructive/5 px-3 py-1 text-xs text-destructive">
+      <span className="min-w-0 flex-1">{loadError}</span>
+      <Button type="button" variant="ghost" className="min-h-11 shrink-0 px-2 text-xs" disabled={refreshing} onClick={() => void reload()} aria-label="Savdoni qayta yuklash">
+        {refreshing ? 'Yuklanmoqda…' : 'Qayta urinish'}
+      </Button>
+    </div>
+  );
 }

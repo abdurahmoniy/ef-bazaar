@@ -39,6 +39,7 @@ export function MarketplaceListingLink({
   return (
     <Link
       href={destination}
+      prefetch={false}
       className={className}
       data-marketplace-listing-link={listingId}
       onNavigate={trackFeedNavigation ? () => {

@@ -92,7 +92,7 @@ export function SortMenu({ options, activeId, className, compact = false }: Sort
           aria-label="Saralash"
           onKeyDown={menuNavigation.onMenuKeyDown}
           className={cn(
-            'absolute left-0 top-12 z-40 w-52 origin-top-right animate-menu-in rounded-xl border border-border bg-card p-1.5 shadow-card-hover min-[360px]:left-auto min-[360px]:right-0',
+            'absolute right-0 top-12 z-40 w-52 origin-top-right animate-menu-in rounded-xl border border-border bg-card p-1.5 shadow-card-hover',
             TOOLBAR_MENU_VIEWPORT_CLASSNAME,
           )}
         >

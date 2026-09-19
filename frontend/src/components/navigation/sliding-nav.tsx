@@ -210,6 +210,7 @@ export function SlidingNav({
             <Link
               key={item.id}
               href={item.href}
+              prefetch={false}
               data-active={isActive}
               aria-current={isActive ? 'page' : undefined}
               // Collapsed items are icon-only, so the accessible name has to

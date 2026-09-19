@@ -119,7 +119,7 @@ export function QuickChips({
             telegramHaptic(webApp, 'selection', reducedMotion);
           }}
           className={cn(
-            'tap-press inline-flex min-h-8 sm:min-h-9 shrink-0 items-center rounded-full border px-3 py-1 text-xs font-semibold transition',
+            'tap-press inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 py-1 text-xs font-semibold transition',
             filter.id === activeFilter
               ? 'border-primary bg-primary text-primary-foreground shadow-sm'
               : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',

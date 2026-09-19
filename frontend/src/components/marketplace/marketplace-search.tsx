@@ -244,16 +244,9 @@ export function MarketplaceSearch({
 						name='q'
 						value={value}
 						onChange={(event) => setValue(event.target.value)}
-						onClick={(event) => {
-							if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-								event.preventDefault()
-								inputRef.current?.blur()
-								window.dispatchEvent(new CustomEvent('open-marketplace-filters'))
-							}
-						}}
 						aria-label='Marketplace qidiruvi'
 						placeholder='Nimani qidiryapsiz?'
-						className={cn('h-11 pl-9', state.sessionOpen ? 'pr-11' : 'pr-9 lg:pr-3')}
+						className={cn('h-11 pl-9', state.sessionOpen ? 'pr-11' : 'pr-12 lg:pr-3')}
 					/>
 					{!state.sessionOpen && (
 						<button
@@ -263,7 +256,7 @@ export function MarketplaceSearch({
 								event.preventDefault()
 								window.dispatchEvent(new CustomEvent('open-marketplace-filters'))
 							}}
-							className='absolute right-2 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground lg:hidden'
+							className='absolute right-0 top-1/2 -translate-y-1/2 inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground lg:hidden'
 						>
 							<SlidersHorizontal className='h-3.5 w-3.5 text-primary' />
 						</button>

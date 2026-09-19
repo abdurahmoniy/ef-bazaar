@@ -113,7 +113,7 @@ export function buildListingCardModel(
   const hasNegativeCoins =
     (androidCoins !== undefined && androidCoins < 0) ||
     (iosCoins !== undefined && iosCoins < 0);
-  const clean = isMobile && !googlePlayLinked && !gameCenterLinked && !hasNegativeCoins;
+  const clean = isMobile && googleLink === false && gameCenterLink === false && !hasNegativeCoins;
 
   return {
     title: listing.description.split('\n')[0]?.trim() || 'eFootball akkount',
