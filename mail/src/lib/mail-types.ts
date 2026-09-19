@@ -6,6 +6,8 @@
 export interface MailboxSummary {
   id: string;
   email: string;
+  /** Optional during rollout; null means the owner has not named this mailbox. */
+  displayName?: string | null;
   /** null when IMAP was transiently unreachable — render "—" not "0". */
   unreadCount: number | null;
   /** ISO-8601 timestamp of the newest message, or null when the inbox is empty. */

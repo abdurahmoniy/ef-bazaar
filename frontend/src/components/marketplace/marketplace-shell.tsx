@@ -152,7 +152,7 @@ export function MarketplaceShell({
             />
           )}
 
-          {user && <NotificationBell className="ml-auto shrink-0 sm:hidden" />}
+          {user && activeTab === 'home' && <NotificationBell className="ml-auto shrink-0 sm:hidden" />}
 
           {/*
             Three zones, one primary. Chats and the bell are borderless icons
@@ -164,6 +164,7 @@ export function MarketplaceShell({
             primary action.
           */}
           <div className={cn("ml-auto flex shrink-0 items-center gap-1.5", activeTab === 'home' && "hidden sm:flex")}>
+            {user && activeTab !== 'home' && <NotificationBell className="shrink-0 sm:hidden" />}
             <GrowthLink href="/invite" event="invite_open" placement="desktop_header"
               className="hidden min-h-11 items-center gap-1.5 rounded-full bg-primary/10 px-3 text-xs font-semibold text-primary dark:text-secondary transition hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:inline-flex">
               <UserPlus aria-hidden className="h-4 w-4" />

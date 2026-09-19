@@ -60,7 +60,6 @@ export default async function MarketplacePage({ searchParams }: MarketplacePageP
       activeTab="home"
       initialQuery={query}
       marketplaceQuery={rawQuery}
-      collapsibleSearch
     >
       <MarketplaceBrowser
         filters={filters}

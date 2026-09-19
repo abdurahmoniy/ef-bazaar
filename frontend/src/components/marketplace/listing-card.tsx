@@ -98,11 +98,6 @@ export function ListingCard({
           {model.title}
         </h2>
 
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          {listing.attributes.platform === 'STEAM' ? 'Steam' : listing.attributes.platform === 'PLAYSTATION' ? 'PlayStation' : 'Mobile'}
-          {model.teamStrength !== undefined && <> · {model.teamStrength.toLocaleString('ru-RU').replace(/\u00a0/g, ' ')} kuch</>}
-          {model.division !== undefined && <> · Division {model.division >= 4 ? '4+' : model.division}</>}
-        </p>
         {model.playerNames.length > 0 && (
           <p className="line-clamp-2 text-xs text-muted-foreground">
             {model.playerNames.join(', ')}{model.playerRemainder > 0 && ` +${model.playerRemainder}`}
@@ -138,7 +133,7 @@ function CleanBadge() {
       className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs"
     >
       <ShieldCheck className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
-      <span className="truncate">Ulanmagan</span>
+      <span className="truncate">Toza</span>
     </div>
   );
 }

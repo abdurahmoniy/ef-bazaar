@@ -77,24 +77,21 @@ class MailboxAdminServiceTest {
     }
 
     @Test
-    void markProvisionedStoresCredentialsAndStampsTime() {
+    void markProvisionedStoresOnlyCredentialsAndStampsTime() {
         UUID id = UUID.randomUUID();
-        Mailbox pending = Mailbox.builder()
-                .id(id)
-                .email("pending@efbazaar.uz")
-                .encryptedPassword(new byte[]{0})
-                .passwordIv(new byte[12])
-                .passwordTag(new byte[16])
-                .build();
-        when(repo.findById(id)).thenReturn(Optional.of(pending));
+        byte[] password = new byte[]{1, 2};
+        byte[] iv = new byte[12];
+        byte[] tag = new byte[16];
+        when(repo.applyAddressAndCredentials(eq(id), eq("azizbek@efbazaar.uz"),
+                eq(password), eq(iv), eq(tag), any())).thenReturn(1);
 
-        svc.markProvisioned(id, "azizbek@efbazaar.uz", new byte[]{1, 2}, new byte[12], new byte[16]);
+        svc.markProvisioned(id, "azizbek@efbazaar.uz", password, iv, tag);
 
-        var saved = forClass(Mailbox.class);
-        verify(repo).save(saved.capture());
-        assertThat(saved.getValue().getEmail()).isEqualTo("azizbek@efbazaar.uz");
-        assertThat(saved.getValue().getEncryptedPassword()).containsExactly(1, 2);
-        assertThat(saved.getValue().getProvisionedAt()).isNotNull();
+        var stampedAt = forClass(java.time.Instant.class);
+        verify(repo).applyAddressAndCredentials(eq(id), eq("azizbek@efbazaar.uz"),
+                eq(password), eq(iv), eq(tag), stampedAt.capture());
+        assertThat(stampedAt.getValue()).isNotNull();
+        org.mockito.Mockito.verifyNoMoreInteractions(repo);
     }
 
     @Test

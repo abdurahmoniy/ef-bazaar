@@ -65,6 +65,15 @@ public class MailboxService {
                         "Mailbox " + mailboxId + " not found for user " + ownerUserId));
     }
 
+    @Transactional
+    public void renameOwnedBy(UUID ownerUserId, UUID mailboxId, String displayName) {
+        String normalized = displayName.strip();
+        if (mailboxes.updateDisplayNameOwnedBy(mailboxId, ownerUserId,
+                normalized.isEmpty() ? null : normalized) == 0) {
+            throw new EntityNotFoundException("Mailbox " + mailboxId);
+        }
+    }
+
     /** Returns the raw entity — needed by TradeStateHandler to read the email address. */
     @Transactional(readOnly = true)
     public Mailbox getRaw(UUID mailboxId) {
@@ -271,14 +280,7 @@ public class MailboxService {
      */
     private void applyCredentials(Mailbox m, String email,
                                   byte[] encPass, byte[] iv, byte[] tag) {
-        m.setEmail(email);
-        m.setEncryptedPassword(encPass);
-        m.setPasswordIv(iv);
-        m.setPasswordTag(tag);
-        if (m.getProvisionedAt() == null) {
-            m.setProvisionedAt(Instant.now());
-        }
-        mailboxes.save(m);
+        overwriteAddressAndPassword(m.getId(), email, encPass, iv, tag);
     }
 
     // ---------- admin panel ----------
@@ -351,26 +353,15 @@ public class MailboxService {
     @Transactional
     public void markProvisioned(UUID mailboxId, String email,
                                 byte[] encPass, byte[] iv, byte[] tag) {
-        Mailbox m = mailboxes.findById(mailboxId)
-                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
-        if (email != null && !email.isBlank()) {
-            m.setEmail(email);
-        }
-        m.setEncryptedPassword(encPass);
-        m.setPasswordIv(iv);
-        m.setPasswordTag(tag);
-        m.setProvisionedAt(Instant.now());
-        mailboxes.save(m);
+        overwriteAddressAndPassword(mailboxId, email != null && !email.isBlank() ? email : null,
+                encPass, iv, tag);
     }
 
     @Transactional
     public void assignOwner(UUID mailboxId, UUID newOwnerId) {
-        Mailbox m = mailboxes.findById(mailboxId)
-                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
-        m.setOwnerUserId(newOwnerId);
-        m.setTradeId(null);
-        m.setHandedOffAt(Instant.now());
-        mailboxes.save(m);
+        if (mailboxes.assignOwner(mailboxId, newOwnerId, Instant.now()) == 0) {
+            throw new EntityNotFoundException("Mailbox " + mailboxId);
+        }
     }
 
     /**

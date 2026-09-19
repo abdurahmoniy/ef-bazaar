@@ -1,15 +1,19 @@
 package uz.efbazaar.trade.mail;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.mail.MessagingException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import uz.efbazaar.trade.mail.service.HtmlSanitizer;
 import uz.efbazaar.trade.mail.service.ImapConnectionPool;
 import uz.efbazaar.trade.mail.service.MailService;
+import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
 
+import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -35,6 +39,19 @@ class MailServiceOwnershipTest {
         pool = mock(ImapConnectionPool.class);
         sanitizer = mock(HtmlSanitizer.class);
         svc = new MailService(mailboxes, pool, sanitizer);
+    }
+
+    @Test
+    void summaryIncludesNameEvenWhenImapIsUnavailable() throws Exception {
+        var box = Mailbox.builder()
+                .id(UUID.randomUUID()).email("box@efbazaar.uz").displayName("Main account").build();
+        when(pool.acquire(box)).thenThrow(new MessagingException("offline"));
+
+        var summary = svc.summarize(List.of(box)).getFirst();
+
+        assertThat(summary.displayName()).isEqualTo("Main account");
+        assertThat(summary.email()).isEqualTo("box@efbazaar.uz");
+        assertThat(summary.unreadCount()).isNull();
     }
 
     @Test

@@ -93,6 +93,36 @@ public interface MailboxRepository
                                    @Param("tag") byte[] tag,
                                    @Param("now") java.time.Instant now);
 
+    /** Check ownership in the write itself, including when a handoff is racing this request. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Mailbox m
+               SET m.displayName = :displayName
+             WHERE m.id = :id
+               AND m.ownerUserId = :ownerUserId
+               AND m.deletedAt IS NULL
+            """)
+    int updateDisplayNameOwnedBy(@Param("id") UUID id,
+                                @Param("ownerUserId") UUID ownerUserId,
+                                @Param("displayName") String displayName);
+
+    /** Preserve the current name on an idempotent assignment, and clear it on a handoff. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Mailbox m
+               SET m.displayName = CASE
+                       WHEN m.ownerUserId = :ownerUserId
+                         OR (m.ownerUserId IS NULL AND :ownerUserId IS NULL)
+                       THEN m.displayName ELSE NULL END,
+                   m.ownerUserId = :ownerUserId,
+                   m.tradeId = NULL,
+                   m.handedOffAt = :now
+             WHERE m.id = :id
+            """)
+    int assignOwner(@Param("id") UUID id,
+                    @Param("ownerUserId") UUID ownerUserId,
+                    @Param("now") java.time.Instant now);
+
     List<Mailbox> findByOwnerUserId(UUID ownerUserId);
 
     Optional<Mailbox> findByIdAndOwnerUserId(UUID id, UUID ownerUserId);

@@ -172,7 +172,7 @@ describe('marketplace route boundaries', () => {
     expect(markup).toContain('role="status"');
     expect(markup).toContain('aria-label="E‘lonlar yuklanmoqda"');
     expect(markup).toContain('data-view="auto"');
-    expect(markup).toContain('aspect-[19.5/9]');
+    expect(markup).toContain('aspect-[4/3]');
   });
 
   it('logs an unexpected error but renders only safe copy and retries with reset', async () => {

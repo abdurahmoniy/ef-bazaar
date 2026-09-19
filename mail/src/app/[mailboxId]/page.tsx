@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 
-import { CopyButton } from '@/components/mail/copy-button';
+import { MailboxTitle } from '@/components/mail/mailbox-title';
 import { InboxView } from '@/components/mail/inbox-view';
 import { RefreshControls } from '@/components/mail/refresh-controls';
 import { mailAvatarColor, mailAvatarInitial } from '@/lib/mail-format';
@@ -53,10 +53,7 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
             {mailAvatarInitial(active.email)}
           </span>
           <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-1">
-              <h1 className="truncate text-base font-black text-foreground">{active.email}</h1>
-              <CopyButton value={active.email} label="Pochta manzilini nusxalash" />
-            </div>
+            <MailboxTitle key={active.id} mailbox={active} />
             <p className="text-xs text-muted-foreground">{summary}</p>
           </div>
         </div>

@@ -197,7 +197,7 @@ describe('marketplace search integration source contract', () => {
     expect(shell).toContain('collapsibleSearch?: boolean');
     expect(shell).toContain('data-marketplace-shell');
     expect(page).toContain('marketplaceQuery={rawQuery}');
-    expect(page).toContain('collapsibleSearch');
+    expect(page).not.toContain('collapsibleSearch');
   });
 
   it('keeps verification outside sticky chrome and defines the two-phase animation', () => {

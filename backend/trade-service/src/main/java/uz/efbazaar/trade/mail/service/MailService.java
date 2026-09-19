@@ -99,6 +99,7 @@ public class MailService {
             out.add(new MailboxSummary(
                     mb.getId(),
                     mb.getEmail(),
+                    mb.getDisplayName(),
                     unread,
                     lastActivity,
                     mb.getHandedOffAt() != null ? mb.getHandedOffAt() : mb.getCreatedAt()));

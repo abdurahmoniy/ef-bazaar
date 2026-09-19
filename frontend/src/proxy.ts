@@ -169,6 +169,16 @@ export async function proxy(request: NextRequest) {
     return finalize(NextResponse.redirect(target));
   }
 
+  // Keep / public and indexable for anonymous visitors, including crawlers.
+  // This is a session-specific navigation choice, never a permanent site move.
+  if (pathname === '/' && hasSession && (request.method === 'GET' || request.method === 'HEAD')) {
+    const marketplace = request.nextUrl.clone();
+    marketplace.pathname = '/marketplace';
+    const response = NextResponse.redirect(marketplace, 307);
+    response.headers.set('Cache-Control', 'private, no-store');
+    return finalize(response);
+  }
+
   if (isProtectedPath(pathname) && !hasSession) {
     const login = request.nextUrl.clone();
     login.pathname = '/auth/login';
