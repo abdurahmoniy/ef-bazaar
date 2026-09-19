@@ -32,7 +32,7 @@ import {
   type ChatListingOption,
 } from '@/lib/account-request';
 import { CountdownText } from '@/components/trade-admin/countdown-text';
-import { isConfirmLocked, loginCodeOf } from '@/lib/trade-login-code';
+import { isConfirmLocked, loginCodeOf, receivingMailboxEmail } from '@/lib/trade-login-code';
 import { HumanPartyTradePanel } from '@/components/trade-admin/human-party-trade-panel';
 import { TradeAdminPicker } from '@/components/trade-admin/trade-admin-picker';
 import { SellerRatingForm } from '@/components/chat/seller-rating-form';
@@ -982,7 +982,8 @@ function WaitingBuyerVerifyBuyerPanel({
   const [emailCopied, setEmailCopied] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [requestingCode, startCodeRequest] = useTransition();
-  const mailboxEmail = trade.mailboxEmail ?? '';
+  // Obmenda qutilar teskari: kirib tekshiriladigani qarshi tomonniki.
+  const mailboxEmail = receivingMailboxEmail(trade);
 
   // Konami kirish kodi: akkountga kirayotganda pochtaga keladi, pochta esa
   // hali platformada. Kod kelmaguncha tasdiqlash yopiq — lekin 2FA
