@@ -1,10 +1,12 @@
 package uz.efbazaar.trade.mailbox.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uz.efbazaar.trade.mailbox.dto.MailboxResponse;
+import uz.efbazaar.trade.mailbox.dto.RenameMailboxRequest;
 import uz.efbazaar.trade.mailbox.mapper.MailboxMapper;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.plan.service.MailboxSlotService;
@@ -46,6 +48,13 @@ public class MailboxController {
             @AuthenticationPrincipal AuthenticatedUser me,
             @PathVariable UUID id) {
         return mapper.toResponse(service.getOwned(me.userId(), id));
+    }
+
+    @PatchMapping("/{id}/name")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void rename(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable UUID id,
+                       @Valid @RequestBody RenameMailboxRequest request) {
+        service.renameOwnedBy(me.userId(), id, request.displayName());
     }
 
     /**

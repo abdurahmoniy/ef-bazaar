@@ -84,8 +84,13 @@ function MailboxRow({ mailbox, active }: { mailbox: MailboxSummary; active: bool
             active || hasUnread ? 'font-bold' : 'font-medium',
           )}
         >
-          {mailbox.email}
+          {mailbox.displayName || mailbox.email}
         </span>
+        {mailbox.displayName && (
+          <span className="block truncate text-[11px] text-muted-foreground" title={mailbox.email}>
+            {mailbox.email}
+          </span>
+        )}
         <span
           className={cn(
             'block truncate text-[11px]',

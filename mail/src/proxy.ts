@@ -77,6 +77,11 @@ export async function proxy(request: NextRequest) {
   // Har bir sahifa himoyalangan — bu app'da public surface yo'q. Login UI ham
   // yo'q: main sayt login qiladi va `/mail/...` redirect orqali qaytaradi.
   if (!hasSession) {
+    // API callers need a status they can handle, not a redirect carrying a
+    // mutation's method/body to the main site's login page.
+    if (pathname.startsWith('/api/')) {
+      return finalize(NextResponse.json({ error: 'unauthorized' }, { status: 401 }));
+    }
     return finalize(
       NextResponse.redirect(mainSiteLoginUrl(`${pathname}${search}`)),
     );

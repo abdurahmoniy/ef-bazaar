@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -27,6 +28,17 @@ public class Mailbox {
 
     @Column(name = "owner_user_id")
     private UUID ownerUserId;
+
+    @Column(name = "display_name", length = 60)
+    private String displayName;
+
+    /** A mailbox name belongs to its current owner and must not follow a handoff. */
+    public void setOwnerUserId(UUID ownerUserId) {
+        if (!Objects.equals(this.ownerUserId, ownerUserId)) {
+            this.displayName = null;
+        }
+        this.ownerUserId = ownerUserId;
+    }
 
     @Column(name = "trade_id")
     private UUID tradeId;

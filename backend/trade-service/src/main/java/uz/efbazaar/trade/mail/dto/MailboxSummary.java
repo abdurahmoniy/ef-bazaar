@@ -16,6 +16,7 @@ import java.util.UUID;
 public record MailboxSummary(
         UUID id,
         String email,
+        String displayName,
         Integer unreadCount,
         Instant lastActivityAt,
         Instant ownedSince
