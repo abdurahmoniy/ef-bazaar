@@ -44,6 +44,7 @@ If the enable button is missing, open `/api/push/config` while signed in. A popu
 ## Delivery and account behavior
 
 - Browser permission is requested only after a tap on **Bildirishnomalarni yoqish**.
+- Signed-in users see an app-wide invitation to enable notifications on supported browsers. iPhone/iPad users outside an installed web app see Home Screen instructions; unsupported browsers receive browser guidance. Dismissing the invitation is remembered per account and browser, and users can still enable push from `/notifications`. Enabled, blocked, signed-out, and unconfigured sessions are not prompted. Disabling push also dismisses the invitation.
 - Device tokens belong to authenticated users. A browser can have one current account association, while each user can register multiple browsers/devices.
 - The server removes the current device association during logout, before clearing authentication cookies. Client reconciliation invalidates a previous account's Firebase token on account changes. Background messages additionally validate the current session before displaying content.
 - Explicit disable records an opt-out before attempting server and Firebase cleanup; failures remain retryable without silently opting the browser back in.

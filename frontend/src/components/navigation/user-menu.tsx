@@ -9,7 +9,8 @@ import { FEATURES } from '@/lib/feature-flags';
 import { logoutAction } from '@/app/auth/actions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTheme } from '@/components/theme/use-theme';
-import { isAdmin, isPartner } from '@/lib/admin';
+import { isAdmin } from '@/lib/admin';
+import { usePartnerStatus } from '@/hooks/use-partner-status';
 import { isTradeAdmin } from '@/lib/trade-human';
 import { cn } from '@/lib/utils';
 import type { User } from '@/lib/types';
@@ -61,7 +62,7 @@ export function UserMenu({ user, className }: UserMenuProps) {
   }, [open]);
 
   const admin = isAdmin(user);
-  const partner = isPartner(user);
+  const partner = usePartnerStatus(user, open);
   const tradeAdmin = isTradeAdmin(user);
 
   return (

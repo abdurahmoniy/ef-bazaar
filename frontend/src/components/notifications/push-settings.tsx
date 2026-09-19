@@ -16,11 +16,11 @@ export function PushSettings() {
   const { state, busy, enable, disable, retry } = usePushNotifications();
   const Icon = state === 'enabled' ? BellRing : Bell;
   return (
-    <section aria-label="Telefon bildirishnomalari" className="rounded-2xl border border-border bg-card p-4">
+    <section aria-label="Qurilma bildirishnomalari" className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Icon aria-hidden className="h-5 w-5" /></span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-bold">Telefon bildirishnomalari</h2>
+          <h2 className="text-sm font-bold">Qurilma bildirishnomalari</h2>
           <p role="status" className="mt-1 text-xs leading-relaxed text-muted-foreground">{busy ? 'Sozlamalar saqlanmoqda…' : descriptions[state]}</p>
         </div>
       </div>
