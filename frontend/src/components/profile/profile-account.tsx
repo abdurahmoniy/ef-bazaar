@@ -37,7 +37,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useTheme } from '@/components/theme/use-theme';
 import { fetchUnreadCount } from '@/lib/notifications-client';
 import { FEATURES } from '@/lib/feature-flags';
-import { isAdmin, isPartner } from '@/lib/admin';
+import { isAdmin } from '@/lib/admin';
+import { usePartnerStatus } from '@/hooks/use-partner-status';
 import { siteConfig } from '@/lib/site';
 import { InstagramIcon, TelegramIcon } from '@/components/brand/social-icons';
 import { InvitationCard } from '@/components/growth/invitation-card';
@@ -102,6 +103,7 @@ export function ProfileAccount({
   };
 
   const admin = isAdmin(user);
+  const partner = usePartnerStatus(user);
   const tradeAdmin = isTradeAdmin(user);
 
   const navMenuItems = [
@@ -169,6 +171,16 @@ export function ProfileAccount({
       icon: <CreditCard className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
       bg: 'bg-amber-500/10 dark:bg-amber-400/10',
     },
+    ...(partner
+      ? [{
+          id: 'partner',
+          label: 'Hamkor paneli',
+          description: 'Kanalingiz, e’lonlar va daromad',
+          href: '/partner',
+          icon: <Handshake className="h-5 w-5 text-primary" />,
+          bg: 'bg-primary/10',
+        }]
+      : []),
     ...(admin
       ? [
           {
@@ -266,7 +278,7 @@ export function ProfileAccount({
 
       {/* 2. Grouped Navigation Menu (List Hub) */}
       <InvitationCard placement="profile" compact />
-      <ChannelOwnerCard placement="profile" partner={isPartner(user)} />
+      {!partner && <ChannelOwnerCard placement="profile" />}
       <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm divide-y divide-border/60">
         {navMenuItems.map((item) => (
           <Link

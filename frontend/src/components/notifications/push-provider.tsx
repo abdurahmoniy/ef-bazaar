@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { dismissPushInvitation, PushPermissionPrompt } from './push-permission-prompt';
 import {
   disablePush, enablePush, listenForPush, NOTIFICATIONS_CHANGED, syncPushSubscription,
   type PushContext, type PushState,
@@ -21,6 +22,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [state, setState] = useState<PushState>('loading');
   const [busy, setBusy] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const context = useRef<PushContext | null>(null);
   const pending = useRef(false);
   const unsubscribe = useRef<(() => void) | null>(null);
@@ -37,13 +39,13 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
       unsubscribe.current?.();
       unsubscribe.current = null;
       const status = await syncPushSubscription(next);
-      if (mounted.current) setState(status);
+      if (mounted.current) { setState(status); setUserId(next.userId); }
       if (status === 'enabled' && mounted.current) {
         const cleanup = await listenForPush(next, () => window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED)));
         if (mounted.current) unsubscribe.current = cleanup;
         else cleanup();
       }
-    } catch { if (mounted.current) setState('error'); }
+    } catch { if (mounted.current) { setState('error'); setUserId(null); } }
     finally { pending.current = false; }
   }, []);
 
@@ -83,11 +85,15 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
   }
   function disable() {
     if (!context.current || pending.current) return;
+    if (context.current.userId) dismissPushInvitation(context.current.userId);
     pending.current = true;
     setBusy(true);
     void disablePush(context.current).then(() => {
       unsubscribe.current?.(); unsubscribe.current = null; setState('available');
     }).catch(() => setState('error')).finally(() => { pending.current = false; setBusy(false); });
   }
-  return <PushControlsContext.Provider value={{ state, busy, enable, disable, retry: () => { void refresh(); } }}>{children}</PushControlsContext.Provider>;
+  return <PushControlsContext.Provider value={{ state, busy, enable, disable, retry: () => { void refresh(); } }}>
+    {children}
+    <PushPermissionPrompt userId={userId} state={state} busy={busy} enable={enable} />
+  </PushControlsContext.Provider>;
 }
