@@ -32,6 +32,7 @@ import {
   type ChatListingOption,
 } from '@/lib/account-request';
 import { CountdownText } from '@/components/trade-admin/countdown-text';
+import { isConfirmLocked, loginCodeOf } from '@/lib/trade-login-code';
 import { HumanPartyTradePanel } from '@/components/trade-admin/human-party-trade-panel';
 import { TradeAdminPicker } from '@/components/trade-admin/trade-admin-picker';
 import { SellerRatingForm } from '@/components/chat/seller-rating-form';
@@ -979,7 +980,40 @@ function WaitingBuyerVerifyBuyerPanel({
   const [rejecting, startReject] = useTransition();
   const [copied, setCopied] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [requestingCode, startCodeRequest] = useTransition();
   const mailboxEmail = trade.mailboxEmail ?? '';
+
+  // Konami kirish kodi: akkountga kirayotganda pochtaga keladi, pochta esa
+  // hali platformada. Kod kelmaguncha tasdiqlash yopiq — lekin 2FA
+  // so'ramaydigan akkountlar ham bor, shuning uchun backend bir muddatdan
+  // keyin tugmani baribir ochadi va shu vaqt confirmUnlocksAt da keladi.
+  const loginCode = loginCodeOf(trade);
+  const confirmUnlocksAt = trade.confirmUnlocksAt ?? null;
+  const confirmLocked = isConfirmLocked(trade);
+
+  function requestLoginCode() {
+    onActionError(null);
+    startCodeRequest(async () => {
+      const r = await postTradeAction(trade.id, 'login-code');
+      if (!r.ok) {
+        onActionError(r.error);
+        return;
+      }
+      await onRefresh();
+    });
+  }
+
+  async function copyLoginCode() {
+    if (!loginCode) return;
+    try {
+      await navigator.clipboard.writeText(loginCode);
+      setCodeCopied(true);
+      window.setTimeout(() => setCodeCopied(false), 1500);
+    } catch {
+      // silent
+    }
+  }
 
   function reveal() {
     if (!trade.passwordMessageId) {
@@ -1100,13 +1134,52 @@ function WaitingBuyerVerifyBuyerPanel({
               Yuqoridagi email + parol bilan Konami akkauntga kira olganingizni
               tekshiring. Parol qayta ochilmaydi.
             </p>
+
+            <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-3">
+              <p className="text-sm font-semibold text-foreground">Kirish kodi</p>
+              {loginCode ? (
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-background py-1 pl-3 pr-1">
+                  <code className="min-w-0 flex-1 break-all py-2 font-mono text-lg tracking-widest text-foreground select-all">
+                    {loginCode}
+                  </code>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-11 w-11 shrink-0 px-0"
+                    onClick={copyLoginCode}
+                    aria-label="Kodni nusxa olish"
+                  >
+                    {codeCopied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    <span className="sr-only" role="status">{codeCopied ? 'Nusxalandi' : ''}</span>
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Kirishda Konami pochtaga tasdiqlash kodi yuboradi. Pochta hali
+                    platformada, shuning uchun kodni shu yerda ko&apos;rsatamiz —
+                    odatda bir necha soniyada chiqadi.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={requestLoginCode}
+                    disabled={requestingCode}
+                  >
+                    {requestingCode ? 'So‘ralmoqda…' : 'Kodni qayta so‘rash'}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button
               type="button"
               className="flex-1"
               onClick={() => setShowConfirmModal(true)}
-              disabled={confirming || rejecting}
+              disabled={confirming || rejecting || confirmLocked}
             >
               Tasdiqlash
             </Button>
@@ -1120,6 +1193,14 @@ function WaitingBuyerVerifyBuyerPanel({
               Rad etish
             </Button>
           </div>
+          {confirmLocked && (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Avval akkountga kiring: kirish kodi kelgach tasdiqlash ochiladi.
+              Konami kod so&apos;ramagan bo&apos;lsa, tugma{' '}
+              <CountdownText until={confirmUnlocksAt} /> dan keyin baribir ochiladi.
+              Kira olmayotgan bo&apos;lsangiz — rad etish har doim ochiq.
+            </p>
+          )}
         </>
       ) : (
         <Button
@@ -2279,7 +2360,7 @@ async function postProposalAccept(
 
 async function postTradeAction(
   tradeId: string,
-  path: 'payment-confirmed' | 'email-changed' | 'recheck' | 'confirm' | 'reject',
+  path: 'payment-confirmed' | 'email-changed' | 'recheck' | 'confirm' | 'reject' | 'login-code',
 ): Promise<MutationResult<TradeResponse>> {
   const response = await fetch(
     `/api/trade/v1/trades/${encodeURIComponent(tradeId)}/actions/${path}`,

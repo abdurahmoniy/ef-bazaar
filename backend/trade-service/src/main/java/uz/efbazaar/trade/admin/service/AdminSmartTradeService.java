@@ -233,7 +233,9 @@ public class AdminSmartTradeService {
                 side.map(TradeSide::getEmailChangeCode).orElse(null),
                 side.map(TradeSide::getEmailChangeCodeAt).orElse(null),
                 side.map(TradeSide::getEmailChangedAt).orElse(null),
-                side.map(TradeSide::getKonamiVerifiedAt).orElse(null));
+                side.map(TradeSide::getKonamiVerifiedAt).orElse(null),
+                side.map(TradeSide::getLoginCode).orElse(null),
+                side.map(TradeSide::getLoginCodeAt).orElse(null));
     }
 
     private static AdminSmartTradeRow row(Trade t, Map<UUID, AuthSummaryClient.UserSummary> names) {
