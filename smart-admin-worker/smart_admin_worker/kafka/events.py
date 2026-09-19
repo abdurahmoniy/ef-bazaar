@@ -117,6 +117,10 @@ class KonamiEmailReceived:
 class Imap2faCode:
     trade_id: UUID
     code: str
+    # Qaysi qutidan. Obmenda ikkita quti bor va kod qutining egasiga emas,
+    # uni qabul qilayotgan tarafga kerak — trade-service shu maydon bo'yicha
+    # kimga yuborishni hal qiladi.
+    mailbox_email: str
     received_at: datetime
 
 

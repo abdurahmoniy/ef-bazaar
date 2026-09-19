@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import uz.efbazaar.trade.kafka.TradeEventPublisher;
+import uz.efbazaar.trade.kafka.TradeEvents;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.domain.ActorType;
@@ -305,7 +306,68 @@ public class TradeService {
                 emailChangeCodeFor(t, role),
                 t.getKind(),
                 sideService.of(t.getId()).stream().map(TradeSideResponse::of).toList(),
-                counterpartMailboxEmail);
+                counterpartMailboxEmail,
+                loginCodeFor(t, role),
+                confirmUnlocksAt(t, role));
+    }
+
+    /** Kirish kodi faqat o'z tarafiniki: boshqasining kodi bu akkountga yaramaydi. */
+    private String loginCodeFor(Trade t, ParticipantRole role) {
+        if (role == null) return null;
+        return sideService.of(t.getId(), role).map(TradeSide::getLoginCode).orElse(null);
+    }
+
+    /**
+     * Kirish kodisiz tasdiqlash qachondan ochiladi.
+     *
+     * <p>null — cheklov yo'q: kod kelgan, holat boshqa, yoki savdo inson
+     * admin rejimida (u yerda Konami avtomatikasi umuman ishlamaydi).
+     */
+    private Instant confirmUnlocksAt(Trade t, ParticipantRole role) {
+        if (role == null || t.getState() != TradeState.WAITING_BUYER_VERIFY) return null;
+        if (t.getMode() != TradeMode.SMART) return null;
+        boolean codeSeen = sideService.of(t.getId(), role)
+                .map(side -> side.getLoginCodeAt() != null)
+                .orElse(false);
+        if (codeSeen) return null;
+        return handler.loginCodeGraceEndsAt(t);
+    }
+
+    /**
+     * Kirish kodi kuzatuvini qayta ishga tushiradi.
+     *
+     * <p>Kuzatiladigan quti — shu taraf QABUL QILAYOTGAN akkountniki, ya'ni
+     * qarshi tarafniki. O'z qutisini kuzatish hech narsa bermasdi: kod
+     * boshqa akkountga kirishda keladi.
+     */
+    public void requestLoginCode(Trade t, ParticipantRole role) {
+        if (t.getMode() != TradeMode.SMART || t.getState() != TradeState.WAITING_BUYER_VERIFY) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Kirish kodi faqat akkountni tekshirish bosqichida so'raladi");
+        }
+        UUID box = mailboxFor(t, role == null ? null : other(role));
+        String email = resolveMailboxEmail(t, box);
+        if (email == null || email.startsWith("pending-")) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Pochta hali tayyor emas — birozdan keyin urinib ko'ring");
+        }
+        events.imapPollRequest(t.getId(), email, TradeEvents.ImapPurpose.WAIT_2FA_CODE);
+        log.info("Login code polling re-requested: trade={} role={}", t.getId(), role);
+    }
+
+    /**
+     * Tasdiqlashdan oldin oluvchi akkountga kirib ko'rgan bo'lishi kerak.
+     *
+     * <p>Kirish kodi kelgani shuning belgisi. Kod kelmasa ham imtiyoz
+     * muddatidan keyin tugma ochiladi — 2FA so'ramaydigan akkountlar bor va
+     * ular odamni savdo ichida qamab qo'ymasligi kerak.
+     */
+    public void assertLoginCodeSeen(Trade t, ParticipantRole role) {
+        if (t.getMode() != TradeMode.SMART || t.getState() != TradeState.WAITING_BUYER_VERIFY) return;
+        Instant unlocksAt = confirmUnlocksAt(t, role);
+        if (unlocksAt == null || Instant.now().isAfter(unlocksAt)) return;
+        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Avval akkountga kiring: Konami yuborgan kirish kodi panelingizda chiqadi");
     }
 
     /**

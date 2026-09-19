@@ -123,6 +123,36 @@ public class AdminSmartTradeService {
     }
 
     /**
+     * Admin pochtadan o'qigan KIRISH kodini yozadi — favqulodda yo'l.
+     *
+     * <p>Worker IMAP'ni kuzatadi va odatda kodni o'zi yetkazadi. U yiqilsa
+     * yoki xat uning filtriga tushmasa, savdo shu yerda qotib qolardi:
+     * oluvchi akkountga kira olmaydi, kira olmagani uchun tasdiqlay olmaydi.
+     *
+     * <p>{@code role} — kod KIMGA kerak, ya'ni akkountni qabul qilayotgan
+     * taraf. Uning qutisi emas, qarshi tarafning qutisi tekshiriladi:
+     * kod aynan o'sha akkountga kirishda keladi.
+     */
+    @Transactional
+    public void submitLoginCode(UUID adminId, UUID tradeId, ParticipantRole role, String code) {
+        Trade t = requireSmart(tradeId);
+        requireState(t, TradeState.WAITING_BUYER_VERIFY);
+        requireMailbox(t, other(role));
+
+        sideRepo.recordLoginCode(tradeId, role, code, Instant.now());
+
+        audit.record(tradeId, ActorType.ADMIN, adminId, "ADMIN_LOGIN_CODE",
+                Map.of("role", role.name(), "code", code));
+        // Kodning o'zi chatga tushmaydi: u faqat o'sha tarafning panelida.
+        chat.postStatusToBoth(tradeId, STATUS_ADMIN_ASSISTED,
+                Map.of("step", "LOGIN_CODE", "side", role.name()));
+    }
+
+    private static ParticipantRole other(ParticipantRole role) {
+        return role == ParticipantRole.SELLER ? ParticipantRole.BUYER : ParticipantRole.SELLER;
+    }
+
+    /**
      * Confirms Konami's verification mail reached this party's mailbox.
      *
      * <p>The same {@code KONAMI_EMAIL_RECEIVED} transition the worker's event

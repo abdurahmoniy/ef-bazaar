@@ -49,6 +49,14 @@ public class AdminSmartTradeController {
         service.submitEmailChangeCode(me.userId(), id, req.role(), req.code());
     }
 
+    /** Favqulodda: worker kodni yetkaza olmaganda admin o'zi o'qib yuboradi. */
+    @PostMapping("/{id}/login-code")
+    public void loginCode(@AuthenticationPrincipal AuthenticatedUser me,
+                          @PathVariable UUID id,
+                          @Valid @RequestBody uz.efbazaar.trade.admin.dto.AdminLoginCodeRequest req) {
+        service.submitLoginCode(me.userId(), id, req.role(), req.code());
+    }
+
     @PostMapping("/{id}/konami-email-confirm")
     public void konamiEmailConfirm(@AuthenticationPrincipal AuthenticatedUser me,
                                    @PathVariable UUID id,

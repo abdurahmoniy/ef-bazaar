@@ -17,8 +17,15 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 2FA code arrives during state 6 while B is trying to log in. We surface it
- * as a smart-admin STATUS message in the BUYER chat — no state change.
+ * Konami kirish kodi keldi — oluvchi akkountga kirmoqchi bo'lganda.
+ *
+ * <p>Kod qutining EGASIGA emas, uni QABUL QILAYOTGAN tarafga kerak: sotuvda
+ * bu xaridor, obmenda esa har biri boshqasining qutisidan kod oladi.
+ * Shuning uchun qabul qiluvchi quti manzili bo'yicha aniqlanadi.
+ *
+ * <p>Holat o'zgarmaydi: kod shunchaki chatga STATUS xabar bo'lib tushadi va
+ * tarafning qatoriga yoziladi — tasdiqlash tugmasi aynan shu belgiga qarab
+ * ochiladi.
  */
 @Slf4j
 @Component
@@ -28,6 +35,8 @@ public class Imap2faCodeConsumer {
     private final TradeChatRepository chats;
     private final TradeMessageRepository messages;
     private final TradeBroadcaster broadcaster;
+    private final uz.efbazaar.trade.trade.repository.TradeSideRepository sides;
+    private final uz.efbazaar.trade.mailbox.repository.MailboxRepository mailboxes;
 
     @KafkaListener(
             topics = TradeEvents.TOPIC_IMAP_2FA,
@@ -35,14 +44,18 @@ public class Imap2faCodeConsumer {
             properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$Imap2faCode"}
     )
     public void onCode(TradeEvents.Imap2faCode e) {
-        var buyer = chats.findByTradeIdAndParticipant(e.tradeId(), ParticipantRole.BUYER);
-        if (buyer.isEmpty()) {
-            log.warn("imap-2fa for trade {} with no buyer chat", e.tradeId());
+        ParticipantRole recipient = recipientOf(e);
+        var chat = chats.findByTradeIdAndParticipant(e.tradeId(), recipient);
+        if (chat.isEmpty()) {
+            log.warn("imap-2fa for trade {} with no {} chat", e.tradeId(), recipient);
             return;
         }
+        sides.recordLoginCode(e.tradeId(), recipient, e.code(),
+                e.receivedAt() != null ? e.receivedAt() : java.time.Instant.now());
+
         TradeMessage msg = TradeMessage.builder()
                 .id(UUID.randomUUID())
-                .tradeChatId(buyer.get().getId())
+                .tradeChatId(chat.get().getId())
                 .senderType(TradeSenderType.SMART_ADMIN)
                 .messageType(TradeMessageType.STATUS)
                 .metadata(Map.of("code", "IMAP_2FA_CODE", "value", e.code()))
@@ -51,6 +64,26 @@ public class Imap2faCodeConsumer {
 
         TradeMessageResponse resp = new TradeMessageResponse(msg.getId(), msg.getSenderType(),
                 msg.getMessageType(), null, msg.getMetadata(), msg.getCreatedAt());
-        broadcaster.publishMessage(e.tradeId(), ParticipantRole.BUYER, resp);
+        broadcaster.publishMessage(e.tradeId(), recipient, resp);
+    }
+
+    /**
+     * Kod qaysi tarafga tegishli.
+     *
+     * <p>Qutining egasi o'z akkountini o'sha quti orqali o'tkazgan; kirish
+     * kodi esa akkountni OLAYOTGAN tarafga kerak. Manzil noma'lum bo'lsa
+     * (eski hodisa) xaridor deb olinadi — sotuvda shunday.
+     */
+    private ParticipantRole recipientOf(TradeEvents.Imap2faCode e) {
+        if (e.mailboxEmail() == null || e.mailboxEmail().isBlank()) {
+            return ParticipantRole.BUYER;
+        }
+        return mailboxes.findByEmail(e.mailboxEmail())
+                .flatMap(mb -> sides.findByIdTradeId(e.tradeId()).stream()
+                        .filter(side -> mb.getId().equals(side.getMailboxId()))
+                        .findFirst())
+                .map(side -> side.role() == ParticipantRole.SELLER
+                        ? ParticipantRole.BUYER : ParticipantRole.SELLER)
+                .orElse(ParticipantRole.BUYER);
     }
 }
