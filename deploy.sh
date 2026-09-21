@@ -126,6 +126,9 @@ write_env() {
   # qiymat esa e'lonlarni begona kanalga tushirardi va uni orqaga
   # qaytarib bo'lmasdi.
   upsert_env .env OFFICIAL_CHANNEL            "${OFFICIAL_CHANNEL:-}"
+  # Kanal postidagi tugma Mini App'ni Telegram ichida ochadi. Bo'sh bo'lsa
+  # tugma brauzerga chiqadi — post baribir ishlaydi.
+  upsert_env .env TELEGRAM_MINI_APP_URL       "${TELEGRAM_MINI_APP_URL:-}"
   upsert_env .env TELEGRAM_TOPIC_LOGS         "${TELEGRAM_TOPIC_LOGS:-6}"
   upsert_env .env TELEGRAM_TOPIC_REGISTRATION "${TELEGRAM_TOPIC_REGISTRATION:-4}"
   upsert_env .env TELEGRAM_TOPIC_MEDIA        "${TELEGRAM_TOPIC_MEDIA:-2}"

@@ -137,6 +137,14 @@ app:
     # ATAYLAB env'dan: staging post chiqarsa, undagi havola production
     # e'loniga olib borardi va buni hech kim sezmasdi.
     base-url: ${APP_BASE_URL:https://efbazaar.uz}
+  telegram:
+    # Kanal postidagi tugma shu manzilga boradi va Mini App'ni Telegram
+    # ichida ochadi: t.me/<bot>/<app>?startapp=<e'lon id>[_<hamkor kodi>].
+    # Qisqa nom BotFather'da /newapp bilan ochiladi.
+    #
+    # BO'SH QOLDIRILSA tugma eski sayt havolasiga tushadi va brauzerda
+    # ochiladi — sozlanmagan muhitda tugma o'lik bo'lib qolmasin.
+    mini-app-url: ${TELEGRAM_MINI_APP_URL:}
   channels:
     # efBazaar rasmiy kanali — har bir e'lon shu yerga ham tushadi.
     # @username yoki raqamli id.
