@@ -48,7 +48,8 @@ public class MediaUploadController {
     @ResponseStatus(HttpStatus.OK)
     public UploadResponse upload(@RequestParam("files") List<MultipartFile> files,
                                  @RequestParam(value = "caption", required = false) String caption,
-                                 @RequestParam(value = "listingId", required = false) UUID listingId) {
+                                 @RequestParam(value = "listingId", required = false) UUID listingId,
+                                 @RequestParam(value = "accountId", required = false) UUID accountId) {
         if (files == null || files.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "files majburiy");
         }
@@ -82,20 +83,23 @@ public class MediaUploadController {
         }
         log.info("Uploaded {} photos to media topic (listingId={})", uploaded.size(), listingId);
 
-        publishUploadedEvents(listingId, uploaded);
+        publishUploadedEvents(listingId, accountId, uploaded);
 
         return new UploadResponse(
                 uploaded.stream().map(UploadedPhoto::fileId).toList(),
                 uploaded.stream().map(UploadedPhoto::messageId).toList());
     }
 
-    private void publishUploadedEvents(UUID listingId, List<UploadedPhoto> uploaded) {
+    private void publishUploadedEvents(UUID listingId, UUID accountId, List<UploadedPhoto> uploaded) {
         Instant now = Instant.now();
-        String key = listingId != null ? listingId.toString() : null;
+        // Kalit uchun avval akkount: u doimiy, ya'ni bitta akkountning barcha
+        // rasm hodisalari bitta partitsiyada tartib bilan yotadi.
+        UUID keySource = accountId != null ? accountId : listingId;
+        String key = keySource != null ? keySource.toString() : null;
         for (UploadedPhoto photo : uploaded) {
             try {
                 kafka.send(TOPIC_MEDIA_UPLOADED, key,
-                        new MediaUploadedEvent(listingId, photo.messageId(), DEFAULT_MEDIA_TYPE, now));
+                        new MediaUploadedEvent(listingId, accountId, photo.messageId(), DEFAULT_MEDIA_TYPE, now));
             } catch (Exception ex) {
                 // Kafka availability is not on the critical path here — the upload
                 // itself already succeeded. Warn and move on.

@@ -80,8 +80,29 @@ public class TradeActionController {
     public TradeResponse buyerConfirm(@AuthenticationPrincipal AuthenticatedUser me,
                                       @PathVariable UUID id) {
         Trade t = trades.get(id, me.userId());
-        actingRole(t, me.userId(), ParticipantRole.BUYER);
+        ParticipantRole role = actingRole(t, me.userId(), ParticipantRole.BUYER);
+        // Akkountni ko'rmasdan tasdiqlash — savdoning butun ma'nosini
+        // yo'qotadi. Kirish kodi kelgani "kirib ko'rdim" degan belgi.
+        trades.assertLoginCodeSeen(t, role);
         trades.transition(id, TradeEvent.BUYER_CONFIRM, ActorType.USER, me.userId());
+        return trades.toResponseFor(id, me.userId());
+    }
+
+    /**
+     * Kirish kodini qayta so'rash.
+     *
+     * <p>Kod Konami tomonidan har login urinishida qaytadan yuboriladi, va
+     * worker qayta ishga tushgan bo'lsa kuzatuv ham to'xtagan bo'lishi
+     * mumkin — shuning uchun so'rovni takrorlash yo'li kerak. Worker uchun
+     * takroriy so'rov zararsiz: allaqachon kuzatayotgan bo'lsa e'tiborsiz
+     * qoldiradi.
+     */
+    @PostMapping("/login-code")
+    public TradeResponse requestLoginCode(@AuthenticationPrincipal AuthenticatedUser me,
+                                          @PathVariable UUID id) {
+        Trade t = trades.get(id, me.userId());
+        ParticipantRole role = actingRole(t, me.userId(), ParticipantRole.BUYER);
+        trades.requestLoginCode(t, role);
         return trades.toResponseFor(id, me.userId());
     }
 

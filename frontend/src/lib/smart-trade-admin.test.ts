@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   isValidCode,
+  isValidLoginCode,
   pickMailboxSide,
   sideDone,
   sidesWithMailbox,
@@ -20,6 +21,8 @@ function side(overrides: Partial<SmartTradeSide>): SmartTradeSide {
     emailChangeCodeAt: null,
     emailChangedAt: null,
     konamiVerifiedAt: null,
+    loginCode: null,
+    loginCodeAt: null,
     ...overrides,
   };
 }
@@ -120,5 +123,21 @@ describe('isValidCode', () => {
     expect(isValidCode(' 563280 ')).toBe(true);
     expect(isValidCode('56328')).toBe(false);
     expect(isValidCode('56328a')).toBe(false);
+  });
+});
+
+describe('login code', () => {
+  it('counts the step done once a code reached this side', () => {
+    expect(sideDone(side({ loginCode: '447711' }), 'LOGIN_CODE')).toBe(true);
+    expect(sideDone(side({}), 'LOGIN_CODE')).toBe(false);
+  });
+
+  it('accepts the lengths Konami actually sends', () => {
+    // Kirish kodi har doim ham 6 xonali emas — email almashtirish kodidan farqi shu.
+    expect(isValidLoginCode('4477')).toBe(true);
+    expect(isValidLoginCode('44771122')).toBe(true);
+    expect(isValidLoginCode('447')).toBe(false);
+    expect(isValidLoginCode('447711a')).toBe(false);
+    expect(isValidCode('4477')).toBe(false);
   });
 });

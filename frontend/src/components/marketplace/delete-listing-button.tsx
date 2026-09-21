@@ -25,8 +25,8 @@ export function DeleteListingButton({ listingId }: { listingId: string }) {
         setError(result.message);
         return;
       }
-      // Land the seller on their listings tab so they see the row is gone.
-      router.push('/profile?tab=listings');
+      // Land the seller on their accounts tab so they see the row is gone.
+      router.push('/profile?tab=accounts');
       router.refresh();
     });
   }

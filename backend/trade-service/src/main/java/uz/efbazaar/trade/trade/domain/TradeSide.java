@@ -50,6 +50,18 @@ public class TradeSide {
     @Column(name = "email_change_code_at")
     private Instant emailChangeCodeAt;
 
+    /**
+     * Konami kirish kodi — bu taraf QABUL QILAYOTGAN akkountga kirish uchun.
+     *
+     * <p>Pochta hali platformada va uni oluvchi o'qiy olmaydi; kodni
+     * smart-admin IMAP orqali o'qib beradi.
+     */
+    @Column(name = "login_code", length = 16)
+    private String loginCode;
+
+    @Column(name = "login_code_at")
+    private Instant loginCodeAt;
+
     @Column(name = "confirmed_at")
     private Instant confirmedAt;
 

@@ -119,6 +119,38 @@ class AdminSmartTradeControllerIT extends AbstractIntegrationIT {
                 .isEqualTo(TradeState.WAITING_EMAIL_CHANGE);
     }
 
+    /**
+     * Favqulodda yo'l: worker kirish kodini yetkaza olmadi va uni admin
+     * o'zi o'qib yubordi. Kod akkountni QABUL QILAYOTGAN tarafga yoziladi.
+     */
+    @Test
+    void anAdminEnteredLoginCodeReachesTheReceivingSide() throws Exception {
+        Trade t = smartTrade(TradeState.WAITING_BUYER_VERIFY);
+
+        mvc.perform(post("/api/v1/admin/smart-trades/{id}/login-code", t.getId())
+                        .with(asAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json("{\"role\":\"BUYER\",\"code\":\"447711\"}")))
+                .andExpect(status().isOk());
+
+        assertThat(sides.of(t.getId(), ParticipantRole.BUYER).orElseThrow().getLoginCode())
+                .isEqualTo("447711");
+        assertThat(trades.findById(t.getId()).orElseThrow().getState())
+                .as("kod ko'rsatiladi, savdoni o'zi siljitmaydi")
+                .isEqualTo(TradeState.WAITING_BUYER_VERIFY);
+    }
+
+    @Test
+    void aLoginCodeForATradeInAnotherStateIsRefused() throws Exception {
+        Trade t = smartTrade(TradeState.WAITING_PASSWORD);
+
+        mvc.perform(post("/api/v1/admin/smart-trades/{id}/login-code", t.getId())
+                        .with(asAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json("{\"role\":\"BUYER\",\"code\":\"447711\"}")))
+                .andExpect(status().isConflict());
+    }
+
     /** The page was stale: the trade moved on. The admin must see that, not push it anywhere. */
     @Test
     void aCodeForATradeInAnotherStateIsRefused() throws Exception {

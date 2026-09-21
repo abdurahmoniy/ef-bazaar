@@ -1,22 +1,22 @@
 {
   "vectors" : [ {
-    "ivBase64" : "P/mL41wW0GFLGuHu",
-    "ciphertextBase64" : "Ri901KsK8FPLIs0=",
-    "tagBase64" : "L16st483CM4qcyddymfGeQ==",
+    "ciphertextBase64" : "HnXr6bW1q1jpddo=",
+    "tagBase64" : "v7eBt+T1K08mfcH+/d3ENA==",
     "plaintextBase64" : "aGVsbG8gd29ybGQ=",
-    "context" : "mbox-abc"
+    "context" : "mbox-abc",
+    "ivBase64" : "y5+gDXB6pqbn56Gi"
   }, {
-    "ivBase64" : "LgOCQyIc4suvELaM",
-    "ciphertextBase64" : "E2ZSVKe2pJKYcMMbz9KVXGfRSHlr28c=",
-    "tagBase64" : "tVkqYgoZ+G0X8pSoywDQzw==",
+    "ciphertextBase64" : "NOlIXeiRyAu47rSYrUcQklZTfuG2s8g=",
+    "tagBase64" : "2ejOZe/VfjSHwzB/KpST0g==",
     "plaintextBase64" : "U3VwZXJTZWNyZXQtUGFzc3dvcmRfNDI=",
-    "context" : "mbox-xyz"
+    "context" : "mbox-xyz",
+    "ivBase64" : "ydKnK7DN5LdV74l8"
   }, {
-    "ivBase64" : "ObgQMKBPgRzmbd7G",
-    "ciphertextBase64" : "oznVnG75dcv9prCDE6MyJwvlgb2OEej/Eq/hoaDfO9xMHO1zs2UupbL2HQ==",
-    "tagBase64" : "//HRKYhyNdVfmX26but6OA==",
+    "ciphertextBase64" : "3ieqJPCYofqISHQ1H+CvRG0vcGkUEPdwWW8Uje4EeH2GNbvqC1JSSPac0g==",
+    "tagBase64" : "+6u2E4Vru1QrhIoHwVBNww==",
     "plaintextBase64" : "QmlyIG1hcm90YWJhIG9jaGlsYWRpZ2FuIEtvbmFtaSBwYXJvbGkg8J+kkA==",
-    "context" : "msg-11111111-1111-1111-1111-111111111111-22222222-2222-2222-2222-222222222222"
+    "context" : "msg-11111111-1111-1111-1111-111111111111-22222222-2222-2222-2222-222222222222",
+    "ivBase64" : "6fB2z6rM/Fkl9gUE"
   } ],
   "masterKeyBase64" : "CwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCws="
 }

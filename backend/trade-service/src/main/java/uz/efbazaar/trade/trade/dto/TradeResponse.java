@@ -40,6 +40,18 @@ public record TradeResponse(
          * {@code mailboxEmail} on a sale, where one box changes hands; on a
          * swap it is the other party's, because the boxes cross over.
          */
-        String counterpartMailboxEmail
+        String counterpartMailboxEmail,
+        /**
+         * Konami kirish kodi — FAQAT shu ko'ruvchi uchun. Akkountga kirishda
+         * Konami uni pochtaga yuboradi, pochta esa hali platformada.
+         */
+        String loginVerificationCode,
+        /**
+         * Kirish kodisiz "Tasdiqlash" qachondan ochiladi.
+         *
+         * <p>Kod kelgan bo'lsa null — tugma allaqachon ochiq. 2FA so'ralmagan
+         * akkountlarda odam qamalib qolmasligi uchun shu muddat bor.
+         */
+        Instant confirmUnlocksAt
 ) {}
 

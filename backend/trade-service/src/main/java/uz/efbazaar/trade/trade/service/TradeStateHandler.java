@@ -49,6 +49,13 @@ public class TradeStateHandler {
 
     @Value("${trade.timeouts.human-waiting-admin-seconds}")     private long thwaS;
     @Value("${trade.timeouts.human-close-confirm-seconds}")     private long thccS;
+    /**
+     * Kirish kodisiz tasdiqlash necha soniyadan keyin ochiladi.
+     *
+     * <p>Ba'zi akkountlarda Konami 2FA umuman so'ramaydi. Tugmani abadiy
+     * yopiq qoldirsak, o'sha odam savdoni yakunlay olmay qamalib qolardi.
+     */
+    @Value("${trade.timeouts.login-code-grace-seconds:300}")     private long lcgS;
     @Value("${trade.timeouts.human-admin-idle-seconds}")        private long thaiS;
 
     /**
@@ -206,6 +213,17 @@ public class TradeStateHandler {
         return false;
     }
 
+    /**
+     * Kirish kodisiz tasdiqlash qachondan ochiladi.
+     *
+     * <p>Holatga kirilgan payt alohida saqlanmaydi — u deadline'dan
+     * hisoblanadi, chunki deadline aynan o'sha paytda qo'yilgan.
+     */
+    public Instant loginCodeGraceEndsAt(Trade trade) {
+        if (trade.getStateDeadline() == null) return null;
+        return trade.getStateDeadline().minusSeconds(twbvS).plusSeconds(lcgS);
+    }
+
     public void onEnter(Trade trade, TradeState newState, ActorType actor, UUID actorId, TradeEvent event) {
         switch (newState) {
             case INITIATED -> {
@@ -245,7 +263,21 @@ public class TradeStateHandler {
                 }
             }
             case WAITING_PASSWORD     -> trade.setStateDeadline(now(twpwS));
-            case WAITING_BUYER_VERIFY -> trade.setStateDeadline(now(twbvS));
+            case WAITING_BUYER_VERIFY -> {
+                trade.setStateDeadline(now(twbvS));
+                if (trade.getMode() == TradeMode.SMART) {
+                    // Oluvchi akkountga kirmoqchi bo'lganda Konami tasdiqlash
+                    // kodini pochtaga yuboradi. Pochta hali platformada —
+                    // u o'qiy olmaydi, shuning uchun kuzatuvni shu yerda
+                    // boshlaymiz va kod kelishi bilan paneliga tushadi.
+                    for (UUID box : mailboxesOf(trade)) {
+                        var mb = mailboxes.getRaw(box);
+                        if (!askWorkerFor(trade, mb.getEmail(), "imap-poll")) continue;
+                        events.imapPollRequest(trade.getId(), mb.getEmail(),
+                                TradeEvents.ImapPurpose.WAIT_2FA_CODE);
+                    }
+                }
+            }
 
             // ----- human path -----
 

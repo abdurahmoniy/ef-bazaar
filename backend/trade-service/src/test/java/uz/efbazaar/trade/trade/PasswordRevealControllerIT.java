@@ -123,7 +123,7 @@ class PasswordRevealControllerIT extends AbstractIntegrationIT {
 
         var trade = trades.openTrade(seller, buyer, 500_000L,
                 UUID.randomUUID(), UUID.randomUUID(), null);
-        trades.transition(trade.id(), TradeEvent.MAILBOX_PROVISIONED, ActorType.WORKER, null);
+        leaveInitiated(trades, trade.id());
         trades.transition(trade.id(), TradeEvent.PAYMENT_CONFIRMED, ActorType.USER, buyer);
         trades.transition(trade.id(), TradeEvent.EMAIL_CHANGED, ActorType.USER, seller);
         trades.transition(trade.id(), TradeEvent.KONAMI_EMAIL_RECEIVED, ActorType.WORKER, null);

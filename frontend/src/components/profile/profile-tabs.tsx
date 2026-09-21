@@ -2,7 +2,7 @@ import { User, CreditCard, Handshake, Heart, Package } from 'lucide-react';
 
 import { SlidingNav, type SlidingNavItem } from '@/components/navigation/sliding-nav';
 
-export type ProfileTabId = 'listings' | 'trades' | 'favorites' | 'kartalar' | 'account';
+export type ProfileTabId = 'accounts' | 'trades' | 'favorites' | 'kartalar' | 'account';
 
 interface ProfileTabsProps {
   active: ProfileTabId;
@@ -15,7 +15,7 @@ interface ProfileTabsProps {
 // stats strip both link to /chats.
 const TABS: Array<Omit<SlidingNavItem, 'href'> & { id: ProfileTabId }> = [
   { id: 'account', label: 'Akkount', icon: <User className="h-4 w-4 shrink-0" /> },
-  { id: 'listings', label: "E'lonlarim", icon: <Package className="h-4 w-4 shrink-0" /> },
+  { id: 'accounts', label: 'Akkountlarim', icon: <Package className="h-4 w-4 shrink-0" /> },
   { id: 'trades', label: 'Savdolarim', icon: <Handshake className="h-4 w-4 shrink-0" /> },
   { id: 'favorites', label: 'Sevimli', icon: <Heart className="h-4 w-4 shrink-0" /> },
   { id: 'kartalar', label: 'Kartalar', icon: <CreditCard className="h-4 w-4 shrink-0" /> },

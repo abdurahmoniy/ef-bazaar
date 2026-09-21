@@ -66,6 +66,7 @@ class ImapPollHandler:
                 e.Imap2faCode(
                     trade_id=event.trade_id,
                     code=hit.code,
+                    mailbox_email=event.mailbox_email,
                     received_at=hit.received_at,
                 ),
             )

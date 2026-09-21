@@ -53,6 +53,7 @@ class TradeE2EIT extends AbstractIntegrationIT {
     @Autowired TradeRepository tradeRepo;
     @Autowired CardRepository cardRepo;
     @Autowired MailboxRepository mailboxRepo;
+    @Autowired uz.efbazaar.trade.trade.service.TradeSideService sideService;
 
     @Test
     void fullHappyPathTerminatesInSuccess() throws Exception {
@@ -148,6 +149,15 @@ class TradeE2EIT extends AbstractIntegrationIT {
                 .andReturn();
         var reveal = json.readValue(revealResult.getResponse().getContentAsString(), PasswordRevealResponse.class);
         assertThat(reveal.password()).isEqualTo("KonamiPassW0rd!");
+
+        // Step 9b: Konami kirish kodi. WAITING_BUYER_VERIFY ga kirilganda
+        // IMAP kuzatuvi so'raladi, MockWorker kodni qaytaradi va u
+        // xaridorning qatoriga yoziladi. Tasdiqlash aynan shu belgigacha
+        // yopiq — ko'rmasdan tasdiqlash savdoning ma'nosini yo'qotardi.
+        await().atMost(10, TimeUnit.SECONDS).until(() ->
+                sideService.of(trade.id(), uz.efbazaar.trade.trade.domain.ParticipantRole.BUYER)
+                        .map(side -> side.getLoginCode() != null)
+                        .orElse(false));
 
         // Step 10: Buyer confirms; escrow mailbox is handed to buyer.
         mvc.perform(post("/api/v1/trades/" + trade.id() + "/actions/confirm").with(asUser(buyer)))

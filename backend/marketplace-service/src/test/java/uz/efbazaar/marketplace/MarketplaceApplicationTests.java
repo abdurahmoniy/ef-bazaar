@@ -73,6 +73,9 @@ class MarketplaceApplicationTests {
     @MockBean ListingReportRepository listingReportRepository;
     @MockBean NotificationRepository notificationRepository;
     @MockBean DreamTeamRepository dreamTeamRepository;
+    // akkount inventari ("Akkountlarim")
+    @MockBean uz.efbazaar.marketplace.account.UserAccountRepository userAccountRepository;
+    @MockBean uz.efbazaar.marketplace.account.PendingAccountEmailRepository pendingAccountEmailRepository;
     @MockBean KafkaTemplate<String, Object> kafkaTemplate;
     @MockBean StringRedisTemplate stringRedisTemplate;
     // gamer paketi (Gamer Card projection)

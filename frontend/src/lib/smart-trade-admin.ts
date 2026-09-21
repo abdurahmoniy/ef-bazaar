@@ -9,6 +9,7 @@ export const ROLE_LABEL_UZ: Record<ParticipantRole, string> = {
 export const ACTION_LABEL_UZ: Record<SmartTradeAction, string> = {
   EMAIL_CHANGE_CODE: 'Email almashtirish kodi kutilmoqda',
   KONAMI_EMAIL_CONFIRM: 'Konami tasdiqlash xati kutilmoqda',
+  LOGIN_CODE: 'Akkountga kirish kodi kutilmoqda',
   NONE: '',
 };
 
@@ -55,7 +56,17 @@ export function pickMailboxSide(
 export function sideDone(side: SmartTradeSide, action: SmartTradeAction): boolean {
   if (action === 'EMAIL_CHANGE_CODE') return side.emailChangeCode !== null;
   if (action === 'KONAMI_EMAIL_CONFIRM') return side.konamiVerifiedAt !== null;
+  if (action === 'LOGIN_CODE') return side.loginCode !== null;
   return false;
+}
+
+/**
+ * Kirish kodi 6 xonali bo'lmasligi mumkin: Konami turli oqimlarda turli
+ * uzunlikdagi kod yuboradi, shuning uchun bu yerda faqat oraliq tekshiriladi
+ * (backend ham 4-8 raqamni qabul qiladi).
+ */
+export function isValidLoginCode(value: string): boolean {
+  return /^\d{4,8}$/.test(value.trim());
 }
 
 /** A human duration for "how long has it been stuck": `12 daq`, `3 soat`, `2 kun`. */

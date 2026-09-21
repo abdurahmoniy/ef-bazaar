@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
-import { ListingForm } from '@/components/marketplace/listing-form';
+import { NewListingEntry } from '@/components/marketplace/new-listing-entry';
 import { TelegramRequiredPrompt } from '@/components/auth/telegram-required-prompt';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { getMe } from '@/lib/auth';
 import { SEEDED_LISTING_ATTRIBUTE_DEFINITIONS } from '@/lib/listing-form-data';
+import { getMyAccountsServer } from '@/lib/accounts-server';
 import { getAttributeDefinitions } from '@/lib/marketplace-server';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 
@@ -21,7 +22,10 @@ export default async function NewListingPage() {
   if (!user) redirect('/auth/login?from=/marketplace/new');
   const botUsername = (process.env.NEXT_PUBLIC_TELEGRAM_BOT ?? process.env.TELEGRAM_BOT_USERNAME ?? '').replace('@', '');
 
-  const remoteDefinitions = await getAttributeDefinitions();
+  const [remoteDefinitions, accounts] = await Promise.all([
+    getAttributeDefinitions(),
+    getMyAccountsServer(),
+  ]);
   const definitions =
     remoteDefinitions.length > 0 ? remoteDefinitions : SEEDED_LISTING_ATTRIBUTE_DEFINITIONS;
 
@@ -35,7 +39,13 @@ export default async function NewListingPage() {
             Bir necha daqiqada e&apos;loningizni yarating — rasm, tavsif, narx.
           </p>
         </header>
-        {user.telegramLinked ? <ListingForm attributeDefinitions={definitions} botUsername={botUsername} /> : (
+        {user.telegramLinked ? (
+          <NewListingEntry
+            accounts={accounts}
+            attributeDefinitions={definitions}
+            botUsername={botUsername}
+          />
+        ) : (
           <TelegramRequiredPrompt purpose="listing" botUsername={botUsername} />
         )}
       </section>

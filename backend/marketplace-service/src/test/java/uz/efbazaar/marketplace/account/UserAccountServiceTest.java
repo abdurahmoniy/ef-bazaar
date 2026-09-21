@@ -1,0 +1,143 @@
+package uz.efbazaar.marketplace.account;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import uz.efbazaar.marketplace.account.dto.UserAccountCreateRequest;
+import uz.efbazaar.marketplace.account.dto.UserAccountUpdateRequest;
+import uz.efbazaar.marketplace.exception.MarketplaceException;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class UserAccountServiceTest {
+
+    @Mock UserAccountRepository accounts;
+    @Mock UserAccountCardInventory inventory;
+    @Mock UserAccountPublisher publisher;
+    @Mock uz.efbazaar.marketplace.service.MediaService media;
+    @InjectMocks UserAccountService service;
+
+    private final UUID ownerId = UUID.randomUUID();
+    private final UUID accountId = UUID.randomUUID();
+
+    private UserAccount account() {
+        return UserAccount.builder().id(accountId).ownerId(ownerId)
+                .status(UserAccountStatus.ACTIVE).attributes(new HashMap<>()).build();
+    }
+
+    @Test
+    void get_refusesSomeoneElsesAccount() {
+        UUID stranger = UUID.randomUUID();
+        when(accounts.findByIdAndOwnerId(accountId, stranger)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.get(accountId, stranger))
+                .isInstanceOf(MarketplaceException.class)
+                .extracting("status").isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void update_writesSquadInventory_andPropagatesToTheListing() {
+        UserAccount existing = account();
+        when(accounts.findByIdAndOwnerId(accountId, ownerId)).thenReturn(Optional.of(existing));
+        when(accounts.saveAndFlush(existing)).thenReturn(existing);
+        Map<String, Object> attributes = Map.of("valuable_players",
+                List.of(Map.of("efhub_id", 1, "player_id", UUID.randomUUID().toString())));
+
+        service.update(accountId, ownerId, new UserAccountUpdateRequest(
+                "Asosiy", "tavsif", attributes, List.of("msg-1")));
+
+        assertThat(existing.getTitle()).isEqualTo("Asosiy");
+        assertThat(existing.getDescription()).isEqualTo("tavsif");
+        assertThat(existing.getMediaMessageIds()).containsExactly("msg-1");
+        verify(inventory).replace(accountId, attributes.get("valuable_players"));
+        verify(publisher).propagate(existing);
+    }
+
+    @Test
+    void create_storesTheOwnerAndSquad() {
+        when(accounts.saveAndFlush(any(UserAccount.class))).thenAnswer(i -> i.getArgument(0));
+
+        UserAccount created = service.create(ownerId, new UserAccountCreateRequest(
+                "Ikkinchi", "tavsif", Map.of("platform", "MOBILE"), List.of("msg-9")));
+
+        assertThat(created.getOwnerId()).isEqualTo(ownerId);
+        assertThat(created.getStatus()).isEqualTo(UserAccountStatus.ACTIVE);
+        assertThat(created.getEmail()).isNull();
+        verify(inventory).replace(created.getId(), null);
+    }
+
+    @Test
+    void replaceMedia_uploadsThenStoresTheMessageIds() {
+        UserAccount existing = account();
+        existing.setTitle("Asosiy");
+        when(accounts.findByIdAndOwnerId(accountId, ownerId)).thenReturn(Optional.of(existing));
+        when(accounts.saveAndFlush(existing)).thenReturn(existing);
+        when(media.uploadToBotForAccount(any(), any(), eq(accountId)))
+                .thenReturn(List.of("msg-1", "msg-2"));
+
+        service.replaceMedia(accountId, ownerId, List.of());
+
+        verify(media).validate(any());
+        // Bog'lanish akkountga: e'lon id si bu yerda umuman ishlatilmaydi.
+        verify(media, never()).uploadToBot(any(), any(), any());
+        assertThat(existing.getMediaMessageIds()).containsExactly("msg-1", "msg-2");
+        verify(publisher).propagate(existing);
+    }
+
+    @Test
+    void delete_refusesWhileOnMarket() {
+        UserAccount published = account();
+        published.setCurrentListingId(UUID.randomUUID());
+        when(accounts.findByIdAndOwnerId(accountId, ownerId)).thenReturn(Optional.of(published));
+
+        assertThatThrownBy(() -> service.delete(accountId, ownerId))
+                .isInstanceOf(MarketplaceException.class)
+                .extracting("status").isEqualTo(HttpStatus.CONFLICT);
+        verify(accounts, never()).delete(any());
+    }
+
+    @Test
+    void setEmail_marksItManual_andClearsTheMailboxLink() {
+        UserAccount existing = account();
+        existing.setMailboxId(UUID.randomUUID());
+        existing.setEmailSource(EmailSource.PLATFORM);
+        when(accounts.findByIdAndOwnerId(accountId, ownerId)).thenReturn(Optional.of(existing));
+        when(accounts.saveAndFlush(existing)).thenReturn(existing);
+
+        service.setEmail(accountId, ownerId, "men@example.com");
+
+        assertThat(existing.getEmail()).isEqualTo("men@example.com");
+        assertThat(existing.getEmailSource()).isEqualTo(EmailSource.MANUAL);
+        assertThat(existing.getMailboxId()).isNull();
+    }
+
+    @Test
+    void setEmail_withBlankValue_clearsIt() {
+        UserAccount existing = account();
+        existing.setEmail("eski@efbazaar.uz");
+        existing.setEmailSource(EmailSource.PLATFORM);
+        when(accounts.findByIdAndOwnerId(accountId, ownerId)).thenReturn(Optional.of(existing));
+        when(accounts.saveAndFlush(existing)).thenReturn(existing);
+
+        service.setEmail(accountId, ownerId, "   ");
+
+        assertThat(existing.getEmail()).isNull();
+        assertThat(existing.getEmailSource()).isNull();
+    }
+}

@@ -109,10 +109,10 @@ export function ProfileAccount({
 
   const navMenuItems = [
     {
-      id: 'listings',
-      label: "E'lonlarim",
-      description: "Sotuvdagi akkauntlar va takliflar",
-      href: '/profile?tab=listings',
+      id: 'accounts',
+      label: 'Akkountlarim',
+      description: "Akkountlaringiz, emaillari va bozordagi holati",
+      href: '/profile?tab=accounts',
       icon: <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />,
       bg: 'bg-blue-500/10 dark:bg-blue-400/10',
       badge: listingsCount > 0 ? `${listingsCount}` : undefined,
