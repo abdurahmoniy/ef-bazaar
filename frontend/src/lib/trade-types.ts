@@ -50,6 +50,18 @@ export interface TradeResponse {
    * a sale; on a swap it is the other party's, because the boxes cross over.
    */
   counterpartMailboxEmail?: string | null;
+  /**
+   * Konami kirish kodi — FAQAT shu ko'ruvchi uchun.
+   *
+   * <p>Akkountga kirishda Konami uni pochtaga yuboradi, pochta esa hali
+   * platformada: kodni smart admin o'qib beradi.
+   */
+  loginVerificationCode?: string | null;
+  /**
+   * Kirish kodisiz "Tasdiqlash" qachondan ochiladi. null — allaqachon ochiq
+   * (kod kelgan, yoki bosqich boshqa).
+   */
+  confirmUnlocksAt?: string | null;
   /** Added by the human-admin feature. Older backend DTOs may omit it. */
   mode?: TradeMode | null;
   sellerId: string;

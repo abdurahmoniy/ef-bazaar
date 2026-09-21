@@ -58,7 +58,9 @@ class ListingPlatformAttributesTest {
         service = new ListingService(listings, officialChannel, soldPosts, channelTakedown,
                 Mappers.getMapper(ListingMapper.class),
                 new AttributeValidator(definitions, cardIdentities), mediaService, captionBuilder, events,
-                definitions, blacklistGuard, channelPosts, persistence, listingMatches, org.mockito.Mockito.mock(uz.efbazaar.marketplace.security.AuthSummaryClient.class));
+                definitions, blacklistGuard, channelPosts, persistence, listingMatches,
+                org.mockito.Mockito.mock(uz.efbazaar.marketplace.security.AuthSummaryClient.class),
+                org.mockito.Mockito.mock(uz.efbazaar.marketplace.account.ListingAccountLink.class));
         when(definitions.findAllByActiveTrueOrderByPositionAsc())
                 .thenReturn(AttributeValidatorTest.platformDefinitions(true));
         when(persistence.saveWithCardInventory(any(Listing.class))).thenAnswer(inv -> inv.getArgument(0));

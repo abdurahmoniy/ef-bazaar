@@ -69,6 +69,40 @@ class TradeActionNotificationConsumerTest {
     }
 
     @Test
+    void pureSwapNeverMentionsAnAmount() {
+        UUID chatId = UUID.randomUUID();
+
+        consumer.onTradeAction(new TradeActionNotificationDto(
+                UUID.randomUUID(), chatId, UUID.randomUUID(), 11223344L, "Ali",
+                "PROPOSAL_CREATED", 0L, null, Instant.now()));
+        consumer.onTradeAction(new TradeActionNotificationDto(
+                UUID.randomUUID(), chatId, UUID.randomUUID(), 11223344L, "Ali",
+                "TRADE_STARTED", 0L, null, Instant.now()));
+
+        assertThat(telegram.calls).hasSize(2);
+        assertThat(telegram.calls).allSatisfy(call -> {
+            assertThat(call.text()).doesNotContain("0 UZS");
+            assertThat(call.text()).doesNotContain("UZS");
+            // Sarlavhaning o'zi ham obmen deyishi kerak — "savdo taklifi" deb
+            // kelgan xabar obmenni sotuvdek ko'rsatardi.
+            assertThat(call.text()).doesNotContain("savdo taklifi");
+            assertThat(call.text().toLowerCase()).contains("obmen");
+        });
+        assertThat(telegram.calls.get(0).text()).contains("Yangi obmen taklifi!");
+        assertThat(telegram.calls.get(1).text()).contains("Obmen boshlandi!");
+    }
+
+    @Test
+    void surchargeSwapStillShowsWhatIsPaid() {
+        consumer.onTradeAction(new TradeActionNotificationDto(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 11223344L, "Ali",
+                "TRADE_STARTED", 120_000L, null, Instant.now()));
+
+        assertThat(telegram.calls).hasSize(1);
+        assertThat(telegram.calls.get(0).text()).contains("120 000 UZS");
+    }
+
+    @Test
     void dropsWhenNoTelegramId() {
         TradeActionNotificationDto dto = new TradeActionNotificationDto(
                 UUID.randomUUID(),

@@ -5,7 +5,12 @@ import type { ParticipantRole, TradeKind, TradeState } from './trade-types';
  */
 
 /** The worker-driven steps an admin may complete by hand. */
-export type SmartTradeAction = 'EMAIL_CHANGE_CODE' | 'KONAMI_EMAIL_CONFIRM' | 'NONE';
+export type SmartTradeAction =
+  | 'EMAIL_CHANGE_CODE'
+  | 'KONAMI_EMAIL_CONFIRM'
+  /** Oluvchi akkountga kirmoqchi: Konami kirish kodini pochtaga yubordi. */
+  | 'LOGIN_CODE'
+  | 'NONE';
 
 export interface SmartTradeRow {
   id: string;
@@ -34,6 +39,9 @@ export interface SmartTradeSide {
   emailChangeCodeAt: string | null;
   emailChangedAt: string | null;
   konamiVerifiedAt: string | null;
+  /** Konami kirish kodi — bu taraf akkountga kirishi uchun. */
+  loginCode: string | null;
+  loginCodeAt: string | null;
 }
 
 export interface SmartTradeDetail {

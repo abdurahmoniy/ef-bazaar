@@ -106,13 +106,13 @@ export function UserMenu({ user, className }: UserMenuProps) {
               Do&apos;st taklif qilish
             </Link>
             <Link
-              href="/profile?tab=listings"
+              href="/profile?tab=accounts"
               role="menuitem"
               className={ITEM_CLASS}
               onClick={() => setOpen(false)}
             >
               <Package className="h-4 w-4 text-muted-foreground" />
-              E&apos;lonlarim
+              Akkountlarim
             </Link>
             <Link
               href="/profile?tab=favorites"

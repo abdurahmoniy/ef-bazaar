@@ -54,13 +54,24 @@ import { formatAdvertisingPrice, totalPrice, type ChannelCard } from '@/lib/part
 import { listingAdvertisingHref } from '@/lib/listing-advertising';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { formatPriceUZS, normalizePlayerList } from '@/lib/marketplace-format';
-import { listingMediaUrls } from '@/lib/marketplace-media';
+import { listingMediaUrl, listingMediaUrls } from '@/lib/marketplace-media';
 import { cardRating } from '@/lib/marketplace-types';
 import type {
 	ListingAttributeDefinition,
 	ListingCreateRequest,
 	ListingResponse,
 } from '@/lib/marketplace-types';
+import {
+	createAccount,
+	replaceAccountMedia,
+	updateAccount,
+} from '@/lib/accounts-client';
+import type { UserAccountResponse } from '@/lib/accounts-types';
+import {
+	stepsFor,
+	type ListingFormMode,
+	type StepId,
+} from '@/lib/listing-form-steps';
 import { getTelegramWebApp } from '@/lib/telegram';
 import { telegramHaptic } from '@/lib/telegram-shell';
 import { cn } from '@/lib/utils';
@@ -73,7 +84,17 @@ interface ListingFormProps {
 	attributeDefinitions?: readonly ListingAttributeDefinition[];
 	/** When provided, the form runs in edit mode: preloads values and PUTs to the listing id. */
 	initialListing?: ListingResponse;
+	/**
+	 * `account` — forma "Akkountlarim" uchun ishlaydi: narx qadami yo'q va
+	 * saqlash akkount API'siga ketadi. Sotuv shartlari akkountga tegishli
+	 * emas, ular bozorga chiqarishda so'raladi.
+	 */
+	mode?: ListingFormMode;
+	/** Akkount rejimida tahrirlanayotgan akkount. */
+	initialAccount?: UserAccountResponse;
 }
+
+
 
 interface PhotoEntry {
 	id: string;
@@ -82,6 +103,8 @@ interface PhotoEntry {
 }
 
 interface WizardState {
+	/** Faqat akkount rejimida ishlatiladi — e'londa bunday maydon yo'q. */
+	title: string;
 	description: string;
 	price: string;
 	priceNegotiable: boolean;
@@ -104,13 +127,13 @@ const MAX_DESCRIPTION = 2000;
 const ACCEPTED_IMAGE_TYPES =
 	'image/jpeg,image/png,image/webp,image/heic,image/heif';
 
-const STEPS = ['photos', 'basics', 'gameplay', 'pricing', 'review'] as const;
-type StepId = (typeof STEPS)[number];
 
 /** Version service answers so legacy unchecked defaults can be safely migrated. */
 const DRAFT_KEY = 'efbazaar:listing-draft-v3';
 const LEGACY_DRAFT_KEY = 'efbazaar:listing-draft-v2';
 const SERVICE_LINK_KEYS = ['has_google_play_link', 'has_game_center_link'];
+/** Alohida kalit: yarim to'ldirilgan akkount e'lon qoralamasiga aralashmasin. */
+const ACCOUNT_DRAFT_KEY = 'efbazaar:account-draft-v1';
 
 const STEP_META: Record<
 	StepId,
@@ -147,10 +170,16 @@ export function ListingForm({
 	attributeDefinitions,
 	initialListing,
 	botUsername = '',
+	mode = 'listing',
+	initialAccount,
 }: ListingFormProps) {
 	const router = useRouter();
 	const [telegramRequired, setTelegramRequired] = useState(false);
-	const editMode = initialListing !== undefined;
+	const accountMode = mode === 'account';
+	// useMemo: har renderda yangi massiv qaytsa quyidagi callback'lar
+	// bog'liqliklari doim o'zgarib turardi.
+	const steps = useMemo(() => stepsFor(mode), [mode]);
+	const editMode = initialListing !== undefined || initialAccount !== undefined;
 	// Save first. The dedicated advertising page owns any paid order.
 	const [advertising, setAdvertising] = useState(false);
 	const [channels, setChannels] = useState<ChannelCard[]>([]);
@@ -160,23 +189,39 @@ export function ListingForm({
 		readonly ListingAttributeDefinition[]
 	>(attributeDefinitions ?? SEEDED_LISTING_ATTRIBUTE_DEFINITIONS);
 	const [photos, setPhotos] = useState<PhotoEntry[]>([]);
-	const existingMediaUrls = useMemo(
-		() => (initialListing ? listingMediaUrls(initialListing) : []),
-		[initialListing],
-	);
+	const existingMediaUrls = useMemo(() => {
+		if (initialListing) return listingMediaUrls(initialListing);
+		if (initialAccount) {
+			return initialAccount.mediaMessageIds
+				.map((id) => listingMediaUrl(id))
+				.filter((url): url is string => Boolean(url));
+		}
+		return [];
+	}, [initialListing, initialAccount]);
 	const [step, setStep] = useState<StepId>('photos');
 	const [touchedSteps, setTouchedSteps] = useState<Set<StepId>>(new Set());
 	const [state, setState] = useState<WizardState>(() => {
 		const defs = attributeDefinitions ?? SEEDED_LISTING_ATTRIBUTE_DEFINITIONS;
 		if (initialListing) {
 			return {
+				title: '',
 				description: initialListing.description,
 				price: String(initialListing.price ?? ''),
 				priceNegotiable: initialListing.priceNegotiable,
 				attributes: attributesFromListing(initialListing.attributes, defs),
 			};
 		}
+		if (initialAccount) {
+			return {
+				title: initialAccount.title ?? '',
+				description: initialAccount.description ?? '',
+				price: '',
+				priceNegotiable: false,
+				attributes: attributesFromListing(initialAccount.attributes, defs),
+			};
+		}
 		return {
+			title: '',
 			description: '',
 			price: '',
 			priceNegotiable: false,
@@ -232,7 +277,7 @@ export function ListingForm({
 	// Restore draft on mount (create mode only).
 	useEffect(() => {
 		if (editMode) return;
-		const draft = readDraft();
+		const draft = readDraft(accountMode);
 		if (!draft) return;
 		// Browser files cannot be restored from localStorage. Keep the text, then
 		// ask for photos again before allowing the wizard to continue.
@@ -240,6 +285,7 @@ export function ListingForm({
 		setDraftRestored(true);
 		if (draft.state) {
 			setState((prev) => ({
+				title: typeof draft.state?.title === 'string' ? draft.state.title : prev.title,
 				description:
 					typeof draft.state?.description === 'string'
 						? draft.state.description
@@ -261,14 +307,14 @@ export function ListingForm({
 	// Persist draft on state changes.
 	useEffect(() => {
 		if (editMode) return;
-		writeDraft(step, state);
-	}, [step, state, editMode]);
+		writeDraft(step, state, accountMode);
+	}, [step, state, editMode, accountMode]);
 
 	useEffect(() => {
 		setSubmitError(null);
 	}, [state, photos]);
 
-	const stepIndex = STEPS.indexOf(step);
+	const stepIndex = steps.indexOf(step);
 	const stepErrors = useMemo(
 		() =>
 			validateStep(
@@ -276,9 +322,12 @@ export function ListingForm({
 				state,
 				photos,
 				definitions,
-				editMode && existingMediaUrls.length > 0,
+				// Akkount rasmsiz ham saqlanadi — u hali qoralama. Rasm
+				// bozorga chiqarishda talab qilinadi, u yerda e'lon
+				// validatsiyasi ishlaydi.
+				accountMode || (editMode && existingMediaUrls.length > 0),
 			),
-		[step, state, photos, definitions, editMode, existingMediaUrls.length],
+		[step, state, photos, definitions, editMode, existingMediaUrls.length, accountMode],
 	);
 	const canProceed = stepErrors.length === 0;
 
@@ -288,38 +337,83 @@ export function ListingForm({
 			telegramHaptic(getTelegramWebApp(), 'error', false);
 			return;
 		}
-		const next = STEPS[stepIndex + 1];
+		const next = steps[stepIndex + 1];
 		if (next) {
 			setStep(next);
 			telegramHaptic(getTelegramWebApp(), 'selection', false);
 			window.scrollTo({ top: 0, behavior: 'smooth' });
 		}
-	}, [canProceed, step, stepIndex]);
+	}, [canProceed, step, stepIndex, steps]);
 
 	const goPrev = useCallback(() => {
-		const prev = STEPS[stepIndex - 1];
+		const prev = steps[stepIndex - 1];
 		if (prev) {
 			setStep(prev);
 			telegramHaptic(getTelegramWebApp(), 'selection', false);
 			window.scrollTo({ top: 0, behavior: 'smooth' });
 		}
-	}, [stepIndex]);
+	}, [stepIndex, steps]);
 
 	const goToStep = useCallback((targetStep: StepId) => {
-		const targetIndex = STEPS.indexOf(targetStep);
+		const targetIndex = steps.indexOf(targetStep);
 		if (targetIndex < stepIndex) {
 			setStep(targetStep);
 			telegramHaptic(getTelegramWebApp(), 'selection', false);
 			window.scrollTo({ top: 0, behavior: 'smooth' });
 		}
-	}, [stepIndex]);
+	}, [stepIndex, steps]);
+
+	/**
+	 * Akkountni saqlash: avval ma'lumot (JSON), keyin rasmlar (multipart).
+	 *
+	 * <p>Ikki so'rov, chunki rasm yuklash Telegram'ga boradi va uni JSON
+	 * bilan aralashtirib bo'lmaydi. Rasm tanlanmagan bo'lsa ikkinchi so'rov
+	 * umuman ketmaydi — akkountdagi eski rasmlar joyida qoladi.
+	 */
+	const submitAccount = useCallback(async () => {
+		const attributes = buildRequest(state, definitions).attributes ?? {};
+		const payload = {
+			title: state.title.trim() ? state.title.trim() : null,
+			description: state.description.trim(),
+			attributes,
+		};
+
+		const saved = initialAccount
+			? await updateAccount(initialAccount.id, payload)
+			: await createAccount(payload);
+		if (!saved.ok) {
+			setSubmitError(saved.message);
+			telegramHaptic(getTelegramWebApp(), 'error', false);
+			return;
+		}
+
+		if (photos.length > 0) {
+			const uploaded = await replaceAccountMedia(
+				saved.data.id,
+				photos.map((photo) => photo.file),
+			);
+			if (!uploaded.ok) {
+				// Akkount saqlandi, rasmlar esa yo'q: shuni aynan shunday aytamiz,
+				// aks holda odam hammasini qaytadan to'ldirishga tushardi.
+				setSubmitError(`Akkount saqlandi, lekin rasmlar yuklanmadi: ${uploaded.message}`);
+				telegramHaptic(getTelegramWebApp(), 'error', false);
+				return;
+			}
+		}
+
+		if (!editMode) clearDraft(true);
+		telegramHaptic(getTelegramWebApp(), 'success', false);
+		router.push('/profile?tab=accounts');
+		router.refresh();
+	}, [state, definitions, initialAccount, photos, editMode, router]);
 
 	const handleSubmit = useCallback(async () => {
 		if (pending || Date.now() - submittedAt.current < 800) return;
 		submittedAt.current = Date.now();
 
-		const keepExistingMedia = editMode && existingMediaUrls.length > 0;
-		const invalidStep = STEPS.find((id) =>
+		const keepExistingMedia =
+			accountMode || (editMode && existingMediaUrls.length > 0);
+		const invalidStep = steps.find((id) =>
 			validateStep(id, state, photos, definitions, keepExistingMedia).length > 0,
 		);
 		if (invalidStep) {
@@ -334,6 +428,10 @@ export function ListingForm({
 		setSubmitError(null);
 		setPending(true);
 		try {
+			if (accountMode) {
+				await submitAccount();
+				return;
+			}
 			const request = buildRequest(state, definitions);
 			const formData = new FormData();
 			formData.append(
@@ -342,7 +440,7 @@ export function ListingForm({
 			);
 			for (const photo of photos) formData.append('files', photo.file);
 
-			const isEdit = editMode;
+			const isEdit = initialListing !== undefined;
 			const url = isEdit
 				? buildMarketplaceApiPath(['v1', 'listings', initialListing.id])
 				: buildMarketplaceApiPath('v1/listings');
@@ -377,7 +475,7 @@ export function ListingForm({
 			const payload = (await safeJson(
 				response,
 			)) as Partial<ListingResponse> | null;
-			const targetId = payload?.id ?? (isEdit ? initialListing.id : undefined);
+			const targetId = payload?.id ?? initialListing?.id;
 			if (targetId) {
 				router.push(advertising && advertisingAllowed
 					? listingAdvertisingHref(targetId, channels.map(channel => channel.channelId))
@@ -405,15 +503,24 @@ export function ListingForm({
 		advertising,
 		advertisingAllowed,
 		channels,
+		accountMode,
+		steps,
+		submitAccount,
 	]);
 
-	const submitLabel = advertising && advertisingAllowed
-		? (editMode ? 'Saqlash va reklama' : 'Yaratish va reklama')
-		: (editMode ? 'Saqlash' : "E'lon yaratish");
+	const submitLabel = accountMode
+		? (editMode ? 'Saqlash' : 'Akkountni saqlash')
+		: advertising && advertisingAllowed
+			? (editMode ? 'Saqlash va reklama' : 'Yaratish va reklama')
+			: (editMode ? 'Saqlash' : "E'lon yaratish");
 
 	const showErrors = touchedSteps.has(step);
-	const progressPercent = Math.min(100, Math.round(((stepIndex + 1) / 4) * 100));
-	const advertisingOffer = advertisingAllowed && (step === 'pricing' || step === 'review') && (
+	const progressPercent = Math.min(
+		100,
+		Math.round(((stepIndex + 1) / (steps.length - 1)) * 100),
+	);
+	// Reklama e'longa tegishli: akkount hali bozorda emas.
+	const advertisingOffer = !accountMode && advertisingAllowed && (step === 'pricing' || step === 'review') && (
 		<div className="space-y-3" aria-label="E’lon reklamasi">
 			<div className="space-y-3 rounded-2xl border border-primary/25 bg-primary/5 p-4">
 				<div className="flex items-start gap-3">
@@ -449,11 +556,13 @@ export function ListingForm({
 			{/* Human Step Header */}
 			<div className='space-y-0.5 px-0.5'>
 				<p className='text-[11px] font-bold uppercase tracking-wider text-primary'>
-					{STEP_META[step].badge}
+					{step === 'review'
+						? STEP_META.review.badge
+						: `${stepIndex + 1}-qadam / ${steps.length - 1}`}
 				</p>
 				<div className='flex items-baseline justify-between gap-2'>
 					<h2 className='text-lg sm:text-xl font-black text-foreground tracking-tight'>
-						{STEP_META[step].title}
+						{accountMode && step === 'review' ? 'Akkountni tasdiqlang' : STEP_META[step].title}
 					</h2>
 					<span className='text-[11px] text-muted-foreground hidden xs:inline shrink-0'>
 						{STEP_META[step].subtitle}
@@ -476,6 +585,21 @@ export function ListingForm({
 						errors={showErrors ? stepErrors : []}
 						existingMediaUrls={existingMediaUrls}
 					/>
+				)}
+				{step === 'basics' && accountMode && (
+					<div className='mb-4 space-y-1.5'>
+						<Label htmlFor='account-title'>Akkount nomi</Label>
+						<Input
+							id='account-title'
+							value={state.title}
+							maxLength={120}
+							placeholder='Asosiy akkount'
+							onChange={(e) => setState((prev) => ({ ...prev, title: e.target.value }))}
+						/>
+						<p className='text-[11px] text-muted-foreground'>
+							Faqat sizga ko&apos;rinadi — ro&apos;yxatda akkountlarni ajratish uchun.
+						</p>
+					</div>
 				)}
 				{step === 'basics' && (
 					<BasicsStep
@@ -510,6 +634,7 @@ export function ListingForm({
 						existingMediaUrls={existingMediaUrls}
 						onEditStep={goToStep}
 						commissionConfig={commissionConfig}
+						accountMode={accountMode}
 					/>
 				)}
 
@@ -1796,6 +1921,7 @@ function ReviewStep({
 	existingMediaUrls,
 	onEditStep,
 	commissionConfig,
+	accountMode = false,
 }: {
 	state: WizardState;
 	photos: PhotoEntry[];
@@ -1803,10 +1929,16 @@ function ReviewStep({
 	existingMediaUrls: string[];
 	onEditStep: (step: StepId) => void;
 	commissionConfig?: TradeCommissionConfig | null;
+	accountMode?: boolean;
 }) {
 	const priceNum = Number(state.price);
-	const hasPrice = Number.isFinite(priceNum) && priceNum > 0;
-	const priceLabel = hasPrice ? formatPriceUZS(priceNum) : 'Narx belgilanmagan';
+	const hasPrice = !accountMode && Number.isFinite(priceNum) && priceNum > 0;
+	// Akkountda narx yo'q: u bozorga chiqarilganda so'raladi.
+	const priceLabel = accountMode
+		? 'Bozorda emas'
+		: hasPrice
+			? formatPriceUZS(priceNum)
+			: 'Narx belgilanmagan';
 	const usingExisting = photos.length === 0 && existingMediaUrls.length > 0;
 	const coverUrl =
 		photos[0]?.previewUrl ?? (usingExisting ? existingMediaUrls[0] : null);
@@ -2409,11 +2541,16 @@ function errorFromPayload(payload: unknown, fallback: string) {
  * Read a persisted draft. Returns null on server, unavailable storage, missing
  * key, or malformed JSON — callers should treat null as "no draft to restore".
  */
-function readDraft(): { step?: StepId; state?: Partial<WizardState> } | null {
+function draftKey(accountMode: boolean) {
+	return accountMode ? ACCOUNT_DRAFT_KEY : DRAFT_KEY;
+}
+
+function readDraft(accountMode = false): { step?: StepId; state?: Partial<WizardState> } | null {
 	if (typeof window === 'undefined') return null;
 	try {
-		const current = window.localStorage.getItem(DRAFT_KEY);
-		const raw = current ?? window.localStorage.getItem(LEGACY_DRAFT_KEY);
+		const current = window.localStorage.getItem(draftKey(accountMode));
+		// Eski kalit faqat e'lon qoralamasida bor edi — akkount oqimida izlamaymiz.
+		const raw = current ?? (accountMode ? null : window.localStorage.getItem(LEGACY_DRAFT_KEY));
 		if (!raw) return null;
 		const parsed = JSON.parse(raw) as unknown;
 		if (!isRecord(parsed)) return null;
@@ -2430,20 +2567,20 @@ function readDraft(): { step?: StepId; state?: Partial<WizardState> } | null {
 	}
 }
 
-function writeDraft(step: StepId, state: WizardState) {
+function writeDraft(step: StepId, state: WizardState, accountMode = false) {
 	if (typeof window === 'undefined') return;
 	try {
-		window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, state }));
+		window.localStorage.setItem(draftKey(accountMode), JSON.stringify({ step, state }));
 	} catch {
 		// storage full / private mode / SecurityError — dropping the draft is fine
 	}
 }
 
-function clearDraft() {
+function clearDraft(accountMode = false) {
 	if (typeof window === 'undefined') return;
 	try {
-		window.localStorage.removeItem(DRAFT_KEY);
-		window.localStorage.removeItem(LEGACY_DRAFT_KEY);
+		window.localStorage.removeItem(draftKey(accountMode));
+		if (!accountMode) window.localStorage.removeItem(LEGACY_DRAFT_KEY);
 	} catch {
 		// ignore
 	}

@@ -29,6 +29,7 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
     @Autowired TradeRepository repo;
     @Autowired uz.efbazaar.trade.trade.service.TradeSideService sideService;
     @Autowired uz.efbazaar.trade.mailbox.repository.MailboxRepository mailboxRepo;
+    @Autowired uz.efbazaar.trade.trade.repository.TradeSideRepository sideRepo;
 
     @Test
     void buyerCanConfirmPayment_thenSellerChangesEmail() throws Exception {
@@ -36,9 +37,9 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
         UUID buyer  = UUID.randomUUID();
         var t = trades.openTrade(seller, buyer, 500_000L,
                 UUID.randomUUID(), UUID.randomUUID(), null);
-        // Push it to WAITING_PAYMENT — normally the mock worker does this on email-provisioned.
-        trades.transition(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.MAILBOX_PROVISIONED,
-                uz.efbazaar.trade.trade.domain.ActorType.WORKER, null);
+        // WAITING_PAYMENT ga o'tkazamiz — odatda buni mock worker qiladi,
+        // shuning uchun poygaga tushmaydigan yordamchi ishlatiladi.
+        leaveInitiated(trades, t.id());
 
         mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/payment-confirmed").with(asUser(buyer)))
                 .andExpect(status().isOk());
@@ -101,8 +102,36 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
             drive(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.EMAIL_CHANGED, who);
         }
         seed(t.id(), TradeState.WAITING_BUYER_VERIFY);
+        seedLoginCode(t.id(), uz.efbazaar.trade.trade.domain.ParticipantRole.SELLER);
 
         mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/confirm").with(asUser(seller)))
+                .andExpect(status().isOk());
+    }
+
+    /**
+     * Akkountni ko'rmasdan tasdiqlab bo'lmaydi.
+     *
+     * <p>Kirish kodi "kirib ko'rdim" degan yagona belgi. U kelmaguncha
+     * tasdiqlash yopiq; rad etish esa ochiq qoladi, chunki kira olmagan odam
+     * aynan shuni bosadi.
+     */
+    @Test
+    void confirmingBeforeTheLoginCodeIsRefused() throws Exception {
+        UUID seller = UUID.randomUUID();
+        UUID buyer = UUID.randomUUID();
+        var t = trades.openTrade(UUID.randomUUID(), seller, buyer, 0L, null, null,
+                UUID.randomUUID(), null, uz.efbazaar.trade.trade.domain.TradeMode.SMART,
+                null, null, uz.efbazaar.trade.trade.domain.TradeKind.SWAP, 500_000L);
+        reachEmailChange(t.id());
+        for (UUID who : new UUID[]{seller, buyer}) {
+            drive(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.EMAIL_CHANGED, who);
+        }
+        seed(t.id(), TradeState.WAITING_BUYER_VERIFY);
+
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/confirm").with(asUser(seller)))
+                .andExpect(status().isConflict());
+
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/reject").with(asUser(seller)))
                 .andExpect(status().isOk());
     }
 
@@ -144,6 +173,21 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
         }
     }
 
+    /**
+     * Kirish kodini qo'lda yozadi.
+     *
+     * <p>Holat seed qilinganda {@code onEnter} ishlamaydi, ya'ni IMAP
+     * kuzatuvi so'ralmaydi va kod hech qachon kelmaydi. Jonli oqimda uni
+     * worker yetkazadi (TradeE2EIT o'shani tekshiradi); bu yerda esa faqat
+     * tekshirilayotgan qoidaga yo'l ochiladi.
+     */
+    private void seedLoginCode(UUID tradeId, uz.efbazaar.trade.trade.domain.ParticipantRole role) {
+        var side = sideRepo.find(tradeId, role).orElseThrow();
+        side.setLoginCode("447711");
+        side.setLoginCodeAt(java.time.Instant.now());
+        sideRepo.saveAndFlush(side);
+    }
+
     private void seed(UUID tradeId, TradeState state) {
         var trade = repo.findById(tradeId).orElseThrow();
         trade.setState(state);
@@ -156,8 +200,7 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
         UUID buyer  = UUID.randomUUID();
         var t = trades.openTrade(seller, buyer, 500_000L,
                 UUID.randomUUID(), UUID.randomUUID(), null);
-        trades.transition(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.MAILBOX_PROVISIONED,
-                uz.efbazaar.trade.trade.domain.ActorType.WORKER, null);
+        leaveInitiated(trades, t.id());
 
         mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/payment-confirmed").with(asUser(seller)))
                 .andExpect(status().isForbidden());
@@ -171,8 +214,7 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
                 UUID.randomUUID(), UUID.randomUUID(), null);
 
         // Drive to WAITING_EMAIL_CHANGE via the normal transitions.
-        trades.transition(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.MAILBOX_PROVISIONED,
-                uz.efbazaar.trade.trade.domain.ActorType.WORKER, null);
+        leaveInitiated(trades, t.id());
         trades.transition(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.PAYMENT_CONFIRMED,
                 uz.efbazaar.trade.trade.domain.ActorType.USER, buyer);
 

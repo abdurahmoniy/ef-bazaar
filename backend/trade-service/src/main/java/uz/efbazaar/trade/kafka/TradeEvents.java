@@ -123,9 +123,17 @@ public final class TradeEvents {
             String sender,
             Instant receivedAt) {}
 
+    /**
+     * Konami kirish kodi pochtaga keldi.
+     *
+     * <p>{@code mailboxEmail} — qaysi qutidan. Obmenda ikkita quti bor va
+     * kod qutining EGASIGA emas, uni qabul qilayotgan tarafga kerak.
+     * Eski hodisalarda bo'lmasligi mumkin: null bo'lsa xaridor deb olinadi.
+     */
     public record Imap2faCode(
             UUID tradeId,
             String code,
+            String mailboxEmail,
             Instant receivedAt) {}
 
     /**
@@ -275,6 +283,13 @@ public final class TradeEvents {
             UUID tradeId,
             UUID buyerId,
             UUID sellerId,
+            /**
+             * Sotilgan e'lon. marketplace shu orqali akkountni sotuvchidan
+             * xaridorga ko'chiradi: e'lon vaqtinchalik, akkount esa doimiy.
+             * Eski hodisalarda bo'lmasligi mumkin — null kelsa ko'chirish
+             * o'tkazib yuboriladi.
+             */
+            UUID listingId,
             String mode,
             Instant occurredAt) {}
 }

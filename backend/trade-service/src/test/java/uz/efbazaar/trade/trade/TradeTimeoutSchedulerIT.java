@@ -4,8 +4,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
-import uz.efbazaar.trade.trade.domain.ActorType;
-import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
 import uz.efbazaar.trade.trade.service.TradeService;
@@ -34,7 +32,10 @@ class TradeTimeoutSchedulerIT extends AbstractIntegrationIT {
         UUID buyer = UUID.randomUUID();
         var t = trades.openTrade(seller, buyer, 500_000L,
                 UUID.randomUUID(), UUID.randomUUID(), null);
-        trades.transition(t.id(), TradeEvent.MAILBOX_PROVISIONED, ActorType.WORKER, null);
+
+        // Savdoni INITIATED dan chiqaramiz. MockWorker ham xuddi shu ishni
+        // qiladi, shuning uchun poygaga tushmaydigan yordamchi ishlatiladi.
+        leaveInitiated(trades, t.id());
 
         await().atMost(15, TimeUnit.SECONDS).untilAsserted(() -> {
             scheduler.sweep(); // don't wait for the fixedRate — call directly

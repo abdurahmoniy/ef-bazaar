@@ -7,10 +7,12 @@ import { ChevronLeft, Plus } from 'lucide-react';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { ProfileAccount } from '@/components/profile/profile-account';
 import { ProfileCards } from '@/components/profile/profile-cards';
+import { ProfileAccounts } from '@/components/profile/profile-accounts';
 import { ProfileListings } from '@/components/profile/profile-listings';
 import { ProfileTrades } from '@/components/profile/profile-trades';
 import { getMe } from '@/lib/auth';
-import { getMyFavorites, getMyListings } from '@/lib/marketplace-server';
+import { getMyAccountsServer } from '@/lib/accounts-server';
+import { getMyFavorites } from '@/lib/marketplace-server';
 import { getMyCards, getMyTrades, getSellerRatingSummary } from '@/lib/trade-server';
 import { getMyTradeAdminApplication } from '@/lib/trade-admin-applications-server';
 
@@ -21,7 +23,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export type ProfileTabId = 'listings' | 'trades' | 'favorites' | 'kartalar' | 'account';
+export type ProfileTabId = 'accounts' | 'trades' | 'favorites' | 'kartalar' | 'account';
 
 interface ProfilePageProps {
   searchParams?: Promise<{ tab?: string }>;
@@ -29,14 +31,17 @@ interface ProfilePageProps {
 
 const VALID_TABS: ProfileTabId[] = [
   'account',
-  'listings',
+  'accounts',
   'trades',
   'favorites',
   'kartalar',
 ];
 
 function resolveTab(value: string | undefined): ProfileTabId {
-  return VALID_TABS.includes(value as ProfileTabId) ? (value as ProfileTabId) : 'account';
+  // Eski `?tab=listings` havolalari yo'qolmasin: bo'lim nomi o'zgardi,
+  // odamlarning saqlab qo'ygan havolalari esa o'zgarmadi.
+  const normalized = value === 'listings' ? 'accounts' : value;
+  return VALID_TABS.includes(normalized as ProfileTabId) ? (normalized as ProfileTabId) : 'account';
 }
 
 export default async function ProfilePage({ searchParams }: ProfilePageProps) {
@@ -50,8 +55,8 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
 
   // Fetch tab data server-side.
-  const [listings, favorites, cards, tradePage, tradeAdminApplication, sellerRatingSummary] = await Promise.all([
-    getMyListings(),
+  const [accounts, favorites, cards, tradePage, tradeAdminApplication, sellerRatingSummary] = await Promise.all([
+    getMyAccountsServer(),
     getMyFavorites(),
     activeTab === 'kartalar' ? getMyCards() : Promise.resolve([]),
     activeTab === 'trades' ? getMyTrades() : Promise.resolve(null),
@@ -61,15 +66,17 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
   const getSubpageHeader = () => {
     switch (activeTab) {
-      case 'listings':
+      case 'accounts':
         return {
-          title: "E'lonlarim",
-          subtitle: listings.length > 0 ? `${listings.length} ta faol e'lon` : "Hozircha e'lonlar yo'q",
+          title: 'Akkountlarim',
+          subtitle: accounts.length > 0
+            ? `${accounts.length} ta akkount · ${accounts.filter((a) => a.onMarket).length} tasi bozorda`
+            : "Hozircha akkount yo'q",
           rightAction: (
             <Link
-              href="/marketplace/new"
-              title="Yangi e'lon joylash"
-              aria-label="Yangi e'lon joylash"
+              href="/profile/accounts/new"
+              title="Yangi akkount qo'shish"
+              aria-label="Yangi akkount qo'shish"
               className="grid h-11 w-11 place-items-center rounded-full bg-primary/10 text-primary transition hover:bg-primary/20 active:scale-90"
             >
               <Plus className="h-5 w-5" />
@@ -137,7 +144,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
         {/* Tab content view */}
         <section key={activeTab} className="animate-panel-in">
-          {activeTab === 'listings' && <ProfileListings listings={listings} />}
+          {activeTab === 'accounts' && <ProfileAccounts accounts={accounts} />}
           {activeTab === 'trades' && <ProfileTrades trades={tradePage?.items ?? []} />}
           {activeTab === 'favorites' && <ProfileListings listings={favorites} favorites />}
           {activeTab === 'kartalar' && <ProfileCards cards={cards} />}
@@ -147,7 +154,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               googleClientId={googleClientId}
               botUsername={botUsername}
               tradeAdminApplication={tradeAdminApplication}
-              listingsCount={listings.length}
+              listingsCount={accounts.length}
               favoritesCount={favorites.length}
               ratingSummary={sellerRatingSummary}
             />

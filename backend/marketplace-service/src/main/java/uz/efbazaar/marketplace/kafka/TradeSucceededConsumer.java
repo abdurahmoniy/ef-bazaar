@@ -20,6 +20,7 @@ import uz.efbazaar.marketplace.referral.ReferralService;
 public class TradeSucceededConsumer {
 
     private final ReferralService referrals;
+    private final uz.efbazaar.marketplace.account.ListingAccountLink accounts;
 
     @KafkaListener(
             topics = "efbazaar.trade.trade-succeeded",
@@ -31,5 +32,8 @@ public class TradeSucceededConsumer {
     )
     public void onTradeSucceeded(TradeSucceededDto e) {
         referrals.rewardFor(e.tradeId(), e.buyerId(), e.sellerId());
+        // Akkount sotuvchidan xaridorga ko'chadi. Mukofotdan KEYIN: ikkalasi
+        // mustaqil va biri yiqilsa ikkinchisi baribir bajarilishi kerak.
+        accounts.onTradeSucceeded(e.tradeId(), e.listingId(), e.buyerId(), e.sellerId());
     }
 }

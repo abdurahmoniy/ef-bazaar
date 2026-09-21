@@ -5,7 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { ACTION_LABEL_UZ, ROLE_LABEL_UZ, isValidCode, sideDone } from '@/lib/smart-trade-admin';
+import {
+  ACTION_LABEL_UZ,
+  ROLE_LABEL_UZ,
+  isValidCode,
+  isValidLoginCode,
+  sideDone,
+} from '@/lib/smart-trade-admin';
 import type { SmartTradeAction, SmartTradeSide } from '@/lib/smart-trade-admin-types';
 import { buildTradeApiPath } from '@/lib/trade-client-api';
 import type { ParticipantRole } from '@/lib/trade-types';
@@ -55,10 +61,13 @@ export function SmartTradeActions({ tradeId, action, sides, selectedRole }: Smar
     setBusy(true);
     setError(null);
     setDone(null);
-    const path = action === 'EMAIL_CHANGE_CODE'
-      ? ['v1', 'admin', 'smart-trades', tradeId, 'email-change-code']
-      : ['v1', 'admin', 'smart-trades', tradeId, 'konami-email-confirm'];
-    const body = action === 'EMAIL_CHANGE_CODE' ? { role, code: code.trim() } : { role };
+    const endpoint = action === 'EMAIL_CHANGE_CODE'
+      ? 'email-change-code'
+      : action === 'LOGIN_CODE'
+        ? 'login-code'
+        : 'konami-email-confirm';
+    const path = ['v1', 'admin', 'smart-trades', tradeId, endpoint];
+    const body = action === 'KONAMI_EMAIL_CONFIRM' ? { role } : { role, code: code.trim() };
     const result = await postJson(buildTradeApiPath(path), body);
     setBusy(false);
     if (!result.ok) {
@@ -68,14 +77,18 @@ export function SmartTradeActions({ tradeId, action, sides, selectedRole }: Smar
       router.refresh();
       return;
     }
-    setDone(action === 'EMAIL_CHANGE_CODE' ? 'Kod saqlandi va tomonga ko‘rsatildi.' : 'Tasdiqlandi.');
+    setDone(action === 'KONAMI_EMAIL_CONFIRM'
+      ? 'Tasdiqlandi.'
+      : 'Kod saqlandi va tomonga ko‘rsatildi.');
     setCode('');
     router.refresh();
   }
 
   const current = sides.find((side) => side.role === role);
   const alreadyDone = current ? sideDone(current, action) : false;
-  const canSubmit = !busy && (action !== 'EMAIL_CHANGE_CODE' || isValidCode(code));
+  const canSubmit = !busy
+    && (action === 'KONAMI_EMAIL_CONFIRM'
+      || (action === 'EMAIL_CHANGE_CODE' ? isValidCode(code) : isValidLoginCode(code)));
 
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-4">
@@ -114,21 +127,35 @@ export function SmartTradeActions({ tradeId, action, sides, selectedRole }: Smar
         </p>
       )}
 
+      {action === 'LOGIN_CODE' && (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+          Favqulodda yo&apos;l. Odatda kodni smart admin o&apos;zi o&apos;qib beradi — bu yerga
+          faqat kod kelmay qolganda qo&apos;l uriladi. Kodni o&apos;ng tarafdagi pochtadan
+          o&apos;qing: u akkountni OLAYOTGAN tomonga ko&apos;rsatiladi.
+        </p>
+      )}
+
       {alreadyDone && (
         <p className="text-xs font-semibold text-muted-foreground">
-          {action === 'EMAIL_CHANGE_CODE'
+          {action === 'LOGIN_CODE'
+            ? `Bu tomonga kod berilgan: ${current?.loginCode}. Yangisini kiritsangiz, ustidan yoziladi.`
+            : action === 'EMAIL_CHANGE_CODE'
             ? `Bu tomon uchun kod bor: ${current?.emailChangeCode}. Yangisini kiritsangiz, ustidan yoziladi.`
             : 'Bu tomon allaqachon tasdiqlangan.'}
         </p>
       )}
 
-      {action === 'EMAIL_CHANGE_CODE' && (
+      {action !== 'KONAMI_EMAIL_CONFIRM' && (
         <label className="block space-y-1">
-          <span className="text-xs font-semibold text-muted-foreground">Konami xatidagi 6 xonali kod</span>
+          <span className="text-xs font-semibold text-muted-foreground">
+            {action === 'LOGIN_CODE'
+              ? 'Konami kirish kodi (4–8 raqam)'
+              : 'Konami xatidagi 6 xonali kod'}
+          </span>
           <input
             inputMode="numeric"
             autoComplete="one-time-code"
-            maxLength={6}
+            maxLength={action === 'LOGIN_CODE' ? 8 : 6}
             value={code}
             onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
             className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-lg tracking-widest text-foreground"
@@ -143,7 +170,7 @@ export function SmartTradeActions({ tradeId, action, sides, selectedRole }: Smar
         disabled={!canSubmit || (action === 'KONAMI_EMAIL_CONFIRM' && alreadyDone)}
         className="w-full"
       >
-        {action === 'EMAIL_CHANGE_CODE' ? 'Kodni saqlash' : 'Konami xati keldi — tasdiqlash'}
+        {action === 'KONAMI_EMAIL_CONFIRM' ? 'Konami xati keldi — tasdiqlash' : 'Kodni saqlash'}
       </Button>
 
       {error && <p role="alert" className="text-sm font-semibold text-destructive">{error}</p>}

@@ -20,4 +20,7 @@ public record AdminSmartTradeSide(
         String emailChangeCode,
         Instant emailChangeCodeAt,
         Instant emailChangedAt,
-        Instant konamiVerifiedAt) {}
+        Instant konamiVerifiedAt,
+        /** Konami kirish kodi — bu taraf akkountga kirishi uchun. */
+        String loginCode,
+        Instant loginCodeAt) {}

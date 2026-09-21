@@ -10,8 +10,11 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push, refresh }), redire
 vi.mock('@/app/auth/actions', () => ({ linkTelegramAction }));
 vi.mock('@/lib/auth', () => ({ getMe }));
 vi.mock('@/lib/marketplace-server', () => ({ getAttributeDefinitions: async () => [] }));
+// Sahifa endi akkountlarni ham o'qiydi; server-only modul testda mock qilinadi.
+vi.mock('@/lib/accounts-server', () => ({ getMyAccountsServer: async () => [] }));
 import { ListingActions } from './listing-actions';
 import { ListingForm } from './listing-form';
+import { NewListingEntry } from './new-listing-entry';
 import NewListingPage from '@/app/marketplace/new/page';
 
 let host: HTMLDivElement;
@@ -99,6 +102,8 @@ describe('required Telegram connection', () => {
     getMe.mockResolvedValue({ id: 'user-1', telegramLinked });
     const page = await NewListingPage();
     const content = page.props.children.props.children;
-    expect(content.some((child: { type?: unknown }) => child?.type === ListingForm)).toBe(telegramLinked);
+    // Sahifa endi formani to'g'ridan-to'g'ri emas, kirish qadami orqali
+    // ko'rsatadi: "akkountlarimdan tanlash" yoki "yangi ma'lumot".
+    expect(content.some((child: { type?: unknown }) => child?.type === NewListingEntry)).toBe(telegramLinked);
   });
 });

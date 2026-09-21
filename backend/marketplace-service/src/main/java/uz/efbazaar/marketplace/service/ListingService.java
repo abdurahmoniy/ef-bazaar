@@ -54,6 +54,7 @@ public class ListingService {
     private final ListingPersistence persistence;
     private final ListingMatchRepository listingMatches;
     private final uz.efbazaar.marketplace.security.AuthSummaryClient telegramUsers;
+    private final uz.efbazaar.marketplace.account.ListingAccountLink accountLink;
 
     /**
      * Atomic create — validates payload/attrs first (fail fast, no side effect),
@@ -80,6 +81,48 @@ public class ListingService {
         List<String> fileIds = mediaService.uploadToBot(files, caption, listing.getId());
         listing.setMediaMessageIds(fileIds);
 
+        Listing saved = persistAndAnnounce(sellerId, request, listing, validated);
+        // Akkount e'londAN keyin ochiladi: sotuvga qo'ya olgan odam shu
+        // akkountning egasi, shuning uchun alohida belgi so'ralmaydi.
+        accountLink.onListingCreated(saved);
+        return saved;
+    }
+
+    /**
+     * E'lon "Akkountlarim"dagi tayyor akkountdan chiqariladi: rasmlar
+     * Telegram'da allaqachon bor va faqat message id lar ko'chiriladi.
+     *
+     * <p>Qayta yuklash yangi id lar yasardi — o'shanda akkountdagi rasmlar
+     * bilan e'londagilari ikki xil nusxaga aylanib ketardi.
+     */
+    public Listing createWithUploadedMedia(UUID sellerId, ListingCreateRequest request,
+                                           List<String> mediaMessageIds) {
+        if (blacklistGuard.isBlacklisted(sellerId)) {
+            throw MarketplaceException.userBlacklisted();
+        }
+        telegramUsers.requireTelegramLinked(sellerId);
+        if (mediaMessageIds == null || mediaMessageIds.isEmpty()) {
+            throw MarketplaceException.accountWithoutPhotos();
+        }
+        Map<String, Object> validated = attributeValidator.validate(request.attributes());
+
+        Listing listing = mapper.toEntity(request);
+        listing.setId(UUID.randomUUID());
+        listing.setSellerId(sellerId);
+        listing.setStatus(ListingStatus.ACTIVE);
+        listing.setAttributes(validated);
+        listing.setMediaMessageIds(new ArrayList<>(mediaMessageIds));
+
+        return persistAndAnnounce(sellerId, request, listing, validated);
+    }
+
+    /**
+     * Ikkala yaratish yo'lining umumiy dumi — saqlash, kanal buyurtmalari,
+     * rasmiy kanal va hodisa. Ikki nusxa bo'lganida ular vaqt o'tib
+     * bir-biridan ajralib ketardi.
+     */
+    private Listing persistAndAnnounce(UUID sellerId, ListingCreateRequest request,
+                                       Listing listing, Map<String, Object> validated) {
         // save() opens its own short tx via Spring Data — no long-running DB lock
         // is held across the bot upload above.
         Listing saved = persistence.saveWithCardInventory(listing);
@@ -88,8 +131,6 @@ public class ListingService {
         // yetmasa buyurtma kutib turadi, e'lon esa joyida qoladi —
         // to'ldirilmagan hamyon uchun to'ldirilgan formani yo'qotish
         // himoyalab bo'lmaydigan narsa.
-        boolean partnerChannelsOrdered =
-                request.channelIds() != null && !request.channelIds().isEmpty();
         channelPosts.order(sellerId, saved.getId(), request.channelIds());
         // Rasmiy kanalga HAR e'lon tushadi, hamkor tanlangan-tanlanmaganidan
         // qat'i nazar. Hamkor tanlangan bo'lsa nusxa o'sha postdan forward
@@ -98,7 +139,7 @@ public class ListingService {
 
         events.listingCreated(saved);
         log.info("Listing created: id={} sellerId={} attributes={} media={}",
-                saved.getId(), sellerId, validated.keySet(), fileIds.size());
+                saved.getId(), sellerId, validated.keySet(), saved.getMediaMessageIds().size());
         return saved;
     }
 
@@ -138,6 +179,34 @@ public class ListingService {
         return saved;
     }
 
+    /**
+     * Mazmunni akkountdan olingan tayyor media id lar bilan yangilaydi.
+     *
+     * <p>{@link #update} fayl yuklashga mo'ljallangan; "Akkountlarim"dan
+     * kelgan tahrirda esa rasmlar Telegram'da allaqachon bor va faqat
+     * ro'yxat almashadi. Narx bilan savdolashish bayrog'i so'rovda null
+     * bo'lib keladi va ListingMapper ularni tegmasdan qoldiradi — sotuv
+     * sharti akkountga tegishli emas.
+     */
+    public Listing updateContent(UUID id, UUID sellerId, ListingUpdateRequest request,
+                                 List<String> mediaMessageIds) {
+        Listing listing = getActiveOwned(id, sellerId);
+
+        mapper.update(listing, request);
+        if (request.attributes() != null) {
+            listing.setAttributes(attributeValidator.validate(request.attributes()));
+        }
+        if (mediaMessageIds != null && !mediaMessageIds.isEmpty()) {
+            listing.setMediaMessageIds(new ArrayList<>(mediaMessageIds));
+        }
+
+        Listing saved = persistence.saveWithCardInventory(listing);
+        events.listingUpdated(saved);
+        log.info("Listing content updated from account: id={} sellerId={} media={}",
+                id, sellerId, saved.getMediaMessageIds().size());
+        return saved;
+    }
+
     @Transactional
     public Listing delete(UUID id, UUID sellerId) {
         Listing listing = getOwned(id, sellerId);
@@ -158,6 +227,8 @@ public class ListingService {
         listing.setStatus(ListingStatus.SOLD);
         listing.setSoldAt(java.time.Instant.now());
         Listing saved = listings.save(listing);
+        // Platformadan tashqarida sotilgan: akkount ham egasida qolmadi.
+        accountLink.onListingSoldByOwner(saved.getId());
         // Kanallardagi nusxalar ustidan chiziladi va tugmasi olinadi:
         // aks holda post kanalda "sotuvda" bo'lib turaveradi.
         soldPosts.onSold(saved);

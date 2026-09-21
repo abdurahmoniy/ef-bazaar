@@ -353,6 +353,9 @@ services:
       OFFICIAL_CHANNEL: ${OFFICIAL_CHANNEL:-}
       # Kanal postlaridagi e'lon havolalarining asosi.
       APP_BASE_URL: ${APP_BASE_URL:-https://efbazaar.uz}
+      # Kanal postidagi tugma shu havolaga boradi va Mini App'ni Telegram
+      # ichida ochadi. Bo'sh bo'lsa tugma brauzerda ochiladi.
+      TELEGRAM_MINI_APP_URL: ${TELEGRAM_MINI_APP_URL:-}
       # Heap 320m — marketplace eng katta (springdoc + spring security + jpa + 2 datasource + flyway + redis + kafka + multipart).
       JAVA_OPTS: "-Xms96m -Xmx320m -XX:MaxMetaspaceSize=160m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
@@ -392,6 +395,8 @@ services:
       # Repair listings created before normalized player-card inventory existed.
       # The job skips listings that are already normalized, so it is safe to leave enabled.
       LISTING_CARD_BACKFILL_ENABLED: ${LISTING_CARD_BACKFILL_ENABLED:-true}
+      # Bir martalik ta'mir: eski faol e'lonlar ortida akkount ochiladi.
+      USER_ACCOUNT_BACKFILL_ENABLED: ${USER_ACCOUNT_BACKFILL_ENABLED:-false}
     depends_on:
       postgres:
         condition: service_healthy

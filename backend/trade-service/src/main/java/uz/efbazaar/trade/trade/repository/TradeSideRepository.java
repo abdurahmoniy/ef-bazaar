@@ -37,6 +37,23 @@ public interface TradeSideRepository extends JpaRepository<TradeSide, TradeSideI
                               @Param("code") String code,
                               @Param("receivedAt") Instant receivedAt);
 
+    /**
+     * Kirish kodini yozadi — {@link #recordEmailChangeCode} bilan bir xil
+     * sababdan bitta UPDATE bilan: kod worker'dan kelayotganda taraf o'sha
+     * soniyada tasdiqlash tugmasini bosayotgan bo'lishi mumkin.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE TradeSide s
+               SET s.loginCode = :code,
+                   s.loginCodeAt = :receivedAt
+             WHERE s.id.tradeId = :tradeId AND s.id.role = :role
+            """)
+    int recordLoginCode(@Param("tradeId") UUID tradeId,
+                        @Param("role") ParticipantRole role,
+                        @Param("code") String code,
+                        @Param("receivedAt") Instant receivedAt);
+
     default Optional<TradeSide> find(UUID tradeId, ParticipantRole role) {
         return findById(new TradeSideId(tradeId, role));
     }

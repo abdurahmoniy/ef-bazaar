@@ -142,6 +142,21 @@ public class MediaService {
      * @throws ResponseStatusException 502 if the bot call fails or returns empty
      */
     public List<String> uploadToBot(List<MultipartFile> files, String caption, UUID listingId) {
+        return upload(files, caption, listingId, null);
+    }
+
+    /**
+     * Akkount rasmlari.
+     *
+     * <p>Bog'lanish akkountga yoziladi, e'longa emas: akkount doimiy, e'lon
+     * esa sotiladi va o'chiriladi, rasmlar esa akkount bilan qoladi.
+     */
+    public List<String> uploadToBotForAccount(List<MultipartFile> files, String caption, UUID accountId) {
+        return upload(files, caption, null, accountId);
+    }
+
+    private List<String> upload(List<MultipartFile> files, String caption,
+                                UUID listingId, UUID accountId) {
         MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
         for (MultipartFile mf : files) {
             try {
@@ -161,6 +176,9 @@ public class MediaService {
         }
         if (listingId != null) {
             form.add("listingId", listingId.toString());
+        }
+        if (accountId != null) {
+            form.add("accountId", accountId.toString());
         }
 
         UploadResponse response;

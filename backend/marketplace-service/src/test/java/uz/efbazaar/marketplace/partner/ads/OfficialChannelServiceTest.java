@@ -60,7 +60,7 @@ class OfficialChannelServiceTest {
 
     private OfficialChannelService build(String channel) {
         return new OfficialChannelService(listings, official, posts, events,
-                "https://efbazaar.uz", channel);
+                new ListingDeepLink("https://efbazaar.uz", "https://t.me/EfBazaarBot/app"), channel);
     }
 
     private Listing listing() {
@@ -94,8 +94,12 @@ class OfficialChannelServiceTest {
         assertThat(sent.officialChannel()).isEqualTo(CHANNEL);
         assertThat(sent.caption()).contains("so'm");
         // Hamkor kodi YO'Q: bu post hech qaysi hamkorga tegishli emas
-        // va undan kelgan savdo ulushi ham yo'q.
+        // va undan kelgan savdo ulushi ham yo'q. Tugma Mini App'ni
+        // ochadi, matndagi havola esa brauzer uchun qoladi.
         assertThat(sent.buttonUrl()).doesNotContain("?p=");
+        assertThat(sent.buttonUrl())
+                .isEqualTo("https://t.me/EfBazaarBot/app?startapp=" + listingId);
+        assertThat(sent.caption()).contains("https://efbazaar.uz/marketplace/" + listingId);
     }
 
     @Test

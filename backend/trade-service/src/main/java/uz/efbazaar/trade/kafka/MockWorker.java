@@ -116,7 +116,7 @@ public class MockWorker {
                     new TradeEvents.KonamiEmailReceived(req.tradeId(), true,
                             "noreply@konami.com", Instant.now()));
             case WAIT_2FA_CODE -> kafka.send(TradeEvents.TOPIC_IMAP_2FA, req.tradeId().toString(),
-                    new TradeEvents.Imap2faCode(req.tradeId(), "123456", Instant.now()));
+                    new TradeEvents.Imap2faCode(req.tradeId(), "123456", req.mailboxEmail(), Instant.now()));
         }
     }
 

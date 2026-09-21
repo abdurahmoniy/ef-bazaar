@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class MailboxHandedOverConsumerTest {
 
     @Mock NotificationService notifications;
+    @Mock uz.efbazaar.marketplace.account.ListingAccountLink accounts;
     @InjectMocks MailboxHandedOverConsumer consumer;
 
     private static MailboxHandedOverDto event(UUID user, UUID trade, String outcome) {
@@ -42,6 +43,21 @@ class MailboxHandedOverConsumerTest {
 
         verify(notifications).tradeMailboxHandedOver(
                 user, trade, NotificationType.TRADE_MAILBOX_RECEIVED);
+        // Olingan quti akkountga ham biriktiriladi: aynan shu "qaysi email
+        // qaysi akkountniki" savolini yopadi.
+        verify(accounts).onMailboxHandedOver(trade, user, "trade-abcd1234@efbazaar.uz");
+    }
+
+    @Test
+    void aReturnedMailboxIsNotAttachedToAnything() {
+        UUID user = UUID.randomUUID();
+        UUID trade = UUID.randomUUID();
+
+        consumer.onHandedOver(event(user, trade, "RETURNED"));
+
+        // Qaytarilgan quti odamning O'Z akkountiniki edi — u allaqachon
+        // biriktirilgan va ustiga yozish noto'g'ri bo'lardi.
+        verifyNoInteractions(accounts);
     }
 
     @Test

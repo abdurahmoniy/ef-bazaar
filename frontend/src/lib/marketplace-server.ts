@@ -113,13 +113,6 @@ export async function getAttributeDefinitions(): Promise<AttributeDefinitionResp
   return result.ok ? result.data : [];
 }
 
-export async function getMyListings(): Promise<ListingResponse[]> {
-  const result = await safeFetch<PageResponse<ListingResponse>>(
-    `${MARKETPLACE_PREFIX}/listings/me?size=100&sort=createdAt,desc`,
-  );
-  return result.ok ? result.data.content : [];
-}
-
 export async function getMyChatsResult(): Promise<FetchResult<ChatResponse[]>> {
   return safeFetch<ChatResponse[]>(`${MARKETPLACE_PREFIX}/chats/me`);
 }
