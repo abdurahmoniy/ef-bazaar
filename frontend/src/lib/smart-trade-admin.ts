@@ -40,28 +40,24 @@ export function sidesWithMailbox(detail: SmartTradeDetail): SmartTradeSide[] {
 /**
  * Qaysi tomonlar shu qadamni qabul qila oladi.
  *
- * <p>Kirish kodidan boshqa hamma qadamda bu — qutisi bor tomon: kod o'z
- * qutisiga keladi va o'zi bajaradi.
+ * <p>Email almashtirish kodi va Konami xati — o'z qutisiga keladi, shuning
+ * uchun u yerda ro'yxat qutisi bor tomonlardan.
  *
- * <p>Kirish kodi TESKARI. U akkountni QABUL QILAYOTGAN tomonga kerak, kod
- * esa u kirayotgan akkountning qutisiga — ya'ni QARSHI tomonning qutisiga
- * tushadi. Sotuvda xaridorda o'z qutisi umuman yo'q (quti bitta va u
- * sotuvchiniki), shuning uchun "qutisi bor tomonlar" ro'yxati xaridorni
- * tashlab ketardi: admin faqat sotuvchini tanlay olar, backend esa
- * qarshi tomon (xaridor) qutisini qidirib "pochta qutisi yo'q" deb
- * rad etardi.
+ * <p>Kirish kodi esa QUTI EGALIGIGA UMUMAN BOG'LIQ EMAS: savdo
+ * yakunlanmaguncha pochta hech qaysi tarafga tegishli emas, u platformada
+ * turadi. Kod akkountni QABUL QILAYOTGAN tomonga kerak — sotuvda bu
+ * xaridor, obmenda ikkalasi ham. Ilgari bu ro'yxat "qutisi bor tomonlar"
+ * edi va sotuvda faqat sotuvchini taklif qilardi; xaridorda esa o'z qutisi
+ * yo'q, chunki sotuvda quti umuman bitta — natijada favqulodda yo'l yopiq
+ * edi.
  */
 export function actionSides(
   detail: SmartTradeDetail,
   action: SmartTradeAction,
 ): SmartTradeSide[] {
   if (action !== 'LOGIN_CODE') return sidesWithMailbox(detail);
-  const hasBox = new Set(sidesWithMailbox(detail).map((side) => side.role));
-  return detail.sides.filter((side) => hasBox.has(counterpart(side.role)));
-}
-
-function counterpart(role: ParticipantRole): ParticipantRole {
-  return role === 'SELLER' ? 'BUYER' : 'SELLER';
+  const swap = detail.trade.kind !== 'SALE';
+  return detail.sides.filter((side) => swap || side.role === 'BUYER');
 }
 
 /**
