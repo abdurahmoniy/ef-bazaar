@@ -137,7 +137,12 @@ public class AdminSmartTradeService {
     public void submitLoginCode(UUID adminId, UUID tradeId, ParticipantRole role, String code) {
         Trade t = requireSmart(tradeId);
         requireState(t, TradeState.WAITING_BUYER_VERIFY);
-        requireMailbox(t, other(role));
+        // Qabul qiluvchining o'z qutisi bo'lmasligi normal — sotuvda quti
+        // bitta va u sotuvchida. Tekshiriladigani kod keladigan quti.
+        if (mailboxIdOf(t, other(role)) == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Qarshi tomonda pochta qutisi yo'q — kirish kodi o'sha qutiga keladi");
+        }
 
         sideRepo.recordLoginCode(tradeId, role, code, Instant.now());
 

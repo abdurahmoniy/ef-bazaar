@@ -140,6 +140,22 @@ class AdminSmartTradeControllerIT extends AbstractIntegrationIT {
                 .isEqualTo(TradeState.WAITING_BUYER_VERIFY);
     }
 
+    /**
+     * Sotuvda sotuvchi hech narsa qabul qilmaydi — unga kirish kodi
+     * ma'nosiz. Panel endi bu tomonni taklif ham qilmaydi; server esa
+     * eski sahifadan kelgan so'rovni baribir rad etishi kerak.
+     */
+    @Test
+    void aLoginCodeForThePartyHandingTheAccountOverIsRefused() throws Exception {
+        Trade t = smartTrade(TradeState.WAITING_BUYER_VERIFY);
+
+        mvc.perform(post("/api/v1/admin/smart-trades/{id}/login-code", t.getId())
+                        .with(asAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json("{\"role\":\"SELLER\",\"code\":\"447711\"}")))
+                .andExpect(status().isBadRequest());
+    }
+
     @Test
     void aLoginCodeForATradeInAnotherStateIsRefused() throws Exception {
         Trade t = smartTrade(TradeState.WAITING_PASSWORD);

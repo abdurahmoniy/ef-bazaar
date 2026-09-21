@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  actionSides,
   isValidCode,
   isValidLoginCode,
   pickMailboxSide,
@@ -55,6 +56,29 @@ const swap = detail([
   side({ role: 'SELLER', mailboxId: 'm1' }),
   side({ role: 'BUYER', mailboxId: 'm2' }),
 ]);
+
+describe('actionSides', () => {
+  it('kirish kodini sotuvda XARIDORGA taklif qiladi', () => {
+    // Sotuvda quti bitta va u sotuvchida; kod esa akkountga kirayotgan
+    // xaridorga kerak. Ilgari ro'yxat "qutisi bor tomonlar" edi, ya'ni
+    // faqat sotuvchi chiqar va backend uni rad etardi.
+    expect(actionSides(sale, 'LOGIN_CODE').map((s) => s.role)).toEqual(['BUYER']);
+  });
+
+  it('obmenda ikkala tomon ham kirish kodini oladi', () => {
+    expect(actionSides(swap, 'LOGIN_CODE').map((s) => s.role)).toEqual(['SELLER', 'BUYER']);
+  });
+
+  it('qolgan qadamlarda qutisi bor tomonlar qoladi', () => {
+    expect(actionSides(sale, 'EMAIL_CHANGE_CODE').map((s) => s.role)).toEqual(['SELLER']);
+    expect(actionSides(sale, 'KONAMI_EMAIL_CONFIRM').map((s) => s.role)).toEqual(['SELLER']);
+  });
+
+  it('quti umuman yo\'q bo\'lsa hech kimni taklif qilmaydi', () => {
+    const fresh = detail([side({ role: 'SELLER' }), side({ role: 'BUYER' })]);
+    expect(actionSides(fresh, 'LOGIN_CODE')).toEqual([]);
+  });
+});
 
 describe('pickMailboxSide', () => {
   it('opens the only mailbox a sale has', () => {

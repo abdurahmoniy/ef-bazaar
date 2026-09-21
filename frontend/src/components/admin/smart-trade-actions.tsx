@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 interface SmartTradeActionsProps {
   tradeId: string;
   action: SmartTradeAction;
-  /** Only the sides that have an escrow mailbox. */
+  /** Shu qadamni qabul qila oladigan tomonlar — {@code actionSides} beradi. */
   sides: SmartTradeSide[];
   /** The party whose mailbox is open on the right — the natural default. */
   selectedRole: ParticipantRole | null;
@@ -34,7 +34,11 @@ interface SmartTradeActionsProps {
  */
 export function SmartTradeActions({ tradeId, action, sides, selectedRole }: SmartTradeActionsProps) {
   const router = useRouter();
-  const [role, setRole] = useState<ParticipantRole | null>(selectedRole ?? sides[0]?.role ?? null);
+  // O'ngdagi quti egasi har doim ham shu qadamni qabul qiladigan tomon
+  // emas: kirish kodida quti sotuvchida, kod esa xaridorga kerak.
+  const [role, setRole] = useState<ParticipantRole | null>(
+    sides.some((side) => side.role === selectedRole) ? selectedRole : sides[0]?.role ?? null,
+  );
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
