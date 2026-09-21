@@ -234,7 +234,7 @@ describe('PlayerFilterDialog accessibility contract', () => {
     expect(source).toContain('motion-reduce:animate-none');
   });
 
-  it('supports recoverable, explicit catalogue pagination', () => {
+  it('supports recoverable catalogue pagination with a manual fallback', () => {
     expect(source).toContain('Yana yuklash');
     expect(source).toContain('Qayta urinish');
     expect(source).toContain('page: String(page)');
@@ -285,6 +285,93 @@ describe('PlayerFilterDialog accessibility contract', () => {
     expect(browser).toContain('authenticated: boolean');
     expect(browser).toContain('authenticated={authenticated}');
     expect(launcher).toContain('authenticated: boolean');
+  });
+});
+
+describe('PlayerFilterDialog infinite scrolling', () => {
+  function mockViewport() {
+    const observers: Array<{ callback: IntersectionObserverCallback; active: boolean }> = [];
+    vi.stubGlobal('IntersectionObserver', class {
+      record: typeof observers[number];
+      constructor(callback: IntersectionObserverCallback) {
+        this.record = { callback, active: false };
+        observers.push(this.record);
+      }
+      observe() { this.record.active = true; }
+      disconnect() { this.record.active = false; }
+    });
+    return async () => {
+      const current = observers.filter((observer) => observer.active).at(-1);
+      if (!current) throw new Error('No active pagination observer');
+      await act(async () => {
+        const entries = [{ isIntersecting: true }] as IntersectionObserverEntry[];
+        current.callback(entries, {} as IntersectionObserver);
+        // A queued duplicate must not skip a page.
+        current.callback(entries, {} as IntersectionObserver);
+      });
+      await settle();
+    };
+  }
+
+  const pageCards = (page: number) => Array.from({ length: 28 }, (_, index) => ({
+    ...cards[0], efhubId: page * 28 + index + 1, name: `Player ${page * 28 + index + 1}`,
+  }));
+
+  it('automatically appends the next 28 cards once and stops at the total', async () => {
+    const reachEnd = mockViewport();
+    const requestedPages: number[] = [];
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      if (!String(input).includes('/cards')) return successfulFetch(input);
+      const params = new URL(String(input), 'http://localhost').searchParams;
+      expect(params.get('size')).toBe('28');
+      const page = Number(params.get('page'));
+      requestedPages.push(page);
+      return Promise.resolve(jsonResponse({ items: pageCards(page), total: 56 }));
+    });
+    await renderWithProviders(launcherNode());
+    await click(buttonNamed('O‘yinchilar', container));
+    await settle();
+    expect(requestedPages).toEqual([0]);
+    await reachEnd();
+    expect(requestedPages).toEqual([0, 1]);
+    expect(document.querySelectorAll('button[aria-pressed]')).toHaveLength(56);
+    expect(document.querySelector('[aria-label="Ko‘proq kartalar"]')).toBeNull();
+  });
+
+  it('keeps loaded cards on failure and retries the same next page', async () => {
+    const reachEnd = mockViewport();
+    let nextPageAttempts = 0;
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      if (!String(input).includes('/cards')) return successfulFetch(input);
+      const page = Number(new URL(String(input), 'http://localhost').searchParams.get('page'));
+      if (page === 1 && ++nextPageAttempts === 1) return Promise.resolve(jsonResponse({}, 503));
+      return Promise.resolve(jsonResponse({ items: pageCards(page), total: 56 }));
+    });
+    await renderWithProviders(launcherNode());
+    await click(buttonNamed('O‘yinchilar', container));
+    await settle();
+    await reachEnd();
+    expect(document.querySelectorAll('button[aria-pressed]')).toHaveLength(28);
+    expect(document.body.textContent).toContain('Keyingi kartalar yuklanmadi.');
+    await click(buttonNamed('Qayta urinish'));
+    await settle();
+    expect(nextPageAttempts).toBe(2);
+    expect(document.querySelectorAll('button[aria-pressed]')).toHaveLength(56);
+  });
+
+  it('stops on an empty page even if the server total is stale', async () => {
+    const reachEnd = mockViewport();
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      if (!String(input).includes('/cards')) return successfulFetch(input);
+      const page = Number(new URL(String(input), 'http://localhost').searchParams.get('page'));
+      return Promise.resolve(jsonResponse({ items: page === 0 ? pageCards(0) : [], total: 99 }));
+    });
+    await renderWithProviders(launcherNode());
+    await click(buttonNamed('O‘yinchilar', container));
+    await settle();
+    await reachEnd();
+    expect(document.querySelectorAll('button[aria-pressed]')).toHaveLength(28);
+    expect(document.querySelector('[aria-label="Ko‘proq kartalar"]')).toBeNull();
   });
 });
 
@@ -453,6 +540,53 @@ describe('PlayerFilterLauncher lifecycle', () => {
 });
 
 describe('PlayerFilterDialog Telegram interactions', () => {
+  it('lets buyers remove a selected player after switching to search', async () => {
+    await renderWithProviders(launcherNode());
+    await click(buttonNamed('O‘yinchilar', container));
+    await settle();
+    await click(buttonNamed('Lionel Messi'));
+    await click(buttonNamed('Neymar Jr'));
+    await clickTab('Qidiruv');
+
+    await click(buttonNamed('Lionel Messi — olib tashlash'));
+    expect(buttonNamed('1 o‘yinchi bo‘yicha qidirish')).toBeTruthy();
+    await click(buttonNamed('1 o‘yinchi bo‘yicha qidirish'));
+    const destination = new URL(routerPush.mock.calls[0][0], 'http://localhost');
+    expect(destination.searchParams.getAll('matchCard')).toEqual([`202:${secondPlayerId}:N`]);
+  });
+
+  it('clears only the draft and restores the applied players after cancellation', async () => {
+    await renderWithProviders(launcherNode({
+      activeMatchCards: [`101:${playerId}:N`],
+    }));
+    await click(buttonNamed('O‘yinchilar', container));
+    await settle();
+    await click(buttonNamed('Tozalash'));
+
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.querySelector('button[aria-label$="— olib tashlash"]')).toBeNull();
+    await click(buttonNamed('Yopish'));
+    await click(buttonNamed('O‘yinchilar', container));
+    expect(buttonNamed('1 o‘yinchi bo‘yicha qidirish')).toBeTruthy();
+  });
+
+  it('removes an applied filter only when the empty draft is applied', async () => {
+    await renderWithProviders(launcherNode({
+      currentQuery: `q=Messi&view=list&matchCard=101:${playerId}:N&matchStrictness=4`,
+      activeMatchCards: [`101:${playerId}:N`],
+    }));
+    await click(buttonNamed('O‘yinchilar', container));
+    await settle();
+    await click(buttonNamed('Tozalash'));
+    expect(routerPush).not.toHaveBeenCalled();
+    await click(buttonNamed('Filtrni olib tashlash'));
+    const destination = new URL(routerPush.mock.calls[0][0], 'http://localhost');
+    expect(destination.searchParams.has('matchCard')).toBe(false);
+    expect(destination.searchParams.get('q')).toBe('Messi');
+    expect(destination.searchParams.get('view')).toBe('list');
+  });
+
   it('switches alternate editions without duplicating the canonical player', async () => {
     const telegram = createTelegramWebApp();
     window.Telegram = { WebApp: telegram.webApp };

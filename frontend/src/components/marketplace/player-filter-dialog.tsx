@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Check, Flame, Loader2, Search, Sparkles, Users, X } from 'lucide-react';
+import { Check, ChevronDown, Flame, Loader2, Search, SlidersHorizontal, Users, X } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Tabs from '@radix-ui/react-tabs';
 
@@ -44,7 +44,7 @@ interface PlayerFilterDialogProps {
 
 export type { PlayerMatchSelection } from '@/lib/player-filter-selection';
 
-const META_PAGE_SIZE = 24;
+const CARD_PAGE_SIZE = 28;
 const DEBOUNCE_MS = 250;
 const MAX_MATCH_PLAYERS = 11;
 
@@ -148,9 +148,16 @@ export function PlayerFilterDialog({
   }
 
   function clearAll() {
+    pickedRef.current = [];
     setPicked([]);
-    onApply(undefined, minMatch);
-    close();
+    telegramHaptic(getTelegramWebApp(), 'selection', reducedMotion);
+  }
+
+  function removePlayer(efhubId: number) {
+    const next = pickedRef.current.filter((card) => card.efhubId !== efhubId);
+    pickedRef.current = next;
+    setPicked(next);
+    telegramHaptic(getTelegramWebApp(), 'selection', reducedMotion);
   }
 
   const chosenCount = tab === 'team'
@@ -190,8 +197,9 @@ export function PlayerFilterDialog({
             triggerRef.current.focus();
           }}
           className={cn(
-            'fixed inset-x-0 bottom-0 z-50 flex h-[min(92dvh,var(--tg-viewport-height,92dvh))] flex-col rounded-t-2xl bg-card shadow-2xl outline-none data-[state=open]:animate-sheet-up data-[state=closed]:animate-sheet-down motion-reduce:animate-none',
-            'sm:inset-0 sm:m-auto sm:h-[86vh] sm:max-w-4xl sm:rounded-2xl',
+            'fixed inset-x-0 bottom-0 z-50 flex h-[min(94dvh,var(--tg-viewport-height,94dvh))] flex-col overflow-hidden rounded-t-2xl bg-card shadow-2xl outline-none data-[state=open]:animate-sheet-up data-[state=closed]:animate-sheet-down motion-reduce:animate-none',
+            'sm:inset-0 sm:m-auto sm:h-[min(82dvh,720px)] sm:max-w-3xl sm:rounded-2xl',
+            '[@media(max-height:700px)]:block [@media(max-height:700px)]:overflow-y-auto',
           )}
         >
           <Dialog.Description className="sr-only">
@@ -204,7 +212,11 @@ export function PlayerFilterDialog({
           >
             <DialogHeader />
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+            {tab !== 'team' && picked.length > 0 && (
+              <SelectedPlayers picked={picked} onRemove={removePlayer} onClear={clearAll} />
+            )}
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/20 px-3 py-3 sm:px-4 [@media(max-height:700px)]:overflow-visible">
               <Tabs.Content value="meta" className="outline-none">
                 <MetaTab
                   pickedIds={picked.map((c) => c.efhubId)}
@@ -233,7 +245,7 @@ export function PlayerFilterDialog({
               minMatch={minMatch}
               setMinMatch={setMinMatch}
               onApply={apply}
-              onClear={clearAll}
+              canRemoveFilter={activeCount > 0 && tab !== 'team'}
               reducedMotion={reducedMotion}
             />
           </Tabs.Root>
@@ -251,29 +263,33 @@ function DialogHeader() {
     ...(dreamTeamEnabled ? [{ id: 'team' as const, label: 'Mening jamoam', icon: <Users className="h-4 w-4" /> }] : []),
   ];
   return (
-    <div className="shrink-0 border-b border-border">
-      <div className="flex items-center justify-between px-4 pb-2 pt-3">
-        <Dialog.Title className="flex items-center gap-2 text-sm font-black">
-          <Sparkles className="h-4 w-4 text-amber-500" />
-          O&apos;yinchi bo&apos;yicha filtr
-        </Dialog.Title>
+    <div className="shrink-0 border-b border-border px-3 pb-2 pt-3 sm:px-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <Dialog.Title className="text-lg font-bold tracking-tight">
+            O‘yinchilar
+          </Dialog.Title>
+          <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground sm:text-xs">
+            Kerakli o‘yinchilarni tanlang, mos akkountlarni toping.
+          </p>
+        </div>
         <Dialog.Close asChild>
           <button
             type="button"
             aria-label="Yopish"
-            className="grid min-h-11 min-w-11 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            className="grid min-h-11 min-w-11 place-items-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="h-4 w-4" />
           </button>
         </Dialog.Close>
       </div>
-      <Tabs.List className="flex gap-1 overflow-x-auto px-3 no-scrollbar" aria-label="O‘yinchi filtri bo‘limlari">
+      <Tabs.List className="mt-2 flex gap-1 rounded-lg bg-muted p-0.5" aria-label="O‘yinchi filtri bo‘limlari">
         {tabs.map((item) => (
           <Tabs.Trigger
             key={item.id}
             className={cn(
-              'inline-flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 py-2 text-sm font-bold text-muted-foreground transition',
-              'data-[state=active]:border-primary data-[state=active]:text-primary hover:text-foreground',
+              'inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-muted-foreground transition-colors',
+              'data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             )}
             value={item.id}
           >
@@ -283,6 +299,54 @@ function DialogHeader() {
         ))}
       </Tabs.List>
     </div>
+  );
+}
+
+function SelectedPlayers({ picked, onRemove, onClear }: {
+  picked: PlayerMatchSelection[];
+  onRemove: (efhubId: number) => void;
+  onClear: () => void;
+}) {
+  return (
+    <section aria-label="Tanlangan o‘yinchilar" className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1 sm:px-4">
+      <p className="shrink-0 text-[11px] font-semibold tabular-nums text-muted-foreground" role="status">
+        <span className="sr-only">Tanlanganlar </span>{picked.length}/11
+      </p>
+      <ul className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto overscroll-x-contain py-1">
+        {picked.map((card) => (
+          <li key={card.efhubId} className="shrink-0">
+            <button
+              type="button"
+              aria-label={`${card.name} — olib tashlash`}
+              title={`${card.name} — olib tashlash`}
+              onClick={() => onRemove(card.efhubId)}
+              className="relative h-12 w-11 rounded-md border border-primary/20 bg-muted p-0.5 transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            >
+              <span className="relative block h-full w-full overflow-hidden rounded-sm">
+                <span className="absolute inset-0 grid place-items-center px-0.5 text-center text-[8px] font-semibold leading-tight text-muted-foreground">
+                  {card.name}
+                </span>
+                {card.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={card.imageUrl}
+                    alt=""
+                    className="relative h-full w-full bg-muted object-contain"
+                    onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                  />
+                )}
+              </span>
+              <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full border border-border bg-card text-foreground shadow-sm">
+                <X className="h-2.5 w-2.5" />
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <button type="button" onClick={onClear} className="min-h-11 shrink-0 rounded-md px-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        Tozalash
+      </button>
+    </section>
   );
 }
 
@@ -299,15 +363,15 @@ function MetaTab({
 }) {
   const { cards, loading, error, hasMore, total, loadMore, retry } = useCards({
     tier: 'META',
-    size: META_PAGE_SIZE,
+    size: CARD_PAGE_SIZE,
   });
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold text-muted-foreground">
-        Hozir eng ko&apos;p qidirilayotgan kartalar. Tanlang — shu o&apos;yinchilar bor
-        akkountlar yuqorida chiqadi.
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-xs font-semibold">Mashhur META kartalar</h3>
+        <span className="text-[11px] text-muted-foreground">11 tagacha tanlang</span>
+      </div>
       {loading && cards.length === 0 ? (
         <CardGridSkeleton />
       ) : error && cards.length === 0 ? (
@@ -368,7 +432,7 @@ function SearchTab({
 
   const { cards, loading, error, hasMore, total, loadMore, retry } = useCards({
     q: debounced,
-    size: 30,
+    size: CARD_PAGE_SIZE,
     skip: debounced.length < 2,
   });
 
@@ -378,11 +442,17 @@ function SearchTab({
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           autoFocus
+          aria-label="O‘yinchi nomi"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="O'yinchi nomi (masalan: Messi)"
-          className="pl-9"
+          className="h-11 rounded-lg pl-10 pr-12"
         />
+        {query && (
+          <button type="button" aria-label="Qidiruvni tozalash" onClick={() => setQuery('')} className="absolute right-1 top-1 grid h-10 w-11 place-items-center rounded-lg text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
       {debounced.length < 2 ? (
         <EmptyState
@@ -485,7 +555,7 @@ function CardGrid({
   onToggle: (card: PlayerMatchSelection) => void;
 }) {
   return (
-    <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6">
+    <ul className="grid grid-cols-4 gap-1.5 sm:grid-cols-7 sm:gap-2">
       {cards.map((card) => {
         const isPicked = pickedIds.includes(card.efhubId);
         const isPickedPlayer = pickedPlayerIds.includes(card.playerId);
@@ -512,10 +582,10 @@ function CardGrid({
                 })
               }
               className={cn(
-                'min-h-11 w-full rounded-xl border bg-card p-1.5 text-left transition disabled:cursor-not-allowed disabled:opacity-45',
+                'group min-h-11 w-full rounded-lg border bg-card p-1 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45',
                 isPicked
-                  ? 'border-primary ring-2 ring-primary/30'
-                  : 'border-border hover:border-primary/40',
+                  ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                  : 'border-border hover:border-primary/40 hover:bg-muted/30',
               )}
             >
               <span className="relative block aspect-[12/17] overflow-hidden rounded-lg bg-muted">
@@ -542,15 +612,11 @@ function CardGrid({
                     {rating}
                   </span>
                 )}
-                {isPicked && (
-                  <span className="absolute inset-0 grid place-items-center bg-primary/25">
-                    <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground">
-                      <Check className="h-4 w-4" />
-                    </span>
-                  </span>
-                )}
+                <span aria-hidden="true" className={cn('absolute bottom-1 right-1 grid h-5 w-5 place-items-center rounded-full border shadow-sm', isPicked ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card/90 text-transparent')}>
+                  <Check className="h-3.5 w-3.5" />
+                </span>
               </span>
-              <span className="mt-1 block truncate text-[11px] font-bold" title={card.name}>
+              <span className="mt-1 block truncate text-[11px] font-semibold leading-4" title={card.name}>
                 {card.name}
               </span>
             </button>
@@ -571,17 +637,17 @@ const STRICTNESS_OPTIONS: StrictnessOption[] = [
   {
     value: 2,
     label: 'Moslashuvchan',
-    description: 'Kamida 1+ o‘yinchi mos kelsa bo‘ladi (ko‘proq natijalar).',
+    description: 'Qisman mos akkountlarni ham ko‘rsatadi. Ko‘proq tanlov.',
   },
   {
     value: 4,
     label: 'Muvozanatli',
-    description: 'Tavsiya etiladi. Tanlangan o‘yinchilarning aksariyati bo‘lishi kerak.',
+    description: 'Moslik va natijalar soni o‘rtasidagi muvozanat. Tavsiya etiladi.',
   },
   {
     value: 8,
     label: 'Qat’iy',
-    description: 'Deyarli barcha tanlangan o‘yinchilar akkountda bo‘lishi shart.',
+    description: 'Yuqori moslikdagi akkountlar. Natijalar kamroq bo‘lishi mumkin.',
   },
 ];
 
@@ -596,81 +662,83 @@ function DialogFooter({
   minMatch,
   setMinMatch,
   onApply,
-  onClear,
+  canRemoveFilter,
   reducedMotion,
 }: {
   chosenCount: number;
   minMatch: number;
   setMinMatch: (value: number) => void;
   onApply: () => void;
-  onClear: () => void;
+  canRemoveFilter: boolean;
   reducedMotion: boolean;
 }) {
   const activeOption = getActiveStrictnessOption(minMatch);
+  const strictnessId = useId();
 
   return (
-    <div className="shrink-0 space-y-3 border-t border-border bg-card px-4 pb-[calc(0.75rem+var(--app-content-safe-bottom))] pt-3">
+    <div className="sticky bottom-0 shrink-0 border-t border-border bg-card px-3 pb-[calc(0.5rem+var(--app-content-safe-bottom))] pt-1 sm:px-4">
+      {chosenCount > 0 && (
+        <details className="group mb-1 max-h-[30dvh] overflow-y-auto overscroll-contain">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <SlidersHorizontal aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+            <span className="font-semibold">Moslik darajasi</span>
+            <span className="ml-auto text-muted-foreground">{activeOption.label}</span>
+            <ChevronDown aria-hidden="true" className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+          </summary>
+          <fieldset className="pb-3 pt-1">
+            <legend className="sr-only">Qidiruv qat’iyligi</legend>
+            <div className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1">
+              {STRICTNESS_OPTIONS.map((opt) => (
+                <label key={opt.value} className="relative min-w-0 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={strictnessId}
+                    value={opt.value}
+                    checked={activeOption.value === opt.value}
+                    onChange={() => {
+                      setMinMatch(opt.value);
+                      telegramHaptic(getTelegramWebApp(), 'selection', reducedMotion);
+                    }}
+                    className="peer sr-only"
+                  />
+                  <span className="flex min-h-11 items-center justify-center rounded-lg px-1 text-[11px] font-semibold text-muted-foreground transition-colors peer-checked:bg-card peer-checked:text-foreground peer-checked:shadow-sm peer-focus-visible:ring-2 peer-focus-visible:ring-ring sm:text-xs">
+                    {opt.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground" role="status">
+              {activeOption.description}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Aynan tanlangan karta to‘liq, shu o‘yinchining boshqa kartasi qisman mos hisoblanadi.
+            </p>
+          </fieldset>
+        </details>
+      )}
       {chosenCount >= MAX_MATCH_PLAYERS && (
-        <p className="text-xs font-bold text-amber-700 dark:text-amber-300" role="status">
-          Ko&apos;pi bilan 11 ta o&apos;yinchi tanlash mumkin. Boshqasini tanlash uchun bittasini olib tashlang.
+        <p className="mb-2 text-xs text-amber-700 dark:text-amber-300" role="status">
+          Ko&apos;pi bilan 11 ta o&apos;yinchi. Yangisini tanlash uchun bittasini olib tashlang.
         </p>
       )}
-
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between text-xs font-bold">
-          <span>Qidiruv qat’iyligi</span>
-          <span className="text-primary">{activeOption.label}</span>
-        </div>
-        <div
-          role="radiogroup"
-          aria-label="Qidiruv qat’iyligi"
-          className="grid grid-cols-3 gap-1 rounded-lg bg-muted/70 p-1"
-        >
-          {STRICTNESS_OPTIONS.map((opt) => {
-            const isActive = activeOption.value === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                role="radio"
-                aria-checked={isActive}
-                onClick={() => {
-                  setMinMatch(opt.value);
-                  telegramHaptic(getTelegramWebApp(), 'selection', reducedMotion);
-                }}
-                className={cn(
-                  'tap-press flex min-h-8 items-center justify-center rounded-md px-2 py-1 text-xs font-bold transition',
-                  isActive
-                    ? 'border border-border/80 bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-        <p className="text-[11px] font-medium text-muted-foreground leading-snug">
-          {activeOption.description}
-        </p>
-      </div>
-
-      <div className="flex gap-2">
-        <Button onClick={onApply} disabled={chosenCount === 0} className="flex-1 font-bold">
-          {chosenCount === 0 ? 'O‘yinchi tanlang' : `${chosenCount} o‘yinchi bo‘yicha qidirish`}
-        </Button>
-        <Button variant="outline" onClick={onClear} className="font-semibold">
-          Tozalash
-        </Button>
-      </div>
+      <Button
+        onClick={onApply}
+        disabled={chosenCount === 0 && !canRemoveFilter}
+        className="h-11 w-full rounded-lg text-xs font-bold"
+      >
+        <Search aria-hidden="true" className="h-4 w-4" />
+        {chosenCount > 0
+          ? `${chosenCount} o‘yinchi bo‘yicha qidirish`
+          : canRemoveFilter ? 'Filtrni olib tashlash' : 'O‘yinchi tanlang'}
+      </Button>
     </div>
   );
 }
 
 function CardGridSkeleton() {
   return (
-    <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6">
-      {Array.from({ length: 12 }).map((_, index) => (
+    <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7 sm:gap-2">
+      {Array.from({ length: CARD_PAGE_SIZE }).map((_, index) => (
         <div key={index} className="aspect-[12/17] animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
       ))}
     </div>
@@ -694,6 +762,30 @@ function CatalogControls({
   onLoadMore: () => void;
   onRetry: () => void;
 }) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [automaticLoading, setAutomaticLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') {
+      setAutomaticLoading(false);
+      return;
+    }
+    if (loading || error || !hasMore || !sentinelRef.current) return;
+
+    let active = true;
+    const observer = new IntersectionObserver((entries) => {
+      if (!active || !entries.some((entry) => entry.isIntersecting)) return;
+      active = false;
+      observer.disconnect();
+      onLoadMore();
+    }, { rootMargin: '120px 0px' });
+    observer.observe(sentinelRef.current);
+    return () => {
+      active = false;
+      observer.disconnect();
+    };
+  }, [loading, error, hasMore, onLoadMore]);
+
   if (error) {
     return (
       <div className="mt-3 flex items-center justify-center gap-2 text-xs text-destructive">
@@ -704,11 +796,18 @@ function CatalogControls({
   }
   if (!hasMore) return null;
   return (
-    <div className="mt-3 text-center">
-      <Button variant="outline" onClick={onLoadMore} disabled={loading} className="min-h-11">
-        {loading ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
-        Yana yuklash ({count} / {total})
-      </Button>
+    <div ref={sentinelRef} aria-label="Ko‘proq kartalar" className="mt-2 min-h-11 text-center">
+      {automaticLoading ? (
+        <p role="status" className="flex min-h-11 items-center justify-center gap-2 text-xs text-muted-foreground">
+          {loading && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />}
+          {loading ? 'Yuklanmoqda…' : `${count} / ${total} ta karta`}
+        </p>
+      ) : (
+        <Button variant="outline" onClick={onLoadMore} disabled={loading} className="min-h-11">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" /> : null}
+          Yana yuklash ({count} / {total})
+        </Button>
+      )}
     </div>
   );
 }
@@ -751,6 +850,7 @@ function useCards({
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(0);
+  const [reachedEnd, setReachedEnd] = useState(false);
   const [retryVersion, setRetryVersion] = useState(0);
 
   const key = useMemo(() => `${q ?? ''}|${tier ?? ''}|${size}`, [q, tier, size]);
@@ -759,6 +859,7 @@ function useCards({
     setPage(0);
     setCards([]);
     setTotal(0);
+    setReachedEnd(false);
     setError(null);
   }, [key, skip]);
 
@@ -795,6 +896,7 @@ function useCards({
       .then((payload) => {
         if (cancelled) return;
         setTotal(payload.total);
+        setReachedEnd(payload.items.length === 0);
         setCards((current) => {
           const combined = page === 0 ? payload.items : [...current, ...payload.items];
           return Array.from(new Map(combined.map((card) => [card.efhubId, card])).values());
@@ -819,9 +921,9 @@ function useCards({
     loading,
     error,
     total,
-    hasMore: cards.length < total,
+    hasMore: !reachedEnd && cards.length < total,
     loadMore: () => {
-      if (!loading && cards.length < total) setPage((current) => current + 1);
+      if (!loading && !error && !reachedEnd && cards.length < total) setPage((current) => current + 1);
     },
     retry: () => setRetryVersion((current) => current + 1),
   };
