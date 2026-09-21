@@ -54,15 +54,17 @@ public class TradeActionNotificationConsumer {
         boolean swap = !hasAmount(e.amountUzs());
         String formattedPrice = String.format("%,d", e.amountUzs()).replace(',', ' ') + " UZS";
         return switch (action) {
-            case "PROPOSAL_CREATED" -> "🤝 <b>Yangi savdo taklifi!</b>\n"
-                    + (swap
-                        ? "Sizga <b>obmen</b> taklifi yuborildi — akkountga akkount.\n"
-                        : "Sizga <b>" + formattedPrice + "</b> miqdorida savdo taklifi yuborildi.\n")
+            case "PROPOSAL_CREATED" -> (swap
+                        ? "🔁 <b>Yangi obmen taklifi!</b>\n"
+                            + "Sizga akkountga akkount almashish taklif qilindi.\n"
+                        : "🤝 <b>Yangi savdo taklifi!</b>\n"
+                            + "Sizga <b>" + formattedPrice + "</b> miqdorida savdo taklifi yuborildi.\n")
                     + "Savdoni davom ettirish uchun chatga kiring.";
-            case "TRADE_STARTED" -> "🚀 <b>Savdo boshlandi!</b>\n"
-                    + (swap
-                        ? "Obmen taklifi qabul qilindi."
-                        : "Taklif qabul qilindi (" + formattedPrice + ").")
+            case "TRADE_STARTED" -> (swap
+                        ? "🔁 <b>Obmen boshlandi!</b>\n"
+                            + "Taklif qabul qilindi."
+                        : "🚀 <b>Savdo boshlandi!</b>\n"
+                            + "Taklif qabul qilindi (" + formattedPrice + ").")
                     + " Akkount transferi boshlanmoqda.";
             case "EMAIL_CHANGED" -> "📧 <b>Konami emaili o'zgartirildi</b>\n"
                     + "Sotuvchi Konami emailini almashtirdi. Tekshiruv davom etmoqda.";

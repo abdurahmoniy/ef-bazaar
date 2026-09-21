@@ -83,8 +83,13 @@ class TradeActionNotificationConsumerTest {
         assertThat(telegram.calls).allSatisfy(call -> {
             assertThat(call.text()).doesNotContain("0 UZS");
             assertThat(call.text()).doesNotContain("UZS");
+            // Sarlavhaning o'zi ham obmen deyishi kerak — "savdo taklifi" deb
+            // kelgan xabar obmenni sotuvdek ko'rsatardi.
+            assertThat(call.text()).doesNotContain("savdo taklifi");
             assertThat(call.text().toLowerCase()).contains("obmen");
         });
+        assertThat(telegram.calls.get(0).text()).contains("Yangi obmen taklifi!");
+        assertThat(telegram.calls.get(1).text()).contains("Obmen boshlandi!");
     }
 
     @Test
