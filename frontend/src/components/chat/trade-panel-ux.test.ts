@@ -18,6 +18,7 @@ const email = 'trade-7f10a8c2@efbazaar.uz';
 
 beforeEach(() => {
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  localStorage.clear();
   const trade = {
     id: 'e727540c-trade', state: 'WAITING_EMAIL_CHANGE', kind: 'SALE',
     buyerId: 'buyer', sellerId: 'seller', role: 'SELLER', priceUzs: 20000,
@@ -41,6 +42,8 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 const render = async () => act(async () => root.render(createElement(TradePanel)));
@@ -49,6 +52,107 @@ const buttonWith = (text: string) => Array.from(dialog().querySelectorAll('butto
   .find((button) => button.textContent?.includes(text))!;
 
 describe('trade details', () => {
+  function prepareBuyer() {
+    Object.assign(context.activeTrade!, {
+      state: 'WAITING_BUYER_VERIFY', role: 'BUYER', passwordMessageId: 'password-message',
+    });
+    context.viewerId = 'buyer';
+    context.isSeller = false;
+  }
+
+  async function revealPassword(status = 200) {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(status === 200
+      ? Response.json({ password: 'one-time-secret' })
+      : new Response(null, { status })));
+    await act(async () => buttonWith("Parolni ko'rsatish").click());
+    const nested = document.querySelectorAll('[role="dialog"]')[1];
+    const confirm = Array.from(nested.querySelectorAll('button'))
+      .find(button => button.textContent?.includes('Ha, ochaman'))!;
+    await act(async () => confirm.click());
+  }
+
+  it('keeps approve and reject available after revealing and remounting the panel', async () => {
+    prepareBuyer();
+    await render();
+    await revealPassword();
+    expect(dialog().textContent).toContain('one-time-secret');
+    expect(JSON.stringify(localStorage)).not.toContain('one-time-secret');
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    await render();
+    expect(buttonWith("Parolni ko'rsatish")).toBeUndefined();
+    expect(buttonWith('Tasdiqlash').disabled).toBe(false);
+    expect(buttonWith('Rad etish').disabled).toBe(false);
+    expect(dialog().textContent).not.toContain('one-time-secret');
+    expect(dialog().querySelector('[aria-label="Parolni nusxa olish"]')).toBeNull();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows decision controls when the one-time password is already unavailable', async () => {
+    prepareBuyer();
+    await render();
+    await revealPassword(410);
+    expect(buttonWith("Parolni ko'rsatish")).toBeUndefined();
+    expect(buttonWith('Tasdiqlash')).toBeDefined();
+    expect(buttonWith('Rad etish')).toBeDefined();
+  });
+
+  it('keeps reveal retryable after an ordinary server error', async () => {
+    prepareBuyer();
+    await render();
+    await revealPassword(500);
+    expect(buttonWith("Parolni ko'rsatish").disabled).toBe(false);
+    expect(buttonWith('Tasdiqlash')).toBeUndefined();
+  });
+
+  it('does not reuse revealed credentials or reveal status for a different trade', async () => {
+    prepareBuyer();
+    await render();
+    await revealPassword();
+    context.activeTrade = { ...context.activeTrade!, id: 'another-trade', passwordMessageId: 'another-password' };
+    await render();
+    expect(buttonWith("Parolni ko'rsatish").disabled).toBe(false);
+    expect(dialog().textContent).not.toContain('one-time-secret');
+  });
+
+  it('preserves the confirmation cooldown after reopening a revealed password', async () => {
+    prepareBuyer();
+    context.activeTrade!.confirmUnlocksAt = new Date(Date.now() + 60_000).toISOString();
+    await render();
+    await revealPassword();
+    context.isDrawerOpen = false;
+    await render();
+    context.isDrawerOpen = true;
+    await render();
+    expect(buttonWith("Parolni ko'rsatish")).toBeUndefined();
+    expect(buttonWith('Tasdiqlash').disabled).toBe(true);
+    expect(buttonWith('Rad etish').disabled).toBe(false);
+  });
+
+  it('keeps swap participants’ one-time reveal states separate', async () => {
+    prepareBuyer();
+    context.activeTrade!.kind = 'SWAP';
+    await render();
+    await revealPassword();
+    context.viewerId = 'seller';
+    context.isSeller = true;
+    context.activeTrade = { ...context.activeTrade!, role: 'SELLER', passwordMessageId: 'seller-password' };
+    await render();
+    expect(buttonWith("Parolni ko'rsatish").disabled).toBe(false);
+    expect(dialog().textContent).not.toContain('one-time-secret');
+  });
+
+  it('still displays the revealed password and controls when browser storage is blocked', async () => {
+    prepareBuyer();
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('Blocked'); });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Blocked'); });
+    await render();
+    await revealPassword();
+    expect(dialog().textContent).toContain('one-time-secret');
+    expect(buttonWith('Tasdiqlash').disabled).toBe(false);
+    expect(buttonWith('Rad etish').disabled).toBe(false);
+  });
+
   it.each(['active', 'finished', 'proposal', 'no-request'])('keeps the listing link available in the %s state', async (state) => {
     context.listing = { id: 'original-listing' } as NonNullable<Context['listing']>;
     if (state === 'finished') {

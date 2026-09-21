@@ -192,6 +192,7 @@ function TradePanelContent() {
 
     return (
       <ActiveTradeCard
+        key={`${activeTrade.id}:${viewerId}:${activeTrade.passwordMessageId}`}
         trade={activeTrade}
         viewerId={viewerId}
         onRefresh={reload}
@@ -206,6 +207,7 @@ function TradePanelContent() {
     return (
       <div className="space-y-2">
         <ActiveTradeCard
+          key={`${lastFinished.id}:${viewerId}:${lastFinished.passwordMessageId}`}
           trade={lastFinished}
           viewerId={viewerId}
           onRefresh={reload}
@@ -982,6 +984,24 @@ function WaitingBuyerVerifyBuyerPanel({
   const [emailCopied, setEmailCopied] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [requestingCode, startCodeRequest] = useTransition();
+  const revealStorageKey = `trade-password-opened:${trade.id}:${trade.passwordMessageId}`;
+  const [passwordOpened, setPasswordOpened] = useState(() => {
+    try {
+      return window.localStorage.getItem(revealStorageKey) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  function rememberPasswordOpened() {
+    setPasswordOpened(true);
+    try {
+      // Persist only the one-time reveal status, never the password itself.
+      window.localStorage.setItem(revealStorageKey, '1');
+    } catch {
+      // Keep the current panel usable when browser storage is unavailable.
+    }
+  }
   // Obmenda qutilar teskari: kirib tekshiriladigani qarshi tomonniki.
   const mailboxEmail = receivingMailboxEmail(trade);
 
@@ -1025,10 +1045,12 @@ function WaitingBuyerVerifyBuyerPanel({
     startReveal(async () => {
       const r = await postReveal(trade.id, trade.passwordMessageId!);
       if (!r.ok) {
+        if (r.status === 410) rememberPasswordOpened();
         onActionError(r.error);
         setShowRevealModal(false);
         return;
       }
+      rememberPasswordOpened();
       onRevealed(r.data.password);
       setShowRevealModal(false);
     });
@@ -1084,7 +1106,7 @@ function WaitingBuyerVerifyBuyerPanel({
 
   return (
     <div className="space-y-3">
-      {revealedPassword ? (
+      {revealedPassword || passwordOpened ? (
         <>
           <div className="space-y-3">
             {mailboxEmail && (
@@ -1110,7 +1132,7 @@ function WaitingBuyerVerifyBuyerPanel({
                 </div>
               </div>
             )}
-            <div>
+            {revealedPassword && <div>
               <p className="mb-2 text-sm font-semibold text-foreground">
                 Konami paroli
               </p>
@@ -1130,10 +1152,11 @@ function WaitingBuyerVerifyBuyerPanel({
                   <span className="sr-only" role="status">{copied ? 'Nusxalandi' : ''}</span>
                 </Button>
               </div>
-            </div>
+            </div>}
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Yuqoridagi email + parol bilan Konami akkauntga kira olganingizni
-              tekshiring. Parol qayta ochilmaydi.
+              {revealedPassword
+                ? 'Yuqoridagi email + parol bilan Konami akkauntga kira olganingizni tekshiring. Parol qayta ochilmaydi.'
+                : 'Parol qayta ochilmaydi. Akkountga kira olgan bo‘lsangiz tasdiqlang, kira olmagan bo‘lsangiz rad eting.'}
             </p>
 
             <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-3">
@@ -2327,7 +2350,7 @@ async function fetchWalletBalance(): Promise<{ availableTiyin: number } | null> 
   }
 }
 
-type MutationResult<T> = { ok: true; data: T } | { ok: false; error: string };
+type MutationResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
 
 async function postProposal(
   payload: ProposalCreateRequest,
@@ -2409,7 +2432,7 @@ async function postReveal(
   );
   if (!response.ok) {
     if (response.status === 410) {
-      return { ok: false, error: 'Parol allaqachon ochilgan yoki muddati tugagan' };
+      return { ok: false, status: 410, error: 'Parol allaqachon ochilgan yoki muddati tugagan' };
     }
     return { ok: false, error: await readErrorMessage(response) };
   }
