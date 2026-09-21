@@ -51,13 +51,19 @@ public class TradeActionNotificationConsumer {
 
     private String buildMessage(TradeActionNotificationDto e) {
         String action = e.actionType() != null ? e.actionType() : "";
+        boolean swap = !hasAmount(e.amountUzs());
         String formattedPrice = String.format("%,d", e.amountUzs()).replace(',', ' ') + " UZS";
         return switch (action) {
             case "PROPOSAL_CREATED" -> "🤝 <b>Yangi savdo taklifi!</b>\n"
-                    + "Sizga <b>" + formattedPrice + "</b> miqdorida savdo taklifi yuborildi.\n"
+                    + (swap
+                        ? "Sizga <b>obmen</b> taklifi yuborildi — akkountga akkount.\n"
+                        : "Sizga <b>" + formattedPrice + "</b> miqdorida savdo taklifi yuborildi.\n")
                     + "Savdoni davom ettirish uchun chatga kiring.";
             case "TRADE_STARTED" -> "🚀 <b>Savdo boshlandi!</b>\n"
-                    + "Taklif qabul qilindi (" + formattedPrice + "). Akkount transferi boshlanmoqda.";
+                    + (swap
+                        ? "Obmen taklifi qabul qilindi."
+                        : "Taklif qabul qilindi (" + formattedPrice + ").")
+                    + " Akkount transferi boshlanmoqda.";
             case "EMAIL_CHANGED" -> "📧 <b>Konami emaili o'zgartirildi</b>\n"
                     + "Sotuvchi Konami emailini almashtirdi. Tekshiruv davom etmoqda.";
             case "PASSWORD_SENT" -> "🔑 <b>Konami paroli yuborildi!</b>\n"
@@ -71,5 +77,19 @@ public class TradeActionNotificationConsumer {
             default -> "🔔 <b>Savdo yangilandi</b>\n"
                     + "Savdo holatida o'zgarish yuz berdi.";
         };
+    }
+
+    /**
+     * Ko'rsatiladigan summa bormi.
+     *
+     * <p>Toza obmenda pul umuman o'tmaydi va summa 0 bo'lib keladi — DM da esa
+     * "0 UZS" chiqib, savdo buzuq ochilgandek ko'rinardi. Hodisada savdo turi
+     * yo'q, lekin sotuvda narx hech qachon 0 bo'lmaydi (marketplace eng kam
+     * narxni talab qiladi), shuning uchun 0 summa obmen belgisi. Doplatali
+     * obmenda doplataning o'zi ko'rsatiladi — sayt ham shu qoida bilan
+     * ishlaydi ({@code trade-swap.ts}).
+     */
+    private static boolean hasAmount(long amountUzs) {
+        return amountUzs > 0;
     }
 }
