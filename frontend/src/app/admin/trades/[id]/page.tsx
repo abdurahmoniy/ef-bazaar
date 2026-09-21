@@ -6,6 +6,7 @@ import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { getAdminMailboxInbox, getAdminMailboxMessage } from '@/lib/mailbox-admin-server';
 import { formatListingDate } from '@/lib/marketplace-format';
 import {
+  actionSides,
   ROLE_LABEL_UZ,
   SMART_STEPS,
   pickMailboxSide,
@@ -109,7 +110,7 @@ export default async function AdminTradePage({ params, searchParams }: AdminTrad
           <SmartTradeActions
             tradeId={trade.id}
             action={trade.expectedAction}
-            sides={boxes}
+            sides={actionSides(detail, trade.expectedAction)}
             selectedRole={open?.role ?? null}
           />
 
