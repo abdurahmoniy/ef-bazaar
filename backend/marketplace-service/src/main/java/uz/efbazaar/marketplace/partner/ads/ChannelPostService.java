@@ -2,7 +2,6 @@ package uz.efbazaar.marketplace.partner.ads;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,9 +46,7 @@ public class ChannelPostService {
     private final OfficialChannelService officialChannel;
     private final PartnerPricing pricing;
     private final ListingRepository listings;
-
-    @Value("${app.web.base-url:https://efbazaar.uz}")
-    private String webBaseUrl;
+    private final ListingDeepLink deepLink;
 
     /**
      * Tanlangan kanallarga buyurtma beradi.
@@ -132,17 +129,20 @@ public class ChannelPostService {
             onFailed(post.getId(), "E'lon topilmadi");
             return;
         }
-        String url = buttonUrl(post.getListingId(), channel.getLinkCode());
+        // Matndagi havola brauzer uchun, tugma esa Mini App'ni Telegram
+        // ichida ochadi. Hamkor kodi ikkalasida ham bor — savdo ulushi
+        // qaysi kanaldan kelganiga bog'langan.
+        String webUrl = deepLink.webUrl(post.getListingId(), channel.getLinkCode());
         events.postRequested(post, ChannelPostPayload.of(
                 post, channel,
                 // Hamkorning o'z ko'rinishi: qaysi bloklar, qaysi
                 // tartibda va o'z footeri bilan.
-                ChannelPostCaption.of(listing, url,
+                ChannelPostCaption.of(listing, webUrl,
                         ChannelPostLayout.parse(channel.getPostBlocks() == null
                                 ? null : java.util.List.of(channel.getPostBlocks())),
                         channel.getPostFooter()),
                 firstMedia(listing),
-                url));
+                deepLink.buttonUrl(post.getListingId(), channel.getLinkCode())));
     }
 
     /**
@@ -155,16 +155,6 @@ public class ChannelPostService {
     private String firstMedia(Listing listing) {
         List<String> media = listing.getMediaMessageIds();
         return media == null || media.isEmpty() ? null : media.get(0);
-    }
-
-    /**
-     * Post ostidagi tugma manzili.
-     *
-     * <p>Har kanal O'Z kodini olib yuradi — bosilish qaysi kanaldan
-     * kelganini shundan bilamiz, va savdo ulushi shunga bog'lanadi.
-     */
-    private String buttonUrl(UUID listingId, String linkCode) {
-        return webBaseUrl + "/marketplace/" + listingId + "?p=" + linkCode;
     }
 
     private UUID sellerOf(ListingChannelPost post) {

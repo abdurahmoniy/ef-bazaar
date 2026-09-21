@@ -58,7 +58,8 @@ class ChannelPostServiceTest {
         listings = mock(uz.efbazaar.marketplace.repository.ListingRepository.class);
         officialChannel = mock(OfficialChannelService.class);
         service = new ChannelPostService(channels, posts, payments, events, officialChannel,
-                new PartnerPricing(), listings);
+                new PartnerPricing(), listings,
+                new ListingDeepLink("https://efbazaar.uz", "https://t.me/EfBazaarBot/app"));
 
         cheap = channel("Arzon", new BigDecimal("5000.00"));
         mid = channel("O'rtacha", new BigDecimal("10000.00"));
@@ -84,6 +85,7 @@ class ChannelPostServiceTest {
         c.setTitle(title);
         c.setPostPriceSom(price);
         c.setActive(true);
+        c.setLinkCode("K7M4XQP2");
         when(channels.findById(c.getId())).thenReturn(Optional.of(c));
         return c;
     }
@@ -219,8 +221,24 @@ class ChannelPostServiceTest {
         assertThat(payload.getValue().caption()).isNotBlank();
         assertThat(payload.getValue().caption()).contains("so'm");
         // Havola MATN ichida ham bo'lishi kerak: rasmiy kanalga
-        // forward qilingan nusxa inline tugmani yo'qotadi.
-        assertThat(payload.getValue().caption()).contains(payload.getValue().buttonUrl());
+        // forward qilingan nusxa inline tugmani yo'qotadi. Matndagi
+        // havola tugmanikidan boshqa — u brauzer uchun.
+        assertThat(payload.getValue().caption())
+                .contains("https://efbazaar.uz/marketplace/" + listing + "?p=K7M4XQP2");
+    }
+
+    @Test
+    @DisplayName("tugma Mini App'ni ochadi va hamkor kodini o'zi bilan olib ketadi")
+    void theButtonOpensTheMiniAppWithThePartnerCode() {
+        // Kanalga web_app tugmasi qo'yib bo'lmaydi — Telegram xabarni
+        // butunlay rad etadi. Mini App'ni ochadigan yagona yo'l
+        // t.me/<bot>/<app>?startapp=... havolasi.
+        service.order(seller, listing, List.of(cheap.getId()));
+
+        var payload = forClass(PartnerAdEventPublisher.ChannelPostPayload.class);
+        verify(events).postRequested(any(), payload.capture());
+        assertThat(payload.getValue().buttonUrl())
+                .isEqualTo("https://t.me/EfBazaarBot/app?startapp=" + listing + "_K7M4XQP2");
     }
 
     @Test

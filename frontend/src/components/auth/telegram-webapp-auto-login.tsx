@@ -4,6 +4,7 @@ import * as React from 'react';
 import { AlertCircle, Loader2, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+import { miniAppStartTarget } from '@/lib/mini-app-start-param';
 import { isSafeInternalPath } from '@/lib/safe-redirect';
 
 /**
@@ -99,6 +100,9 @@ async function hasMatchingSession(initData: string, signal: AbortSignal): Promis
 
 /**
  * Auth'dan keyin qayerga qaytish:
+ * 0. Kanal postidagi tugmadan kelingan bo'lsa — o'sha e'longa. Payload URL
+ *    fragmentida keladi va u login navigatsiyasidan omon chiqmaydi, shuning
+ *    uchun manzilga aynan shu yerda aylantiriladi.
  * 1. `?from=/...` bo'lsa (login sahifasiga server redirect qo'ygan) — o'sha yerga.
  *    Faqat ichki path qabul qilinadi (open-redirect himoyasi).
  * 2. Landing (`/`) da ochilgan bo'lsa (bot menyusidagi "Open mini app") —
@@ -108,6 +112,8 @@ async function hasMatchingSession(initData: string, signal: AbortSignal): Promis
  * 4. Aks holda (auth sahifalari, from'siz) — /profile.
  */
 function resolvePostLoginTarget(): string {
+  const fromPost = miniAppStartTarget();
+  if (fromPost) return fromPost;
   const from = new URLSearchParams(window.location.search).get('from');
   if (from && isSafeInternalPath(from)) return from;
   const path = window.location.pathname;

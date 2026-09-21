@@ -119,7 +119,11 @@ export type TelegramWebAppEventCallback = (payload?: TelegramWebAppEventPayload)
  * Full surface: https://core.telegram.org/bots/webapps#initializing-mini-apps
  */
 export interface TelegramWebApp {
-  initDataUnsafe?: { user?: { id: number; allows_write_to_pm?: boolean } };
+  initDataUnsafe?: {
+    user?: { id: number; allows_write_to_pm?: boolean };
+    /** `t.me/<bot>/<app>?startapp=...` dagi payload — kanal postidagi tugma. */
+    start_param?: string;
+  };
   isVersionAtLeast?: (version: string) => boolean;
   requestWriteAccess?: (callback?: (allowed: boolean) => void) => void;
   initData: string;

@@ -42,7 +42,7 @@ public class OfficialChannelService {
     private final OfficialChannelPostRepository official;
     private final ListingChannelPostRepository posts;
     private final PartnerAdEventPublisher events;
-    private final String webBaseUrl;
+    private final ListingDeepLink deepLink;
 
     /**
      * Rasmiy kanal manzili — {@code @EfBazaar} yoki raqamli id.
@@ -57,13 +57,13 @@ public class OfficialChannelService {
                                   OfficialChannelPostRepository official,
                                   ListingChannelPostRepository posts,
                                   PartnerAdEventPublisher events,
-                                  @Value("${app.web.base-url:https://efbazaar.uz}") String webBaseUrl,
+                                  ListingDeepLink deepLink,
                                   @Value("${app.channels.official:}") String officialChannel) {
         this.listings = listings;
         this.official = official;
         this.posts = posts;
         this.events = events;
-        this.webBaseUrl = webBaseUrl;
+        this.deepLink = deepLink;
         this.officialChannel = officialChannel == null ? "" : officialChannel.trim();
     }
 
@@ -166,13 +166,15 @@ public class OfficialChannelService {
 
     private void publishDirect(Listing listing, OfficialChannelPost row) {
         // Rasmiy kanalda hamkor kodi YO'Q: bu post hech qaysi hamkorga
-        // tegishli emas va undan kelgan savdo ulushi ham yo'q.
-        String url = webBaseUrl + "/marketplace/" + listing.getId();
+        // tegishli emas va undan kelgan savdo ulushi ham yo'q. Matndagi
+        // havola brauzer uchun, tugma esa Mini App'ni Telegram ichida
+        // ochadi.
+        String webUrl = deepLink.webUrl(listing.getId(), null);
         List<String> media = listing.getMediaMessageIds();
         events.officialPostRequested(new PartnerAdEventPublisher.OfficialPostPayload(
                 listing.getId(), officialChannel,
-                ChannelPostCaption.of(listing, url),
+                ChannelPostCaption.of(listing, webUrl),
                 media == null || media.isEmpty() ? null : media.get(0),
-                url, null, null));
+                deepLink.buttonUrl(listing.getId(), null), null, null));
     }
 }
