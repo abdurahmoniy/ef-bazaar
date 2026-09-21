@@ -37,9 +37,9 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
         UUID buyer  = UUID.randomUUID();
         var t = trades.openTrade(seller, buyer, 500_000L,
                 UUID.randomUUID(), UUID.randomUUID(), null);
-        // Push it to WAITING_PAYMENT — normally the mock worker does this on email-provisioned.
-        trades.transition(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.MAILBOX_PROVISIONED,
-                uz.efbazaar.trade.trade.domain.ActorType.WORKER, null);
+        // WAITING_PAYMENT ga o'tkazamiz — odatda buni mock worker qiladi,
+        // shuning uchun poygaga tushmaydigan yordamchi ishlatiladi.
+        leaveInitiated(trades, t.id());
 
         mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/payment-confirmed").with(asUser(buyer)))
                 .andExpect(status().isOk());
@@ -200,8 +200,7 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
         UUID buyer  = UUID.randomUUID();
         var t = trades.openTrade(seller, buyer, 500_000L,
                 UUID.randomUUID(), UUID.randomUUID(), null);
-        trades.transition(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.MAILBOX_PROVISIONED,
-                uz.efbazaar.trade.trade.domain.ActorType.WORKER, null);
+        leaveInitiated(trades, t.id());
 
         mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/payment-confirmed").with(asUser(seller)))
                 .andExpect(status().isForbidden());
@@ -215,8 +214,7 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
                 UUID.randomUUID(), UUID.randomUUID(), null);
 
         // Drive to WAITING_EMAIL_CHANGE via the normal transitions.
-        trades.transition(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.MAILBOX_PROVISIONED,
-                uz.efbazaar.trade.trade.domain.ActorType.WORKER, null);
+        leaveInitiated(trades, t.id());
         trades.transition(t.id(), uz.efbazaar.trade.trade.domain.TradeEvent.PAYMENT_CONFIRMED,
                 uz.efbazaar.trade.trade.domain.ActorType.USER, buyer);
 

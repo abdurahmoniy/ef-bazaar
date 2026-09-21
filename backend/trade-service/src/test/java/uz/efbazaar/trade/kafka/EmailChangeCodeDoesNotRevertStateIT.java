@@ -45,7 +45,7 @@ class EmailChangeCodeDoesNotRevertStateIT extends AbstractIntegrationIT {
         UUID buyer = UUID.randomUUID();
         UUID tradeId = trades.openTrade(seller, buyer, 500_000L, null, null, null).id();
 
-        trades.transition(tradeId, TradeEvent.MAILBOX_PROVISIONED, ActorType.WORKER, null);
+        leaveInitiated(trades, tradeId);
         trades.transition(tradeId, TradeEvent.PAYMENT_CONFIRMED, ActorType.USER, buyer);
 
         // A copy of the trade as the worker's handler would have read it,
@@ -80,7 +80,7 @@ class EmailChangeCodeDoesNotRevertStateIT extends AbstractIntegrationIT {
         UUID buyer = UUID.randomUUID();
         UUID tradeId = trades.openTrade(seller, buyer, 500_000L, null, null, null).id();
 
-        trades.transition(tradeId, TradeEvent.MAILBOX_PROVISIONED, ActorType.WORKER, null);
+        leaveInitiated(trades, tradeId);
         trades.transition(tradeId, TradeEvent.PAYMENT_CONFIRMED, ActorType.USER, buyer);
         Trade stale = tradeRepo.findById(tradeId).orElseThrow();
 
