@@ -153,6 +153,12 @@ write_env() {
   upsert_env .env SPRING_PROFILES_ACTIVE  docker
   upsert_env .env APP_BASE_URL            "${APP_BASE_URL:-}"
 
+  # "Akkountlarim" joriy qilinishidan oldingi FAOL e'lonlar uchun bir martalik
+  # ta'mir. Yozilmasa compose'ning `false` defaulti ishlaydi va ta'mir JIM
+  # o'tkazib yuboriladi — eski userlar bo'lim bo'sh ekanini ko'radi. Takroriy
+  # ishga tushirish xavfsiz: akkounti bor e'lon o'tkazib yuboriladi.
+  upsert_env .env USER_ACCOUNT_BACKFILL_ENABLED "${USER_ACCOUNT_BACKFILL_ENABLED:-false}"
+
   upsert_env .env NGINX_HTTP_PORT         "${NGINX_HTTP_PORT:-80}"
   upsert_env .env NGINX_HTTPS_PORT        "${NGINX_HTTPS_PORT:-443}"
 
