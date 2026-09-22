@@ -4,12 +4,17 @@ import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Loader2, Mail, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { getMyAccounts } from '@/lib/accounts-client';
 import {
+  accountEmailSet,
   deleteMailbox,
   fetchOwnedMailboxes,
   fetchSlotStatus,
+  isAttachedTo,
   isDeletable,
+  slotPressure,
   slotWarning,
+  sortForCleanup,
   type MailboxSlotStatus,
   type OwnedMailbox,
 } from '@/lib/mailbox-slots';
@@ -28,6 +33,7 @@ import {
 export function MailboxSlotsWarning() {
   const [status, setStatus] = useState<MailboxSlotStatus | null>(null);
   const [mailboxes, setMailboxes] = useState<OwnedMailbox[] | null>(null);
+  const [accountEmails, setAccountEmails] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,24 +43,36 @@ export function MailboxSlotsWarning() {
 
   useEffect(reload, [reload]);
 
+  const pressure = slotPressure(status);
   const warning = slotWarning(status);
   if (!warning) return null;
 
   async function openList() {
     setError(null);
     try {
-      setMailboxes(await fetchOwnedMailboxes());
+      const [boxes, accounts] = await Promise.all([fetchOwnedMailboxes(), getMyAccounts()]);
+      // Akkountlar o'qilmasa ham ro'yxat ko'rsatiladi: u holda hamma
+      // quti "bog'langan" deb qaraladi, ya'ni hech narsa xato ravishda
+      // "o'chirish xavfsiz" deb belgilanmaydi. Bilmaslik "bo'sh" degani emas.
+      const emails = accounts.ok
+        ? accountEmailSet(accounts.data)
+        : new Set<string>(boxes.map((box) => box.email.trim().toLowerCase()));
+      setAccountEmails(emails);
+      setMailboxes(sortForCleanup(boxes, emails));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Yuklanmadi');
     }
   }
 
   async function remove(mailbox: OwnedMailbox) {
-    if (!window.confirm(
-      `${mailbox.email} butunlay o'chiriladi va undagi xatlar qaytarib bo'lmaydi.\n\n`
-      + "Bu akkauntning Konami parolini tiklash shu manzilga keladi — "
-      + "akkaunt hali sizda bo'lsa, avval Konami'da boshqa pochtaga o'tkazing.\n\nO'chirilsinmi?",
-    )) return;
+    const attached = isAttachedTo(mailbox, accountEmails);
+    const message = attached
+      ? `${mailbox.email} butunlay o'chiriladi va undagi xatlar qaytarib bo'lmaydi.\n\n`
+        + "Bu akkauntning Konami parolini tiklash shu manzilga keladi — "
+        + "akkaunt hali sizda bo'lsa, avval Konami'da boshqa pochtaga o'tkazing.\n\nO'chirilsinmi?"
+      : `${mailbox.email} butunlay o'chiriladi. Bu quti hech qaysi akkountingizga `
+        + "bog'lanmagan.\n\nO'chirilsinmi?";
+    if (!window.confirm(message)) return;
     setError(null);
     setBusy(mailbox.id);
     try {
@@ -73,7 +91,11 @@ export function MailboxSlotsWarning() {
       <div className="flex items-start gap-3">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
         <div className="space-y-1">
-          <h2 className="text-sm font-semibold">Pochta qutilari to&apos;ldi</h2>
+          <h2 className="text-sm font-semibold">
+            {pressure === 'full'
+              ? "Pochta qutilari to'ldi"
+              : "Pochta qutilari to'lay deb qoldi"}
+          </h2>
           <p className="text-xs text-muted-foreground">{warning}</p>
         </div>
       </div>
@@ -90,7 +112,11 @@ export function MailboxSlotsWarning() {
               <div className="min-w-0 flex-1">
                 <p className="break-all text-sm font-medium">{mailbox.email}</p>
                 <p className="text-xs text-muted-foreground">
-                  {isDeletable(mailbox) ? 'Sizga tegishli · faol savdoga biriktirilmagan' : 'Savdoga biriktirilgan'}
+                  {!isDeletable(mailbox)
+                    ? 'Savdoga biriktirilgan'
+                    : isAttachedTo(mailbox, accountEmails)
+                      ? 'Akkountga bog\u2018langan — o\u2018chirilsa akkount tiklab bo\u2018lmas holga keladi'
+                      : 'Hech qaysi akkountga bog\u2018lanmagan — o\u2018chirish xavfsiz'}
                 </p>
               </div>
               {isDeletable(mailbox) && (
