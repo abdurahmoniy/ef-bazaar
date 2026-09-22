@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { isDeletable, slotWarning, type MailboxSlotStatus, type OwnedMailbox } from './mailbox-slots';
+import {
+  isDeletable,
+  slotPressure,
+  slotWarning,
+  type MailboxSlotStatus,
+  type OwnedMailbox,
+} from './mailbox-slots';
 
 describe('slotWarning', () => {
   const full: MailboxSlotStatus = { used: 3, limit: 3, full: true, plan: 'STANDARD' };
@@ -49,5 +55,38 @@ describe('isDeletable', () => {
 
   it('offers the button once the trade has let go', () => {
     expect(isDeletable(mailbox(null))).toBe(true);
+  });
+});
+
+describe('slotPressure', () => {
+  it('to‘lish arafasida ogohlantiradi — to‘lgandan keyin emas', () => {
+    // Slot to'lganda savdo allaqachon rad etiladi. Ogohlantirish undan
+    // OLDIN kelishi kerak, aks holda u xabar emas, xulosa bo'lib qoladi.
+    expect(slotPressure({ used: 2, limit: 3, full: false, plan: 'STANDARD' })).toBe('near');
+    expect(slotPressure({ used: 3, limit: 3, full: true, plan: 'STANDARD' })).toBe('full');
+  });
+
+  it('kattaroq rejada arafa ham kengroq', () => {
+    // 10 slotli rejada bitta bo'sh joy qolgandagina aytish kech: odam
+    // bir necha savdoni parallel yuritadi. Chegara — 20%, eng kami 1.
+    expect(slotPressure({ used: 7, limit: 10, full: false, plan: 'PRO' })).toBe('none');
+    expect(slotPressure({ used: 8, limit: 10, full: false, plan: 'PRO' })).toBe('near');
+  });
+
+  it('joy yetarli bo‘lsa jim — banner devor qog‘ozi bo‘lib qolmasin', () => {
+    expect(slotPressure({ used: 1, limit: 3, full: false, plan: 'STANDARD' })).toBe('none');
+  });
+
+  it('cheksiz rejada va status o‘qilmaganda jim', () => {
+    expect(slotPressure({ used: 40, limit: null, full: false, plan: 'MAX' })).toBe('none');
+    expect(slotPressure(null)).toBe('none');
+  });
+});
+
+describe('slotWarning — arafa', () => {
+  it('nechta joy qolganini aytadi', () => {
+    const warning = slotWarning({ used: 2, limit: 3, full: false, plan: 'STANDARD' });
+    expect(warning).toContain('1 ta');
+    expect(warning).toContain('3');
   });
 });
