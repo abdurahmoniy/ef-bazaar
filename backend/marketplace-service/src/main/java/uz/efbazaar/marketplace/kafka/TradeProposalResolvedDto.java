@@ -6,4 +6,5 @@ import java.util.UUID;
 public record TradeProposalResolvedDto(
         UUID proposalId,
         String outcome,      // ACCEPTED | REJECTED | EXPIRED
-        Instant resolvedAt) {}
+        Instant resolvedAt,
+        UUID tradeId) {}

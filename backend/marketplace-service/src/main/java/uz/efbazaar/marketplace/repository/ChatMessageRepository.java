@@ -48,9 +48,11 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("""
             UPDATE ChatMessage m
-               SET m.proposalOutcome = :outcome
+               SET m.proposalOutcome = :outcome,
+                   m.proposalTradeId = COALESCE(:tradeId, m.proposalTradeId)
              WHERE m.proposalId = :proposalId
             """)
     int updateProposalOutcome(@org.springframework.data.repository.query.Param("proposalId") UUID proposalId,
-                              @org.springframework.data.repository.query.Param("outcome") String outcome);
+                              @org.springframework.data.repository.query.Param("outcome") String outcome,
+                              @org.springframework.data.repository.query.Param("tradeId") UUID tradeId);
 }

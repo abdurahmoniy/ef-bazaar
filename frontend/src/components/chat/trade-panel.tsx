@@ -92,8 +92,8 @@ import { useTradeContext, type PendingProposal } from './trade-context';
 
 /** Trade details stay in a sheet; primary actions can open their own dialog. */
 export function TradePanel() {
-  const { isDrawerOpen, setIsDrawerOpen, proposal, accountRequest, listing } = useTradeContext();
-  const listingId = proposal?.listingId ?? accountRequest?.listingId ?? listing?.id;
+  const { isDrawerOpen, setIsDrawerOpen, proposal, accountRequest, listing, viewedTrade } = useTradeContext();
+  const listingId = viewedTrade ? viewedTrade.listingId : proposal?.listingId ?? accountRequest?.listingId ?? listing?.id;
 
   if (!isDrawerOpen) return <TradeActionModals />;
 
@@ -105,7 +105,7 @@ export function TradePanel() {
           E’lonni ko‘rish <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       )}
-      <TradeActionModals />
+      {!viewedTrade && <TradeActionModals />}
     </ModalShell>
   );
 }
@@ -163,7 +163,7 @@ function TradePanelContent() {
   const {
     viewerId, listing, accountRequest, role, isSeller, trades, activeTrade,
     lastFinished, proposal, setProposal, startingNew, setStartingNew,
-    refreshing, reload, setShowPicker, setShowProposeModal, setShowAcceptModal,
+    refreshing, reload, setShowPicker, setShowProposeModal, setShowAcceptModal, viewedTrade,
   } = useTradeContext();
 
   const selectedListing = resolveTradeListing(accountRequest, listing);
@@ -176,6 +176,20 @@ function TradePanelContent() {
         Savdo holati yuklanmoqda…
       </div>
     );
+  }
+
+  if (viewedTrade) {
+    const selected = trades.find(trade => trade.id === viewedTrade.id);
+    if (!selected) {
+      return <div className="space-y-2 text-sm text-muted-foreground">
+        <p>Bu taklifga tegishli savdoni yuklab bo‘lmadi.</p>
+        <Button variant="outline" disabled={refreshing} onClick={() => void reload()}>Qayta urinish</Button>
+      </div>;
+    }
+    return isHumanTrade(selected)
+      ? <HumanPartyTradePanel key={selected.id} trade={selected} viewerId={viewerId} onRefresh={reload} />
+      : <ActiveTradeCard key={`${selected.id}:${viewerId}:${selected.passwordMessageId}`} trade={selected}
+          viewerId={viewerId} onRefresh={reload} refreshing={refreshing} embedded />;
   }
 
   // ---- active trade (post-accept) — state-conditional actions ----

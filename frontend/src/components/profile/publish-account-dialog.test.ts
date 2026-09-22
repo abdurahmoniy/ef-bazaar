@@ -35,9 +35,9 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-async function render() {
+async function render(layout: 'dialog' | 'page' = 'dialog') {
   await act(async () =>
-    root.render(createElement(PublishAccountDialog, { account, onClose: vi.fn() })),
+    root.render(createElement(PublishAccountDialog, { account, onClose: vi.fn(), layout })),
   );
 }
 
@@ -99,4 +99,15 @@ describe('PublishAccountDialog', () => {
     expect(container.textContent).toContain("Akkountga rasm qo'shing");
     expect(mocks.push).not.toHaveBeenCalled();
   });
+  it('supports inline pricing without modal semantics and still publishes', async () => {
+    mocks.publishAccount.mockResolvedValue({ ok: true, data: { id: 'listing-2' } });
+    await render('page');
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(container.textContent).toContain('Asosiy');
+    await typePrice('125000');
+    await act(async () => container.querySelector<HTMLButtonElement>('button[type="submit"]')!.click());
+    expect(mocks.publishAccount).toHaveBeenCalledWith('acc-1', expect.objectContaining({ price: 125000 }));
+    expect(mocks.push).toHaveBeenCalledWith('/marketplace/listing-2');
+  });
+
 });

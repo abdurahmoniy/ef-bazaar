@@ -1,19 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import React from 'react';
-import {
-  CheckCircle2,
-  Clock,
-  ExternalLink,
-  Handshake,
-  ShieldCheck,
-  XCircle,
-} from 'lucide-react';
+import { CheckCircle2, Clock, ExternalLink, Handshake, ShieldCheck, XCircle } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { MessageResponse } from '@/lib/marketplace-types';
-import { isSwap, tradeAmountLabel, TRADE_KIND_LABEL_UZ } from '@/lib/trade-swap';
+import { formatPriceUZS } from '@/lib/marketplace-format';
 import { useTradeContext } from './trade-context';
 
 interface TradeProposalMessageCardProps {
@@ -21,151 +15,98 @@ interface TradeProposalMessageCardProps {
   viewerId: string;
 }
 
-export function TradeProposalMessageCard({
-  message,
-  viewerId,
-}: TradeProposalMessageCardProps) {
-  const {
-    requiresAdminHandoff,
-    proposal,
-    activeTrade,
-    isSeller,
-    setShowAcceptModal,
-    setIsDrawerOpen,
-  } = useTradeContext();
-
+export function TradeProposalMessageCard({ message, viewerId }: TradeProposalMessageCardProps) {
+  const { requiresAdminHandoff, proposal, listing, accountRequest,
+    setShowAcceptModal, setIsDrawerOpen, openTrade } = useTradeContext();
   const isMine = message.senderId === viewerId;
-  const rawPrice = Number(message.content);
-  const priceUzs = Number.isFinite(rawPrice) && rawPrice > 0 ? rawPrice : proposal?.priceUzs ?? 0;
-
-  // Determine current effective outcome
-  const isCurrentActiveProposal = proposal && (!message.proposalId || message.proposalId === proposal.id);
-  const outcome = isCurrentActiveProposal
-    ? 'PENDING'
-    : (message.proposalOutcome ?? 'PENDING');
-
-  const kind = proposal?.kind ?? 'SALE';
-  const isSwapMode = isSwap(kind);
+  // Only an exact proposal match may contribute live details to this message.
+  const matching = message.proposalId && message.proposalId === proposal?.id ? proposal : null;
+  const rawPrice = message.content.trim() ? Number(message.content) : NaN;
+  const price = Number.isFinite(rawPrice) && rawPrice >= 0 ? rawPrice : matching?.priceUzs;
+  const kind = message.proposalKind ?? matching?.kind ?? (price === 0 ? 'SWAP' : undefined);
+  const listingId = message.proposalListingId ?? matching?.listingId;
+  const ownListing = listingId ? [listing, accountRequest?.listing].find(item => item?.id === listingId) : null;
+  const expiresAt = message.proposalExpiresAt ?? matching?.expiresAt;
+  const expired = !!expiresAt && Date.parse(expiresAt) <= Date.now();
+  const recorded = message.proposalOutcome;
+  const outcome = recorded && recorded !== 'PENDING' ? recorded
+    : message.proposalTradeId ? 'ACCEPTED'
+    : expired ? 'EXPIRED'
+    : matching ? 'PENDING' : 'UNKNOWN';
 
   return (
-    <div className="my-3 flex w-full justify-center px-2">
-      <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-b from-card via-card to-primary/5 p-4 shadow-sm transition-all hover:border-primary/40 hover:shadow-md dark:border-primary/30 dark:from-card dark:to-primary/10">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2.5">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Handshake className="h-4 w-4" />
-            </div>
+    <div className="my-2 flex w-full justify-center px-2">
+      <div className="w-full max-w-sm space-y-3 rounded-xl border border-border bg-card p-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Handshake className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <div>
-              <p className="text-xs font-black tracking-wide text-foreground">
-                {isSwapMode
-                  ? `ALMASHISH (${TRADE_KIND_LABEL_UZ[kind]})`
-                  : 'SAVDO TAKLIFI'}
+              <p className="text-xs font-semibold text-foreground">
+                {kind === 'SWAP' || kind === 'SWAP_SURCHARGE' ? 'ALMASHISH TAKLIFI' : 'SAVDO TAKLIFI'}
               </p>
-              <p className="text-[10.5px] text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground">
                 {isMine ? 'Siz tomoningizdan yuborilgan' : 'Sizga taklif qilindi'}
               </p>
             </div>
           </div>
-
-          {/* Status Badge */}
           {outcome === 'ACCEPTED' ? (
-            <Badge variant="outline" className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="h-3 w-3" />
-              Qabul qilingan
+            <Badge variant="outline" className="gap-1 border-emerald-500/30 text-[11px] text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-3 w-3" />Qabul qilingan
             </Badge>
           ) : outcome === 'REJECTED' ? (
-            <Badge variant="outline" className="gap-1 border-destructive/30 bg-destructive/10 text-[11px] font-semibold text-destructive">
-              <XCircle className="h-3 w-3" />
-              Rad etilgan
+            <Badge variant="outline" className="gap-1 border-destructive/30 text-[11px] text-destructive">
+              <XCircle className="h-3 w-3" />Rad etilgan
             </Badge>
           ) : outcome === 'EXPIRED' ? (
-            <Badge variant="outline" className="gap-1 border-border bg-muted text-[11px] font-semibold text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              Muddati tugagan
+            <Badge variant="outline" className="gap-1 text-[11px] text-muted-foreground">
+              <Clock className="h-3 w-3" />Muddati tugagan
             </Badge>
           ) : (
-            <Badge variant="outline" className="gap-1 border-primary/30 bg-primary/10 text-[11px] font-bold text-primary">
-              <span className="h-1.5 w-1.5 animate-ping rounded-full bg-primary" />
-              Kutilmoqda
+            <Badge variant="outline" className="text-[11px] text-muted-foreground">
+              {outcome === 'PENDING' ? 'Kutilmoqda' : 'Holati noma’lum'}
             </Badge>
           )}
         </div>
 
-        {/* Amount Section */}
-        <div className="my-3 rounded-xl bg-muted/50 p-3 text-center dark:bg-muted/30">
-          <p className="text-[11px] font-semibold text-muted-foreground">
-            {kind === 'SWAP'
-              ? 'Almashish sharti'
-              : kind === 'SWAP_SURCHARGE'
-                ? 'Doplata'
-                : 'Taklif qilingan summa'}
+        {listingId && (
+          <Link href={`/marketplace/${encodeURIComponent(listingId)}`} className="block truncate text-sm font-medium text-foreground underline decoration-primary/50 underline-offset-4 hover:text-primary">
+            {ownListing?.description?.split('\n')[0]?.trim() || 'Taklifdagi e’lonni ko‘rish'}
+          </Link>
+        )}
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <p className="text-xs text-muted-foreground">
+            {kind === 'SWAP' ? 'Almashish sharti' : kind === 'SWAP_SURCHARGE' ? 'Doplata' : 'Taklif qilingan summa'}
           </p>
-          <p className="text-lg font-black tracking-tight text-primary">
-            {tradeAmountLabel(kind, priceUzs)}
+          <p className="text-base font-bold text-foreground">
+            {kind === 'SWAP' ? 'Akkount almashish'
+              : typeof price === 'number' && Number.isFinite(price) && price > 0 ? formatPriceUZS(price) : 'Summa ko‘rsatilmagan'}
           </p>
-          {isSwapMode && kind === 'SWAP_SURCHARGE' && (
-            <p className="mt-0.5 text-[10.5px] text-muted-foreground">Doplata bilan obmen</p>
-          )}
         </div>
 
-        {/* Action Controls */}
-        <div className="space-y-2 pt-1">
-          {outcome === 'PENDING' && isCurrentActiveProposal ? (
-            !isSeller ? (
-              // Buyer side: Action button to accept or view details
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  className="flex-1 font-bold shadow-sm"
-                  onClick={() => requiresAdminHandoff ? setIsDrawerOpen(true) : setShowAcceptModal(true)}
-                >
-                  <ShieldCheck className="mr-1.5 h-4 w-4" />
-                  {requiresAdminHandoff ? 'Adminga murojaat' : 'Qabul qilish'}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="font-medium"
-                  onClick={() => setIsDrawerOpen(true)}
-                >
-                  Batafsil
-                </Button>
-              </div>
-            ) : (
-              // Seller side: Waiting indicator and details button
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2">
-                <span className="text-xs text-muted-foreground">Xaridor javobini kutmoqda...</span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 text-xs font-semibold text-primary"
-                  onClick={() => setIsDrawerOpen(true)}
-                >
-                  Batafsil
-                </Button>
-              </div>
-            )
-          ) : outcome === 'ACCEPTED' || activeTrade ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="w-full font-semibold"
-              onClick={() => setIsDrawerOpen(true)}
-            >
-              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-              Savdo jarayonini ko&apos;rish
-            </Button>
+        {outcome === 'PENDING' && matching ? (
+          !isMine ? (
+            <div className="flex gap-2">
+              <Button type="button" size="sm" className="min-h-11 flex-1"
+                onClick={() => requiresAdminHandoff ? setIsDrawerOpen(true) : setShowAcceptModal(true)}>
+                <ShieldCheck className="h-4 w-4" />
+                {requiresAdminHandoff ? 'Adminga murojaat' : 'Qabul qilish'}
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={() => setIsDrawerOpen(true)}>Batafsil</Button>
+            </div>
           ) : (
-            <p className="text-center text-[11px] text-muted-foreground">
-              Ushbu taklif yakunlangan.
-            </p>
-          )}
-        </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">Javob kutilmoqda</span>
+              <Button type="button" size="sm" variant="ghost" className="min-h-11" onClick={() => setIsDrawerOpen(true)}>Batafsil</Button>
+            </div>
+          )
+        ) : outcome === 'ACCEPTED' && message.proposalTradeId ? (
+          <Button type="button" size="sm" variant="outline" className="min-h-11 w-full"
+            onClick={() => openTrade(message.proposalTradeId!, listingId)}>
+            <ExternalLink className="h-4 w-4" />Savdo jarayonini ko&apos;rish
+          </Button>
+        ) : outcome === 'UNKNOWN' ? (
+          <p className="text-xs text-muted-foreground">Bu taklifning joriy holati tasdiqlanmagan.</p>
+        ) : null}
       </div>
     </div>
   );

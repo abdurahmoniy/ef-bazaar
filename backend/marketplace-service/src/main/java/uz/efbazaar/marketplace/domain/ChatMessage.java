@@ -70,6 +70,18 @@ public class ChatMessage {
     @Column(name = "proposal_outcome", length = 16)
     private String proposalOutcome;
 
+    @Column(name = "proposal_kind", length = 24)
+    private String proposalKind;
+
+    @Column(name = "proposal_listing_id")
+    private UUID proposalListingId;
+
+    @Column(name = "proposal_expires_at")
+    private Instant proposalExpiresAt;
+
+    @Column(name = "proposal_trade_id")
+    private UUID proposalTradeId;
+
     @PrePersist
     void onCreate() {
         if (createdAt == null) {

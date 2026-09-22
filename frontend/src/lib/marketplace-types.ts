@@ -471,6 +471,10 @@ export interface MessageResponse {
   messageType?: 'TEXT' | 'TRADE_PROPOSAL' | null;
   proposalId?: string | null;
   proposalOutcome?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | null;
+  proposalKind?: 'SALE' | 'SWAP' | 'SWAP_SURCHARGE' | null;
+  proposalListingId?: string | null;
+  proposalExpiresAt?: string | null;
+  proposalTradeId?: string | null;
 }
 
 export type NotificationType =
@@ -522,4 +526,3 @@ export interface AdminSupportChatSummary {
   lastMessageAt: string;
   createdAt: string;
 }
-

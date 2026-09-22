@@ -52,6 +52,15 @@ describe('ListingForm mobile zooming and keyboard protection', () => {
     vi.unstubAllGlobals();
   });
 
+  it('returns to account selection from the first step when a back action is supplied', async () => {
+    const onBack = vi.fn();
+    await act(async () => root.render(React.createElement(ListingForm, { attributeDefinitions: [], onBack })));
+    const back = Array.from(host.querySelectorAll('button')).find(button => button.textContent?.includes('Orqaga'))!;
+    expect(back.disabled).toBe(false);
+    await act(async () => back.click());
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
   it('renders StepNav inside a MeasuredBottomBar without hideOnKeyboard so action bar remains visible on keyboard focus', async () => {
     await act(async () => {
       root.render(

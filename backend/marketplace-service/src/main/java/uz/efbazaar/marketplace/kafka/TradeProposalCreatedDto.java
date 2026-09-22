@@ -8,4 +8,7 @@ public record TradeProposalCreatedDto(
         UUID marketplaceChatId,
         UUID proposerUserId,
         long amountUzs,
-        Instant createdAt) {}
+        Instant createdAt,
+        String kind,
+        UUID listingId,
+        Instant expiresAt) {}

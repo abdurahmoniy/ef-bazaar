@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.marketplace.domain.ChatMessage;
 import uz.efbazaar.marketplace.domain.ChatMessageType;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
+import uz.efbazaar.marketplace.repository.ProposalMessageResolutionRepository;
+import uz.efbazaar.marketplace.domain.ProposalMessageResolution;
 
 import java.time.Instant;
 
@@ -23,6 +25,12 @@ import java.time.Instant;
 public class TradeProposalConsumer {
 
     private final ChatMessageRepository messages;
+    private final ProposalMessageResolutionRepository resolutions;
+
+    private ProposalMessageResolution lockResolution(java.util.UUID proposalId) {
+        resolutions.ensureExists(proposalId);
+        return resolutions.lockByProposalId(proposalId);
+    }
 
     @KafkaListener(
             topics = "efbazaar.trade.proposal-created",
@@ -34,6 +42,7 @@ public class TradeProposalConsumer {
     )
     @Transactional
     public void onCreated(TradeProposalCreatedDto e) {
+        ProposalMessageResolution resolution = lockResolution(e.proposalId());
         if (messages.existsByProposalId(e.proposalId())) {
             log.debug("proposal-created replay for {}, skipping", e.proposalId());
             return;
@@ -44,7 +53,11 @@ public class TradeProposalConsumer {
                 .content(String.valueOf(e.amountUzs()))
                 .messageType(ChatMessageType.TRADE_PROPOSAL)
                 .proposalId(e.proposalId())
-                .proposalOutcome("PENDING")
+                .proposalOutcome(resolution.getOutcome() != null ? resolution.getOutcome() : "PENDING")
+                .proposalTradeId(resolution.getTradeId())
+                .proposalKind(e.kind())
+                .proposalListingId(e.listingId())
+                .proposalExpiresAt(e.expiresAt())
                 .createdAt(e.createdAt() != null ? e.createdAt() : Instant.now())
                 .build();
         messages.save(msg);
@@ -62,9 +75,11 @@ public class TradeProposalConsumer {
     )
     @Transactional
     public void onResolved(TradeProposalResolvedDto e) {
-        int updated = messages.updateProposalOutcome(e.proposalId(), e.outcome());
-        if (updated == 0) {
-            log.warn("proposal-resolved for {} but no matching system message", e.proposalId());
-        }
+        ProposalMessageResolution resolution = lockResolution(e.proposalId());
+        resolution.setOutcome(e.outcome());
+        if (e.tradeId() != null) resolution.setTradeId(e.tradeId());
+        resolutions.save(resolution);
+        // If creation has not arrived, its listener will read the saved result.
+        messages.updateProposalOutcome(e.proposalId(), e.outcome(), resolution.getTradeId());
     }
 }

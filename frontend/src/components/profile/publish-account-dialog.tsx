@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { AlertCircle, Loader2, Store, X } from 'lucide-react';
 
+import { SellingAccountSummary } from '@/components/marketplace/selling-account-summary';
+import { cn } from '@/lib/utils';
+
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -33,10 +36,13 @@ const EXCHANGE_OPTIONS = [
 export function PublishAccountDialog({
   account,
   onClose,
+  layout = 'dialog',
 }: {
   account: UserAccountResponse;
   onClose: () => void;
+  layout?: 'dialog' | 'page';
 }) {
+  const inline = layout === 'page';
   const router = useRouter();
   const [price, setPrice] = useState('');
   const [negotiable, setNegotiable] = useState(false);
@@ -45,18 +51,20 @@ export function PublishAccountDialog({
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
+    if (inline) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !pending) onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [pending, onClose]);
+  }, [pending, onClose, inline]);
 
   const priceNumber = Number(price.replace(/\s/g, ''));
   const priceValid = Number.isFinite(priceNumber) && priceNumber >= MIN_PRICE;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
     if (!priceValid) {
       setError(`Narx kamida ${formatPriceUZS(MIN_PRICE)} bo'lishi kerak`);
       return;
@@ -79,18 +87,20 @@ export function PublishAccountDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={() => !pending && onClose()}
-      role="presentation"
+      className={inline ? undefined : "fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4"}
+      onClick={inline ? undefined : () => !pending && onClose()}
+      role={inline ? undefined : 'presentation'}
     >
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="publish-account-title"
+        role={inline ? undefined : 'dialog'}
+        aria-modal={inline ? undefined : true}
+        aria-labelledby={inline ? undefined : 'publish-account-title'}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-t-2xl border border-border bg-card p-5 shadow-2xl sm:rounded-2xl"
+        className={cn("w-full border border-border bg-card", inline ? "rounded-2xl p-4 sm:p-6" : "max-w-md rounded-t-2xl p-5 shadow-2xl sm:rounded-2xl")}
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
+        {inline ? (
+          <div className="mb-6 border-b border-border pb-5"><SellingAccountSummary account={account} /></div>
+        ) : <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <h3 id="publish-account-title" className="text-base font-black text-foreground">
               Bozorga chiqarish
@@ -108,7 +118,7 @@ export function PublishAccountDialog({
           >
             <X className="h-4 w-4" />
           </button>
-        </div>
+        </div>}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
@@ -116,12 +126,16 @@ export function PublishAccountDialog({
             <Input
               id="publish-price"
               inputMode="numeric"
-              autoFocus
+              autoFocus={!inline}
+              aria-describedby="publish-price-hint"
+              aria-invalid={!!error && !priceValid}
+              className={inline ? "h-12 text-lg font-semibold sm:text-lg" : undefined}
               value={price}
               onChange={(e) => setPrice(e.target.value.replace(/[^\d\s]/g, ''))}
               placeholder="2 400 000"
               disabled={pending}
             />
+            <p id="publish-price-hint" className="text-xs text-muted-foreground">Eng kam narx — {formatPriceUZS(MIN_PRICE)}</p>
             {priceValid && (
               <p className="text-[11px] font-semibold text-primary">{formatPriceUZS(priceNumber)}</p>
             )}
@@ -156,19 +170,19 @@ export function PublishAccountDialog({
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={pending}>
-              Bekor qilish
+          <div className={cn("flex gap-2", inline && "flex-col-reverse pt-2 sm:flex-row sm:justify-end")}>
+            <Button type="button" variant="outline" className={inline ? "min-h-12 sm:flex-none" : "flex-1"} onClick={onClose} disabled={pending}>
+              {inline ? 'Orqaga' : 'Bekor qilish'}
             </Button>
-            <Button type="submit" className="flex-1" disabled={pending}>
+            <Button type="submit" className={inline ? "min-h-12 sm:flex-none" : "flex-1"} disabled={pending}>
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Store className="h-4 w-4" />}
-              Bozorga chiqarish
+              {inline ? 'E’lonni joylash' : 'Bozorga chiqarish'}
             </Button>
           </div>
         </form>

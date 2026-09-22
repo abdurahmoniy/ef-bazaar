@@ -44,9 +44,10 @@ describe('ListingSourceStep', () => {
   it('offers both paths when the user has accounts', async () => {
     await render([account(), account({ id: 'acc-2', title: 'Ikkinchi' })]);
 
-    expect(container.textContent).toContain('Akkountlarimdan tanlash');
+    expect(container.textContent).toContain('Asosiy');
+    expect(button('Narx belgilash')).toBeDefined();
     expect(container.textContent).toContain('2');
-    expect(container.textContent).toContain("Yangi akkount ma'lumotlarini kiritish");
+    expect(container.textContent).toContain('Yangi akkount qo‘shish');
     expect(onNew).not.toHaveBeenCalled();
   });
 
@@ -61,8 +62,7 @@ describe('ListingSourceStep', () => {
     const mine = account();
     await render([mine]);
 
-    await act(async () => button('Akkountlarimdan tanlash')!.click());
-    await act(async () => button('Asosiy')!.click());
+    await act(async () => button('Narx belgilash')!.click());
 
     expect(onPick).toHaveBeenCalledWith(mine);
   });
@@ -70,10 +70,15 @@ describe('ListingSourceStep', () => {
   it('does not offer an account that is already on the market', async () => {
     await render([account({ onMarket: true, currentListingId: 'listing-1' })]);
 
-    await act(async () => button('Akkountlarimdan tanlash')!.click());
-    const card = button('Asosiy');
-
-    expect(card?.disabled).toBe(true);
-    expect(container.textContent).toContain('bozorda');
+    expect(button('Narx belgilash')).toBeUndefined();
+    expect(container.querySelector('a[href="/marketplace/listing-1"]')).not.toBeNull();
+    expect(container.textContent).toContain('Bozorda');
+    expect(container.textContent).toContain('0 ta mavjud');
   });
+  it('counts only active unlisted accounts and excludes archived accounts', async () => {
+    await render([account(), account({ id: 'listed', onMarket: true }), account({ id: 'old', title: 'Archived', status: 'ARCHIVED' })]);
+    expect(container.textContent).toContain('1 ta mavjud');
+    expect(container.textContent).not.toContain('Archived');
+  });
+
 });

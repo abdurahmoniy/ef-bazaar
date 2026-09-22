@@ -52,7 +52,7 @@ describe('TradeProposalMessageCard', () => {
             proposerUserId: 'user-seller',
             amountUzs: 230000,
             listingId: 'listing-1',
-            expiresAt: '2026-08-20T12:00:00Z',
+            expiresAt: new Date(Date.now() + 600_000).toISOString(),
           },
         },
         createElement(TradeProposalMessageCard, {

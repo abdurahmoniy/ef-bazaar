@@ -37,6 +37,15 @@ afterEach(async () => {
 async function mount() {
   await act(async () => root.render(createElement(TradeProvider, { chat, viewerId: 'buyer', listing: null }, createElement(Probe))));
 }
+it('selects an exact trade and clears that selection when opening the current trade drawer', async () => {
+  await mount();
+  await act(async () => state.openTrade('old-trade', 'old-listing'));
+  expect(state.viewedTrade).toEqual({ id: 'old-trade', listingId: 'old-listing' });
+  expect(state.isDrawerOpen).toBe(true);
+  await act(async () => state.setIsDrawerOpen(false));
+  await act(async () => state.setIsDrawerOpen(true));
+  expect(state.viewedTrade).toBeNull();
+});
 it('preserves the active trade and exposes a retryable error after a service failure', async () => {
   await mount(); expect(state.activeTrade?.id).toBe('trade');
   status = 503;
