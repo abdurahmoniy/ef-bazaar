@@ -137,12 +137,7 @@ public class AdminSmartTradeService {
     public void submitLoginCode(UUID adminId, UUID tradeId, ParticipantRole role, String code) {
         Trade t = requireSmart(tradeId);
         requireState(t, TradeState.WAITING_BUYER_VERIFY);
-        // Qabul qiluvchining o'z qutisi bo'lmasligi normal — sotuvda quti
-        // bitta va u sotuvchida. Tekshiriladigani kod keladigan quti.
-        if (mailboxIdOf(t, other(role)) == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Qarshi tomonda pochta qutisi yo'q — kirish kodi o'sha qutiga keladi");
-        }
+        requireReceiving(t, role);
 
         sideRepo.recordLoginCode(tradeId, role, code, Instant.now());
 
@@ -151,10 +146,6 @@ public class AdminSmartTradeService {
         // Kodning o'zi chatga tushmaydi: u faqat o'sha tarafning panelida.
         chat.postStatusToBoth(tradeId, STATUS_ADMIN_ASSISTED,
                 Map.of("step", "LOGIN_CODE", "side", role.name()));
-    }
-
-    private static ParticipantRole other(ParticipantRole role) {
-        return role == ParticipantRole.SELLER ? ParticipantRole.BUYER : ParticipantRole.SELLER;
     }
 
     /**
@@ -196,6 +187,25 @@ public class AdminSmartTradeService {
         if (t.getState() != expected) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Savdo boshqa bosqichga o'tgan: " + t.getState());
+        }
+    }
+
+    /**
+     * Kirish kodi akkountni QABUL QILAYOTGAN tomonga yoziladi.
+     *
+     * <p>Quti egaligi bu yerda so'ralmaydi va so'ralmasligi ham kerak: savdo
+     * yakunlanmaguncha pochta qutisi hech qaysi tarafga tegishli emas, u
+     * platformada turadi. Ilgari shu yerda "tomonning qutisi bormi" degan
+     * shart bor edi va sotuvda u favqulodda yo'lni butunlay yopib qo'yardi —
+     * xaridorda o'z qutisi yo'q, chunki sotuvda quti umuman bitta.
+     *
+     * <p>Qoladigan yagona shart savdo turidan: sotuvda akkountni faqat
+     * xaridor qabul qiladi, obmenda esa ikkala taraf ham.
+     */
+    private static void requireReceiving(Trade t, ParticipantRole role) {
+        if (!t.getKind().isSwap() && role != ParticipantRole.BUYER) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Sotuvda akkountni faqat xaridor qabul qiladi");
         }
     }
 

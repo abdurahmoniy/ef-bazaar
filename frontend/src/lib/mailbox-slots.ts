@@ -55,17 +55,40 @@ export async function deleteMailbox(id: string): Promise<void> {
   }
 }
 
+export type SlotPressure = 'none' | 'near' | 'full';
+
 /**
- * Slot to'lgani haqidagi matn.
+ * Slot bosimi darajasi.
+ *
+ * <p>Arafa chegarasi rejaning 20% i, eng kami bitta joy: 3 slotli rejada
+ * bitta joy qolganda, 10 slotlida ikkitasida ogohlantiradi. To'lgandan
+ * keyin aytish kech — o'sha paytda savdo allaqachon rad etilgan bo'ladi.
+ */
+export function slotPressure(status: MailboxSlotStatus | null): SlotPressure {
+  if (!status || status.limit === null) return 'none';
+  if (status.full || status.used >= status.limit) return 'full';
+  const near = Math.max(1, Math.ceil(status.limit * 0.2));
+  return status.limit - status.used <= near ? 'near' : 'none';
+}
+
+/**
+ * Slot holati haqidagi matn.
  *
  * <p>Raqamlar bilan: "joy qolmadi" degan gap odamga nima qilishni
  * aytmaydi, "3 tadan 3 tasi band" esa nechtasini bo'shatish
- * kerakligini darhol ko'rsatadi.
+ * kerakligini darhol ko'rsatadi. Arafada esa nechta joy qolganini
+ * aytadi — odam savdoni boshlashdan oldin o'zi hal qilsin.
  */
 export function slotWarning(status: MailboxSlotStatus | null): string | null {
-  if (!status || !status.full || status.limit === null) return null;
-  return `Pochta limiti: ${status.limit} tadan ${status.used} ta joy ajratilgan. `
-    + 'Sizga tegishli va savdo uchun ajratilgan qutilar limitga kiradi. Yangi savdodan oldin qutilaringizni ko‘rib chiqing.';
+  const pressure = slotPressure(status);
+  if (pressure === 'none' || !status || status.limit === null) return null;
+  if (pressure === 'full') {
+    return `Pochta limiti: ${status.limit} tadan ${status.used} ta joy ajratilgan. `
+      + 'Sizga tegishli va savdo uchun ajratilgan qutilar limitga kiradi. Yangi savdodan oldin qutilaringizni ko‘rib chiqing.';
+  }
+  const left = status.limit - status.used;
+  return `Pochta limiti: ${status.limit} tadan ${status.used} ta joy ajratilgan — `
+    + `${left} ta qoldi. Har savdo yangi quti ochadi, shuning uchun keraksizlarini hozir bo‘shating.`;
 }
 
 /**
@@ -76,4 +99,36 @@ export function slotWarning(status: MailboxSlotStatus | null): string | null {
  */
 export function isDeletable(mailbox: OwnedMailbox): boolean {
   return mailbox.tradeId === null;
+}
+
+/** Akkountlarga biriktirilgan manzillar — solishtiruv uchun kichik registrda. */
+export function accountEmailSet(accounts: { email: string | null }[]): Set<string> {
+  const out = new Set<string>();
+  for (const account of accounts) {
+    if (account.email) out.add(account.email.trim().toLowerCase());
+  }
+  return out;
+}
+
+/**
+ * Quti biror akkountga biriktirilganmi.
+ *
+ * <p>Biriktirilgani — o'sha akkountning Konami paroli tiklanadigan
+ * manzil, ya'ni uni o'chirish akkountni qaytarib bo'lmaydigan darajada
+ * yo'qotishi mumkin. Biriktirilmagani esa savdodan qolgan quruq quti.
+ */
+export function isAttachedTo(mailbox: OwnedMailbox, accountEmails: ReadonlySet<string>): boolean {
+  return accountEmails.has(mailbox.email.trim().toLowerCase());
+}
+
+/** Avval o'chirish xavfsizlari: bog'lanmagan va bo'sh, keyin bog'langan, oxirida savdodagi. */
+export function sortForCleanup(
+  mailboxes: OwnedMailbox[],
+  accountEmails: ReadonlySet<string>,
+): OwnedMailbox[] {
+  const rank = (m: OwnedMailbox) => {
+    if (!isDeletable(m)) return 2;
+    return isAttachedTo(m, accountEmails) ? 1 : 0;
+  };
+  return [...mailboxes].sort((a, b) => rank(a) - rank(b));
 }

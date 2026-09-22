@@ -52,10 +52,13 @@ const sale = detail([
   side({ role: 'BUYER' }),
 ]);
 
-const swap = detail([
-  side({ role: 'SELLER', mailboxId: 'm1' }),
-  side({ role: 'BUYER', mailboxId: 'm2' }),
-]);
+const swap = (() => {
+  const d = detail([
+    side({ role: 'SELLER', mailboxId: 'm1' }),
+    side({ role: 'BUYER', mailboxId: 'm2' }),
+  ]);
+  return { ...d, trade: { ...d.trade, kind: 'SWAP' as const } };
+})();
 
 describe('actionSides', () => {
   it('kirish kodini sotuvda XARIDORGA taklif qiladi', () => {
@@ -74,9 +77,11 @@ describe('actionSides', () => {
     expect(actionSides(sale, 'KONAMI_EMAIL_CONFIRM').map((s) => s.role)).toEqual(['SELLER']);
   });
 
-  it('quti umuman yo\'q bo\'lsa hech kimni taklif qilmaydi', () => {
+  it('quti egaligiga qaramaydi — savdo davomida pochta hech kimniki emas', () => {
+    // Sotuvda xaridorda o'z qutisi bo'lmaydi, lekin kod aynan unga
+    // kerak: quti platformada turadi va tomonlarga bog'lanmaydi.
     const fresh = detail([side({ role: 'SELLER' }), side({ role: 'BUYER' })]);
-    expect(actionSides(fresh, 'LOGIN_CODE')).toEqual([]);
+    expect(actionSides(fresh, 'LOGIN_CODE').map((s) => s.role)).toEqual(['BUYER']);
   });
 });
 
