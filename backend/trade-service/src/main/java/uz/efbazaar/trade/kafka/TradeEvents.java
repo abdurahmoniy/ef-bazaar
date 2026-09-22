@@ -71,12 +71,16 @@ public final class TradeEvents {
             UUID marketplaceChatId,
             UUID proposerUserId,
             long amountUzs,
-            Instant createdAt) {}
+            Instant createdAt,
+            String kind,
+            UUID listingId,
+            Instant expiresAt) {}
 
     public record ProposalResolved(
             UUID proposalId,
             ProposalOutcome outcome,
-            Instant resolvedAt) {}
+            Instant resolvedAt,
+            UUID tradeId) {}
 
     public record EmailProvisionFailed(UUID tradeId, UUID mailboxId, String reason) {}
 

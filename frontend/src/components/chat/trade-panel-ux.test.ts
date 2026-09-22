@@ -52,6 +52,25 @@ const buttonWith = (text: string) => Array.from(dialog().querySelectorAll('butto
   .find((button) => button.textContent?.includes(text))!;
 
 describe('trade details', () => {
+  it('shows the selected historical trade instead of the unrelated active trade', async () => {
+    const historical = { ...context.activeTrade!, id: 'historical', state: 'REJECTED', priceUzs: 7000 } as TradeResponse;
+    context.trades!.push(historical);
+    context.viewedTrade = { id: 'historical', listingId: 'original-listing' };
+    await render();
+    expect(dialog().textContent).toContain('Savdo rad etildi');
+    expect(dialog().textContent).not.toContain('Email o‘zgartirdim');
+    expect(dialog().querySelector('a')?.getAttribute('href')).toBe('/marketplace/original-listing');
+  });
+
+  it('does not fall back to another trade or listing when a selected trade is missing', async () => {
+    context.viewedTrade = { id: 'missing' };
+    context.listing = { id: 'unrelated' } as Context['listing'];
+    await render();
+    expect(dialog().textContent).toContain('Bu taklifga tegishli savdoni yuklab bo‘lmadi');
+    expect(dialog().textContent).not.toContain('Email o‘zgartirdim');
+    expect(dialog().querySelector('a')).toBeNull();
+  });
+
   function prepareBuyer() {
     Object.assign(context.activeTrade!, {
       state: 'WAITING_BUYER_VERIFY', role: 'BUYER', passwordMessageId: 'password-message',

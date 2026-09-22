@@ -79,6 +79,8 @@ interface TradeContextValue {
   setShowAcceptModal: React.Dispatch<React.SetStateAction<boolean>>;
   isDrawerOpen: boolean;
   setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  viewedTrade: { id: string; listingId?: string | null } | null;
+  openTrade: (tradeId: string, listingId?: string | null) => void;
   commissionConfig: TradeCommissionConfig | null;
   requiresAdminHandoff: boolean;
 }
@@ -139,7 +141,16 @@ export function TradeProvider({
   const [startingNew, setStartingNew] = useState(false);
   const [showProposeModal, setShowProposeModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isDrawerOpen, setDrawerOpen] = useState(false);
+  const [viewedTrade, setViewedTrade] = useState<TradeContextValue['viewedTrade']>(null);
+  const setIsDrawerOpen = useCallback<React.Dispatch<React.SetStateAction<boolean>>>((open) => {
+    setViewedTrade(null);
+    setDrawerOpen(open);
+  }, []);
+  const openTrade = useCallback((id: string, listingId?: string | null) => {
+    setViewedTrade({ id, listingId });
+    setDrawerOpen(true);
+  }, []);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [commissionConfig, setCommissionConfig] = useState<TradeCommissionConfig | null>(null);
@@ -290,6 +301,8 @@ export function TradeProvider({
     setShowAcceptModal,
     isDrawerOpen,
     setIsDrawerOpen,
+    viewedTrade,
+    openTrade,
     commissionConfig,
     requiresAdminHandoff,
   };

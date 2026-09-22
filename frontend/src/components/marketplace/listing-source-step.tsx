@@ -1,121 +1,74 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ArrowRight, PackagePlus, Wallet2 } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect } from 'react';
+import { ArrowRight, ArrowUpRight, CheckCircle2, ChevronRight, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { SellingAccountSummary } from '@/components/marketplace/selling-account-summary';
 import type { UserAccountResponse } from '@/lib/accounts-types';
-import { cn } from '@/lib/utils';
 
-/**
- * E'lon berishning birinchi qadami: tayyor akkountdan tanlash yoki
- * yangisini to'ldirish.
- *
- * <p>Akkounti yo'q odam bu qadamni umuman ko'rmaydi — bo'sh ro'yxatli
- * tanlov bir bosishlik ortiqcha yo'l bo'lardi.
- */
-export function ListingSourceStep({
-  accounts,
-  onNew,
-  onPick,
-}: {
+/** Show the accounts themselves so returning sellers can go straight to pricing. */
+export function ListingSourceStep({ accounts, onNew, onPick }: {
   accounts: UserAccountResponse[];
   onNew: () => void;
   onPick: (account: UserAccountResponse) => void;
 }) {
-  const [picking, setPicking] = useState(false);
+  const activeAccounts = accounts.filter((account) => account.status === 'ACTIVE');
+  const available = activeAccounts.filter((account) => !account.onMarket);
+  const listed = activeAccounts.filter((account) => account.onMarket);
 
   useEffect(() => {
-    if (accounts.length === 0) onNew();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accounts.length]);
+    if (activeAccounts.length === 0) onNew();
+  }, [activeAccounts.length, onNew]);
 
-  if (accounts.length === 0) return null;
-
-  if (picking) {
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base font-black text-foreground">Qaysi akkountni sotasiz?</h2>
-          <Button type="button" variant="ghost" size="sm" onClick={() => setPicking(false)}>
-            Orqaga
-          </Button>
-        </div>
-
-        <ul className="space-y-2">
-          {accounts.map((account) => {
-            const title = account.title?.trim() || 'Nomsiz akkount';
-            return (
-              <li key={account.id}>
-                <button
-                  type="button"
-                  disabled={account.onMarket}
-                  onClick={() => onPick(account)}
-                  className={cn(
-                    'flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left transition',
-                    account.onMarket
-                      ? 'cursor-not-allowed opacity-60'
-                      : 'hover:border-primary/50 hover:bg-primary/5',
-                  )}
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-bold text-foreground">{title}</span>
-                    <span className="block truncate text-[11px] text-muted-foreground">
-                      {account.onMarket
-                        ? 'Allaqachon bozorda'
-                        : `${account.mediaMessageIds.length} ta rasm`}
-                    </span>
-                  </span>
-                  {!account.onMarket && <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    );
-  }
+  if (activeAccounts.length === 0) return null;
 
   return (
     <div className="space-y-3">
-      <h2 className="text-base font-black text-foreground">Nima sotmoqchisiz?</h2>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => setPicking(true)}
-          className="flex flex-col gap-2 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-left transition hover:border-primary hover:bg-primary/10"
-        >
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
-            <Wallet2 className="h-5 w-5" />
-          </span>
-          <span className="text-sm font-black text-foreground">
-            Akkountlarimdan tanlash
-            <span className="ml-1.5 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-bold text-primary">
-              {accounts.length}
-            </span>
-          </span>
-          <span className="text-xs text-muted-foreground">
-            Ma&apos;lumotlari tayyor — faqat narxni qo&apos;yasiz.
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onNew}
-          className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 text-left transition hover:border-primary/40 hover:bg-muted/40"
-        >
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-foreground">
-            <PackagePlus className="h-5 w-5" />
-          </span>
-          <span className="text-sm font-black text-foreground">
-            Yangi akkount ma&apos;lumotlarini kiritish
-          </span>
-          <span className="text-xs text-muted-foreground">
-            To&apos;ldirganingiz &quot;Akkountlarim&quot;da ham saqlanadi.
-          </span>
-        </button>
+      <div className="mb-3 flex items-center gap-2.5">
+        <h2 className="text-sm font-bold text-foreground">Akkountlarim</h2>
+        <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+          {available.length} ta mavjud
+        </span>
       </div>
+      <ul className="space-y-3">
+        {available.map((account) => (
+          <li key={account.id} className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+            <SellingAccountSummary account={account} />
+            <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
+                Ma’lumotlar saqlangan
+              </span>
+              <Button type="button" className="min-h-12 sm:min-h-11" onClick={() => onPick(account)} aria-label={`${account.title?.trim() || 'Nomsiz akkount'}: Narx belgilash`}>
+                Narx belgilash <ArrowRight aria-hidden />
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <button type="button" onClick={onNew} className="flex w-full items-center gap-3 rounded-2xl border border-border p-4 text-left transition-colors hover:border-primary/50 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-4 sm:p-5">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card"><Plus className="h-5 w-5" aria-hidden /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold text-foreground">Yangi akkount qo‘shish</span>
+          <span className="mt-1 block text-xs text-muted-foreground">Rasmlar va ma’lumotlarni kiriting</span>
+        </span>
+        <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+      </button>
+      {listed.length > 0 && (
+        <div className="pt-5">
+          <h2 className="mb-3 text-sm font-bold text-muted-foreground">Bozordagi akkountlar</h2>
+          <ul className="divide-y divide-border rounded-2xl border border-border">
+            {listed.map((account) => (
+              <li key={account.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{account.title?.trim() || 'Nomsiz akkount'}</p><p className="mt-1 text-xs text-muted-foreground">Bozorda</p></div>
+                {account.currentListingId && <Button asChild variant="outline" size="sm" className="min-h-11"><Link href={`/marketplace/${account.currentListingId}`}>E’lonni ko‘rish <ArrowUpRight aria-hidden /></Link></Button>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

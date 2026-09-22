@@ -127,7 +127,8 @@ public class TradeProposalService {
         redis.opsForValue().set(indexKey, proposalId.toString(), Duration.ofSeconds(ttlSeconds));
 
         events.proposalCreated(proposalId, req.marketplaceChatId(),
-                proposerUserId, req.amountUzs());
+                proposerUserId, req.amountUzs(), req.kindOrDefault().name(),
+                req.listingId(), Instant.now().plusSeconds(ttlSeconds));
 
         UUID counterpartyId = proposerUserId.equals(req.sellerId()) ? req.buyerId() : req.sellerId();
         events.tradeAction(null, req.marketplaceChatId(), counterpartyId,
@@ -297,7 +298,7 @@ public class TradeProposalService {
 
         redis.delete(mainKey);
         if (chatId != null) redis.delete(chatIndexKey(chatId));
-        events.proposalResolved(proposalId, TradeEvents.ProposalOutcome.ACCEPTED);
+        events.proposalResolved(proposalId, TradeEvents.ProposalOutcome.ACCEPTED, trade.id());
         events.tradeAction(trade.id(), trade.chatId(), trade.sellerId(),
                 TradeEvents.TradeActionType.TRADE_STARTED, trade.priceUzs(), null);
         events.tradeAction(trade.id(), trade.chatId(), trade.buyerId(),

@@ -80,6 +80,8 @@ import { getPublicTradeCommissionConfig } from '@/lib/payment-client';
 import type { TradeCommissionConfig } from '@/lib/payment-types';
 
 interface ListingFormProps {
+	/** Return to source selection from the first step without discarding this form. */
+	onBack?: () => void;
 	botUsername?: string;
 	attributeDefinitions?: readonly ListingAttributeDefinition[];
 	/** When provided, the form runs in edit mode: preloads values and PUTs to the listing id. */
@@ -167,6 +169,7 @@ const STEP_META: Record<
 };
 
 export function ListingForm({
+	onBack,
 	attributeDefinitions,
 	initialListing,
 	botUsername = '',
@@ -346,13 +349,17 @@ export function ListingForm({
 	}, [canProceed, step, stepIndex, steps]);
 
 	const goPrev = useCallback(() => {
+		if (stepIndex === 0) {
+			onBack?.();
+			return;
+		}
 		const prev = steps[stepIndex - 1];
 		if (prev) {
 			setStep(prev);
 			telegramHaptic(getTelegramWebApp(), 'selection', false);
 			window.scrollTo({ top: 0, behavior: 'smooth' });
 		}
-	}, [stepIndex, steps]);
+	}, [stepIndex, steps, onBack]);
 
 	const goToStep = useCallback((targetStep: StepId) => {
 		const targetIndex = steps.indexOf(targetStep);
@@ -652,6 +659,7 @@ export function ListingForm({
 				stepIndex={stepIndex}
 				canProceed={canProceed}
 				pending={pending}
+				canLeaveFirstStep={!!onBack}
 				onPrev={goPrev}
 				onNext={goNext}
 				onSubmit={handleSubmit}
@@ -665,6 +673,7 @@ export function ListingForm({
 // Navigation
 
 function StepNav({
+	canLeaveFirstStep = false,
 	step,
 	stepIndex,
 	canProceed,
@@ -674,6 +683,7 @@ function StepNav({
 	onSubmit,
 	submitLabel,
 }: {
+	canLeaveFirstStep?: boolean;
 	step: StepId;
 	stepIndex: number;
 	canProceed: boolean;
@@ -693,7 +703,7 @@ function StepNav({
 					type='button'
 					variant='outline'
 					onClick={onPrev}
-					disabled={isFirst || pending}
+					disabled={(isFirst && !canLeaveFirstStep) || pending}
 					className='min-h-12 flex-1 font-bold sm:flex-none sm:px-6'
 				>
 					<ArrowLeft className='h-4 w-4 mr-1' />

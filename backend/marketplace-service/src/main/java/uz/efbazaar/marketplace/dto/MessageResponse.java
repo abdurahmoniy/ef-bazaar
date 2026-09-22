@@ -28,5 +28,9 @@ public record MessageResponse(
         Instant createdAt,
         ChatMessageType messageType,
         UUID proposalId,
-        String proposalOutcome
+        String proposalOutcome,
+        String proposalKind,
+        UUID proposalListingId,
+        Instant proposalExpiresAt,
+        UUID proposalTradeId
 ) {}

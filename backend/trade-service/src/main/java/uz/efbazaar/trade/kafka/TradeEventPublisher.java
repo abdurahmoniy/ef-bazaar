@@ -20,15 +20,26 @@ public class TradeEventPublisher {
 
     public void proposalCreated(UUID proposalId, UUID marketplaceChatId,
                                 UUID proposerUserId, long amountUzs) {
+        proposalCreated(proposalId, marketplaceChatId, proposerUserId, amountUzs, null, null, null);
+    }
+
+    public void proposalCreated(UUID proposalId, UUID marketplaceChatId,
+                                UUID proposerUserId, long amountUzs, String kind,
+                                UUID listingId, Instant expiresAt) {
         send(TradeEvents.TOPIC_PROPOSAL_CREATED, proposalId.toString(),
                 new TradeEvents.ProposalCreated(proposalId, marketplaceChatId,
-                        proposerUserId, amountUzs, Instant.now()));
+                        proposerUserId, amountUzs, Instant.now(), kind, listingId, expiresAt));
     }
 
     public void proposalResolved(UUID proposalId,
                                  TradeEvents.ProposalOutcome outcome) {
+        proposalResolved(proposalId, outcome, null);
+    }
+
+    public void proposalResolved(UUID proposalId,
+                                 TradeEvents.ProposalOutcome outcome, UUID tradeId) {
         send(TradeEvents.TOPIC_PROPOSAL_RESOLVED, proposalId.toString(),
-                new TradeEvents.ProposalResolved(proposalId, outcome, Instant.now()));
+                new TradeEvents.ProposalResolved(proposalId, outcome, Instant.now(), tradeId));
     }
 
     public void emailProvisionRequest(UUID tradeId, UUID mailboxId) {

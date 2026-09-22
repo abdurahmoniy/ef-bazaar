@@ -31,14 +31,7 @@ export default async function NewListingPage() {
 
   return (
     <MarketplaceShell user={user} activeTab="sell" hideSearch hideBottomNav backHref="/marketplace" backLabel="Bozor">
-      <section className="mx-auto w-full max-w-3xl space-y-4">
-        <header className="hidden sm:block">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-primary">Marketplace</p>
-          <h1 className="mt-0.5 text-2xl sm:text-3xl font-black text-foreground">Akkount joylash</h1>
-          <p className="mt-0.5 text-xs sm:text-sm text-muted-foreground">
-            Bir necha daqiqada e&apos;loningizni yarating — rasm, tavsif, narx.
-          </p>
-        </header>
+      <section className="mx-auto w-full max-w-2xl py-2 sm:py-6">
         {user.telegramLinked ? (
           <NewListingEntry
             accounts={accounts}
@@ -46,7 +39,10 @@ export default async function NewListingPage() {
             botUsername={botUsername}
           />
         ) : (
-          <TelegramRequiredPrompt purpose="listing" botUsername={botUsername} />
+          <div className="space-y-6">
+            <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">Akkount sotish</h1>
+            <TelegramRequiredPrompt purpose="listing" botUsername={botUsername} />
+          </div>
         )}
       </section>
     </MarketplaceShell>
