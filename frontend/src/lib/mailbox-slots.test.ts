@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  accountEmailSet,
+  isAttachedTo,
   isDeletable,
   slotPressure,
   slotWarning,
+  sortForCleanup,
   type MailboxSlotStatus,
   type OwnedMailbox,
 } from './mailbox-slots';
@@ -88,5 +91,30 @@ describe('slotWarning — arafa', () => {
     const warning = slotWarning({ used: 2, limit: 3, full: false, plan: 'STANDARD' });
     expect(warning).toContain('1 ta');
     expect(warning).toContain('3');
+  });
+});
+
+describe('bo‘sh qutilar', () => {
+  const box = (id: string, email: string, tradeId: string | null = null): OwnedMailbox => ({
+    id, email, tradeId, createdAt: '2026-09-01T00:00:00Z', handedOffAt: null,
+  });
+
+  it('akkountga bog‘langan qutini bo‘sh deb hisoblamaydi', () => {
+    const emails = accountEmailSet([{ email: 'A@efbazaar.uz' }, { email: null }]);
+    // Manzil registrga sezgir emas: Mailcow ham, akkount ham bir xil
+    // qutini turli registrda saqlab qolishi mumkin.
+    expect(isAttachedTo(box('m1', 'a@efbazaar.uz'), emails)).toBe(true);
+    expect(isAttachedTo(box('m2', 'b@efbazaar.uz'), emails)).toBe(false);
+  });
+
+  it('o‘chirishga tayyorlarini tepaga chiqaradi', () => {
+    // Bog'lanmagan va savdoda band bo'lmagan quti — o'chirish xavfsiz
+    // bo'lgan yagona tur. Odam ro'yxatni aylanib chiqmasin.
+    const emails = accountEmailSet([{ email: 'a@efbazaar.uz' }]);
+    const sorted = sortForCleanup(
+      [box('m1', 'a@efbazaar.uz'), box('m2', 'b@efbazaar.uz'), box('m3', 'c@efbazaar.uz', 't1')],
+      emails,
+    );
+    expect(sorted.map((m) => m.id)).toEqual(['m2', 'm1', 'm3']);
   });
 });

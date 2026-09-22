@@ -100,3 +100,35 @@ export function slotWarning(status: MailboxSlotStatus | null): string | null {
 export function isDeletable(mailbox: OwnedMailbox): boolean {
   return mailbox.tradeId === null;
 }
+
+/** Akkountlarga biriktirilgan manzillar — solishtiruv uchun kichik registrda. */
+export function accountEmailSet(accounts: { email: string | null }[]): Set<string> {
+  const out = new Set<string>();
+  for (const account of accounts) {
+    if (account.email) out.add(account.email.trim().toLowerCase());
+  }
+  return out;
+}
+
+/**
+ * Quti biror akkountga biriktirilganmi.
+ *
+ * <p>Biriktirilgani — o'sha akkountning Konami paroli tiklanadigan
+ * manzil, ya'ni uni o'chirish akkountni qaytarib bo'lmaydigan darajada
+ * yo'qotishi mumkin. Biriktirilmagani esa savdodan qolgan quruq quti.
+ */
+export function isAttachedTo(mailbox: OwnedMailbox, accountEmails: ReadonlySet<string>): boolean {
+  return accountEmails.has(mailbox.email.trim().toLowerCase());
+}
+
+/** Avval o'chirish xavfsizlari: bog'lanmagan va bo'sh, keyin bog'langan, oxirida savdodagi. */
+export function sortForCleanup(
+  mailboxes: OwnedMailbox[],
+  accountEmails: ReadonlySet<string>,
+): OwnedMailbox[] {
+  const rank = (m: OwnedMailbox) => {
+    if (!isDeletable(m)) return 2;
+    return isAttachedTo(m, accountEmails) ? 1 : 0;
+  };
+  return [...mailboxes].sort((a, b) => rank(a) - rank(b));
+}
