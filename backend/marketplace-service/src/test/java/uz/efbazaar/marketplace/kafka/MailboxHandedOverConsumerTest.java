@@ -11,6 +11,7 @@ import uz.efbazaar.marketplace.service.NotificationService;
 import java.time.Instant;
 import java.util.UUID;
 
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -46,6 +47,25 @@ class MailboxHandedOverConsumerTest {
         // Olingan quti akkountga ham biriktiriladi: aynan shu "qaysi email
         // qaysi akkountniki" savolini yopadi.
         verify(accounts).onMailboxHandedOver(trade, user, "trade-abcd1234@efbazaar.uz");
+    }
+
+    /**
+     * Savdo yakunlangani haqidagi hodisa bilan poygaga tushgan holat.
+     *
+     * <p>Ikkalasi bir vaqtda ishlasa, bu yerdagi biriktirish akkountni
+     * ko'rmay qolishi mumkin \u2014 u hali commit qilinmagan. Shuning uchun
+     * o'z ishi commit bo'lgach yana bir marta qaraladi.
+     */
+    @Test
+    void aReceivedMailboxLooksAgainAfterItsOwnWriteLands() {
+        UUID user = UUID.randomUUID();
+        UUID trade = UUID.randomUUID();
+
+        consumer.onHandedOver(event(user, trade, "RECEIVED"));
+
+        var order = inOrder(accounts);
+        order.verify(accounts).onMailboxHandedOver(trade, user, "trade-abcd1234@efbazaar.uz");
+        order.verify(accounts).drainPendingEmail(trade, user);
     }
 
     @Test

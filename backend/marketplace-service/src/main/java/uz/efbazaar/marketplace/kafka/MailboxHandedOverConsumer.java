@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.marketplace.domain.NotificationType;
 import uz.efbazaar.marketplace.service.NotificationService;
 
@@ -33,7 +32,10 @@ public class MailboxHandedOverConsumer {
                     "spring.json.use.type.headers=false"
             }
     )
-    @Transactional
+    // ATAYLAB tranzaksiyasiz: ichkaridagi ikki chaqiruvning har biri o'z
+    // tranzaksiyasida ishlaydi. drainPendingEmail aynan shunda ma'noga ega —
+    // u biriktirish commit bo'lgach qaraydi va savdo hodisasi bilan poygaga
+    // tushgan holatni yopadi.
     public void onHandedOver(MailboxHandedOverDto e) {
         if (e == null || e.userId() == null) {
             log.warn("mailbox-handed-over with no recipient, skipping");
@@ -49,6 +51,9 @@ public class MailboxHandedOverConsumer {
         // u allaqachon biriktirilgan.
         if (received) {
             accounts.onMailboxHandedOver(e.tradeId(), e.userId(), e.mailboxEmail());
+            // Yozuv commit bo'lgach yana bir marta: savdo hodisasi shu
+            // oraliqda akkountni ochgan bo'lishi mumkin.
+            accounts.drainPendingEmail(e.tradeId(), e.userId());
         }
     }
 }

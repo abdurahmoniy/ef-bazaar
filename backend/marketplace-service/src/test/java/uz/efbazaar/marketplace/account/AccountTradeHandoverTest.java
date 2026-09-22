@@ -169,6 +169,66 @@ class AccountTradeHandoverTest {
         verify(pendingEmails, never()).save(any());
     }
 
+    /**
+     * Ikki hodisa bir vaqtda kelgan holat.
+     *
+     * <p>Ular ikki xil topikda va ikki xil tranzaksiyada ishlanadi, ya'ni
+     * hech biri ikkinchisining hali commit qilinmagan yozuvini ko'rmaydi:
+     * savdo hodisasi akkountni emailSIZ ochadi, pochta hodisasi esa o'sha
+     * paytda akkount yo'q deb manzilni kutishga qo'yadi. Natijada akkount
+     * abadiy emailsiz qoladi. Shuning uchun har ikki tomon o'z ishini
+     * commit qilgach yana bir marta tekshiradi — oxirgi bo'lib tugagani
+     * ikkalasini ham ko'radi.
+     */
+    @Test
+    void drainPendingEmail_attachesWhatTheRaceLeftBehind() {
+        UserAccount stranded = UserAccount.builder()
+                .id(UUID.randomUUID()).ownerId(buyerId).sourceTradeId(tradeId)
+                .status(UserAccountStatus.ACTIVE)
+                .attributes(new HashMap<>()).mediaMessageIds(new ArrayList<>())
+                .build();
+        PendingAccountEmail pending =
+                new PendingAccountEmail(tradeId, buyerId, "trade-05a64118@efbazaar.uz", null);
+        when(accounts.findByOwnerIdAndSourceTradeId(buyerId, tradeId)).thenReturn(Optional.of(stranded));
+        when(pendingEmails.findByTradeIdAndUserId(tradeId, buyerId)).thenReturn(Optional.of(pending));
+
+        link.drainPendingEmail(tradeId, buyerId);
+
+        assertThat(stranded.getEmail()).isEqualTo("trade-05a64118@efbazaar.uz");
+        assertThat(stranded.getEmailSource()).isEqualTo(EmailSource.PLATFORM);
+        verify(pendingEmails).delete(pending);
+    }
+
+    @Test
+    void drainPendingEmail_keepsWaitingWhileTheAccountIsMissing() {
+        when(accounts.findByOwnerIdAndSourceTradeId(buyerId, tradeId)).thenReturn(Optional.empty());
+
+        link.drainPendingEmail(tradeId, buyerId);
+
+        verify(pendingEmails, never()).delete(any());
+    }
+
+    @Test
+    void drainPendingEmail_doesNotOverwriteAnAddressAlreadyAttached() {
+        // Tez yo'l allaqachon ishlagan: manzil joyida, kutayotgan qator esa
+        // shunchaki qoldiq — uni tozalash kerak, akkountga tegmasdan.
+        UserAccount done = UserAccount.builder()
+                .id(UUID.randomUUID()).ownerId(buyerId).sourceTradeId(tradeId)
+                .email("already@efbazaar.uz").emailSource(EmailSource.PLATFORM)
+                .status(UserAccountStatus.ACTIVE)
+                .attributes(new HashMap<>()).mediaMessageIds(new ArrayList<>())
+                .build();
+        PendingAccountEmail pending =
+                new PendingAccountEmail(tradeId, buyerId, "other@efbazaar.uz", null);
+        when(accounts.findByOwnerIdAndSourceTradeId(buyerId, tradeId)).thenReturn(Optional.of(done));
+        when(pendingEmails.findByTradeIdAndUserId(tradeId, buyerId)).thenReturn(Optional.of(pending));
+
+        link.drainPendingEmail(tradeId, buyerId);
+
+        assertThat(done.getEmail()).isEqualTo("already@efbazaar.uz");
+        verify(pendingEmails).delete(pending);
+    }
+
     @Test
     void mailboxHandedOver_waitsWhenTheAccountIsNotThereYet() {
         when(accounts.findByOwnerIdAndSourceTradeId(buyerId, tradeId)).thenReturn(Optional.empty());

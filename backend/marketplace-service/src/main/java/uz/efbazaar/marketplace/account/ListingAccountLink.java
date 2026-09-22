@@ -200,6 +200,40 @@ public class ListingAccountLink {
         });
     }
 
+    /**
+     * Ikki hodisa poygaga tushgan holatni yopadi.
+     *
+     * <p>Savdo yakunlangani va pochta topshirilgani ikki xil topikda keladi
+     * va ikki xil tranzaksiyada ishlanadi. Bir vaqtda kelsalar hech biri
+     * ikkinchisining hali commit qilinmagan yozuvini ko'rmaydi: biri
+     * akkountni emailSIZ ochadi, ikkinchisi esa "akkount yo'q" deb manzilni
+     * kutishga qo'yadi va uni endi hech kim olmaydi.
+     *
+     * <p>Shuning uchun har ikki tomon o'z ishini commit qilgach shu yerga
+     * qaytadi. Oxirgi bo'lib tugagani ikkala qatorni ham ko'radi, ya'ni
+     * kamida bittasi har doim ulaydi. Chaqiruv o'z tranzaksiyasida ishlashi
+     * SHART — aks holda u yana o'sha ko'rmaydigan oynada qoladi.
+     */
+    @Transactional
+    public void drainPendingEmail(UUID tradeId, UUID userId) {
+        if (tradeId == null || userId == null) {
+            return;
+        }
+        accounts.findByOwnerIdAndSourceTradeId(userId, tradeId).ifPresent(account ->
+                pendingEmails.findByTradeIdAndUserId(tradeId, userId).ifPresent(pending -> {
+                    // Tez yo'l allaqachon ulagan bo'lsa ustidan yozmaymiz:
+                    // egasi keyin uni o'zi almashtirgan bo'lishi mumkin.
+                    if (account.getEmail() == null || account.getEmail().isBlank()) {
+                        account.setEmail(pending.getEmail());
+                        account.setEmailSource(EmailSource.PLATFORM);
+                        accounts.saveAndFlush(account);
+                        log.info("Mailbox attached after the race: accountId={} tradeId={}",
+                                account.getId(), tradeId);
+                    }
+                    pendingEmails.delete(pending);
+                }));
+    }
+
     /** Kartochkada ko'rinadigan qisqa nom — tavsifning birinchi qatori. */
     private static String shortTitle(String description) {
         String firstLine = description.strip().split("\\R", 2)[0].strip();
