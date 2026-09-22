@@ -20,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 import uz.efbazaar.marketplace.repository.ChatAccountRequestRepository;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
+import uz.efbazaar.marketplace.repository.ProposalMessageResolutionRepository;
 import uz.efbazaar.marketplace.repository.ChatParticipantRepository;
 import uz.efbazaar.marketplace.repository.ChatRepository;
 import uz.efbazaar.marketplace.repository.LikeRepository;
@@ -67,6 +68,7 @@ class MarketplaceApplicationTests {
     @MockBean LikeRepository likeRepository;
     @MockBean ChatRepository chatRepository;
     @MockBean ChatMessageRepository chatMessageRepository;
+    @MockBean ProposalMessageResolutionRepository proposalMessageResolutionRepository;
     @MockBean ChatAccountRequestRepository chatAccountRequestRepository;
     @MockBean ChatParticipantRepository chatParticipantRepository;
     @MockBean AttributeDefinitionRepository attributeDefinitionRepository;

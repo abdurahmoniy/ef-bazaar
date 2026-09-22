@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, createElement } from 'react';
+import { act, Children, createElement, isValidElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,7 +13,6 @@ vi.mock('@/lib/marketplace-server', () => ({ getAttributeDefinitions: async () =
 // Sahifa endi akkountlarni ham o'qiydi; server-only modul testda mock qilinadi.
 vi.mock('@/lib/accounts-server', () => ({ getMyAccountsServer: async () => [] }));
 import { ListingActions } from './listing-actions';
-import { ListingForm } from './listing-form';
 import { NewListingEntry } from './new-listing-entry';
 import NewListingPage from '@/app/marketplace/new/page';
 
@@ -101,9 +100,9 @@ describe('required Telegram connection', () => {
   it.each([false, true])('only exposes listing creation when Telegram is linked: %s', async (telegramLinked) => {
     getMe.mockResolvedValue({ id: 'user-1', telegramLinked });
     const page = await NewListingPage();
-    const content = page.props.children.props.children;
+    const content = Children.toArray(page.props.children.props.children);
     // Sahifa endi formani to'g'ridan-to'g'ri emas, kirish qadami orqali
     // ko'rsatadi: "akkountlarimdan tanlash" yoki "yangi ma'lumot".
-    expect(content.some((child: { type?: unknown }) => child?.type === NewListingEntry)).toBe(telegramLinked);
+    expect(content.some((child) => isValidElement(child) && child.type === NewListingEntry)).toBe(telegramLinked);
   });
 });
