@@ -422,7 +422,7 @@ export function ListingForm({
 			onAccountPublish(savedAccountRef.current);
 			return;
 		}
-		router.push('/profile?tab=accounts');
+		router.push(`/profile?tab=accounts&saved=${encodeURIComponent(savedAccountRef.current.id)}`);
 		router.refresh();
 	}, [state, definitions, photos, editMode, router, onAccountPublish]);
 
@@ -497,9 +497,10 @@ export function ListingForm({
 			)) as Partial<ListingResponse> | null;
 			const targetId = payload?.id ?? initialListing?.id;
 			if (targetId) {
-				router.push(advertising && advertisingAllowed
+				const destination = advertising && advertisingAllowed
 					? listingAdvertisingHref(targetId, channels.map(channel => channel.channelId))
-					: `/marketplace/${targetId}`);
+					: `/marketplace/${targetId}`;
+				router.push(isEdit ? destination : `${destination}${destination.includes('?') ? '&' : '?'}result=created`);
 				router.refresh();
 			} else {
 				router.push('/marketplace');

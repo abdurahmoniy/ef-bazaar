@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Package2, Plus, Search } from 'lucide-react';
 
+import { CompletionNotice } from '@/components/marketplace/completion-notice';
 import { AccountCard } from '@/components/profile/account-card';
 import { PublishAccountDialog } from '@/components/profile/publish-account-dialog';
 import { Button } from '@/components/ui/button';
@@ -31,11 +32,15 @@ function matchesFilter(account: UserAccountResponse, filter: AccountFilter) {
  * <p>Bozorga chiqarish oynasi shu yerda yashaydi, kartochkada emas:
  * bir vaqtda bitta oyna ochilishi kerak va uni ro'yxat egallaydi.
  */
-export function ProfileAccounts({ accounts, displayById = {}, viewerId }: {
+export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAccountId }: {
   accounts: UserAccountResponse[];
   displayById?: Record<string, AccountDisplayData>;
   viewerId: string;
+  savedAccountId?: string;
 }) {
+  const savedAccount = accounts.find((account) => account.id === savedAccountId);
+  const savedCard = useRef<HTMLDivElement>(null);
+  const [highlighted, setHighlighted] = useState(true);
   const [publishing, setPublishing] = useState<UserAccountResponse | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<AccountFilter>('all');
@@ -52,14 +57,20 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId }: {
     setPinnedIds([]);
     try {
       const view = JSON.parse(sessionStorage.getItem(viewKey) ?? 'null');
-      if (typeof view?.query === 'string') setQuery(view.query);
-      if (FILTERS.some((item) => item.id === view?.filter)) setFilter(view.filter);
+      if (!savedAccount && typeof view?.query === 'string') setQuery(view.query);
+      if (!savedAccount && FILTERS.some((item) => item.id === view?.filter)) setFilter(view.filter);
       const pins: unknown = JSON.parse(localStorage.getItem(pinsKey) ?? '[]');
       if (Array.isArray(pins)) setPinnedIds(pins.filter((id): id is string => typeof id === 'string'));
     } catch {
       // Unavailable browser storage must not block account management.
     }
-  }, [viewKey, pinsKey]);
+    if (savedAccount) {
+      setHighlighted(true);
+      savedCard.current?.focus({ preventScroll: true });
+      savedCard.current?.scrollIntoView?.({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+      try { sessionStorage.removeItem(viewKey); } catch { /* Browsing still works without storage. */ }
+    }
+  }, [viewKey, pinsKey, savedAccount]);
 
   function changeView(nextQuery: string, nextFilter: AccountFilter) {
     setQuery(nextQuery);
@@ -85,7 +96,7 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId }: {
   const visibleAccounts = accounts
     .filter((account) => !showControls || (matchesFilter(account, filter)
       && (account.title?.trim() || 'Nomsiz akkount').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())))
-    .sort((a, b) => Number(pinnedIds.includes(b.id)) - Number(pinnedIds.includes(a.id)));
+    .sort((a, b) => Number(b.id === savedAccountId) - Number(a.id === savedAccountId) || Number(pinnedIds.includes(b.id)) - Number(pinnedIds.includes(a.id)));
 
   if (accounts.length === 0) {
     return (
@@ -109,6 +120,11 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId }: {
 
   return (
     <div className="space-y-4">
+      {savedAccount && <CompletionNotice key={savedAccount.id} title="Akkount saqlandi" description={savedAccount.onMarket ? 'O‘zgarishlar saqlandi. Akkountingiz bozorda.' : savedAccount.status === 'ARCHIVED' ? 'O‘zgarishlar saqlandi. Akkount arxivda.' : 'Hali bozorga chiqarilmagan. Tayyor bo‘lganda sotuvga qo‘yishingiz mumkin.'} queryKey="saved" focusOnMount={false} onDismiss={() => setHighlighted(false)}>
+        <p className="mb-3 break-words text-sm font-semibold">{savedAccount.title?.trim() || 'Nomsiz akkount'}</p>
+        {savedAccount.onMarket && savedAccount.currentListingId ? <Button asChild className="min-h-11"><Link href={`/marketplace/${savedAccount.currentListingId}`}>E’lonni ko‘rish</Link></Button>
+          : savedAccount.status !== 'ARCHIVED' && <Button className="min-h-11" onClick={() => setPublishing(savedAccount)}>Bozorga chiqarish</Button>}
+      </CompletionNotice>}
       {showControls && (
         <div className="space-y-3">
           <div className="relative max-w-md">
@@ -131,8 +147,12 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId }: {
       {storageNotice && <p role="status" className="text-sm text-muted-foreground">{storageNotice}</p>}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {visibleAccounts.map((account) => (
-          <AccountCard key={account.id} account={account} display={displayById[account.id]} onPublish={setPublishing}
-            pinned={pinnedIds.includes(account.id)} onTogglePin={accounts.length > 1 ? () => togglePin(account.id) : undefined} />
+          <div key={account.id} ref={account.id === savedAccountId ? savedCard : undefined} tabIndex={account.id === savedAccountId ? -1 : undefined}
+            aria-label={account.id === savedAccountId ? 'Saqlangan akkount' : undefined}
+            className={account.id === savedAccountId && highlighted ? 'rounded-2xl ring-2 ring-emerald-600 ring-offset-2 ring-offset-background scroll-mt-24' : 'min-w-0'}>
+            <AccountCard account={account} display={displayById[account.id]} onPublish={setPublishing}
+              pinned={pinnedIds.includes(account.id)} onTogglePin={accounts.length > 1 ? () => togglePin(account.id) : undefined} />
+          </div>
         ))}
       </div>
       {visibleAccounts.length === 0 && (

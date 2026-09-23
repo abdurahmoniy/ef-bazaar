@@ -91,7 +91,8 @@ export function PublishAccountDialog({
         setError(result.message);
         return;
       }
-      router.push(`/marketplace/${result.data.id}`);
+      router.push(`/marketplace/${result.data.id}?result=published`);
+      router.refresh();
     });
   }
 

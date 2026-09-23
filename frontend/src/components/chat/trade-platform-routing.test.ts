@@ -52,7 +52,7 @@ describe('trade platform handoff', () => {
     context.isSeller = false;
     context.setIsDrawerOpen = vi.fn();
     context.setShowAcceptModal = vi.fn();
-    context.proposal = { id: 'proposal', listingId: 'selected', priceUzs: 250000, expiresAt: '' };
+    context.proposal = { sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', id: 'proposal', listingId: 'selected', priceUzs: 250000, expiresAt: '' };
     const container = document.createElement('div');
     const root = createRoot(container);
     try {
@@ -106,7 +106,7 @@ describe('trade platform handoff', () => {
   });
 
   it('routes old non-mobile proposals to admins without rendering acceptance controls', async () => {
-    context.proposal = { id: 'proposal', listingId: 'selected', priceUzs: 250000, expiresAt: '', mode: 'SMART' };
+    context.proposal = { sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', id: 'proposal', listingId: 'selected', priceUzs: 250000, expiresAt: '', mode: 'SMART' };
     context.showAcceptModal = true;
     context.isSeller = false;
     const html = await render();

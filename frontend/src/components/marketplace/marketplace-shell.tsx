@@ -231,7 +231,7 @@ export function MarketplaceShell({
         </div>
       )}
 
-      <main data-page-transition className="marketplace-shell-content mx-auto flex w-full max-w-6xl flex-col gap-4 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] pt-4 md:py-6">
+      <main data-page-transition className={cn("marketplace-shell-content mx-auto flex w-full max-w-6xl flex-col gap-4 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] pt-4 md:py-6", mobileActionBar && "md:pb-[calc(var(--marketplace-bottom-bar-height)+1rem)] lg:pb-6")}>
         {children}
       </main>
 
@@ -240,7 +240,7 @@ export function MarketplaceShell({
       {mobileActionBar ? (
         <MeasuredBottomBar
           key="marketplace-action-bar"
-          className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden"
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav lg:hidden"
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-2.5 pb-[calc(0.625rem+var(--app-content-safe-bottom))]">
             {mobileActionBar}

@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 export type ProfileTabId = 'accounts' | 'trades' | 'favorites' | 'kartalar' | 'account';
 
 interface ProfilePageProps {
-  searchParams?: Promise<{ tab?: string }>;
+  searchParams?: Promise<{ tab?: string; saved?: string }>;
 }
 
 const VALID_TABS: ProfileTabId[] = [
@@ -151,7 +151,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
         {/* Tab content view */}
         <section key={activeTab} className="animate-panel-in">
-          {activeTab === 'accounts' && <ProfileAccounts accounts={accounts} displayById={accountDisplay} viewerId={user.id} />}
+          {activeTab === 'accounts' && <ProfileAccounts accounts={accounts} displayById={accountDisplay} viewerId={user.id} savedAccountId={typeof params.saved === 'string' ? params.saved : undefined} />}
           {activeTab === 'trades' && <ProfileTrades trades={tradePage?.items ?? []} />}
           {activeTab === 'favorites' && <ProfileListings listings={favorites} favorites />}
           {activeTab === 'kartalar' && <ProfileCards cards={cards} />}

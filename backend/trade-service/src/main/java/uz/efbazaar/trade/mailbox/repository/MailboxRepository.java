@@ -125,6 +125,9 @@ public interface MailboxRepository
                        WHEN m.ownerUserId = :ownerUserId
                          OR (m.ownerUserId IS NULL AND :ownerUserId IS NULL)
                        THEN m.displayName ELSE NULL END,
+                   m.ownerMailVisibleFrom = COALESCE(:visibleFrom, CASE
+                       WHEN m.ownerUserId = :ownerUserId THEN COALESCE(m.ownerMailVisibleFrom, m.handedOffAt, m.createdAt)
+                       ELSE :now END),
                    m.ownerUserId = :ownerUserId,
                    m.tradeId = NULL,
                    m.handedOffAt = :now
@@ -132,7 +135,8 @@ public interface MailboxRepository
             """)
     int assignOwner(@Param("id") UUID id,
                     @Param("ownerUserId") UUID ownerUserId,
-                    @Param("now") java.time.Instant now);
+                    @Param("now") java.time.Instant now,
+                    @Param("visibleFrom") java.time.Instant visibleFrom);
 
     List<Mailbox> findByOwnerUserId(UUID ownerUserId);
 

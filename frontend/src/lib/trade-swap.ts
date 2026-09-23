@@ -21,7 +21,7 @@ import type {
 export type ExchangeMode = 'NONE' | 'EXCHANGE_ONLY' | 'EXCHANGE_WITH_SURCHARGE' | 'BOTH';
 
 export const TRADE_KIND_LABEL_UZ: Record<TradeKind, string> = {
-  SALE: 'Sotish',
+  SALE: 'Sotuv',
   SWAP: 'Obmen',
   SWAP_SURCHARGE: 'Obmen + doplata',
 };

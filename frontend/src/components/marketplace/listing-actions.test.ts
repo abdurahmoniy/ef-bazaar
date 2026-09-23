@@ -36,7 +36,7 @@ describe('ListingActions', () => {
     });
   });
 
-  it('renders owner actions including Tahrirlash and Sotildi deb belgilash when ACTIVE', () => {
+  it('renders owner actions including Tahrirlash and Sotilgan deb belgilash when ACTIVE', () => {
     const html = renderToStaticMarkup(
       createElement(ListingActions, {
         listingId: 'listing-1',
@@ -48,7 +48,7 @@ describe('ListingActions', () => {
     );
 
     expect(html).toContain('Tahrirlash');
-    expect(html).toContain('Sotildi deb belgilash');
+    expect(html).toContain('Sotilgan deb belgilash');
     expect(html).toContain('/marketplace/listing-1/edit');
   });
 
@@ -64,7 +64,7 @@ describe('ListingActions', () => {
     );
 
     expect(html).toContain("Ushbu e&#x27;lon sotilgan");
-    expect(html).not.toContain('Sotildi deb belgilash');
+    expect(html).not.toContain('Sotilgan deb belgilash');
   });
 
   it('renders buyer SOLD state when viewing a sold listing', () => {

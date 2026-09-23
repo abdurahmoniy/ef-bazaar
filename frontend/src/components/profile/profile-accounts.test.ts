@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ProfileAccounts } from './profile-accounts';
 import type { UserAccountResponse } from '@/lib/accounts-types';
 
-vi.mock('./publish-account-dialog', () => ({ PublishAccountDialog: () => null }));
+vi.mock('./publish-account-dialog', () => ({ PublishAccountDialog: ({ account }: { account: UserAccountResponse }) => createElement('div', { role: 'dialog' }, account.title) }));
 vi.mock('./account-card', () => ({
   AccountCard: ({ account, pinned, onTogglePin }: { account: UserAccountResponse; pinned: boolean; onTogglePin: () => void }) =>
     createElement('article', { 'data-id': account.id }, account.title, createElement('button', { onClick: onTogglePin }, pinned ? 'Unpin' : 'Pin')),
@@ -51,4 +51,20 @@ it('recovers from a search with no matches without hiding the controls', async (
   expect(container.textContent).toContain('Akkount topilmadi');
   await act(async () => button('Tozalash').click());
   expect(container.querySelectorAll('article')).toHaveLength(6);
+});
+
+it('reveals and focuses a saved account despite restored filters, retaining its private name', async () => {
+  sessionStorage.setItem('accounts-view:viewer', JSON.stringify({ query: 'missing', filter: 'market' }));
+  await act(async () => root.render(createElement(ProfileAccounts, { viewerId: 'viewer', accounts, savedAccountId: 'acc-4' })));
+  expect(container.querySelectorAll('article')).toHaveLength(6);
+  expect(document.activeElement?.contains(container.querySelector('[data-id="acc-4"]')!)).toBe(true);
+  expect(container.textContent).toContain('Akkount saqlandi');
+  expect(container.textContent).toContain('Hali bozorga chiqarilmagan');
+  expect(container.textContent).toContain('Team 4');
+  await act(async () => button('Bozorga chiqarish').click());
+  expect(container.querySelector('[role="dialog"]')?.textContent).toBe('Team 4');
+});
+it('does not claim a missing or another owner’s account was saved', async () => {
+  await act(async () => root.render(createElement(ProfileAccounts, { viewerId: 'viewer', accounts, savedAccountId: 'unknown' })));
+  expect(container.textContent).not.toContain('Akkount saqlandi');
 });

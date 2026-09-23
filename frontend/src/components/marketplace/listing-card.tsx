@@ -15,6 +15,7 @@ export type ListingCardLayout = 'auto' | 'horizontal' | 'vertical';
 
 interface ListingCardProps {
   listing: ListingResponse;
+  readOnly?: boolean;
   layout?: ListingCardLayout;
   matchCriteria?: PlayerMatchCriterion[];
   /** Originating marketplace query so detail and Back preserve match context. */
@@ -28,6 +29,7 @@ interface ListingCardProps {
 
 export function ListingCard({
   listing,
+  readOnly = false,
   layout,
   matchCriteria = [],
   detailQuery = '',
@@ -79,6 +81,7 @@ export function ListingCard({
       {!model.sold && (
         <ListingLikeButton
           listingId={listing.id}
+          disabled={readOnly}
           initialLiked={listing.likedByMe === true}
           initialCount={listing.likeCount}
           authenticated={authenticated}

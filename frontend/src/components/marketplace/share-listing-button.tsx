@@ -6,15 +6,19 @@ import { Check, Copy, Loader2, Send, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getMyReferrals } from '@/lib/referrals';
 import { listingShareUrl, telegramListingShareUrl } from '@/lib/listing-share';
+import { cn } from '@/lib/utils';
 import { trackGrowth } from '@/lib/growth-analytics';
 
 interface ShareListingButtonProps {
   listingId: string;
   title: string;
   authenticated?: boolean;
+  label?: string;
+  placement?: 'above' | 'below';
+  className?: string;
 }
 
-export function ShareListingButton({ listingId, title, authenticated = false }: ShareListingButtonProps) {
+export function ShareListingButton({ listingId, title, authenticated = false, label = 'Do‘stga yuborish', placement = 'below', className }: ShareListingButtonProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -75,11 +79,11 @@ export function ShareListingButton({ listingId, title, authenticated = false }: 
 
   return (
     <div ref={container} className="relative">
-      <Button ref={trigger} type="button" variant="outline" className="min-h-11 rounded-xl" aria-expanded={open} aria-controls={regionId} onClick={() => setOpen((value) => !value)}>
-        <Share2 aria-hidden className="h-4 w-4" /> Do‘stga yuborish
+      <Button ref={trigger} type="button" variant="outline" className={cn("min-h-11 rounded-xl", className)} aria-expanded={open} aria-controls={regionId} onClick={() => setOpen((value) => !value)}>
+        <Share2 aria-hidden className="h-4 w-4" /> {label}
       </Button>
       {open && (
-        <div id={regionId} role="region" aria-label="E’lonni do‘stga yuborish" className="absolute right-0 top-full z-30 mt-2 w-72 max-w-[calc(100vw-2rem)] space-y-3 rounded-2xl border border-border bg-card p-4 shadow-card-hover">
+        <div id={regionId} role="region" aria-label="E’lonni do‘stga yuborish" className={`z-30 max-h-[calc(100dvh-var(--marketplace-bottom-bar-height,6rem)-2rem)] max-w-[calc(100vw-2rem)] overflow-y-auto space-y-3 rounded-2xl border border-border bg-card p-4 shadow-card-hover ${placement === 'above' ? 'fixed inset-x-4 bottom-[calc(var(--marketplace-bottom-bar-height,6rem)+0.5rem)] md:absolute md:inset-x-auto md:right-0 md:bottom-full md:mb-2 md:w-72' : 'absolute right-0 top-full mt-2 w-72'}`}>
           <p className="text-sm font-semibold">Shu akkount do‘stingizga mosmi?</p>
           <p className="text-xs leading-relaxed text-muted-foreground">E’lonni Telegramda yuboring yoki havolasini nusxalang.</p>
           {loading ? (

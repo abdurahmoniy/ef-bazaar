@@ -99,7 +99,7 @@ describe('PublishAccountDialog', () => {
       exchangeMode: 'EXCHANGE_ONLY',
       channelIds: [],
     });
-    expect(mocks.push).toHaveBeenCalledWith('/marketplace/listing-1');
+    expect(mocks.push).toHaveBeenCalledWith('/marketplace/listing-1?result=published');
   });
 
   it('refuses a price below the platform minimum without calling the server', async () => {
@@ -132,7 +132,7 @@ describe('PublishAccountDialog', () => {
     await typePrice('125000');
     await act(async () => container.querySelector<HTMLButtonElement>('button[type="submit"]')!.click());
     expect(mocks.publishAccount).toHaveBeenCalledWith('acc-1', expect.objectContaining({ price: 125000 }));
-    expect(mocks.push).toHaveBeenCalledWith('/marketplace/listing-2');
+    expect(mocks.push).toHaveBeenCalledWith('/marketplace/listing-2?result=published');
   });
 
 });

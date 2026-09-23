@@ -22,6 +22,7 @@ import type { TradeCommissionConfig } from '@/lib/payment-types';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import {
   splitTrades,
+  tradeParticipantRole,
   type PendingProposalResponse,
   type ProposalResponse,
   type TradeKind,
@@ -32,7 +33,7 @@ import {
 const POLL_INTERVAL_MS = 4000;
 const IDLE_POLL_INTERVAL_MS = 30000;
 
-export interface PendingProposal {
+export interface PendingProposal extends Pick<PendingProposalResponse, 'sellerId' | 'buyerId' | 'proposerUserId'> {
   listingId?: string | null;
   id: string;
   priceUzs: number;
@@ -117,8 +118,6 @@ export function TradeProvider({
 
   const [accountRequest, setAccountRequest] = useState<AccountRequest | null>(null);
   const [showPicker, setShowPicker] = useState(false);
-  const role = roleInRequest(accountRequest, viewerId);
-  const isSeller = role === 'SELLER';
 
   const [trades, setTrades] = useState<TradeResponse[] | null>(null);
   const proposalMutation = useRef(0);
@@ -126,6 +125,9 @@ export function TradeProvider({
     initialPendingProposal
       ? {
           id: initialPendingProposal.proposalId,
+          sellerId: initialPendingProposal.sellerId,
+          buyerId: initialPendingProposal.buyerId,
+          proposerUserId: initialPendingProposal.proposerUserId,
           listingId: initialPendingProposal.listingId,
           priceUzs: initialPendingProposal.amountUzs,
           expiresAt: initialPendingProposal.expiresAt,
@@ -175,6 +177,9 @@ export function TradeProvider({
   const reloadQueued = useRef(false);
   const automaticPollingStopped = useRef(false);
   const { active: activeTrade, lastFinished } = splitTrades(trades);
+  const participants = proposal ?? activeTrade ?? (!startingNew ? lastFinished : null);
+  const role = participants ? tradeParticipantRole(participants, viewerId) : roleInRequest(accountRequest, viewerId);
+  const isSeller = role === 'SELLER';
   const hasActiveTrade = activeTrade !== null;
   const hasProposal = proposal !== null;
 
@@ -200,6 +205,7 @@ export function TradeProvider({
         const p = pending.value;
         setProposalState(p ? {
           id: p.proposalId, listingId: p.listingId, priceUzs: p.amountUzs,
+          sellerId: p.sellerId, buyerId: p.buyerId, proposerUserId: p.proposerUserId,
           expiresAt: p.expiresAt, mode: p.mode ?? undefined,
           adminId: p.adminId ?? undefined, adminFeeUzs: p.adminFeeUzs ?? undefined,
           kind: p.kind ?? undefined,
@@ -257,6 +263,9 @@ export function TradeProvider({
     ) => {
       setProposal({
         id: p.proposalId,
+        sellerId: viewerId,
+        buyerId: accountRequest?.requesterId ?? otherPartyId,
+        proposerUserId: viewerId,
         listingId: accountRequest?.listingId ?? listing?.id,
         priceUzs,
         expiresAt: p.expiresAt,
@@ -266,7 +275,7 @@ export function TradeProvider({
       });
       setShowProposeModal(false);
     },
-    [accountRequest?.listingId, listing?.id, setProposal],
+    [accountRequest?.listingId, accountRequest?.requesterId, listing?.id, otherPartyId, viewerId, setProposal],
   );
 
   const handleProposalAccepted = useCallback(async () => {

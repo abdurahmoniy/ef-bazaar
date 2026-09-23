@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { CheckCircle2, Flag, Heart, MessageCircle } from 'lucide-react';
 
+import { ListingOwnerActions } from './listing-owner-actions';
 import { Button } from '@/components/ui/button';
 import { TelegramRequiredPrompt } from '@/components/auth/telegram-required-prompt';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
@@ -24,6 +24,8 @@ interface ActionResult {
 
 interface ListingActionsProps {
   listingId: string;
+  listingTitle?: string;
+  buyerPreview?: boolean;
   authenticated: boolean;
   telegramLinked?: boolean;
   botUsername?: string;
@@ -42,6 +44,8 @@ interface ListingActionsProps {
 
 export function ListingActions({
   listingId,
+  listingTitle = 'eFootball akkount',
+  buyerPreview = false,
   authenticated,
   telegramLinked = false,
   botUsername = '',
@@ -57,7 +61,6 @@ export function ListingActions({
   const [liked, setLiked] = useState(Boolean(initialLiked));
   const [likeCount, setLikeCount] = useState(initialLikeCount);
   const [currentStatus, setCurrentStatus] = useState<ListingStatus>(status);
-  const [confirmingSold, setConfirmingSold] = useState(false);
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -85,13 +88,18 @@ export function ListingActions({
   function handleMarkSold() {
     startTransition(async () => {
       setMessage(null);
-      const result = await markListingSold(listingId);
+      let result;
+      try {
+        result = await markListingSold(listingId);
+      } catch {
+        setMessage({ tone: 'error', text: 'Tarmoq xatoligi. Qayta urinib ko‘ring.' });
+        return;
+      }
       if (!result.ok) {
         setMessage({ tone: 'error', text: result.message ?? "E'lonni sotilgan deb belgilab bo'lmadi" });
         return;
       }
       setCurrentStatus('SOLD');
-      setConfirmingSold(false);
       setMessage({ tone: 'ok', text: "E'lon sotilgan deb belgilandi" });
       router.refresh();
     });
@@ -169,12 +177,26 @@ export function ListingActions({
     );
   }
 
+  if (buyerPreview && isOwner && currentStatus === 'ACTIVE') {
+    return <div className="space-y-2">
+      {priceLabel && <p className="text-lg font-bold text-[hsl(var(--price))]">{priceLabel}</p>}
+      <Button disabled className="min-h-11 w-full"><MessageCircle aria-hidden className="h-4 w-4" />Bog‘lanish</Button>
+      <p className="text-xs text-muted-foreground">Xaridor ko‘rinishi · amallar o‘chirilgan</p>
+    </div>;
+  }
+
+  if (isOwner && !buyerPreview && currentStatus === 'ACTIVE') {
+    return <ListingOwnerActions listingId={listingId} title={listingTitle} variant={variant} priceLabel={priceLabel}
+      pending={isPending} error={message?.tone === 'error' ? message.text : undefined} onMarkSold={handleMarkSold} />;
+  }
+
   if (variant === 'bar') {
     return (
       <div className="space-y-1.5">
         {telegramPrompt}
         {message && (
           <p
+            role={message.tone === 'error' ? 'alert' : 'status'}
             className={cn(
               'text-center text-xs font-semibold',
               message.tone === 'ok' ? 'text-primary' : 'text-destructive',
@@ -200,7 +222,7 @@ export function ListingActions({
             </div>
           </div>
 
-          {currentStatus === 'SOLD' && isOwner ? (
+          {currentStatus === 'SOLD' && isOwner && !buyerPreview ? (
             <Button
               type="button"
               className="ml-auto h-auto min-h-11 max-w-[60%] whitespace-normal rounded-lg px-3 py-2 text-center"
@@ -214,22 +236,6 @@ export function ListingActions({
               <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                 Sotilgan
               </div>
-            </div>
-          ) : isOwner ? (
-            <div className="ml-auto flex items-center gap-2">
-              <Button asChild size="sm" variant="outline" className="rounded-lg">
-                <Link href={`/marketplace/${listingId}/edit`}>Tahrirlash</Link>
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
-                disabled={isPending}
-                onClick={handleMarkSold}
-              >
-                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                Sotildi
-              </Button>
             </div>
           ) : (
             <>
@@ -264,103 +270,29 @@ export function ListingActions({
     );
   }
 
-  if (isOwner) {
-    if (currentStatus === 'SOLD') {
-      return (
-        <div className="space-y-2">
-          <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-center">
-            <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-300">
-              <CheckCircle2 className="h-4 w-4" /> Ushbu e&apos;lon sotilgan
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              E&apos;lon sotilganlar qatorida saqlanadi.
-            </p>
-          </div>
-          <Button
-            type="button"
-            size="lg"
-            className="w-full rounded-lg"
-            disabled={isPending}
-            onClick={handleRelist}
-          >
-            {isPending ? "Sotuvga qo'yilmoqda…" : "Qayta sotuvga qo'yish"}
-          </Button>
-          {message && (
-            <p
-              role="status"
-              className={cn(
-                'text-center text-xs font-semibold',
-                message.tone === 'ok' ? 'text-primary' : 'text-destructive',
-              )}
-            >
-              {message.text}
-            </p>
-          )}
-        </div>
-      );
-    }
-
-    if (confirmingSold) {
-      return (
-        <div className="space-y-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3">
-          <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-            E&apos;lonni sotilgan deb belgilaysizmi?
-          </p>
-          <p className="text-xs text-muted-foreground">
-            E&apos;lon sotilganlar ro&apos;yxatiga o&apos;tadi va xaridorlarga sotilgan ko&apos;rinadi.
-          </p>
-          {message && (
-            <p
-              className={cn(
-                'text-xs font-semibold',
-                message.tone === 'ok' ? 'text-primary' : 'text-destructive',
-              )}
-            >
-              {message.text}
-            </p>
-          )}
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setConfirmingSold(false)}
-              disabled={isPending}
-            >
-              Bekor qilish
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
-              onClick={handleMarkSold}
-              disabled={isPending}
-            >
-              {isPending ? 'Belgilanmoqda…' : 'Ha, sotildi'}
-            </Button>
-          </div>
-        </div>
-      );
-    }
-
+  if (isOwner && !buyerPreview && currentStatus === 'SOLD') {
     return (
       <div className="space-y-2">
-        <Button asChild size="lg" className="w-full rounded-lg">
-          <Link href={`/marketplace/${listingId}/edit`}>Tahrirlash</Link>
-        </Button>
+        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-center">
+          <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-300">
+            <CheckCircle2 className="h-4 w-4" /> Ushbu e&apos;lon sotilgan
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            E&apos;lon sotilganlar qatorida saqlanadi.
+          </p>
+        </div>
         <Button
           type="button"
-          variant="outline"
           size="lg"
-          className="w-full rounded-lg border-emerald-500/60 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
-          onClick={() => setConfirmingSold(true)}
+          className="w-full rounded-lg"
           disabled={isPending}
+          onClick={handleRelist}
         >
-          <CheckCircle2 className="mr-1.5 h-4 w-4" />
-          Sotildi deb belgilash
+          {isPending ? "Sotuvga qo'yilmoqda…" : "Qayta sotuvga qo'yish"}
         </Button>
         {message && (
           <p
+            role="status"
             className={cn(
               'text-center text-xs font-semibold',
               message.tone === 'ok' ? 'text-primary' : 'text-destructive',
@@ -369,12 +301,10 @@ export function ListingActions({
             {message.text}
           </p>
         )}
-        <p className="text-center text-[11px] text-muted-foreground">
-          Bu sizning e&apos;loningiz. Xaridorlar bilan aloqa profil orqali.
-        </p>
       </div>
     );
   }
+
 
   if (currentStatus === 'SOLD') {
     return (
@@ -432,6 +362,7 @@ export function ListingActions({
 
       {message && (
         <p
+          role={message.tone === 'error' ? 'alert' : 'status'}
           className={cn(
             'text-center text-xs font-semibold',
             message.tone === 'ok' ? 'text-primary' : 'text-destructive',

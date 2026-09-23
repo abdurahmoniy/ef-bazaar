@@ -149,7 +149,7 @@ public class TradeStateHandler {
             UUID receives = crossed ? trade.getBuyerId() : trade.getSellerId();
             events.mailboxRotateRequest(trade.getMailboxId(),
                     mailboxes.getRaw(trade.getMailboxId()).getEmail());
-            mailboxes.assignOwner(trade.getMailboxId(), receives);
+            mailboxes.assignOwner(trade.getMailboxId(), receives, trade.getCreatedAt());
             tell(trade, trade.getMailboxId(), receives, crossed);
             return;
         }
@@ -162,7 +162,7 @@ public class TradeStateHandler {
             UUID receives = crossed ? theOther : putItUp;
             events.mailboxRotateRequest(side.getMailboxId(),
                     mailboxes.getRaw(side.getMailboxId()).getEmail());
-            mailboxes.assignOwner(side.getMailboxId(), receives);
+            mailboxes.assignOwner(side.getMailboxId(), receives, trade.getCreatedAt());
             tell(trade, side.getMailboxId(), receives, crossed);
         }
     }
@@ -306,7 +306,7 @@ public class TradeStateHandler {
                 // The admin needs to read the escrow inbox from mail.efbazaar.uz.
                 // MailService authorises purely on ownership, so this is the
                 // whole grant. Revoked by the rotate on any terminal state.
-                mailboxes.assignOwner(trade.getMailboxId(), trade.getAssignedAdminId());
+                mailboxes.assignOwner(trade.getMailboxId(), trade.getAssignedAdminId(), trade.getCreatedAt());
             }
             case WAITING_CLOSE_CONFIRM -> {
                 trade.setStateDeadline(now(thccS));

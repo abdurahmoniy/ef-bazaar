@@ -64,7 +64,7 @@ async function review(entry: 'profile' | 'marketplace') {
 it.each(['profile', 'marketplace'] as const)('%s uses the common private save action and preserves the name', async (entry) => {
   await review(entry); await click('Saqlash');
   expect(mocks.create).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ title: 'Asosiy' }));
-  expect(mocks.publish).not.toHaveBeenCalled(); expect(mocks.push).toHaveBeenCalledWith('/profile?tab=accounts');
+  expect(mocks.publish).not.toHaveBeenCalled(); expect(mocks.push).toHaveBeenCalledWith('/profile?tab=accounts&saved=saved-account');
 });
 it.each(['profile', 'marketplace'] as const)('%s saves one account before asking for sale terms', async (entry) => {
   await review(entry); await click("Sotuvga qo'yish");
@@ -72,7 +72,7 @@ it.each(['profile', 'marketplace'] as const)('%s saves one account before asking
   expect(host.querySelector('input[inputmode="numeric"]')?.closest('[hidden]')).toBeNull();
   await fill('input[inputmode="numeric"]', '125000'); await click("Sotuvga qo'yish");
   expect(mocks.publish).toHaveBeenCalledWith('saved-account', expect.objectContaining({ price: 125000 }));
-  expect(mocks.push).toHaveBeenCalledWith('/marketplace/listing-1');
+  expect(mocks.push).toHaveBeenCalledWith('/marketplace/listing-1?result=published');
 });
 it.each(['profile', 'marketplace'] as const)('%s blocks the photo step until an image is selected', async (entry) => {
   await renderEntry(entry);
