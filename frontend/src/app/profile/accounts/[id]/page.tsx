@@ -31,7 +31,7 @@ export default async function EditAccountPage({ params }: EditAccountPageProps) 
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
 
   return (
-    <MarketplaceShell user={user} activeTab="profile" hideSearch>
+    <MarketplaceShell user={user} activeTab="accounts" hideSearch hideBottomNav backHref="/profile?tab=accounts" backLabel="Akkountlarim">
       <div className="space-y-4 pb-24">
         <header className="space-y-1">
           <h1 className="text-lg font-black text-foreground">

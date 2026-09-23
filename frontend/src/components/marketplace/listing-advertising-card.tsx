@@ -12,13 +12,13 @@ export function ListingAdvertisingCard({ listingId }: { listingId: string }) {
           <Megaphone className="h-5 w-5" aria-hidden="true" />
         </span>
         <div>
-          <h2 className="text-sm font-bold text-foreground sm:text-base">E&apos;loningizni kanallarda reklama qiling</h2>
+          <h2 className="text-sm font-bold text-foreground sm:text-base">Ko‘proq xaridorga yetib boring</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Telegram kanallarini va narxlarini ko&apos;rib, moslarini tanlang.
+            Telegram kanallarida reklama — ixtiyoriy. E’loningiz reklamasiz ham bozorda ko‘rinadi.
           </p>
         </div>
       </div>
-      <Button asChild className="mt-3 min-h-11 w-full shrink-0 sm:mt-0 sm:w-auto">
+      <Button asChild variant="outline" className="mt-3 min-h-11 w-full shrink-0 sm:mt-0 sm:w-auto">
         <Link href={listingAdvertisingHref(listingId)}>
           Kanallarni tanlash <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>

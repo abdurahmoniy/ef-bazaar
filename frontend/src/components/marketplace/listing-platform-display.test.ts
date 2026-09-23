@@ -110,3 +110,7 @@ describe('listing platform displays', () => {
     expect(renderToStaticMarkup(createElement(ListingCard, { listing: value }))).toContain('data-exchange-badge');
   });
 });
+it('keeps recommendation favorites disabled in a buyer preview', () => {
+  const html = renderToStaticMarkup(createElement(ListingCard, { listing: listing('MOBILE'), readOnly: true }));
+  expect(html).toMatch(/<button[^>]*disabled=""[^>]*aria-label="Sevimlilarga qo&#x27;shish"/);
+});

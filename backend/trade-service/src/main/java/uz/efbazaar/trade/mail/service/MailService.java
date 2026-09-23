@@ -8,6 +8,8 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.Multipart;
 import jakarta.mail.Part;
 import jakarta.mail.Store;
+import jakarta.mail.search.ComparisonTerm;
+import jakarta.mail.search.ReceivedDateTerm;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeUtility;
@@ -63,7 +65,7 @@ public class MailService {
     // ---------- sidebar / mailbox switcher ----------
 
     public List<MailboxSummary> listMyMailboxes(UUID userId) {
-        return summarize(mailboxes.listOwnedBy(userId));
+        return summarize(mailboxes.listOwnedBy(userId), true);
     }
 
     /**
@@ -72,6 +74,10 @@ public class MailService {
      * ownership filter.
      */
     public List<MailboxSummary> summarize(List<Mailbox> owned) {
+        return summarize(owned, false);
+    }
+
+    private List<MailboxSummary> summarize(List<Mailbox> owned, boolean ownerView) {
         List<MailboxSummary> out = new ArrayList<>(owned.size());
         for (Mailbox mb : owned) {
             Integer unread = null;
@@ -81,13 +87,23 @@ public class MailService {
                 Folder inbox = store.getFolder("INBOX");
                 inbox.open(Folder.READ_ONLY);
                 try {
-                    unread = inbox.getUnreadMessageCount();
-                    int count = inbox.getMessageCount();
-                    if (count > 0) {
-                        Message latest = inbox.getMessage(count);
-                        java.util.Date sent = latest.getReceivedDate();
-                        if (sent == null) sent = latest.getSentDate();
-                        if (sent != null) lastActivity = sent.toInstant();
+                    if (ownerView) {
+                        Message[] visible = visibleMessages(inbox, ownerVisibleFrom(mb));
+                        unread = 0;
+                        for (Message message : visible) {
+                            if (!message.isSet(Flags.Flag.SEEN)) unread++;
+                            Instant received = message.getReceivedDate().toInstant();
+                            if (lastActivity == null || received.isAfter(lastActivity)) lastActivity = received;
+                        }
+                    } else {
+                        unread = inbox.getUnreadMessageCount();
+                        int count = inbox.getMessageCount();
+                        if (count > 0) {
+                            Message latest = inbox.getMessage(count);
+                            java.util.Date sent = latest.getReceivedDate();
+                            if (sent == null) sent = latest.getSentDate();
+                            if (sent != null) lastActivity = sent.toInstant();
+                        }
                     }
                 } finally {
                     silentClose(inbox);
@@ -110,7 +126,8 @@ public class MailService {
     // ---------- inbox listing ----------
 
     public InboxPage listInbox(UUID userId, UUID mailboxId, int limit, int offset) {
-        return listInbox(mailboxes.getOwned(userId, mailboxId), limit, offset);
+        Mailbox mb = mailboxes.getOwned(userId, mailboxId);
+        return listInbox(mb, limit, offset, ownerVisibleFrom(mb));
     }
 
     /**
@@ -119,6 +136,10 @@ public class MailService {
      * {@code ROLE_ADMIN}-gated admin panel.
      */
     public InboxPage listInbox(Mailbox mb, int limit, int offset) {
+        return listInbox(mb, limit, offset, null);
+    }
+
+    private InboxPage listInbox(Mailbox mb, int limit, int offset, Instant visibleFrom) {
         int cappedLimit = Math.max(1, Math.min(MAX_PAGE_SIZE, limit));
         int cappedOffset = Math.max(0, offset);
 
@@ -128,15 +149,17 @@ public class MailService {
             Folder inbox = store.getFolder("INBOX");
             inbox.open(Folder.READ_ONLY);
             try {
-                int total = inbox.getMessageCount();
+                Message[] visible = visibleFrom == null ? null : visibleMessages(inbox, visibleFrom);
+                int total = visible == null ? inbox.getMessageCount() : visible.length;
                 if (total == 0 || cappedOffset >= total) {
                     return new InboxPage(List.of(), total, cappedLimit, cappedOffset);
                 }
-                // IMAP message numbers are 1-based and ascending by arrival.
-                // We want newest first → walk from `total` downward.
+                // Filter BEFORE pagination: hidden messages must not leak through totals or gaps.
                 int endMsgNum = total - cappedOffset;
                 int startMsgNum = Math.max(1, endMsgNum - cappedLimit + 1);
-                Message[] slice = inbox.getMessages(startMsgNum, endMsgNum);
+                Message[] slice = visible == null
+                        ? inbox.getMessages(startMsgNum, endMsgNum)
+                        : Arrays.copyOfRange(visible, startMsgNum - 1, endMsgNum);
 
                 // Prefetch envelope + flags + UID in one round trip.
                 jakarta.mail.FetchProfile fp = new jakarta.mail.FetchProfile();
@@ -192,11 +215,16 @@ public class MailService {
     // ---------- message detail ----------
 
     public MessageDetail getMessage(UUID userId, UUID mailboxId, String messageId) {
-        return getMessage(mailboxes.getOwned(userId, mailboxId), messageId);
+        Mailbox mb = mailboxes.getOwned(userId, mailboxId);
+        return getMessage(mb, messageId, ownerVisibleFrom(mb));
     }
 
     /** Ownership-free variant — see {@link #listInbox(Mailbox, int, int)}. */
     public MessageDetail getMessage(Mailbox mb, String messageId) {
+        return getMessage(mb, messageId, null);
+    }
+
+    private MessageDetail getMessage(Mailbox mb, String messageId, Instant visibleFrom) {
         UUID mailboxId = mb.getId();
         long uid = parseUid(messageId);
         try {
@@ -205,7 +233,7 @@ public class MailService {
             inbox.open(Folder.READ_ONLY);
             try {
                 Message msg = inbox.getMessageByUID(uid);
-                if (msg == null) {
+                if (msg == null || !isVisible(msg, visibleFrom)) {
                     throw new MessageNotFoundException("Message " + messageId + " not found");
                 }
                 return toDetail(inbox, (MimeMessage) msg);
@@ -261,6 +289,7 @@ public class MailService {
      */
     public void markSeen(UUID userId, UUID mailboxId, String messageId) {
         Mailbox mb = mailboxes.getOwned(userId, mailboxId);
+        Instant visibleFrom = ownerVisibleFrom(mb);
         long uid = parseUid(messageId);
         try {
             Store store = pool.acquire(mb);
@@ -268,7 +297,7 @@ public class MailService {
             inbox.open(Folder.READ_WRITE);
             try {
                 Message msg = inbox.getMessageByUID(uid);
-                if (msg == null) {
+                if (msg == null || !isVisible(msg, visibleFrom)) {
                     throw new MessageNotFoundException("Message " + messageId + " not found");
                 }
                 if (!msg.isSet(Flags.Flag.SEEN)) {
@@ -287,11 +316,17 @@ public class MailService {
 
     public AttachmentPayload getAttachment(UUID userId, UUID mailboxId, String messageId,
                                            String attachmentId) {
-        return getAttachment(mailboxes.getOwned(userId, mailboxId), messageId, attachmentId);
+        Mailbox mb = mailboxes.getOwned(userId, mailboxId);
+        return getAttachment(mb, messageId, attachmentId, ownerVisibleFrom(mb));
     }
 
     /** Ownership-free variant — see {@link #listInbox(Mailbox, int, int)}. */
     public AttachmentPayload getAttachment(Mailbox mb, String messageId, String attachmentId) {
+        return getAttachment(mb, messageId, attachmentId, null);
+    }
+
+    private AttachmentPayload getAttachment(Mailbox mb, String messageId, String attachmentId,
+                                            Instant visibleFrom) {
         UUID mailboxId = mb.getId();
         long uid = parseUid(messageId);
         try {
@@ -300,7 +335,7 @@ public class MailService {
             inbox.open(Folder.READ_ONLY);
             try {
                 Message msg = inbox.getMessageByUID(uid);
-                if (msg == null) {
+                if (msg == null || !isVisible(msg, visibleFrom)) {
                     throw new MessageNotFoundException("Message " + messageId + " not found");
                 }
                 Part part;
@@ -468,6 +503,36 @@ public class MailService {
     private boolean isAttachment(Part part) throws MessagingException {
         return Part.ATTACHMENT.equalsIgnoreCase(safeGetDisposition(part))
                 || (part.getFileName() != null && !part.getFileName().isBlank());
+    }
+
+    /** A missing persisted boundary must never fall back to unrestricted owner access. */
+    private static Instant ownerVisibleFrom(Mailbox mailbox) {
+        if (mailbox.getOwnerMailVisibleFrom() != null) return mailbox.getOwnerMailVisibleFrom();
+        if (mailbox.getHandedOffAt() != null) return mailbox.getHandedOffAt();
+        return mailbox.getCreatedAt() != null ? mailbox.getCreatedAt() : Instant.now();
+    }
+
+    private static boolean isVisible(Message message, Instant visibleFrom) throws MessagingException {
+        if (visibleFrom == null) return true; // Only the explicitly admin-authorized overloads.
+        // IMAP INTERNALDATE, never the sender-controlled Date header.
+        java.util.Date received = message.getReceivedDate();
+        return received != null && !received.toInstant().isBefore(visibleFrom);
+    }
+
+    private static Message[] visibleMessages(Folder inbox, Instant visibleFrom) throws MessagingException {
+        // IMAP SINCE has calendar-day precision. Widen by a day for timezone offsets,
+        // then apply the exact instant boundary locally before returning any metadata.
+        Message[] candidates = inbox.search(new ReceivedDateTerm(ComparisonTerm.GE,
+                java.util.Date.from(visibleFrom.minusSeconds(86_400))));
+        jakarta.mail.FetchProfile profile = new jakarta.mail.FetchProfile();
+        profile.add(jakarta.mail.FetchProfile.Item.ENVELOPE);
+        profile.add(jakarta.mail.FetchProfile.Item.FLAGS);
+        inbox.fetch(candidates, profile);
+        List<Message> visible = new ArrayList<>();
+        for (Message message : candidates) {
+            if (message != null && isVisible(message, visibleFrom)) visible.add(message);
+        }
+        return visible.toArray(Message[]::new);
     }
 
     // ---------- misc helpers ----------

@@ -1,3 +1,7 @@
+import Link from 'next/link';
+import Image from 'next/image';
+import { CompletionNotice } from './completion-notice';
+import { Button } from '@/components/ui/button';
 import { canUseSmartAdmin } from '@/lib/trade-platform';
 import {
   ArrowLeftRight,
@@ -50,6 +54,8 @@ interface MarketplaceListingDetailProps {
   sellerBlacklisted?: boolean;
   sellerRatingSummary?: SellerRatingSummaryResponse | null;
   similarListings: ListingResponse[];
+  buyerPreview?: boolean;
+  completion?: 'created' | 'published';
 }
 
 export function MarketplaceListingDetail({
@@ -59,6 +65,8 @@ export function MarketplaceListingDetail({
   sellerBlacklisted,
   sellerRatingSummary,
   similarListings,
+  buyerPreview = false,
+  completion,
 }: MarketplaceListingDetailProps) {
   const title = listing.description.split('\n')[0]?.trim() || 'eFootball account';
   const restDescription = listing.description
@@ -96,108 +104,129 @@ export function MarketplaceListingDetail({
   const valuablePlayers = attributeCardList(listing, 'valuable_players');
   const authenticated = viewer !== null;
   const isOwner = viewer?.id === listing.sellerId;
+  const ownerView = isOwner && !buyerPreview;
+
+  const summary = (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          {ownerView && mediaUrls[0] ? (
+            <Image src={mediaUrls[0]} alt="" width={72} height={72} className="h-[72px] w-[72px] shrink-0 rounded-xl border border-border object-cover" />
+          ) : divisionBadgeLevel && (
+            <DivisionBadge level={divisionBadgeLevel} size={54} glow />
+          )}
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wide text-primary">
+              {divisionLabel(division)}
+            </p>
+            <h1 className="mt-1 line-clamp-3 text-lg font-bold leading-tight text-foreground sm:text-xl sm:font-black break-words">
+              {title}
+            </h1>
+            {/* On phones the price card is replaced by the sticky action
+                bar, so the price still needs an in-flow home here. */}
+            <p className={cn("mt-1 text-2xl font-black leading-none text-[hsl(var(--price))]", !ownerView && "lg:hidden")}>
+              {formatPriceUZS(listing.price)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {formatListingDate(listing.createdAt)} • ID: {listing.id.slice(0, 8)}
+            </p>
+            <ListingViewCount
+              listingId={listing.id}
+              initialCount={listing.viewCount ?? 0}
+              track={!isOwner && listing.status === 'ACTIVE'}
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {ownerView && listing.status === 'ACTIVE' && <Badge variant="outline">Bozorda</Badge>}
+          {listing.status === 'SOLD' && <Badge variant="danger">Sotilgan</Badge>}
+          {listing.priceNegotiable && <Badge variant="price">Savdolashish</Badge>}
+          {acceptsExchange && (
+            <Badge variant="info">
+              <ArrowLeftRight className="h-3 w-3" /> Obmen
+            </Badge>
+          )}
+          {deviceTransferLimit !== undefined && (
+            <Badge variant={transferLimitTight ? 'warn' : 'outline'}>
+              <Smartphone className="h-3 w-3" /> Qurilma limiti:{' '}
+              {deviceTransferLimit}/10
+            </Badge>
+          )}
+          {hasGooglePlayLink && (
+            <Badge variant="warn">
+              <TriangleAlert className="h-3 w-3" /> Google Play ulangan
+            </Badge>
+          )}
+          {hasGameCenterLink && (
+            <Badge variant="warn">
+              <TriangleAlert className="h-3 w-3" /> Game Center ulangan
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {linkedStores && (
+        <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            Bu akkount {linkedStores} bilan ulangan. Bu ulanishni uzib
+            bo'lmaydi — akkount faqat Konami ID orqali o'tkaziladi va
+            avvalgi egasida kirish imkoni saqlanib qolishi mumkin.
+          </span>
+        </p>
+      )}
+
+      {transferLimitTight && (
+        <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            Bu akkountda shu oy uchun {deviceTransferLimit} ta qurilma
+            almashtirish limiti qolgan. Savdo kamida 2 tasini oladi:
+            moderator tekshiruvi va sizning qurilmangizga kirish. Limit
+            keyingi oy yangilanadi.
+          </span>
+        </p>
+      )}
+
+      {restDescription && (
+        <>
+          <Separator className="my-4" />
+          <p className="whitespace-pre-wrap text-sm leading-7 text-foreground/85">
+            {restDescription}
+          </p>
+        </>
+      )}
+    </div>
+  );
 
   return (
     <article className="space-y-4">
-      <div className="flex justify-end">
+      {ownerView && <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-muted-foreground">Sizning e’loningiz</p>
+        <Button asChild variant="outline" className="min-h-11"><Link href={`/marketplace/${listing.id}?view=buyer`}>Xaridor ko‘rinishi</Link></Button>
+      </div>}
+      {isOwner && buyerPreview && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted p-3">
+        <p className="text-sm">Xaridor ko‘rinishi · amallar o‘chirilgan</p>
+        <Button asChild variant="outline" className="min-h-11"><Link href={`/marketplace/${listing.id}`}>Boshqarishga qaytish</Link></Button>
+      </div>}
+      {ownerView && listing.status === 'ACTIVE' && completion && <CompletionNotice
+        title={completion === 'published' ? 'Akkount bozorga chiqarildi' : 'E’lon joylandi'}
+        description="Xaridorlar endi e’loningizni ko‘rishi mumkin. Xabarlar Chatlar bo‘limiga keladi.">
+        <Button asChild className="min-h-11"><Link href={`/marketplace/${listing.id}?view=buyer`}>E’lonni ko‘rish</Link></Button>
+      </CompletionNotice>}
+      {!isOwner && <div className="flex justify-end">
         <ShareListingButton listingId={listing.id} title={title} authenticated={authenticated} />
-      </div>
-
-      {isOwner && listing.status === 'ACTIVE' && <ListingAdvertisingCard listingId={listing.id} />}
+      </div>}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-6">
         <div className="min-w-0 space-y-4">
+          {ownerView && summary}
+          {ownerView && listing.status === 'ACTIVE' && <ListingAdvertisingCard listingId={listing.id} />}
           <ListingMediaGallery title={title} urls={mediaUrls} />
 
           <MatchBreakdown listing={listing} />
 
-          <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-3">
-                {divisionBadgeLevel && (
-                  <DivisionBadge level={divisionBadgeLevel} size={54} glow />
-                )}
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wide text-primary">
-                    {divisionLabel(division)}
-                  </p>
-                  <h1 className="mt-1 line-clamp-3 text-lg font-bold leading-tight text-foreground sm:text-xl sm:font-black">
-                    {title}
-                  </h1>
-                  {/* On phones the price card is replaced by the sticky action
-                      bar, so the price still needs an in-flow home here. */}
-                  <p className="mt-1 text-2xl font-black leading-none text-[hsl(var(--price))] lg:hidden">
-                    {formatPriceUZS(listing.price)}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {formatListingDate(listing.createdAt)} • ID: {listing.id.slice(0, 8)}
-                  </p>
-                  <ListingViewCount
-                    listingId={listing.id}
-                    initialCount={listing.viewCount ?? 0}
-                    track={!isOwner && listing.status === 'ACTIVE'}
-                  />
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {listing.status === 'SOLD' && <Badge variant="danger">Sotilgan</Badge>}
-                {listing.priceNegotiable && <Badge variant="price">Savdolashish</Badge>}
-                {acceptsExchange && (
-                  <Badge variant="info">
-                    <ArrowLeftRight className="h-3 w-3" /> Obmen
-                  </Badge>
-                )}
-                {deviceTransferLimit !== undefined && (
-                  <Badge variant={transferLimitTight ? 'warn' : 'outline'}>
-                    <Smartphone className="h-3 w-3" /> Qurilma limiti:{' '}
-                    {deviceTransferLimit}/10
-                  </Badge>
-                )}
-                {hasGooglePlayLink && (
-                  <Badge variant="warn">
-                    <TriangleAlert className="h-3 w-3" /> Google Play ulangan
-                  </Badge>
-                )}
-                {hasGameCenterLink && (
-                  <Badge variant="warn">
-                    <TriangleAlert className="h-3 w-3" /> Game Center ulangan
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            {linkedStores && (
-              <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
-                <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>
-                  Bu akkount {linkedStores} bilan ulangan. Bu ulanishni uzib
-                  bo'lmaydi — akkount faqat Konami ID orqali o'tkaziladi va
-                  avvalgi egasida kirish imkoni saqlanib qolishi mumkin.
-                </span>
-              </p>
-            )}
-
-            {transferLimitTight && (
-              <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
-                <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>
-                  Bu akkountda shu oy uchun {deviceTransferLimit} ta qurilma
-                  almashtirish limiti qolgan. Savdo kamida 2 tasini oladi:
-                  moderator tekshiruvi va sizning qurilmangizga kirish. Limit
-                  keyingi oy yangilanadi.
-                </span>
-              </p>
-            )}
-
-            {restDescription && (
-              <>
-                <Separator className="my-4" />
-                <p className="whitespace-pre-wrap text-sm leading-7 text-foreground/85">
-                  {restDescription}
-                </p>
-              </>
-            )}
-          </div>
+          {!ownerView && summary}
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {divisionBadgeLevel ? (
@@ -244,7 +273,7 @@ export function MarketplaceListingDetail({
             </div>
           )}
 
-          <p className="text-xs leading-relaxed text-muted-foreground">Sotuvchi taqdim etgan ma’lumotlar. Ulanish holati mustaqil tekshiruv yoki kafolat emas.</p>
+          {!ownerView && <p className="text-xs leading-relaxed text-muted-foreground">Sotuvchi taqdim etgan ma’lumotlar. Ulanish holati mustaqil tekshiruv yoki kafolat emas.</p>}
           <AttributeTable
             isMobile={isMobile}
             division={division}
@@ -259,7 +288,7 @@ export function MarketplaceListingDetail({
             priceNegotiable={listing.priceNegotiable}
           />
 
-          {canUseSmartAdmin(listing) ? (
+          {!ownerView && (canUseSmartAdmin(listing) ? (
             <TipCallout
               variant="security"
               dismissible
@@ -275,7 +304,7 @@ export function MarketplaceListingDetail({
               sotuvchi bilan narx va shartlarni chatda kelishib oling, so‘ng
               &quot;Adminga murojaat&quot; orqali akkountni topshirish va to‘lov tartibini kelishing.
             </TipCallout>
-          )}
+          ))}
         </div>
 
         {/* Media leads on mobile; the price + CTA live in the sticky bottom bar
@@ -300,6 +329,8 @@ export function MarketplaceListingDetail({
 
             <ListingActions
               listingId={listing.id}
+              listingTitle={title}
+              buyerPreview={isOwner && buyerPreview}
               authenticated={authenticated}
               telegramLinked={viewer?.telegramLinked ?? false}
               botUsername={(process.env.NEXT_PUBLIC_TELEGRAM_BOT ?? process.env.TELEGRAM_BOT_USERNAME ?? '').replace('@', '')}
@@ -310,23 +341,24 @@ export function MarketplaceListingDetail({
             />
           </div>
 
-          <SellerCard
+          {!ownerView && <SellerCard
             seller={seller}
             isViewerOwner={isOwner}
+            listingStatus={listing.status}
             blacklisted={sellerBlacklisted}
             ratingSummary={sellerRatingSummary}
-          />
+          />}
         </aside>
       </div>
 
-      {similarListings.length > 0 && (
+      {!ownerView && similarListings.length > 0 && (
         <section className="pt-4">
           <div className="mb-3 flex items-end justify-between">
             <h2 className="text-lg font-bold text-foreground">O'xshash e'lonlar</h2>
           </div>
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
             {similarListings.slice(0, 4).map((entry) => (
-              <ListingCard key={entry.id} listing={entry} />
+              <ListingCard key={entry.id} listing={entry} readOnly={isOwner && buyerPreview} />
             ))}
           </div>
         </section>

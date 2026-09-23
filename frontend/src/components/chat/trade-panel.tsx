@@ -53,7 +53,6 @@ import { telegramHaptic } from '@/lib/telegram-shell';
 import { isHumanProposal, isHumanTrade, validateAdminFee } from '@/lib/trade-human';
 import { createInvoice } from '@/lib/payment-client';
 import {
-  allowedKinds,
   counterpartStatus,
   isSwap,
   hasClearedCurrentStep,
@@ -63,7 +62,6 @@ import {
   needsAmount,
   TRADE_KIND_HINT_UZ,
   TRADE_KIND_LABEL_UZ,
-  type ExchangeMode,
 } from '@/lib/trade-swap';
 import {
   isInsufficientFunds,
@@ -72,6 +70,8 @@ import {
   topUpHref,
 } from '@/lib/wallet-shortfall';
 import {
+  canAcceptTradeProposal,
+  tradeParticipantRole,
   isTerminalState,
   splitTrades,
   TRADE_STATE_LABEL_UZ,
@@ -149,11 +149,11 @@ function ProposalDetails({ message }: { message: MessageResponse }) {
         </dl>
       </section>
 
-      <TradeProgressTimeline outcome={outcome} trade={trade} kind={kind} mode={matching?.mode} createdAt={message.createdAt} />
+      <TradeProgressTimeline outcome={outcome} trade={trade} kind={kind} mode={matching?.mode} createdAt={message.createdAt} isProposalSender={message.senderId === viewerId} />
 
       {outcome === 'PENDING' && matching && (
         requiresAdminHandoff ? <TradeAdminHandoff listingId={listingId} platform={ownListing?.attributes?.platform} amountUzs={price} />
-          : message.senderId !== viewerId ? <Button className="min-h-11 w-full" onClick={() => setShowAcceptModal(true)}>Qabul qilish</Button>
+          : message.senderId !== viewerId && canAcceptTradeProposal(matching, viewerId) ? <Button className="min-h-11 w-full" onClick={() => setShowAcceptModal(true)}>Qabul qilish</Button>
             : <p className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">Javob kutilmoqda</p>
       )}
       {message.proposalTradeId && (trade ? (
@@ -174,7 +174,7 @@ function ProposalDetails({ message }: { message: MessageResponse }) {
 // Keep one modal host, including when an action is started from the pinned bar.
 function TradeActionModals() {
   const {
-    chat, viewerId, listing, otherPartyId, accountRequest, setAccountRequest, viewedProposal,
+    chat, viewerId, listing, otherPartyId, accountRequest, setAccountRequest,
     trades, activeTrade, lastFinished, startingNew, proposal, isSeller,
     requiresAdminHandoff, showPicker, setShowPicker, showProposeModal,
     setShowProposeModal, showAcceptModal, setShowAcceptModal,
@@ -184,7 +184,7 @@ function TradeActionModals() {
   if (trades === null || activeTrade || (lastFinished && !startingNew && !proposal)) return null;
 
   if (proposal) {
-    return showAcceptModal && (viewedProposal ? viewedProposal.senderId !== viewerId : !isSeller) && !requiresAdminHandoff ? (
+    return showAcceptModal && canAcceptTradeProposal(proposal, viewerId) && !requiresAdminHandoff ? (
       <AcceptModal
         proposal={proposal}
         onClose={() => setShowAcceptModal(false)}
@@ -252,7 +252,7 @@ function TradePanelContent() {
 
   // The pinned bar prioritizes a pending request over any existing trade.
   if (proposal) {
-    return <PendingProposalCard proposal={proposal} isSeller={isSeller}
+    return <PendingProposalCard proposal={proposal}
       onAcceptClick={() => setShowAcceptModal(true)} onDismiss={() => setProposal(null)} />;
   }
 
@@ -505,7 +505,7 @@ function TradeDetails({ trade, viewerId, onRefresh, refreshing }: {
 }
 
 function ActiveTradeCard({
-  trade,
+  trade: response,
   viewerId,
   onRefresh,
   refreshing,
@@ -519,8 +519,10 @@ function ActiveTradeCard({
   embedded?: boolean;
   showSummary?: boolean;
 }) {
-  const isBuyer = trade.buyerId === viewerId;
-  const isSeller = trade.sellerId === viewerId;
+  const viewerRole = tradeParticipantRole(response, viewerId);
+  const trade = { ...response, role: viewerRole };
+  const isBuyer = viewerRole === 'BUYER';
+  const isSeller = viewerRole === 'SELLER';
   const shortId = trade.id.slice(0, 8);
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -1573,16 +1575,14 @@ function SendPasswordModal({
 
 function PendingProposalCard({
   proposal,
-  isSeller,
   onAcceptClick,
   onDismiss,
 }: {
   proposal: PendingProposal;
-  isSeller: boolean;
   onAcceptClick: () => void;
   onDismiss: () => void;
 }) {
-  const { listing, accountRequest, requiresAdminHandoff } = useTradeContext();
+  const { listing, accountRequest, requiresAdminHandoff, viewerId } = useTradeContext();
   const selectedListing = resolveTradeListing(accountRequest, listing);
   const proposalListing = [selectedListing, listing].find((item) => item?.id === proposal.listingId);
 
@@ -1613,12 +1613,12 @@ function PendingProposalCard({
         </div>
       </div>
       {proposal.expiresAt && <p className="text-sm text-muted-foreground"><CountdownText until={proposal.expiresAt} prefix="Muddati: " /></p>}
-      <TradeProgressTimeline outcome="PENDING" kind={proposal.kind} mode={isHumanProposal(proposal) ? 'HUMAN' : proposal.mode} />
+      <TradeProgressTimeline outcome="PENDING" kind={proposal.kind} mode={isHumanProposal(proposal) ? 'HUMAN' : proposal.mode} isProposalSender={proposal.proposerUserId === viewerId} />
       {requiresAdminHandoff ? (
         <TradeAdminHandoff listingId={proposal.listingId} platform={proposalListing?.attributes?.platform} amountUzs={proposal.priceUzs} />
-      ) : isSeller ? (
+      ) : !canAcceptTradeProposal(proposal, viewerId) ? (
         <p className="rounded-lg border border-border/50 bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-          Xaridor javobini kutmoqda.
+          Javob kutilmoqda.
           {isHumanProposal(proposal) && proposal.adminFeeUzs
             ? ` Inson admin narxi: ${formatPriceUZS(proposal.adminFeeUzs)}.`
             : ''}
@@ -1638,6 +1638,8 @@ function PendingProposalCard({
 }
 
 // -------------------- propose modal --------------------
+
+const PROPOSAL_KINDS: TradeKind[] = ['SALE', 'SWAP', 'SWAP_SURCHARGE'];
 
 function ProposeModal({
   chat,
@@ -1674,15 +1676,7 @@ function ProposeModal({
       ? toDivisionLevel(listingAttributes.highest_division_level)
       : undefined;
 
-  const listingExchangeMode = (
-    (effectiveListing && 'exchangeMode' in effectiveListing && effectiveListing.exchangeMode
-      ? effectiveListing.exchangeMode
-      : undefined) ?? listingAttributes?.exchange_mode
-  ) as ExchangeMode | undefined;
-  const availableKinds = useMemo(() => allowedKinds(listingExchangeMode), [listingExchangeMode]);
-  const [kind, setKind] = useState<TradeKind>(
-    availableKinds.includes('SALE') ? 'SALE' : (availableKinds[0] ?? 'SWAP'),
-  );
+  const [kind, setKind] = useState<TradeKind>('SALE');
   const [mode, setMode] = useState<TradeMode>('SMART');
   const [price, setPrice] = useState(initialPrice);
   const [surcharge, setSurcharge] = useState('');
@@ -1824,36 +1818,34 @@ function ProposeModal({
         )}
 
         {/* Kind Selector */}
-        {availableKinds.length > 1 && (
-          <div>
-            <Label className="text-xs font-bold">Savdo turi</Label>
-            <div className="mt-1 grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Savdo turi">
-              {availableKinds.map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  role="radio"
-                  aria-checked={kind === k}
-                  onClick={() => {
-                    setKind(k);
-                    telegramHaptic(getTelegramWebApp(), 'selection', false);
-                  }}
-                  className={cn(
-                    'rounded-xl border py-2 px-1 text-center text-xs font-bold transition select-none truncate',
-                    kind === k
-                      ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30 font-black'
-                      : 'border-border bg-card text-muted-foreground hover:border-primary/40',
-                  )}
-                >
-                  {TRADE_KIND_LABEL_UZ[k]}
-                </button>
-              ))}
-            </div>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {TRADE_KIND_HINT_UZ[kind]}
-            </p>
+        <div>
+          <Label className="text-xs font-bold">Savdo turi</Label>
+          <div className="mt-1 grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Savdo turi">
+            {PROPOSAL_KINDS.map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={kind === k}
+                onClick={() => {
+                  setKind(k);
+                  telegramHaptic(getTelegramWebApp(), 'selection', false);
+                }}
+                className={cn(
+                  'rounded-xl border py-2 px-1 text-center text-xs font-bold transition select-none truncate',
+                  kind === k
+                    ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30 font-black'
+                    : 'border-border bg-card text-muted-foreground hover:border-primary/40',
+                )}
+              >
+                {TRADE_KIND_LABEL_UZ[k]}
+              </button>
+            ))}
           </div>
-        )}
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {TRADE_KIND_HINT_UZ[kind]}
+          </p>
+        </div>
 
         {/* Admin Mode Selector */}
         {FEATURES.humanAdmin && (

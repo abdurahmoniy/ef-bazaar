@@ -20,6 +20,23 @@ export type TradeState =
   | 'ORPHANED';
 
 export type ParticipantRole = 'SELLER' | 'BUYER';
+
+/** Roles belong to each negotiation, not the chat that originally hosted it. */
+export function tradeParticipantRole(
+  participants: { sellerId: string; buyerId: string },
+  viewerId: string,
+): ParticipantRole | null {
+  return participants.sellerId === viewerId ? 'SELLER'
+    : participants.buyerId === viewerId ? 'BUYER' : null;
+}
+
+export function canAcceptTradeProposal(
+  proposal: { sellerId: string; buyerId: string; proposerUserId: string },
+  viewerId: string,
+): boolean {
+  return !!proposal.proposerUserId && proposal.proposerUserId !== viewerId
+    && tradeParticipantRole(proposal, viewerId) !== null;
+}
 export type TradeMode = 'SMART' | 'HUMAN';
 export type HumanTradeState = 'WAITING_ADMIN' | 'IN_PROGRESS' | 'WAITING_CLOSE_CONFIRM';
 

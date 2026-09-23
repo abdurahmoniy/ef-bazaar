@@ -87,7 +87,7 @@ describe('trade bar next steps', () => {
   it.each([false, true])('keeps proposal acceptance routing when admin handoff is %s', async (requiresAdminHandoff) => {
     context.activeTrade = null;
     context.requiresAdminHandoff = requiresAdminHandoff;
-    context.proposal = { id: 'proposal', priceUzs: 20000, expiresAt: '' };
+    context.proposal = { sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', id: 'proposal', priceUzs: 20000, expiresAt: '' };
     await render();
     const label = requiresAdminHandoff ? 'Adminga murojaat' : 'Qabul qilish';
     const button = Array.from(container.querySelectorAll('button')).find((item) => item.textContent?.includes(label))!;

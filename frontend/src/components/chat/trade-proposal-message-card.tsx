@@ -6,6 +6,7 @@ import { CheckCircle2, Clock, Handshake, ShieldCheck, XCircle } from 'lucide-rea
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { canAcceptTradeProposal } from '@/lib/trade-types';
 import { tradeProposalDetails } from '@/lib/trade-proposal-details';
 import { formatMessageTime } from '@/lib/chat-format';
 import type { MessageResponse } from '@/lib/marketplace-types';
@@ -78,7 +79,7 @@ export function TradeProposalMessageCard({ message, viewerId }: TradeProposalMes
         </div>
 
         {outcome === 'PENDING' && matching ? (
-          !isMine ? (
+          !isMine && canAcceptTradeProposal(matching, viewerId) ? (
             <div className="flex gap-2">
               <Button type="button" size="sm" className="min-h-11 flex-1"
                 onClick={() => requiresAdminHandoff ? openProposal(message) : setShowAcceptModal(true)}>

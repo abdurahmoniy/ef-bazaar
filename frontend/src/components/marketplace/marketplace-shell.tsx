@@ -79,9 +79,10 @@ interface MarketplaceShellProps {
  * market the scam list is the answer to the buyer's first objection, so it
  * belongs in the top row rather than three clicks down.
  */
-function buildDesktopLinks(): SlidingNavItem[] {
+function buildDesktopLinks(user: User | null, sessionPending: boolean): SlidingNavItem[] {
   return [
     { id: 'home', href: '/marketplace', label: 'Bozor' },
+    { id: 'accounts', href: user || sessionPending ? '/profile?tab=accounts' : '/auth/login?from=%2Fprofile%3Ftab%3Daccounts', label: 'Akkountlarim' },
     { id: 'tournaments', href: '/tournaments', label: 'Turnirlar' },
     { id: 'safety', href: '/blacklist', label: 'Xavfsizlik' },
   ].filter((item) => {
@@ -106,7 +107,7 @@ export function MarketplaceShell({
   mobileActionBar,
   hideBottomNav = false,
 }: MarketplaceShellProps) {
-  const desktopLinks = buildDesktopLinks();
+  const desktopLinks = buildDesktopLinks(user, sessionPending);
 
   return (
     <div
@@ -230,7 +231,7 @@ export function MarketplaceShell({
         </div>
       )}
 
-      <main data-page-transition className="marketplace-shell-content mx-auto flex w-full max-w-6xl flex-col gap-4 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] pt-4 md:py-6">
+      <main data-page-transition className={cn("marketplace-shell-content mx-auto flex w-full max-w-6xl flex-col gap-4 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] pt-4 md:py-6", mobileActionBar && "md:pb-[calc(var(--marketplace-bottom-bar-height)+1rem)] lg:pb-6")}>
         {children}
       </main>
 
@@ -239,7 +240,7 @@ export function MarketplaceShell({
       {mobileActionBar ? (
         <MeasuredBottomBar
           key="marketplace-action-bar"
-          className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav md:hidden"
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav lg:hidden"
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-2.5 pb-[calc(0.625rem+var(--app-content-safe-bottom))]">
             {mobileActionBar}

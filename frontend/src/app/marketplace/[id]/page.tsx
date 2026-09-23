@@ -157,7 +157,10 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
   const { id } = await params;
   const originatingParams = searchParams ? await searchParams : {};
   const matchFilters = parseListingSearchParams(originatingParams);
-  const backQuery = searchParamInputToSearchParams(originatingParams).toString();
+  const backParams = searchParamInputToSearchParams(originatingParams);
+  backParams.delete('result');
+  backParams.delete('view');
+  const backQuery = backParams.toString();
   const backHref = backQuery ? `/marketplace?${backQuery}` : '/marketplace';
   const [viewer, result] = await Promise.all([
     resolveOptionalUser(getMe),
@@ -181,8 +184,12 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
   }
 
   const listing = result.data;
+  const isOwner = viewer?.id === listing.sellerId;
+  const buyerPreview = isOwner && originatingParams.view === 'buyer';
+  const completion = isOwner && (originatingParams.result === 'created' || originatingParams.result === 'published')
+    ? originatingParams.result : undefined;
   const [similar, sellerBlacklisted, fallbackSeller, sellerRatingSummary] = await Promise.all([
-    getSimilarListings(listing),
+    !isOwner || buyerPreview ? getSimilarListings(listing) : Promise.resolve([]),
     isUserBlacklisted(listing.sellerId),
     listing.seller ? Promise.resolve(null) : getUserProfile(listing.sellerId),
     getSellerRatingSummary(listing.sellerId),
@@ -195,12 +202,15 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
     <MarketplaceShell
       user={viewer}
       activeTab="home"
-      backHref={backHref}
-      backLabel="Bozor"
+      hideSearch={isOwner}
+      backHref={isOwner ? '/profile?tab=accounts' : backHref}
+      backLabel={isOwner ? 'Akkountlarim' : 'Bozor'}
       mobileActionBar={
         <ListingActions
           variant="bar"
           listingId={listing.id}
+          listingTitle={firstNonEmptyLine(listing.description) || 'eFootball akkount'}
+          buyerPreview={buyerPreview}
           priceLabel={formatPriceUZS(listing.price)}
           authenticated={viewer !== null}
           telegramLinked={viewer?.telegramLinked ?? false}
@@ -223,6 +233,8 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
         sellerBlacklisted={sellerBlacklisted}
         sellerRatingSummary={sellerRatingSummary}
         similarListings={similar}
+        buyerPreview={buyerPreview}
+        completion={completion}
       />
     </MarketplaceShell>
   );

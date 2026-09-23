@@ -42,16 +42,18 @@ beforeEach(() => {
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   vi.clearAllMocks();
   container = document.createElement('div');
+  document.body.append(container);
   root = createRoot(container);
 });
 
 afterEach(async () => {
   await act(async () => root.unmount());
+  container.remove();
   vi.restoreAllMocks();
 });
 
-async function render(over: Partial<UserAccountResponse> = {}) {
-  await act(async () => root.render(createElement(AccountCard, { account: account(over) })));
+async function render(over: Partial<UserAccountResponse> = {}, extras: Partial<Parameters<typeof AccountCard>[0]> = {}) {
+  await act(async () => root.render(createElement(AccountCard, { account: account(over), ...extras })));
 }
 
 const button = (label: string) =>
@@ -65,6 +67,8 @@ describe('AccountCard', () => {
     await act(async () => button("Ko'rsatish")!.click());
 
     expect(container.textContent).toContain('a7f2@efbazaar.uz');
+    await act(async () => button('Yashirish')!.click());
+    expect(container.textContent).not.toContain('a7f2@efbazaar.uz');
   });
 
   it('shows the Bozorda badge and hides delete while published', async () => {
@@ -72,6 +76,7 @@ describe('AccountCard', () => {
 
     expect(container.textContent).toContain('Bozorda');
     expect(button("O'chirish")).toBeUndefined();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Akkount amallari"]')!.click());
     expect(button('Bozordan olish')).toBeDefined();
   });
 
@@ -92,5 +97,55 @@ describe('AccountCard', () => {
     await render({ email: null, emailSource: null });
     expect(container.textContent).toContain('Email biriktirilmagan');
     expect(button("Ko'rsatish")).toBeUndefined();
+  });
+
+  it('copies without revealing the email and reports clipboard failures', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    await render();
+    await act(async () => button('Nusxalash')!.click());
+    expect(writeText).toHaveBeenCalledWith('a7f2@efbazaar.uz');
+    expect(container.textContent).not.toContain('a7f2@efbazaar.uz');
+    expect(container.textContent).toContain('Nusxalandi');
+    writeText.mockRejectedValueOnce(new Error('denied'));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Emailni nusxalash"]')!.click());
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('Nusxalab');
+  });
+
+  it('requires confirmation before removing a listing, and cancellation changes nothing', async () => {
+    await render({ onMarket: true, currentListingId: 'listing-1' });
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Akkount amallari"]')!.click());
+    await act(async () => button('Bozordan olish')!.click());
+    expect(mocks.unpublishAccount).not.toHaveBeenCalled();
+    await act(async () => button('Bekor qilish')!.click());
+    expect(mocks.unpublishAccount).not.toHaveBeenCalled();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Akkount amallari"]')!.click());
+    await act(async () => button('Bozordan olish')!.click());
+    mocks.unpublishAccount.mockResolvedValueOnce({ ok: true });
+    await act(async () => button('Ha, bozordan olish')!.click());
+    expect(mocks.unpublishAccount).toHaveBeenCalledWith('acc-1');
+  });
+
+  it('uses only supplied owned mailbox links and shows the current price', async () => {
+    await render({ onMarket: true }, { display: { mailboxHref: '/mail/owned-1', price: 150000 } });
+    expect(container.querySelector('a[href="/mail/owned-1"]')?.textContent).toContain('Pochtani ochish');
+    expect(container.textContent?.replace(/\s/g, '')).toContain('150000');
+    await render();
+    expect(container.textContent).not.toContain('Pochtani ochish');
+    expect(container.textContent).toContain('Bozorda emas');
+  });
+
+  it('restores focus after an asynchronous unpublish finishes', async () => {
+    let finish!: (result: { ok: boolean }) => void;
+    mocks.unpublishAccount.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    await render({ onMarket: true });
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Akkount amallari"]')!;
+    await act(async () => trigger.click());
+    await act(async () => button('Bozordan olish')!.click());
+    expect(document.activeElement).toBe(button('Bekor qilish'));
+    await act(async () => { button('Ha, bozordan olish')!.focus(); button('Ha, bozordan olish')!.click(); });
+    expect(trigger.disabled).toBe(true);
+    await act(async () => finish({ ok: true }));
+    expect(document.activeElement).toBe(trigger);
   });
 });

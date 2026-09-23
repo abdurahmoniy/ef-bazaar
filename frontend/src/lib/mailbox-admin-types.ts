@@ -9,6 +9,7 @@ export type MailboxSource = 'TRADE' | 'ADMIN';
 export interface AdminMailbox {
   id: string;
   email: string;
+  displayName: string | null;
   ownerUserId: string | null;
   tradeId: string | null;
   source: MailboxSource;

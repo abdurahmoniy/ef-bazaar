@@ -33,9 +33,12 @@ function detail(viewer: User | null, status: ListingStatus = 'ACTIVE') {
 }
 
 describe('owner advertising entry points', () => {
-  it('offers the active owner one advertising entry before the listing media', () => {
+  it('offers optional advertising after the owner summary and before the media', () => {
     const html = detail(owner);
     expect(html.split(destination)).toHaveLength(2);
+    expect(html.indexOf('Epic Messi')).toBeLessThan(html.indexOf(destination));
+    expect(html).toContain('ixtiyoriy');
+    expect(html).toContain('Xaridor ko‘rinishi');
     expect(html.indexOf(destination)).toBeLessThan(html.indexOf('data-testid="listing-media"'));
   });
 
@@ -66,4 +69,20 @@ describe('owner advertising entry points', () => {
     expect(html).not.toContain(destination);
     expect(html).not.toContain('href="/marketplace/listing-1/edit"');
   });
+});
+
+it('keeps buyer guidance and recommendations out of owner management but available in preview', () => {
+  const props = { listing, viewer: owner, seller: null, similarListings: [listing] };
+  const ownerHtml = renderToStaticMarkup(createElement(MarketplaceListingDetail, props));
+  expect(ownerHtml).not.toContain('Xavfsizlik');
+  expect(ownerHtml).not.toContain('O&#x27;xshash e&#x27;lonlar');
+  const preview = renderToStaticMarkup(createElement(MarketplaceListingDetail, { ...props, buyerPreview: true }));
+  expect(preview).toContain('Xavfsizlik');
+  expect(preview).toContain('O&#x27;xshash e&#x27;lonlar');
+  expect(preview).not.toContain(destination);
+});
+it('shows a publish confirmation only to the active listing owner', () => {
+  const props = { listing, viewer: owner, seller: null, similarListings: [], completion: 'published' as const };
+  expect(renderToStaticMarkup(createElement(MarketplaceListingDetail, props))).toContain('Akkount bozorga chiqarildi');
+  expect(renderToStaticMarkup(createElement(MarketplaceListingDetail, { ...props, viewer: null }))).not.toContain('Akkount bozorga chiqarildi');
 });

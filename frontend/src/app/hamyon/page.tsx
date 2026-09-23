@@ -61,7 +61,7 @@ export default async function WalletPage({
   ]);
 
   return (
-    <MarketplaceShell user={user} activeTab="wallet" hideSearch hideHeader backHref="/profile">
+    <MarketplaceShell user={user} activeTab="profile" hideSearch hideHeader backHref="/profile">
       {wallet ? (
         <WalletView
           wallet={wallet}

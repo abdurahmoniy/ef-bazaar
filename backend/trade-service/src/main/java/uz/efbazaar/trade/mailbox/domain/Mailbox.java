@@ -36,6 +36,7 @@ public class Mailbox {
     public void setOwnerUserId(UUID ownerUserId) {
         if (!Objects.equals(this.ownerUserId, ownerUserId)) {
             this.displayName = null;
+            this.ownerMailVisibleFrom = Instant.now();
         }
         this.ownerUserId = ownerUserId;
     }
@@ -55,6 +56,10 @@ public class Mailbox {
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();
+
+    /** Earliest IMAP arrival visible to the current owner; independent of password rotation. */
+    @Column(name = "owner_mail_visible_from")
+    private Instant ownerMailVisibleFrom;
 
     @Column(name = "handed_off_at")
     private Instant handedOffAt;

@@ -3,7 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function WalletLoading() {
   return (
-    <MarketplaceShell user={null} sessionPending activeTab="wallet" hideSearch hideHeader backHref="/profile">
+    <MarketplaceShell user={null} sessionPending activeTab="profile" hideSearch hideHeader backHref="/profile">
       <div data-page-transition-loading className="space-y-4" aria-hidden="true">
         <div className="rounded-xl border border-border bg-card p-4 shadow-card sm:p-6">
           <Skeleton className="h-4 w-20 rounded" />

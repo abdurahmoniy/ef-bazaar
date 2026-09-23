@@ -13,7 +13,30 @@ vi.mock('next/navigation', () => ({
 import { ListingActions } from './listing-actions';
 
 describe('ListingActions', () => {
-  it('renders owner actions including Tahrirlash and Sotildi deb belgilash when ACTIVE', () => {
+  describe.each(['panel', 'bar'] as const)('%s unavailable listings', (variant) => {
+    it.each(['SOLD', 'DELETED'] as const)('hides buyer action buttons for %s listings', (status) => {
+      const html = renderToStaticMarkup(createElement(ListingActions, {
+        listingId: 'listing-1', authenticated: true, initialLikeCount: 12,
+        status, variant,
+      }));
+
+      expect(html).not.toContain('<button');
+      expect(html).toMatch(status === 'SOLD' ? /[Ss]otilgan/ : /o&#x27;chirilgan/);
+    });
+
+    it('hides owner actions for deleted listings', () => {
+      const html = renderToStaticMarkup(createElement(ListingActions, {
+        listingId: 'listing-1', authenticated: true, isOwner: true,
+        initialLikeCount: 12, status: 'DELETED', variant,
+      }));
+
+      expect(html).not.toContain('<button');
+      expect(html).not.toContain('/edit');
+      expect(html).toContain('o&#x27;chirilgan');
+    });
+  });
+
+  it('renders owner actions including Tahrirlash and Sotilgan deb belgilash when ACTIVE', () => {
     const html = renderToStaticMarkup(
       createElement(ListingActions, {
         listingId: 'listing-1',
@@ -25,7 +48,7 @@ describe('ListingActions', () => {
     );
 
     expect(html).toContain('Tahrirlash');
-    expect(html).toContain('Sotildi deb belgilash');
+    expect(html).toContain('Sotilgan deb belgilash');
     expect(html).toContain('/marketplace/listing-1/edit');
   });
 
@@ -41,7 +64,7 @@ describe('ListingActions', () => {
     );
 
     expect(html).toContain("Ushbu e&#x27;lon sotilgan");
-    expect(html).not.toContain('Sotildi deb belgilash');
+    expect(html).not.toContain('Sotilgan deb belgilash');
   });
 
   it('renders buyer SOLD state when viewing a sold listing', () => {

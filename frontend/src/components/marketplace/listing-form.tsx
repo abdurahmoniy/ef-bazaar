@@ -82,6 +82,8 @@ import type { TradeCommissionConfig } from '@/lib/payment-types';
 interface ListingFormProps {
 	/** Return to source selection from the first step without discarding this form. */
 	onBack?: () => void;
+	/** Continue to sale terms with the account saved by this editor. */
+	onAccountPublish?: (account: UserAccountResponse) => void;
 	botUsername?: string;
 	attributeDefinitions?: readonly ListingAttributeDefinition[];
 	/** When provided, the form runs in edit mode: preloads values and PUTs to the listing id. */
@@ -170,6 +172,7 @@ const STEP_META: Record<
 
 export function ListingForm({
 	onBack,
+	onAccountPublish,
 	attributeDefinitions,
 	initialListing,
 	botUsername = '',
@@ -192,15 +195,16 @@ export function ListingForm({
 		readonly ListingAttributeDefinition[]
 	>(attributeDefinitions ?? SEEDED_LISTING_ATTRIBUTE_DEFINITIONS);
 	const [photos, setPhotos] = useState<PhotoEntry[]>([]);
+	const [savedMediaIds, setSavedMediaIds] = useState(initialAccount?.mediaMessageIds ?? []);
 	const existingMediaUrls = useMemo(() => {
 		if (initialListing) return listingMediaUrls(initialListing);
-		if (initialAccount) {
-			return initialAccount.mediaMessageIds
+		if (accountMode) {
+			return savedMediaIds
 				.map((id) => listingMediaUrl(id))
 				.filter((url): url is string => Boolean(url));
 		}
 		return [];
-	}, [initialListing, initialAccount]);
+	}, [initialListing, accountMode, savedMediaIds]);
 	const [step, setStep] = useState<StepId>('photos');
 	const [touchedSteps, setTouchedSteps] = useState<Set<StepId>>(new Set());
 	const [state, setState] = useState<WizardState>(() => {
@@ -236,6 +240,8 @@ export function ListingForm({
 	const [pending, setPending] = useState(false);
 	const [commissionConfig, setCommissionConfig] = useState<TradeCommissionConfig | null>(null);
 	const submittedAt = useRef(0);
+	// A successful create must survive a later upload failure or a trip back from pricing.
+	const savedAccountRef = useRef(initialAccount);
 
 	useEffect(() => {
 		getPublicTradeCommissionConfig()
@@ -325,12 +331,9 @@ export function ListingForm({
 				state,
 				photos,
 				definitions,
-				// Akkount rasmsiz ham saqlanadi — u hali qoralama. Rasm
-				// bozorga chiqarishda talab qilinadi, u yerda e'lon
-				// validatsiyasi ishlaydi.
-				accountMode || (editMode && existingMediaUrls.length > 0),
+				existingMediaUrls.length > 0,
 			),
-		[step, state, photos, definitions, editMode, existingMediaUrls.length, accountMode],
+		[step, state, photos, definitions, existingMediaUrls.length],
 	);
 	const canProceed = stepErrors.length === 0;
 
@@ -342,6 +345,7 @@ export function ListingForm({
 		}
 		const next = steps[stepIndex + 1];
 		if (next) {
+			setSubmitError(null);
 			setStep(next);
 			telegramHaptic(getTelegramWebApp(), 'selection', false);
 			window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -377,7 +381,7 @@ export function ListingForm({
 	 * bilan aralashtirib bo'lmaydi. Rasm tanlanmagan bo'lsa ikkinchi so'rov
 	 * umuman ketmaydi — akkountdagi eski rasmlar joyida qoladi.
 	 */
-	const submitAccount = useCallback(async () => {
+	const submitAccount = useCallback(async (intent: 'save' | 'publish') => {
 		const attributes = buildRequest(state, definitions).attributes ?? {};
 		const payload = {
 			title: state.title.trim() ? state.title.trim() : null,
@@ -385,14 +389,16 @@ export function ListingForm({
 			attributes,
 		};
 
-		const saved = initialAccount
-			? await updateAccount(initialAccount.id, payload)
+		const saved = savedAccountRef.current
+			? await updateAccount(savedAccountRef.current.id, payload)
 			: await createAccount(payload);
 		if (!saved.ok) {
 			setSubmitError(saved.message);
 			telegramHaptic(getTelegramWebApp(), 'error', false);
 			return;
 		}
+		savedAccountRef.current = saved.data;
+		setSavedMediaIds(saved.data.mediaMessageIds);
 
 		if (photos.length > 0) {
 			const uploaded = await replaceAccountMedia(
@@ -406,27 +412,34 @@ export function ListingForm({
 				telegramHaptic(getTelegramWebApp(), 'error', false);
 				return;
 			}
+			savedAccountRef.current = uploaded.data;
+			setSavedMediaIds(uploaded.data.mediaMessageIds);
 		}
 
 		if (!editMode) clearDraft(true);
 		telegramHaptic(getTelegramWebApp(), 'success', false);
-		router.push('/profile?tab=accounts');
+		if (intent === 'publish' && onAccountPublish) {
+			onAccountPublish(savedAccountRef.current);
+			return;
+		}
+		router.push(`/profile?tab=accounts&saved=${encodeURIComponent(savedAccountRef.current.id)}`);
 		router.refresh();
-	}, [state, definitions, initialAccount, photos, editMode, router]);
+	}, [state, definitions, photos, editMode, router, onAccountPublish]);
 
-	const handleSubmit = useCallback(async () => {
+	const handleSubmit = useCallback(async (intent: 'save' | 'publish' = 'save') => {
 		if (pending || Date.now() - submittedAt.current < 800) return;
 		submittedAt.current = Date.now();
 
-		const keepExistingMedia =
-			accountMode || (editMode && existingMediaUrls.length > 0);
+		const keepExistingMedia = existingMediaUrls.length > 0;
 		const invalidStep = steps.find((id) =>
 			validateStep(id, state, photos, definitions, keepExistingMedia).length > 0,
 		);
 		if (invalidStep) {
 			setStep(invalidStep);
 			setTouchedSteps((prev) => new Set(prev).add(invalidStep));
-			setSubmitError(null);
+			setSubmitError(accountMode && intent === 'publish' && invalidStep === 'photos'
+				? validateStep('photos', state, photos, definitions, keepExistingMedia)[0]
+				: null);
 			window.scrollTo({ top: 0, behavior: 'smooth' });
 			telegramHaptic(getTelegramWebApp(), 'error', false);
 			return;
@@ -436,7 +449,7 @@ export function ListingForm({
 		setPending(true);
 		try {
 			if (accountMode) {
-				await submitAccount();
+				await submitAccount(intent);
 				return;
 			}
 			const request = buildRequest(state, definitions);
@@ -484,9 +497,10 @@ export function ListingForm({
 			)) as Partial<ListingResponse> | null;
 			const targetId = payload?.id ?? initialListing?.id;
 			if (targetId) {
-				router.push(advertising && advertisingAllowed
+				const destination = advertising && advertisingAllowed
 					? listingAdvertisingHref(targetId, channels.map(channel => channel.channelId))
-					: `/marketplace/${targetId}`);
+					: `/marketplace/${targetId}`;
+				router.push(isEdit ? destination : `${destination}${destination.includes('?') ? '&' : '?'}result=created`);
 				router.refresh();
 			} else {
 				router.push('/marketplace');
@@ -504,7 +518,6 @@ export function ListingForm({
 		photos,
 		definitions,
 		router,
-		editMode,
 		existingMediaUrls.length,
 		initialListing,
 		advertising,
@@ -516,7 +529,7 @@ export function ListingForm({
 	]);
 
 	const submitLabel = accountMode
-		? (editMode ? 'Saqlash' : 'Akkountni saqlash')
+		? 'Saqlash'
 		: advertising && advertisingAllowed
 			? (editMode ? 'Saqlash va reklama' : 'Yaratish va reklama')
 			: (editMode ? 'Saqlash' : "E'lon yaratish");
@@ -572,12 +585,12 @@ export function ListingForm({
 						{accountMode && step === 'review' ? 'Akkountni tasdiqlang' : STEP_META[step].title}
 					</h2>
 					<span className='text-[11px] text-muted-foreground hidden xs:inline shrink-0'>
-						{STEP_META[step].subtitle}
+						{accountMode && step === 'review' ? 'Ma’lumotlarni tekshiring. Saqlang yoki sotuvga qo‘ying.' : STEP_META[step].subtitle}
 					</span>
 				</div>
 			</div>
 
-			{draftRestored && step === 'photos' && photos.length === 0 && (
+			{!accountMode && draftRestored && step === 'photos' && photos.length === 0 && (
 				<p role='status' className='rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm'>
 					Tavsif va narx saqlandi. Rasmlar saqlanmaydi — davom etish uchun ularni qayta tanlang.
 				</p>
@@ -593,6 +606,7 @@ export function ListingForm({
 						existingMediaUrls={existingMediaUrls}
 					/>
 				)}
+				{step === 'photos' && accountMode && <p className="mt-3 text-sm text-muted-foreground">Davom etish uchun kamida bitta rasm yuklang.</p>}
 				{step === 'basics' && accountMode && (
 					<div className='mb-4 space-y-1.5'>
 						<Label htmlFor='account-title'>Akkount nomi</Label>
@@ -662,7 +676,8 @@ export function ListingForm({
 				canLeaveFirstStep={!!onBack}
 				onPrev={goPrev}
 				onNext={goNext}
-				onSubmit={handleSubmit}
+				onSubmit={() => handleSubmit('save')}
+				onPublish={accountMode && onAccountPublish ? () => handleSubmit('publish') : undefined}
 				submitLabel={submitLabel}
 			/>
 		</div>
@@ -681,6 +696,7 @@ function StepNav({
 	onPrev,
 	onNext,
 	onSubmit,
+	onPublish,
 	submitLabel,
 }: {
 	canLeaveFirstStep?: boolean;
@@ -691,6 +707,7 @@ function StepNav({
 	onPrev: () => void;
 	onNext: () => void;
 	onSubmit: () => void;
+	onPublish?: () => void;
 	submitLabel: string;
 }) {
 	const isFirst = stepIndex === 0;
@@ -704,24 +721,25 @@ function StepNav({
 					variant='outline'
 					onClick={onPrev}
 					disabled={(isFirst && !canLeaveFirstStep) || pending}
-					className='min-h-12 flex-1 font-bold sm:flex-none sm:px-6'
+					className={cn('min-h-12 font-bold sm:flex-none sm:px-6', isLast && onPublish ? 'shrink-0 px-3' : 'flex-1')}
 				>
-					<ArrowLeft className='h-4 w-4 mr-1' />
-					Orqaga
+					<ArrowLeft aria-hidden className='h-4 w-4' />
+					<span className={isLast && onPublish ? 'sr-only sm:not-sr-only' : undefined}>Orqaga</span>
 				</Button>
 
 				{isLast ? (
 					<Button
 						type='button'
+						variant={onPublish ? 'outline' : 'default'}
 						onClick={onSubmit}
 						disabled={pending}
-						className='min-h-12 flex-[2] text-sm sm:text-base font-black shadow-md shadow-primary/20'
+						className={cn('min-h-12 text-sm sm:text-base font-bold', onPublish ? 'flex-1 px-3' : 'flex-[2] shadow-md shadow-primary/20')}
 					>
 						{pending ? (
 							<Loader2 className='mr-2 h-4 w-4 animate-spin' />
-						) : (
+						) : !onPublish ? (
 							<CheckCircle2 className='mr-2 h-4 w-4' />
-						)}
+						) : null}
 						{pending ? 'Yuborilmoqda...' : submitLabel}
 					</Button>
 				) : (
@@ -732,6 +750,12 @@ function StepNav({
 					>
 						Davom etish
 						<ArrowRight className='ml-2 h-4 w-4' />
+					</Button>
+				)}
+				{isLast && onPublish && (
+					<Button type="button" data-account-publish onClick={onPublish} disabled={pending}
+						className="min-h-12 flex-[2] px-3 text-sm font-bold sm:text-base">
+						Sotuvga qo&apos;yish
 					</Button>
 				)}
 			</div>
@@ -1250,6 +1274,35 @@ function GameplayStep({
 					{boolDefs.map((def) => {
 						const value = state.attributes[def.key];
 						const error = errors.find((message) => message.includes(def.labelUz));
+						if (SERVICE_LINK_KEYS.includes(def.key)) {
+							const checked = value === true;
+							return (
+								<button
+									key={def.key}
+									id={def.key}
+									type='button'
+									role='switch'
+									aria-label={def.labelUz.replace(' ulangan', '')}
+									aria-checked={checked}
+									onClick={() => {
+										updateAttr(def.key, !checked);
+										telegramHaptic(getTelegramWebApp(), 'selection', false);
+									}}
+									className={cn(
+										'tap-press flex min-h-11 items-center justify-between gap-2 rounded-xl border p-2.5 text-left transition select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+										checked ? 'border-amber-400/60 bg-amber-400/10' : 'border-border bg-card hover:border-primary/40',
+									)}
+								>
+									<span className='inline-flex min-w-0 items-center gap-1.5 text-xs font-bold text-foreground'>
+										{def.key === 'has_google_play_link' ? <GooglePlayIcon className='h-4 w-4 shrink-0' /> : <AppleIcon className='h-4 w-4 shrink-0' />}
+										<span className='truncate'>{def.labelUz.replace(' ulangan', '')}</span>
+									</span>
+									<span aria-hidden='true' className={cn('relative h-5 w-9 shrink-0 rounded-full transition-colors', checked ? 'bg-primary' : 'bg-muted')}>
+										<span className={cn('absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform', checked ? 'translate-x-4' : 'translate-x-0')} />
+									</span>
+								</button>
+							);
+						}
 						return (
 							<div key={def.key} className='space-y-1.5'>
 								<Label htmlFor={def.key}>{def.labelUz.replace(' ulangan', '')}</Label>
@@ -2180,7 +2233,7 @@ function renderAttributeValue(
 function defaultAttributeValue(
 	def: ListingAttributeDefinition,
 ): AttributeValue {
-	if (def.type === 'BOOLEAN') return '';
+	if (def.type === 'BOOLEAN') return SERVICE_LINK_KEYS.includes(def.key) ? false : '';
 	if (def.type === 'CARD_LIST') return [];
 	if (def.type === 'ENUM') {
 		const preset = def.constraints?.default;
@@ -2203,7 +2256,8 @@ function mergeAttributes(
 ) {
 	const next: AttributeMap = {};
 	for (const def of definitions) {
-		if (def.key in current) next[def.key] = current[def.key];
+		if (def.type === 'BOOLEAN' && SERVICE_LINK_KEYS.includes(def.key)) next[def.key] = current[def.key] === true;
+		else if (def.key in current) next[def.key] = current[def.key];
 		else next[def.key] = defaultAttributeValue(def);
 	}
 	return next;
@@ -2220,7 +2274,7 @@ function attributesFromListing(
 	for (const def of definitions) {
 		const value = raw?.[def.key];
 		if (def.type === 'BOOLEAN') {
-			out[def.key] = typeof value === 'boolean' ? value : value === 'true' ? true : value === 'false' ? false : '';
+			out[def.key] = typeof value === 'boolean' ? value : value === 'true' ? true : value === 'false' ? false : defaultAttributeValue(def);
 			continue;
 		}
 		if (value === undefined || value === null) {
@@ -2565,12 +2619,6 @@ function readDraft(accountMode = false): { step?: StepId; state?: Partial<Wizard
 		const parsed = JSON.parse(raw) as unknown;
 		if (!isRecord(parsed)) return null;
 		const draft = parsed as { step?: StepId; state?: Partial<WizardState> };
-		// Old unchecked switches were saved as false even without an answer.
-		if (!current && draft.state?.attributes) {
-			for (const key of SERVICE_LINK_KEYS) {
-				if (draft.state.attributes[key] === false) draft.state.attributes[key] = '';
-			}
-		}
 		return draft;
 	} catch {
 		return null;

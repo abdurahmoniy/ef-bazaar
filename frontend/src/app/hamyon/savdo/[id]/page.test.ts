@@ -5,6 +5,7 @@ vi.mock('@/lib/trade-server', () => ({ getTradeById: mocks.getTrade }));
 vi.mock('next/navigation', () => ({ redirect: mocks.redirect }));
 vi.mock('@/components/marketplace/marketplace-shell', () => ({ MarketplaceShell: () => null }));
 import WalletTradePage from './page';
+import WalletLoading from '../../loading';
 const id = '22222222-2222-4222-8222-222222222222';
 const chatId = '33333333-3333-4333-8333-333333333333';
 const open = () => WalletTradePage({ params: Promise.resolve({ id }) });
@@ -26,7 +27,14 @@ it('does not expose a chat route to a nonparticipant', async () => {
 it('keeps unavailable or chatless trades recoverable', async () => {
   for (const trade of [null, { id, buyerId: 'viewer', sellerId: 'seller', chatId: null }]) {
     mocks.getTrade.mockResolvedValue(trade);
-    await open();
+    const page = await open();
+    expect(page.props.activeTab).toBe('profile');
     expect(mocks.redirect).not.toHaveBeenCalled();
   }
+});
+
+it('keeps Profile selected while the wallet session loads', () => {
+  const page = WalletLoading();
+  expect(page.props.activeTab).toBe('profile');
+  expect(page.props.sessionPending).toBe(true);
 });

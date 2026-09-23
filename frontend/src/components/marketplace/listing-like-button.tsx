@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 
 interface ListingLikeButtonProps {
   listingId: string;
+  disabled?: boolean;
   initialLiked: boolean;
   initialCount: number;
   /** When false (viewer is anonymous), clicking redirects to /auth/login. */
@@ -20,6 +21,7 @@ interface ListingLikeButtonProps {
 
 export function ListingLikeButton({
   listingId,
+  disabled = false,
   initialLiked,
   initialCount,
   authenticated,
@@ -39,7 +41,7 @@ export function ListingLikeButton({
   async function handleClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
-    if (pendingRef.current) return;
+    if (disabled || pendingRef.current) return;
     if (!authenticated) {
       window.location.href = `/auth/login?from=/marketplace/${listingId}`;
       return;
@@ -77,7 +79,7 @@ export function ListingLikeButton({
     <button
       type="button"
       onClick={handleClick}
-      disabled={isPending}
+      disabled={disabled || isPending}
       aria-busy={isPending}
       aria-pressed={liked}
       aria-label={liked ? 'Sevimlilardan olib tashlash' : "Sevimlilarga qo'shish"}

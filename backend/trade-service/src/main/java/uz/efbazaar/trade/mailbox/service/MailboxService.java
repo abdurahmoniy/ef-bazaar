@@ -377,7 +377,13 @@ public class MailboxService {
 
     @Transactional
     public void assignOwner(UUID mailboxId, UUID newOwnerId) {
-        if (mailboxes.assignOwner(mailboxId, newOwnerId, Instant.now()) == 0) {
+        assignOwner(mailboxId, newOwnerId, null);
+    }
+
+    /** Trade handoffs retain only this trade's mail; other assignments start at handoff. */
+    @Transactional
+    public void assignOwner(UUID mailboxId, UUID newOwnerId, Instant tradeStartedAt) {
+        if (mailboxes.assignOwner(mailboxId, newOwnerId, Instant.now(), tradeStartedAt) == 0) {
             throw new EntityNotFoundException("Mailbox " + mailboxId);
         }
     }

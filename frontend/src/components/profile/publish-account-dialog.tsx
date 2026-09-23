@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import Link from 'next/link';
+import { useEffect, useId, useState, useTransition } from 'react';
 import { AlertCircle, Loader2, Store, X } from 'lucide-react';
 
 import { SellingAccountSummary } from '@/components/marketplace/selling-account-summary';
@@ -43,6 +44,11 @@ export function PublishAccountDialog({
   layout?: 'dialog' | 'page';
 }) {
   const inline = layout === 'page';
+  const formId = useId();
+  const priceId = `${formId}-price`;
+  const priceHintId = `${formId}-price-hint`;
+  const exchangeId = `${formId}-exchange`;
+  const titleId = `${formId}-title`;
   const router = useRouter();
   const [price, setPrice] = useState('');
   const [negotiable, setNegotiable] = useState(false);
@@ -65,6 +71,10 @@ export function PublishAccountDialog({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (pending) return;
+    if (account.mediaMessageIds.length === 0) {
+      setError('Kamida 1 ta rasm yuklang.');
+      return;
+    }
     if (!priceValid) {
       setError(`Narx kamida ${formatPriceUZS(MIN_PRICE)} bo'lishi kerak`);
       return;
@@ -81,7 +91,8 @@ export function PublishAccountDialog({
         setError(result.message);
         return;
       }
-      router.push(`/marketplace/${result.data.id}`);
+      router.push(`/marketplace/${result.data.id}?result=published`);
+      router.refresh();
     });
   }
 
@@ -94,7 +105,7 @@ export function PublishAccountDialog({
       <div
         role={inline ? undefined : 'dialog'}
         aria-modal={inline ? undefined : true}
-        aria-labelledby={inline ? undefined : 'publish-account-title'}
+        aria-labelledby={inline ? undefined : titleId}
         onClick={(e) => e.stopPropagation()}
         className={cn("w-full border border-border bg-card", inline ? "rounded-2xl p-4 sm:p-6" : "max-w-md rounded-t-2xl p-5 shadow-2xl sm:rounded-2xl")}
       >
@@ -102,8 +113,8 @@ export function PublishAccountDialog({
           <div className="mb-6 border-b border-border pb-5"><SellingAccountSummary account={account} /></div>
         ) : <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 id="publish-account-title" className="text-base font-black text-foreground">
-              Bozorga chiqarish
+            <h3 id={titleId} className="text-base font-black text-foreground">
+              Sotuvga qo&apos;yish
             </h3>
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
               {account.title?.trim() || 'Nomsiz akkount'}
@@ -122,12 +133,12 @@ export function PublishAccountDialog({
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-1.5">
-            <Label htmlFor="publish-price">Narx (so&apos;m)</Label>
+            <Label htmlFor={priceId}>Narx (so&apos;m)</Label>
             <Input
-              id="publish-price"
+              id={priceId}
               inputMode="numeric"
               autoFocus={!inline}
-              aria-describedby="publish-price-hint"
+              aria-describedby={priceHintId}
               aria-invalid={!!error && !priceValid}
               className={inline ? "h-12 text-lg font-semibold sm:text-lg" : undefined}
               value={price}
@@ -135,7 +146,7 @@ export function PublishAccountDialog({
               placeholder="2 400 000"
               disabled={pending}
             />
-            <p id="publish-price-hint" className="text-xs text-muted-foreground">Eng kam narx — {formatPriceUZS(MIN_PRICE)}</p>
+            <p id={priceHintId} className="text-xs text-muted-foreground">Eng kam narx — {formatPriceUZS(MIN_PRICE)}</p>
             {priceValid && (
               <p className="text-[11px] font-semibold text-primary">{formatPriceUZS(priceNumber)}</p>
             )}
@@ -151,9 +162,9 @@ export function PublishAccountDialog({
           </label>
 
           <div className="space-y-1.5">
-            <Label htmlFor="publish-exchange">Obmen sharti</Label>
+            <Label htmlFor={exchangeId}>Obmen sharti</Label>
             <Select
-              id="publish-exchange"
+              id={exchangeId}
               value={exchangeMode}
               onChange={(e) => setExchangeMode(e.target.value)}
               disabled={pending}
@@ -172,7 +183,9 @@ export function PublishAccountDialog({
           {error && (
             <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{error}</span>
+              <span>{error}{account.mediaMessageIds.length === 0 && (
+                <Link href={`/profile/accounts/${encodeURIComponent(account.id)}`} className="mt-1 block font-semibold underline">Rasm qo‘shish</Link>
+              )}</span>
             </div>
           )}
 
@@ -182,7 +195,7 @@ export function PublishAccountDialog({
             </Button>
             <Button type="submit" className={inline ? "min-h-12 sm:flex-none" : "flex-1"} disabled={pending}>
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Store className="h-4 w-4" />}
-              {inline ? 'E’lonni joylash' : 'Bozorga chiqarish'}
+              Sotuvga qo&apos;yish
             </Button>
           </div>
         </form>

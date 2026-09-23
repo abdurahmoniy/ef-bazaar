@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 
+import { CompletionNotice } from '@/components/marketplace/completion-notice';
+import { Button } from '@/components/ui/button';
 import { ListingChannelPosts } from '@/components/marketplace/listing-channel-posts';
 import { MarketplaceErrorState } from '@/components/marketplace/marketplace-result-state';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
@@ -20,12 +22,13 @@ export const metadata: Metadata = {
 
 interface AdvertisePageProps {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ channel?: string | string[] }>;
+  searchParams?: Promise<{ channel?: string | string[]; result?: string }>;
 }
 
 export default async function AdvertiseListingPage({ params, searchParams }: AdvertisePageProps) {
   const { id } = await params;
-  const initialChannelIds = parseAdvertisingChannels((await searchParams)?.channel);
+  const query = await searchParams;
+  const initialChannelIds = parseAdvertisingChannels(query?.channel);
   const advertisingHref = listingAdvertisingHref(id, initialChannelIds);
   const detailHref = `/marketplace/${encodeURIComponent(id)}`;
   const user = await getMe();
@@ -47,6 +50,9 @@ export default async function AdvertiseListingPage({ params, searchParams }: Adv
   return (
     <MarketplaceShell user={user} hideSearch hideBottomNav backHref={detailHref} backLabel="E'longa qaytish">
       <section className="mx-auto w-full max-w-3xl space-y-5">
+        {query?.result === 'created' && <CompletionNotice title="E’lon joylandi" description="Xaridorlar e’loningizni ko‘rishi mumkin. Telegram kanallarida reklama qilish ixtiyoriy.">
+          <Button asChild className="min-h-11"><Link href={detailHref}>E’lonni ko‘rish</Link></Button>
+        </CompletionNotice>}
         <header>
           <h1 className="text-2xl font-black text-foreground sm:text-3xl">E&apos;lonni reklama qilish</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">

@@ -10,6 +10,7 @@ export function MailboxUnlink({ mailboxId, email }: { mailboxId: string; email: 
   const titleId = useId();
   const descriptionId = useId();
   const trigger = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
   const inFlight = useRef(false);
   const [confirming, setConfirming] = useState(false);
@@ -17,11 +18,22 @@ export function MailboxUnlink({ mailboxId, email }: { mailboxId: string; email: 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (confirming) cancel.current?.focus();
+    if (!confirming) return;
+    const modal = dialog.current;
+    if (!modal) return;
+    const previousOverflow = document.body.style.overflow;
+    modal.showModal();
+    document.body.style.overflow = 'hidden';
+    cancel.current?.focus();
+    return () => {
+      modal.close();
+      document.body.style.overflow = previousOverflow;
+    };
   }, [confirming]);
 
   function dismiss() {
     if (inFlight.current) return;
+    dialog.current?.close();
     setConfirming(false);
     setError(null);
     trigger.current?.focus();
@@ -61,12 +73,7 @@ export function MailboxUnlink({ mailboxId, email }: { mailboxId: string; email: 
   }
 
   return (
-    <div className="min-w-0" onKeyDown={(event) => {
-      if (event.key === 'Escape' && confirming) {
-        event.preventDefault();
-        dismiss();
-      }
-    }}>
+    <div className="min-w-0">
       <Button
         ref={trigger}
         type="button"
@@ -81,20 +88,31 @@ export function MailboxUnlink({ mailboxId, email }: { mailboxId: string; email: 
         Hisobimdan uzish
       </Button>
       {confirming && (
-        <div
+        <dialog
+          ref={dialog}
           role="alertdialog"
+          aria-modal="true"
+          onCancel={(event) => {
+            event.preventDefault();
+            dismiss();
+          }}
+          onClick={(event) => {
+            if (event.target !== event.currentTarget) return;
+            const bounds = event.currentTarget.getBoundingClientRect();
+            if (event.clientX < bounds.left || event.clientX > bounds.right
+              || event.clientY < bounds.top || event.clientY > bounds.bottom) dismiss();
+          }}
           aria-labelledby={titleId}
           aria-describedby={descriptionId}
           aria-busy={pending}
-          className="mt-3 max-w-md space-y-3 rounded-xl border border-destructive/25 bg-card p-4 text-sm"
+          className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-sm space-y-4 overflow-y-auto rounded-2xl border border-border bg-card p-5 text-sm text-foreground shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-[2px] sm:p-6"
         >
-          <h2 id={titleId} className="font-bold text-foreground">Pochtani hisobingizdan uzasizmi?</h2>
-          <div id={descriptionId} className="space-y-2 text-xs leading-relaxed text-muted-foreground">
-            <p className="break-all font-semibold text-foreground">{email}</p>
-            <p>Bu pochta ro‘yxatingizdan olib tashlanadi va unga kirish huquqingiz yo‘qoladi.
-              Pochta va xatlar o‘chirilmaydi. Qayta ulash uchun administratorga murojaat qilish kerak.</p>
-            <p>Agar Konami yoki boshqa akkauntingiz shu manzilga bog‘langan bo‘lsa,
-              avval o‘sha xizmatda email manzilini almashtiring.</p>
+          <h2 id={titleId} className="text-lg font-bold">Pochtani hisobdan uzish?</h2>
+          <div id={descriptionId} className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+            <p className="break-all rounded-lg bg-muted px-3 py-2 font-semibold text-foreground">{email}</p>
+            <p>Pochtaga kirish huquqingiz yo‘qoladi. Xatlar saqlanadi.
+              Qayta ulash uchun administrator kerak.</p>
+            <p>Konami akkauntingiz bog‘langan bo‘lsa, avval emailini almashtiring.</p>
           </div>
           {error && <p role="alert" className="text-xs font-semibold text-destructive">{error}</p>}
           <div className="flex flex-wrap justify-end gap-2">
@@ -106,7 +124,7 @@ export function MailboxUnlink({ mailboxId, email }: { mailboxId: string; email: 
               {pending ? 'Uzilmoqda…' : 'Ha, uzish'}
             </Button>
           </div>
-        </div>
+        </dialog>
       )}
     </div>
   );

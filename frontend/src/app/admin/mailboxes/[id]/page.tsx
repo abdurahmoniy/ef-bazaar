@@ -47,6 +47,7 @@ export default async function AdminMailboxPage({ params, searchParams }: AdminMa
     return <ApiErrorPanel title="Pochta topilmadi" error={mailboxResult.error} />;
   }
   const mailbox = mailboxResult.data;
+  const displayName = mailbox.displayName?.trim();
 
   // Both hit IMAP and both may fail independently of the row itself — the
   // metadata card must still render when Mailcow is down.
@@ -79,7 +80,12 @@ export default async function AdminMailboxPage({ params, searchParams }: AdminMa
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-5 py-4">
           <div className="min-w-0 space-y-1.5">
-            <h1 className="truncate font-mono text-lg font-black">{mailbox.email}</h1>
+            <h1 className={cn('break-words text-lg font-black', !displayName && 'font-mono')}>
+              {displayName || mailbox.email}
+            </h1>
+            {displayName && (
+              <p className="break-all font-mono text-sm text-muted-foreground">{mailbox.email}</p>
+            )}
             <div className="flex flex-wrap items-center gap-2">
               <MailboxStatusBadge mailbox={mailbox} />
               {summary?.unreadCount != null && summary.unreadCount > 0 && (

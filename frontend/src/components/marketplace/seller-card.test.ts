@@ -6,6 +6,19 @@ import { SellerCard } from './seller-card';
 import type { SellerSummary } from '@/lib/marketplace-types';
 
 describe('SellerCard', () => {
+  it.each(['SOLD', 'DELETED'] as const)('hides the Telegram contact button for %s listings', (listingStatus) => {
+    const html = renderToStaticMarkup(createElement(SellerCard, {
+      seller: {
+        id: 'seller-1', displayName: 'Seller', telegramUsername: 'seller',
+        verified: false, createdAt: '2025-01-01T00:00:00Z',
+      },
+      listingStatus,
+    }));
+
+    expect(html).not.toContain('https://t.me/');
+    expect(html).toContain('/users/seller-1');
+  });
+
   it('renders fallback when seller is null', () => {
     const html = renderToStaticMarkup(
       createElement(SellerCard, { seller: null }),

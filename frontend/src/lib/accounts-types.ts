@@ -9,6 +9,12 @@ export type UserAccountStatus = 'ACTIVE' | 'ARCHIVED';
 export type AccountEmailSource = 'MANUAL' | 'PLATFORM';
 export type AccountArchivedReason = 'SOLD_ON_PLATFORM' | 'SOLD_ELSEWHERE' | 'BY_OWNER';
 
+/** Optional display data resolved from the current listing and owned mailboxes. */
+export interface AccountDisplayData {
+  price?: number | string;
+  mailboxHref?: string;
+}
+
 export interface UserAccountResponse {
   id: string;
   title: string | null;

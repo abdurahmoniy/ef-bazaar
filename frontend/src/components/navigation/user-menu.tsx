@@ -127,12 +127,7 @@ export function UserMenu({ user, className }: UserMenuProps) {
               <Mail className="h-4 w-4 text-muted-foreground" />
               Pochta
             </Link>
-            {/*
-              Also in the mobile bottom bar, deliberately. A wallet belongs with
-              the account items conceptually, and the bar's five slots are
-              contested: if Turnirlar ever comes back the bar entry is the one
-              that goes, and this stays as the permanent route.
-            */}
+            {/* Wallet access stays in the profile menu alongside account settings. */}
             {FEATURES.wallet && (
               <Link href="/hamyon" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
                 <Wallet className="h-4 w-4 text-muted-foreground" />

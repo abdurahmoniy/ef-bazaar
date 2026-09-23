@@ -11,13 +11,14 @@ const appearance = {
   unknown: { color: 'border-border bg-muted text-muted-foreground', text: 'text-muted-foreground', label: 'Ma’lumot mavjud emas', Icon: Circle },
 } satisfies Record<TimelineStatus, unknown>;
 
-export function TradeProgressTimeline({ outcome, trade, kind, mode, createdAt, tradeCreatedAt }: {
+export function TradeProgressTimeline({ outcome, trade, kind, mode, createdAt, tradeCreatedAt, isProposalSender = false }: {
   outcome: Parameters<typeof tradeTimeline>[0];
   trade?: TradeResponse | null;
   kind?: TradeKind;
   mode?: TradeMode;
   createdAt?: string;
   tradeCreatedAt?: string;
+  isProposalSender?: boolean;
 }) {
   const steps = tradeTimeline(outcome, trade, kind, mode);
   return (
@@ -33,7 +34,9 @@ export function TradeProgressTimeline({ outcome, trade, kind, mode, createdAt, t
               {index < steps.length - 1 && <span aria-hidden="true" className={`absolute bottom-0 left-3 top-6 w-0.5 -translate-x-1/2 ${step.status === 'passed' && steps[index + 1].status === 'passed' ? 'bg-emerald-600' : 'bg-border'}`} />}
               <span aria-hidden="true" className={`relative grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 ${color}`}><Icon className="h-3.5 w-3.5" /></span>
               <div className="min-w-0 flex-1">
-                <p className={`text-sm font-medium ${text}`}>{step.label}</p>
+                <p className={`text-sm font-medium ${text}`}>
+                  {isProposalSender && step.id === 'ACCEPTED' && step.status === 'current' ? 'Javob kutilmoqda' : step.label}
+                </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
                 {timestamp && <time dateTime={timestamp} className="mt-0.5 block text-xs text-muted-foreground">{formatDayLabel(timestamp)} · {formatMessageTime(timestamp)}</time>}
               </div>

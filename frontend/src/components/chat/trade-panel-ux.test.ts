@@ -51,6 +51,65 @@ const dialog = () => document.querySelector<HTMLElement>('[role="dialog"]')!;
 const buttonWith = (text: string) => Array.from(dialog().querySelectorAll('button'))
   .find((button) => button.textContent?.includes(text))!;
 
+describe('seller proposal trade types', () => {
+  function prepareProposal(exchangeMode?: string, fromRequest = false) {
+    context.activeTrade = null;
+    context.trades = [];
+    context.isDrawerOpen = false;
+    context.showProposeModal = true;
+    context.otherPartyId = 'buyer';
+    context.handleProposalCreated = vi.fn();
+    context.listing = {
+      id: 'listing', description: 'Mobile account', price: 20000, mediaMessageIds: [],
+      attributes: { platform: 'MOBILE', exchange_mode: exchangeMode },
+    } as unknown as Context['listing'];
+    context.accountRequest = fromRequest ? {
+      id: 'request', chatId: 'chat', requesterId: 'buyer', listingId: 'listing',
+      status: 'OPEN', createdAt: '',
+      listing: {
+        id: 'listing', description: 'Requested account', price: 20000,
+        priceNegotiable: false, coverMessageId: null, exchangeMode,
+        attributes: { platform: 'MOBILE' },
+      },
+    } : null;
+  }
+
+  for (const fromRequest of [false, true]) {
+    it.each([undefined, 'NONE', 'EXCHANGE_ONLY', 'EXCHANGE_WITH_SURCHARGE', 'BOTH'])(
+      `shows all three types for %s (${fromRequest ? 'account request' : 'chat listing'})`,
+      async (exchangeMode) => {
+        prepareProposal(exchangeMode, fromRequest);
+        await render();
+        const options = Array.from(dialog().querySelectorAll('[aria-label="Savdo turi"] [role="radio"]'));
+        expect(options.map(option => option.textContent)).toEqual(['Sotuv', 'Obmen', 'Obmen + doplata']);
+        expect(options[0].getAttribute('aria-checked')).toBe('true');
+        await act(async () => (options[1] as HTMLButtonElement).click());
+        expect(dialog().querySelector('#trade-price')).toBeNull();
+        expect(dialog().querySelector('#swap-surcharge')).toBeNull();
+        await act(async () => (options[2] as HTMLButtonElement).click());
+        expect(dialog().querySelector('#swap-surcharge')).not.toBeNull();
+        await act(async () => (options[0] as HTMLButtonElement).click());
+        expect(dialog().querySelector('#trade-price')).not.toBeNull();
+      },
+    );
+  }
+
+  it('sends a swap on a sale-only listing with the seller and buyer preserved', async () => {
+    prepareProposal('NONE', true);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ proposalId: 'proposal', expiresAt: '' })));
+    await render();
+    await act(async () => buttonWith('Obmen').click());
+    await act(async () => dialog().querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    expect(fetch).toHaveBeenCalledWith('/api/trade/v1/trades/proposals', expect.objectContaining({
+      body: JSON.stringify({ marketplaceChatId: 'chat', otherPartyUserId: 'buyer', sellerId: 'seller',
+        buyerId: 'buyer', amountUzs: 0, mode: 'SMART', kind: 'SWAP', listingId: 'listing' }),
+    }));
+    expect(context.handleProposalCreated).toHaveBeenCalledWith(
+      { proposalId: 'proposal', expiresAt: '' }, 0, 'SMART', undefined, 'SWAP',
+    );
+  });
+});
+
 describe('trade details', () => {
   it('shows the selected historical trade instead of the unrelated active trade', async () => {
     const historical = { ...context.activeTrade!, id: 'historical', state: 'REJECTED', priceUzs: 7000 } as TradeResponse;
@@ -75,7 +134,7 @@ describe('trade details', () => {
     context.viewedProposal = { id: 'old-message', chatId: 'chat', senderId: 'buyer', content: '5000',
       createdAt: '2026-09-18T10:05:00Z', proposalId: 'old-proposal', proposalOutcome: 'REJECTED',
       proposalListingId: 'old-listing', messageType: 'TRADE_PROPOSAL' };
-    context.proposal = { id: 'current', priceUzs: 999999, expiresAt: '' };
+    context.proposal = { sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', id: 'current', priceUzs: 999999, expiresAt: '' };
     context.listing = { id: 'current-listing', description: 'Unrelated account' } as Context['listing'];
     await render();
     expect(dialog().textContent).toContain('Rad etilgan');
@@ -140,9 +199,10 @@ describe('trade details', () => {
   });
 
   it('shows the pending pinned request’s upcoming flow and acceptance action', async () => {
+    context.viewerId = 'buyer';
     context.activeTrade = null;
     context.isSeller = false;
-    context.proposal = { id: 'pending', priceUzs: 5000, expiresAt: '' };
+    context.proposal = { sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', id: 'pending', priceUzs: 5000, expiresAt: '' };
     await render();
     expect(dialog().querySelector('[data-step="ACCEPTED"]')?.getAttribute('data-status')).toBe('current');
     expect(dialog().querySelector('[data-step="WAITING_PASSWORD"]')?.getAttribute('data-status')).toBe('next');
@@ -256,7 +316,7 @@ describe('trade details', () => {
       context.lastFinished = { ...context.activeTrade!, state: 'ORPHANED' };
     }
     if (state !== 'active') context.activeTrade = null;
-    if (state === 'proposal') context.proposal = { id: 'proposal', listingId: 'offered-listing', priceUzs: 20000, expiresAt: '' };
+    if (state === 'proposal') context.proposal = { sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', id: 'proposal', listingId: 'offered-listing', priceUzs: 20000, expiresAt: '' };
     if (state === 'no-request') context.role = null;
     await render();
     expect(dialog().querySelector('a')?.getAttribute('href')).toBe(

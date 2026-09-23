@@ -250,11 +250,15 @@ public class TradeProposalService {
                         "Obmen uchun e'lon ko'rsatilishi shart");
             }
             var terms = listings.fetch(listingId);
-            if (!terms.allowsSwap()) {
+            // An owner-initiated proposal explicitly offers new terms for this deal.
+            // Keep the listing restrictions for proposals initiated by the buyer.
+            boolean sellerSelectedKind = proposerUserId.equals(sellerId)
+                    && sellerId.equals(terms.sellerId());
+            if (!sellerSelectedKind && !terms.allowsSwap()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Bu e'lon obmenga qo'yilmagan");
             }
-            if (kind == TradeKind.SWAP_SURCHARGE && !terms.allowsSurcharge()) {
+            if (!sellerSelectedKind && kind == TradeKind.SWAP_SURCHARGE && !terms.allowsSurcharge()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Bu e'lon doplatali obmenga qo'yilmagan");
             }

@@ -36,14 +36,14 @@ describe('save listing before advertising purchase',()=>{
  it('creates without charging channels, then carries selected IDs into review',async()=>{
   await pricing();await click('Kanallarni tanlash');await click('Sinov kanalini tanlash');await click('Davom etish');
   expect(host.textContent).toContain('5 000');
-  await click('Yaratish va reklama');expect(fetchMock).toHaveBeenCalledOnce();expect(fetchMock.mock.calls[0][1].method).toBe('POST');expect(await requestBody()).not.toHaveProperty('channelIds');expect(push).toHaveBeenCalledWith('/marketplace/saved-1/advertise?channel=chan-a');
+  await click('Yaratish va reklama');expect(fetchMock).toHaveBeenCalledOnce();expect(fetchMock.mock.calls[0][1].method).toBe('POST');expect(await requestBody()).not.toHaveProperty('channelIds');expect(push).toHaveBeenCalledWith('/marketplace/saved-1/advertise?channel=chan-a&result=created');
  });
  it('saves edits before opening advertising and never submits an ad order',async()=>{
   await pricing(true);await click('Kanallarni tanlash');await click('Sinov kanalini tanlash');await click('Davom etish');await click('Saqlash va reklama');
   expect(fetchMock).toHaveBeenCalledOnce();expect(fetchMock.mock.calls[0][1].method).toBe('PUT');expect(await requestBody()).not.toHaveProperty('channelIds');expect(push).toHaveBeenCalledWith('/marketplace/saved-1/advertise?channel=chan-a');
  });
  it('keeps advertising optional and sends an ordinary listing to its detail',async()=>{
-  await pricing();await click('Davom etish');await click("E'lon yaratish");expect(await requestBody()).not.toHaveProperty('channelIds');expect(push).toHaveBeenCalledWith('/marketplace/saved-1');
+  await pricing();await click('Davom etish');await click("E'lon yaratish");expect(await requestBody()).not.toHaveProperty('channelIds');expect(push).toHaveBeenCalledWith('/marketplace/saved-1?result=created');
  });
  it('does not open advertising when listing save fails',async()=>{
   fetchMock.mockResolvedValue({ok:false,status:503,text:async()=>JSON.stringify({message:'Saqlash vaqtincha ishlamayapti'})});await pricing(true);await click('Kanallarni tanlash');await click('Davom etish');await click('Saqlash va reklama');expect(push).not.toHaveBeenCalled();expect(fetchMock).toHaveBeenCalledOnce();

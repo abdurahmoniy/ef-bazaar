@@ -25,6 +25,7 @@ import {
   TRADE_KIND_LABEL_UZ,
 } from '@/lib/trade-swap';
 import {
+  canAcceptTradeProposal,
   isTerminalState,
   TRADE_STATE_LABEL_UZ,
   type TradeResponse,
@@ -35,6 +36,7 @@ import { useTradeContext } from './trade-context';
 export function TradePinnedBar() {
   const {
     requiresAdminHandoff,
+    viewerId,
     activeTrade,
     lastFinished,
     proposal,
@@ -85,8 +87,8 @@ export function TradePinnedBar() {
                 )}
               </div>
               <p className="truncate text-[10.5px] text-muted-foreground">
-                {isSeller
-                  ? 'Xaridor javobini kutmoqda'
+                {proposal.proposerUserId === viewerId
+                  ? 'Javob kutilmoqda'
                   : requiresAdminHandoff ? 'Kelishuvdan so‘ng adminga murojaat qiling' : 'Sizga taklif yuborildi — qabul qiling'}
                 {proposal.expiresAt && (
                   <>
@@ -99,7 +101,7 @@ export function TradePinnedBar() {
           </button>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            {!isSeller && (
+            {canAcceptTradeProposal(proposal, viewerId) && (
               <Button
                 type="button"
                 size="sm"

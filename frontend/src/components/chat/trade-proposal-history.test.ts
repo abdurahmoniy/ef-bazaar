@@ -45,7 +45,7 @@ it('does not attach an unrelated active trade to an old pending card', async () 
 
 it.each(['ACCEPTED', 'REJECTED', 'EXPIRED'] as const)('preserves %s over stale pending context', async outcome => {
   message.proposalOutcome = outcome;
-  context.proposal = { id: 'old-proposal', priceUzs: 5000, expiresAt: '' };
+  context.proposal = { sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', id: 'old-proposal', priceUzs: 5000, expiresAt: '' };
   await render();
   expect(container.textContent).not.toContain('Kutilmoqda');
   expect(container.textContent).not.toContain('Qabul qilish');
@@ -53,7 +53,7 @@ it.each(['ACCEPTED', 'REJECTED', 'EXPIRED'] as const)('preserves %s over stale p
 
 it('keeps a historical zero-price exchange independent of the current proposal', async () => {
   message.content = '0';
-  context.proposal = { id: 'new-proposal', priceUzs: 999999, kind: 'SALE', expiresAt: '' };
+  context.proposal = { sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', id: 'new-proposal', priceUzs: 999999, kind: 'SALE', expiresAt: '' };
   await render();
   expect(container.textContent).toContain('Almashish sharti');
   expect(container.textContent).toContain('Akkount almashish');
@@ -70,13 +70,13 @@ it.each(['', 'broken', '-100'])('does not label invalid amount %s as an exchange
 
 it('does not treat an ID-less old message as the current offer', async () => {
   message.proposalId = null;
-  context.proposal = { id: 'new-proposal', priceUzs: 20000, expiresAt: '' };
+  context.proposal = { sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', id: 'new-proposal', priceUzs: 20000, expiresAt: '' };
   await render();
   expect(container.textContent).not.toContain('Qabul qilish');
 });
 
 it('does not use a different proposal’s swap type for a historical sale', async () => {
-  context.proposal = { id: 'new-proposal', priceUzs: 0, kind: 'SWAP', expiresAt: '' };
+  context.proposal = { sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', id: 'new-proposal', priceUzs: 0, kind: 'SWAP', expiresAt: '' };
   await render();
   expect(container.textContent).toContain('5');
   expect(container.textContent).toContain("so'm");
@@ -109,7 +109,7 @@ it('keeps stored surcharge and listing details after the pending proposal is gon
 it('shows expiration consistently even if a pending lookup has not refreshed yet', async () => {
   message.proposalOutcome = 'PENDING';
   message.proposalExpiresAt = '2020-01-01T00:00:00Z';
-  context.proposal = { id: 'old-proposal', priceUzs: 5000, expiresAt: message.proposalExpiresAt };
+  context.proposal = { sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', id: 'old-proposal', priceUzs: 5000, expiresAt: message.proposalExpiresAt };
   await render();
   expect(container.textContent).toContain('Muddati tugagan');
   expect(container.textContent).not.toContain('Qabul qilish');
@@ -117,7 +117,7 @@ it('shows expiration consistently even if a pending lookup has not refreshed yet
 });
 
 it('lets only the recipient accept a verified live proposal', async () => {
-  context.proposal = { id: 'old-proposal', priceUzs: 5000, expiresAt: '' };
+  context.proposal = { sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', id: 'old-proposal', priceUzs: 5000, expiresAt: '' };
   await render();
   expect(container.textContent).toContain('Qabul qilish');
   message.senderId = 'buyer';
