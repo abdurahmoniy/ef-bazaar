@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 
+import { MailboxUnlink } from '@/components/mail/mailbox-unlink';
 import { MailboxTitle } from '@/components/mail/mailbox-title';
 import { InboxView } from '@/components/mail/inbox-view';
 import { RefreshControls } from '@/components/mail/refresh-controls';
@@ -57,7 +58,10 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
             <p className="text-xs text-muted-foreground">{summary}</p>
           </div>
         </div>
-        <RefreshControls />
+        <div className="flex min-w-0 flex-wrap items-start gap-2">
+          <RefreshControls />
+          <MailboxUnlink key={active.id} mailboxId={active.id} email={active.email} />
+        </div>
       </div>
 
       {page === null ? (

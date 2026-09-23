@@ -17,7 +17,7 @@ beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   context = {
     proposal: null, activeTrade: null, trades: [], listing: null, accountRequest: null,
-    isSeller: false, setShowAcceptModal: vi.fn(), setIsDrawerOpen: vi.fn(), openTrade: vi.fn(),
+    isSeller: false, setShowAcceptModal: vi.fn(), setIsDrawerOpen: vi.fn(), openTrade: vi.fn(), openProposal: vi.fn(),
   } as unknown as Context;
   message = { id: 'message', chatId: 'chat', senderId: 'seller', content: '5000',
     proposalId: 'old-proposal', createdAt: '2026-09-18T10:00:00Z', messageType: 'TRADE_PROPOSAL' };
@@ -90,7 +90,8 @@ it('opens the exact accepted trade even when another trade is active', async () 
   context.activeTrade = { id: 'unrelated' } as Context['activeTrade'];
   await render();
   await act(async () => container.querySelector('button')!.click());
-  expect(context.openTrade).toHaveBeenCalledWith('original-trade', 'original-listing');
+  expect(context.openProposal).toHaveBeenCalledWith(message);
+  expect(context.openTrade).not.toHaveBeenCalled();
   expect(context.setIsDrawerOpen).not.toHaveBeenCalled();
   expect(container.querySelector('a')?.getAttribute('href')).toBe('/marketplace/original-listing');
 });
@@ -123,4 +124,20 @@ it('lets only the recipient accept a verified live proposal', async () => {
   await render();
   expect(container.textContent).not.toContain('Qabul qilish');
   expect(container.textContent).toContain('Javob kutilmoqda');
+});
+
+it.each(['ACCEPTED', 'REJECTED', 'EXPIRED', null] as const)('opens the specific %s request even without a trade link', async outcome => {
+  message.proposalOutcome = outcome;
+  await render();
+  const details = Array.from(container.querySelectorAll('button')).find(button => button.textContent === 'Batafsil')!;
+  await act(async () => details.click());
+  expect(context.openProposal).toHaveBeenCalledWith(message);
+  expect(context.setIsDrawerOpen).not.toHaveBeenCalled();
+});
+
+it('refreshes the selected request when its acceptance arrives in chat', async () => {
+  context.viewedProposal = { ...message };
+  message = { ...message, proposalOutcome: 'ACCEPTED', proposalTradeId: 'linked-trade' };
+  await render();
+  expect(context.openProposal).toHaveBeenCalledWith(message);
 });

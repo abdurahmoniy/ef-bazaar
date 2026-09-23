@@ -3,7 +3,7 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { TradeProvider, useTradeContext } from './trade-context';
-import type { ChatResponse } from '@/lib/marketplace-types';
+import type { ChatResponse, MessageResponse } from '@/lib/marketplace-types';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock('@/lib/payment-client', () => ({ getPublicTradeCommissionConfig: async () => null }));
@@ -135,4 +135,20 @@ it('does not resurrect an accepted proposal from an old lookup and runs the queu
   expect(state.proposal).toBeNull();
   expect(proposalLookups).toBe(2);
   expect(state.activeTrade?.id).toBe('trade');
+});
+
+it('selects each request independently and clears the selection for current-trade navigation', async () => {
+  await mount();
+  const first = { id: 'first', chatId: 'chat', senderId: 'seller', content: '5000', createdAt: '' } as MessageResponse;
+  const second = { ...first, id: 'second', content: '9000' };
+  await act(async () => state.openProposal(first));
+  expect(state.viewedProposal).toEqual(first);
+  expect(state.isDrawerOpen).toBe(true);
+  await act(async () => state.openProposal(second));
+  expect(state.viewedProposal).toEqual(second);
+  await act(async () => state.openTrade('trade'));
+  expect(state.viewedProposal).toBeNull();
+  await act(async () => state.openProposal(first));
+  await act(async () => state.setIsDrawerOpen(false));
+  expect(state.viewedProposal).toBeNull();
 });

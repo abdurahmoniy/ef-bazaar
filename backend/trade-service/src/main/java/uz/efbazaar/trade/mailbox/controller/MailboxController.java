@@ -57,6 +57,12 @@ public class MailboxController {
         service.renameOwnedBy(me.userId(), id, request.displayName());
     }
 
+    @PostMapping("/{id}/detach")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void detach(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable UUID id) {
+        service.detachOwnedBy(me.userId(), id);
+    }
+
     /**
      * O'z pochta qutisini o'chirish — slotni bo'shatish uchun yagona yo'l.
      *

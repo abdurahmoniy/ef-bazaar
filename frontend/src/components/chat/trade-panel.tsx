@@ -43,9 +43,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { formatDayLabel, formatMessageTime } from '@/lib/chat-format';
+import { PROPOSAL_STATUS_LABELS, tradeProposalDetails } from '@/lib/trade-proposal-details';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import { listingMediaUrl, listingMediaUrls } from '@/lib/marketplace-media';
-import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
+import type { ChatResponse, ListingResponse, MessageResponse } from '@/lib/marketplace-types';
 import { getTelegramWebApp } from '@/lib/telegram';
 import { telegramHaptic } from '@/lib/telegram-shell';
 import { isHumanProposal, isHumanTrade, validateAdminFee } from '@/lib/trade-human';
@@ -87,33 +89,92 @@ import { cn } from '@/lib/utils';
 import { FEATURES } from '@/lib/feature-flags';
 import { sellerProceedsSom, tradeFeeSom } from '@/lib/trade-commission';
 import { canUseSmartAdmin, resolveTradeListing } from '@/lib/trade-platform';
+import { TradeProgressTimeline } from './trade-progress-timeline';
 import { TradeAdminHandoff } from './trade-admin-handoff';
 import { useTradeContext, type PendingProposal } from './trade-context';
 
 /** Trade details stay in a sheet; primary actions can open their own dialog. */
 export function TradePanel() {
-  const { isDrawerOpen, setIsDrawerOpen, proposal, accountRequest, listing, viewedTrade } = useTradeContext();
-  const listingId = viewedTrade ? viewedTrade.listingId : proposal?.listingId ?? accountRequest?.listingId ?? listing?.id;
+  const { isDrawerOpen, setIsDrawerOpen, proposal, accountRequest, listing, viewedTrade, viewedProposal } = useTradeContext();
+  const listingId = viewedProposal ? tradeProposalDetails(viewedProposal, proposal).listingId : viewedTrade ? viewedTrade.listingId : proposal?.listingId ?? accountRequest?.listingId ?? listing?.id;
 
   if (!isDrawerOpen) return <TradeActionModals />;
 
   return (
     <ModalShell title="Savdo tafsilotlari" sheet onClose={() => setIsDrawerOpen(false)}>
-      <TradePanelContent />
+      {viewedProposal ? <ProposalDetails message={viewedProposal} /> : <TradePanelContent />}
       {listingId && (
         <Link href={`/marketplace/${listingId}`} className="mt-3 flex min-h-11 items-center justify-center gap-2 text-sm font-medium text-primary hover:underline">
           E’lonni ko‘rish <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       )}
-      {!viewedTrade && <TradeActionModals />}
+      {!viewedTrade && (!viewedProposal || (viewedProposal.proposalId === proposal?.id &&
+        tradeProposalDetails(viewedProposal, proposal).outcome === 'PENDING')) && <TradeActionModals />}
     </ModalShell>
+  );
+}
+
+/** The selected message is the source of historical details, never the latest trade. */
+function ProposalDetails({ message }: { message: MessageResponse }) {
+  const { proposal, listing, accountRequest, viewerId, trades, reload, refreshing,
+    setShowAcceptModal, requiresAdminHandoff } = useTradeContext();
+  const { matching, price, kind, listingId, expiresAt, outcome } = tradeProposalDetails(message, proposal);
+  const ownListing = [listing, accountRequest?.listing].find(item => item?.id === listingId);
+  const trade = message.proposalTradeId ? trades?.find(item => item.id === message.proposalTradeId) : null;
+  const sentAt = `${formatDayLabel(message.createdAt)} · ${formatMessageTime(message.createdAt)}`;
+  const statusTone = outcome === 'ACCEPTED' ? 'text-emerald-600 dark:text-emerald-400'
+    : outcome === 'REJECTED' ? 'text-destructive' : 'text-muted-foreground';
+
+  return (
+    <div className="space-y-5">
+      <section className="space-y-4 rounded-xl border border-border bg-muted/20 p-4" aria-label="Taklif ma’lumotlari">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-muted-foreground">{isSwap(kind) ? 'Almashish taklifi' : 'Savdo taklifi'}</p>
+          <Badge variant="outline" className={statusTone}>{PROPOSAL_STATUS_LABELS[outcome]}</Badge>
+        </div>
+        <p className="break-words text-2xl font-bold tracking-tight">
+          {kind === 'SWAP' ? 'Akkount almashish' : typeof price === 'number' && price > 0
+            ? formatPriceUZS(price) : 'Summa ko‘rsatilmagan'}
+        </p>
+        <dl className="space-y-3 text-sm">
+          <div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Yuborilgan vaqt</dt>
+            <dd><time dateTime={message.createdAt}>{sentAt}</time></dd></div>
+          <div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Yuboruvchi</dt>
+            <dd>{message.senderId === viewerId ? 'Siz' : 'Suhbatdoshingiz'}</dd></div>
+          {kind === 'SWAP_SURCHARGE' && <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Savdo turi</dt><dd>Doplata bilan almashish</dd></div>}
+          {listingId && <div className="space-y-1 border-t border-border pt-3"><dt className="text-muted-foreground">E’lon</dt>
+            <dd className="break-words font-medium">{ownListing?.description?.split('\n')[0]?.trim() || 'Taklifga biriktirilgan e’lon'}</dd></div>}
+          {expiresAt && <div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Amal qilish muddati</dt>
+            <dd><time dateTime={expiresAt}>{formatDayLabel(expiresAt)} · {formatMessageTime(expiresAt)}</time></dd></div>}
+        </dl>
+      </section>
+
+      <TradeProgressTimeline outcome={outcome} trade={trade} kind={kind} mode={matching?.mode} createdAt={message.createdAt} />
+
+      {outcome === 'PENDING' && matching && (
+        requiresAdminHandoff ? <TradeAdminHandoff listingId={listingId} platform={ownListing?.attributes?.platform} amountUzs={price} />
+          : message.senderId !== viewerId ? <Button className="min-h-11 w-full" onClick={() => setShowAcceptModal(true)}>Qabul qilish</Button>
+            : <p className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">Javob kutilmoqda</p>
+      )}
+      {message.proposalTradeId && (trade ? (
+        <section className="border-t border-border pt-4" aria-label="Savdo jarayoni">
+          {isHumanTrade(trade)
+            ? <HumanPartyTradePanel key={trade.id} trade={trade} viewerId={viewerId} onRefresh={reload} />
+            : <ActiveTradeCard key={`${trade.id}:${viewerId}:${trade.passwordMessageId}`} trade={trade} viewerId={viewerId} onRefresh={reload} refreshing={refreshing} embedded showSummary={false} />}
+        </section>
+      ) : <div className="space-y-2 rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">
+        <p>{trades === null ? 'Savdo holati yuklanmoqda…' : 'Bu taklifga tegishli savdoni yuklab bo‘lmadi.'}</p>
+        <Button variant="outline" disabled={refreshing} onClick={() => void reload()}>Qayta urinish</Button>
+      </div>)}
+      {outcome === 'ACCEPTED' && !message.proposalTradeId && <p className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">Bu eski taklifning savdo tafsilotlari mavjud emas.</p>}
+    </div>
   );
 }
 
 // Keep one modal host, including when an action is started from the pinned bar.
 function TradeActionModals() {
   const {
-    chat, viewerId, listing, otherPartyId, accountRequest, setAccountRequest,
+    chat, viewerId, listing, otherPartyId, accountRequest, setAccountRequest, viewedProposal,
     trades, activeTrade, lastFinished, startingNew, proposal, isSeller,
     requiresAdminHandoff, showPicker, setShowPicker, showProposeModal,
     setShowProposeModal, showAcceptModal, setShowAcceptModal,
@@ -123,7 +184,7 @@ function TradeActionModals() {
   if (trades === null || activeTrade || (lastFinished && !startingNew && !proposal)) return null;
 
   if (proposal) {
-    return showAcceptModal && !isSeller && !requiresAdminHandoff ? (
+    return showAcceptModal && (viewedProposal ? viewedProposal.senderId !== viewerId : !isSeller) && !requiresAdminHandoff ? (
       <AcceptModal
         proposal={proposal}
         onClose={() => setShowAcceptModal(false)}
@@ -186,48 +247,24 @@ function TradePanelContent() {
         <Button variant="outline" disabled={refreshing} onClick={() => void reload()}>Qayta urinish</Button>
       </div>;
     }
-    return isHumanTrade(selected)
-      ? <HumanPartyTradePanel key={selected.id} trade={selected} viewerId={viewerId} onRefresh={reload} />
-      : <ActiveTradeCard key={`${selected.id}:${viewerId}:${selected.passwordMessageId}`} trade={selected}
-          viewerId={viewerId} onRefresh={reload} refreshing={refreshing} embedded />;
+    return <TradeDetails trade={selected} viewerId={viewerId} onRefresh={reload} refreshing={refreshing} />;
   }
 
-  // ---- active trade (post-accept) — state-conditional actions ----
-  if (activeTrade) {
-    if (isHumanTrade(activeTrade)) {
-      return (
-        <HumanPartyTradePanel
-          trade={activeTrade}
-          viewerId={viewerId}
-          onRefresh={reload}
-        />
-      );
-    }
+  // The pinned bar prioritizes a pending request over any existing trade.
+  if (proposal) {
+    return <PendingProposalCard proposal={proposal} isSeller={isSeller}
+      onAcceptClick={() => setShowAcceptModal(true)} onDismiss={() => setProposal(null)} />;
+  }
 
-    return (
-      <ActiveTradeCard
-        key={`${activeTrade.id}:${viewerId}:${activeTrade.passwordMessageId}`}
-        trade={activeTrade}
-        viewerId={viewerId}
-        onRefresh={reload}
-        refreshing={refreshing}
-        embedded
-      />
-    );
+  if (activeTrade) {
+    return <TradeDetails trade={activeTrade} viewerId={viewerId} onRefresh={reload} refreshing={refreshing} />;
   }
 
   // ---- a trade that has ended, still on screen until they move past it ----
   if (lastFinished && !startingNew && !proposal) {
     return (
       <div className="space-y-2">
-        <ActiveTradeCard
-          key={`${lastFinished.id}:${viewerId}:${lastFinished.passwordMessageId}`}
-          trade={lastFinished}
-          viewerId={viewerId}
-          onRefresh={reload}
-          refreshing={refreshing}
-          embedded
-        />
+        <TradeDetails trade={lastFinished} viewerId={viewerId} onRefresh={reload} refreshing={refreshing} />
         <Button
           type="button"
           variant="outline"
@@ -238,18 +275,6 @@ function TradePanelContent() {
         </Button>
         <CompletedTradeInvite state={lastFinished.state} />
       </div>
-    );
-  }
-
-  // ---- pending proposal (post-create, pre-accept) ----
-  if (proposal) {
-    return (
-      <PendingProposalCard
-        proposal={proposal}
-        isSeller={isSeller}
-        onAcceptClick={() => setShowAcceptModal(true)}
-        onDismiss={() => setProposal(null)}
-      />
     );
   }
 
@@ -445,18 +470,54 @@ function AccountPickerModal({
 
 // -------------------- active trade --------------------
 
+function TradeDetails({ trade, viewerId, onRefresh, refreshing }: {
+  trade: TradeResponse;
+  viewerId: string;
+  onRefresh: () => Promise<void> | void;
+  refreshing: boolean;
+}) {
+  const statusTone = trade.state === 'SUCCESS' ? 'text-emerald-700 dark:text-emerald-400'
+    : isTerminalState(trade.state) ? 'text-red-700 dark:text-red-400' : 'text-yellow-800 dark:text-yellow-300';
+  return <div className="space-y-5">
+    <section aria-label="Savdo ma’lumotlari" className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-muted-foreground">{isSwap(trade.kind) ? 'Almashish' : 'Savdo'}</p>
+        <Badge variant="outline" className={cn('whitespace-normal', statusTone)}>{TRADE_STATE_LABEL_UZ[trade.state]}</Badge>
+      </div>
+      <p className="break-words text-2xl font-bold tracking-tight">{tradeAmountLabel(trade.kind, trade.priceUzs)}</p>
+      <dl className="space-y-3 text-sm">
+        {trade.createdAt && <div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Savdo boshlangan vaqt</dt>
+          <dd><time dateTime={trade.createdAt}>{formatDayLabel(trade.createdAt)} · {formatMessageTime(trade.createdAt)}</time></dd></div>}
+        <div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Sizning rolingiz</dt>
+          <dd>{trade.sellerId === viewerId ? 'Sotuvchi' : trade.buyerId === viewerId ? 'Xaridor' : '—'}</dd></div>
+        {trade.stateDeadline && !isTerminalState(trade.state) && <div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Bosqich uchun qolgan vaqt</dt>
+          <dd className="tabular-nums"><CountdownText until={trade.stateDeadline} /></dd></div>}
+      </dl>
+    </section>
+    <TradeProgressTimeline outcome="ACCEPTED" trade={trade} tradeCreatedAt={trade.createdAt} />
+    <section aria-label="Savdo jarayoni" className="border-t border-border pt-4">
+      {isHumanTrade(trade)
+        ? <HumanPartyTradePanel key={trade.id} trade={trade} viewerId={viewerId} onRefresh={onRefresh} />
+        : <ActiveTradeCard key={`${trade.id}:${viewerId}:${trade.passwordMessageId}`} trade={trade} viewerId={viewerId}
+            onRefresh={onRefresh} refreshing={refreshing} embedded showSummary={false} />}
+    </section>
+  </div>;
+}
+
 function ActiveTradeCard({
   trade,
   viewerId,
   onRefresh,
   refreshing,
   embedded = false,
+  showSummary = true,
 }: {
   trade: TradeResponse;
   viewerId: string;
   onRefresh: () => Promise<void> | void;
   refreshing: boolean;
   embedded?: boolean;
+  showSummary?: boolean;
 }) {
   const isBuyer = trade.buyerId === viewerId;
   const isSeller = trade.sellerId === viewerId;
@@ -473,7 +534,7 @@ function ActiveTradeCard({
       'mx-auto max-w-md space-y-4',
       !embedded && 'rounded-2xl border border-border bg-card p-4 shadow-card',
     )}>
-      <div className="space-y-2.5 border-b border-border pb-4">
+      {showSummary && <div className="space-y-2.5 border-b border-border pb-4">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <p className="whitespace-nowrap text-xl font-bold tracking-tight text-foreground">
             {tradeAmountLabel(trade.kind, trade.priceUzs)}
@@ -488,7 +549,7 @@ function ActiveTradeCard({
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           {TRADE_STATE_LABEL_UZ[trade.state]}
         </p>
-      </div>
+      </div>}
 
       <CounterpartLine trade={trade} viewerRole={trade.role ?? null} />
 
@@ -1524,27 +1585,18 @@ function PendingProposalCard({
   const { listing, accountRequest, requiresAdminHandoff } = useTradeContext();
   const selectedListing = resolveTradeListing(accountRequest, listing);
   const proposalListing = [selectedListing, listing].find((item) => item?.id === proposal.listingId);
-  if (requiresAdminHandoff) {
-    return (
-      <TradeAdminHandoff
-        listingId={proposal.listingId}
-        platform={proposalListing?.attributes?.platform}
-        amountUzs={proposal.priceUzs}
-      />
-    );
-  }
 
   return (
-    <div className="mx-auto max-w-md rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3 shadow-card">
-      <div className="mb-2 flex items-center gap-2">
+    <div className="mx-auto max-w-md space-y-5">
+      <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 p-4">
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
           <Handshake className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-primary">
+          <p className="text-xs font-semibold text-muted-foreground">
             {isSwap(proposal.kind) ? 'Almashish taklifi' : 'Taklif yuborildi'}
           </p>
-          <p className="text-sm font-semibold text-foreground">
+          <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">
             {isSwap(proposal.kind) ? (
               <>
                 <span>{TRADE_KIND_LABEL_UZ[proposal.kind ?? 'SWAP']}</span>
@@ -1560,7 +1612,11 @@ function PendingProposalCard({
           </p>
         </div>
       </div>
-      {isSeller ? (
+      {proposal.expiresAt && <p className="text-sm text-muted-foreground"><CountdownText until={proposal.expiresAt} prefix="Muddati: " /></p>}
+      <TradeProgressTimeline outcome="PENDING" kind={proposal.kind} mode={isHumanProposal(proposal) ? 'HUMAN' : proposal.mode} />
+      {requiresAdminHandoff ? (
+        <TradeAdminHandoff listingId={proposal.listingId} platform={proposalListing?.attributes?.platform} amountUzs={proposal.priceUzs} />
+      ) : isSeller ? (
         <p className="rounded-lg border border-border/50 bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
           Xaridor javobini kutmoqda.
           {isHumanProposal(proposal) && proposal.adminFeeUzs
