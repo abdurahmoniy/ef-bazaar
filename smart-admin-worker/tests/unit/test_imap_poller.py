@@ -64,6 +64,7 @@ async def redis_lock():
 async def test_poller_detects_reset_and_stops(redis_lock):
     factory = FakeFactory([[FakeMsg(
         from_="noreply@konami.com",
+        subject="[KONAMI ID] Reissue Password",
         text="https://id.konami.net/reset?token=1",
     )]])
     detector = KonamiEmailDetector(frozenset({"noreply@konami.com"}))
@@ -98,6 +99,7 @@ async def test_poller_skips_iteration_when_lock_held(redis_lock):
 
     factory = FakeFactory([[FakeMsg(
         from_="noreply@konami.com",
+        subject="[KONAMI ID] Reissue Password",
         text="https://id.konami.net/reset",
     )]])
     detector = KonamiEmailDetector(frozenset({"noreply@konami.com"}))
