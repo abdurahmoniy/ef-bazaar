@@ -17,6 +17,7 @@ import java.util.UUID;
 public record AdminMailboxResponse(
         UUID id,
         String email,
+        String displayName,
         UUID ownerUserId,
         UUID tradeId,
         MailboxSource source,
