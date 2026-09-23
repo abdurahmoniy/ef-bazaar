@@ -66,7 +66,7 @@ async def test_forgot_password_then_imap_poll_publishes_konami_email(
     # Prepare IMAP fake with a Konami reset email waiting.
     fake_msg = SimpleNamespace(
         from_="noreply@konami.com",
-        subject="Konami password reset",
+        subject="[KONAMI ID] Reissue Password",
         text="Please click https://id.konami.net/reset?token=xyz to reset your password.",
         date=datetime(2026, 7, 15, 10, 30, tzinfo=UTC),
     )
