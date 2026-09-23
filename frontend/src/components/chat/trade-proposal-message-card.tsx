@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import React from 'react';
-import { CheckCircle2, Clock, ExternalLink, Handshake, ShieldCheck, XCircle } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { CheckCircle2, Clock, Handshake, ShieldCheck, XCircle } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { tradeProposalDetails } from '@/lib/trade-proposal-details';
+import { formatMessageTime } from '@/lib/chat-format';
 import type { MessageResponse } from '@/lib/marketplace-types';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import { useTradeContext } from './trade-context';
@@ -17,22 +19,14 @@ interface TradeProposalMessageCardProps {
 
 export function TradeProposalMessageCard({ message, viewerId }: TradeProposalMessageCardProps) {
   const { requiresAdminHandoff, proposal, listing, accountRequest,
-    setShowAcceptModal, setIsDrawerOpen, openTrade } = useTradeContext();
+    setShowAcceptModal, openProposal, viewedProposal } = useTradeContext();
   const isMine = message.senderId === viewerId;
-  // Only an exact proposal match may contribute live details to this message.
-  const matching = message.proposalId && message.proposalId === proposal?.id ? proposal : null;
-  const rawPrice = message.content.trim() ? Number(message.content) : NaN;
-  const price = Number.isFinite(rawPrice) && rawPrice >= 0 ? rawPrice : matching?.priceUzs;
-  const kind = message.proposalKind ?? matching?.kind ?? (price === 0 ? 'SWAP' : undefined);
-  const listingId = message.proposalListingId ?? matching?.listingId;
+  const { matching, price, kind, listingId, outcome } = tradeProposalDetails(message, proposal);
   const ownListing = listingId ? [listing, accountRequest?.listing].find(item => item?.id === listingId) : null;
-  const expiresAt = message.proposalExpiresAt ?? matching?.expiresAt;
-  const expired = !!expiresAt && Date.parse(expiresAt) <= Date.now();
-  const recorded = message.proposalOutcome;
-  const outcome = recorded && recorded !== 'PENDING' ? recorded
-    : message.proposalTradeId ? 'ACCEPTED'
-    : expired ? 'EXPIRED'
-    : matching ? 'PENDING' : 'UNKNOWN';
+  // Keep the selected request current when chat receives its resolution event.
+  useEffect(() => {
+    if (viewedProposal?.id === message.id && viewedProposal !== message) openProposal(message);
+  }, [message, viewedProposal, openProposal]);
 
   return (
     <div className="my-2 flex w-full justify-center px-2">
@@ -87,26 +81,25 @@ export function TradeProposalMessageCard({ message, viewerId }: TradeProposalMes
           !isMine ? (
             <div className="flex gap-2">
               <Button type="button" size="sm" className="min-h-11 flex-1"
-                onClick={() => requiresAdminHandoff ? setIsDrawerOpen(true) : setShowAcceptModal(true)}>
+                onClick={() => requiresAdminHandoff ? openProposal(message) : setShowAcceptModal(true)}>
                 <ShieldCheck className="h-4 w-4" />
                 {requiresAdminHandoff ? 'Adminga murojaat' : 'Qabul qilish'}
               </Button>
-              <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={() => setIsDrawerOpen(true)}>Batafsil</Button>
             </div>
           ) : (
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs text-muted-foreground">Javob kutilmoqda</span>
-              <Button type="button" size="sm" variant="ghost" className="min-h-11" onClick={() => setIsDrawerOpen(true)}>Batafsil</Button>
             </div>
           )
-        ) : outcome === 'ACCEPTED' && message.proposalTradeId ? (
-          <Button type="button" size="sm" variant="outline" className="min-h-11 w-full"
-            onClick={() => openTrade(message.proposalTradeId!, listingId)}>
-            <ExternalLink className="h-4 w-4" />Savdo jarayonini ko&apos;rish
-          </Button>
         ) : outcome === 'UNKNOWN' ? (
           <p className="text-xs text-muted-foreground">Bu taklifning joriy holati tasdiqlanmagan.</p>
         ) : null}
+        <Button type="button" size="sm" variant="outline" className="min-h-11 w-full" onClick={() => openProposal(message)}>
+          Batafsil
+        </Button>
+        <time dateTime={message.createdAt} className="block text-right text-[10px] tabular-nums text-muted-foreground">
+          {formatMessageTime(message.createdAt)}
+        </time>
       </div>
     </div>
   );

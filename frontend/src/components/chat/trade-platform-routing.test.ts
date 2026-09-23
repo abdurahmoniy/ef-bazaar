@@ -31,7 +31,7 @@ beforeEach(() => {
     trades: [], activeTrade: null, lastFinished: null, proposal: null,
     role: 'SELLER', isSeller: true, requiresAdminHandoff: true,
     showPicker: false, showProposeModal: false, isDrawerOpen: true, setIsDrawerOpen: vi.fn(),
-    commissionConfig: null,
+    commissionConfig: null, openProposal: vi.fn(),
   } as unknown as Context;
   vi.mocked(useTradeContext).mockImplementation(() => context);
 });
@@ -64,7 +64,8 @@ describe('trade platform handoff', () => {
       })));
       const button = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Adminga murojaat'))!;
       await act(async () => button.click());
-      expect(context.setIsDrawerOpen).toHaveBeenCalledWith(true);
+      expect(context.openProposal).toHaveBeenCalledWith(expect.objectContaining({ id: 'message', proposalId: 'proposal' }));
+      expect(context.setIsDrawerOpen).not.toHaveBeenCalled();
       expect(context.setShowAcceptModal).not.toHaveBeenCalled();
     } finally {
       await act(async () => root.unmount());

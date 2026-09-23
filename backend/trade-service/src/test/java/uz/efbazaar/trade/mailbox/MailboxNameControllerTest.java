@@ -21,6 +21,7 @@ import java.util.UUID;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
@@ -45,6 +46,13 @@ class MailboxNameControllerTest {
                         return new AuthenticatedUser(owner, null, List.of("ROLE_USER"), null);
                     }
                 }).build();
+    }
+
+    @Test
+    void ownerCanDetachTheirMailbox() throws Exception {
+        mvc.perform(post("/api/v1/mailboxes/{id}/detach", mailbox))
+                .andExpect(status().isNoContent());
+        verify(service).detachOwnedBy(owner, mailbox);
     }
 
     @Test

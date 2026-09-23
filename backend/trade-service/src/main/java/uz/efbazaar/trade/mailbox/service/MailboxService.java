@@ -74,6 +74,24 @@ public class MailboxService {
         }
     }
 
+    /** The owner releases access, preserving the mailbox and its messages. */
+    @Transactional
+    public void detachOwnedBy(UUID ownerUserId, UUID mailboxId) {
+        Mailbox m = getOwned(ownerUserId, mailboxId);
+        if (m.getDeletedAt() != null) {
+            throw new EntityNotFoundException("Mailbox " + mailboxId);
+        }
+        if (trades.existsLiveWithMailbox(mailboxId, TradeState.nonTerminal())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Bu pochta qutisi davom etayotgan savdoda ishlatilmoqda — savdo tugagach o'zgartiring");
+        }
+        if (mailboxes.detachOwnedBy(mailboxId, ownerUserId) == 0) {
+            throw new EntityNotFoundException("Mailbox " + mailboxId);
+        }
+        rotateIfProvisioned(m);
+        log.info("User {} detached their mailbox {}", ownerUserId, mailboxId);
+    }
+
     /** Returns the raw entity — needed by TradeStateHandler to read the email address. */
     @Transactional(readOnly = true)
     public Mailbox getRaw(UUID mailboxId) {

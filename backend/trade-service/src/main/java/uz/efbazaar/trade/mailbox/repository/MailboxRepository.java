@@ -93,6 +93,17 @@ public interface MailboxRepository
                                    @Param("tag") byte[] tag,
                                    @Param("now") java.time.Instant now);
 
+    /** Drop access without deleting mail; a racing handoff must not detach the new owner. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Mailbox m
+               SET m.ownerUserId = NULL, m.displayName = NULL
+             WHERE m.id = :id
+               AND m.ownerUserId = :ownerUserId
+               AND m.deletedAt IS NULL
+            """)
+    int detachOwnedBy(@Param("id") UUID id, @Param("ownerUserId") UUID ownerUserId);
+
     /** Check ownership in the write itself, including when a handoff is racing this request. */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

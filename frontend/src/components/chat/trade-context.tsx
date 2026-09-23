@@ -16,7 +16,7 @@ import {
 } from '@/lib/account-request';
 import { canUseSmartAdmin, resolveTradeListing } from '@/lib/trade-platform';
 import { isHumanProposal } from '@/lib/trade-human';
-import type { ChatResponse, ListingResponse } from '@/lib/marketplace-types';
+import type { ChatResponse, ListingResponse, MessageResponse } from '@/lib/marketplace-types';
 import { getPublicTradeCommissionConfig } from '@/lib/payment-client';
 import type { TradeCommissionConfig } from '@/lib/payment-types';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
@@ -79,6 +79,8 @@ interface TradeContextValue {
   setShowAcceptModal: React.Dispatch<React.SetStateAction<boolean>>;
   isDrawerOpen: boolean;
   setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  viewedProposal: MessageResponse | null;
+  openProposal: (message: MessageResponse) => void;
   viewedTrade: { id: string; listingId?: string | null } | null;
   openTrade: (tradeId: string, listingId?: string | null) => void;
   commissionConfig: TradeCommissionConfig | null;
@@ -142,13 +144,21 @@ export function TradeProvider({
   const [showProposeModal, setShowProposeModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [isDrawerOpen, setDrawerOpen] = useState(false);
+  const [viewedProposal, setViewedProposal] = useState<MessageResponse | null>(null);
   const [viewedTrade, setViewedTrade] = useState<TradeContextValue['viewedTrade']>(null);
   const setIsDrawerOpen = useCallback<React.Dispatch<React.SetStateAction<boolean>>>((open) => {
+    setViewedProposal(null);
     setViewedTrade(null);
     setDrawerOpen(open);
   }, []);
   const openTrade = useCallback((id: string, listingId?: string | null) => {
+    setViewedProposal(null);
     setViewedTrade({ id, listingId });
+    setDrawerOpen(true);
+  }, []);
+  const openProposal = useCallback((message: MessageResponse) => {
+    setViewedTrade(null);
+    setViewedProposal(message);
     setDrawerOpen(true);
   }, []);
   const [refreshing, setRefreshing] = useState(false);
@@ -303,6 +313,8 @@ export function TradeProvider({
     setIsDrawerOpen,
     viewedTrade,
     openTrade,
+    viewedProposal,
+    openProposal,
     commissionConfig,
     requiresAdminHandoff,
   };

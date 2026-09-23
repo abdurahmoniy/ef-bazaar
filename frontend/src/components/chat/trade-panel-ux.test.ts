@@ -71,6 +71,84 @@ describe('trade details', () => {
     expect(dialog().querySelector('a')).toBeNull();
   });
 
+  it('shows the selected request summary and timeline without leaking the latest trade', async () => {
+    context.viewedProposal = { id: 'old-message', chatId: 'chat', senderId: 'buyer', content: '5000',
+      createdAt: '2026-09-18T10:05:00Z', proposalId: 'old-proposal', proposalOutcome: 'REJECTED',
+      proposalListingId: 'old-listing', messageType: 'TRADE_PROPOSAL' };
+    context.proposal = { id: 'current', priceUzs: 999999, expiresAt: '' };
+    context.listing = { id: 'current-listing', description: 'Unrelated account' } as Context['listing'];
+    await render();
+    expect(dialog().textContent).toContain('Rad etilgan');
+    expect(dialog().textContent).toContain('15:05');
+    expect(dialog().textContent).toContain('Savdo bosqichlari');
+    expect(dialog().textContent).not.toContain('Unrelated account');
+    expect(dialog().textContent).not.toContain(email);
+    expect(dialog().textContent).not.toContain('999');
+    expect(buttonWith('Qabul qilish')).toBeUndefined();
+    expect(dialog().querySelector('a')?.getAttribute('href')).toBe('/marketplace/old-listing');
+  });
+
+  it('opens the linked trade’s controls and timeline rather than the active trade', async () => {
+    context.trades!.push({ ...context.activeTrade!, id: 'old-trade', state: 'REJECTED', priceUzs: 5000 });
+    context.viewedProposal = { id: 'old-message', chatId: 'chat', senderId: 'seller', content: '5000',
+      createdAt: '2026-09-18T10:05:00Z', proposalId: 'old-proposal', proposalOutcome: 'ACCEPTED',
+      proposalTradeId: 'old-trade', messageType: 'TRADE_PROPOSAL' };
+    await render();
+    expect(dialog().textContent).toContain('Qabul qilingan');
+    expect(dialog().textContent).toContain('Savdo rad etildi');
+    expect(dialog().textContent).not.toContain(email);
+  });
+
+  it('keeps legacy accepted requests inspectable without inventing a linked trade', async () => {
+    context.viewedProposal = { id: 'old-message', chatId: 'chat', senderId: 'seller', content: '5000',
+      createdAt: '2026-09-18T10:05:00Z', proposalOutcome: 'ACCEPTED' };
+    await render();
+    expect(dialog().textContent).toContain('Bu eski taklifning savdo tafsilotlari mavjud emas');
+    expect(dialog().textContent).not.toContain(email);
+  });
+
+  it('shows the full current-trade timeline and summary from the pinned window', async () => {
+    context.activeTrade!.createdAt = '2026-09-22T08:10:00Z';
+    await render();
+    expect(dialog().querySelector('[aria-label="Savdo ma’lumotlari"]')).not.toBeNull();
+    expect(dialog().querySelectorAll('[data-step]')).toHaveLength(9);
+    expect(dialog().querySelector('[data-step="WAITING_PAYMENT"]')?.getAttribute('data-status')).toBe('passed');
+    expect(dialog().querySelector('[data-step="WAITING_EMAIL_CHANGE"]')?.getAttribute('data-status')).toBe('current');
+    expect(dialog().querySelector('[data-step="SUCCESS"]')?.getAttribute('data-status')).toBe('next');
+    expect(dialog().querySelector('[data-step="INITIATED"] time')?.textContent).toContain('13:10');
+    expect(dialog().querySelector('[data-step="SENT"] time')).toBeNull();
+    expect(dialog().textContent).toContain(email);
+    expect(buttonWith('Email o‘zgartirdim')).toBeDefined();
+  });
+
+  it('updates the pinned timeline as the trade advances', async () => {
+    await render();
+    context.activeTrade = { ...context.activeTrade!, state: 'WAITING_PASSWORD' };
+    await render();
+    expect(dialog().querySelector('[data-step="WAITING_EMAIL_CHANGE"]')?.getAttribute('data-status')).toBe('passed');
+    expect(dialog().querySelector('[data-step="WAITING_PASSWORD"]')?.getAttribute('aria-current')).toBe('step');
+    expect(buttonWith('Konami parolini yuborish')).toBeDefined();
+  });
+
+  it('shows a finished trade’s full timeline and retains the new-trade action', async () => {
+    context.lastFinished = { ...context.activeTrade!, state: 'REJECTED' };
+    context.activeTrade = null;
+    await render();
+    expect(dialog().querySelector('[data-step="WAITING_BUYER_VERIFY"]')?.getAttribute('data-status')).toBe('failed');
+    expect(dialog().querySelector('[data-step="SUCCESS"]')?.getAttribute('data-status')).toBe('next');
+    expect(buttonWith('Yangi savdo boshlash')).toBeDefined();
+  });
+
+  it('shows the pending pinned request’s upcoming flow and acceptance action', async () => {
+    context.activeTrade = null;
+    context.isSeller = false;
+    context.proposal = { id: 'pending', priceUzs: 5000, expiresAt: '' };
+    await render();
+    expect(dialog().querySelector('[data-step="ACCEPTED"]')?.getAttribute('data-status')).toBe('current');
+    expect(dialog().querySelector('[data-step="WAITING_PASSWORD"]')?.getAttribute('data-status')).toBe('next');
+    expect(buttonWith('Qabul qilish')).toBeDefined();
+  });
+
   function prepareBuyer() {
     Object.assign(context.activeTrade!, {
       state: 'WAITING_BUYER_VERIFY', role: 'BUYER', passwordMessageId: 'password-message',
