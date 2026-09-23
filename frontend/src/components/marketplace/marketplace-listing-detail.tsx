@@ -313,6 +313,7 @@ export function MarketplaceListingDetail({
           <SellerCard
             seller={seller}
             isViewerOwner={isOwner}
+            listingStatus={listing.status}
             blacklisted={sellerBlacklisted}
             ratingSummary={sellerRatingSummary}
           />

@@ -79,9 +79,10 @@ interface MarketplaceShellProps {
  * market the scam list is the answer to the buyer's first objection, so it
  * belongs in the top row rather than three clicks down.
  */
-function buildDesktopLinks(): SlidingNavItem[] {
+function buildDesktopLinks(user: User | null, sessionPending: boolean): SlidingNavItem[] {
   return [
     { id: 'home', href: '/marketplace', label: 'Bozor' },
+    { id: 'accounts', href: user || sessionPending ? '/profile?tab=accounts' : '/auth/login?from=%2Fprofile%3Ftab%3Daccounts', label: 'Akkountlarim' },
     { id: 'tournaments', href: '/tournaments', label: 'Turnirlar' },
     { id: 'safety', href: '/blacklist', label: 'Xavfsizlik' },
   ].filter((item) => {
@@ -106,7 +107,7 @@ export function MarketplaceShell({
   mobileActionBar,
   hideBottomNav = false,
 }: MarketplaceShellProps) {
-  const desktopLinks = buildDesktopLinks();
+  const desktopLinks = buildDesktopLinks(user, sessionPending);
 
   return (
     <div

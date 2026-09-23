@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 
 import { MailboxSlotsWarning } from '@/components/profile/mailbox-slots-warning';
+import { ProfileBalance } from '@/components/profile/profile-balance';
 import { DeleteAccountButton } from '@/components/profile/delete-account-button';
 import { GoogleLinkButton } from '@/components/profile/google-link-button';
 import { LinkTelegramButton } from '@/components/profile/link-telegram-button';
@@ -59,6 +60,7 @@ interface ProfileAccountProps {
   listingsCount?: number;
   favoritesCount?: number;
   ratingSummary?: SellerRatingSummaryResponse | null;
+  availableTiyin?: number | null;
 }
 
 export function ProfileAccount({
@@ -69,6 +71,7 @@ export function ProfileAccount({
   listingsCount = 0,
   favoritesCount = 0,
   ratingSummary,
+  availableTiyin = null,
 }: ProfileAccountProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -267,6 +270,7 @@ export function ProfileAccount({
             </Link>
           </div>
         </div>
+        {FEATURES.wallet && <ProfileBalance availableTiyin={availableTiyin} />}
       </div>
 
       {/* 2. Grouped Navigation Menu (List Hub) */}

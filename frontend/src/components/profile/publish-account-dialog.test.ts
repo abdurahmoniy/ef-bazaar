@@ -42,7 +42,7 @@ async function render(layout: 'dialog' | 'page' = 'dialog') {
 }
 
 async function typePrice(value: string) {
-  const input = container.querySelector<HTMLInputElement>('#publish-price')!;
+  const input = container.querySelector<HTMLInputElement>('input[inputmode="numeric"]')!;
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
   await act(async () => {
     setter.call(input, value);
@@ -51,15 +51,40 @@ async function typePrice(value: string) {
 }
 
 const submit = () =>
-  Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Bozorga chiqarish'))!;
+  Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes("Sotuvga qo'yish"))!;
 
 describe('PublishAccountDialog', () => {
+  it('blocks publishing an existing account without images', async () => {
+    mocks.publishAccount.mockResolvedValue({ ok: true, data: { id: 'listing-1' } });
+    await act(async () => root.render(createElement(PublishAccountDialog, { account: { ...account, mediaMessageIds: [] }, onClose: vi.fn() })));
+    await typePrice('250000');
+    await act(async () => submit().click());
+    expect(mocks.publishAccount).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('Kamida 1 ta rasm');
+    expect(container.querySelector('a')?.getAttribute('href')).toBe('/profile/accounts/acc-1');
+  });
+
+  it('keeps labels scoped when multiple pricing forms stay mounted', async () => {
+    await act(async () => root.render(createElement('div', null,
+      createElement('div', { hidden: true }, createElement(PublishAccountDialog, { account, layout: 'page', onClose: vi.fn() })),
+      createElement(PublishAccountDialog, { account: { ...account, id: 'second' }, layout: 'page', onClose: vi.fn() }),
+    )));
+    const forms = container.querySelectorAll('form');
+    const ids = Array.from(container.querySelectorAll('[id]')).map((node) => node.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const form of forms) {
+      for (const label of form.querySelectorAll('label[for]')) {
+        const target = document.getElementById(label.getAttribute('for')!);
+        expect(form.contains(target)).toBe(true);
+      }
+    }
+  });
   it('sends the selling terms and nothing else', async () => {
     mocks.publishAccount.mockResolvedValue({ ok: true, data: { id: 'listing-1' } });
     await render();
     await typePrice('2400000');
 
-    const select = container.querySelector<HTMLSelectElement>('#publish-exchange')!;
+    const select = container.querySelector<HTMLSelectElement>('select')!;
     const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')!.set!;
     await act(async () => {
       setter.call(select, 'EXCHANGE_ONLY');

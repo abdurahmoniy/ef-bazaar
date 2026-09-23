@@ -14,6 +14,13 @@ beforeEach(async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   vi.stubGlobal('fetch', fetchMock);
   vi.clearAllMocks();
+  // jsdom does not implement the browser's modal top layer.
+  HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  });
+  HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
+    this.removeAttribute('open');
+  });
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -80,4 +87,19 @@ it('disables confirmation and cancellation while the request is pending', async 
     .every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
   expect(fetchMock).toHaveBeenCalledOnce();
   await act(async () => finish(new Response(null, { status: 204 })));
+});
+
+it('opens a native modal outside the header flow and restores scroll on Escape', async () => {
+  await click('Hisobimdan uzish');
+  const dialog = container.querySelector('dialog')!;
+  expect(dialog).not.toBeNull();
+  expect(dialog.open).toBe(true);
+  expect(dialog.showModal).toHaveBeenCalledOnce();
+  expect(document.body.style.overflow).toBe('hidden');
+  expect(document.activeElement?.textContent).toContain('Bekor');
+  await act(async () => dialog.dispatchEvent(new Event('cancel', { cancelable: true })));
+  expect(container.querySelector('dialog')).toBeNull();
+  expect(document.body.style.overflow).toBe('');
+  expect(document.activeElement?.textContent).toContain('Hisobimdan uzish');
+  expect(fetchMock).not.toHaveBeenCalled();
 });

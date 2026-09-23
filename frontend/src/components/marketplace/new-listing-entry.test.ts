@@ -33,7 +33,7 @@ it('selects an account directly and returns from inline pricing', async () => {
   expect(host.querySelector('h1')?.textContent).toBe('Qaysi akkountni sotasiz?');
   await click('Narx belgilash');
   expect(host.querySelector('[role="dialog"]')).toBeNull();
-  expect(host.querySelector('#publish-price')?.closest('[hidden]')).toBeNull();
+  expect(host.querySelector('input[inputmode="numeric"]')?.closest('[hidden]')).toBeNull();
   expect(host.querySelector('h1')?.textContent).toBe('Narx va sotuv shartlari');
   await click('Orqaga');
   expect(host.querySelector('h1')?.textContent).toBe('Qaysi akkountni sotasiz?');

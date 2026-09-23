@@ -20,7 +20,7 @@ export default async function WalletTradePage({ params }: { params: Promise<{ id
     redirect(`/chats/${trade.chatId}`);
   }
   return (
-    <MarketplaceShell user={user} activeTab="wallet" hideSearch backHref="/hamyon">
+    <MarketplaceShell user={user} activeTab="profile" hideSearch backHref="/hamyon">
       <section className="space-y-3 rounded-xl border border-border bg-card p-5">
         <h1 className="text-lg font-bold">Savdoni ochib bo‘lmadi</h1>
         <p className="text-sm text-muted-foreground">Savdo hozir mavjud emas yoki unga kirish huquqingiz yo‘q. Hamyon tarixidagi amaliyot raqami bilan yordam xizmatiga murojaat qilishingiz mumkin.</p>

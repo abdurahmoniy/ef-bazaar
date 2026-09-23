@@ -64,11 +64,6 @@ async function upload(files: File[]) {
   Object.defineProperty(input, 'files', { configurable: true, value: files });
   await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
 }
-async function select(key: string, value: string) {
-  const input = host.querySelector<HTMLSelectElement>(`#${key}`)!;
-  expect(input).not.toBeNull();
-  await act(async () => { input.value = value; input.dispatchEvent(new Event('change', { bubbles: true })); });
-}
 async function edit(serviceAttributes: Record<string, unknown> = {}) {
   const listing = {
     id: 'listing-1', sellerId: 'seller', description: 'Account with rare players', price: 250000,
@@ -81,18 +76,21 @@ async function edit(serviceAttributes: Record<string, unknown> = {}) {
   await click('Davom etish');
 }
 
-describe('listing form recovery and explicit service answers', () => {
-  it('requires an explicit answer for each service and clears each corrected inline error', async () => {
+describe('listing form recovery and service switches', () => {
+  it('defaults service switches to off and submits their toggled values', async () => {
     await edit();
-    await click('Davom etish');
-    expect(host.querySelector('#price')).toBeNull();
-    expect(host.textContent).toContain('Google Play ulangan holatini tanlang.');
-    expect(host.textContent).toContain('Game Center ulangan holatini tanlang.');
-    await select('has_google_play_link', 'false');
-    expect(host.textContent).not.toContain('Google Play ulangan holatini tanlang.');
-    expect(host.textContent).toContain('Game Center ulangan holatini tanlang.');
-    await select('has_game_center_link', 'true');
-    expect(host.textContent).not.toContain('Game Center ulangan holatini tanlang.');
+    const google = host.querySelector<HTMLButtonElement>('#has_google_play_link')!;
+    const gameCenter = host.querySelector<HTMLButtonElement>('#has_game_center_link')!;
+    expect(google.getAttribute('role')).toBe('switch');
+    expect(gameCenter.getAttribute('role')).toBe('switch');
+    expect(google.getAttribute('aria-checked')).toBe('false');
+    expect(gameCenter.getAttribute('aria-checked')).toBe('false');
+    await act(async () => google.click());
+    expect(google.getAttribute('aria-checked')).toBe('true');
+    await act(async () => google.click());
+    expect(google.getAttribute('aria-checked')).toBe('false');
+    await act(async () => gameCenter.click());
+    expect(gameCenter.getAttribute('aria-checked')).toBe('true');
     await click('Davom etish');
     expect(host.textContent).toContain('Sof summa');
     await click('Davom etish');
@@ -103,8 +101,8 @@ describe('listing form recovery and explicit service answers', () => {
   });
   it('preserves explicit false and true values on existing listings and guards double submission', async () => {
     await edit({ has_google_play_link: false, has_game_center_link: true });
-    expect(host.querySelector<HTMLSelectElement>('#has_google_play_link')?.value).toBe('false');
-    expect(host.querySelector<HTMLSelectElement>('#has_game_center_link')?.value).toBe('true');
+    expect(host.querySelector('#has_google_play_link')?.getAttribute('aria-checked')).toBe('false');
+    expect(host.querySelector('#has_game_center_link')?.getAttribute('aria-checked')).toBe('true');
     await click('Davom etish');
     await click('Davom etish');
     const save = Array.from(host.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Saqlash')!;
@@ -156,7 +154,7 @@ describe('listing form final review safeguards', () => {
     expect(host.textContent).not.toContain('toza');
     expect(host.textContent).not.toContain('100%');
   });
-  it('does not treat an old draft unchecked switch as an explicit unlinked answer', async () => {
+  it('restores old draft switches as off and allows continuing', async () => {
     localStorage.setItem('efbazaar:listing-draft-v2', JSON.stringify({ step: 'review', state: {
       description: 'Account with rare players', price: '250000', priceNegotiable: false,
       attributes: { ...attributes('MOBILE'), device_transfer_limit: '6', has_google_play_link: false, has_game_center_link: false },
@@ -164,9 +162,10 @@ describe('listing form final review safeguards', () => {
     await act(async () => root.render(createElement(ListingForm, { attributeDefinitions: SEEDED_LISTING_ATTRIBUTE_DEFINITIONS })));
     await upload([new File(['ok'], 'ok.jpg', { type: 'image/jpeg' })]);
     await click('Davom etish'); await click('Davom etish'); await click('Davom etish');
-    expect(host.textContent).toContain('Google Play ulangan holatini tanlang.');
-    expect(host.textContent).toContain('Game Center ulangan holatini tanlang.');
-    expect(host.querySelector('#price')).toBeNull();
+    expect(host.querySelector('#price')).not.toBeNull();
+    await click('Davom etish');
+    expect(host.textContent).toContain('Google Play ulanmagan');
+    expect(host.textContent).toContain('Game Center ulanmagan');
   });
   it('returns final submission to the first failing step and clears the error after correction', async () => {
     let resolveDefinitions!: (value: unknown) => void;

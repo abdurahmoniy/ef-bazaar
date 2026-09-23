@@ -1,17 +1,16 @@
 'use client';
 
 import Link, { useLinkStatus } from 'next/link';
-import { Home, MessageCircle, Plus, Trophy, UserRound, Wallet } from 'lucide-react';
+import { Gamepad2, Home, MessageCircle, Plus, UserRound } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { ChatsUnreadBadge } from '@/components/chat/chats-unread-badge';
 import { MeasuredBottomBar } from '@/components/marketplace/measured-bottom-bar';
 import { LinkPendingIndicator } from '@/components/navigation/link-pending-indicator';
-import { FEATURES } from '@/lib/feature-flags';
 import type { User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-export type MarketplaceTab = 'home' | 'tournaments' | 'safety' | 'sell' | 'chats' | 'profile' | 'wallet';
+export type MarketplaceTab = 'home' | 'accounts' | 'tournaments' | 'safety' | 'sell' | 'chats' | 'profile';
 
 interface NavItem {
   id: MarketplaceTab;
@@ -27,24 +26,18 @@ const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : us
 let lastActiveTab: MarketplaceTab | undefined;
 
 function buildNavItems(user: User | null, sessionPending = false): NavItem[] {
-  const items: NavItem[] = [
+  return [
     { id: 'home', href: '/marketplace', label: 'Bozor', icon: <Home className="h-5 w-5" /> },
-    { id: 'tournaments', href: '/tournaments', label: 'Turnirlar', icon: <Trophy className="h-5 w-5" /> },
+    { id: 'accounts', href: user || sessionPending ? '/profile?tab=accounts' : '/auth/login?from=%2Fprofile%3Ftab%3Daccounts', label: 'Akkountlarim', icon: <Gamepad2 className="h-5 w-5" /> },
+    { id: 'sell', href: '/marketplace/new', label: 'Sotish', icon: <Plus className="h-5 w-5" />, primary: true },
     {
       id: 'chats',
       href: user || sessionPending ? '/chats' : '/auth/login?from=/chats',
       label: 'Chatlar',
       icon: <span className="relative"><MessageCircle className="h-5 w-5" />{user && <ChatsUnreadBadge viewerId={user.id} />}</span>,
     },
-    { id: 'sell', href: '/marketplace/new', label: 'Sotish', icon: <Plus className="h-5 w-5" />, primary: true },
-    { id: 'wallet', href: user || sessionPending ? '/hamyon' : '/auth/login?from=/hamyon', label: 'Hamyon', icon: <Wallet className="h-5 w-5" /> },
     { id: 'profile', href: user || sessionPending ? '/profile' : '/auth/login', label: user || sessionPending ? 'Profil' : 'Kirish', icon: <UserRound className="h-5 w-5" /> },
   ];
-  return items.filter((item) => {
-    if (item.id === 'tournaments') return FEATURES.tournaments;
-    if (item.id === 'wallet') return FEATURES.wallet;
-    return true;
-  });
 }
 
 export function MobileBottomNav({

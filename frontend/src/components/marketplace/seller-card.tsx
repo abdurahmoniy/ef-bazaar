@@ -4,7 +4,7 @@ import { BadgeCheck, ChevronRight, MessageCircle, ShieldAlert, Star } from 'luci
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { SellerSummary } from '@/lib/marketplace-types';
+import type { ListingStatus, SellerSummary } from '@/lib/marketplace-types';
 import type { SellerRatingSummaryResponse } from '@/lib/trade-types';
 import type { User } from '@/lib/types';
 
@@ -14,6 +14,7 @@ interface SellerCardProps {
     | SellerSummary
     | null;
   isViewerOwner?: boolean;
+  listingStatus?: ListingStatus;
   /** Trust module: seller is on the public blacklist — show the red warning. */
   blacklisted?: boolean;
   /** Seller rating metrics from trade-service. */
@@ -23,6 +24,7 @@ interface SellerCardProps {
 export function SellerCard({
   seller,
   isViewerOwner,
+  listingStatus = 'ACTIVE',
   blacklisted,
   ratingSummary,
 }: SellerCardProps) {
@@ -124,7 +126,7 @@ export function SellerCard({
         <Button asChild variant="secondary" size="sm" className="flex-1 rounded-lg">
           <Link href={`/users/${seller.id}`}>Profilni ko&apos;rish</Link>
         </Button>
-        {!isViewerOwner && seller.telegramUsername && (
+        {listingStatus === 'ACTIVE' && !isViewerOwner && seller.telegramUsername && (
           <Button asChild variant="outline" size="sm" className="shrink-0 rounded-lg px-3">
             <Link
               href={`https://t.me/${seller.telegramUsername}`}

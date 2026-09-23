@@ -13,6 +13,29 @@ vi.mock('next/navigation', () => ({
 import { ListingActions } from './listing-actions';
 
 describe('ListingActions', () => {
+  describe.each(['panel', 'bar'] as const)('%s unavailable listings', (variant) => {
+    it.each(['SOLD', 'DELETED'] as const)('hides buyer action buttons for %s listings', (status) => {
+      const html = renderToStaticMarkup(createElement(ListingActions, {
+        listingId: 'listing-1', authenticated: true, initialLikeCount: 12,
+        status, variant,
+      }));
+
+      expect(html).not.toContain('<button');
+      expect(html).toMatch(status === 'SOLD' ? /[Ss]otilgan/ : /o&#x27;chirilgan/);
+    });
+
+    it('hides owner actions for deleted listings', () => {
+      const html = renderToStaticMarkup(createElement(ListingActions, {
+        listingId: 'listing-1', authenticated: true, isOwner: true,
+        initialLikeCount: 12, status: 'DELETED', variant,
+      }));
+
+      expect(html).not.toContain('<button');
+      expect(html).not.toContain('/edit');
+      expect(html).toContain('o&#x27;chirilgan');
+    });
+  });
+
   it('renders owner actions including Tahrirlash and Sotildi deb belgilash when ACTIVE', () => {
     const html = renderToStaticMarkup(
       createElement(ListingActions, {

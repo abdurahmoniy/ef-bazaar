@@ -160,6 +160,15 @@ export function ListingActions({
     });
   }
 
+  if (currentStatus === 'DELETED') {
+    return (
+      <div className="rounded-lg border border-border bg-muted/60 p-3 text-center">
+        <p className="text-sm font-bold text-foreground">Ushbu e&apos;lon o&apos;chirilgan</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">Sotuvchi bilan aloqa yopilgan.</p>
+      </div>
+    );
+  }
+
   if (variant === 'bar') {
     return (
       <div className="space-y-1.5">
@@ -369,41 +378,11 @@ export function ListingActions({
 
   if (currentStatus === 'SOLD') {
     return (
-      <div className="space-y-3">
-        <div className="rounded-lg border border-border bg-muted/60 p-3 text-center">
-          <p className="text-sm font-bold text-foreground">Ushbu e&apos;lon sotilgan</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Sotuvchi bilan aloqa yopilgan.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant={liked ? 'secondary' : 'outline'}
-            size="sm"
-            className={cn('rounded-lg', liked && 'shadow-inner')}
-            disabled={isPending}
-            onClick={handleLike}
-          >
-            <Heart className={cn('h-4 w-4', liked && 'fill-current')} />
-            {formatCompactNumber(likeCount)}
-          </Button>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-lg"
-            disabled={isPending}
-            onClick={() => {
-              if (!authenticated) return router.push(`/auth/login?from=/marketplace/${listingId}`);
-              withStatus(() => reportListing(listingId), 'Shikoyat yuborildi');
-            }}
-          >
-            <Flag className="h-4 w-4" />
-            Shikoyat
-          </Button>
-        </div>
+      <div className="rounded-lg border border-border bg-muted/60 p-3 text-center">
+        <p className="text-sm font-bold text-foreground">Ushbu e&apos;lon sotilgan</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Sotuvchi bilan aloqa yopilgan.
+        </p>
       </div>
     );
   }

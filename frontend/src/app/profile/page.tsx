@@ -15,6 +15,9 @@ import { getMyAccountsServer } from '@/lib/accounts-server';
 import { getMyFavorites } from '@/lib/marketplace-server';
 import { getMyCards, getMyTrades, getSellerRatingSummary } from '@/lib/trade-server';
 import { getMyTradeAdminApplication } from '@/lib/trade-admin-applications-server';
+import { getWallet } from '@/lib/payment-server';
+import { FEATURES } from '@/lib/feature-flags';
+import { getAccountDisplayData } from '@/lib/account-display-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,20 +52,23 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const activeTab = resolveTab(params.tab);
 
   const user = await getMe();
-  if (!user) redirect('/auth/login?from=/profile');
+  if (!user) redirect(`/auth/login?from=${encodeURIComponent(activeTab === 'accounts' ? '/profile?tab=accounts' : '/profile')}`);
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
 
   // Fetch tab data server-side.
-  const [accounts, favorites, cards, tradePage, tradeAdminApplication, sellerRatingSummary] = await Promise.all([
+  const [accounts, favorites, cards, tradePage, tradeAdminApplication, sellerRatingSummary, wallet] = await Promise.all([
     getMyAccountsServer(),
-    getMyFavorites(),
+    activeTab === 'favorites' || activeTab === 'account' ? getMyFavorites() : Promise.resolve([]),
     activeTab === 'kartalar' ? getMyCards() : Promise.resolve([]),
     activeTab === 'trades' ? getMyTrades() : Promise.resolve(null),
     activeTab === 'account' ? getMyTradeAdminApplication() : Promise.resolve(null),
     activeTab === 'account' ? getSellerRatingSummary(user.id) : Promise.resolve(null),
+    activeTab === 'account' && FEATURES.wallet ? getWallet() : Promise.resolve(null),
   ]);
+
+  const accountDisplay = activeTab === 'accounts' ? await getAccountDisplayData(accounts, user.id) : {};
 
   const getSubpageHeader = () => {
     switch (activeTab) {
@@ -77,9 +83,10 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               href="/profile/accounts/new"
               title="Yangi akkount qo'shish"
               aria-label="Yangi akkount qo'shish"
-              className="grid h-11 w-11 place-items-center rounded-full bg-primary/10 text-primary transition hover:bg-primary/20 active:scale-90"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-4 sm:text-sm"
             >
               <Plus className="h-5 w-5" />
+              Akkount qo&apos;shish
             </Link>
           ),
         };
@@ -108,24 +115,24 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const subpageHeader = getSubpageHeader();
 
   return (
-    <MarketplaceShell user={user} activeTab="profile" hideSearch hideHeader>
+    <MarketplaceShell user={user} activeTab={activeTab === 'accounts' ? 'accounts' : 'profile'} hideSearch hideHeader>
       <div className="space-y-3 pb-24">
         {/* Subpage Mobile App Sticky Top Header */}
         {subpageHeader && (
-          <div className="-mx-4 -mt-4 sticky top-0 z-30 flex items-center justify-between border-b border-border/60 bg-background/95 px-4 py-3 backdrop-blur-md sm:mx-0 sm:mt-0 sm:rounded-2xl sm:border sm:px-5 sm:shadow-xs">
-            <div className="flex items-center gap-3">
-              <Link
+          <div className="-mx-4 -mt-4 sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border/60 bg-background/95 px-4 py-3 backdrop-blur-md sm:mx-0 sm:mt-0 sm:rounded-2xl sm:border sm:px-5 sm:shadow-xs md:top-14">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              {activeTab !== 'accounts' && <Link
                 href="/profile"
                 aria-label="Profilga qaytish"
                 className="grid h-11 w-11 place-items-center rounded-full bg-muted/60 text-foreground transition hover:bg-muted active:scale-90"
               >
                 <ChevronLeft className="h-5 w-5" />
-              </Link>
-              <div>
+              </Link>}
+              <div className="min-w-0">
                 <h1 className="text-base font-bold text-foreground leading-none">
                   {subpageHeader.title}
                 </h1>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-1">
                   {subpageHeader.subtitle}
                 </p>
               </div>
@@ -144,7 +151,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
         {/* Tab content view */}
         <section key={activeTab} className="animate-panel-in">
-          {activeTab === 'accounts' && <ProfileAccounts accounts={accounts} />}
+          {activeTab === 'accounts' && <ProfileAccounts accounts={accounts} displayById={accountDisplay} viewerId={user.id} />}
           {activeTab === 'trades' && <ProfileTrades trades={tradePage?.items ?? []} />}
           {activeTab === 'favorites' && <ProfileListings listings={favorites} favorites />}
           {activeTab === 'kartalar' && <ProfileCards cards={cards} />}
@@ -157,6 +164,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               listingsCount={accounts.length}
               favoritesCount={favorites.length}
               ratingSummary={sellerRatingSummary}
+              availableTiyin={wallet?.availableTiyin ?? null}
             />
           )}
         </section>

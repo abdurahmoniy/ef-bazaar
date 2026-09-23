@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ListingForm } from '@/components/marketplace/listing-form';
+import { AccountForm } from '@/components/marketplace/account-form';
 import { ListingSourceStep } from '@/components/marketplace/listing-source-step';
 import { PublishAccountDialog } from '@/components/profile/publish-account-dialog';
 import type { UserAccountResponse } from '@/lib/accounts-types';
@@ -11,7 +11,7 @@ import type { ListingAttributeDefinition } from '@/lib/marketplace-types';
 type EntryView = 'accounts' | 'new' | 'pricing';
 const HEADINGS: Record<EntryView, { title: string; description: string }> = {
   accounts: { title: 'Qaysi akkountni sotasiz?', description: 'Saqlangan akkountni tanlang yoki yangisini qo‘shing.' },
-  new: { title: 'Yangi akkount', description: 'Ma’lumotlar “Akkountlarim”da ham saqlanadi.' },
+  new: { title: 'Yangi akkount', description: 'Akkount ma’lumotlarini kiriting. Keyin saqlang yoki sotuvga qo‘ying.' },
   pricing: { title: 'Narx va sotuv shartlari', description: 'Akkount ma’lumotlari tayyor. Sotuv shartlarini belgilang.' },
 };
 
@@ -54,7 +54,7 @@ export function NewListingEntry({ accounts, attributeDefinitions, botUsername }:
       {/* Keep browser File objects and draft entries intact while choosing another source. */}
       {startedNew && (
         <div hidden={view !== 'new'}>
-          <ListingForm attributeDefinitions={attributeDefinitions} botUsername={botUsername} onBack={hasAccounts ? showAccounts : undefined} />
+          <AccountForm attributeDefinitions={attributeDefinitions} botUsername={botUsername} onBack={hasAccounts ? showAccounts : undefined} />
         </div>
       )}
     </div>
