@@ -12,6 +12,7 @@ import { formatMessageTime } from '@/lib/chat-format';
 import type { MessageResponse } from '@/lib/marketplace-types';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import { useTradeContext } from './trade-context';
+import { TradeProposalRetryButton } from './trade-proposal-retry-button';
 
 interface TradeProposalMessageCardProps {
   message: MessageResponse;
@@ -95,6 +96,7 @@ export function TradeProposalMessageCard({ message, viewerId }: TradeProposalMes
         ) : outcome === 'UNKNOWN' ? (
           <p className="text-xs text-muted-foreground">Bu taklifning joriy holati tasdiqlanmagan.</p>
         ) : null}
+        <TradeProposalRetryButton message={message} />
         <Button type="button" size="sm" variant="outline" className="min-h-11 w-full" onClick={() => openProposal(message)}>
           Batafsil
         </Button>

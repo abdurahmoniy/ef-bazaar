@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useChatViewport } from '@/hooks/use-chat-viewport';
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   AlertTriangle,
@@ -90,6 +90,7 @@ import { FEATURES } from '@/lib/feature-flags';
 import { sellerProceedsSom, tradeFeeSom } from '@/lib/trade-commission';
 import { canUseSmartAdmin, resolveTradeListing } from '@/lib/trade-platform';
 import { TradeProgressTimeline } from './trade-progress-timeline';
+import { TradeProposalRetryButton } from './trade-proposal-retry-button';
 import { TradeAdminHandoff } from './trade-admin-handoff';
 import { useTradeContext, type PendingProposal } from './trade-context';
 
@@ -156,6 +157,7 @@ function ProposalDetails({ message }: { message: MessageResponse }) {
           : message.senderId !== viewerId && canAcceptTradeProposal(matching, viewerId) ? <Button className="min-h-11 w-full" onClick={() => setShowAcceptModal(true)}>Qabul qilish</Button>
             : <p className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">Javob kutilmoqda</p>
       )}
+      <TradeProposalRetryButton message={message} />
       {message.proposalTradeId && (trade ? (
         <section className="border-t border-border pt-4" aria-label="Savdo jarayoni">
           {isHumanTrade(trade)
@@ -1712,26 +1714,6 @@ function ProposeModal({
   const swapSurchargeNetProceeds = Math.max(0, surchargeNum - swapSurchargeFeeNum);
   const swapSurchargeProposerOwes = Math.max(0, swapSurchargeFeeNum - surchargeNum);
 
-  const presets = useMemo(() => {
-    if (!originalPrice || originalPrice <= 0) return [];
-    const p5 = Math.round((originalPrice * 0.95) / 1000) * 1000;
-    const p10 = Math.round((originalPrice * 0.9) / 1000) * 1000;
-    const p20k = originalPrice - 20000;
-    const list: Array<{ label: string; value: number }> = [
-      { label: 'Asl narx', value: originalPrice },
-      { label: '−5%', value: p5 },
-      { label: '−10%', value: p10 },
-    ];
-    if (p20k > 0 && p20k !== p5 && p20k !== p10) {
-      list.push({ label: '−20 ming', value: p20k });
-    }
-    return list.filter(
-      (p, idx, arr) =>
-        p.value > 0 &&
-        arr.findIndex((other) => other.value === p.value) === idx,
-    );
-  }, [originalPrice]);
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -1925,34 +1907,6 @@ function ProposeModal({
                 />
               </div>
             </div>
-
-            {/* Quick Discount Presets: Responsive 2-column or 4-column Grid */}
-            {presets.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                {presets.map((preset) => {
-                  const isSelected = Number(price) === preset.value;
-                  return (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => {
-                        setPrice(String(preset.value));
-                        telegramHaptic(getTelegramWebApp(), 'selection', false);
-                      }}
-                      className={cn(
-                        'tap-press flex flex-col items-center justify-center rounded-xl border py-1.5 px-1 text-center transition select-none min-w-0',
-                        isSelected
-                          ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30 font-black'
-                          : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
-                      )}
-                    >
-                      <span className="text-[10px] font-semibold opacity-75">{preset.label}</span>
-                      <span className="text-[11px] font-bold truncate max-w-full">{formatPriceUZS(preset.value)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
 
             {/* Financial Breakdown Card */}
             {hasValidPrice && (
