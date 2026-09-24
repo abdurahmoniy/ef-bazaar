@@ -14,8 +14,14 @@ export function MailboxUnlink({ mailboxId, email }: { mailboxId: string; email: 
   const cancel = useRef<HTMLButtonElement>(null);
   const inFlight = useRef(false);
   const [confirming, setConfirming] = useState(false);
+  const [typed, setTyped] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const confirmationId = useId();
+  // Registr va chetdagi bo'shliq hisobga olinmaydi: manzil registrga
+  // sezgir emas, telefonda birinchi harf o'zi kattalashadi va nusxa
+  // olishda bo'shliq yopishadi. Tasdiqning maqsadi aniqlik, imlo emas.
+  const typedMatches = typed.trim().toLowerCase() === email.trim().toLowerCase();
 
   useEffect(() => {
     if (!confirming) return;
@@ -35,12 +41,15 @@ export function MailboxUnlink({ mailboxId, email }: { mailboxId: string; email: 
     if (inFlight.current) return;
     dialog.current?.close();
     setConfirming(false);
+    // Terilgan matn qolib ketmasligi kerak: keyingi safar tugma
+    // allaqachon ochiq turardi va tasdiq ma'nosini yo'qotardi.
+    setTyped('');
     setError(null);
     trigger.current?.focus();
   }
 
   async function unlink() {
-    if (inFlight.current) return;
+    if (inFlight.current || !typedMatches) return;
     inFlight.current = true;
     setPending(true);
     setError(null);
@@ -110,16 +119,35 @@ export function MailboxUnlink({ mailboxId, email }: { mailboxId: string; email: 
           <h2 id={titleId} className="text-lg font-bold">Pochtani hisobdan uzish?</h2>
           <div id={descriptionId} className="space-y-3 text-sm leading-relaxed text-muted-foreground">
             <p className="break-all rounded-lg bg-muted px-3 py-2 font-semibold text-foreground">{email}</p>
-            <p>Pochtaga kirish huquqingiz yo‘qoladi. Xatlar saqlanadi.
-              Qayta ulash uchun administrator kerak.</p>
-            <p>Konami akkauntingiz bog‘langan bo‘lsa, avval emailini almashtiring.</p>
+            <p>Pochtaga kirish huquqingiz yo‘qoladi: paroli darhol
+              almashtiriladi. Xatlar saqlanadi, lekin buni o‘zingiz qaytara
+              olmaysiz — qayta ulash uchun administrator kerak.</p>
+            <p>Uzishdan oldin <b className="text-foreground">shu manzilga hech
+              qanday KONAMI ID bog‘lanmaganiga ishonch hosil qiling</b>.
+              Bog‘langan bo‘lsa, parol tiklash xati shu qutiga keladi va siz
+              uni o‘qiy olmaysiz — o‘sha akkountni qaytarib bo‘lmaydi.</p>
+            <label htmlFor={confirmationId} className="block pt-1 text-xs font-semibold text-foreground">
+              Tasdiqlash uchun pochta manzilini yozing
+            </label>
+            <input
+              id={confirmationId}
+              type="email"
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
+              disabled={pending}
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder={email}
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+            />
           </div>
           {error && <p role="alert" className="text-xs font-semibold text-destructive">{error}</p>}
           <div className="flex flex-wrap justify-end gap-2">
             <Button ref={cancel} type="button" variant="ghost" size="sm" disabled={pending} onClick={dismiss}>
               Bekor
             </Button>
-            <Button type="button" variant="destructive" size="sm" disabled={pending} onClick={unlink}>
+            <Button type="button" variant="destructive" size="sm" disabled={pending || !typedMatches} onClick={unlink}>
               {pending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Link2Off aria-hidden="true" />}
               {pending ? 'Uzilmoqda…' : 'Ha, uzish'}
             </Button>

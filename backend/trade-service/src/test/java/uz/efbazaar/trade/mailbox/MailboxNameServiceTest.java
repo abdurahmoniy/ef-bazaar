@@ -95,10 +95,19 @@ class MailboxNameServiceTest {
         assertThat(box.getDisplayName()).isNull();
     }
 
+    /**
+     * Nom egasiniki: egalik uzilganda u ham ketadi.
+     *
+     * <p>Qoida entity ichida ({@code Mailbox.setOwnerUserId}) turadi, ya'ni
+     * uzish ham, adminning qayta biriktirishi ham uni o'tkazib yubormaydi.
+     * Aks holda quti keyingi egasiga begona nom bilan borardi.
+     */
     @Test
-    void ownerDeletionClearsName() {
-        Mailbox box = namedMailbox();
-        service.deleteOwnedBy(owner, id);
+    void losingTheOwnerClearsName() {
+        Mailbox box = Mailbox.builder().id(id).ownerUserId(owner).displayName("Main account").build();
+
+        box.setOwnerUserId(null);
+
         assertThat(box.getDisplayName()).isNull();
     }
 

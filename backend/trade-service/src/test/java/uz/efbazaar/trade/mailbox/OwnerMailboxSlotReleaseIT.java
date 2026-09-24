@@ -14,6 +14,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUser;
 
@@ -30,10 +31,11 @@ import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUse
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-class OwnerMailboxDeleteIT extends AbstractIntegrationIT {
+class OwnerMailboxSlotReleaseIT extends AbstractIntegrationIT {
 
     @Autowired MockMvc mvc;
     @Autowired MailboxRepository mailboxes;
+    @Autowired uz.efbazaar.trade.trade.repository.TradeRepository trades;
 
     private final UUID owner = UUID.randomUUID();
 
@@ -57,19 +59,38 @@ class OwnerMailboxDeleteIT extends AbstractIntegrationIT {
         return "/api/v1/mailboxes/" + id;
     }
 
+    /**
+     * Foydalanuvchida pochta serveridan o'chirish yo'li YO'Q.
+     *
+     * <p>Slotni bo'shatish uchun uzish bor ({@code POST /{id}/detach}) va u
+     * yetarli. O'chirish esa adminda qoladi: quti Konami parol tiklash
+     * xatlarini saqlaydi va nizo chiqqanda tekshiriladigan yagona iz o'sha
+     * — bir bosish bilan yo'q qilinsa, orqaga yo'l qolmaydi.
+     */
     @Test
-    void theOwnerCanFreeTheirOwnSlot() throws Exception {
+    void theOwnerHasNoWayToDestroyTheMailbox() throws Exception {
         UUID id = mailbox(owner, null);
 
-        mvc.perform(delete(path(id)).with(asUser(owner))).andExpect(status().isNoContent());
+        mvc.perform(delete(path(id)).with(asUser(owner)))
+                .andExpect(status().isMethodNotAllowed());
 
         Mailbox after = mailboxes.findById(id).orElseThrow();
-        assertThat(after.getDeletedAt())
-                .as("slot bo'shashi uchun o'chirilgan deb belgilanishi shart")
-                .isNotNull();
-        // Egalik ham olib tashlanadi: sanoq uni hali ham egalik
-        // qilingan deb hisoblasa, slot bo'shamasdi.
+        assertThat(after.getDeletedAt()).isNull();
+        assertThat(after.getOwnerUserId()).isEqualTo(owner);
+    }
+
+    @Test
+    void theOwnerFreesTheSlotByDetaching() throws Exception {
+        UUID id = mailbox(owner, null);
+
+        mvc.perform(post(path(id) + "/detach").with(asUser(owner)))
+                .andExpect(status().isNoContent());
+
+        Mailbox after = mailboxes.findById(id).orElseThrow();
+        // Egalik olib tashlanadi — slot aynan shundan bo'shaydi.
         assertThat(after.getOwnerUserId()).isNull();
+        // Quti esa joyida: uni olib tashlash admin ishi.
+        assertThat(after.getDeletedAt()).isNull();
     }
 
     @Test
@@ -77,7 +98,7 @@ class OwnerMailboxDeleteIT extends AbstractIntegrationIT {
         // 404, 403 emas: begonaga bu quti BORLIGINI ham aytmaymiz.
         UUID id = mailbox(owner, null);
 
-        mvc.perform(delete(path(id)).with(asUser(UUID.randomUUID())))
+        mvc.perform(post(path(id) + "/detach").with(asUser(UUID.randomUUID())))
                 .andExpect(status().isNotFound());
 
         assertThat(mailboxes.findById(id).orElseThrow().getDeletedAt()).isNull();
@@ -86,9 +107,21 @@ class OwnerMailboxDeleteIT extends AbstractIntegrationIT {
     @Test
     void aMailboxInALiveTradeIsRefused() throws Exception {
         // U hozir ishlatilmoqda; olib qo'yish savdoni to'xtatib qo'yardi.
-        UUID id = mailbox(owner, UUID.randomUUID());
+        // Tirik savdo TRADES jadvalidan aniqlanadi: o'rin band qilingan
+        // qutida `mailboxes.trade_id` umuman to'ldirilmaydi.
+        UUID id = mailbox(owner, null);
+        trades.saveAndFlush(uz.efbazaar.trade.trade.domain.Trade.builder()
+                .id(UUID.randomUUID())
+                .sellerId(owner)
+                .buyerId(UUID.randomUUID())
+                .priceUzs(80_000)
+                .state(uz.efbazaar.trade.trade.domain.TradeState.WAITING_EMAIL_CHANGE)
+                .mailboxId(id)
+                .mode(uz.efbazaar.trade.trade.domain.TradeMode.SMART)
+                .expiresAt(java.time.Instant.now().plus(java.time.Duration.ofDays(7)))
+                .build());
 
-        mvc.perform(delete(path(id)).with(asUser(owner)))
+        mvc.perform(post(path(id) + "/detach").with(asUser(owner)))
                 .andExpect(status().isConflict());
 
         assertThat(mailboxes.findById(id).orElseThrow().getDeletedAt()).isNull();
