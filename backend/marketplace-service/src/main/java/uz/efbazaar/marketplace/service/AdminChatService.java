@@ -54,12 +54,16 @@ public class AdminChatService {
     private final ChatAccountRequestRepository requests;
     private final ListingRepository listings;
 
-    public PageResponse<AdminChatResponse> list(String query, int page, int size) {
+    /**
+     * @param deleted o'chirilgan chatlar alohida ro'yxatda turadi: toza
+     *                ro'yxat ichida aralashib yurishi chalg'itardi.
+     */
+    public PageResponse<AdminChatResponse> list(String query, boolean deleted, int page, int size) {
         PageRequest pageable = PageRequest.of(Math.max(0, page), clamp(size, MAX_CHATS_PAGE));
         String pattern = likePattern(query);
         Page<Chat> result = pattern == null
-                ? chats.findAllByOrderByLastMessageAtDesc(pageable)
-                : chats.searchByName(pattern, pageable);
+                ? chats.findForAdmin(deleted, pageable)
+                : chats.searchForAdmin(pattern, deleted, pageable);
 
         Map<UUID, UserSummary> names = users.resolveAll(result.getContent().stream()
                 .flatMap(c -> java.util.stream.Stream.of(c.getBuyerId(), c.getSellerId()))

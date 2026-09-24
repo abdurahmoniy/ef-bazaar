@@ -36,6 +36,16 @@ public class Chat {
     @Column(name = "last_message_at", nullable = false)
     private Instant lastMessageAt;
 
+    /**
+     * Tarix tozalangan vaqt — bundan oldingi xabarlar ko'rsatilmaydi.
+     *
+     * <p>Ikkala tarafga ham tegishli: chatni o'chirish juftlikning
+     * suhbatini nolga qaytaradi. Xabarlarning o'zi o'chirilmaydi — nizo
+     * chiqqanda admin panelida ochib ko'rish mumkin bo'lishi kerak.
+     */
+    @Column(name = "cleared_at")
+    private Instant clearedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

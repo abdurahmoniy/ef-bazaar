@@ -31,6 +31,39 @@ public interface ChatRepository extends JpaRepository<Chat, UUID> {
     Page<Chat> searchByName(@Param("pattern") String pattern, Pageable pageable);
 
     /**
+     * Admin ro'yxati: o'chirilgan chatlar ALOHIDA turadi.
+     *
+     * <p>"O'chirilgan" — tarixi tozalangan va shundan keyin yangi xabar
+     * kelmagan chat. Juftlik yana yozishsa, u toza ro'yxatga qaytadi:
+     * eski tarixi admin uchun baribir ochiq qoladi, lekin ro'yxatda
+     * "o'chirilgan" bo'lib turishi chalg'itardi.
+     *
+     * <p>Nomlar bo'yicha qidiruv ikkala ro'yxatda ham ishlaydi — nizoda
+     * aynan o'chirilganini topish kerak bo'ladi.
+     */
+    @Query("""
+            SELECT c FROM Chat c
+            WHERE (:deleted = false AND (c.clearedAt IS NULL OR c.lastMessageAt > c.clearedAt))
+               OR (:deleted = true  AND c.clearedAt IS NOT NULL
+                     AND (c.lastMessageAt IS NULL OR c.lastMessageAt <= c.clearedAt))
+            ORDER BY c.lastMessageAt DESC
+            """)
+    Page<Chat> findForAdmin(@Param("deleted") boolean deleted, Pageable pageable);
+
+    @Query("""
+            SELECT c FROM Chat c
+            WHERE ((:deleted = false AND (c.clearedAt IS NULL OR c.lastMessageAt > c.clearedAt))
+                OR (:deleted = true  AND c.clearedAt IS NOT NULL
+                      AND (c.lastMessageAt IS NULL OR c.lastMessageAt <= c.clearedAt)))
+              AND (LOWER(COALESCE(c.buyerDisplayName, '')) LIKE :pattern ESCAPE '\\'
+                OR LOWER(COALESCE(c.sellerDisplayName, '')) LIKE :pattern ESCAPE '\\')
+            ORDER BY c.lastMessageAt DESC
+            """)
+    Page<Chat> searchForAdmin(@Param("pattern") String pattern,
+                              @Param("deleted") boolean deleted,
+                              Pageable pageable);
+
+    /**
      * The pair's conversation, whichever way round the roles were recorded.
      */
     @Query("""

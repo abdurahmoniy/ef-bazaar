@@ -10,7 +10,7 @@ import { formatListingDate } from '@/lib/marketplace-format';
 export const dynamic = 'force-dynamic';
 
 interface AdminChatsPageProps {
-  searchParams?: Promise<{ q?: string; page?: string }>;
+  searchParams?: Promise<{ q?: string; page?: string; tab?: string }>;
 }
 
 /**
@@ -21,8 +21,12 @@ export default async function AdminChatsPage({ searchParams }: AdminChatsPagePro
   const params = searchParams ? await searchParams : {};
   const query = params.q?.trim() ?? '';
   const page = parsePage(params.page);
+  // O'chirilgan chatlar ALOHIDA tabda: toza ro'yxat ichida aralashib
+  // yurishi chalg'itardi. Ular yo'q qilinmaydi — nizo chiqqanda shu
+  // yerdan ochib ko'rish mumkin.
+  const deleted = params.tab === 'deleted';
 
-  const result = await getAdminChats(query, page);
+  const result = await getAdminChats(query, page, 20, deleted);
   if (!result.ok) {
     return <ApiErrorPanel title="Chatlar yuklanmadi" error={result.error} />;
   }
@@ -36,8 +40,34 @@ export default async function AdminChatsPage({ searchParams }: AdminChatsPagePro
           <p className="mt-1 text-sm text-muted-foreground">
             Oluvchi va sotuvchi yozishmalari. Anonim ko&apos;rasiz — xabarlar o&apos;qilgan deb belgilanmaydi.
           </p>
+          <nav className="mt-3 flex flex-wrap items-center gap-1.5">
+            {[
+              { value: 'active', label: 'Faol' },
+              { value: 'deleted', label: "O'chirilgan" },
+            ].map((tab) => {
+              const isActive = tab.value === (deleted ? 'deleted' : 'active');
+              const href = `/admin/chats?${new URLSearchParams({
+                ...(query ? { q: query } : {}),
+                ...(tab.value === 'deleted' ? { tab: 'deleted' } : {}),
+              }).toString()}`;
+              return (
+                <Link
+                  key={tab.value}
+                  href={href}
+                  className={
+                    isActive
+                      ? 'rounded-full border border-primary bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground'
+                      : 'rounded-full border border-border bg-card px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                  }
+                >
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
         <form action="/admin/chats" className="flex w-full max-w-xs items-center gap-2">
+          {deleted && <input type="hidden" name="tab" value="deleted" />}
           <label className="relative flex-1">
             <span className="sr-only">Ism bo&apos;yicha qidirish</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -56,7 +86,11 @@ export default async function AdminChatsPage({ searchParams }: AdminChatsPagePro
 
       {content.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          {query ? 'Bu qidiruv bo‘yicha chat topilmadi.' : 'Hali chat yo‘q.'}
+          {query
+            ? 'Bu qidiruv bo‘yicha chat topilmadi.'
+            : deleted
+              ? 'O‘chirilgan chat yo‘q.'
+              : 'Hali chat yo‘q.'}
         </p>
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
@@ -87,7 +121,11 @@ export default async function AdminChatsPage({ searchParams }: AdminChatsPagePro
         page={page}
         totalPages={totalPages}
         buildHref={(target) =>
-          `/admin/chats?${new URLSearchParams({ ...(query ? { q: query } : {}), page: String(target) }).toString()}`
+          `/admin/chats?${new URLSearchParams({
+            ...(query ? { q: query } : {}),
+            ...(deleted ? { tab: 'deleted' } : {}),
+            page: String(target),
+          }).toString()}`
         }
       />
     </div>

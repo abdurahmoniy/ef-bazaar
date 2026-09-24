@@ -16,12 +16,16 @@ import uz.efbazaar.marketplace.security.AuthNameClient;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,6 +41,7 @@ class ChatServiceTest {
     @Mock uz.efbazaar.marketplace.trust.BlacklistGuard blacklistGuard;
     @Mock ChatAccountRequestService accountRequests;
     @Mock uz.efbazaar.marketplace.security.AuthSummaryClient telegramUsers;
+    @Mock TradeLiveClient tradeLive;
     @InjectMocks ChatService service;
 
     private UUID sellerId;
@@ -179,20 +184,69 @@ class ChatServiceTest {
         assertThat(chat.isImportant()).isTrue(); // aggregate: either side starred
     }
 
+    /**
+     * O'chirish suhbatni IKKALA taraf uchun ham nolga qaytaradi.
+     *
+     * <p>Ilgari faqat yashirar edi: keyingi xabar bayroqni tozalab, butun
+     * eski tarixni qaytarardi. Juftlik boshqa akkount ustida yangi suhbat
+     * boshlaganda eskisi, jumladan tugagan savdolar statuslari, ko'rinib
+     * turardi.
+     */
     @Test
-    void hide_setsMyHiddenAtOnly() {
+    void clearHistory_resetsTheConversationForBothSides() {
         UUID chatId = UUID.randomUUID();
         Chat chat = Chat.builder()
                 .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
                 .build();
-        ChatParticipant mine = ChatParticipant.builder()
-                .chatId(chatId).userId(buyerId).build();
+        ChatParticipant mine = ChatParticipant.builder().chatId(chatId).userId(buyerId).build();
+        ChatParticipant partner = ChatParticipant.builder().chatId(chatId).userId(sellerId).build();
         when(chats.findById(chatId)).thenReturn(Optional.of(chat));
-        when(participants.findByChatIdAndUserId(chatId, buyerId)).thenReturn(Optional.of(mine));
+        when(participants.findByChatId(chatId)).thenReturn(List.of(mine, partner));
+        when(tradeLive.hasLiveTrade(chatId)).thenReturn(false);
 
-        service.hide(chatId, buyerId);
+        service.clearHistory(chatId, buyerId);
 
+        assertThat(chat.getClearedAt()).isNotNull();
         assertThat(mine.getHiddenAt()).isNotNull();
+        assertThat(partner.getHiddenAt()).isNotNull();
+    }
+
+    @Test
+    void clearHistory_isRefusedWhileATradeIsRunning() {
+        // Savdo paneli baribir trade-service'dan keladi, lekin kelishuv
+        // yozishmasining yo'qolishi nizoni hal qilib bo'lmas holga keltiradi.
+        UUID chatId = UUID.randomUUID();
+        Chat chat = Chat.builder()
+                .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
+                .build();
+        when(chats.findById(chatId)).thenReturn(Optional.of(chat));
+        when(tradeLive.hasLiveTrade(chatId)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.clearHistory(chatId, buyerId))
+                .isInstanceOf(uz.efbazaar.marketplace.exception.MarketplaceException.class);
+
+        assertThat(chat.getClearedAt()).isNull();
+    }
+
+    @Test
+    void listMessages_hidesWhatWasClearedButKeepsTheRest() {
+        // Xabarlar o'chirilmaydi — faqat ko'rsatilmaydi. Admin panelida
+        // nizo uchun ochib ko'rish mumkin bo'lishi kerak.
+        UUID chatId = UUID.randomUUID();
+        Instant clearedAt = Instant.now().minusSeconds(60);
+        Chat chat = Chat.builder()
+                .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
+                .clearedAt(clearedAt)
+                .build();
+        when(chats.findById(chatId)).thenReturn(Optional.of(chat));
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        when(messages.findByChatIdAndCreatedAtAfterOrderByCreatedAtAsc(chatId, clearedAt, pageable))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        service.listMessages(chatId, buyerId, pageable);
+
+        verify(messages).findByChatIdAndCreatedAtAfterOrderByCreatedAtAsc(chatId, clearedAt, pageable);
+        verify(messages, never()).findByChatIdOrderByCreatedAtAsc(any(), any());
     }
 
     @Test

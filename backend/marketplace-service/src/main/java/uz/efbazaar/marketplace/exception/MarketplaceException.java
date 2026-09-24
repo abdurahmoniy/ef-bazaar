@@ -26,6 +26,17 @@ public class MarketplaceException extends RuntimeException {
      * <p>O'chirish e'lonni ham olib tashlagan bo'lardi, lekin buni
      * foydalanuvchi so'ramagan — u ikkita alohida qaror.
      */
+    /**
+     * Savdo davom etayotganda chat tarixini tozalash rad etiladi.
+     *
+     * <p>Savdo paneli baribir trade-service'dan keladi, lekin kelishuv
+     * yozishmasining yo'qolishi nizoni hal qilib bo'lmas holga keltiradi.
+     */
+    public static MarketplaceException chatHasLiveTrade() {
+        return new MarketplaceException(HttpStatus.CONFLICT, "chat_has_live_trade",
+                "Bu chatda savdo davom etmoqda — tugagach o'chirsa bo'ladi");
+    }
+
     public static MarketplaceException accountOnMarket() {
         return new MarketplaceException(HttpStatus.CONFLICT, "account_on_market",
                 "Akkount bozorda turibdi. Avval uni bozordan oling");

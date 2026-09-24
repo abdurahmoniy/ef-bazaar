@@ -23,6 +23,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -69,20 +70,20 @@ class AdminChatServiceTest {
     @Test
     void anEmptySearchListsEveryChat() {
         Page<Chat> page = new PageImpl<>(List.of(chat()));
-        when(chats.findAllByOrderByLastMessageAtDesc(any())).thenReturn(page);
+        when(chats.findForAdmin(eq(false), any())).thenReturn(page);
 
-        assertThat(service.list("  ", 0, 20).content()).hasSize(1);
-        verify(chats, never()).searchByName(any(), any());
+        assertThat(service.list("  ", false, 0, 20).content()).hasSize(1);
+        verify(chats, never()).searchForAdmin(any(), anyBoolean(), any());
     }
 
     @Test
     void theUsernameIsPreferredOverTheNameSnapshot() {
         Chat c = chat();
-        when(chats.findAllByOrderByLastMessageAtDesc(any())).thenReturn(new PageImpl<>(List.of(c)));
+        when(chats.findForAdmin(eq(false), any())).thenReturn(new PageImpl<>(List.of(c)));
         when(users.resolveAll(anyCollection())).thenReturn(Map.of(
                 c.getBuyerId(), new UserSummary(c.getBuyerId(), "Ali", "ali_uz", 1L, true, Instant.now(), false)));
 
-        var row = service.list(null, 0, 20).content().getFirst();
+        var row = service.list(null, false, 0, 20).content().getFirst();
 
         assertThat(row.buyerName()).isEqualTo("@ali_uz");
         assertThat(row.sellerName()).as("auth did not know the seller — the snapshot stands in").isEqualTo("Vali");
