@@ -94,6 +94,120 @@ describe('seller proposal trade types', () => {
     );
   }
 
+  async function enterAmount(selector: string, value: string) {
+    const input = dialog().querySelector<HTMLInputElement>(selector)!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    return input;
+  }
+
+  for (const kind of ['SALE', 'SWAP_SURCHARGE'] as const) {
+    it.each(['', '0', '-1', '1', '4999', '1.5', '1e3', '9007199254740992', '1e309', ...(kind === 'SALE' ? ['5000'] : [])])(
+      `blocks invalid ${kind} amount %s with an inline error`, async value => {
+        prepareProposal('BOTH');
+        vi.stubGlobal('fetch', vi.fn());
+        await render();
+        if (kind === 'SWAP_SURCHARGE') await act(async () => buttonWith('Obmen + doplata').click());
+        const input = await enterAmount(kind === 'SALE' ? '#trade-price' : '#swap-surcharge', value);
+        expect(input.getAttribute('aria-invalid')).toBe('true');
+        const errorId = input.getAttribute('aria-describedby');
+        expect(errorId).toBeTruthy();
+        expect(document.getElementById(errorId!)?.textContent).toBeTruthy();
+        expect(dialog().querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(true);
+        await act(async () => dialog().querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+        expect(fetch).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([kind === 'SALE' ? '5001' : '5000', '10000', '25000', '9007199254740991'])(`sends valid ${kind} amount %s after correction`, async value => {
+      prepareProposal('BOTH');
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ proposalId: 'proposal', expiresAt: '' })));
+      await render();
+      if (kind === 'SWAP_SURCHARGE') await act(async () => buttonWith('Obmen + doplata').click());
+      const selector = kind === 'SALE' ? '#trade-price' : '#swap-surcharge';
+      await enterAmount(selector, '-1');
+      const input = await enterAmount(selector, value);
+      expect(input.getAttribute('aria-invalid')).not.toBe('true');
+      expect(dialog().querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(false);
+      await act(async () => dialog().querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+      if (kind === 'SALE' && value === '5001') {
+        expect(fetch).not.toHaveBeenCalled();
+        await act(async () => buttonWith('Ha, roziman').click());
+      }
+      const payload = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
+      expect(payload).toMatchObject({ amountUzs: Number(value), kind });
+    });
+  }
+
+  it.each(['5001', '7000', '9999'])('asks for consent before sending a %s sale with proceeds below the fee', async value => {
+    prepareProposal('BOTH');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ proposalId: 'proposal', expiresAt: '' })));
+    await render();
+    await enterAmount('#trade-price', value);
+    await act(async () => dialog().querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    expect(fetch).not.toHaveBeenCalled();
+    expect(dialog().textContent).toContain('Smart-admin xizmat haqi sizga qoladigan summadan ko‘p');
+    expect(dialog().textContent).toContain('5 000');
+    expect(dialog().textContent).toContain('Sizga qoladi');
+    await act(async () => buttonWith('Ha, roziman').click());
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toMatchObject({ amountUzs: Number(value), kind: 'SALE' });
+  });
+
+  it('cancels the warning without sending and lets the seller adjust the price', async () => {
+    prepareProposal('BOTH');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ proposalId: 'proposal', expiresAt: '' })));
+    await render();
+    await enterAmount('#trade-price', '7000');
+    await act(async () => dialog().querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    await act(async () => buttonWith('Bekor qilish').click());
+    expect(fetch).not.toHaveBeenCalled();
+    expect(dialog().querySelector<HTMLInputElement>('#trade-price')!.value).toBe('7000');
+    await enterAmount('#trade-price', '10000');
+    await act(async () => dialog().querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('bases the warning on the configured fee rather than a fixed 10000 threshold', async () => {
+    prepareProposal('BOTH');
+    context.commissionConfig = { id: 'DEFAULT', bandSom: 100000, lowRatePercent: 10,
+      highRatePercent: 7.5, lowMinSom: 15000, highMinSom: 20000, active: true, updatedAt: '' };
+    vi.stubGlobal('fetch', vi.fn());
+    await render();
+    await enterAmount('#trade-price', '25000');
+    await act(async () => dialog().querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    expect(fetch).not.toHaveBeenCalled();
+    expect(dialog().textContent).toContain('15 000');
+    expect(dialog().textContent).toContain('10 000');
+    expect(buttonWith('Ha, roziman')).toBeDefined();
+  });
+
+  it('uses the configured Smart-admin fee when checking seller proceeds', async () => {
+    prepareProposal('BOTH');
+    context.commissionConfig = { id: 'DEFAULT', bandSom: 100000, lowRatePercent: 10,
+      highRatePercent: 7.5, lowMinSom: 15000, highMinSom: 20000, active: true, updatedAt: '' };
+    await render();
+    await enterAmount('#trade-price', '15000');
+    expect(dialog().querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(true);
+    expect(document.getElementById('trade-price-error')?.textContent).toContain('Smart-admin');
+    await enterAmount('#trade-price', '15001');
+    expect(dialog().querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(false);
+  });
+
+  it('does not carry invalid price validation into a plain swap', async () => {
+    prepareProposal('BOTH');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ proposalId: 'proposal', expiresAt: '' })));
+    await render();
+    await enterAmount('#trade-price', '-1');
+    await act(async () => buttonWith('Obmen').click());
+    expect(dialog().querySelector('[aria-invalid="true"]')).toBeNull();
+    expect(dialog().querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(false);
+    await act(async () => dialog().querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toMatchObject({ amountUzs: 0, kind: 'SWAP' });
+  });
+
   it('sends a swap on a sale-only listing with the seller and buyer preserved', async () => {
     prepareProposal('NONE', true);
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ proposalId: 'proposal', expiresAt: '' })));

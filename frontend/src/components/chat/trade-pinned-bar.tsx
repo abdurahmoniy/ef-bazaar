@@ -1,4 +1,5 @@
 'use client';
+import { TradeProposalRejectButton } from './trade-proposal-reject-button';
 
 import {
   CheckCircle2,
@@ -100,7 +101,8 @@ export function TradePinnedBar() {
             </div>
           </button>
 
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex max-w-[65%] shrink-0 flex-wrap items-center justify-end gap-1.5">
+            <TradeProposalRejectButton />
             {canAcceptTradeProposal(proposal, viewerId) && (
               <Button
                 type="button"

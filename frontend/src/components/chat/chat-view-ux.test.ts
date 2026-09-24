@@ -38,6 +38,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (input: string) => {
     const path = String(input);
     if (path.includes('/proposals?')) return pendingProposal ? Response.json(pendingProposal) : new Response(null, { status: 404 });
+    if (path.endsWith('/wallet')) return Response.json({ availableTiyin: 2500000 });
     if (path.endsWith('/account-request')) return Response.json(request);
     if (path.endsWith('/partner-listings')) return Response.json([{ ...listing, coverMessageId: null }]);
     if (path.startsWith('/api/trade/v1/trades?')) return Response.json([]);
@@ -188,7 +189,7 @@ describe('first-contact chat', () => {
     await render('buyer', true);
     await click(findButton('Qabul qilish'));
     expect(dialogs()).toHaveLength(1);
-    expect(dialogs()[0].textContent).toContain('Tasdiqlash');
+    expect(dialogs()[0].textContent).toContain('to‘lash va boshlash');
     await click(findButton('Yopish', dialogs()[0]));
     expect(dialogs()).toHaveLength(0);
   });

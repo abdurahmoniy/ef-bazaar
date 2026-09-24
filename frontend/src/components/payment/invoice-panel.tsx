@@ -40,6 +40,8 @@ async function writeClipboard(value: string): Promise<boolean> {
 
 interface InvoicePanelProps {
   invoice: InvoiceResponse;
+  /** Less nesting and smaller card digits when embedded in a chat dialog. */
+  compact?: boolean;
   onExpired: () => void;
   /**
    * Clears the panel. Optional so a static render still works, but on the
@@ -62,7 +64,7 @@ interface InvoicePanelProps {
  * able to finish or verify a transfer that is already in flight. Only the
  * explicit "Yangi so'rov" button clears it.
  */
-export function InvoicePanel({ invoice, onExpired, onDismiss }: InvoicePanelProps) {
+export function InvoicePanel({ invoice, onExpired, onDismiss, compact = false }: InvoicePanelProps) {
   const secondsLeft = useCountdown(invoice.expiresAt);
   const [copied, setCopied] = useState<CopyTarget | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -93,7 +95,8 @@ export function InvoicePanel({ invoice, onExpired, onDismiss }: InvoicePanelProp
   return (
     <section
       className={cn(
-        'overflow-hidden rounded-2xl border border-border/80 bg-card p-4 shadow-sm sm:p-6 transition-all',
+        'overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm transition-all',
+        compact ? 'p-3' : 'p-4 sm:p-6',
         !running && 'opacity-85',
       )}
     >
@@ -133,7 +136,7 @@ export function InvoicePanel({ invoice, onExpired, onDismiss }: InvoicePanelProp
       </p>
 
       {/* Recipient Card Simulation */}
-      <div className="mt-4 rounded-2xl border border-border/80 bg-gradient-to-br from-primary/5 via-muted/30 to-card p-4 sm:p-5 shadow-2xs">
+      <div className={cn('mt-4 rounded-2xl border border-border/80 bg-gradient-to-br from-primary/5 via-muted/30 to-card shadow-2xs', compact ? 'p-3' : 'p-4 sm:p-5')}>
         <dl className="space-y-4">
           <div>
             <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
@@ -144,10 +147,10 @@ export function InvoicePanel({ invoice, onExpired, onDismiss }: InvoicePanelProp
               <button
                 type="button"
                 onClick={() => copy(invoice.pan, 'pan')}
-                className="tap-press group flex w-full items-center justify-between rounded-xl border border-border/70 bg-card/90 px-3.5 py-2.5 font-mono text-lg font-bold tracking-wider text-foreground hover:border-primary/50 hover:bg-card shadow-2xs transition sm:text-xl"
+                className={cn('tap-press group flex w-full items-center justify-between rounded-xl border border-border/70 bg-card/90 px-3.5 py-2.5 font-mono font-bold text-foreground hover:border-primary/50 hover:bg-card shadow-2xs transition', compact ? 'text-sm tracking-normal' : 'text-lg tracking-wider sm:text-xl')}
                 aria-label="Karta raqamidan nusxa olish"
               >
-                <span className="truncate">{formatPanForDisplay(invoice.pan)}</span>
+                <span className={compact ? 'min-w-0 whitespace-normal text-left' : 'truncate'}>{formatPanForDisplay(invoice.pan)}</span>
                 <span className="ml-2 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-muted/80 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition">
                   {copied === 'pan' ? (
                     <Check className="h-4 w-4 text-emerald-500" aria-hidden="true" />

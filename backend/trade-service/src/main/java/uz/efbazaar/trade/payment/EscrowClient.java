@@ -6,6 +6,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
@@ -42,6 +44,45 @@ public class EscrowClient {
         factory.setReadTimeout((int) Duration.ofSeconds(5).toMillis());
         this.http = builder.baseUrl(baseUrl).requestFactory(factory).build();
         this.secret = secret;
+    }
+
+    /** Check today's commission both before offering a sale and before accepting it. */
+    public void validateSaleAmount(long amountUzs) {
+        if (amountUzs < 5000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Eng kam miqdor 5 000 so‘m");
+        }
+        CommissionTerms terms;
+        try {
+            terms = http.get().uri("/api/v1/payments/commission")
+                    .retrieve().body(CommissionTerms.class);
+        } catch (RestClientException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Smart-admin xizmat haqini tekshirib bo‘lmadi");
+        }
+        if (terms == null || !terms.valid()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Smart-admin xizmat haqini tekshirib bo‘lmadi");
+        }
+        boolean low = amountUzs < terms.bandSom();
+        long floor = low ? terms.lowMinSom() : terms.highMinSom();
+        double rate = low ? terms.lowRatePercent() : terms.highRatePercent();
+        // Payment rounds rates to permille. At 100% or below the fee floor,
+        // the commission consumes the whole price; no multiplication needed.
+        if (amountUzs <= floor || Math.round(rate * 10) >= 1000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Smart-admin xizmatidan keyin sizga 0 so‘m qoladi. Sotuv summasini oshiring.");
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record CommissionTerms(Long bandSom, Double lowRatePercent, Double highRatePercent,
+                                   Long lowMinSom, Long highMinSom) {
+        boolean valid() {
+            return bandSom != null && bandSom > 0 && lowMinSom != null && lowMinSom >= 0
+                    && highMinSom != null && highMinSom >= 0
+                    && lowRatePercent != null && Double.isFinite(lowRatePercent)
+                    && lowRatePercent >= 0 && lowRatePercent <= 100
+                    && highRatePercent != null && Double.isFinite(highRatePercent)
+                    && highRatePercent >= 0 && highRatePercent <= 100;
+        }
     }
 
     /**

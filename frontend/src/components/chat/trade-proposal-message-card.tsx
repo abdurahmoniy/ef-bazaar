@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { TradeProposalRejectButton } from './trade-proposal-reject-button';
 import React, { useEffect } from 'react';
 import { CheckCircle2, Clock, Handshake, ShieldCheck, XCircle } from 'lucide-react';
 
@@ -21,9 +22,9 @@ interface TradeProposalMessageCardProps {
 
 export function TradeProposalMessageCard({ message, viewerId }: TradeProposalMessageCardProps) {
   const { requiresAdminHandoff, proposal, listing, accountRequest,
-    setShowAcceptModal, openProposal, viewedProposal } = useTradeContext();
+    setShowAcceptModal, openProposal, viewedProposal, rejectedProposalIds } = useTradeContext();
   const isMine = message.senderId === viewerId;
-  const { matching, price, kind, listingId, outcome } = tradeProposalDetails(message, proposal);
+  const { matching, price, kind, listingId, outcome } = tradeProposalDetails(message, proposal, rejectedProposalIds?.has(message.proposalId ?? ''));
   const ownListing = listingId ? [listing, accountRequest?.listing].find(item => item?.id === listingId) : null;
   // Keep the selected request current when chat receives its resolution event.
   useEffect(() => {
@@ -96,6 +97,7 @@ export function TradeProposalMessageCard({ message, viewerId }: TradeProposalMes
         ) : outcome === 'UNKNOWN' ? (
           <p className="text-xs text-muted-foreground">Bu taklifning joriy holati tasdiqlanmagan.</p>
         ) : null}
+        <TradeProposalRejectButton message={message} />
         <TradeProposalRetryButton message={message} />
         <Button type="button" size="sm" variant="outline" className="min-h-11 w-full" onClick={() => openProposal(message)}>
           Batafsil
