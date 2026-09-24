@@ -1,9 +1,6 @@
 package uz.efbazaar.trade.ws;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
-import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -21,11 +18,13 @@ import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
 import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.domain.TradeState;
-import uz.efbazaar.trade.trade.dto.TradeResponse;
+import uz.efbazaar.trade.trade.domain.Trade;
+import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
 import uz.efbazaar.trade.trade.service.TradeService;
 
 import java.lang.reflect.Type;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -33,7 +32,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class TradeWebSocketIT extends AbstractIntegrationIT {
@@ -41,31 +39,22 @@ class TradeWebSocketIT extends AbstractIntegrationIT {
     @LocalServerPort int port;
     @Autowired TradeService trades;
     @Autowired TradeRepository tradeRepo;
-    @Autowired KafkaListenerEndpointRegistry listeners;
-
-    @BeforeEach
-    void awaitWorkerSubscriptions() {
-        // With Kafka's default latest offset, opening a trade before the mock
-        // worker is assigned skips its provisioning request permanently.
-        listeners.getListenerContainers().forEach(container -> ContainerTestUtils.waitForAssignment(container, 1));
-    }
-
+    @Autowired MailboxService mailboxes;
 
     @Test
     void sellerReceivesStateChange() throws Exception {
         UUID seller = UUID.randomUUID();
         UUID buyer  = UUID.randomUUID();
 
-        TradeResponse t = trades.openTrade(seller, buyer, 500_000L,
-                UUID.randomUUID(), UUID.randomUUID(), null);
-
-        // MockWorker (Task 14) + EmailProvisionedConsumer race to drive
-        // INITIATED -> WAITING_PAYMENT as soon as openTrade's transaction commits.
-        // Wait that out first so the state is deterministic before we connect —
-        // then drive a TIMEOUT ourselves (a transition no Kafka consumer competes
-        // for) so the WS push we assert on isn't racing live infrastructure.
-        await().atMost(10, TimeUnit.SECONDS).until(() ->
-                tradeRepo.findById(t.id()).orElseThrow().getState() == TradeState.WAITING_EMAIL_CHANGE);
+        // Seed the state under test without provisioning over Kafka. Other
+        // cached Spring contexts share the worker consumer groups in the full
+        // suite, so this context need not own their partitions.
+        Trade t = tradeRepo.save(Trade.builder()
+                .id(UUID.randomUUID()).sellerId(seller).buyerId(buyer)
+                .priceUzs(500_000L).state(TradeState.WAITING_EMAIL_CHANGE)
+                .mailboxId(mailboxes.createPlaceholder("pending-" + UUID.randomUUID() + "@efbazaar.uz"))
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build());
 
         var sockJs = new SockJsClient(List.of(new WebSocketTransport(new StandardWebSocketClient())));
         var stomp = new WebSocketStompClient(sockJs);
@@ -81,18 +70,13 @@ class TradeWebSocketIT extends AbstractIntegrationIT {
                 .get(5, TimeUnit.SECONDS);
 
         BlockingQueue<Object> queue = new ArrayBlockingQueue<>(4);
-        session.subscribe("/topic/trades/" + t.id() + "/seller", new StompFrameHandler() {
+        session.subscribe("/topic/trades/" + t.getId() + "/seller", new StompFrameHandler() {
             @Override public Type getPayloadType(StompHeaders headers) { return java.util.Map.class; }
             @Override public void handleFrame(StompHeaders headers, Object payload) { queue.offer(payload); }
         });
 
-        // TIMEOUT from WAITING_PAYMENT -> ORPHANED is user/system driven only —
-        // no live Kafka consumer competes for it, so this transition is deterministic.
-        // Re-check that we're still in WAITING_PAYMENT before firing TIMEOUT
-        // (the trade's WAITING_PAYMENT deadline might have already expired).
-        await().atMost(10, TimeUnit.SECONDS).until(() ->
-                tradeRepo.findById(t.id()).orElseThrow().getState() == TradeState.WAITING_EMAIL_CHANGE);
-        trades.transition(t.id(), TradeEvent.TIMEOUT, ActorType.SYSTEM, null);
+        // No provisioning request or deadline can advance this fixture.
+        trades.transition(t.getId(), TradeEvent.TIMEOUT, ActorType.SYSTEM, null);
 
         Object frame = queue.poll(5, TimeUnit.SECONDS);
         assertThat(frame).isNotNull();
