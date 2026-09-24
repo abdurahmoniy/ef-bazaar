@@ -16,6 +16,7 @@ import uz.efbazaar.marketplace.service.ListingViewAssembler;
 import java.util.UUID;
 
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -25,6 +26,40 @@ class AdminListingControllerTest {
     @Autowired MockMvc mvc;
     @MockBean ListingService listings;
     @MockBean ListingViewAssembler assembler;
+
+    /**
+     * Katalogni egasi bo'yicha suzish.
+     *
+     * <p>Nizo yoki shikoyat kelganda admin "shu odamning e'lonlari" ni
+     * ko'rishi kerak. Ilgari yagona filtr status edi va bitta sotuvchini
+     * topish uchun butun katalogni varaqlashdan boshqa yo'l yo'q edi.
+     */
+    @Test
+    void theCatalogueCanBeNarrowedToOneOwner() throws Exception {
+        UUID adminId = UUID.randomUUID();
+        UUID owner = UUID.randomUUID();
+        when(listings.findForAdmin(eq(null), eq(owner), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        mvc.perform(get("/api/v1/admin/listings").param("ownerId", owner.toString())
+                        .header("X-User-Id", adminId.toString()).header("X-User-Roles", "ROLE_ADMIN"))
+                .andExpect(status().isOk());
+
+        verify(listings).findForAdmin(eq(null), eq(owner), any());
+    }
+
+    @Test
+    void withoutAnOwnerTheWholeCatalogueIsReturned() throws Exception {
+        UUID adminId = UUID.randomUUID();
+        when(listings.findForAdmin(any(), eq(null), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        mvc.perform(get("/api/v1/admin/listings")
+                        .header("X-User-Id", adminId.toString()).header("X-User-Roles", "ROLE_ADMIN"))
+                .andExpect(status().isOk());
+
+        verify(listings).findForAdmin(eq(null), eq(null), any());
+    }
 
     @Test
     void adminCanMarkAnotherSellersListingSold() throws Exception {

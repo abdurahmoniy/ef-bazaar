@@ -273,9 +273,12 @@ export async function getAdminListings(
   status?: ListingStatus,
   page = 0,
   size = 20,
+  /** Bitta sotuvchining e'lonlari — nizo va shikoyatlarni ko'rish uchun. */
+  ownerId?: string,
 ): Promise<FetchResult<PageResponse<ListingResponse>>> {
   const params = new URLSearchParams({ page: String(page), size: String(size), sort: 'createdAt,desc' });
   if (status) params.set('status', status);
+  if (ownerId) params.set('ownerId', ownerId);
   return safeFetch<PageResponse<ListingResponse>>(
     `${MARKETPLACE_PREFIX}/admin/listings?${params.toString()}`,
   );
