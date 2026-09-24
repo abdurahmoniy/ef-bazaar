@@ -80,6 +80,7 @@ class MarketplaceApplicationTests {
     @MockBean uz.efbazaar.marketplace.account.PendingAccountEmailRepository pendingAccountEmailRepository;
     @MockBean KafkaTemplate<String, Object> kafkaTemplate;
     @MockBean StringRedisTemplate stringRedisTemplate;
+    @MockBean(name = "chatRedisListener") org.springframework.data.redis.listener.RedisMessageListenerContainer chatRedisListener;
     // gamer paketi (Gamer Card projection)
     @MockBean uz.efbazaar.marketplace.gamer.GamerRepositories.GamerStatsRepository gamerStatsRepository;
     @MockBean uz.efbazaar.marketplace.gamer.GamerRepositories.GamerStatsMatchRepository gamerStatsMatchRepository;

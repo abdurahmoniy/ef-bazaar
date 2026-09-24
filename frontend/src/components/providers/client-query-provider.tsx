@@ -5,7 +5,8 @@ import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 
 import { clearOtherAccountQueries, PRIVATE_CACHE_GC_TIME_MS } from '@/lib/chat-cache';
-import { usePresenceHeartbeat } from '@/hooks/use-chat-activity';
+import { connectChatCache } from '@/lib/chat-realtime-cache';
+import { closeOtherChatSockets } from '@/lib/chat-socket';
 
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -19,17 +20,24 @@ export function ClientQueryProvider({ children }: { children: ReactNode }) {
   }));
   useIsomorphicLayoutEffect(() => {
     // Logout redirects to the public homepage, which has no identity shell.
-    if (pathname === '/' || pathname.startsWith('/auth/')) clearOtherAccountQueries(client, null);
+    if (pathname === '/' || pathname.startsWith('/auth/')) {
+      clearOtherAccountQueries(client, null);
+      closeOtherChatSockets(null);
+    }
   }, [client, pathname]);
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
 /** Mounted by authenticated shells and by the signed-out marketplace shell. */
 export function SessionCacheBoundary({ accountId }: { accountId: string | null }) {
-  usePresenceHeartbeat(accountId);
   const client = useQueryClient();
   useIsomorphicLayoutEffect(() => {
     clearOtherAccountQueries(client, accountId);
+    closeOtherChatSockets(accountId);
+  }, [accountId, client]);
+  useEffect(() => {
+    if (!accountId) return;
+    return connectChatCache(client, accountId);
   }, [accountId, client]);
   return null;
 }

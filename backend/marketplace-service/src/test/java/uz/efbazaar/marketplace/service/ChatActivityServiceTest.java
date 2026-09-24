@@ -25,11 +25,14 @@ class ChatActivityServiceTest {
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
     @SuppressWarnings("unchecked")
     private final ValueOperations<String, String> values = mock(ValueOperations.class);
+    @SuppressWarnings("unchecked")
+    private final org.springframework.data.redis.core.ZSetOperations<String, String> leases = mock(org.springframework.data.redis.core.ZSetOperations.class);
     private ChatActivityService service;
 
     @BeforeEach void setup() {
         service = new ChatActivityService(chats, participants, redis, Clock.fixed(now, ZoneOffset.UTC));
         when(redis.opsForValue()).thenReturn(values);
+        when(redis.opsForZSet()).thenReturn(leases);
         when(chats.findById(chatId)).thenReturn(Optional.of(Chat.builder().id(chatId).buyerId(viewer).sellerId(partner).build()));
     }
     @Test void heartbeatUsesServerTimeAndRetainsLastSeenForTwoDays() {
@@ -41,7 +44,8 @@ class ChatActivityServiceTest {
         Instant read = now.minusSeconds(80);
         when(participants.findByChatIdAndUserId(chatId, partner)).thenReturn(Optional.of(ChatParticipant.builder().lastReadAt(read).build()));
         when(values.get("chat:presence:" + partner)).thenReturn(now.minusSeconds(40).toString());
-        when(values.get("chat:typing:" + chatId + ":" + partner)).thenReturn(now.minusSeconds(5).toString());
+        when(leases.count("chat:presence-sessions:" + partner, now.toEpochMilli() + 1, Double.POSITIVE_INFINITY)).thenReturn(1L);
+        when(leases.count("chat:typing-sessions:" + chatId + ":" + partner, now.toEpochMilli() + 1, Double.POSITIVE_INFINITY)).thenReturn(1L);
         var activity = service.activity(chatId, viewer);
         assertThat(activity.online()).isTrue();
         assertThat(activity.typing()).isTrue();
@@ -51,7 +55,7 @@ class ChatActivityServiceTest {
     }
     @Test void staleHeartbeatAndTypingExpireWithoutDisconnect() {
         when(values.get("chat:presence:" + partner)).thenReturn(now.minusSeconds(41).toString());
-        when(values.get("chat:typing:" + chatId + ":" + partner)).thenReturn(now.minusSeconds(6).toString());
+
         var activity = service.activity(chatId, viewer);
         assertThat(activity.online()).isFalse();
         assertThat(activity.typing()).isFalse();
@@ -66,6 +70,7 @@ class ChatActivityServiceTest {
     }
     @Test void sellerSeesBuyerActivity() {
         when(values.get("chat:presence:" + viewer)).thenReturn(now.toString());
+        when(leases.count("chat:presence-sessions:" + viewer, now.toEpochMilli() + 1, Double.POSITIVE_INFINITY)).thenReturn(1L);
         assertThat(service.activity(chatId, partner).online()).isTrue();
     }
     @Test void strangersCannotReadActivityOrWriteTyping() {
@@ -76,9 +81,9 @@ class ChatActivityServiceTest {
     }
     @Test void typingUsesSixSecondExpiryAndCanBeCleared() {
         service.typing(chatId, viewer, true);
-        verify(values).set("chat:typing:" + chatId + ":" + viewer, now.toString(), Duration.ofSeconds(6));
+        verify(leases).add("chat:typing-sessions:" + chatId + ":" + viewer, "http", now.plusSeconds(6).toEpochMilli());
         service.typing(chatId, viewer, false);
-        verify(redis).delete("chat:typing:" + chatId + ":" + viewer);
+        verify(leases).remove("chat:typing-sessions:" + chatId + ":" + viewer, "http");
     }
     @Test void redisFailureIsNotReportedAsOffline() {
         when(values.get(anyString())).thenThrow(new RedisConnectionFailureException("unavailable"));

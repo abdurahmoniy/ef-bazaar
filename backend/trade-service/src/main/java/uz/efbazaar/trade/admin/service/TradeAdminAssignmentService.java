@@ -1,6 +1,7 @@
 package uz.efbazaar.trade.admin.service;
 
 import lombok.RequiredArgsConstructor;
+import uz.efbazaar.trade.kafka.ChatChangePublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -41,6 +42,7 @@ public class TradeAdminAssignmentService {
     private final TradeStepMarkRepository steps;
     private final TradeChatService chatService;
     private final TradeEventPublisher events;
+    private final ChatChangePublisher changes;
 
     /**
      * Same knob {@code TradeStateHandler} uses to arm {@code WAITING_ADMIN} on
@@ -150,6 +152,7 @@ public class TradeAdminAssignmentService {
         trades.save(t);
 
         events.adminInvited(t);
+        changes.publish(t.getChatId());
     }
 
     @Transactional(readOnly = true)

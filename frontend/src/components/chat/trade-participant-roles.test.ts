@@ -1,3 +1,4 @@
+import { socketFixture } from '@/test/chat-socket-fixture';
 // @vitest-environment jsdom
 import { act, createElement, Fragment } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -201,3 +202,9 @@ it.each(['WAITING_EMAIL_CHANGE', 'SUCCESS'] as const)('keeps a new %s trade afte
   expect(state.trades?.map(trade => trade.id)).toEqual(['new-trade']);
   expect((state.activeTrade ?? state.lastFinished)?.id).toBe('new-trade');
 });
+
+vi.mock('@/lib/chat-socket', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/chat-socket')>(),
+  getChatSocket: () => socketFixture,
+  closeOtherChatSockets: () => {},
+}));

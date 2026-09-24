@@ -57,6 +57,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
 
     boolean existsByProposalId(UUID proposalId);
 
+    Optional<ChatMessage> findFirstByProposalId(UUID proposalId);
+
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("""
             UPDATE ChatMessage m

@@ -2,55 +2,42 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { useChatActivity, usePresenceHeartbeat } from './use-chat-activity';
+import { useChatActivity, type ChatActivity } from './use-chat-activity';
 
+const socket = vi.hoisted(() => ({ request: vi.fn(async () => null), watch: vi.fn() }));
+vi.mock('@/lib/chat-socket', () => ({ getChatSocket: () => socket }));
 let root: Root;
 let state: ReturnType<typeof useChatActivity>;
+let publish: (activity: ChatActivity | null) => void;
 let hidden = false;
-let online = true;
-let status = 200;
-function Probe() { state = useChatActivity('chat'); usePresenceHeartbeat('viewer'); return null; }
+function Probe() { state = useChatActivity('chat', 'viewer'); return null; }
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-  vi.useFakeTimers(); hidden = false; online = true; status = 200;
+  vi.useFakeTimers(); hidden = false; socket.request.mockClear();
+  socket.watch.mockImplementation((_chat, listener) => { publish = listener; return () => {}; });
   vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => hidden ? 'hidden' : 'visible');
-  vi.spyOn(navigator, 'onLine', 'get').mockImplementation(() => online);
-  vi.stubGlobal('fetch', vi.fn(async (input: string) => String(input).endsWith('/activity')
-    ? status === 200 ? Response.json({ online: true, typing: true, lastSeenAt: '2026-09-24T10:00:00Z', lastReadAt: '2026-09-24T09:00:00Z' }) : new Response(null, { status })
-    : new Response(null, { status: 204 })));
   root = createRoot(document.createElement('div'));
 });
-afterEach(async () => { await act(async () => root.unmount()); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(async () => { await act(async () => root.unmount()); vi.useRealTimers(); vi.restoreAllMocks(); });
 const mount = async () => act(async () => root.render(createElement(Probe)));
-const posts = () => vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/typing'));
-it('loads actual partner activity and retains confirmed read receipts during an outage', async () => {
-  await mount(); expect(state.activity?.online).toBe(true); expect(state.lastReadAt).toBe('2026-09-24T09:00:00Z');
-  status = 503;
-  await act(async () => vi.advanceTimersByTimeAsync(3000));
+it('receives partner activity over the socket and retains confirmed reads when disconnected', async () => {
+  await mount();
+  await act(async () => publish({ online: true, typing: true, lastSeenAt: null, lastReadAt: '2026-09-24T09:00:00Z' }));
+  expect(state.activity?.online).toBe(true); expect(state.lastReadAt).toBe('2026-09-24T09:00:00Z');
+  await act(async () => publish(null));
   expect(state.activity).toBeNull(); expect(state.lastReadAt).toBe('2026-09-24T09:00:00Z');
 });
-it('pauses activity and heartbeat while hidden or offline, resuming on visibility', async () => {
-  await mount(); vi.mocked(fetch).mockClear(); hidden = true;
-  await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await vi.advanceTimersByTimeAsync(45000); });
-  expect(fetch).not.toHaveBeenCalled(); expect(state.activity).toBeNull();
-  hidden = false; online = false;
-  await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await vi.advanceTimersByTimeAsync(15000); });
-  expect(fetch).not.toHaveBeenCalled();
-  online = true; await act(async () => window.dispatchEvent(new Event('online')));
-  expect(state.activity?.online).toBe(true);
-  expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith('/presence'))).toBe(true);
-});
-it('only publishes typing from input, throttles keystrokes, and stops after inactivity', async () => {
-  await mount(); expect(posts()).toHaveLength(0);
+it('never polls activity and only sends typing from input, throttled and stopped after inactivity', async () => {
+  await mount(); await act(async () => vi.advanceTimersByTimeAsync(60000)); expect(socket.request).not.toHaveBeenCalled();
   await act(async () => { state.setTyping(true); state.setTyping(true); });
-  expect(posts()).toHaveLength(1);
+  expect(socket.request).toHaveBeenCalledTimes(1);
   await act(async () => vi.advanceTimersByTimeAsync(2000));
-  await act(async () => state.setTyping(true)); expect(posts()).toHaveLength(2);
+  await act(async () => state.setTyping(true)); expect(socket.request).toHaveBeenCalledTimes(2);
   await act(async () => vi.advanceTimersByTimeAsync(4000));
-  expect(JSON.parse(String(posts().at(-1)?.[1]?.body))).toEqual({ typing: false });
+  expect(socket.request).toHaveBeenLastCalledWith('typing', 'chat', { typing: false });
 });
 it('clears typing when the page hides', async () => {
   await mount(); await act(async () => state.setTyping(true)); hidden = true;
   await act(async () => document.dispatchEvent(new Event('visibilitychange')));
-  expect(JSON.parse(String(posts().at(-1)?.[1]?.body))).toEqual({ typing: false });
+  expect(socket.request).toHaveBeenLastCalledWith('typing', 'chat', { typing: false });
 });

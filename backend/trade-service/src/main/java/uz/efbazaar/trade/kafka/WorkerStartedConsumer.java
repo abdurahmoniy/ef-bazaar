@@ -21,6 +21,7 @@ public class WorkerStartedConsumer {
 
     private final TradeChatRepository chats;
     private final TradeMessageRepository messages;
+    private final ChatChangePublisher changes;
 
     @KafkaListener(
             topics = TradeEvents.TOPIC_WORKER_STARTED,
@@ -44,5 +45,6 @@ public class WorkerStartedConsumer {
                             .build())
             );
         }
+        changes.publishForTrade(e.tradeId());
     }
 }

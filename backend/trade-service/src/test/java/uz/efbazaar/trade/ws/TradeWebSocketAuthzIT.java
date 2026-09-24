@@ -1,6 +1,9 @@
 package uz.efbazaar.trade.ws;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
+import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -45,6 +48,15 @@ class TradeWebSocketAuthzIT extends AbstractIntegrationIT {
     @LocalServerPort int port;
     @Autowired TradeService trades;
     @Autowired TradeRepository tradeRepo;
+    @Autowired KafkaListenerEndpointRegistry listeners;
+
+    @BeforeEach
+    void awaitWorkerSubscriptions() {
+        // With Kafka's default latest offset, opening a trade before the mock
+        // worker is assigned skips its provisioning request permanently.
+        listeners.getListenerContainers().forEach(container -> ContainerTestUtils.waitForAssignment(container, 1));
+    }
+
 
     /**
      * Marks the invitation as taken. Deliberately not {@code

@@ -1,6 +1,7 @@
 package uz.efbazaar.trade.admin.service;
 
 import lombok.RequiredArgsConstructor;
+import uz.efbazaar.trade.kafka.ChatChangePublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,7 @@ public class TradeStepService {
     private final TradeChatService chatService;
     private final TradeIdleWatchdog idleWatchdog;
     private final TradeAuditService audit;
+    private final ChatChangePublisher changes;
 
     @Transactional(readOnly = true)
     public List<TradeStepResponse> list(UUID tradeId, UUID viewerId) {
@@ -69,6 +71,7 @@ public class TradeStepService {
             m.setNote(note);
         }
         steps.save(m);
+        changes.publish(t.getChatId());
 
         idleWatchdog.touch(t);
         audit.record(tradeId, ActorType.TRADE_ADMIN, adminId, "STEP_MARKED",
@@ -91,6 +94,7 @@ public class TradeStepService {
         m.setCompletedBy(null);
         m.setNote(null);
         steps.save(m);
+        changes.publish(t.getChatId());
 
         idleWatchdog.touch(t);
         audit.record(tradeId, ActorType.TRADE_ADMIN, adminId, "STEP_UNMARKED",

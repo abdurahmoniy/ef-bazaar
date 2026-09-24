@@ -1,3 +1,4 @@
+import { socketFixture, emitChatEvent } from '@/test/chat-socket-fixture';
 // @vitest-environment jsdom
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -78,7 +79,7 @@ it('stops automatic requests after a permanent failure until explicit retry', as
   expect(state.activeTrade?.id).toBe('trade'); expect(state.loadError).toBeNull();
 });
 
-it('checks empty conversations at a slower cadence without treating expected 404s as failures', async () => {
+it('refreshes empty conversations on a socket event without interval polling', async () => {
   vi.mocked(fetch).mockImplementation(async input => {
     const path = String(input);
     if (path.includes('/proposals?')) return new Response(null, { status: 404 });
@@ -87,7 +88,7 @@ it('checks empty conversations at a slower cadence without treating expected 404
   await mount(); vi.mocked(fetch).mockClear();
   await act(async () => { await vi.advanceTimersByTimeAsync(29_999); });
   expect(fetch).not.toHaveBeenCalled();
-  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(30_001); emitChatEvent({ type: 'changed', chatId: 'chat' }); });
   expect(fetch).toHaveBeenCalledTimes(3); expect(state.loadError).toBeNull();
 });
 
@@ -151,4 +152,25 @@ it('selects each request independently and clears the selection for current-trad
   await act(async () => state.openProposal(first));
   await act(async () => state.setIsDrawerOpen(false));
   expect(state.viewedProposal).toBeNull();
+});
+
+vi.mock('@/lib/chat-socket', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/chat-socket')>(),
+  getChatSocket: () => socketFixture,
+  closeOtherChatSockets: () => {},
+}));
+
+it('refreshes once when a pending proposal expires, without restoring a polling loop', async () => {
+  const expiresAt = new Date(Date.now() + 10000).toISOString();
+  vi.mocked(fetch).mockImplementation(async input => {
+    const path = String(input);
+    if (path.includes('/proposals?')) return Date.now() < Date.parse(expiresAt)
+      ? Response.json({ proposalId: 'pending', amountUzs: 25000, expiresAt }) : new Response(null, { status: 404 });
+    return Response.json(path.includes('/account-request') ? null : []);
+  });
+  await mount(); expect(state.proposal?.id).toBe('pending'); vi.mocked(fetch).mockClear();
+  await act(async () => vi.advanceTimersByTimeAsync(10100));
+  expect(state.proposal).toBeNull(); expect(fetch).toHaveBeenCalledTimes(3);
+  vi.mocked(fetch).mockClear(); await act(async () => vi.advanceTimersByTimeAsync(60000));
+  expect(fetch).not.toHaveBeenCalled();
 });

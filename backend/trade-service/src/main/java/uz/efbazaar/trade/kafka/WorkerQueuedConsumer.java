@@ -24,6 +24,7 @@ public class WorkerQueuedConsumer {
     private final TradeDeadlineExtender extender;
     private final TradeChatRepository chats;
     private final TradeMessageRepository messages;
+    private final ChatChangePublisher changes;
 
     @KafkaListener(
             topics = TradeEvents.TOPIC_WORKER_QUEUED,
@@ -63,5 +64,6 @@ public class WorkerQueuedConsumer {
                             .build())
             );
         }
+        changes.publishForTrade(e.tradeId());
     }
 }

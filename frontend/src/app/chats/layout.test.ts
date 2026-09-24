@@ -1,3 +1,4 @@
+import { socketFixture } from '@/test/chat-socket-fixture';
 // @vitest-environment jsdom
 
 import { act, createElement } from 'react';
@@ -62,3 +63,9 @@ it('retries immediately when a failed server inbox request has no cached convers
   expect(inboxRequests()).toHaveLength(1);
   expect(client.getQueryData(chatKeys.inbox('viewer'))).toEqual(chats);
 });
+
+vi.mock('@/lib/chat-socket', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/chat-socket')>(),
+  getChatSocket: () => socketFixture,
+  closeOtherChatSockets: () => {},
+}));

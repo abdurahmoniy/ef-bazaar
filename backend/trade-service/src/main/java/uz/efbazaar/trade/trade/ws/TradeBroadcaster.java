@@ -1,6 +1,7 @@
 package uz.efbazaar.trade.trade.ws;
 
 import lombok.RequiredArgsConstructor;
+import uz.efbazaar.trade.kafka.ChatChangePublisher;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -16,6 +17,7 @@ import java.util.UUID;
 public class TradeBroadcaster {
 
     private final SimpMessagingTemplate ws;
+    private final ChatChangePublisher changes;
 
     /**
      * Each party gets a response built for them.
@@ -26,6 +28,7 @@ public class TradeBroadcaster {
      * told to move their account into the same box.
      */
     public void publishStateChange(UUID tradeId, TradeResponse forSeller, TradeResponse forBuyer) {
+        changes.publish(forSeller.chatId());
         runAfterCommitIfActive(() -> {
             ws.convertAndSend("/topic/trades/" + tradeId + "/seller", forSeller);
             ws.convertAndSend("/topic/trades/" + tradeId + "/buyer", forBuyer);
@@ -33,6 +36,7 @@ public class TradeBroadcaster {
     }
 
     public void publishMessage(UUID tradeId, ParticipantRole targetRole, TradeMessageResponse msg) {
+        changes.publishForTrade(tradeId);
         String role = targetRole == ParticipantRole.SELLER ? "seller" : "buyer";
         runAfterCommitIfActive(() -> ws.convertAndSend("/topic/trades/" + tradeId + "/" + role, msg));
     }

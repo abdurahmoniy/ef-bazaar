@@ -43,6 +43,7 @@ function buildContentSecurityPolicy() {
     "'self'",
     apiOrigin,
     siteOrigin,
+    siteOrigin.replace(/^http/, 'ws'),
     chempionatOrigin,
     'https://accounts.google.com',
     'https://oauth2.googleapis.com',
@@ -145,6 +146,11 @@ const nextConfig = {
   },
   async rewrites() {
     return [
+      ...(isProduction ? [] : [{
+        source: '/ws/chat',
+        // Authenticate through nginx; never proxy directly to a trusted-header service.
+        destination: `${new URL(process.env.INTERNAL_API_BASE_URL || 'http://localhost:8080').origin}/ws/chat`,
+      }]),
       {
         source: '/bot/:path*',
         destination: 'https://efbazaar.uz/bot/:path*',

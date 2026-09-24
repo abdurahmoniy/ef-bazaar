@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Pin } from 'lucide-react';
 import { LinkPendingIndicator } from '@/components/navigation/link-pending-indicator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useChatActivity } from '@/hooks/use-chat-activity';
 
 import { avatarTone, formatDayLabel, formatMessageTime, partnerInitial, partnerName, uzDayKey } from '@/lib/chat-format';
 import { formatListingDate } from '@/lib/marketplace-format';
@@ -17,6 +19,7 @@ interface ChatListItemProps {
 
 export function ChatListItem({ chat, viewerId }: ChatListItemProps) {
   const pathname = usePathname();
+  const { activity } = useChatActivity(chat.id, viewerId);
   const active = pathname === `/chats/${chat.id}`;
   const name = partnerName(chat, viewerId);
   const partnerId = chat.sellerId === viewerId ? chat.buyerId : chat.sellerId;
@@ -34,14 +37,24 @@ export function ChatListItem({ chat, viewerId }: ChatListItemProps) {
         active ? 'bg-primary/10 dark:bg-sky-400/10' : 'bg-transparent',
       )}
     >
-      <div
-        className={cn(
-          'relative grid h-14 w-14 shrink-0 place-items-center rounded-full text-xl font-semibold uppercase',
-          avatarTone(partnerId),
-        )}
-      >
-        <span aria-hidden>{partnerInitial(name)}</span>
-        <LinkPendingIndicator className="absolute -bottom-0.5 -right-0.5 h-7 w-7 rounded-full bg-card text-primary shadow-sm dark:text-sky-300" iconClassName="h-4 w-4" />
+      <div className="relative h-14 w-14 shrink-0">
+        <Avatar key={partnerId} data-slot="chat-avatar" className="h-14 w-14 ring-0">
+          <AvatarImage src={`/api/auth/v1/users/${encodeURIComponent(partnerId)}/photo`} alt="" />
+          <AvatarFallback aria-hidden className={cn('text-xl font-semibold uppercase', avatarTone(partnerId))}>
+            {partnerInitial(name)}
+          </AvatarFallback>
+        </Avatar>
+        <span
+          role={activity?.online ? 'img' : undefined}
+          aria-label={activity?.online ? 'Onlayn' : undefined}
+          aria-hidden={!activity?.online}
+          title={activity?.online ? 'Onlayn' : undefined}
+          className={cn(
+            'pointer-events-none absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-card bg-emerald-500 transition-[opacity,transform] duration-200 motion-reduce:transition-none',
+            activity?.online ? 'scale-100 opacity-100' : 'scale-75 opacity-0',
+          )}
+        />
+        <LinkPendingIndicator className="absolute -bottom-0.5 -right-0.5 z-10 h-7 w-7 rounded-full bg-card text-primary shadow-sm dark:text-sky-300" iconClassName="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">

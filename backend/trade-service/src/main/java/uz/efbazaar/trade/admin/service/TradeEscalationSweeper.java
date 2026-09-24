@@ -1,6 +1,7 @@
 package uz.efbazaar.trade.admin.service;
 
 import lombok.RequiredArgsConstructor;
+import uz.efbazaar.trade.kafka.ChatChangePublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -38,6 +39,7 @@ public class TradeEscalationSweeper {
 
     private final TradeRepository trades;
     private final TradeAuditService audit;
+    private final ChatChangePublisher changes;
     private final TransactionTemplate tx;
 
     /**
@@ -115,6 +117,7 @@ public class TradeEscalationSweeper {
             audit.record(t.getId(), ActorType.SYSTEM, null, "TRADE_ESCALATED", Map.of(
                     "reason", "ADMIN_IDLE",
                     "adminId", String.valueOf(t.getAssignedAdminId())));
+            changes.publish(t.getChatId());
             log.warn("Trade {} escalated — admin {} idle past {}",
                     t.getId(), t.getAssignedAdminId(), t.getEscalationDeadlineAt());
             return true;
