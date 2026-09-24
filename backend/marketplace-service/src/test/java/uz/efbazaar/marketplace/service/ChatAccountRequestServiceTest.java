@@ -2,6 +2,15 @@ package uz.efbazaar.marketplace.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
+import java.time.Instant;
+import java.util.concurrent.atomic.AtomicReference;
+import uz.efbazaar.marketplace.domain.ChatMessage;
+import uz.efbazaar.marketplace.domain.ChatMessageType;
+import uz.efbazaar.marketplace.domain.ChatParticipant;
+import uz.efbazaar.marketplace.repository.ChatMessageRepository;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
@@ -39,6 +48,7 @@ import uz.efbazaar.marketplace.repository.ChatParticipantRepository;
 @ExtendWith(MockitoExtension.class)
 class ChatAccountRequestServiceTest {
 
+    @Mock ChatMessageRepository messages;
     @Mock ChatAccountRequestRepository requests;
     @Mock ChatRepository chats;
     @Mock ListingRepository listings;
@@ -109,6 +119,8 @@ class ChatAccountRequestServiceTest {
         ChatAccountRequest req = service.open(bob, chatId, alices.getId());
 
         assertThat(req.getRequesterId()).as("bob is the buyer this time").isEqualTo(bob);
+        verify(notifications).accountRequested(eq(alice), eq(chatId), eq(alices.getId()), any());
+        verify(messages).save(argThat(message -> message.getSenderId().equals(bob)));
     }
 
     @Test
@@ -189,6 +201,89 @@ class ChatAccountRequestServiceTest {
         assertThatThrownBy(() -> service.open(UUID.randomUUID(), chatId, UUID.randomUUID()))
                 .isInstanceOf(MarketplaceException.class)
                 .hasMessageContaining("ishtirok etmaysiz");
+    }
+
+    @Test
+    void cancelledContactCanBeOpenedAgainWithOneMessageAndNotificationPerAttempt() {
+        chatExists();
+        Listing listing = listingOf(bob, ListingStatus.ACTIVE);
+        listing.setDescription("Test account");
+        ChatParticipant seller = ChatParticipant.builder().chatId(chatId).userId(bob).hiddenAt(Instant.now()).build();
+        when(participants.findByChatIdAndUserId(eq(chatId), any()))
+                .thenAnswer(i -> bob.equals(i.getArgument(1)) ? Optional.of(seller) : Optional.empty());
+        when(listings.findById(listing.getId())).thenReturn(Optional.of(listing));
+        var stored = new AtomicReference<ChatAccountRequest>();
+        when(requests.findByChatIdAndStatus(chatId, AccountRequestStatus.OPEN)).thenAnswer(i ->
+                Optional.ofNullable(stored.get()).filter(r -> r.getStatus() == AccountRequestStatus.OPEN));
+        when(requests.save(any())).thenAnswer(i -> {
+            ChatAccountRequest request = i.getArgument(0);
+            if (request.getId() == null) { request.setId(UUID.randomUUID()); request.setCreatedAt(Instant.now()); }
+            stored.set(request);
+            return request;
+        });
+        ChatAccountRequest first = service.open(alice, chatId, listing.getId());
+        service.cancel(bob, chatId);
+        seller.setHiddenAt(Instant.now());
+        ChatAccountRequest second = service.open(alice, chatId, listing.getId());
+        assertThat(service.open(alice, chatId, listing.getId())).isSameAs(second);
+        assertThat(first.getStatus()).isEqualTo(AccountRequestStatus.CANCELLED);
+        assertThat(seller.getHiddenAt()).isNull();
+        assertThat(second.getId()).isNotEqualTo(first.getId());
+        var saved = ArgumentCaptor.forClass(ChatMessage.class);
+        verify(messages, times(2)).save(saved.capture());
+        assertThat(saved.getAllValues()).allSatisfy(message -> {
+            assertThat(message.getChatId()).isEqualTo(chatId);
+            assertThat(message.getSenderId()).isEqualTo(alice);
+            assertThat(message.getContent()).contains("Akkount bo‘yicha so‘rov", "Test account");
+            assertThat(message.getCreatedAt()).isNotNull();
+        });
+        assertThat(chat.getLastMessageAt()).isEqualTo(saved.getValue().getCreatedAt());
+        verify(notifications, times(2)).accountRequested(eq(bob), eq(chatId), eq(listing.getId()), any());
+        verify(events, times(2)).chatCreated(chatId, listing.getId(), alice, bob);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"REJECTED", "EXPIRED"})
+    void recontactAfterTerminalOfferCreatesANewRequestAndNotifiesSeller(String outcome) {
+        chatExists();
+        Listing listing = listingOf(bob, ListingStatus.ACTIVE);
+        when(listings.findById(listing.getId())).thenReturn(Optional.of(listing));
+        ChatAccountRequest existing = openRequest(alice, listing.getId());
+        existing.setCreatedAt(Instant.now().minusSeconds(60));
+        AtomicReference<ChatAccountRequest> stored = new AtomicReference<>(existing);
+        when(requests.findByChatIdAndStatus(chatId, AccountRequestStatus.OPEN))
+                .thenAnswer(i -> Optional.of(stored.get()));
+        when(messages.findFirstByChatIdAndMessageTypeOrderByCreatedAtDescIdDesc(chatId,
+                ChatMessageType.TRADE_PROPOSAL)).thenReturn(Optional.of(
+                ChatMessage.builder().proposalListingId(listing.getId())
+                        .proposalOutcome(outcome).createdAt(Instant.now().minusSeconds(30)).build()));
+        when(requests.save(any())).thenAnswer(i -> { stored.set(i.getArgument(0)); return stored.get(); });
+        ChatAccountRequest reopened = service.open(alice, chatId, listing.getId());
+        assertThat(reopened).isNotSameAs(existing);
+        assertThat(service.open(alice, chatId, listing.getId())).isSameAs(reopened);
+        assertThat(existing.getStatus()).isEqualTo(AccountRequestStatus.CANCELLED);
+        verify(messages).save(any());
+        verify(notifications).accountRequested(eq(bob), eq(chatId), eq(listing.getId()), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PENDING", "ACCEPTED", "OLDER", "OTHER_LISTING"})
+    void unrelatedOrUnfinishedOfferDoesNotRepeatContact(String scenario) {
+        chatExists();
+        Listing listing = listingOf(bob, ListingStatus.ACTIVE);
+        when(listings.findById(listing.getId())).thenReturn(Optional.of(listing));
+        ChatAccountRequest existing = openRequest(alice, listing.getId());
+        existing.setCreatedAt(Instant.now().minusSeconds(60));
+        when(requests.findByChatIdAndStatus(chatId, AccountRequestStatus.OPEN)).thenReturn(Optional.of(existing));
+        when(messages.findFirstByChatIdAndMessageTypeOrderByCreatedAtDescIdDesc(chatId,
+                ChatMessageType.TRADE_PROPOSAL)).thenReturn(Optional.of(
+                ChatMessage.builder()
+                        .proposalListingId(scenario.equals("OTHER_LISTING") ? UUID.randomUUID() : listing.getId())
+                        .proposalOutcome(scenario.equals("PENDING") || scenario.equals("ACCEPTED") ? scenario : "REJECTED")
+                        .createdAt(existing.getCreatedAt().plusSeconds(scenario.equals("OLDER") ? -30 : 30)).build()));
+        assertThat(service.open(alice, chatId, listing.getId())).isSameAs(existing);
+        verify(messages, never()).save(any());
+        verifyNoInteractions(notifications, events);
     }
 
     @Test

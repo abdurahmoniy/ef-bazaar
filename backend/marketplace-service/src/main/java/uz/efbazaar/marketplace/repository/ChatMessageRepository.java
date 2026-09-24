@@ -43,6 +43,10 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
             """)
     long totalUnreadFor(@org.springframework.data.repository.query.Param("userId") UUID userId);
 
+    /** Latest negotiation, so an older rejection cannot reopen a newer pending offer. */
+    Optional<ChatMessage> findFirstByChatIdAndMessageTypeOrderByCreatedAtDescIdDesc(
+            UUID chatId, uz.efbazaar.marketplace.domain.ChatMessageType messageType);
+
     boolean existsByProposalId(UUID proposalId);
 
     @org.springframework.data.jpa.repository.Modifying
