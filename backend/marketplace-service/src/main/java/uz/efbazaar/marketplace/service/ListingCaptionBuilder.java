@@ -2,6 +2,7 @@ package uz.efbazaar.marketplace.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import uz.efbazaar.marketplace.account.UserAccount;
 import uz.efbazaar.marketplace.domain.AttributeDefinition;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
@@ -13,6 +14,7 @@ import java.text.DecimalFormatSymbols;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Composes the caption attached to the first photo of a listing's Telegram
@@ -45,28 +47,64 @@ public class ListingCaptionBuilder {
     private final AuthSummaryClient users;
 
     public String build(Listing listing) {
+        StringBuilder price = new StringBuilder();
+        price.append("<b>Narx:</b> ").append(escape(formatPrice(listing.getPrice()))).append(" so'm");
+        if (listing.isPriceNegotiable()) {
+            price.append(" <i>(kelishuvli)</i>");
+        }
+        return render("Listing", listing.getId(), "Sotuvchi", listing.getSellerId(),
+                price.toString(), listing.getAttributes(), listing.getDescription());
+    }
+
+    /**
+     * "Akkountlarim" bo'limiga qo'shilgan akkountning rasmlar izohi.
+     *
+     * <p>E'lonникi bilan bir xil: division, team strength, kartalar, coinlar,
+     * tavsif. Ilgari bu yerga faqat akkount nomi ketardi va admin media
+     * topigida rasmlardan boshqa hech narsa ko'rmasdi — bir xil akkount, ikki
+     * xil ko'rinish.
+     *
+     * <p>Narx qatori YO'Q: narx e'lonning sozlamasi, akkountniki emas. Uni
+     * "0 so'm" deb yozish obmendagi xatoni takrorlardi.
+     *
+     * <p>Email ham tushmaydi: bu yerda faqat atribut ta'riflari va tavsif
+     * o'qiladi, manzil esa alohida ustun va faqat egasiniki.
+     */
+    public String build(UserAccount account) {
+        return render("Akkount", account.getId(), "Egasi", account.getOwnerId(),
+                null, account.getAttributes(), account.getDescription());
+    }
+
+    /**
+     * Ikkala tur uchun bitta ko'rinish.
+     *
+     * <p>Farqi uchta: sarlavha so'zi, egasining nomi va narx qatori
+     * (akkountda u yo'q). Qolgani — atributlar, kartalar, tavsif —
+     * bir xil, va shunday bo'lib qolishi kerak: ular bir xil akkountning
+     * bir xil ma'lumoti.
+     */
+    private String render(String kindLabel, UUID id, String ownerLabel, UUID ownerId,
+                          String priceLine, Map<String, Object> attrs, String description) {
         StringBuilder sb = new StringBuilder(512);
 
-        sb.append("<b>Listing</b> <code>")
-                .append(escape(shortId(listing.getId().toString())))
+        sb.append("<b>").append(kindLabel).append("</b> <code>")
+                .append(escape(shortId(id.toString())))
                 .append("</code>\n");
-        users.resolve(listing.getSellerId()).ifPresent(seller -> {
-            String username = seller.telegramUsername() == null ? "" : seller.telegramUsername().strip();
+        users.resolve(ownerId).ifPresent(owner -> {
+            String username = owner.telegramUsername() == null ? "" : owner.telegramUsername().strip();
             if (username.startsWith("@")) username = username.substring(1);
             if (!username.isBlank()) {
-                sb.append("<b>Sotuvchi:</b> @").append(escape(username)).append('\n');
-            } else if (seller.telegramId() != null) {
-                sb.append("<b>Sotuvchi Telegram ID:</b> <code>")
-                        .append(seller.telegramId()).append("</code>\n");
+                sb.append("<b>").append(ownerLabel).append(":</b> @")
+                        .append(escape(username)).append('\n');
+            } else if (owner.telegramId() != null) {
+                sb.append("<b>").append(ownerLabel).append(" Telegram ID:</b> <code>")
+                        .append(owner.telegramId()).append("</code>\n");
             }
         });
-        sb.append("<b>Narx:</b> ").append(escape(formatPrice(listing.getPrice()))).append(" so'm");
-        if (listing.isPriceNegotiable()) {
-            sb.append(" <i>(kelishuvli)</i>");
+        if (priceLine != null) {
+            sb.append(priceLine).append('\n');
         }
-        sb.append('\n');
 
-        Map<String, Object> attrs = listing.getAttributes();
         if (attrs != null && !attrs.isEmpty()) {
             List<AttributeDefinition> defs =
                     definitions.findAllByActiveTrueOrderByPositionAsc();
@@ -77,7 +115,6 @@ public class ListingCaptionBuilder {
             }
         }
 
-        String description = listing.getDescription();
         if (description != null && !description.isBlank()) {
             sb.append('\n').append(escape(head(description, DESCRIPTION_HEAD_CHARS)));
         }

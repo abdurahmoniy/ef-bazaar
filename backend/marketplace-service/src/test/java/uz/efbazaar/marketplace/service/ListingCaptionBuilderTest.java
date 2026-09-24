@@ -9,6 +9,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import uz.efbazaar.marketplace.domain.AttributeDefinition;
+import uz.efbazaar.marketplace.account.UserAccount;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.repository.AttributeDefinitionRepository;
 import uz.efbazaar.marketplace.security.AuthSummaryClient;
@@ -161,6 +162,67 @@ class ListingCaptionBuilderTest {
 
         assertThat(out).doesNotContain("<script>");
         assertThat(out).contains("&lt;script&gt;");
+    }
+
+    /**
+     * Akkount rasmlari ham media topikiga to'liq izoh bilan ketadi.
+     *
+     * <p>Ilgari u yerga faqat akkount nomi ketardi va admin rasmlardan
+     * boshqa hech narsa ko'rmasdi — e'londa esa hammasi bor edi. Bir xil
+     * akkount, ikki xil ko'rinish.
+     */
+    @Test
+    void accountCaptionCarriesTheSameDetailAsAListing() {
+        when(definitions.findAllByActiveTrueOrderByPositionAsc())
+                .thenReturn(List.of(attrDef("team_strength", "Team Strength")));
+        when(users.resolve(OWNER)).thenReturn(Optional.of(
+                new UserSummary(OWNER, "Egasi", "gen1us_07", 42L, false, null, false)));
+
+        String out = builder.build(account());
+
+        assertThat(out).contains("<b>Akkount</b> <code>5c8016ad</code>");
+        assertThat(out).contains("<b>Egasi:</b> @gen1us_07");
+        assertThat(out).contains("<b>Team Strength:</b> 3230");
+        assertThat(out).contains("3230 sila oshadi");
+    }
+
+    @Test
+    void accountCaptionHasNoPriceLine() {
+        // Akkountda narx yo'q — u e'lonning sozlamasi. "0 so'm" deb
+        // yozish obmendagi xatoni takrorlardi.
+        when(definitions.findAllByActiveTrueOrderByPositionAsc()).thenReturn(List.of());
+        when(users.resolve(OWNER)).thenReturn(Optional.empty());
+
+        String out = builder.build(account());
+
+        assertThat(out).doesNotContain("Narx", "so'm");
+    }
+
+    @Test
+    void accountCaptionNeverCarriesTheEmail() {
+        // Email faqat egasiniki. Media topigi — admin guruhi, va manzil
+        // u yerga tushmasligi kerak.
+        when(definitions.findAllByActiveTrueOrderByPositionAsc()).thenReturn(List.of());
+        when(users.resolve(OWNER)).thenReturn(Optional.empty());
+        UserAccount account = account();
+        account.setEmail("trade-05a64118@efbazaar.uz");
+
+        String out = builder.build(account);
+
+        assertThat(out).doesNotContain("trade-05a64118", "efbazaar.uz");
+    }
+
+    private static final UUID OWNER = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000000");
+
+    private static UserAccount account() {
+        return UserAccount.builder()
+                .id(UUID.fromString("5c8016ad-0000-0000-0000-000000000000"))
+                .ownerId(OWNER)
+                .title("Asosiy akkaunt")
+                .description("3230 sila oshadi")
+                .attributes(new java.util.HashMap<>(Map.of("team_strength", 3230)))
+                .mediaMessageIds(new ArrayList<>())
+                .build();
     }
 
     private static Listing listing(List<Map<String, Object>> players) {
