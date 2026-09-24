@@ -31,9 +31,11 @@ public class AdminChatController {
 
     @GetMapping
     public PageResponse<AdminChatResponse> list(@RequestParam(required = false) String q,
+                                                /** O'chirilgan chatlar alohida ro'yxatda. */
+                                                @RequestParam(defaultValue = "false") boolean deleted,
                                                 @RequestParam(defaultValue = "0") int page,
                                                 @RequestParam(defaultValue = "20") int size) {
-        return service.list(q, page, size);
+        return service.list(q, deleted, page, size);
     }
 
     @GetMapping("/{id}")

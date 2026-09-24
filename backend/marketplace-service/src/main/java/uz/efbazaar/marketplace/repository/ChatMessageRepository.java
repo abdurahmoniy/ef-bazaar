@@ -13,6 +13,14 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, UUID> 
 
     Page<ChatMessage> findByChatIdOrderByCreatedAtAsc(UUID chatId, Pageable pageable);
 
+    /** Tarix tozalangandan keyingi xabarlar — foydalanuvchi ko'radigani. */
+    Page<ChatMessage> findByChatIdAndCreatedAtAfterOrderByCreatedAtAsc(
+            UUID chatId, java.time.Instant after, Pageable pageable);
+
+    /** Ro'yxatdagi oxirgi xabar, tozalangandan keyingilari orasidan. */
+    java.util.Optional<ChatMessage> findFirstByChatIdAndCreatedAtAfterOrderByCreatedAtDesc(
+            UUID chatId, java.time.Instant after);
+
     /** Newest first, so page 0 of the admin transcript is where the conversation stands now. */
     Page<ChatMessage> findByChatIdOrderByCreatedAtDescIdDesc(UUID chatId, Pageable pageable);
 

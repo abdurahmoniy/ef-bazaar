@@ -30,7 +30,9 @@ class AdminChatControllerTest {
         mvc.perform(get("/api/v1/admin/chats").param("q", "ali")
                         .header("X-User-Id", UUID.randomUUID().toString()).header("X-User-Roles", "ROLE_ADMIN"))
                 .andExpect(status().isOk());
-        verify(service).list("ali", 0, 20);
+        // O'chirilgan chatlar alohida ro'yxatda: sukut bo'yicha toza
+        // ro'yxat keladi.
+        verify(service).list("ali", false, 0, 20);
     }
 
     @Test

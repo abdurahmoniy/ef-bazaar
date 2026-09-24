@@ -37,6 +37,7 @@ public class ChatService {
     private final BlacklistGuard blacklistGuard;
     private final ChatAccountRequestService accountRequests;
     private final uz.efbazaar.marketplace.security.AuthSummaryClient telegramUsers;
+    private final TradeLiveClient tradeLive;
 
     @Transactional
     public Chat start(UUID buyerId, UUID listingId) {
@@ -182,10 +183,20 @@ public class ChatService {
         return saved;
     }
 
+    /**
+     * Foydalanuvchi ko'radigan xabarlar.
+     *
+     * <p>Tarix tozalangan bo'lsa undan OLDINGILARI ko'rsatilmaydi. Ular
+     * o'chirilmagan va admin panelida ochib ko'rish mumkin — nizo
+     * chiqqanda tekshiriladigan yagona iz o'sha.
+     */
     @Transactional(readOnly = true)
     public Page<ChatMessage> listMessages(UUID chatId, UUID userId, Pageable pageable) {
         Chat chat = getById(chatId, userId); // participant check
-        return messages.findByChatIdOrderByCreatedAtAsc(chat.getId(), pageable);
+        return chat.getClearedAt() == null
+                ? messages.findByChatIdOrderByCreatedAtAsc(chat.getId(), pageable)
+                : messages.findByChatIdAndCreatedAtAfterOrderByCreatedAtAsc(
+                        chat.getId(), chat.getClearedAt(), pageable);
     }
 
     @Transactional(readOnly = true)
@@ -243,10 +254,18 @@ public class ChatService {
         return messages.totalUnreadFor(userId);
     }
 
-    /** One-line preview of the newest message for the chat list. Null when empty. */
+    /**
+     * One-line preview of the newest message for the chat list. Null when empty.
+     *
+     * <p>Tozalangan tarix bu yerda ham ko'rinmaydi: aks holda ro'yxatda
+     * eski matn turaverib, chat ichi esa bo'sh bo'lardi.
+     */
     @Transactional(readOnly = true)
     public String lastMessagePreview(UUID chatId) {
-        return messages.findFirstByChatIdOrderByCreatedAtDesc(chatId)
+        Instant clearedAt = chats.findById(chatId).map(Chat::getClearedAt).orElse(null);
+        return (clearedAt == null
+                ? messages.findFirstByChatIdOrderByCreatedAtDesc(chatId)
+                : messages.findFirstByChatIdAndCreatedAtAfterOrderByCreatedAtDesc(chatId, clearedAt))
                 .map(ChatService::previewOf)
                 .orElse(null);
     }
@@ -294,18 +313,34 @@ public class ChatService {
     }
 
     /**
-     * One-sided delete: hides the chat from MY list only. The partner keeps
-     * the conversation; any new message clears the flag and the chat
-     * reappears (see {@link #sendMessage}).
+     * Chatni o'chirish: suhbat IKKALA taraf uchun ham nol holatga qaytadi.
+     *
+     * <p>Ilgari bu faqat yashirish edi — xabarlar joyida qolar, keyingi
+     * xabar esa bayroqni tozalab butun eski tarixni qaytarardi. Juftlik
+     * boshqa akkount ustida yangi suhbat boshlaganda eskisi, jumladan
+     * tugagan savdolar statuslari, ko'rinib turardi.
+     *
+     * <p>Xabarlar O'CHIRILMAYDI: nizo chiqqanda admin panelida ochib
+     * ko'rish mumkin bo'lishi kerak. Ko'rsatilmaydigan qilinadi, xolos.
+     *
+     * <p>Tirik savdo paytida RAD ETILADI. Savdo paneli baribir
+     * trade-service'dan keladi, lekin kelishuv yozishmasining yo'qolishi
+     * nizoni hal qilib bo'lmas holga keltiradi. Tekshiruv yiqilsa ham rad
+     * etiladi ({@code TradeLiveClient} izohiga qarang).
      */
     @Transactional
-    public void hide(UUID chatId, UUID userId) {
-        getById(chatId, userId); // participant check
-        ChatParticipant mine = getParticipantRow(chatId, userId);
-        if (mine.getHiddenAt() == null) {
-            mine.setHiddenAt(Instant.now());
-            log.info("Chat {} hidden by {}", chatId, userId);
+    public void clearHistory(UUID chatId, UUID userId) {
+        Chat chat = getById(chatId, userId); // participant check
+        if (tradeLive.hasLiveTrade(chatId)) {
+            throw MarketplaceException.chatHasLiveTrade();
         }
+        Instant now = Instant.now();
+        chat.setClearedAt(now);
+        // Ikkala taraf ro'yxatidan ham ketadi. Keyingi xabar uni
+        // qaytaradi, lekin tarixni emas — kesish nuqtasi joyida qoladi.
+        participants.findByChatId(chatId)
+                .forEach(p -> p.setHiddenAt(now));
+        log.info("Chat {} history cleared by {}", chatId, userId);
     }
 
     @Transactional(readOnly = true)

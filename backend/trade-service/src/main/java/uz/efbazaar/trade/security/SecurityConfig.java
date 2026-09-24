@@ -13,6 +13,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -21,6 +22,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final HeaderAuthenticationFilter headerAuthFilter;
+    private final InternalSecretFilter internalSecretFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -53,8 +55,13 @@ public class SecurityConfig {
                         ).permitAll()
                         // STOMP handshake — CONNECT frame auth happens in WebSocketConfig (Task 17)
                         .requestMatchers("/ws/trade/**").permitAll()
+                        // Sir bilan qo'riqlanadi (InternalSecretFilter), shuning
+                        // uchun bu yerda foydalanuvchi autentifikatsiyasi so'ralmaydi:
+                        // chaquvchi servis, odam emas.
+                        .requestMatchers(new AntPathRequestMatcher("/internal/**")).permitAll()
                         .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
                         .anyRequest().authenticated())
+                .addFilterBefore(internalSecretFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

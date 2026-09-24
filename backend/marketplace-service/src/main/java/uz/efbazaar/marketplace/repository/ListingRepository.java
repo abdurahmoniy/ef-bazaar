@@ -25,6 +25,9 @@ public interface ListingRepository extends JpaRepository<Listing, UUID>,
 
     Page<Listing> findByStatus(ListingStatus status, Pageable pageable);
 
+    /** Admin katalogi: bitta sotuvchining shu holatdagi e'lonlari. */
+    Page<Listing> findBySellerIdAndStatus(UUID sellerId, ListingStatus status, Pageable pageable);
+
     long countByStatus(ListingStatus status);
 
     // Gamer Card trust counters — escrow history straight from listing rows

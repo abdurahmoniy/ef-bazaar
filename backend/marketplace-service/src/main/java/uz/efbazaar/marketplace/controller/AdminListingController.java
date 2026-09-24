@@ -40,8 +40,11 @@ public class AdminListingController {
     public PageResponse<ListingResponse> list(
             @AuthenticationPrincipal AuthenticatedUser admin,
             @RequestParam(required = false) ListingStatus status,
+            /** Sotuvchining id si. Nom/username bo'yicha qidiruvni admin UI
+             *  auth-service'da hal qiladi va bu yerga tayyor id keladi. */
+            @RequestParam(required = false) UUID ownerId,
             @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
-        Page<Listing> page = listingService.findForAdmin(status, pageable);
+        Page<Listing> page = listingService.findForAdmin(status, ownerId, pageable);
         return new PageResponse<>(
                 assembler.assembleAll(page.getContent(), admin.userId()),
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());

@@ -89,7 +89,7 @@ public class ChatController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void hide(@AuthenticationPrincipal AuthenticatedUser user,
                      @PathVariable UUID id) {
-        chatService.hide(id, user.userId());
+        chatService.clearHistory(id, user.userId());
     }
 
     /** Moves the caller's read cursor to now (clears the unread badge). */

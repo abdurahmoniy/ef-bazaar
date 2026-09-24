@@ -39,9 +39,12 @@ export async function getAdminChats(
   query: string | undefined,
   page = 0,
   size = 20,
+  /** O'chirilgan chatlar alohida ro'yxatda — toza ro'yxat ichida turmaydi. */
+  deleted = false,
 ): Promise<FetchResult<PageResponse<AdminChatResponse>>> {
   const params = new URLSearchParams({ page: String(page), size: String(size) });
   if (query?.trim()) params.set('q', query.trim());
+  if (deleted) params.set('deleted', 'true');
   return safeFetch<PageResponse<AdminChatResponse>>(`${PREFIX}?${params.toString()}`);
 }
 

@@ -132,6 +132,11 @@ app:
     # Hamkorlik to'lovi shu servisdagi hamyondan yechiladi — savdolar bilan
     # bir xil pul yo'li.
     internal-base-url: ${PAYMENT_INTERNAL_BASE_URL:http://payment-service:8087}
+  trade:
+    # Chat tarixini tozalashdan oldin "shu chatda tirik savdo bormi" deb
+    # so'raladi. Savdo holati trade-service'niki va shu yerda
+    # takrorlanmaydi — ikkala nusxa albatta bir kun ajralib ketardi.
+    internal-base-url: ${TRADE_INTERNAL_BASE_URL:http://trade-service:8085}
   web:
     # Kanal postlaridagi va rasmiy kanaldagi e'lon havolalarining asosi.
     # ATAYLAB env'dan: staging post chiqarsa, undagi havola production

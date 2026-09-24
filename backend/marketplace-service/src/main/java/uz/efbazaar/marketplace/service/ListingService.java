@@ -417,12 +417,23 @@ public class ListingService {
 
     // ----- admin moderation -----
 
-    /** All listings regardless of owner; optional status filter for the admin table. */
+    /**
+     * Admin katalogi: holat va/yoki egasi bo'yicha.
+     *
+     * <p>Egasi bo'yicha suzish nizo va shikoyatlar uchun: "shu odamning
+     * e'lonlari" ni ko'rish uchun ilgari butun katalogni varaqlashdan boshqa
+     * yo'l yo'q edi. Ikkalasi ham ixtiyoriy va birga ishlaydi.
+     */
     @Transactional(readOnly = true)
-    public Page<Listing> findForAdmin(ListingStatus status, Pageable pageable) {
+    public Page<Listing> findForAdmin(ListingStatus status, UUID ownerId, Pageable pageable) {
+        if (ownerId == null) {
+            return status == null
+                    ? listings.findAll(pageable)
+                    : listings.findByStatus(status, pageable);
+        }
         return status == null
-                ? listings.findAll(pageable)
-                : listings.findByStatus(status, pageable);
+                ? listings.findBySellerId(ownerId, pageable)
+                : listings.findBySellerIdAndStatus(ownerId, status, pageable);
     }
 
     /** Moderation soft-delete — same status flip as {@link #delete} but skips the owner check. */

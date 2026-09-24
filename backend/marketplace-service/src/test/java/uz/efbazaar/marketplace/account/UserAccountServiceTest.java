@@ -31,6 +31,7 @@ class UserAccountServiceTest {
     @Mock UserAccountCardInventory inventory;
     @Mock UserAccountPublisher publisher;
     @Mock uz.efbazaar.marketplace.service.MediaService media;
+    @Mock uz.efbazaar.marketplace.service.ListingCaptionBuilder captions;
     @InjectMocks UserAccountService service;
 
     private final UUID ownerId = UUID.randomUUID();
@@ -88,12 +89,17 @@ class UserAccountServiceTest {
         existing.setTitle("Asosiy");
         when(accounts.findByIdAndOwnerId(accountId, ownerId)).thenReturn(Optional.of(existing));
         when(accounts.saveAndFlush(existing)).thenReturn(existing);
+        when(captions.build(existing)).thenReturn("<b>Akkount</b> <code>5c8016ad</code>");
         when(media.uploadToBotForAccount(any(), any(), eq(accountId)))
                 .thenReturn(List.of("msg-1", "msg-2"));
 
         service.replaceMedia(accountId, ownerId, List.of());
 
         verify(media).validate(any());
+        // Media topigiga e'lonникi bilan bir xil to'liq izoh ketadi, akkount
+        // nomi emas: admin u yerda rasmlardan boshqa hech narsa ko'rmasdi.
+        verify(media).uploadToBotForAccount(any(),
+                eq("<b>Akkount</b> <code>5c8016ad</code>"), eq(accountId));
         // Bog'lanish akkountga: e'lon id si bu yerda umuman ishlatilmaydi.
         verify(media, never()).uploadToBot(any(), any(), any());
         assertThat(existing.getMediaMessageIds()).containsExactly("msg-1", "msg-2");

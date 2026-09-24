@@ -27,6 +27,7 @@ public class UserAccountService {
     private final UserAccountCardInventory inventory;
     private final UserAccountPublisher publisher;
     private final MediaService media;
+    private final uz.efbazaar.marketplace.service.ListingCaptionBuilder captions;
 
     @Transactional(readOnly = true)
     public List<UserAccount> list(UUID ownerId) {
@@ -92,8 +93,10 @@ public class UserAccountService {
     public UserAccount replaceMedia(UUID id, UUID ownerId, List<MultipartFile> files) {
         UserAccount account = get(id, ownerId);
         media.validate(files);
-        String caption = account.getTitle() == null || account.getTitle().isBlank()
-                ? "efBazaar akkount" : account.getTitle();
+        // E'lon bilan bir xil izoh: division, team strength, kartalar,
+        // coinlar, tavsif. Ilgari bu yerga faqat akkount nomi ketardi va
+        // admin media topigida rasmlardan boshqa hech narsa ko'rmasdi.
+        String caption = captions.build(account);
 
         // Yuklash ATAYLAB tranzaksiyadan tashqarida. Metodda @Transactional
         // yo'q: saveAndFlush o'zining qisqa tranzaksiyasini ochadi va sekin

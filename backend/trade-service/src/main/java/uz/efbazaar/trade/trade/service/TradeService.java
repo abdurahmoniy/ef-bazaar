@@ -197,6 +197,18 @@ public class TradeService {
     }
 
     /**
+     * Shu chatda tugallanmagan savdo bormi — marketplace so'raydi.
+     *
+     * <p>Chat tarixini tozalash savdoni buzmaydi (panel baribir shu
+     * yerdan keladi), lekin savdo davom etayotganda kelishuv yozishmasi
+     * yo'qolishi nizoni hal qilib bo'lmas holga keltiradi.
+     */
+    @Transactional(readOnly = true)
+    public boolean hasLiveTradeInChat(UUID chatId) {
+        return chatId != null && trades.existsLiveInChat(chatId, TradeState.nonTerminal());
+    }
+
+    /**
      * Look up a trade AND assert the caller is a participant. Called from
      * every trade endpoint; throwing here short-circuits any per-endpoint
      * ownership check.
