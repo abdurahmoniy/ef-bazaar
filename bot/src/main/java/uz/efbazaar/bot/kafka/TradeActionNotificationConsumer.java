@@ -51,47 +51,64 @@ public class TradeActionNotificationConsumer {
 
     private String buildMessage(TradeActionNotificationDto e) {
         String action = e.actionType() != null ? e.actionType() : "";
-        boolean swap = !hasAmount(e.amountUzs());
+        boolean swap = isSwap(e);
+        boolean hasAmount = hasAmount(e);
         String formattedPrice = String.format("%,d", e.amountUzs()).replace(',', ' ') + " UZS";
         return switch (action) {
             case "PROPOSAL_CREATED" -> (swap
-                        ? "🔁 <b>Yangi obmen taklifi!</b>\n"
-                            + "Sizga akkountga akkount almashish taklif qilindi.\n"
-                        : "🤝 <b>Yangi savdo taklifi!</b>\n"
+                        ? "\uD83D\uDD01 <b>Yangi obmen taklifi!</b>\n"
+                            + (hasAmount
+                                ? "Sizga akkount almashish va ustiga <b>" + formattedPrice
+                                    + "</b> doplata taklif qilindi.\n"
+                                : "Sizga akkountga akkount almashish taklif qilindi.\n")
+                        : "\uD83E\uDD1D <b>Yangi savdo taklifi!</b>\n"
                             + "Sizga <b>" + formattedPrice + "</b> miqdorida savdo taklifi yuborildi.\n")
                     + "Savdoni davom ettirish uchun chatga kiring.";
             case "TRADE_STARTED" -> (swap
-                        ? "🔁 <b>Obmen boshlandi!</b>\n"
-                            + "Taklif qabul qilindi."
-                        : "🚀 <b>Savdo boshlandi!</b>\n"
+                        ? "\uD83D\uDD01 <b>Obmen boshlandi!</b>\n"
+                            + "Taklif qabul qilindi"
+                            + (hasAmount ? " (doplata: " + formattedPrice + ")." : ".")
+                        : "\uD83D\uDE80 <b>Savdo boshlandi!</b>\n"
                             + "Taklif qabul qilindi (" + formattedPrice + ").")
                     + " Akkount transferi boshlanmoqda.";
-            case "EMAIL_CHANGED" -> "📧 <b>Konami emaili o'zgartirildi</b>\n"
+            case "EMAIL_CHANGED" -> "\uD83D\uDCE7 <b>Konami emaili o'zgartirildi</b>\n"
                     + "Sotuvchi Konami emailini almashtirdi. Tekshiruv davom etmoqda.";
-            case "PASSWORD_SENT" -> "🔑 <b>Konami paroli yuborildi!</b>\n"
+            case "PASSWORD_SENT" -> "\uD83D\uDD11 <b>Konami paroli yuborildi!</b>\n"
                     + "Sotuvchi yangi parolni yubordi. Chatga kirib parolni ko'ring va tasdiqlang.";
-            case "TRADE_SUCCESS" -> "✅ <b>Savdo muvaffaqiyatli yakunlandi!</b>\n"
+            case "TRADE_SUCCESS" -> "\u2705 <b>Savdo muvaffaqiyatli yakunlandi!</b>\n"
                     + "Mablag' va akkount muvaffaqiyatli o'tkazildi. Tabriklaymiz!";
-            case "TRADE_REJECTED" -> "❌ <b>Savdo rad etildi</b>\n"
+            case "TRADE_REJECTED" -> "\u274C <b>Savdo rad etildi</b>\n"
                     + "Savdo bekor qilindi.";
-            case "TRADE_ORPHANED" -> "⏱ <b>Savdo muddati tugadi</b>\n"
+            case "TRADE_ORPHANED" -> "\u23F1 <b>Savdo muddati tugadi</b>\n"
                     + "Ajratilgan vaqt tugaganligi sababli savdo bekor qilindi.";
-            default -> "🔔 <b>Savdo yangilandi</b>\n"
+            default -> "\uD83D\uDD14 <b>Savdo yangilandi</b>\n"
                     + "Savdo holatida o'zgarish yuz berdi.";
         };
     }
 
     /**
+     * Obmenmi — doplatalisi ham obmen.
+     *
+     * <p>Summa buni ayta olmaydi: doplatali obmenda u noldan katta va sotuvdan
+     * farq qilmaydi, DM esa "Yangi savdo taklifi" deb kelardi. Shuning uchun
+     * hodisa savdo turini o'zi olib yuradi. Eski hodisalarda tur yo'q — o'shanda
+     * eski qoida: sotuvda narx hech qachon 0 bo'lmaydi (marketplace eng kam
+     * narxni talab qiladi), demak 0 summa obmen belgisi.
+     */
+    private static boolean isSwap(TradeActionNotificationDto e) {
+        String kind = e.kind();
+        if (kind == null) return e.amountUzs() <= 0;
+        return "SWAP".equals(kind) || "SWAP_SURCHARGE".equals(kind);
+    }
+
+    /**
      * Ko'rsatiladigan summa bormi.
      *
-     * <p>Toza obmenda pul umuman o'tmaydi va summa 0 bo'lib keladi — DM da esa
-     * "0 UZS" chiqib, savdo buzuq ochilgandek ko'rinardi. Hodisada savdo turi
-     * yo'q, lekin sotuvda narx hech qachon 0 bo'lmaydi (marketplace eng kam
-     * narxni talab qiladi), shuning uchun 0 summa obmen belgisi. Doplatali
-     * obmenda doplataning o'zi ko'rsatiladi — sayt ham shu qoida bilan
-     * ishlaydi ({@code trade-swap.ts}).
+     * <p>Toza obmenda pul umuman o'tmaydi — "0 UZS" chiqsa savdo buzuq
+     * ochilgandek ko'rinardi. Doplatali obmenda doplataning o'zi ko'rsatiladi;
+     * sayt ham shu qoida bilan ishlaydi ({@code trade-swap.ts}).
      */
-    private static boolean hasAmount(long amountUzs) {
-        return amountUzs > 0;
+    private static boolean hasAmount(TradeActionNotificationDto e) {
+        return !"SWAP".equals(e.kind()) && e.amountUzs() > 0;
     }
 }

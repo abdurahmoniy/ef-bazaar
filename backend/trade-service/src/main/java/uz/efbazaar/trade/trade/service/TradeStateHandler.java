@@ -116,9 +116,9 @@ public class TradeStateHandler {
             events.tradeClosed(trade);
         }
         events.tradeAction(trade.getId(), trade.getChatId(), trade.getSellerId(),
-                TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null);
+                TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null, trade.getKind());
         events.tradeAction(trade.getId(), trade.getChatId(), trade.getBuyerId(),
-                TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null);
+                TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null, trade.getKind());
     }
 
     /**
@@ -370,9 +370,9 @@ public class TradeStateHandler {
                 // completed a trade, and the referral reward is about them.
                 events.tradeSucceeded(trade);
                 events.tradeAction(trade.getId(), trade.getChatId(), trade.getSellerId(),
-                        TradeEvents.TradeActionType.TRADE_SUCCESS, trade.getPriceUzs(), null);
+                        TradeEvents.TradeActionType.TRADE_SUCCESS, trade.getPriceUzs(), null, trade.getKind());
                 events.tradeAction(trade.getId(), trade.getChatId(), trade.getBuyerId(),
-                        TradeEvents.TradeActionType.TRADE_SUCCESS, trade.getPriceUzs(), null);
+                        TradeEvents.TradeActionType.TRADE_SUCCESS, trade.getPriceUzs(), null, trade.getKind());
             }
             case REJECTED -> {
                 trade.setStateDeadline(null);
@@ -404,9 +404,9 @@ public class TradeStateHandler {
                     events.tradeClosed(trade);
                 }
                 events.tradeAction(trade.getId(), trade.getChatId(), trade.getSellerId(),
-                        TradeEvents.TradeActionType.TRADE_REJECTED, trade.getPriceUzs(), null);
+                        TradeEvents.TradeActionType.TRADE_REJECTED, trade.getPriceUzs(), null, trade.getKind());
                 events.tradeAction(trade.getId(), trade.getChatId(), trade.getBuyerId(),
-                        TradeEvents.TradeActionType.TRADE_REJECTED, trade.getPriceUzs(), null);
+                        TradeEvents.TradeActionType.TRADE_REJECTED, trade.getPriceUzs(), null, trade.getKind());
             }
             case ORPHANED -> {
                 trade.setStateDeadline(null);
@@ -437,9 +437,9 @@ public class TradeStateHandler {
                     events.tradeClosed(trade);
                 }
                 events.tradeAction(trade.getId(), trade.getChatId(), trade.getSellerId(),
-                        TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null);
+                        TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null, trade.getKind());
                 events.tradeAction(trade.getId(), trade.getChatId(), trade.getBuyerId(),
-                        TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null);
+                        TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null, trade.getKind());
             }
         }
     }

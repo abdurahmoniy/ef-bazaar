@@ -58,6 +58,7 @@ public class TradeActionEnricher {
                 e.actionType(),
                 e.amountUzs(),
                 e.details(),
+                e.kind(),
                 e.occurredAt()
         ));
         log.info("Emitted trade action notification for user={} actionType={} telegramId={}",

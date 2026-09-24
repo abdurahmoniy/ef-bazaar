@@ -55,6 +55,7 @@ class TradeActionNotificationConsumerTest {
                 "PROPOSAL_CREATED",
                 350_000L,
                 null,
+                "SALE",
                 Instant.now()
         );
 
@@ -74,10 +75,10 @@ class TradeActionNotificationConsumerTest {
 
         consumer.onTradeAction(new TradeActionNotificationDto(
                 UUID.randomUUID(), chatId, UUID.randomUUID(), 11223344L, "Ali",
-                "PROPOSAL_CREATED", 0L, null, Instant.now()));
+                "PROPOSAL_CREATED", 0L, null, "SWAP", Instant.now()));
         consumer.onTradeAction(new TradeActionNotificationDto(
                 UUID.randomUUID(), chatId, UUID.randomUUID(), 11223344L, "Ali",
-                "TRADE_STARTED", 0L, null, Instant.now()));
+                "TRADE_STARTED", 0L, null, "SWAP", Instant.now()));
 
         assertThat(telegram.calls).hasSize(2);
         assertThat(telegram.calls).allSatisfy(call -> {
@@ -93,13 +94,41 @@ class TradeActionNotificationConsumerTest {
     }
 
     @Test
-    void surchargeSwapStillShowsWhatIsPaid() {
+    void surchargeSwapIsCalledASwapAndStillShowsWhatIsPaid() {
+        // Doplatali obmenda summa noldan katta, ya'ni faqat unga qarab
+        // turini aniqlab bo'lmaydi — DM "Yangi savdo taklifi" deb kelardi.
         consumer.onTradeAction(new TradeActionNotificationDto(
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 11223344L, "Ali",
-                "TRADE_STARTED", 120_000L, null, Instant.now()));
+                "PROPOSAL_CREATED", 120_000L, null, "SWAP_SURCHARGE", Instant.now()));
+        consumer.onTradeAction(new TradeActionNotificationDto(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 11223344L, "Ali",
+                "TRADE_STARTED", 120_000L, null, "SWAP_SURCHARGE", Instant.now()));
 
-        assertThat(telegram.calls).hasSize(1);
-        assertThat(telegram.calls.get(0).text()).contains("120 000 UZS");
+        assertThat(telegram.calls).hasSize(2);
+        assertThat(telegram.calls).allSatisfy(call -> {
+            assertThat(call.text()).doesNotContain("savdo taklifi");
+            assertThat(call.text()).doesNotContain("Savdo boshlandi");
+            assertThat(call.text().toLowerCase()).contains("obmen");
+            // Doplata baribir ko'rinishi kerak: bu toza obmen emas.
+            assertThat(call.text()).contains("120 000 UZS");
+        });
+        assertThat(telegram.calls.get(0).text()).contains("Yangi obmen taklifi!");
+        assertThat(telegram.calls.get(1).text()).contains("Obmen boshlandi!");
+    }
+
+    @Test
+    void oldEventsWithoutKindFallBackToTheAmount() {
+        // Navbatda turgan eski hodisalarda `kind` yo'q. Sotuvda narx hech
+        // qachon 0 bo'lmaydi, demak 0 summa obmen degani.
+        consumer.onTradeAction(new TradeActionNotificationDto(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 11223344L, "Ali",
+                "PROPOSAL_CREATED", 0L, null, null, Instant.now()));
+        consumer.onTradeAction(new TradeActionNotificationDto(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 11223344L, "Ali",
+                "PROPOSAL_CREATED", 350_000L, null, null, Instant.now()));
+
+        assertThat(telegram.calls.get(0).text()).contains("Yangi obmen taklifi!");
+        assertThat(telegram.calls.get(1).text()).contains("Yangi savdo taklifi!");
     }
 
     @Test
@@ -113,6 +142,7 @@ class TradeActionNotificationConsumerTest {
                 "TRADE_SUCCESS",
                 100_000L,
                 null,
+                "SALE",
                 Instant.now()
         );
 

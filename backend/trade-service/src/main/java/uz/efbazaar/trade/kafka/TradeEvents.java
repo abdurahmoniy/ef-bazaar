@@ -57,6 +57,12 @@ public final class TradeEvents {
         TRADE_ORPHANED
     }
 
+    /**
+     * @param kind savdo turi. Xabar matni shunga qarab yoziladi: obmen
+     *             obmen deb atalishi kerak, doplatalisi ham. Summaning
+     *             o'zi buni ayta olmaydi — doplatali obmenda u noldan
+     *             katta va sotuvdan farq qilmaydi.
+     */
     public record TradeActionNotification(
             UUID tradeId,
             UUID chatId,
@@ -64,6 +70,7 @@ public final class TradeEvents {
             TradeActionType actionType,
             long amountUzs,
             String details,
+            uz.efbazaar.trade.trade.domain.TradeKind kind,
             Instant occurredAt) {}
 
     public record ProposalCreated(

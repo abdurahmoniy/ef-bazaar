@@ -150,7 +150,7 @@ public class OneTimePasswordService {
 
         UUID recipientUserId = recipientRole == ParticipantRole.BUYER ? t.getBuyerId() : t.getSellerId();
         events.tradeAction(tradeId, t.getChatId(), recipientUserId,
-                TradeEvents.TradeActionType.PASSWORD_SENT, t.getPriceUzs(), null);
+                TradeEvents.TradeActionType.PASSWORD_SENT, t.getPriceUzs(), null, t.getKind());
 
         // Defer the Redis put to afterCommit (same pattern as
         // TradeEventPublisher.send): if the transaction rolls back for any

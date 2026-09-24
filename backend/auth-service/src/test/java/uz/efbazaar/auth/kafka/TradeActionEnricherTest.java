@@ -58,6 +58,7 @@ class TradeActionEnricherTest {
                 "PROPOSAL_CREATED",
                 150_000L,
                 null,
+                "SWAP_SURCHARGE",
                 Instant.now()
         );
 
@@ -72,6 +73,9 @@ class TradeActionEnricherTest {
         assertThat(event.recipientDisplayName()).isEqualTo("Sardor");
         assertThat(event.actionType()).isEqualTo("PROPOSAL_CREATED");
         assertThat(event.amountUzs()).isEqualTo(150_000L);
+        // Savdo turi bot uchun kerak: doplatali obmenda summa noldan katta
+        // va u yolg'iz o'zi obmenni sotuvdan ajrata olmaydi.
+        assertThat(event.kind()).isEqualTo("SWAP_SURCHARGE");
     }
 
     @Test
@@ -86,6 +90,7 @@ class TradeActionEnricherTest {
                 "TRADE_SUCCESS",
                 100_000L,
                 null,
+                "SALE",
                 Instant.now()
         );
 
