@@ -1,3 +1,4 @@
+import { socketFixture } from '@/test/chat-socket-fixture';
 // @vitest-environment jsdom
 import { act, createElement, Fragment } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -117,3 +118,9 @@ it('keeps the proposal when the connection fails', async () => {
   expect(state.proposal?.id).toBe('proposal');
   expect(document.body.textContent).toContain('Qayta urinib ko‘ring.');
 });
+
+vi.mock('@/lib/chat-socket', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/chat-socket')>(),
+  getChatSocket: () => socketFixture,
+  closeOtherChatSockets: () => {},
+}));

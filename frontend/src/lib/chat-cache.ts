@@ -2,7 +2,7 @@
 
 import { queryOptions, type QueryClient } from '@tanstack/react-query';
 
-import { buildMarketplaceApiPath } from './marketplace-client-api';
+import { ChatSocketError, getChatSocket } from './chat-socket';
 import type { ChatResponse, MessageResponse, PageResponse } from './marketplace-types';
 
 export const CHAT_STALE_TIME_MS = 5_000;
@@ -10,32 +10,25 @@ export const PRIVATE_CACHE_GC_TIME_MS = 10 * 60_000;
 export const chatKeys = {
   inbox: (viewerId: string) => ['private', viewerId, 'chats', 'inbox'] as const,
   unread: (viewerId: string) => ['private', viewerId, 'chats', 'unread'] as const,
+  details: (viewerId: string, chatId: string) => ['private', viewerId, 'chats', chatId, 'details'] as const,
   messages: (viewerId: string, chatId: string) => ['private', viewerId, 'chats', chatId, 'messages'] as const,
 };
 
-export class ChatRequestError extends Error {
-  constructor(readonly status: number) {
-    super(`Chat request failed (${status})`);
-  }
-
-  get permanent() {
-    return this.status >= 400 && this.status < 500 && this.status !== 408 && this.status !== 429;
-  }
-}
-
-async function readChatData<T>(path: string, signal: AbortSignal): Promise<T> {
-  const response = await fetch(path, {
-    credentials: 'include', cache: 'no-store', signal,
-    headers: { Accept: 'application/json' },
-  });
-  if (!response.ok) throw new ChatRequestError(response.status);
-  return response.json() as Promise<T>;
-}
+export { ChatSocketError as ChatRequestError };
 
 export function mergeMessages(previous: MessageResponse[], next: MessageResponse[]) {
   const messages = new Map(previous.map(message => [message.id, message]));
   next.forEach(message => messages.set(message.id, message));
   return [...messages.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+export function chatDetailsOptions(viewerId: string, chatId: string) {
+  return queryOptions({
+    queryKey: chatKeys.details(viewerId, chatId),
+    staleTime: CHAT_STALE_TIME_MS,
+    gcTime: typeof window === 'undefined' ? Infinity : PRIVATE_CACHE_GC_TIME_MS,
+    queryFn: ({ signal }) => getChatSocket(viewerId).request<ChatResponse>('get', chatId, undefined, signal),
+  });
 }
 
 export function chatMessagesOptions(client: QueryClient, viewerId: string, chatId: string) {
@@ -45,10 +38,14 @@ export function chatMessagesOptions(client: QueryClient, viewerId: string, chatI
     staleTime: CHAT_STALE_TIME_MS,
     gcTime: typeof window === 'undefined' ? Infinity : PRIVATE_CACHE_GC_TIME_MS,
     queryFn: async ({ signal }) => {
-      const page = await readChatData<PageResponse<MessageResponse>>(
-        buildMarketplaceApiPath(['v1', 'chats', chatId, 'messages']) + '?size=200&sort=createdAt,asc', signal,
-      );
-      return page.totalPages <= 1 ? page.content : mergeMessages(client.getQueryData(queryKey) ?? [], page.content);
+      const socket = getChatSocket(viewerId);
+      const first = await socket.request<PageResponse<MessageResponse>>('messages', chatId, { page: 0, size: 200 }, signal);
+      let messages = first.content;
+      for (let page = 1; page < first.totalPages; page++) {
+        const next = await socket.request<PageResponse<MessageResponse>>('messages', chatId, { page, size: 200 }, signal);
+        messages = mergeMessages(messages, next.content);
+      }
+      return messages;
     },
   });
 }
@@ -58,7 +55,7 @@ export function chatInboxOptions(viewerId: string) {
     queryKey: chatKeys.inbox(viewerId),
     staleTime: CHAT_STALE_TIME_MS,
     gcTime: typeof window === 'undefined' ? Infinity : PRIVATE_CACHE_GC_TIME_MS,
-    queryFn: ({ signal }) => readChatData<ChatResponse[]>(buildMarketplaceApiPath(['v1', 'chats', 'me']), signal),
+    queryFn: ({ signal }) => getChatSocket(viewerId).request<ChatResponse[]>('inbox', undefined, undefined, signal),
   });
 }
 
@@ -68,7 +65,7 @@ export function chatUnreadOptions(viewerId: string) {
     staleTime: 30_000,
     gcTime: typeof window === 'undefined' ? Infinity : PRIVATE_CACHE_GC_TIME_MS,
     queryFn: async ({ signal }) => {
-      const payload = await readChatData<{ count: number }>(buildMarketplaceApiPath(['v1', 'chats', 'unread-total']), signal);
+      const payload = await getChatSocket(viewerId).request<{ count: number }>('unread', undefined, undefined, signal);
       return payload.count;
     },
   });
@@ -88,9 +85,12 @@ export async function commitChatMessages(
   update: (previous: MessageResponse[]) => MessageResponse[],
 ) {
   const queryKey = chatKeys.messages(viewerId, chatId);
-  // A poll started before the mutation must not replace its confirmed result.
+  // A snapshot started before the mutation must not replace its confirmed result.
   await client.cancelQueries({ queryKey });
   client.setQueryData<MessageResponse[]>(queryKey, previous => update(previous ?? []));
+  // The cancelled snapshot may also contain another participant's concurrent
+  // message. Reconcile after this acknowledgement so its push is never lost.
+  void client.invalidateQueries({ queryKey });
   void invalidateChatInbox(client, viewerId);
 }
 

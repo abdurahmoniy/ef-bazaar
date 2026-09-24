@@ -347,6 +347,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     environment:
+      # Empty keeps WebSocket handshakes same-origin; explicit origins are for development.
+      CHAT_WEBSOCKET_ALLOWED_ORIGINS: ${CHAT_WEBSOCKET_ALLOWED_ORIGINS:-}
       FIREBASE_PUSH_ENABLED: ${FIREBASE_PUSH_ENABLED:-false}
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
       # efBazaar rasmiy kanali — bo'sh bo'lsa rasmiy postlar o'chiq.

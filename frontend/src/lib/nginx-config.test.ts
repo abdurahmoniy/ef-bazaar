@@ -138,3 +138,53 @@ describe('frontend internal API env', () => {
     expect(envExample).not.toContain('INTERNAL_API_BASE_URL=https://api.efbazaar.uz');
   });
 });
+
+describe('authenticated chat WebSocket routing', () => {
+  it('keeps cross-origin development access opt-in through the backend environment', () => {
+    const compose = readFileSync(join(process.cwd(), '..', 'docker-compose.yml'), 'utf8');
+    const marketplace = compose.match(/^  marketplace-service:\n[\s\S]*?(?=^  [a-z][a-z-]*:|$(?![\s\S]))/m)?.[0];
+    expect(marketplace).toContain('CHAT_WEBSOCKET_ALLOWED_ORIGINS: ${CHAT_WEBSOCKET_ALLOWED_ORIGINS:-}');
+    const example = readFileSync(join(process.cwd(), '..', '.env.example'), 'utf8');
+    expect(example).toMatch(/^CHAT_WEBSOCKET_ALLOWED_ORIGINS=$/m);
+    expect(example).toMatch(/^# CHAT_WEBSOCKET_ALLOWED_ORIGINS=http:\/\/localhost:3000$/m);
+    expect(readFileSync(envExamplePath, 'utf8')).toContain('docs/superpowers/plans/2026-09-25-chat-websocket.md');
+  });
+
+  it('routes the public site, API host and internal proxy through the same protected handshake', () => {
+    const site = readFileSync(configPath, 'utf8');
+    const api = readFileSync(apiConfigPath, 'utf8');
+    const routes = extractBlocks(site, /\blocation\s+=\s+\/ws\/chat\s*\{/g);
+    expect(routes).toHaveLength(2);
+    routes.push(...extractBlocks(api, /\blocation\s+=\s+\/ws\/chat\s*\{/g));
+    expect(routes).toHaveLength(3);
+    for (const route of routes) {
+      expect(route).toContain('include /etc/nginx/conf.d/chat-websocket.inc;');
+      expect(route).not.toMatch(/error_page|limit_req/);
+    }
+  });
+
+  it('requires cookie authentication, overwrites identity and preserves the WebSocket upgrade', () => {
+    const route = readFileSync(join(process.cwd(), '..', 'nginx', 'conf.d', 'chat-websocket.inc'), 'utf8');
+    expect(route).toContain('auth_basic off;');
+    expect(route).toContain('auth_request /_auth_verify;');
+    expect(route).not.toMatch(/error_page|limit_req|\$http_x_user/);
+    for (const [header, variable, source] of [
+      ['X-User-Id', 'chat_user_id', 'x_user_id'],
+      ['X-User-Roles', 'chat_user_roles', 'x_user_roles'],
+      ['X-Telegram-Id', 'chat_telegram_id', 'x_telegram_id'],
+      ['X-User-Name', 'chat_user_name', 'x_user_name'],
+    ]) {
+      expect(route).toMatch(new RegExp(`auth_request_set\\s+\\$${variable}\\s+\\$upstream_http_${source};`));
+      expect(route).toMatch(new RegExp(`proxy_set_header\\s+${header}\\s+\\$${variable};`));
+    }
+    expect(route).toContain('proxy_pass http://$backend_marketplace/ws/chat;');
+    expect(route).toContain('proxy_http_version 1.1;');
+    expect(route).toContain('proxy_set_header Upgrade $http_upgrade;');
+    expect(route).toContain('proxy_set_header Connection $connection_upgrade;');
+    expect(route).toContain('proxy_set_header Cookie $http_cookie;');
+    expect(route).toContain('proxy_set_header Host $http_host;');
+    expect(route).toContain('proxy_set_header X-Forwarded-Host $http_host;');
+    expect(route).toContain('proxy_buffering off;');
+    expect(route).toContain('proxy_read_timeout 75s;');
+  });
+});

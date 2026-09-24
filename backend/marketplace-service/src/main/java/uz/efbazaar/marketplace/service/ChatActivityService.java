@@ -39,7 +39,7 @@ public class ChatActivityService {
 
     /** No disconnect mutation: another tab's heartbeat keeps the user online. */
     public void presence(UUID userId) {
-        redis.opsForValue().set(presenceKey(userId), clock.instant().toString(), PRESENCE_RETENTION);
+        socketPresence(userId, "http", true);
     }
 
     @Transactional(readOnly = true)
@@ -49,9 +49,8 @@ public class ChatActivityService {
         Instant now = clock.instant();
         // Propagate Redis errors: an unavailable signal must never look like offline.
         Instant lastSeen = timestamp(redis.opsForValue().get(presenceKey(partnerId)));
-        Instant typingAt = timestamp(redis.opsForValue().get(typingKey(chatId, partnerId)));
-        boolean online = lastSeen != null && !lastSeen.isBefore(now.minusSeconds(40));
-        boolean typing = typingAt != null && typingAt.isAfter(now.minus(TYPING_TTL));
+        boolean online = hasLiveSession(presenceSessionsKey(partnerId), now);
+        boolean typing = hasLiveSession(typingKey(chatId, partnerId), now);
         Instant lastRead = participants.findByChatIdAndUserId(chatId, partnerId)
                 .map(ChatParticipant::getLastReadAt).orElse(null);
         return new ChatActivityResponse(online, typing, lastSeen, lastRead);
@@ -59,10 +58,73 @@ public class ChatActivityService {
 
     @Transactional(readOnly = true)
     public void typing(UUID chatId, UUID userId, boolean typing) {
+        socketTyping(chatId, userId, "http", typing);
+    }
+
+    /** A tab only removes its own lease; crashed connections disappear after 40 seconds. */
+    public void socketPresence(UUID userId, String sessionId, boolean active) {
+        Instant now = clock.instant();
+        boolean changed = lease(presenceSessionsKey(userId), sessionId, active, now, Duration.ofSeconds(40));
+        if (active || changed) {
+            redis.opsForValue().set(presenceKey(userId), now.toString(), PRESENCE_RETENTION);
+            signal(userId);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void socketTyping(UUID chatId, UUID userId, String sessionId, boolean typing) {
         requireParticipant(chatId, userId);
-        String key = typingKey(chatId, userId);
-        if (typing) redis.opsForValue().set(key, clock.instant().toString(), TYPING_TTL);
-        else redis.delete(key);
+        if (lease(typingKey(chatId, userId), sessionId, typing, clock.instant(), TYPING_TTL) || typing)
+            signal(userId);
+    }
+
+    private boolean lease(String key, String sessionId, boolean active, Instant now, Duration lifetime) {
+        redis.opsForZSet().removeRangeByScore(key, Double.NEGATIVE_INFINITY, now.toEpochMilli());
+        if (active) {
+            redis.opsForZSet().add(key, sessionId, now.plus(lifetime).toEpochMilli());
+            redis.expire(key, lifetime.plusSeconds(5));
+            return true;
+        }
+        Long removed = redis.opsForZSet().remove(key, sessionId);
+        return removed != null && removed > 0;
+    }
+
+    private boolean hasLiveSession(String key, Instant now) {
+        Long count = redis.opsForZSet().count(key, now.toEpochMilli() + 1, Double.POSITIVE_INFINITY);
+        return count != null && count > 0;
+    }
+
+    /** Only the socket handler constructs these after authenticating chat membership. */
+    public record ActivityTarget(UUID chatId, UUID partnerId, Instant lastReadAt) {}
+
+    /** One Redis pipeline per replica tick; durable cursors are refreshed by committed chat events. */
+    public java.util.Map<ActivityTarget, ChatActivityResponse> activities(java.util.Collection<ActivityTarget> requested) {
+        java.util.List<ActivityTarget> targets = requested.stream().distinct().toList();
+        if (targets.isEmpty()) return java.util.Map.of();
+        long after = clock.instant().toEpochMilli() + 1;
+        java.util.List<Object> values = redis.executePipelined((org.springframework.data.redis.core.RedisCallback<Object>) connection -> {
+            for (ActivityTarget target : targets) {
+                connection.stringCommands().get(bytes(presenceKey(target.partnerId())));
+                connection.zSetCommands().zCount(bytes(presenceSessionsKey(target.partnerId())), after, Double.POSITIVE_INFINITY);
+                connection.zSetCommands().zCount(bytes(typingKey(target.chatId(), target.partnerId())), after, Double.POSITIVE_INFINITY);
+            }
+            return null;
+        });
+        java.util.Map<ActivityTarget, ChatActivityResponse> result = new java.util.HashMap<>();
+        int index = 0;
+        for (ActivityTarget target : targets) {
+            String lastSeen = (String) values.get(index++);
+            long online = ((Number) values.get(index++)).longValue();
+            long typing = ((Number) values.get(index++)).longValue();
+            result.put(target, new ChatActivityResponse(online > 0, typing > 0, timestamp(lastSeen), target.lastReadAt()));
+        }
+        return result;
+    }
+
+    private static byte[] bytes(String value) { return value.getBytes(java.nio.charset.StandardCharsets.UTF_8); }
+
+    private void signal(UUID userId) {
+        redis.convertAndSend(uz.efbazaar.marketplace.websocket.ChatSocketSignals.CHANNEL, "activity:" + userId);
     }
 
     private Chat requireParticipant(UUID chatId, UUID userId) {
@@ -75,5 +137,6 @@ public class ChatActivityService {
         return value == null ? null : Instant.parse(value);
     }
     private static String presenceKey(UUID userId) { return "chat:presence:" + userId; }
-    private static String typingKey(UUID chatId, UUID userId) { return "chat:typing:" + chatId + ":" + userId; }
+    private static String presenceSessionsKey(UUID userId) { return "chat:presence-sessions:" + userId; }
+    private static String typingKey(UUID chatId, UUID userId) { return "chat:typing-sessions:" + chatId + ":" + userId; }
 }

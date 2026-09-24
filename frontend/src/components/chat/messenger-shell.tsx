@@ -38,8 +38,6 @@ export function MessengerShell({ chats: initialChats, initialFetchedAt, user, ch
     ...chatInboxOptions(user.id),
     initialData: initialChats,
     initialDataUpdatedAt: initialFetchedAt,
-    refetchInterval: 15_000,
-    refetchIntervalInBackground: false,
   });
   useEffect(() => {
     const key = chatKeys.inbox(user.id);

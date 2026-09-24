@@ -21,6 +21,8 @@ import {
 
 import { ChatComposerInput } from '@/components/chat/chat-composer-input';
 import { ChatActivityStatus, MessageReadReceipt } from '@/components/chat/chat-activity-status';
+import { useChatConnection } from '@/hooks/use-chat-connection';
+import { getChatSocket } from '@/lib/chat-socket';
 import { useChatActivity } from '@/hooks/use-chat-activity';
 import { ChatOptions } from '@/components/chat/chat-options';
 import { MessageActionSheet } from '@/components/chat/message-action-sheet';
@@ -44,7 +46,7 @@ import {
 } from '@/lib/chat-format';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { canGroupMessages } from '@/lib/chat-message-grouping';
-import { ChatRequestError, chatInboxOptions, chatKeys, chatMessagesOptions, commitChatMessages, invalidateChatInbox, markCachedChatRead, mergeMessages } from '@/lib/chat-cache';
+import { ChatRequestError, chatDetailsOptions, chatInboxOptions, chatKeys, chatMessagesOptions, commitChatMessages, invalidateChatInbox, markCachedChatRead, mergeMessages } from '@/lib/chat-cache';
 import type {
   ChatResponse,
   ListingResponse,
@@ -64,8 +66,6 @@ interface ChatViewProps {
   initialPendingProposal?: PendingProposalResponse | null;
 }
 
-const POLL_INTERVAL_MS = 5000;
-
 export function ChatView({
   chat: initialChat,
   viewerId,
@@ -76,6 +76,7 @@ export function ChatView({
   initialPendingProposal = null,
 }: ChatViewProps) {
   const router = useRouter();
+  const connected = useChatConnection(viewerId);
   const queryClient = useQueryClient();
   const [chat, setChat] = useState(() => {
     const inboxKey = chatKeys.inbox(viewerId);
@@ -84,6 +85,12 @@ export function ChatView({
     }
     return initialChat;
   });
+  const { data: liveChat } = useQuery({
+    ...chatDetailsOptions(viewerId, initialChat.id),
+    initialData: chat,
+    initialDataUpdatedAt: Math.max(initialFetchedAt, queryClient.getQueryState(chatKeys.inbox(viewerId))?.dataUpdatedAt ?? 0),
+  });
+  useEffect(() => { setChat(liveChat); }, [liveChat]);
   // The mounted conversation also needs deletion updates from the inbox. A
   // cached route must never restore a history cutoff older than one we know.
   const { data: inbox } = useQuery({ ...chatInboxOptions(viewerId), enabled: false });
@@ -98,19 +105,13 @@ export function ChatView({
     ...chatMessagesOptions(queryClient, viewerId, initialChat.id),
     initialData: initialMessages,
     initialDataUpdatedAt: initialMessagesComplete ? initialFetchedAt : 0,
-    refetchInterval: query => {
-      const error = query.state.error;
-      if (error instanceof ChatRequestError && error.permanent) return false;
-      return error ? 30_000 : POLL_INTERVAL_MS;
-    },
     retry: false,
     refetchOnWindowFocus: query => !(query.state.error instanceof ChatRequestError && query.state.error.permanent),
     refetchOnReconnect: query => !(query.state.error instanceof ChatRequestError && query.state.error.permanent),
-    refetchIntervalInBackground: false,
   });
   const messages = messagesQuery.data;
   const initialMessageIds = useRef(new Set(messages.map(message => message.id)));
-  const { activity, lastReadAt: partnerLastReadAt, setTyping } = useChatActivity(chat.id);
+  const { activity, lastReadAt: partnerLastReadAt, setTyping } = useChatActivity(chat.id, viewerId);
 
   // Fresh server renders may improve the cache; an older cached route must not
   // replace messages received or changed after that route was first rendered.
@@ -168,7 +169,7 @@ export function ChatView({
         || document.visibilityState !== 'visible' || !document.hasFocus() || !navigator.onLine
         || !list || list.scrollHeight - list.clientHeight - list.scrollTop > 8) return;
       inFlight = true;
-      void markChatRead(chat.id, lastIncomingId).then(ok => {
+      void markChatRead(viewerId, chat.id, lastIncomingId).then(ok => {
         inFlight = false;
         if (ok && !cancelled) {
           acknowledgedMessage.current = lastIncomingId;
@@ -198,7 +199,7 @@ export function ChatView({
     setError(null);
     startSend(async () => {
       if (editing) {
-        const result = await editMessage(chat.id, editing.id, content);
+        const result = await editMessage(viewerId, chat.id, editing.id, content);
         if (!result.ok) {
           setError(result.error ?? 'Tahrirlanmadi');
           return;
@@ -210,7 +211,7 @@ export function ChatView({
       }
       const result = pendingFile
         ? await sendAttachment(chat.id, pendingFile, content)
-        : await sendMessage(chat.id, content, replyTo?.id ?? null);
+        : await sendMessage(viewerId, chat.id, content, replyTo?.id ?? null);
       if (!result.ok) {
         setError(result.error ?? 'Yuborilmadi');
         return;
@@ -259,7 +260,7 @@ export function ChatView({
     if (!confirm("Xabarni o'chirmoqchimisiz? U ikkala tarafdan ham o'chadi.")) return;
     setError(null);
     startUpdate(async () => {
-      const result = await deleteMessage(chat.id, message.id);
+      const result = await deleteMessage(viewerId, chat.id, message.id);
       if (!result.ok) {
         setError(result.error ?? "Xabar o'chirilmadi");
         return;
@@ -296,12 +297,14 @@ export function ChatView({
   function handleToggleImportant() {
     setError(null);
     startUpdate(async () => {
-      const result = await toggleImportant(chat.id);
+      const result = await toggleImportant(viewerId, chat.id);
       if (!result.ok) {
         setError(result.error ?? "Muhim belgisi o'zgarmadi");
         return;
       }
       setChat(result.chat);
+      await queryClient.cancelQueries({ queryKey: chatKeys.details(viewerId, chat.id) });
+      queryClient.setQueryData(chatKeys.details(viewerId, chat.id), result.chat);
       await queryClient.cancelQueries({ queryKey: chatKeys.inbox(viewerId) });
       queryClient.setQueryData<ChatResponse[]>(chatKeys.inbox(viewerId), previous =>
         previous?.map(item => item.id === chat.id ? result.chat : item),
@@ -320,7 +323,7 @@ export function ChatView({
       return;
     setError(null);
     startUpdate(async () => {
-      const result = await hideChat(chat.id);
+      const result = await hideChat(viewerId, chat.id);
       if (!result.ok) {
         setError(result.error ?? "Chat o'chirilmadi");
         return;
@@ -376,6 +379,9 @@ export function ChatView({
         </header>
 
         <TradePinnedBar />
+        {!connected && <div role="status" className="flex shrink-0 items-center justify-center gap-2 border-b bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
+          <LoaderCircle aria-hidden className="h-3 w-3 animate-spin motion-reduce:animate-none" /> Chatga ulanmoqda…
+        </div>}
         <TradeSyncStatus />
         <TradePanel />
         {messagesQuery.isError && (
@@ -664,55 +670,22 @@ type SendResult =
   | { ok: true; message: MessageResponse }
   | { ok: false; error: string };
 
-async function sendMessage(
-  chatId: string,
-  content: string,
-  replyToId: string | null = null,
-): Promise<SendResult> {
-  const response = await fetch(
-    buildMarketplaceApiPath(['v1', 'chats', chatId, 'messages']),
-    {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(replyToId ? { content, replyToId } : { content }),
-    },
-  );
-  if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
-  const message = (await response.json()) as MessageResponse;
-  return { ok: true, message };
+async function sendMessage(viewerId: string, chatId: string, content: string, replyToId: string | null = null): Promise<SendResult> {
+  try { return { ok: true, message: await getChatSocket(viewerId).request('send', chatId, { content, replyToId }) }; }
+  catch (error) { return { ok: false, error: socketError(error) }; }
 }
 
-async function editMessage(
-  chatId: string,
-  messageId: string,
-  content: string,
-): Promise<SendResult> {
-  const response = await fetch(
-    buildMarketplaceApiPath(['v1', 'chats', chatId, 'messages', messageId]),
-    {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ content }),
-    },
-  );
-  if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
-  const message = (await response.json()) as MessageResponse;
-  return { ok: true, message };
+async function editMessage(viewerId: string, chatId: string, messageId: string, content: string): Promise<SendResult> {
+  try { return { ok: true, message: await getChatSocket(viewerId).request('edit', chatId, { messageId, content }) }; }
+  catch (error) { return { ok: false, error: socketError(error) }; }
 }
 
-async function deleteMessage(
-  chatId: string,
-  messageId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const response = await fetch(
-    buildMarketplaceApiPath(['v1', 'chats', chatId, 'messages', messageId]),
-    { method: 'DELETE', credentials: 'include' },
-  );
-  if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
-  return { ok: true };
+async function deleteMessage(viewerId: string, chatId: string, messageId: string): Promise<HideResult> {
+  try { await getChatSocket(viewerId).request('delete', chatId, { messageId }); return { ok: true }; }
+  catch (error) { return { ok: false, error: socketError(error) }; }
 }
+
+function socketError(error: unknown) { return error instanceof Error ? error.message : "So‘rov bajarilmadi"; }
 
 async function sendAttachment(
   chatId: string,
@@ -737,39 +710,21 @@ type ChatResult =
   | { ok: true; chat: ChatResponse }
   | { ok: false; error: string };
 
-async function toggleImportant(chatId: string): Promise<ChatResult> {
-  const response = await fetch(
-    buildMarketplaceApiPath(['v1', 'chats', chatId, 'important']),
-    { method: 'POST', credentials: 'include' },
-  );
-  if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
-  return { ok: true, chat: (await response.json()) as ChatResponse };
+async function toggleImportant(viewerId: string, chatId: string): Promise<ChatResult> {
+  try { return { ok: true, chat: await getChatSocket(viewerId).request('important', chatId) }; }
+  catch (error) { return { ok: false, error: socketError(error) }; }
 }
 
-/** Fire-and-forget read-cursor bump — failures self-heal on the next call. */
-async function markChatRead(chatId: string, messageId: string): Promise<boolean> {
-  try {
-    const response = await fetch(buildMarketplaceApiPath(['v1', 'chats', chatId, 'read']), {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messageId }),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
+async function markChatRead(viewerId: string, chatId: string, messageId: string): Promise<boolean> {
+  try { await getChatSocket(viewerId).request('read', chatId, { messageId }); return true; }
+  catch { return false; }
 }
 
 type HideResult = { ok: true } | { ok: false; error: string };
 
-async function hideChat(chatId: string): Promise<HideResult> {
-  const response = await fetch(
-    buildMarketplaceApiPath(['v1', 'chats', chatId, 'hide']),
-    { method: 'POST', credentials: 'include' },
-  );
-  if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
-  return { ok: true };
+async function hideChat(viewerId: string, chatId: string): Promise<HideResult> {
+  try { await getChatSocket(viewerId).request('hide', chatId); return { ok: true }; }
+  catch (error) { return { ok: false, error: socketError(error) }; }
 }
 
 async function readErrorMessage(response: Response) {

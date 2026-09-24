@@ -1,0 +1,22 @@
+import { QueryClient } from '@tanstack/react-query';
+import { afterEach, expect, it, vi } from 'vitest';
+import { connectChatCache } from './chat-realtime-cache';
+import { chatKeys } from './chat-cache';
+import type { ChatSocketEvent } from './chat-socket';
+let emit: (event: ChatSocketEvent) => void;
+vi.mock('./chat-socket', () => ({ getChatSocket: () => ({ subscribe: (fn: typeof emit) => { emit = fn; return () => {}; } }) }));
+afterEach(() => vi.useRealTimers());
+it('refreshes only the account and affected chat, batches bursts, and recovers all conversations on reconnect', async () => {
+  vi.useFakeTimers(); const client = new QueryClient();
+  const keys = [chatKeys.inbox('viewer'), chatKeys.unread('viewer'), chatKeys.messages('viewer', 'one'), chatKeys.messages('viewer', 'two'), chatKeys.inbox('other')];
+  keys.forEach(key => client.setQueryData(key, []));
+  const invalidate = vi.spyOn(client, 'invalidateQueries'); const stop = connectChatCache(client, 'viewer');
+  emit({ type: 'changed', chatId: 'one' }); emit({ type: 'changed', chatId: 'one' });
+  await vi.advanceTimersByTimeAsync(50);
+  expect(invalidate).toHaveBeenCalledTimes(1);
+  expect(keys.map(key => client.getQueryState(key)?.isInvalidated)).toEqual([true, true, true, false, false]);
+  emit({ type: 'connected' }); await vi.advanceTimersByTimeAsync(50);
+  expect(client.getQueryState(keys[3])?.isInvalidated).toBe(true);
+  expect(client.getQueryState(keys[4])?.isInvalidated).toBe(false);
+  stop(); client.clear();
+});

@@ -1,3 +1,4 @@
+import { socketFixture } from '@/test/chat-socket-fixture';
 // @vitest-environment jsdom
 
 import { act, createElement } from 'react';
@@ -97,3 +98,9 @@ it('keeps the conversation inside the mobile visible viewport, capped by Telegra
     delete reactActGlobal.IS_REACT_ACT_ENVIRONMENT;
   }
 });
+
+vi.mock('@/lib/chat-socket', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/chat-socket')>(),
+  getChatSocket: () => socketFixture,
+  closeOtherChatSockets: () => {},
+}));

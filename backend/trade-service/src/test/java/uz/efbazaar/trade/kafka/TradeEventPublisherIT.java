@@ -27,6 +27,9 @@ class TradeEventPublisherIT extends AbstractIntegrationIT {
     @Autowired
     private TradeEventPublisher publisher;
 
+    @Autowired
+    private ChatChangePublisher chatChanges;
+
     /**
      * Both endings announce the inbox, and say which ending it was.
      *
@@ -68,6 +71,19 @@ class TradeEventPublisherIT extends AbstractIntegrationIT {
             assertThat(lose.value().outcome())
                     .as("the reader is told to go and recover their account, not congratulated")
                     .isEqualTo(TradeEvents.HandoverOutcome.RETURNED);
+        }
+    }
+
+    @Test
+    void chatInvalidationRoundTripContainsNoTradeSecrets() {
+        UUID chatId = UUID.randomUUID();
+        chatChanges.publish(chatId);
+        try (Consumer<String, Map> consumer = consumer(Map.class)) {
+            consumer.subscribe(List.of("chat.changed.v1"));
+            var record = pollUntil(consumer, value -> chatId.toString().equals(value.get("chatId")));
+            assertThat(record).isNotNull();
+            assertThat(record.key()).isEqualTo(chatId.toString());
+            assertThat(record.value()).isEqualTo(Map.of("chatId", chatId.toString()));
         }
     }
 

@@ -18,9 +18,9 @@ import org.springframework.web.socket.sockjs.client.WebSocketTransport;
 import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
 import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.domain.TradeState;
-import uz.efbazaar.trade.trade.dto.TradeResponse;
+import uz.efbazaar.trade.trade.domain.Trade;
+import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
-import uz.efbazaar.trade.trade.service.TradeService;
 
 import java.lang.reflect.Type;
 import java.time.Instant;
@@ -31,7 +31,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 
 /**
  * Whole-branch review Critical #1: SUBSCRIBE frames must be authorized
@@ -43,21 +42,25 @@ import static org.awaitility.Awaitility.await;
 class TradeWebSocketAuthzIT extends AbstractIntegrationIT {
 
     @LocalServerPort int port;
-    @Autowired TradeService trades;
     @Autowired TradeRepository tradeRepo;
+    @Autowired MailboxService mailboxes;
 
-    /**
-     * Marks the invitation as taken. Deliberately not {@code
-     * TradeAdminAssignmentService.accept} — that needs a profile row and the
-     * trade to already be WAITING_ADMIN — but it writes the same fact the
-     * subscribe gate reads. Waits for MockWorker's asynchronous
-     * INITIATED -> WAITING_ADMIN first so that transition's own save cannot
-     * overwrite the stamp underneath us.
-     */
+    /** Seed only the persisted facts the WebSocket subscribe gate reads. */
+    private Trade givenTrade(UUID seller, UUID buyer, UUID admin) {
+        return tradeRepo.save(Trade.builder()
+                .id(UUID.randomUUID()).sellerId(seller).buyerId(buyer)
+                .priceUzs(80_000L)
+                .mode(admin == null ? TradeMode.SMART : TradeMode.HUMAN)
+                .state(admin == null ? TradeState.WAITING_EMAIL_CHANGE : TradeState.WAITING_ADMIN)
+                .assignedAdminId(admin)
+                .mailboxId(mailboxes.createPlaceholder("pending-" + UUID.randomUUID() + "@efbazaar.uz"))
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build());
+    }
+
     private void accept(UUID tradeId) {
-        await().atMost(10, TimeUnit.SECONDS).until(() ->
-                tradeRepo.findById(tradeId).orElseThrow().getState() == TradeState.WAITING_ADMIN);
         var row = tradeRepo.findById(tradeId).orElseThrow();
+        row.setState(TradeState.IN_PROGRESS);
         row.setAdminAcceptedAt(Instant.now());
         tradeRepo.save(row);
     }
@@ -68,13 +71,12 @@ class TradeWebSocketAuthzIT extends AbstractIntegrationIT {
         UUID buyer  = UUID.randomUUID();
         UUID stranger = UUID.randomUUID();
 
-        TradeResponse t = trades.openTrade(seller, buyer, 500_000L,
-                UUID.randomUUID(), UUID.randomUUID(), null);
+        Trade t = givenTrade(seller, buyer, null);
 
         BlockingQueue<StompHeaders> errors = new ArrayBlockingQueue<>(4);
         StompSession session = connect(stranger, errors);
 
-        session.subscribe("/topic/trades/" + t.id() + "/seller", new StompFrameHandler() {
+        session.subscribe("/topic/trades/" + t.getId() + "/seller", new StompFrameHandler() {
             @Override public Type getPayloadType(StompHeaders headers) { return java.util.Map.class; }
             @Override public void handleFrame(StompHeaders headers, Object payload) { /* should never fire */ }
         });
@@ -88,14 +90,13 @@ class TradeWebSocketAuthzIT extends AbstractIntegrationIT {
         UUID seller = UUID.randomUUID();
         UUID buyer  = UUID.randomUUID();
 
-        TradeResponse t = trades.openTrade(seller, buyer, 500_000L,
-                UUID.randomUUID(), UUID.randomUUID(), null);
+        Trade t = givenTrade(seller, buyer, null);
 
         BlockingQueue<StompHeaders> errors = new ArrayBlockingQueue<>(4);
         // Seller is a real participant, but tries to subscribe to the BUYER topic.
         StompSession session = connect(seller, errors);
 
-        session.subscribe("/topic/trades/" + t.id() + "/buyer", new StompFrameHandler() {
+        session.subscribe("/topic/trades/" + t.getId() + "/buyer", new StompFrameHandler() {
             @Override public Type getPayloadType(StompHeaders headers) { return java.util.Map.class; }
             @Override public void handleFrame(StompHeaders headers, Object payload) { /* should never fire */ }
         });
@@ -112,18 +113,17 @@ class TradeWebSocketAuthzIT extends AbstractIntegrationIT {
 
         // HUMAN trade, no cards, this admin assigned AND accepted — live push
         // is a chat read, so it opens at accept (spec §6.1), not at invite.
-        TradeResponse t = trades.openTrade(seller, buyer, 80_000L,
-                null, null, null, null, TradeMode.HUMAN, admin, 20_000L);
-        accept(t.id());
+        Trade t = givenTrade(seller, buyer, admin);
+        accept(t.getId());
 
         BlockingQueue<StompHeaders> errors = new ArrayBlockingQueue<>(4);
         StompSession session = connect(admin, errors);
 
-        session.subscribe("/topic/trades/" + t.id() + "/seller", new StompFrameHandler() {
+        session.subscribe("/topic/trades/" + t.getId() + "/seller", new StompFrameHandler() {
             @Override public Type getPayloadType(StompHeaders headers) { return java.util.Map.class; }
             @Override public void handleFrame(StompHeaders headers, Object payload) { }
         });
-        session.subscribe("/topic/trades/" + t.id() + "/buyer", new StompFrameHandler() {
+        session.subscribe("/topic/trades/" + t.getId() + "/buyer", new StompFrameHandler() {
             @Override public Type getPayloadType(StompHeaders headers) { return java.util.Map.class; }
             @Override public void handleFrame(StompHeaders headers, Object payload) { }
         });
@@ -148,13 +148,12 @@ class TradeWebSocketAuthzIT extends AbstractIntegrationIT {
         UUID buyer  = UUID.randomUUID();
         UUID admin  = UUID.randomUUID();
 
-        TradeResponse t = trades.openTrade(seller, buyer, 80_000L,
-                null, null, null, null, TradeMode.HUMAN, admin, 20_000L);
+        Trade t = givenTrade(seller, buyer, admin);
 
         BlockingQueue<StompHeaders> errors = new ArrayBlockingQueue<>(4);
         StompSession session = connect(admin, errors);
 
-        session.subscribe("/topic/trades/" + t.id() + "/seller", new StompFrameHandler() {
+        session.subscribe("/topic/trades/" + t.getId() + "/seller", new StompFrameHandler() {
             @Override public Type getPayloadType(StompHeaders headers) { return java.util.Map.class; }
             @Override public void handleFrame(StompHeaders headers, Object payload) { }
         });
@@ -171,13 +170,12 @@ class TradeWebSocketAuthzIT extends AbstractIntegrationIT {
         UUID assigned = UUID.randomUUID();
         UUID otherAdmin = UUID.randomUUID();
 
-        TradeResponse t = trades.openTrade(seller, buyer, 80_000L,
-                null, null, null, null, TradeMode.HUMAN, assigned, 20_000L);
+        Trade t = givenTrade(seller, buyer, assigned);
 
         BlockingQueue<StompHeaders> errors = new ArrayBlockingQueue<>(4);
         StompSession session = connect(otherAdmin, errors);
 
-        session.subscribe("/topic/trades/" + t.id() + "/seller", new StompFrameHandler() {
+        session.subscribe("/topic/trades/" + t.getId() + "/seller", new StompFrameHandler() {
             @Override public Type getPayloadType(StompHeaders headers) { return java.util.Map.class; }
             @Override public void handleFrame(StompHeaders headers, Object payload) { }
         });
@@ -193,13 +191,12 @@ class TradeWebSocketAuthzIT extends AbstractIntegrationIT {
         UUID seller = UUID.randomUUID();
         UUID buyer  = UUID.randomUUID();
 
-        TradeResponse t = trades.openTrade(seller, buyer, 500_000L,
-                UUID.randomUUID(), UUID.randomUUID(), null);
+        Trade t = givenTrade(seller, buyer, null);
 
         BlockingQueue<StompHeaders> errors = new ArrayBlockingQueue<>(4);
         StompSession session = connect(buyer, errors);
 
-        session.subscribe("/topic/trades/" + t.id() + "/seller", new StompFrameHandler() {
+        session.subscribe("/topic/trades/" + t.getId() + "/seller", new StompFrameHandler() {
             @Override public Type getPayloadType(StompHeaders headers) { return java.util.Map.class; }
             @Override public void handleFrame(StompHeaders headers, Object payload) { }
         });

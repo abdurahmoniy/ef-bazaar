@@ -19,7 +19,7 @@ import { isHumanProposal } from '@/lib/trade-human';
 import type { ChatResponse, ListingResponse, MessageResponse } from '@/lib/marketplace-types';
 import { getPublicTradeCommissionConfig } from '@/lib/payment-client';
 import type { TradeCommissionConfig } from '@/lib/payment-types';
-import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+import { getChatSocket, ChatSocketError } from '@/lib/chat-socket';
 import {
   isTerminalState,
   splitTrades,
@@ -30,9 +30,6 @@ import {
   type TradeMode,
   type TradeResponse,
 } from '@/lib/trade-types';
-
-const POLL_INTERVAL_MS = 4000;
-const IDLE_POLL_INTERVAL_MS = 30000;
 
 export interface PendingProposal extends Pick<PendingProposalResponse, 'sellerId' | 'buyerId' | 'proposerUserId'> {
   listingId?: string | null;
@@ -186,7 +183,7 @@ export function TradeProvider({
 
   const reloadInFlight = useRef(false);
   const reloadQueued = useRef(false);
-  const automaticPollingStopped = useRef(false);
+  const automaticRefreshStopped = useRef(false);
   const { active: activeTrade, lastFinished } = splitTrades(trades);
   // A new contact in this permanent chat starts the next negotiation for both
   // participants, even when they traded in the opposite direction last time.
@@ -196,8 +193,6 @@ export function TradeProvider({
   const participants = proposal ?? activeTrade ?? (!startingNew ? lastFinished : null);
   const role = participants ? tradeParticipantRole(participants, viewerId) : roleInRequest(accountRequest, viewerId);
   const isSeller = role === 'SELLER';
-  const hasActiveTrade = activeTrade !== null;
-  const hasProposal = proposal !== null;
 
   const refresh = useCallback(async (): Promise<void> => {
     if (reloadInFlight.current || document.visibilityState === 'hidden' || !navigator.onLine) return;
@@ -207,7 +202,7 @@ export function TradeProvider({
     try {
       const [list, request, pending] = await Promise.allSettled([
         readTradeData<TradeResponse[]>(`/api/trade/v1/trades?chatId=${encodeURIComponent(chat.id)}`),
-        readTradeData<AccountRequest | null>(buildMarketplaceApiPath(['v1', 'chats', chat.id, 'account-request'])),
+        getChatSocket(viewerId).request<AccountRequest | null>('account-request', chat.id),
         readTradeData<PendingProposalResponse | null>(`/api/trade/v1/trades/proposals?chatId=${encodeURIComponent(chat.id)}`, true),
       ]);
       // A lookup that started before a create/accept/reject mutation cannot
@@ -228,8 +223,8 @@ export function TradeProvider({
         } : null);
       }
       const failures = [list, request, pending].filter(result => result.status === 'rejected');
-      automaticPollingStopped.current = failures.some(result =>
-        result.reason instanceof TradeReadError && result.reason.permanent);
+      automaticRefreshStopped.current = failures.some(result =>
+        (result.reason instanceof TradeReadError || result.reason instanceof ChatSocketError) && result.reason.permanent);
       setLoadError(failures.length ? 'Savdo ma’lumotlarini yangilab bo‘lmadi. Qayta urinib ko‘ring.' : null);
     } finally {
       setRefreshing(false);
@@ -239,10 +234,10 @@ export function TradeProvider({
         void refresh();
       }
     }
-  }, [chat.id]);
+  }, [chat.id, viewerId]);
 
   const reload = useCallback(async () => {
-    automaticPollingStopped.current = false;
+    automaticRefreshStopped.current = false;
     if (reloadInFlight.current) {
       reloadQueued.current = true;
       return;
@@ -254,20 +249,29 @@ export function TradeProvider({
 
   useEffect(() => {
     const tick = () => {
-      if (!automaticPollingStopped.current) void refresh();
+      if (!automaticRefreshStopped.current) void refresh();
     };
-    // Empty conversations and transient outages do not need a request every
-    // four seconds. An active negotiation retains the faster cadence.
-    const delay = loadError || (!hasActiveTrade && !hasProposal) ? IDLE_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
-    const id = window.setInterval(tick, delay);
+    const unsubscribe = getChatSocket(viewerId).subscribe(event => {
+      if (event.type === 'connected' || (event.type === 'changed' && event.chatId === chat.id)) void reload();
+    });
     document.addEventListener('visibilitychange', tick);
     window.addEventListener('online', tick);
     return () => {
-      window.clearInterval(id);
+      unsubscribe();
       document.removeEventListener('visibilitychange', tick);
       window.removeEventListener('online', tick);
     };
-  }, [hasActiveTrade, hasProposal, loadError, refresh]);
+  }, [chat.id, viewerId, refresh, reload]);
+
+  useEffect(() => {
+    if (!proposal?.expiresAt) return;
+    const delay = Date.parse(proposal.expiresAt) - Date.now();
+    if (!Number.isFinite(delay) || delay < 0) return;
+    // Proposal leases expire in Redis without a mutation event. This one-shot
+    // deadline refresh replaces the old recurring poll (visibility handles sleep).
+    const timer = window.setTimeout(() => void reload(), Math.min(delay + 100, 2_147_483_647));
+    return () => window.clearTimeout(timer);
+  }, [proposal?.expiresAt, reload]);
 
   const handleProposalCreated = useCallback(
     (

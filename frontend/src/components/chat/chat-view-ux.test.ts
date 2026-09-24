@@ -1,3 +1,4 @@
+import { socketFixture } from '@/test/chat-socket-fixture';
 // @vitest-environment jsdom
 
 import { act, createElement } from 'react';
@@ -37,6 +38,7 @@ beforeEach(() => {
   };
   vi.stubGlobal('fetch', vi.fn(async (input: string) => {
     const path = String(input);
+    if (path === '/api/marketplace/v1/chats/chat') return Response.json(chat);
     if (path.includes('/proposals?')) return pendingProposal ? Response.json(pendingProposal) : new Response(null, { status: 404 });
     if (path.endsWith('/wallet')) return Response.json({ availableTiyin: 2500000 });
     if (path.endsWith('/account-request')) return Response.json(request);
@@ -341,7 +343,7 @@ it('clears a sent draft so it cannot return after navigation', async () => {
   expect(container.querySelector('textarea')?.value).toBe('');
 });
 
-it.each([503, 429, 408, 'network'])('automatically retries transient message failure %s after a slower interval', async status => {
+it.each([503, 429, 408, 'network'])('allows retrying message failure %s without interval polling', async status => {
   vi.useFakeTimers();
   const originalFetch = vi.mocked(fetch).getMockImplementation()!;
   let failing = true;
@@ -360,7 +362,10 @@ it.each([503, 429, 408, 'network'])('automatically retries transient message fai
     failing = false;
     await act(async () => { await vi.advanceTimersByTimeAsync(29_000); });
     expect(messageRequests).toBe(1);
-    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(31_000); });
+    expect(messageRequests).toBe(1);
+    await click(findButton('Xabarlarni qayta yuklash'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
     expect(messageRequests).toBe(2);
     expect(container.querySelector('[aria-label="Xabarlar"]')?.textContent).toContain('Salom');
   } finally { vi.useRealTimers(); }
@@ -480,4 +485,25 @@ it('shows online status and distinct sent/read checks only on outgoing messages'
     await new Promise(resolve => setTimeout(resolve, 0));
   });
   expect(container.querySelectorAll('[data-new="true"]')).toHaveLength(1);
+});
+
+vi.mock('@/lib/chat-socket', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/chat-socket')>(),
+  getChatSocket: () => socketFixture,
+  closeOtherChatSockets: () => {},
+}));
+
+it('clears pinned trade history from a socket detail snapshot even when the chat disappears from the inbox', async () => {
+  const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation(async (...args) => String(args[0]).startsWith('/api/trade/v1/trades?')
+    ? Response.json([{ id: 'old-trade', sellerId: 'seller', buyerId: 'buyer', state: 'REJECTED', priceUzs: 20000,
+      createdAt: '2026-09-20T10:00:00Z', updatedAt: '2026-09-21T10:00:00Z' }]) : originalFetch(...args));
+  await render('seller'); expect(container.textContent).toContain('Oxirgi savdo:');
+  await act(async () => {
+    queryClient.setQueryData(chatKeys.inbox('seller'), []);
+    queryClient.setQueryData(chatKeys.details('seller', 'chat'), { ...chat, clearedAt: '2026-09-25T00:00:00Z' });
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  expect(container.textContent).not.toContain('Oxirgi savdo:');
+  expect(findButton('Taklif yuborish')).toBeDefined();
 });

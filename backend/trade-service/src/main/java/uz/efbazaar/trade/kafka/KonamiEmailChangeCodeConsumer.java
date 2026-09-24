@@ -36,6 +36,7 @@ public class KonamiEmailChangeCodeConsumer {
     private final TradeRepository trades;
     private final TradeSideRepository sideRepo;
     private final TradeSideService sides;
+    private final ChatChangePublisher changes;
 
     @KafkaListener(
             topics = TradeEvents.TOPIC_KONAMI_EMAIL_CHANGE_CODE,
@@ -67,6 +68,7 @@ public class KonamiEmailChangeCodeConsumer {
             log.warn("konami-email-change-code for unknown trade {}", e.tradeId());
             return;
         }
+        changes.publishForTrade(e.tradeId());
         log.info("Recorded Konami email-change verification code for trade {}", e.tradeId());
     }
 }

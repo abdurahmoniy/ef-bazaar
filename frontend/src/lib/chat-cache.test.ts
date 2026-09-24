@@ -1,4 +1,5 @@
-import { QueryClient } from '@tanstack/react-query';
+import { socketFixture } from '@/test/chat-socket-fixture';
+import { QueryClient, QueryObserver } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -72,4 +73,39 @@ describe('account-scoped conversation cache', () => {
     expect(queryClient.getQueryData<ChatResponse[]>(chatKeys.inbox('viewer'))?.[0].unreadCount).toBe(0);
     expect(queryClient.getQueryData(chatKeys.unread('viewer'))).toBe(2);
   });
+});
+
+vi.mock('@/lib/chat-socket', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/chat-socket')>(),
+  getChatSocket: () => socketFixture,
+  closeOtherChatSockets: () => {},
+}));
+
+it('reconciles a remote message when a local acknowledgement cancels its pushed snapshot', async () => {
+  const queryClient = client();
+  const a = { ...message('A'), id: 'a' }, b = { ...message('B'), id: 'b' }, c = { ...message('C'), id: 'c' };
+  const options = chatMessagesOptions(queryClient, 'viewer', 'chat');
+  queryClient.setQueryData(options.queryKey, [a]);
+  let oldSnapshot!: (response: Response) => void;
+  const fetch = vi.fn().mockImplementationOnce(() => new Promise<Response>(resolve => { oldSnapshot = resolve; }))
+    .mockResolvedValue(Response.json({ content: [a, b, c], totalPages: 1 }));
+  vi.stubGlobal('fetch', fetch);
+  const observer = new QueryObserver(queryClient, options); const stop = observer.subscribe(() => {});
+  const remotePush = queryClient.invalidateQueries({ queryKey: options.queryKey });
+  await commitChatMessages(queryClient, 'viewer', 'chat', previous => [...previous, c]);
+  oldSnapshot(Response.json({ content: [a, b], totalPages: 1 }));
+  await remotePush;
+  await queryClient.fetchQuery(options);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(queryClient.getQueryData(options.queryKey)).toEqual([a, b, c]);
+  stop();
+});
+it('loads every message page so arrivals beyond the first 200 are not lost', async () => {
+  const queryClient = client();
+  const fetch = vi.fn().mockResolvedValueOnce(Response.json({ content: [{ ...message('first'), id: 'first' }], totalPages: 2 }))
+    .mockResolvedValueOnce(Response.json({ content: [{ ...message('latest'), id: 'latest' }], totalPages: 2 }));
+  vi.stubGlobal('fetch', fetch);
+  const result = await queryClient.fetchQuery(chatMessagesOptions(queryClient, 'viewer', 'chat'));
+  expect(result.map(item => item.id)).toEqual(['first', 'latest']);
+  expect(fetch).toHaveBeenCalledTimes(2);
 });
