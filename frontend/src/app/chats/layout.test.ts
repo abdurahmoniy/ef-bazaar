@@ -27,7 +27,11 @@ let root: Root;
 let container: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-  vi.stubGlobal('fetch', vi.fn(async () => Response.json(chats)));
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input) === '/api/marketplace/v1/chats/presence') return new Response(null, { status: 204 });
+    if (String(input) === '/api/marketplace/v1/chats/me') return Response.json(chats);
+    throw new Error(`Unexpected request: ${String(input)}`);
+  }));
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   container = document.createElement('div');
   root = createRoot(container);
@@ -43,15 +47,18 @@ async function renderFailedServerInbox() {
   await act(async () => root.render(createElement(QueryClientProvider, { client }, shell)));
 }
 
+const inboxRequests = () => vi.mocked(fetch).mock.calls.filter(([url]) => String(url) === '/api/marketplace/v1/chats/me');
+
 it('keeps cached conversations when the server inbox request fails', async () => {
   client.setQueryData(chatKeys.inbox('viewer'), chats, { updatedAt: Date.now() - 1_000 });
   await renderFailedServerInbox();
   expect(client.getQueryData(chatKeys.inbox('viewer'))).toEqual(chats);
   expect(container.textContent).toContain('cached-conversation');
+  expect(inboxRequests()).toHaveLength(0);
 });
 
 it('retries immediately when a failed server inbox request has no cached conversations', async () => {
   await renderFailedServerInbox();
-  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(inboxRequests()).toHaveLength(1);
   expect(client.getQueryData(chatKeys.inbox('viewer'))).toEqual(chats);
 });
