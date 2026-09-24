@@ -9,7 +9,7 @@ vi.mock('@/lib/mailbox-slots', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/mailbox-slots')>()),
   fetchSlotStatus: vi.fn(),
   fetchOwnedMailboxes: vi.fn(),
-  deleteMailbox: vi.fn(),
+  detachMailbox: vi.fn(),
 }));
 
 import { getMyAccounts } from '@/lib/accounts-client';

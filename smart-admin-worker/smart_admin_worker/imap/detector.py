@@ -1,41 +1,106 @@
-r"""Heuristic classifier: is this Konami email a reset link, a 2FA code, or noise?
+r"""Konami xatini qaysi savdo qadami qabul qilishini hal qiladi.
 
-Sender allowlist is authoritative — non-allowlisted senders are dropped outright.
-Beyond that:
+Ikki bosqichli: jo'natuvchi ro'yxati (allowlist) va SARLAVHA. Sarlavha
+har bir qadamga qat'iy bog'langan, chunki Konami bir nechta oqimda 6
+raqamli kod yuboradi va hammasi bitta qutiga tushadi. Sarlavha
+tekshirilmasa, boshqa oqimdan kelgan kod qadamni qanoatlantiradi —
+masalan sotuvchi brauzerda Konami ID ga kirsa, xaridorning "Tasdiqlash"
+tugmasi hech qanday haqiqiy tekshiruvsiz ochilardi.
 
-- Reset: any body URL matching `https?://[^\s]*konami[^\s]*`. If sender matches
-  but no URL is present, we still return a hit with reset_link_present=False so
-  the caller can decide whether to advance state (spec §3.2 STATE 4 says
-  "reset link present" is the acceptance signal).
+Savdoda ishlatiladigan uchta xat:
 
-- 2FA: 4-8 digit run near a keyword ("code", "verification", "verify"). If both
-  present, return the digit run.
+===========================================  ========  ====================
+Sarlavha                                     Tarkib    Qadam
+===========================================  ========  ====================
+[KONAMI ID] Update Email Address             6 raqam   email o'zgartirish
+[KONAMI ID] Reissue Password                 havola    Konami tekshiruvi
+[KONAMI ID] Save Data Transfer to New Device 6 raqam   akkountga kirish
+===========================================  ========  ====================
 
-- Email-change verification code: Konami sends a 6-digit code to the NEW email
-  ("... is the verification code") when the account owner changes their KONAMI
-  ID email. Since the escrow mailbox IS the new address, the seller can't see
-  this code on their end — smart-admin scrapes it and relays it via a Kafka
-  event so the frontend can show it to the seller. We require BOTH subject
-  ("update email address") AND body regex to reduce false positives against
-  ordinary 2FA logins ("your verification code is ...").
+Qolgan hamma narsa — jumladan `[KONAMI ID] Verification Code` (brauzerda
+Konami ID ga kirish) va `[KONAMI ID] Verification Code for Email Address
+Change` — savdoda ISHLATILMAYDI va e'tiborsiz qoladi.
+
+Solishtiruv normallashtirilgan sarlavhaning BOSHIDAN qilinadi: Konami
+oxiriga qo'shimcha qo'ysa qadam sinmaydi, uchala sarlavha esa bir-birining
+boshlanishi emas, ya'ni chalkashish ehtimoli yo'q.
 """
 
 from __future__ import annotations
 
+import logging
 import re
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
+log = logging.getLogger(__name__)
+
 _RESET_URL_RE = re.compile(r"https?://[^\s]*konami[^\s]*", re.IGNORECASE)
+
+# Qadamga bog'langan sarlavhalar — normallashtirilgan ko'rinishda.
+#
+# Yangi til qo'shish — shu to'plamlarga bitta qator. Taxmin qilmaymiz:
+# ro'yxatga tushmagan sarlavha logga yoziladi va namunasi kelgach
+# qo'shiladi.
+SUBJECTS_EMAIL_CHANGE = frozenset({
+    "[konami id] update email address",
+    "【konami id】メールアドレスの更新",
+})
+SUBJECTS_RESET = frozenset({
+    "[konami id] reissue password",
+    "【konami id】パスワードの再発行",
+})
+SUBJECTS_LOGIN_CODE = frozenset({
+    "[konami id] save data transfer to new device",
+    # Konami ID ga kirishda keladigan kod. Xaridor akkountni tekshirish
+    # uchun aynan shu yo'ldan o'tadi. ONGLI CHEGIRMA: bu xat ISTALGAN
+    # kirishda keladi, ya'ni sotuvchi o'zi kirsa ham tushadi. Kod faqat
+    # qabul qiluvchi tomonga ko'rsatiladi va tugmani baribir o'zi bosadi.
+    "[konami id] verification code",
+    "【konami id】ログイン用の確認コード",
+})
+_ALL_SUBJECTS = SUBJECTS_EMAIL_CHANGE | SUBJECTS_RESET | SUBJECTS_LOGIN_CODE
+
+_WHITESPACE_RE = re.compile(r"\s+")
+# Yakka turgan olti raqam: uzunroq sonning bir bo'lagi hisoblanmaydi.
+_SIX_DIGITS_RE = re.compile(r"(?<!\d)(\d{6})(?!\d)")
+
+
+def _normalize_subject(subject: str | None) -> str:
+    """Sarlavhani solishtirishga tayyorlaydi.
+
+    NFKC to'liq kenglikdagi lotin harflari va bo'shliqni oddiysiga
+    keltiradi (`ＫＯＮＡＭＩ` → `KONAMI`, `　` → ` `), `【】` esa o'z holicha
+    qoladi — ular yapon sarlavhasining bir qismi.
+    """
+    folded = unicodedata.normalize("NFKC", subject or "")
+    return _WHITESPACE_RE.sub(" ", folded).strip().lower()
+
+
+def _subject_in(subject: str | None, expected: frozenset[str]) -> bool:
+    """Sarlavha shu qadamnikimi — TO'LIQ tenglik bilan.
+
+    Prefiks bo'yicha emas: `[KONAMI ID] Verification Code` boshqa bir
+    sarlavhaning — `... Verification Code for Email Address Change` —
+    boshlanishi hamdir, va ular ikki xil oqim. Prefiks solishtiruvi
+    ularni birlashtirib yuborardi.
+    """
+    return _normalize_subject(subject) in expected
 # NOTE: The brief's literal `[\s:]*` failed its own test case ("verification code is 483920")
 # because "is" sits between keyword and digits. `[\sA-Za-z:]{0,30}` bounds the gap to ~30 chars
 # (typical short English phrasing) so a keyword can't grab an unrelated distant code from a
 # different sentence.
 _CODE_RE = re.compile(
-    r"(?:code|verification|verify)[\sA-Za-z:]{0,30}([0-9]{4,8})", re.IGNORECASE
+    r"(?:code|verification|verify)[\sA-Za-z:]{0,30}([0-9]{6})", re.IGNORECASE
 )
+# Yaponcha: avval kalit so'z, keyin raqam — `確認コード：273685`. Ikki nuqta
+# to'liq kenglikda ham, oddiy ham bo'lishi mumkin.
+_CODE_JA_RE = re.compile(r"確認コード\s*[：:]\s*(\d{6})")
+# Xat kodni umuman shu so'zlar bilan atamaganini bilish uchun.
+_CODE_WORD_RE = re.compile(r"code|verification|verify|確認コード", re.IGNORECASE)
 # Email-change verification: Konami's literal phrasing is "247616 is the
 # verification code." — digits come FIRST, followed by "is the verification
 # code". This shape is distinctive enough on its own that a general 2FA login
@@ -44,9 +109,8 @@ _CODE_RE = re.compile(
 _EMAIL_CHANGE_CODE_RE = re.compile(
     r"(\d{6})\s+is\s+the\s+verification\s+code", re.IGNORECASE
 )
-_EMAIL_CHANGE_SUBJECT_RE = re.compile(
-    r"update\s+email\s+address", re.IGNORECASE
-)
+# Yaponchasi aynan ko'zgusi: `189467 が確認コードです。`
+_EMAIL_CHANGE_CODE_JA_RE = re.compile(r"(\d{6})\s*が\s*確認コード")
 
 
 class Msg(Protocol):
@@ -81,13 +145,40 @@ class KonamiEmailDetector:
     def __init__(self, sender_allowlist: frozenset[str]) -> None:
         # Lowercase everything up-front so per-message check is a single set lookup.
         self._allowed = frozenset(s.lower() for s in sender_allowlist)
+        # Har 5 soniyada qayta o'qiladigan xat har safar logga tushmasligi
+        # uchun: bir sarlavha — bir xabar. O'sib ketmasligi uchun chegara bor.
+        self._reported_subjects: set[str] = set()
 
     def _sender_ok(self, from_: str) -> bool:
         return from_.strip().lower() in self._allowed
 
+    def _note_unknown(self, subject: str | None) -> None:
+        """Ro'yxatda yo'q Konami xati — yangi til yoki yangi oqim belgisi.
+
+        Taxmin qilmaymiz: sarlavhani yozib qo'yamiz va namunasi kelgach
+        map'ga bitta qator qo'shiladi. Jim o'tkazib yuborilsa, qadam nega
+        ishlamayotganini hech kim bila olmaydi.
+        """
+        normalized = _normalize_subject(subject)
+        if not normalized or normalized in _ALL_SUBJECTS:
+            return
+        if normalized in self._reported_subjects:
+            return
+        if len(self._reported_subjects) < 200:
+            self._reported_subjects.add(normalized)
+        log.warning(
+            "Konami xati hech bir qadamga mos kelmadi, sarlavha: %r", subject
+        )
+
     def check_reset(self, messages: Iterable[Msg]) -> ResetHit | None:
         for m in messages:
             if not self._sender_ok(m.from_):
+                continue
+            # Sarlavhasiz bu tekshiruv amalda hech narsani tekshirmasdi:
+            # har bir Konami xatining footerida konami havolasi bor, ya'ni
+            # istalgan xat "havola keldi" bo'lib hisoblanardi.
+            if not _subject_in(m.subject, SUBJECTS_RESET):
+                self._note_unknown(m.subject)
                 continue
             has_url = bool(_RESET_URL_RE.search(m.text or ""))
             return ResetHit(
@@ -101,14 +192,37 @@ class KonamiEmailDetector:
         for m in messages:
             if not self._sender_ok(m.from_):
                 continue
-            match = _CODE_RE.search(m.text or "")
-            if match:
+            if not _subject_in(m.subject, SUBJECTS_LOGIN_CODE):
+                self._note_unknown(m.subject)
+                continue
+            code = self._code_in(m.text or "")
+            if code:
                 return TwoFaHit(
                     sender=m.from_.lower(),
                     received_at=m.date,
-                    code=match.group(1),
+                    code=code,
                 )
         return None
+
+    @staticmethod
+    def _code_in(text: str) -> str | None:
+        """Kodni tanadan oladi.
+
+        Xat kodni "code" / "verification" deb atagan bo'lsa — faqat o'sha
+        so'z yonidagi olti raqam. Tanadagi boshqa sonlar (havola ichidagi
+        raqam, ma'lumot raqami) shunda ham kod deb olinmaydi.
+
+        Xat bu so'zlarning birortasini ishlatmagan bo'lsa, tanada YAGONA
+        olti raqamli son bo'lsagina o'sha olinadi. Bu Konami matnni
+        o'zgartirgan kuni qadam jim turib qolmasligi uchun; ikkitadan ko'p
+        bo'lsa taxmin qilmaymiz — noto'g'ri kod odamni akkountga kirita
+        olmaydi va admin qo'lda yuborishga majbur bo'ladi.
+        """
+        if _CODE_WORD_RE.search(text):
+            near_keyword = _CODE_RE.search(text) or _CODE_JA_RE.search(text)
+            return near_keyword.group(1) if near_keyword else None
+        found = _SIX_DIGITS_RE.findall(text)
+        return found[0] if len(found) == 1 else None
 
     def check_email_change_verification(
         self, messages: Iterable[Msg]
@@ -125,9 +239,12 @@ class KonamiEmailDetector:
         for m in messages:
             if not self._sender_ok(m.from_):
                 continue
-            if not _EMAIL_CHANGE_SUBJECT_RE.search(m.subject or ""):
+            if not _subject_in(m.subject, SUBJECTS_EMAIL_CHANGE):
+                self._note_unknown(m.subject)
                 continue
-            match = _EMAIL_CHANGE_CODE_RE.search(m.text or "")
+            body = m.text or ""
+            match = (_EMAIL_CHANGE_CODE_RE.search(body)
+                     or _EMAIL_CHANGE_CODE_JA_RE.search(body))
             if match:
                 return EmailChangeCodeHit(
                     sender=m.from_.lower(),
