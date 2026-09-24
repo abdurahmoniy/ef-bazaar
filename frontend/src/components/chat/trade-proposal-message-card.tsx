@@ -14,13 +14,15 @@ import type { MessageResponse } from '@/lib/marketplace-types';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import { useTradeContext } from './trade-context';
 import { TradeProposalRetryButton } from './trade-proposal-retry-button';
+import { MessageReadReceipt } from './chat-activity-status';
 
 interface TradeProposalMessageCardProps {
   message: MessageResponse;
   viewerId: string;
+  lastReadAt?: string | null;
 }
 
-export function TradeProposalMessageCard({ message, viewerId }: TradeProposalMessageCardProps) {
+export function TradeProposalMessageCard({ message, viewerId, lastReadAt = null }: TradeProposalMessageCardProps) {
   const { requiresAdminHandoff, proposal, listing, accountRequest,
     setShowAcceptModal, openProposal, viewedProposal, rejectedProposalIds } = useTradeContext();
   const isMine = message.senderId === viewerId;
@@ -102,8 +104,9 @@ export function TradeProposalMessageCard({ message, viewerId }: TradeProposalMes
         <Button type="button" size="sm" variant="outline" className="min-h-11 w-full" onClick={() => openProposal(message)}>
           Batafsil
         </Button>
-        <time dateTime={message.createdAt} className="block text-right text-[10px] tabular-nums text-muted-foreground">
+        <time dateTime={message.createdAt} className="flex items-center justify-end gap-1 text-[10px] tabular-nums text-muted-foreground">
           {formatMessageTime(message.createdAt)}
+          {isMine && <MessageReadReceipt createdAt={message.createdAt} lastReadAt={lastReadAt} />}
         </time>
       </div>
     </div>

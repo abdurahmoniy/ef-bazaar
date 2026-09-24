@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 
 import { ChatComposerInput } from '@/components/chat/chat-composer-input';
+import { ChatActivityStatus, MessageReadReceipt } from '@/components/chat/chat-activity-status';
+import { useChatActivity } from '@/hooks/use-chat-activity';
 import { ChatOptions } from '@/components/chat/chat-options';
 import { MessageActionSheet } from '@/components/chat/message-action-sheet';
 import { TradeProvider, useTradeContext } from '@/components/chat/trade-context';
@@ -42,7 +44,7 @@ import {
 } from '@/lib/chat-format';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { canGroupMessages } from '@/lib/chat-message-grouping';
-import { ChatRequestError, chatKeys, chatMessagesOptions, commitChatMessages, invalidateChatInbox, markCachedChatRead, mergeMessages } from '@/lib/chat-cache';
+import { ChatRequestError, chatInboxOptions, chatKeys, chatMessagesOptions, commitChatMessages, invalidateChatInbox, markCachedChatRead, mergeMessages } from '@/lib/chat-cache';
 import type {
   ChatResponse,
   ListingResponse,
@@ -82,6 +84,16 @@ export function ChatView({
     }
     return initialChat;
   });
+  // The mounted conversation also needs deletion updates from the inbox. A
+  // cached route must never restore a history cutoff older than one we know.
+  const { data: inbox } = useQuery({ ...chatInboxOptions(viewerId), enabled: false });
+  const cachedChat = inbox?.find(item => item.id === chat.id);
+  const [knownClearedAt, setKnownClearedAt] = useState<string | null>(null);
+  const clearedAt = [knownClearedAt, chat.clearedAt, initialChat.clearedAt, cachedChat?.clearedAt]
+    .reduce<string | null>((latest, value) => value && (!latest || Date.parse(value) > Date.parse(latest)) ? value : latest, null);
+  useEffect(() => {
+    setKnownClearedAt(clearedAt);
+  }, [clearedAt]);
   const messagesQuery = useQuery({
     ...chatMessagesOptions(queryClient, viewerId, initialChat.id),
     initialData: initialMessages,
@@ -97,6 +109,8 @@ export function ChatView({
     refetchIntervalInBackground: false,
   });
   const messages = messagesQuery.data;
+  const initialMessageIds = useRef(new Set(messages.map(message => message.id)));
+  const { activity, lastReadAt: partnerLastReadAt, setTyping } = useChatActivity(chat.id);
 
   // Fresh server renders may improve the cache; an older cached route must not
   // replace messages received or changed after that route was first rendered.
@@ -142,20 +156,45 @@ export function ChatView({
     ? messages.find((m) => m.senderId !== viewerId && m.createdAt > newSince)?.id
     : undefined;
 
-  // Mark reads locally and refresh only chat queries, preserving cached routes.
-  const lastMessageId = messages.at(-1)?.id;
+  // Acknowledge only received messages actually reached in a visible chat.
+  const lastIncomingId = messages.reduce<string | undefined>((id, message) => message.senderId !== viewerId ? message.id : id, undefined);
+  const acknowledgedMessage = useRef<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    void markChatRead(chat.id).then((ok) => {
-      if (ok && !cancelled) void markCachedChatRead(queryClient, viewerId, chat.id);
-    });
-    return () => { cancelled = true; };
-  }, [chat.id, lastMessageId, queryClient, viewerId]);
+    let inFlight = false;
+    const list = listRef.current;
+    const markVisible = () => {
+      if (!lastIncomingId || acknowledgedMessage.current === lastIncomingId || inFlight
+        || document.visibilityState !== 'visible' || !document.hasFocus() || !navigator.onLine
+        || !list || list.scrollHeight - list.clientHeight - list.scrollTop > 8) return;
+      inFlight = true;
+      void markChatRead(chat.id, lastIncomingId).then(ok => {
+        inFlight = false;
+        if (ok && !cancelled) {
+          acknowledgedMessage.current = lastIncomingId;
+          void markCachedChatRead(queryClient, viewerId, chat.id);
+        }
+      });
+    };
+    markVisible();
+    list?.addEventListener('scroll', markVisible, { passive: true });
+    document.addEventListener('visibilitychange', markVisible);
+    window.addEventListener('focus', markVisible);
+    window.addEventListener('online', markVisible);
+    return () => {
+      cancelled = true;
+      list?.removeEventListener('scroll', markVisible);
+      document.removeEventListener('visibilitychange', markVisible);
+      window.removeEventListener('focus', markVisible);
+      window.removeEventListener('online', markVisible);
+    };
+  }, [chat.id, lastIncomingId, listRef, messagesQuery.dataUpdatedAt, queryClient, viewerId]);
 
   function handleSend() {
     if (isSending) return;
     const content = draft.trim();
     if (!content && !pendingFile) return;
+    setTyping(false);
     setError(null);
     startSend(async () => {
       if (editing) {
@@ -298,7 +337,8 @@ export function ChatView({
 
   return (
     <TradeProvider
-      chat={chat}
+      key={`${chat.id}:${clearedAt ?? ''}`}
+      chat={{ ...chat, clearedAt }}
       viewerId={viewerId}
       listing={listing}
       initialPendingProposal={initialPendingProposal}
@@ -310,23 +350,28 @@ export function ChatView({
               <ChevronLeft className="h-5 w-5" />
             </Link>
           </Button>
-          <div
-            className={cn(
-              'grid h-10 w-10 shrink-0 place-items-center rounded-full text-base font-semibold uppercase',
-              avatarTone(partnerId),
-            )}
+          <Link
+            href={`/users/${encodeURIComponent(partnerId)}`}
+            aria-label={`${name} profilini ko'rish`}
+            title="Profilni ko'rish"
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {partnerInitial(name)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <p className="truncate text-[15px] font-semibold text-foreground">{name}</p>
-              {chat.important && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" aria-label="Muhim" />}
+            <div
+              className={cn(
+                'grid h-10 w-10 shrink-0 place-items-center rounded-full text-base font-semibold uppercase',
+                avatarTone(partnerId),
+              )}
+            >
+              {partnerInitial(name)}
             </div>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Savdo suhbati
-            </p>
-          </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-[15px] font-semibold text-foreground">{name}</p>
+                {chat.important && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" aria-label="Muhim" />}
+              </div>
+              <ChatActivityStatus activity={activity} />
+            </div>
+          </Link>
           <ChatOptions important={chat.important} disabled={isUpdating} onToggleImportant={handleToggleImportant} onDelete={handleDelete} />
         </header>
 
@@ -370,7 +415,7 @@ export function ChatView({
           const startsGroup = !canGroupMessages(messages[index - 1], message, firstUnreadId);
           const endsGroup = !canGroupMessages(message, messages[index + 1], firstUnreadId);
           return (
-            <div key={message.id} className="mx-auto max-w-3xl">
+            <div key={message.id} className="chat-message-entry mx-auto max-w-3xl" data-new={!initialMessageIds.current.has(message.id)}>
               {newDay && (
                 <div className="my-3 flex justify-center" role="separator">
                   <span className="chat-day-label rounded-full px-3 py-1 text-[11px] font-medium">
@@ -389,6 +434,7 @@ export function ChatView({
                 <TradeProposalMessageCard
                   message={message}
                   viewerId={viewerId}
+                  lastReadAt={partnerLastReadAt}
                 />
               ) : (
                 <div
@@ -436,6 +482,7 @@ export function ChatView({
                     <span className={cn('chat-message-meta', hasAttachment && 'px-2 pb-0.5')}>
                       {message.editedAt && <span>tahrirlangan</span>}
                       <time dateTime={message.createdAt}>{formatMessageTime(message.createdAt)}</time>
+                      {mine && <MessageReadReceipt createdAt={message.createdAt} lastReadAt={partnerLastReadAt} />}
                     </span>
                   </div>
                 </div>
@@ -548,7 +595,8 @@ export function ChatView({
                 )}
                 <ChatComposerInput
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={(e) => { setDraft(e.target.value); setTyping(!editing && Boolean(e.target.value.trim())); }}
+                  onBlur={() => setTyping(false)}
                   onSend={handleSend}
                   onPaste={(e) => {
                     if (isSending) { e.preventDefault(); return; }
@@ -699,11 +747,13 @@ async function toggleImportant(chatId: string): Promise<ChatResult> {
 }
 
 /** Fire-and-forget read-cursor bump — failures self-heal on the next call. */
-async function markChatRead(chatId: string): Promise<boolean> {
+async function markChatRead(chatId: string, messageId: string): Promise<boolean> {
   try {
     const response = await fetch(buildMarketplaceApiPath(['v1', 'chats', chatId, 'read']), {
       method: 'POST',
       credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messageId }),
     });
     return response.ok;
   } catch {

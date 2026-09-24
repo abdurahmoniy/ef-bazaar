@@ -83,7 +83,7 @@ class SellerProposalKindsTest {
         long amount = prepare(kind, exchangeMode, seller, seller);
         long feeBase = kind.isSwap() ? 20000 : amount;
         TradeResponse trade = new TradeResponse(UUID.randomUUID(), null, seller, buyer, amount,
-                null, null, null, null, null, null, null, null, null, kind, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, kind, null, null, null, null, null);
         when(trades.openTrade(any(UUID.class), eq(seller), eq(buyer), eq(amount),
                 isNull(), isNull(), eq(listing), isNull(), eq(TradeMode.SMART),
                 isNull(), isNull(), eq(kind), eq(feeBase))).thenReturn(trade);

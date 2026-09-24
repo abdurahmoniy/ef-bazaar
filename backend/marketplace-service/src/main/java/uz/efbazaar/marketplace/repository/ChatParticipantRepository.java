@@ -16,6 +16,18 @@ public interface ChatParticipantRepository extends JpaRepository<ChatParticipant
 
     List<ChatParticipant> findByChatId(UUID chatId);
 
+    /** Atomic even for concurrent, out-of-order requests and absent legacy rows. */
+    @Modifying
+    @Query(value = """
+            INSERT INTO chat_participants (chat_id, user_id, is_important, last_read_at)
+            VALUES (:chatId, :userId, false, :readAt)
+            ON CONFLICT (chat_id, user_id) DO UPDATE
+               SET last_read_at = GREATEST(chat_participants.last_read_at, EXCLUDED.last_read_at)
+            """, nativeQuery = true)
+    int advanceReadCursor(@Param("chatId") UUID chatId, @Param("userId") UUID userId,
+                          @Param("readAt") java.time.Instant readAt);
+
+
     /**
      * Resurfaces the chat for everyone — called on each new message so a
      * hidden ("deleted for me") conversation reappears when the partner writes.

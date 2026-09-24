@@ -320,7 +320,7 @@ public class TradeService {
                 sideService.of(t.getId()).stream().map(TradeSideResponse::of).toList(),
                 counterpartMailboxEmail,
                 loginCodeFor(t, role),
-                confirmUnlocksAt(t, role));
+                confirmUnlocksAt(t, role), t.getUpdatedAt());
     }
 
     /** Kirish kodi faqat o'z tarafiniki: boshqasining kodi bu akkountga yaramaydi. */

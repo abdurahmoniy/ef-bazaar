@@ -351,8 +351,23 @@ public class ChatService {
     /** Moves my read cursor to now — clears the unread badge for this chat. */
     @Transactional
     public void markRead(UUID chatId, UUID userId) {
-        getById(chatId, userId); // participant check
-        getParticipantRow(chatId, userId).setLastReadAt(Instant.now());
+        markRead(chatId, userId, null);
+    }
+
+    /** Advance only through the received message; later arrivals remain unread. */
+    @Transactional
+    public void markRead(UUID chatId, UUID userId, UUID messageId) {
+        getById(chatId, userId);
+        Instant readAt;
+        if (messageId == null) {
+            readAt = Instant.now(); // compatibility with older clients
+        } else {
+            ChatMessage message = messages.findById(messageId)
+                    .filter(m -> chatId.equals(m.getChatId()))
+                    .orElseThrow(MarketplaceException::messageNotFound);
+            readAt = message.getCreatedAt();
+        }
+        participants.advanceReadCursor(chatId, userId, readAt);
     }
 
     /**

@@ -20,6 +20,7 @@ import uz.efbazaar.marketplace.repository.ChatRepository;
 import uz.efbazaar.marketplace.repository.ChatMessageRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +38,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ChatAccountRequestService {
+
+    private static final Duration CONTACT_RETRY_WINDOW = Duration.ofSeconds(30);
 
     private final ChatAccountRequestRepository requests;
     private final ChatMessageRepository messages;
@@ -75,14 +78,18 @@ public class ChatAccountRequestService {
             throw MarketplaceException.listingNotActive();
         }
 
+        Instant openedAt = Instant.now();
         Optional<ChatAccountRequest> previous =
                 requests.findByChatIdAndStatus(chatId, AccountRequestStatus.OPEN);
         if (previous.isPresent()) {
             ChatAccountRequest prev = previous.get();
             if (prev.getListingId().equals(listingId)
                     && prev.getRequesterId().equals(requesterId)
-                    && !hasEndedProposal(prev)) {
-                return prev;   // same ask, e.g. a double click — idempotent
+                    && prev.getCreatedAt() != null
+                    && (chat.getClearedAt() == null || prev.getCreatedAt().isAfter(chat.getClearedAt()))
+                    && prev.getCreatedAt().plus(CONTACT_RETRY_WINDOW).isAfter(openedAt)
+                    && !hasEndedProposal(prev, openedAt)) {
+                return prev;   // deduplicate quick retries, not every future contact
             }
             prev.close(AccountRequestStatus.CANCELLED);
             // saveAndFlush, not save: Hibernate flushes inserts before updates,
@@ -91,7 +98,6 @@ public class ChatAccountRequestService {
             requests.saveAndFlush(prev);
         }
 
-        Instant openedAt = Instant.now();
         ChatAccountRequest req = requests.save(ChatAccountRequest.builder()
                 .chatId(chatId)
                 .requesterId(requesterId)
@@ -135,7 +141,7 @@ public class ChatAccountRequestService {
      * Rejections/expiry resolve the trade message, but legacy contact rows stay OPEN.
      * Renew only for the latest proposal in this request, not an older negotiation.
      */
-    private boolean hasEndedProposal(ChatAccountRequest request) {
+    private boolean hasEndedProposal(ChatAccountRequest request, Instant now) {
         if (request.getCreatedAt() == null) return false;
         return messages.findFirstByChatIdAndMessageTypeOrderByCreatedAtDescIdDesc(
                         request.getChatId(), ChatMessageType.TRADE_PROPOSAL)
@@ -143,7 +149,12 @@ public class ChatAccountRequestService {
                 .filter(message -> message.getCreatedAt() != null
                         && !message.getCreatedAt().isBefore(request.getCreatedAt()))
                 .filter(message -> "REJECTED".equals(message.getProposalOutcome())
-                        || "EXPIRED".equals(message.getProposalOutcome()))
+                        || "EXPIRED".equals(message.getProposalOutcome())
+                        // The deadline can pass before the resolution event arrives.
+                        || ((message.getProposalOutcome() == null || "PENDING".equals(message.getProposalOutcome()))
+                            && message.getProposalTradeId() == null
+                            && message.getProposalExpiresAt() != null
+                            && !message.getProposalExpiresAt().isAfter(now)))
                 .isPresent();
     }
 
@@ -153,7 +164,9 @@ public class ChatAccountRequestService {
         if (!chat.isParticipant(viewerId)) {
             throw MarketplaceException.notChatParticipant();
         }
-        return requests.findByChatIdAndStatus(chatId, AccountRequestStatus.OPEN);
+        return requests.findByChatIdAndStatus(chatId, AccountRequestStatus.OPEN)
+                .filter(request -> chat.getClearedAt() == null
+                        || (request.getCreatedAt() != null && request.getCreatedAt().isAfter(chat.getClearedAt())));
     }
 
     /** Either party may withdraw — the seller declining is as valid as the buyer changing their mind. */

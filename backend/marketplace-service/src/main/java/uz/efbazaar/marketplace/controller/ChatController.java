@@ -15,6 +15,7 @@ import uz.efbazaar.marketplace.dto.AccountRequestCreateRequest;
 import uz.efbazaar.marketplace.dto.AccountRequestResponse;
 import uz.efbazaar.marketplace.dto.ChatListingOptionResponse;
 import uz.efbazaar.marketplace.dto.ChatResponse;
+import uz.efbazaar.marketplace.dto.ChatReadRequest;
 import uz.efbazaar.marketplace.dto.PageResponse;
 import uz.efbazaar.marketplace.dto.StartChatRequest;
 import uz.efbazaar.marketplace.mapper.ChatMapper;
@@ -92,12 +93,14 @@ public class ChatController {
         chatService.clearHistory(id, user.userId());
     }
 
-    /** Moves the caller's read cursor to now (clears the unread badge). */
+    /** Advances through a visible message; legacy requests without a body mark through now. */
     @PostMapping("/{id}/read")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void markRead(@AuthenticationPrincipal AuthenticatedUser user,
-                         @PathVariable UUID id) {
-        chatService.markRead(id, user.userId());
+                         @PathVariable UUID id,
+                         @Valid @RequestBody(required = false) ChatReadRequest request) {
+        if (request == null) chatService.markRead(id, user.userId());
+        else chatService.markRead(id, user.userId(), request.messageId());
     }
 
     /** Sum of unread messages across all visible chats — nav-icon badge. */
@@ -168,6 +171,6 @@ public class ChatController {
         return new ChatResponse(r.id(), r.listingId(), r.buyerId(), r.sellerId(),
                 r.buyerDisplayName(), r.sellerDisplayName(),
                 myImportant, r.lastMessageAt(),
-                r.createdAt(), count, unread, lastReadAt, preview);
+                r.createdAt(), count, unread, lastReadAt, preview, r.clearedAt());
     }
 }

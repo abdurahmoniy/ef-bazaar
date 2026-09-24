@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 
 import { clearOtherAccountQueries, PRIVATE_CACHE_GC_TIME_MS } from '@/lib/chat-cache';
+import { usePresenceHeartbeat } from '@/hooks/use-chat-activity';
 
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -25,6 +26,7 @@ export function ClientQueryProvider({ children }: { children: ReactNode }) {
 
 /** Mounted by authenticated shells and by the signed-out marketplace shell. */
 export function SessionCacheBoundary({ accountId }: { accountId: string | null }) {
+  usePresenceHeartbeat(accountId);
   const client = useQueryClient();
   useIsomorphicLayoutEffect(() => {
     clearOtherAccountQueries(client, accountId);

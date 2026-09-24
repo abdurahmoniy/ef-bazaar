@@ -21,6 +21,7 @@ import { getPublicTradeCommissionConfig } from '@/lib/payment-client';
 import type { TradeCommissionConfig } from '@/lib/payment-types';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import {
+  isTerminalState,
   splitTrades,
   tradeParticipantRole,
   type PendingProposalResponse,
@@ -123,7 +124,11 @@ export function TradeProvider({
   const [accountRequest, setAccountRequest] = useState<AccountRequest | null>(null);
   const [showPicker, setShowPicker] = useState(false);
 
-  const [trades, setTrades] = useState<TradeResponse[] | null>(null);
+  const [loadedTrades, setTrades] = useState<TradeResponse[] | null>(null);
+  // Messages and trades come from separate services. Apply the shared chat
+  // cutoff here too, while keeping any live trade visible for safety.
+  const trades = loadedTrades?.filter(trade => !chat.clearedAt || !isTerminalState(trade.state)
+    || Date.parse(trade.createdAt) > Date.parse(chat.clearedAt)) ?? null;
   const proposalMutation = useRef(0);
   const [proposal, setProposalState] = useState<PendingProposal | null>(
     initialPendingProposal
@@ -148,7 +153,7 @@ export function TradeProvider({
   }, []);
   const [rejectProposalId, setRejectProposalId] = useState<string | null>(null);
   const [rejectedProposalIds, setRejectedProposalIds] = useState<ReadonlySet<string>>(new Set());
-  const [startingNew, setStartingNew] = useState(false);
+  const [manuallyStartingNew, setStartingNew] = useState(false);
   const [showProposeModal, setShowProposeModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [isDrawerOpen, setDrawerOpen] = useState(false);
@@ -183,6 +188,11 @@ export function TradeProvider({
   const reloadQueued = useRef(false);
   const automaticPollingStopped = useRef(false);
   const { active: activeTrade, lastFinished } = splitTrades(trades);
+  // A new contact in this permanent chat starts the next negotiation for both
+  // participants, even when they traded in the opposite direction last time.
+  const lastFinishedAt = lastFinished?.completedAt ?? lastFinished?.updatedAt;
+  const startingNew = manuallyStartingNew || Boolean(accountRequest && lastFinished
+    && lastFinishedAt && Date.parse(accountRequest.createdAt) > Date.parse(lastFinishedAt));
   const participants = proposal ?? activeTrade ?? (!startingNew ? lastFinished : null);
   const role = participants ? tradeParticipantRole(participants, viewerId) : roleInRequest(accountRequest, viewerId);
   const isSeller = role === 'SELLER';

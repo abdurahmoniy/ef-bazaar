@@ -441,6 +441,8 @@ export interface ChatResponse {
   important: boolean;
   lastMessageAt?: string | null;
   createdAt: string;
+  /** Shared history cutoff after deleting the conversation. */
+  clearedAt?: string | null;
   messageCount: number;
   /** Viewer-specific: partner messages after my read cursor. */
   unreadCount?: number;
