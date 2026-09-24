@@ -598,8 +598,31 @@ write_env
 write_alertmanager_config
 ghcr_login
 
+# ─── Image pull, qayta urinish bilan ────────────────────────────────────────
+# GHCR blob'lari vaqti-vaqti bilan yarim yo'lda uziladi:
+#   failed to copy: ... read: connection reset by peer
+# Bu deploy 2026-09-21 va 2026-09-24 da aynan shundan yiqildi. `set -e` bilan
+# skript o'sha yerda to'xtaydi — pull esa `up -d` dan OLDIN, ya'ni hech narsa
+# yangilanmaydi va butun deploy bekor bo'ladi.
+#
+# Pull idempotent va faqat o'qiydi: allaqachon tushgan qatlamlar qayta
+# yuklanmaydi, shuning uchun qayta urinishning narxi yo'q. Uch marta
+# urinamiz; shundan keyin ham uzilsa — bu tarmoq emas, boshqa muammo.
+pull_images() {
+  local attempt
+  for attempt in 1 2 3; do
+    if docker compose pull; then
+      return 0
+    fi
+    echo "!! Image pull uzildi (urinish $attempt/3) — 10 soniyadan keyin qayta urinamiz"
+    sleep 10
+  done
+  echo "!! Image pull uch marta ham uzildi — deploy to'xtatildi"
+  return 1
+}
+
 echo "==> Pulling latest images (idempotent — only changed layers downloaded)"
-docker compose pull
+pull_images
 
 # Postgres'ni alohida ko'taramiz parol sync uchun.
 docker compose up -d postgres
