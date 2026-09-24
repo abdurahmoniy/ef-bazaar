@@ -288,19 +288,53 @@ class ChatServiceTest {
     }
 
     @Test
-    void markRead_movesMyCursor() {
+    void markRead_legacyCursorUsesAtomicAdvance() {
         UUID chatId = UUID.randomUUID();
-        Chat chat = Chat.builder()
-                .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
-                .build();
-        ChatParticipant mine = ChatParticipant.builder()
-                .chatId(chatId).userId(buyerId).build();
-        when(chats.findById(chatId)).thenReturn(Optional.of(chat));
-        when(participants.findByChatIdAndUserId(chatId, buyerId)).thenReturn(Optional.of(mine));
-
+        when(chats.findById(chatId)).thenReturn(Optional.of(Chat.builder()
+                .id(chatId).buyerId(buyerId).sellerId(sellerId).build()));
+        Instant before = Instant.now();
         service.markRead(chatId, buyerId);
+        var timestamp = org.mockito.ArgumentCaptor.forClass(Instant.class);
+        verify(participants).advanceReadCursor(org.mockito.ArgumentMatchers.eq(chatId),
+                org.mockito.ArgumentMatchers.eq(buyerId), timestamp.capture());
+        assertThat(timestamp.getValue()).isBetween(before, Instant.now());
+    }
 
-        assertThat(mine.getLastReadAt()).isNotNull();
+    @Test
+    void markRead_advancesOnlyThroughTheProvidedMessage() {
+        UUID chatId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        Instant sent = Instant.now().minusSeconds(30);
+        when(chats.findById(chatId)).thenReturn(Optional.of(Chat.builder()
+                .id(chatId).buyerId(buyerId).sellerId(sellerId).build()));
+        when(messages.findById(messageId)).thenReturn(Optional.of(ChatMessage.builder()
+                .id(messageId).chatId(chatId).senderId(sellerId).createdAt(sent).build()));
+        service.markRead(chatId, buyerId, messageId);
+        verify(participants).advanceReadCursor(chatId, buyerId, sent);
+    }
+
+    @Test
+    void markRead_rejectsCrossChatMessagesBeforeUpdatingCursor() {
+        UUID chatId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        when(chats.findById(chatId)).thenReturn(Optional.of(Chat.builder()
+                .id(chatId).buyerId(buyerId).sellerId(sellerId).build()));
+        when(messages.findById(messageId)).thenReturn(Optional.of(ChatMessage.builder()
+                .id(messageId).chatId(UUID.randomUUID()).createdAt(Instant.now()).build()));
+        assertThatThrownBy(() -> service.markRead(chatId, buyerId, messageId))
+                .isInstanceOfSatisfying(MarketplaceException.class,
+                        ex -> assertThat(ex.getCode()).isEqualTo("message_not_found"));
+        org.mockito.Mockito.verifyNoInteractions(participants);
+    }
+
+    @Test
+    void markRead_rejectsStrangersBeforeReadingMessage() {
+        UUID chatId = UUID.randomUUID();
+        when(chats.findById(chatId)).thenReturn(Optional.of(Chat.builder()
+                .id(chatId).buyerId(buyerId).sellerId(sellerId).build()));
+        assertThatThrownBy(() -> service.markRead(chatId, UUID.randomUUID(), UUID.randomUUID()))
+                .isInstanceOf(MarketplaceException.class);
+        org.mockito.Mockito.verifyNoInteractions(participants, messages);
     }
 
     @Test

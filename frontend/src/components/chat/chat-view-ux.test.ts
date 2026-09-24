@@ -415,3 +415,69 @@ it('requires explicit retry after permanent message failure even after focus or 
   expect(messageRequests).toBe(2);
   focusManager.setFocused(undefined);
 });
+
+it('updates the pinned trade when the inbox learns that this chat was cleared and reopened', async () => {
+  const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation(async (...args) => {
+    if (String(args[0]).startsWith('/api/trade/v1/trades?')) return Response.json([{
+      id: 'old-trade', sellerId: 'seller', buyerId: 'buyer', state: 'REJECTED', priceUzs: 20000,
+      createdAt: '2026-09-20T10:00:00Z', updatedAt: '2026-09-21T10:00:00Z',
+    }]);
+    return originalFetch(...args);
+  });
+  await render('seller');
+  expect(container.textContent).toContain('Oxirgi savdo:');
+  await act(async () => {
+    queryClient.setQueryData(chatKeys.inbox('seller'), [{ ...chat, clearedAt: '2026-09-24T09:00:00Z' }]);
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  expect(container.textContent).not.toContain('Oxirgi savdo:');
+  expect(findButton('Taklif yuborish')).toBeDefined();
+  await act(async () => {
+    queryClient.setQueryData(chatKeys.inbox('seller'), []);
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  expect(container.textContent).not.toContain('Oxirgi savdo:');
+});
+
+it('marks only the latest displayed incoming message read when the visible chat reaches the bottom', async () => {
+  const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+  const focus = vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+  try {
+    await render('buyer', false, [message('incoming'), message('outgoing', { senderId: 'buyer', createdAt: '2026-09-19T10:01:00Z' })]);
+    const readCalls = () => vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/read'));
+    expect(readCalls()).toHaveLength(0);
+    const list = container.querySelector('[aria-label="Xabarlar"]')!;
+    Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(list, 'clientHeight', { configurable: true, value: 400 });
+    visibility.mockReturnValue('visible');
+    await act(async () => document.dispatchEvent(new Event('visibilitychange')));
+    expect(readCalls()).toHaveLength(0);
+    await act(async () => { list.scrollTop = 600; list.dispatchEvent(new Event('scroll')); });
+    expect(readCalls()).toHaveLength(1);
+    expect(JSON.parse(String(readCalls()[0][1]?.body))).toEqual({ messageId: 'incoming' });
+  } finally { visibility.mockRestore(); focus.mockRestore(); }
+});
+
+it('shows online status and distinct sent/read checks only on outgoing messages', async () => {
+  const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation(async (...args) => String(args[0]).endsWith('/activity')
+    ? Response.json({ online: true, typing: false, lastSeenAt: null, lastReadAt: '2026-09-19T10:00:00Z' })
+    : originalFetch(...args));
+  await render('buyer', false, [
+    message('read', { senderId: 'buyer' }),
+    message('sent', { senderId: 'buyer', createdAt: '2026-09-19T10:01:00Z' }),
+    message('received', { createdAt: '2026-09-19T10:02:00Z' }),
+  ]);
+  expect(container.textContent).toContain('Onlayn');
+  expect(container.querySelectorAll('[aria-label="O‘qilgan"]')).toHaveLength(1);
+  expect(container.querySelectorAll('[aria-label="Yuborilgan"]')).toHaveLength(1);
+  expect(container.querySelectorAll('[data-new="true"]')).toHaveLength(0);
+  await act(async () => {
+    queryClient.setQueryData<MessageResponse[]>(chatKeys.messages('buyer', chat.id), previous => [
+      ...previous!, message('new-arrival', { createdAt: '2026-09-19T10:03:00Z' }),
+    ]);
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  expect(container.querySelectorAll('[data-new="true"]')).toHaveLength(1);
+});

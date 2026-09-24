@@ -87,7 +87,7 @@ class ChatAccountRequestServiceTest {
         return ChatAccountRequest.builder()
                 .id(UUID.randomUUID()).chatId(chatId)
                 .requesterId(requester).listingId(listingId)
-                .status(AccountRequestStatus.OPEN).build();
+                .status(AccountRequestStatus.OPEN).createdAt(Instant.now()).build();
     }
 
     @Test
@@ -146,7 +146,7 @@ class ChatAccountRequestServiceTest {
     }
 
     @Test
-    void askingTwiceForTheSameAccountChangesNothing() {
+    void immediateRetryForTheSameAccountChangesNothing() {
         chatExists();
         Listing bobs = listingOf(bob, ListingStatus.ACTIVE);
         when(listings.findById(bobs.getId())).thenReturn(Optional.of(bobs));
@@ -159,6 +159,8 @@ class ChatAccountRequestServiceTest {
         assertThat(req).isSameAs(existing);
         verify(requests, never()).save(any());
         verify(requests, never()).saveAndFlush(any());
+        verify(messages, never()).save(any());
+        verifyNoInteractions(notifications, events);
     }
 
     @Test
@@ -243,20 +245,22 @@ class ChatAccountRequestServiceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"REJECTED", "EXPIRED"})
+    @ValueSource(strings = {"REJECTED", "EXPIRED", "PENDING_PAST_DEADLINE"})
     void recontactAfterTerminalOfferCreatesANewRequestAndNotifiesSeller(String outcome) {
         chatExists();
         Listing listing = listingOf(bob, ListingStatus.ACTIVE);
         when(listings.findById(listing.getId())).thenReturn(Optional.of(listing));
         ChatAccountRequest existing = openRequest(alice, listing.getId());
-        existing.setCreatedAt(Instant.now().minusSeconds(60));
+        existing.setCreatedAt(Instant.now().minusSeconds(20));
         AtomicReference<ChatAccountRequest> stored = new AtomicReference<>(existing);
         when(requests.findByChatIdAndStatus(chatId, AccountRequestStatus.OPEN))
                 .thenAnswer(i -> Optional.of(stored.get()));
         when(messages.findFirstByChatIdAndMessageTypeOrderByCreatedAtDescIdDesc(chatId,
                 ChatMessageType.TRADE_PROPOSAL)).thenReturn(Optional.of(
                 ChatMessage.builder().proposalListingId(listing.getId())
-                        .proposalOutcome(outcome).createdAt(Instant.now().minusSeconds(30)).build()));
+                        .proposalOutcome(outcome.equals("PENDING_PAST_DEADLINE") ? "PENDING" : outcome)
+                        .proposalExpiresAt(Instant.now().minusSeconds(10))
+                        .createdAt(Instant.now().minusSeconds(15)).build()));
         when(requests.save(any())).thenAnswer(i -> { stored.set(i.getArgument(0)); return stored.get(); });
         ChatAccountRequest reopened = service.open(alice, chatId, listing.getId());
         assertThat(reopened).isNotSameAs(existing);
@@ -268,12 +272,12 @@ class ChatAccountRequestServiceTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"PENDING", "ACCEPTED", "OLDER", "OTHER_LISTING"})
-    void unrelatedOrUnfinishedOfferDoesNotRepeatContact(String scenario) {
+    void unrelatedOrUnfinishedOfferDoesNotBypassTheRetryWindow(String scenario) {
         chatExists();
         Listing listing = listingOf(bob, ListingStatus.ACTIVE);
         when(listings.findById(listing.getId())).thenReturn(Optional.of(listing));
         ChatAccountRequest existing = openRequest(alice, listing.getId());
-        existing.setCreatedAt(Instant.now().minusSeconds(60));
+        existing.setCreatedAt(Instant.now().minusSeconds(5));
         when(requests.findByChatIdAndStatus(chatId, AccountRequestStatus.OPEN)).thenReturn(Optional.of(existing));
         when(messages.findFirstByChatIdAndMessageTypeOrderByCreatedAtDescIdDesc(chatId,
                 ChatMessageType.TRADE_PROPOSAL)).thenReturn(Optional.of(
@@ -284,6 +288,32 @@ class ChatAccountRequestServiceTest {
         assertThat(service.open(alice, chatId, listing.getId())).isSameAs(existing);
         verify(messages, never()).save(any());
         verifyNoInteractions(notifications, events);
+    }
+
+
+    @ParameterizedTest
+    @ValueSource(longs = {31, 3600})
+    void recontactAnUnansweredRequestRenewsMessageNotificationAndChatActivity(long ageSeconds) {
+        chatExists();
+        Listing listing = listingOf(bob, ListingStatus.ACTIVE);
+        when(listings.findById(listing.getId())).thenReturn(Optional.of(listing));
+        ChatAccountRequest existing = openRequest(alice, listing.getId());
+        existing.setCreatedAt(Instant.now().minusSeconds(ageSeconds));
+        chat.setLastMessageAt(existing.getCreatedAt());
+        when(requests.findByChatIdAndStatus(chatId, AccountRequestStatus.OPEN)).thenReturn(Optional.of(existing));
+        when(requests.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        ChatAccountRequest renewed = service.open(alice, chatId, listing.getId());
+
+        assertThat(renewed).isNotSameAs(existing);
+        assertThat(existing.getStatus()).isEqualTo(AccountRequestStatus.CANCELLED);
+        assertThat(renewed.getRequesterId()).isEqualTo(alice);
+        verify(messages).save(argThat(message -> message.getSenderId().equals(alice)
+                && message.getCreatedAt().isAfter(existing.getCreatedAt())));
+        assertThat(chat.getLastMessageAt()).isEqualTo(renewed.getCreatedAt());
+        verify(chats).save(chat);
+        verify(notifications).accountRequested(eq(bob), eq(chatId), eq(listing.getId()), any());
+        verify(events).chatCreated(chatId, listing.getId(), alice, bob);
     }
 
     @Test
@@ -302,4 +332,34 @@ class ChatAccountRequestServiceTest {
         verify(chats).save(chat);
         assertThat(chat.getListingId()).isEqualTo(listing2.getId());
     }
+    @Test
+    void contactingImmediatelyAfterClearingCreatesAFreshRequest() {
+        chatExists();
+        Listing listing = listingOf(bob, ListingStatus.ACTIVE);
+        when(listings.findById(listing.getId())).thenReturn(Optional.of(listing));
+        ChatAccountRequest previous = openRequest(alice, listing.getId());
+        previous.setCreatedAt(Instant.now().minusSeconds(2));
+        chat.setClearedAt(Instant.now().minusSeconds(1));
+        when(requests.findByChatIdAndStatus(chatId, AccountRequestStatus.OPEN)).thenReturn(Optional.of(previous));
+        when(requests.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        ChatAccountRequest reopened = service.open(alice, chatId, listing.getId());
+
+        assertThat(reopened).isNotSameAs(previous);
+        assertThat(reopened.getCreatedAt()).isAfter(chat.getClearedAt());
+        assertThat(previous.getStatus()).isEqualTo(AccountRequestStatus.CANCELLED);
+        verify(messages).save(any());
+        verify(notifications).accountRequested(eq(bob), eq(chatId), eq(listing.getId()), any());
+    }
+
+    @Test
+    void currentRequestDoesNotReturnClearedNegotiation() {
+        chatExists();
+        ChatAccountRequest previous = openRequest(alice, UUID.randomUUID());
+        previous.setCreatedAt(Instant.now().minusSeconds(2));
+        chat.setClearedAt(Instant.now().minusSeconds(1));
+        when(requests.findByChatIdAndStatus(chatId, AccountRequestStatus.OPEN)).thenReturn(Optional.of(previous));
+        assertThat(service.current(alice, chatId)).isEmpty();
+    }
+
 }

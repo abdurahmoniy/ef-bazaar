@@ -99,6 +99,7 @@ export interface TradeResponse {
   sellerConfirmedAt?: string | null;
   buyerConfirmedAt?: string | null;
   completedAt?: string | null;
+  updatedAt?: string | null;
   mailboxId: string | null;
   /**
    * Escrow-mailbox address; the seller pastes this into Konami during

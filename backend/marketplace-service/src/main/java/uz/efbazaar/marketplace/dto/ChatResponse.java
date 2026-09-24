@@ -22,5 +22,7 @@ public record ChatResponse(
         /** Viewer-specific: my read cursor — drives the "new messages" divider. */
         Instant lastReadAt,
         /** One-line preview of the newest message (attachment → emoji label). */
-        String lastMessagePreview
+        String lastMessagePreview,
+        /** Shared history cutoff, including finished trades shown in the chat. */
+        Instant clearedAt
 ) {}

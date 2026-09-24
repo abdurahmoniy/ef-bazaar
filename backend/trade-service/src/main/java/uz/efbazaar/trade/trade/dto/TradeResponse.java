@@ -52,6 +52,8 @@ public record TradeResponse(
          * <p>Kod kelgan bo'lsa null — tugma allaqachon ochiq. 2FA so'ralmagan
          * akkountlarda odam qamalib qolmasligi uchun shu muddat bor.
          */
-        Instant confirmUnlocksAt
+        Instant confirmUnlocksAt,
+        /** Distinguishes a new contact from a request made before the trade finished. */
+        Instant updatedAt
 ) {}
 

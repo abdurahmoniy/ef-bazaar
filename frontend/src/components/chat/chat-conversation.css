@@ -146,3 +146,24 @@
   border-color: transparent;
   color: hsl(var(--chat-accent));
 }
+
+.chat-activity-status { color: hsl(var(--muted-foreground)); }
+.chat-activity-status[data-state='online'],
+.chat-activity-status[data-state='typing'],
+.chat-read-receipt[data-read='true'] { color: hsl(var(--chat-accent)); }
+.chat-read-receipt { transition: color 180ms ease; }
+.chat-typing-dot { width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .chat-status-transition { animation: chat-status-in 160ms ease-out; }
+  .chat-message-entry[data-new='true'] { animation: chat-message-in 180ms ease-out; }
+  .chat-typing-dot { animation: chat-typing 1s ease-in-out infinite; }
+  .chat-typing-dot:nth-child(2) { animation-delay: 120ms; }
+  .chat-typing-dot:nth-child(3) { animation-delay: 240ms; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-read-receipt { transition: none; }
+}
+@keyframes chat-status-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes chat-message-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes chat-typing { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-2px); opacity: 1; } }

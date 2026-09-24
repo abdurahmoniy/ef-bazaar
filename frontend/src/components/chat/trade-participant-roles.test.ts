@@ -126,3 +126,78 @@ it('uses active trade participants for the role label and swap progress when the
   expect(dialog.textContent).not.toContain('Email o‘zgartirdim');
   expect(dialog.textContent).not.toContain('Xaridor');
 });
+
+it.each(['seller', 'buyer'])('uses the new contact after a completed trade for the %s view', async viewerId => {
+  pending = null;
+  request = { ...requestFrom('buyer'), createdAt: '2026-09-24T10:00:00Z', listing: { ...listing, price: 20000, coverMessageId: null } };
+  trades = [{ id: 'old-trade', sellerId: 'buyer', buyerId: 'seller', state: 'SUCCESS',
+    createdAt: '2026-09-20T10:00:00Z', updatedAt: '2026-09-21T10:00:00Z',
+    priceUzs: 20000, kind: 'SALE',
+  } as TradeResponse];
+  await mount(viewerId);
+  expect(state.role).toBe(viewerId === 'seller' ? 'SELLER' : 'BUYER');
+  expect(container.textContent).not.toContain('Oxirgi savdo:');
+  const propose = buttons().find(button => button.textContent === 'Taklif yuborish');
+  if (viewerId === 'seller') {
+    expect(propose).toBeDefined();
+    await act(async () => propose!.click());
+    expect(document.querySelector('[role="dialog"]')?.textContent).toContain('Taklif yuborish');
+  } else {
+    expect(propose).toBeUndefined();
+    expect(container.textContent).toContain('Taklif kutilmoqda');
+  }
+});
+
+it('keeps the completed trade visible when the contact belongs to that trade', async () => {
+  pending = null;
+  request = { ...requestFrom('buyer'), createdAt: '2026-09-20T09:00:00Z', listing: { ...listing, price: 20000, coverMessageId: null } };
+  trades = [{ id: 'old-trade', sellerId: 'seller', buyerId: 'buyer', state: 'SUCCESS',
+    createdAt: '2026-09-20T10:00:00Z', updatedAt: '2026-09-21T10:00:00Z', priceUzs: 20000,
+  } as TradeResponse];
+  await mount('seller');
+  expect(container.textContent).toContain('Oxirgi savdo:');
+  expect(buttons().some(button => button.textContent === 'Taklif yuborish')).toBe(false);
+});
+
+it.each([false, true])('does not turn contact during a trade into a new negotiation (timestamp missing: %s)', async missingTimestamp => {
+  pending = null;
+  request = { ...requestFrom('buyer'), createdAt: '2026-09-20T12:00:00Z',
+    listing: { ...listing, price: 20000, coverMessageId: null } };
+  trades = [{ id: 'old-trade', sellerId: 'seller', buyerId: 'buyer', state: 'SUCCESS',
+    createdAt: '2026-09-20T10:00:00Z', updatedAt: missingTimestamp ? undefined : '2026-09-21T10:00:00Z',
+    priceUzs: 20000,
+  } as TradeResponse];
+  await mount('seller');
+  expect(container.textContent).toContain('Oxirgi savdo:');
+  expect(buttons().some(button => button.textContent === 'Taklif yuborish')).toBe(false);
+});
+
+it.each(['seller', 'buyer'])('does not pin cleared trade history when the %s reopens the same chat', async viewerId => {
+  pending = null;
+  request = { ...requestFrom('buyer'), createdAt: '2026-09-24T10:00:00Z',
+    listing: { ...listing, price: 20000, coverMessageId: null } };
+  trades = [{ id: 'cleared-trade', sellerId: 'buyer', buyerId: 'seller', state: 'REJECTED',
+    createdAt: '2026-09-20T10:00:00Z', updatedAt: '2026-09-24T11:00:00Z', priceUzs: 12345,
+  } as TradeResponse];
+  await act(async () => root.render(createElement(TradeProvider,
+    { chat: { ...chat, clearedAt: '2026-09-24T09:00:00Z' }, listing, viewerId },
+    createElement(Fragment, null, createElement(Probe), createElement(TradePinnedBar), createElement(TradePanel)))));
+  expect(state.lastFinished).toBeNull();
+  expect(state.trades).toEqual([]);
+  expect(container.textContent).not.toContain('Oxirgi savdo:');
+  await act(async () => state.setIsDrawerOpen(true));
+  expect(document.querySelector('[role="dialog"]')?.textContent).not.toContain('12 345');
+  expect(state.role).toBe(viewerId === 'seller' ? 'SELLER' : 'BUYER');
+});
+
+it.each(['WAITING_EMAIL_CHANGE', 'SUCCESS'] as const)('keeps a new %s trade after the chat was cleared', async tradeState => {
+  pending = null;
+  trades = [{ id: 'new-trade', sellerId: 'seller', buyerId: 'buyer', state: tradeState,
+    createdAt: '2026-09-24T10:00:00Z', updatedAt: '2026-09-24T11:00:00Z', priceUzs: 20000,
+  } as TradeResponse];
+  await act(async () => root.render(createElement(TradeProvider,
+    { chat: { ...chat, clearedAt: '2026-09-24T09:00:00Z' }, listing, viewerId: 'seller' },
+    createElement(Probe))));
+  expect(state.trades?.map(trade => trade.id)).toEqual(['new-trade']);
+  expect((state.activeTrade ?? state.lastFinished)?.id).toBe('new-trade');
+});
