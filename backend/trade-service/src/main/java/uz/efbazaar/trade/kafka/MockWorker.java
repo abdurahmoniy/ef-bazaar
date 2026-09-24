@@ -101,7 +101,7 @@ public class MockWorker {
         }
         kafka.send(TradeEvents.TOPIC_KONAMI_EMAIL, req.tradeId().toString(),
                 new TradeEvents.KonamiEmailReceived(req.tradeId(), true,
-                        "noreply@konami.com", Instant.now()));
+                        "noreply@konami.com", Instant.now(), req.mailboxEmail()));
         log.info("MockWorker synthesised konami-email for trade {}", req.tradeId());
     }
 
@@ -112,9 +112,11 @@ public class MockWorker {
     )
     public void onPollRequest(TradeEvents.ImapPollRequest req) {
         switch (req.purpose()) {
+            // Haqiqiy worker kabi: javob qaysi qutini kuzatgan bo'lsa
+            // o'shaning nomidan keladi. Obmenda bu tarafni aniqlaydi.
             case VERIFY_LINK -> kafka.send(TradeEvents.TOPIC_KONAMI_EMAIL, req.tradeId().toString(),
                     new TradeEvents.KonamiEmailReceived(req.tradeId(), true,
-                            "noreply@konami.com", Instant.now()));
+                            "noreply@konami.com", Instant.now(), req.mailboxEmail()));
             case WAIT_2FA_CODE -> kafka.send(TradeEvents.TOPIC_IMAP_2FA, req.tradeId().toString(),
                     new TradeEvents.Imap2faCode(req.tradeId(), "123456", req.mailboxEmail(), Instant.now()));
         }

@@ -63,7 +63,9 @@ class EmailChangeCodeDoesNotRevertStateIT extends AbstractIntegrationIT {
         Trade after = tradeRepo.findById(tradeId).orElseThrow();
         assertThat(after.getState())
                 .as("a targeted update cannot undo the seller's step")
-                .isEqualTo(TradeState.VERIFYING_KONAMI_LINK);
+                // Ikkalasi ham "orqaga qaytmadi" degani: Konami tekshiruvi
+                // avtomatik kuzatiladi va mock uni yopib ulgurishi mumkin.
+                .isIn(TradeState.VERIFYING_KONAMI_LINK, TradeState.WAITING_PASSWORD);
         assertThat(after.getEmailChangeVerificationCode()).isEqualTo("123456");
     }
 

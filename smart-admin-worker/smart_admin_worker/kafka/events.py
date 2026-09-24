@@ -111,6 +111,11 @@ class KonamiEmailReceived:
     reset_link_present: bool
     sender: str
     received_at: datetime
+    # Obmenda ikkita quti bor va javob qaysi biriga kelgani MUHIM: har
+    # taraf o'z akkountini o'z qutisi orqali o'tkazadi. Manzilsiz
+    # trade-service uni "hali bajarmagan birinchi tarafga" yozardi, ya'ni
+    # tanga tashlardi.
+    mailbox_email: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -39,14 +39,21 @@ public class RecheckRateLimiter {
         long now = System.currentTimeMillis();
         if (last != null && (now - last) < (minIntervalSec * 1000)) {
             long secLeft = minIntervalSec - (now - last) / 1000;
-            throw new RateLimitedException("Recheck too soon — retry in " + secLeft + "s");
+            // Matn nima kutilayotganini aytishi kerak: xat o'zi ham
+            // kuzatilmoqda, tugma esa favqulodda yo'l. Quruq "juda tez"
+            // odamga nima qilishni aytmaydi.
+            throw new RateLimitedException(
+                    "Xat avtomatik kuzatilmoqda. Qayta tekshirishni " + secLeft
+                            + " soniyadan keyin so'rash mumkin");
         }
         Long count = redis.opsForValue().increment(countKey);
         if (count == 1) {
             redis.expire(countKey, Duration.ofSeconds(1800));
         }
         if (count > maxClicks) {
-            throw new RateLimitedException("Recheck limit reached for this trade");
+            throw new RateLimitedException(
+                    "Qayta tekshirish chegarasi tugadi — xat kelishi kuzatilmoqda, "
+                            + "yordam kerak bo'lsa adminga murojaat qiling");
         }
         redis.opsForValue().set(lastKey, String.valueOf(now), Duration.ofSeconds(1800));
     }

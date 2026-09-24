@@ -259,6 +259,12 @@ public class TradeStateHandler {
                         var mb = mailboxes.getRaw(box);
                         if (!askWorkerFor(trade, mb.getEmail(), "forgot-password")) continue;
                         events.forgotPasswordRequest(trade.getId(), mb.getEmail(), null);
+                        // HAR QUTI uchun o'z kuzatuvi. Busiz tiklash xatini
+                        // hech kim o'qimasdi: yagona yo'l "Tekshirish"
+                        // tugmasi edi va u 5 daqiqada bir marta ochiladi —
+                        // ya'ni savdo odam tugmani bosmaguncha turardi.
+                        events.imapPollRequest(trade.getId(), mb.getEmail(),
+                                TradeEvents.ImapPurpose.VERIFY_LINK);
                     }
                 }
             }

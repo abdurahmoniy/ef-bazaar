@@ -56,6 +56,8 @@ class ImapPollHandler:
                     reset_link_present=hit.reset_link_present,
                     sender=hit.sender,
                     received_at=hit.received_at,
+                    # Qaysi qutini kuzatgan bo'lsak, javob ham o'shaniki.
+                    mailbox_email=event.mailbox_email,
                 ),
             )
 

@@ -121,11 +121,19 @@ public final class TradeEvents {
             String mailboxEmail,
             ImapPurpose purpose) {}
 
+    /**
+     * @param mailboxEmail xat qaysi qutiga kelgani. Obmenda ikkita quti bor
+     *                     va har taraf o'z akkountini o'z qutisi orqali
+     *                     o'tkazadi — manzilsiz javob boshqa tarafga
+     *                     yozilib qolardi. Eski hodisalarda null bo'lishi
+     *                     mumkin.
+     */
     public record KonamiEmailReceived(
             UUID tradeId,
             boolean resetLinkPresent,
             String sender,
-            Instant receivedAt) {}
+            Instant receivedAt,
+            String mailboxEmail) {}
 
     /**
      * Konami kirish kodi pochtaga keldi.
