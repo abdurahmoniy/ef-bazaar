@@ -48,8 +48,13 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
 
         mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/email-changed").with(asUser(seller)))
                 .andExpect(status().isOk());
+        // Ikkita holat ham to'g'ri: VERIFYING_KONAMI_LINK ga kirilganda
+        // endi o'sha zahoti quti kuzatuvi ham boshlanadi va MockWorker
+        // (haqiqiy worker kabi) tiklash xatini topib savdoni oldinga
+        // suradi. Bu yerda muhimi — sotuvchining qadami e'lonni
+        // WAITING_EMAIL_CHANGE dan chiqargani.
         assertThat(repo.findById(t.id()).orElseThrow().getState())
-                .isEqualTo(TradeState.VERIFYING_KONAMI_LINK);
+                .isIn(TradeState.VERIFYING_KONAMI_LINK, TradeState.WAITING_PASSWORD);
     }
 
     /**
@@ -80,7 +85,9 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
 
         assertThat(repo.findById(t.id()).orElseThrow().getState())
                 .as("both sides have done it, so the trade moves on")
-                .isEqualTo(TradeState.VERIFYING_KONAMI_LINK);
+                // Konami tekshiruvi endi avtomatik kuzatiladi, shuning
+                // uchun mock uni darhol yopib qo'yishi mumkin.
+                .isIn(TradeState.VERIFYING_KONAMI_LINK, TradeState.WAITING_PASSWORD);
     }
 
     /**
