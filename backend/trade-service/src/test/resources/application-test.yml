@@ -43,6 +43,10 @@ trade:
 # Produksiyada uzatish alohida threadda ketadi (KafkaLogForwarder), lekin
 # testlarda uni umuman yoqmaslik toza: sinalayotgan narsa bu emas.
 app:
+  internal:
+    # Ichki API testlarida sir bo'sh bo'lmasligi SHART: filtr bo'sh sirni
+    # ham rad etadi (fail-closed) va endpoint hech qachon javob bermasdi.
+    secret: test-internal-secret
   logging:
     kafka-forward:
       enabled: false

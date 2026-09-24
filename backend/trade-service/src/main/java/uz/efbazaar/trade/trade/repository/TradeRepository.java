@@ -43,6 +43,21 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
     Optional<Trade> findByIdAndViewer(@Param("id") UUID id,
                                       @Param("userId") UUID userId);
 
+    /**
+     * Shu chatda tugallanmagan savdo bormi.
+     *
+     * <p>Marketplace chat tarixini tozalashdan oldin so'raydi: savdo
+     * davom etayotganda tozalash odamni savdoning o'rtasida kontekstsiz
+     * qoldirardi.
+     */
+    @Query("""
+            SELECT COUNT(t) > 0 FROM Trade t
+             WHERE t.chatId = :chatId
+               AND t.state IN :states
+            """)
+    boolean existsLiveInChat(@Param("chatId") UUID chatId,
+                             @Param("states") java.util.Collection<TradeState> states);
+
     @Query("""
             SELECT t FROM Trade t
              WHERE t.chatId = :chatId
