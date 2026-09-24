@@ -6,8 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
+import uz.efbazaar.trade.testsupport.StubEscrowConfig;
 import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.dto.ProposalCreateRequest;
 import uz.efbazaar.trade.trade.dto.ProposalResponse;
@@ -22,6 +24,7 @@ import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUse
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(StubEscrowConfig.class)
 class TradeProposalControllerIT extends AbstractIntegrationIT {
 
     @Autowired MockMvc mvc;
