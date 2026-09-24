@@ -43,15 +43,23 @@ export async function fetchOwnedMailboxes(): Promise<OwnedMailbox[]> {
   return response.json();
 }
 
-export async function deleteMailbox(id: string): Promise<void> {
-  const response = await fetch(`/api/trade/v1/mailboxes/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
+/**
+ * Qutini o'zidan uzadi — slotni bo'shatadi.
+ *
+ * <p>O'chirish EMAS: quti platformada qoladi va pochta serveridan olib
+ * tashlash faqat admin panelida. Foydalanuvchida bunday yo'l yo'q va
+ * bo'lmasligi kerak — quti Konami parol tiklash xatlarini saqlaydi va
+ * nizo chiqqanda tekshiriladigan yagona iz o'sha.
+ */
+export async function detachMailbox(id: string): Promise<void> {
+  const response = await fetch(`/api/trade/v1/mailboxes/${encodeURIComponent(id)}/detach`, {
+    method: 'POST',
     credentials: 'include',
     headers: { Accept: 'application/json' },
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    throw new Error(payload?.message ?? "Pochta qutisini o'chirib bo'lmadi");
+    throw new Error(payload?.message ?? "Pochta qutisini uzib bo'lmadi");
   }
 }
 

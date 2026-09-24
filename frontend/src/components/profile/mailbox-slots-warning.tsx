@@ -1,13 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Loader2, Mail, Trash2 } from 'lucide-react';
+import { AlertTriangle, Link2Off, Loader2, Mail } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { getMyAccounts } from '@/lib/accounts-client';
 import {
   accountEmailSet,
-  deleteMailbox,
+  detachMailbox,
   fetchOwnedMailboxes,
   fetchSlotStatus,
   isAttachedTo,
@@ -66,21 +66,24 @@ export function MailboxSlotsWarning() {
 
   async function remove(mailbox: OwnedMailbox) {
     const attached = isAttachedTo(mailbox, accountEmails);
+    // Quti O'CHIRILMAYDI — u platformada qoladi, uni olib tashlash admin
+    // ishi. Lekin siz unga boshqa kira olmaysiz: paroli aylantiriladi.
+    // Matn shuni aynan shunday aytishi kerak.
     const message = attached
-      ? `${mailbox.email} butunlay o'chiriladi va undagi xatlar qaytarib bo'lmaydi.\n\n`
+      ? `${mailbox.email} ro'yxatingizdan chiqadi va siz unga boshqa kira olmaysiz.\n\n`
         + "Bu akkauntning Konami parolini tiklash shu manzilga keladi — "
-        + "akkaunt hali sizda bo'lsa, avval Konami'da boshqa pochtaga o'tkazing.\n\nO'chirilsinmi?"
-      : `${mailbox.email} butunlay o'chiriladi. Bu quti hech qaysi akkountingizga `
-        + "bog'lanmagan.\n\nO'chirilsinmi?";
+        + "akkaunt hali sizda bo'lsa, avval Konami'da boshqa pochtaga o'tkazing.\n\nUzilsinmi?"
+      : `${mailbox.email} ro'yxatingizdan chiqadi va siz unga boshqa kira olmaysiz. `
+        + "Bu quti hech qaysi akkountingizga bog'lanmagan.\n\nUzilsinmi?";
     if (!window.confirm(message)) return;
     setError(null);
     setBusy(mailbox.id);
     try {
-      await deleteMailbox(mailbox.id);
+      await detachMailbox(mailbox.id);
       setMailboxes((current) => (current ?? []).filter((m) => m.id !== mailbox.id));
       reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "O'chirib bo'lmadi");
+      setError(e instanceof Error ? e.message : "Uzib bo'lmadi");
     } finally {
       setBusy(null);
     }
@@ -124,14 +127,14 @@ export function MailboxSlotsWarning() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  aria-label={`${mailbox.email} pochta qutisini o‘chirish`}
+                  aria-label={`${mailbox.email} pochta qutisini o‘zimdan uzish`}
                   className="min-h-11 min-w-11"
                   disabled={busy !== null}
                   onClick={() => remove(mailbox)}
                 >
                   {busy === mailbox.id
                     ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    : <Trash2 className="h-3.5 w-3.5" />}
+                    : <Link2Off className="h-3.5 w-3.5" />}
                 </Button>
               )}
             </li>

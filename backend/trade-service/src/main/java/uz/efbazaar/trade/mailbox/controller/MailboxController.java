@@ -63,15 +63,4 @@ public class MailboxController {
         service.detachOwnedBy(me.userId(), id);
     }
 
-    /**
-     * O'z pochta qutisini o'chirish — slotni bo'shatish uchun yagona yo'l.
-     *
-     * <p>QAYTARIB BO'LMAYDI: quti pochta serveridan ham o'chiriladi va
-     * undagi Konami xatlari yo'qoladi. Ogohlantirish frontendda.
-     */
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable UUID id) {
-        service.deleteOwnedBy(me.userId(), id);
-    }
 }

@@ -33,6 +33,16 @@ afterEach(async () => {
   container.remove();
   vi.unstubAllGlobals();
 });
+const typeConfirmation = async (value: string) => act(async () => {
+  const field = container.querySelector<HTMLInputElement>('input[type="email"]')!;
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  setter.call(field, value);
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+});
+
+const confirmButton = () =>
+  [...container.querySelectorAll('button')].find((b) => b.textContent?.includes('Ha, uzish'))!;
+
 async function click(text: string) {
   const button = [...container.querySelectorAll('button')].find((b) => b.textContent?.includes(text))!;
   expect(button).toBeDefined();
@@ -52,6 +62,7 @@ it('asks before unlinking, identifies the address, and cancels without a request
 it('unlinks only after confirmation and leaves the removed inbox', async () => {
   fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
   await click('Hisobimdan uzish');
+  await typeConfirmation('account@efbazaar.uz');
   await click('Ha, uzish');
   expect(fetchMock).toHaveBeenCalledWith('/api/trade/v1/mailboxes/mailbox-1/detach',
     expect.objectContaining({ method: 'POST' }));
@@ -62,6 +73,7 @@ it('unlinks only after confirmation and leaves the removed inbox', async () => {
 it('shows server errors without leaving the inbox and permits retry', async () => {
   fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ message: 'Savdo davom etmoqda' }), { status: 409 }));
   await click('Hisobimdan uzish');
+  await typeConfirmation('account@efbazaar.uz');
   await click('Ha, uzish');
   expect(container.querySelector('[role="alert"]')?.textContent).toContain('Savdo davom etmoqda');
   expect(replace).not.toHaveBeenCalled();
@@ -73,6 +85,7 @@ it('shows server errors without leaving the inbox and permits retry', async () =
 it('handles network failure without navigating', async () => {
   fetchMock.mockRejectedValueOnce(new TypeError('Network error'));
   await click('Hisobimdan uzish');
+  await typeConfirmation('account@efbazaar.uz');
   await click('Ha, uzish');
   expect(container.querySelector('[role="alert"]')).not.toBeNull();
   expect(replace).not.toHaveBeenCalled();
@@ -82,6 +95,7 @@ it('disables confirmation and cancellation while the request is pending', async 
   let finish!: (response: Response) => void;
   fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => { finish = resolve; }));
   await click('Hisobimdan uzish');
+  await typeConfirmation('account@efbazaar.uz');
   await click('Ha, uzish');
   expect([...container.querySelectorAll('[role="alertdialog"] button')]
     .every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
@@ -102,4 +116,42 @@ it('opens a native modal outside the header flow and restores scroll on Escape',
   expect(document.body.style.overflow).toBe('');
   expect(document.activeElement?.textContent).toContain('Hisobimdan uzish');
   expect(fetchMock).not.toHaveBeenCalled();
+});
+
+// Tasdiq manzilni TERISH bilan: "Ha" ni o'ylamasdan bosish mumkin, manzilni
+// terish esa nimadan voz kechayotganini ko'rsatadi. Uzilgan qutiga qayta
+// kirishni foydalanuvchining o'zi tiklay olmaydi.
+
+it('manzil terilmaguncha uzmaydi', async () => {
+  await click('Hisobimdan uzish');
+  expect(confirmButton().disabled).toBe(true);
+
+  await typeConfirmation('account@efbazaar');
+  expect(confirmButton().disabled).toBe(true);
+
+  await typeConfirmation('account@efbazaar.uz');
+  expect(confirmButton().disabled).toBe(false);
+});
+
+it('registr va chetdagi bo‘shliq to‘siq bo‘lmaydi', async () => {
+  // Telefonda birinchi harf o'zi kattalashadi, nusxa olishda bo'shliq
+  // yopishadi. Bu odamni to'g'ri qarorida to'xtatmasligi kerak.
+  await click('Hisobimdan uzish');
+  await typeConfirmation('  Account@EFBazaar.UZ  ');
+  expect(confirmButton().disabled).toBe(false);
+});
+
+it('Konami ID haqida ogohlantiradi', async () => {
+  await click('Hisobimdan uzish');
+  expect(container.querySelector('[role="alertdialog"]')!.textContent).toContain('KONAMI ID');
+});
+
+it('bekor qilingach terilgan matn saqlanib qolmaydi', async () => {
+  await click('Hisobimdan uzish');
+  await typeConfirmation('account@efbazaar.uz');
+  await click('Bekor');
+  await click('Hisobimdan uzish');
+
+  expect(container.querySelector<HTMLInputElement>('input[type="email"]')!.value).toBe('');
+  expect(confirmButton().disabled).toBe(true);
 });
