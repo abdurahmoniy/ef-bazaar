@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { TradeProposalRejectButton } from './trade-proposal-reject-button';
 import { useRouter } from 'next/navigation';
 import { useChatViewport } from '@/hooks/use-chat-viewport';
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
   AlertTriangle,
@@ -59,18 +60,17 @@ import {
   hasTradeAmount,
   tradeAmountLabel,
   isWaitingForCounterpart,
-  needsAmount,
   TRADE_KIND_HINT_UZ,
   TRADE_KIND_LABEL_UZ,
 } from '@/lib/trade-swap';
 import {
   isInsufficientFunds,
   proposerShortfallSom,
-  shortfallSom,
   topUpHref,
 } from '@/lib/wallet-shortfall';
 import {
   canAcceptTradeProposal,
+  canRejectTradeProposal,
   tradeParticipantRole,
   isTerminalState,
   splitTrades,
@@ -87,9 +87,12 @@ import {
 } from '@/lib/trade-types';
 import { cn } from '@/lib/utils';
 import { FEATURES } from '@/lib/feature-flags';
-import { sellerProceedsSom, tradeFeeSom } from '@/lib/trade-commission';
+import { tradeAmountError } from '@/lib/trade-amount';
+import { MIN_TRADE_PRICE_SOM, sellerProceedsSom, tradeFeeSom } from '@/lib/trade-commission';
 import { canUseSmartAdmin, resolveTradeListing } from '@/lib/trade-platform';
 import { TradeProgressTimeline } from './trade-progress-timeline';
+import { TradeProposalRetryButton } from './trade-proposal-retry-button';
+import { TradeAcceptPayment } from './trade-accept-payment';
 import { TradeAdminHandoff } from './trade-admin-handoff';
 import { useTradeContext, type PendingProposal } from './trade-context';
 
@@ -108,8 +111,7 @@ export function TradePanel() {
           E’lonni ko‘rish <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       )}
-      {!viewedTrade && (!viewedProposal || (viewedProposal.proposalId === proposal?.id &&
-        tradeProposalDetails(viewedProposal, proposal).outcome === 'PENDING')) && <TradeActionModals />}
+      <TradeActionModals />
     </ModalShell>
   );
 }
@@ -117,8 +119,8 @@ export function TradePanel() {
 /** The selected message is the source of historical details, never the latest trade. */
 function ProposalDetails({ message }: { message: MessageResponse }) {
   const { proposal, listing, accountRequest, viewerId, trades, reload, refreshing,
-    setShowAcceptModal, requiresAdminHandoff } = useTradeContext();
-  const { matching, price, kind, listingId, expiresAt, outcome } = tradeProposalDetails(message, proposal);
+    setShowAcceptModal, requiresAdminHandoff, rejectedProposalIds } = useTradeContext();
+  const { matching, price, kind, listingId, expiresAt, outcome } = tradeProposalDetails(message, proposal, rejectedProposalIds?.has(message.proposalId ?? ''));
   const ownListing = [listing, accountRequest?.listing].find(item => item?.id === listingId);
   const trade = message.proposalTradeId ? trades?.find(item => item.id === message.proposalTradeId) : null;
   const sentAt = `${formatDayLabel(message.createdAt)} · ${formatMessageTime(message.createdAt)}`;
@@ -156,6 +158,8 @@ function ProposalDetails({ message }: { message: MessageResponse }) {
           : message.senderId !== viewerId && canAcceptTradeProposal(matching, viewerId) ? <Button className="min-h-11 w-full" onClick={() => setShowAcceptModal(true)}>Qabul qilish</Button>
             : <p className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">Javob kutilmoqda</p>
       )}
+      <TradeProposalRejectButton message={message} />
+      <TradeProposalRetryButton message={message} />
       {message.proposalTradeId && (trade ? (
         <section className="border-t border-border pt-4" aria-label="Savdo jarayoni">
           {isHumanTrade(trade)
@@ -178,14 +182,44 @@ function TradeActionModals() {
     trades, activeTrade, lastFinished, startingNew, proposal, isSeller,
     requiresAdminHandoff, showPicker, setShowPicker, showProposeModal,
     setShowProposeModal, showAcceptModal, setShowAcceptModal,
-    handleProposalCreated, handleProposalAccepted,
+    handleProposalCreated, handleProposalAccepted, rejectProposalId, setRejectProposalId, handleProposalRejected, viewedTrade, viewedProposal,
   } = useTradeContext();
+
+  const [paymentSelection, setPaymentSelection] = useState<{ proposal: PendingProposal; chatId: string } | null>(null);
+  useEffect(() => {
+    if (!showAcceptModal) { setPaymentSelection(null); return; }
+    if (!paymentSelection && proposal && viewerId === proposal.buyerId
+      && canAcceptTradeProposal(proposal, viewerId) && !isHumanProposal(proposal)
+      && hasTradeAmount(proposal.kind, proposal.priceUzs) && !requiresAdminHandoff) {
+      setPaymentSelection({ proposal, chatId: chat.id });
+    }
+  }, [showAcceptModal, paymentSelection, proposal, viewerId, requiresAdminHandoff, chat.id]);
+
+  if (proposal && rejectProposalId === proposal.id && canRejectTradeProposal(proposal, viewerId)) {
+    return <RejectProposalModal key={proposal.id} proposal={proposal}
+      onClose={() => setRejectProposalId(null)} onRejected={handleProposalRejected} />;
+  }
+
+  // A transfer may outlive its offer. Keep its instructions and original amount visible.
+  if (showAcceptModal && paymentSelection?.chatId === chat.id
+    && paymentSelection.proposal.buyerId === viewerId) {
+    const selected = paymentSelection.proposal;
+    const resolved = viewedProposal?.proposalId === selected.id
+      && tradeProposalDetails(viewedProposal, proposal).outcome !== 'PENDING';
+    return <AcceptModal key={selected.id} proposal={selected}
+      unavailable={proposal?.id !== selected.id || !!activeTrade || !!resolved}
+      onClose={() => setShowAcceptModal(false)} onAccepted={handleProposalAccepted} />;
+  }
+
+  if (viewedTrade || (viewedProposal && (viewedProposal.proposalId !== proposal?.id
+    || tradeProposalDetails(viewedProposal, proposal).outcome !== 'PENDING'))) return null;
 
   if (trades === null || activeTrade || (lastFinished && !startingNew && !proposal)) return null;
 
   if (proposal) {
     return showAcceptModal && canAcceptTradeProposal(proposal, viewerId) && !requiresAdminHandoff ? (
       <AcceptModal
+        key={proposal.id}
         proposal={proposal}
         onClose={() => setShowAcceptModal(false)}
         onAccepted={handleProposalAccepted}
@@ -223,7 +257,7 @@ function TradeActionModals() {
 function TradePanelContent() {
   const {
     viewerId, listing, accountRequest, role, isSeller, trades, activeTrade,
-    lastFinished, proposal, setProposal, startingNew, setStartingNew,
+    lastFinished, proposal, startingNew, setStartingNew,
     refreshing, reload, setShowPicker, setShowProposeModal, setShowAcceptModal, viewedTrade,
   } = useTradeContext();
 
@@ -253,7 +287,7 @@ function TradePanelContent() {
   // The pinned bar prioritizes a pending request over any existing trade.
   if (proposal) {
     return <PendingProposalCard proposal={proposal}
-      onAcceptClick={() => setShowAcceptModal(true)} onDismiss={() => setProposal(null)} />;
+      onAcceptClick={() => setShowAcceptModal(true)} />;
   }
 
   if (activeTrade) {
@@ -1431,6 +1465,40 @@ function InfoBox({ children }: { children: React.ReactNode }) {
 
 // -------------------- confirm/send-password modals --------------------
 
+function RejectProposalModal({ proposal, onClose, onRejected }: {
+  proposal: PendingProposal;
+  onClose: () => void;
+  onRejected: (proposalId: string) => Promise<void>;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
+  async function reject() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/trade/v1/trades/proposals/${encodeURIComponent(proposal.id)}/reject`, {
+        method: 'POST', credentials: 'include', headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) {
+        setError(await readErrorMessage(response));
+        return;
+      }
+      await onRejected(proposal.id);
+    } catch {
+      setError('Taklifni rad etib bo‘lmadi. Qayta urinib ko‘ring.');
+    } finally {
+      inFlight.current = false;
+      setSubmitting(false);
+    }
+  }
+  return <ConfirmModal title="Taklifni rad etish" destructive submitting={submitting}
+    confirmLabel="Ha, rad etaman" onConfirm={() => void reject()} onClose={() => { if (!inFlight.current) onClose(); }}
+    body={<><p>Ushbu taklifni rad etmoqchimisiz?</p>{error && <p role="alert" className="mt-2 text-destructive">{error}</p>}</>} />;
+}
+
 function ConfirmModal({
   title,
   body,
@@ -1576,11 +1644,9 @@ function SendPasswordModal({
 function PendingProposalCard({
   proposal,
   onAcceptClick,
-  onDismiss,
 }: {
   proposal: PendingProposal;
   onAcceptClick: () => void;
-  onDismiss: () => void;
 }) {
   const { listing, accountRequest, requiresAdminHandoff, viewerId } = useTradeContext();
   const selectedListing = resolveTradeListing(accountRequest, listing);
@@ -1628,11 +1694,9 @@ function PendingProposalCard({
           <Button type="button" className="flex-1" onClick={onAcceptClick}>
             Qabul qilish
           </Button>
-          <Button type="button" variant="ghost" onClick={onDismiss}>
-            Yashirish
-          </Button>
         </div>
       )}
+      <TradeProposalRejectButton />
     </div>
   );
 }
@@ -1683,6 +1747,7 @@ function ProposeModal({
   const [selectedAdmin, setSelectedAdmin] = useState<TradeAdminCardResponse | null>(null);
   const [adminFee, setAdminFee] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [showFeeWarning, setShowFeeWarning] = useState(false);
   const [submitting, startSubmit] = useTransition();
 
   useEffect(() => {
@@ -1697,13 +1762,16 @@ function ProposeModal({
         : 0;
 
   const { commissionConfig } = useTradeContext();
+  const priceError = tradeAmountError('SALE', price, mode, commissionConfig);
+  const surchargeError = tradeAmountError('SWAP_SURCHARGE', surcharge, mode, commissionConfig);
+  const amountError = kind === 'SALE' ? priceError : kind === 'SWAP_SURCHARGE' ? surchargeError : null;
   const priceNum = Number(price);
-  const hasValidPrice = Number.isFinite(priceNum) && priceNum > 0;
+  const hasValidPrice = priceError === null;
   const feeNum = hasValidPrice ? tradeFeeSom(priceNum, commissionConfig) : 0;
   const proceedsNum = hasValidPrice ? sellerProceedsSom(priceNum, commissionConfig) : 0;
 
   const surchargeNum = Number(surcharge);
-  const hasValidSurcharge = Number.isFinite(surchargeNum) && surchargeNum > 0;
+  const hasValidSurcharge = surchargeError === null;
   const swapFeeBase = originalPrice > 0 ? originalPrice : 0;
   const swapFeeNum = swapFeeBase > 0 ? tradeFeeSom(swapFeeBase, commissionConfig) : 0;
 
@@ -1712,35 +1780,23 @@ function ProposeModal({
   const swapSurchargeNetProceeds = Math.max(0, surchargeNum - swapSurchargeFeeNum);
   const swapSurchargeProposerOwes = Math.max(0, swapSurchargeFeeNum - surchargeNum);
 
-  const presets = useMemo(() => {
-    if (!originalPrice || originalPrice <= 0) return [];
-    const p5 = Math.round((originalPrice * 0.95) / 1000) * 1000;
-    const p10 = Math.round((originalPrice * 0.9) / 1000) * 1000;
-    const p20k = originalPrice - 20000;
-    const list: Array<{ label: string; value: number }> = [
-      { label: 'Asl narx', value: originalPrice },
-      { label: '−5%', value: p5 },
-      { label: '−10%', value: p10 },
-    ];
-    if (p20k > 0 && p20k !== p5 && p20k !== p10) {
-      list.push({ label: '−20 ming', value: p20k });
-    }
-    return list.filter(
-      (p, idx, arr) =>
-        p.value > 0 &&
-        arr.findIndex((other) => other.value === p.value) === idx,
-    );
-  }, [originalPrice]);
+  useEffect(() => {
+    setShowFeeWarning(false);
+  }, [price, kind, mode, feeNum]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    submitProposal();
+  }
+
+  function submitProposal(feeConfirmed = false) {
     setError(null);
-    if (needsAmount(kind)) {
-      if (!Number.isFinite(effectiveAmountUzs) || effectiveAmountUzs <= 0) {
-        setError("Miqdor musbat butun son bo'lishi kerak");
-        return;
-      }
+    if (amountError || submitting) return;
+    if (mode === 'SMART' && kind === 'SALE' && proceedsNum < feeNum && !feeConfirmed) {
+      setShowFeeWarning(true);
+      return;
     }
+    setShowFeeWarning(false);
     const feeUzs = Number(adminFee);
     if (mode === 'HUMAN') {
       const feeValidation = validateAdminFee(selectedAdmin, feeUzs);
@@ -1782,6 +1838,26 @@ function ProposeModal({
         />
       </ModalShell>
     );
+  }
+
+  if (showFeeWarning) {
+    return <ConfirmModal
+      title="Smart-admin xizmat haqi"
+      body={<div className="space-y-3">
+        <p className="flex gap-2 font-medium text-amber-700 dark:text-amber-300">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          Smart-admin xizmat haqi sizga qoladigan summadan ko‘p. Davom etishga rozimisiz?
+        </p>
+        <dl className="space-y-2">
+          <div className="flex justify-between gap-3"><dt>Smart-admin xizmati</dt><dd className="font-semibold">{formatPriceUZS(feeNum)}</dd></div>
+          <div className="flex justify-between gap-3"><dt>Sizga qoladi</dt><dd className="font-semibold">{formatPriceUZS(proceedsNum)}</dd></div>
+        </dl>
+      </div>}
+      confirmLabel="Ha, roziman"
+      submitting={submitting}
+      onConfirm={() => submitProposal(true)}
+      onClose={() => setShowFeeWarning(false)}
+    />;
   }
 
   return (
@@ -1915,8 +1991,11 @@ function ProposeModal({
                   id="trade-price"
                   type="number"
                   inputMode="numeric"
-                  min={1}
+                  min={MIN_TRADE_PRICE_SOM}
                   step={1}
+                  max={Number.MAX_SAFE_INTEGER}
+                  aria-invalid={!!priceError}
+                  aria-describedby={priceError ? 'trade-price-error' : undefined}
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="500000"
@@ -1926,33 +2005,7 @@ function ProposeModal({
               </div>
             </div>
 
-            {/* Quick Discount Presets: Responsive 2-column or 4-column Grid */}
-            {presets.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                {presets.map((preset) => {
-                  const isSelected = Number(price) === preset.value;
-                  return (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => {
-                        setPrice(String(preset.value));
-                        telegramHaptic(getTelegramWebApp(), 'selection', false);
-                      }}
-                      className={cn(
-                        'tap-press flex flex-col items-center justify-center rounded-xl border py-1.5 px-1 text-center transition select-none min-w-0',
-                        isSelected
-                          ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30 font-black'
-                          : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
-                      )}
-                    >
-                      <span className="text-[10px] font-semibold opacity-75">{preset.label}</span>
-                      <span className="text-[11px] font-bold truncate max-w-full">{formatPriceUZS(preset.value)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            {priceError && <p id="trade-price-error" role="alert" className="text-xs text-destructive">{priceError}</p>}
 
             {/* Financial Breakdown Card */}
             {hasValidPrice && (
@@ -1989,7 +2042,7 @@ function ProposeModal({
                 <Label htmlFor="swap-surcharge" className="text-xs font-bold shrink-0">
                   Doplata miqdori (so'm)
                 </Label>
-                {Number(surcharge) > 0 && (
+                {hasValidSurcharge && (
                   <span className="text-[11px] font-black text-primary truncate">
                     {formatPriceUZS(Number(surcharge))}
                   </span>
@@ -2001,8 +2054,11 @@ function ProposeModal({
                   id="swap-surcharge"
                   type="number"
                   inputMode="numeric"
-                  min={1}
+                  min={MIN_TRADE_PRICE_SOM}
                   step={1}
+                  max={Number.MAX_SAFE_INTEGER}
+                  aria-invalid={!!surchargeError}
+                  aria-describedby={surchargeError ? 'swap-surcharge-error' : undefined}
                   value={surcharge}
                   onChange={(e) => setSurcharge(e.target.value)}
                   placeholder="100000"
@@ -2014,6 +2070,8 @@ function ProposeModal({
                 Qarshi taraf akkountni almashish uchun to‘lashi kerak bo‘lgan summa.
               </p>
             </div>
+
+            {surchargeError && <p id="swap-surcharge-error" role="alert" className="text-xs text-destructive">{surchargeError}</p>}
 
             {/* Financial Breakdown Card */}
             {mode === 'SMART' && hasValidSurcharge && (
@@ -2152,7 +2210,7 @@ function ProposeModal({
           </Button>
           <Button
             type="submit"
-            disabled={submitting || (needsAmount(kind) && (!effectiveAmountUzs || effectiveAmountUzs <= 0))}
+            disabled={submitting || !!amountError}
             className="h-10 flex-1 sm:flex-none px-4 text-xs sm:text-sm font-black shadow-md shadow-primary/20"
           >
             {submitting ? (
@@ -2163,7 +2221,7 @@ function ProposeModal({
             ) : (
               <span className="flex items-center justify-center gap-1 truncate w-full">
                 <span>Taklif yuborish</span>
-                {effectiveAmountUzs > 0 && <span className="font-extrabold truncate">• {formatPriceUZS(effectiveAmountUzs)}</span>}
+                {!amountError && effectiveAmountUzs > 0 && <span className="font-extrabold truncate">• {formatPriceUZS(effectiveAmountUzs)}</span>}
                 <ArrowRight className="ml-1 h-3.5 w-3.5 shrink-0" />
               </span>
             )}
@@ -2178,16 +2236,19 @@ function ProposeModal({
 
 function AcceptModal({
   proposal,
+  unavailable = false,
   onClose,
   onAccepted,
 }: {
   proposal: PendingProposal;
+  unavailable?: boolean;
   onClose: () => void;
   onAccepted: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, startSubmit] = useTransition();
-  const { listing, accountRequest } = useTradeContext();
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const { listing, accountRequest, viewerId } = useTradeContext();
   const selectedListing = resolveTradeListing(accountRequest, listing);
   const proposalListing = proposal.listingId
     ? [selectedListing, listing].find((item) => item?.id === proposal.listingId) ?? null
@@ -2202,10 +2263,6 @@ function AcceptModal({
     startSubmit(async () => {
       const result = await postProposalAccept(proposal.id, payload);
       if (!result.ok) {
-        if (isInsufficientFunds(result.error)) {
-          await sendBuyerToTopUp(proposal.priceUzs, setError);
-          return;
-        }
         setError(result.error);
         return;
       }
@@ -2223,6 +2280,13 @@ function AcceptModal({
         />
       </ModalShell>
     );
+  }
+
+  if (viewerId === proposal.buyerId && !isHumanProposal(proposal) && hasTradeAmount(proposal.kind, proposal.priceUzs)) {
+    return <ModalShell title="Taklifni qabul qilish" onClose={() => { if (!paymentBusy) onClose(); }}>
+      <TradeAcceptPayment proposal={proposal} unavailable={unavailable} onAccept={() => postProposalAccept(proposal.id, {})}
+        onAccepted={onAccepted} onClose={onClose} onBusyChange={setPaymentBusy} />
+    </ModalShell>;
   }
 
   return (
@@ -2265,7 +2329,7 @@ function AcceptModal({
             <span className="font-semibold text-foreground">
               {formatPriceUZS(proposal.priceUzs)}
             </span>{' '}
-            hamyoningizdan yechilib, savdo yakunlanguncha platformada saqlanadi.
+            xaridor hamyonidan yechilib, savdo yakunlanguncha platformada saqlanadi.
             Savdo bekor bo&apos;lsa to&apos;liq qaytariladi.
           </div>
         )}
@@ -2390,15 +2454,6 @@ async function sendToTopUp(
   window.location.href = topUpHref(missing, returnTo);
 }
 
-async function sendBuyerToTopUp(priceUzs: number, onError: (msg: string) => void) {
-  const wallet = await fetchWalletBalance();
-  if (wallet === null) {
-    onError('Hamyon holatini o‘qib bo‘lmadi — hamyon bo‘limidan to‘ldiring');
-    return;
-  }
-  await sendToTopUp(shortfallSom(priceUzs, wallet.availableTiyin), undefined, onError);
-}
-
 async function fetchWalletBalance(): Promise<{ availableTiyin: number } | null> {
   try {
     const response = await fetch('/api/payment/v1/payments/wallet', {
@@ -2506,7 +2561,8 @@ async function postReveal(
 
 async function readErrorMessage(response: Response) {
   try {
-    const payload = (await response.json()) as { message?: unknown; error?: unknown };
+    const payload = (await response.json()) as { message?: unknown; error?: unknown; detail?: unknown };
+    if (typeof payload.detail === 'string') return payload.detail;
     if (typeof payload.message === 'string') return payload.message;
     if (typeof payload.error === 'string') return payload.error;
   } catch {

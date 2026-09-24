@@ -37,6 +37,14 @@ export function canAcceptTradeProposal(
   return !!proposal.proposerUserId && proposal.proposerUserId !== viewerId
     && tradeParticipantRole(proposal, viewerId) !== null;
 }
+export function canRejectTradeProposal(
+  proposal: { sellerId: string; buyerId: string; proposerUserId: string; expiresAt: string },
+  viewerId: string,
+): boolean {
+  return proposal.buyerId === viewerId && canAcceptTradeProposal(proposal, viewerId)
+    && (!proposal.expiresAt || Date.parse(proposal.expiresAt) > Date.now());
+}
+
 export type TradeMode = 'SMART' | 'HUMAN';
 export type HumanTradeState = 'WAITING_ADMIN' | 'IN_PROGRESS' | 'WAITING_CLOSE_CONFIRM';
 

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ import uz.efbazaar.trade.trade.exception.ProposalNotFoundException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -76,6 +78,9 @@ public class TradeProposalService {
 
     public ProposalResponse create(UUID proposerUserId, ProposalCreateRequest req) {
         TradeMode mode = req.modeOrDefault();
+        if (mode == TradeMode.SMART && req.kindOrDefault() == TradeKind.SALE) {
+            escrow.validateSaleAmount(req.amountUzs());
+        }
 
         if (mode == TradeMode.HUMAN) {
             // Only the seller may hire — the fee comes out of their share.
@@ -239,6 +244,13 @@ public class TradeProposalService {
         TradeKind kind = TradeKind.valueOf(
                 orDefault((String) raw.get("kind"), TradeKind.SALE.name()));
 
+        if (kind != TradeKind.SWAP && amountUzs < 5000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Eng kam miqdor 5 000 so‘m");
+        }
+        if (mode == TradeMode.SMART && kind == TradeKind.SALE) {
+            escrow.validateSaleAmount(amountUzs);
+        }
+
         // What the platform's cut is worked out from. On a sale that is the
         // price; on a swap it is the listing price, read from marketplace
         // rather than taken from the proposal, because a proposer who could
@@ -312,15 +324,31 @@ public class TradeProposalService {
         return trade;
     }
 
+    // Remove only this proposal's index; a newer offer in the same chat must survive.
+    private static final DefaultRedisScript<Long> REJECT_PROPOSAL = new DefaultRedisScript<>("""
+            if redis.call('DEL', KEYS[1]) == 0 then return 0 end
+            if #KEYS > 1 and redis.call('GET', KEYS[2]) == ARGV[1] then
+                redis.call('DEL', KEYS[2])
+            end
+            return 1
+            """, Long.class);
+
     public void reject(UUID rejecterUserId, UUID proposalId) {
         String mainKey = redisKey(proposalId);
-        // Read chatId BEFORE deleting the main key so we can clean the index too.
-        Object rawChatId = redis.opsForHash().get(mainKey, "marketplaceChatId");
-        if (Boolean.FALSE.equals(redis.delete(mainKey))) {
+        Map<Object, Object> fields = redis.opsForHash().entries(mainKey);
+        if (fields.isEmpty()) throw new ProposalNotFoundException(proposalId.toString());
+        UUID buyerId = optionalUuid(fields.get("buyerId"));
+        UUID proposerId = optionalUuid(fields.get("proposerUserId"));
+        if (rejecterUserId == null || !rejecterUserId.equals(buyerId)
+                || proposerId == null || rejecterUserId.equals(proposerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Only the buyer receiving the proposal can reject it");
+        }
+        UUID chatId = optionalUuid(fields.get("marketplaceChatId"));
+        List<String> keys = chatId == null ? List.of(mainKey) : List.of(mainKey, chatIndexKey(chatId));
+        if (!Long.valueOf(1).equals(redis.execute(REJECT_PROPOSAL, keys, proposalId.toString()))) {
             throw new ProposalNotFoundException(proposalId.toString());
         }
-        UUID chatId = optionalUuid(rawChatId);
-        if (chatId != null) redis.delete(chatIndexKey(chatId));
         events.proposalResolved(proposalId, TradeEvents.ProposalOutcome.REJECTED);
     }
 

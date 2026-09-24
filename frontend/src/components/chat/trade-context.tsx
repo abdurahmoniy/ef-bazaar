@@ -71,6 +71,10 @@ interface TradeContextValue {
     kind?: TradeKind,
   ) => void;
   handleProposalAccepted: () => Promise<void>;
+  handleProposalRejected: (proposalId: string) => Promise<void>;
+  rejectedProposalIds: ReadonlySet<string>;
+  rejectProposalId: string | null;
+  setRejectProposalId: React.Dispatch<React.SetStateAction<string | null>>;
   // Modals & Drawer state
   showPicker: boolean;
   setShowPicker: React.Dispatch<React.SetStateAction<boolean>>;
@@ -142,6 +146,8 @@ export function TradeProvider({
     proposalMutation.current++;
     setProposalState(update);
   }, []);
+  const [rejectProposalId, setRejectProposalId] = useState<string | null>(null);
+  const [rejectedProposalIds, setRejectedProposalIds] = useState<ReadonlySet<string>>(new Set());
   const [startingNew, setStartingNew] = useState(false);
   const [showProposeModal, setShowProposeModal] = useState(false);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
@@ -285,6 +291,15 @@ export function TradeProvider({
     router.refresh();
   }, [reload, router, setProposal]);
 
+  const handleProposalRejected = useCallback(async (proposalId: string) => {
+    setRejectedProposalIds(previous => new Set(previous).add(proposalId));
+    setProposal(current => current?.id === proposalId ? null : current);
+    setRejectProposalId(null);
+    setShowAcceptModal(false);
+    await reload();
+    router.refresh();
+  }, [reload, router, setProposal]);
+
   const selectedListing = resolveTradeListing(accountRequest, listing);
   const tradeListing = proposal
     ? [selectedListing, listing].find((item) => item?.id === proposal.listingId) ?? null
@@ -312,6 +327,10 @@ export function TradeProvider({
     reload,
     handleProposalCreated,
     handleProposalAccepted,
+    handleProposalRejected,
+    rejectedProposalIds,
+    rejectProposalId,
+    setRejectProposalId,
     showPicker,
     setShowPicker,
     showProposeModal,

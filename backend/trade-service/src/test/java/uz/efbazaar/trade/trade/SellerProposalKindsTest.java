@@ -1,6 +1,9 @@
 package uz.efbazaar.trade.trade;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.springframework.http.HttpStatus;
+import uz.efbazaar.trade.trade.dto.ProposalCreateRequest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -51,6 +54,26 @@ class SellerProposalKindsTest {
         return amount;
     }
 
+    @Test
+    void rejectsAZeroProceedsSaleBeforePublishingAProposal() {
+        doThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "No proceeds"))
+                .when(escrow).validateSaleAmount(5000);
+        var request = new ProposalCreateRequest(UUID.randomUUID(), buyer, seller, buyer,
+                5000L, null, listing, TradeMode.SMART, null, null, TradeKind.SALE);
+        assertThatThrownBy(() -> service.create(seller, request)).isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(redis, trades);
+    }
+
+    @Test
+    void rechecksSaleProceedsAtAcceptanceBeforeHoldingMoney() {
+        prepare(TradeKind.SALE, "NONE", seller, seller);
+        doThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "No proceeds"))
+                .when(escrow).validateSaleAmount(5000);
+        assertThatThrownBy(() -> service.accept(buyer, proposal, null)).isInstanceOf(ResponseStatusException.class);
+        verify(escrow, never()).hold(any(), any(), any(), anyLong(), anyLong());
+        verifyNoInteractions(trades);
+    }
+
     @ParameterizedTest
     @CsvSource({"SALE,NONE", "SALE,EXCHANGE_ONLY", "SALE,EXCHANGE_WITH_SURCHARGE", "SALE,BOTH",
             "SWAP,NONE", "SWAP,EXCHANGE_ONLY", "SWAP,EXCHANGE_WITH_SURCHARGE", "SWAP,BOTH",
@@ -67,6 +90,8 @@ class SellerProposalKindsTest {
 
         assertThat(service.accept(buyer, proposal, null)).isSameAs(trade);
         verify(escrow).hold(any(UUID.class), eq(buyer), eq(seller), eq(amount), eq(feeBase));
+        if (kind == TradeKind.SALE) verify(escrow).validateSaleAmount(amount);
+        else verify(escrow, never()).validateSaleAmount(anyLong());
     }
 
     @ParameterizedTest

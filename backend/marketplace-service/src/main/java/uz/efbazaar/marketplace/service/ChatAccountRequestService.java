@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.marketplace.domain.AccountRequestStatus;
 import uz.efbazaar.marketplace.domain.Chat;
+import uz.efbazaar.marketplace.domain.ChatMessage;
+import uz.efbazaar.marketplace.domain.ChatMessageType;
 import uz.efbazaar.marketplace.domain.ChatAccountRequest;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.domain.ListingStatus;
@@ -15,6 +17,7 @@ import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.repository.ChatAccountRequestRepository;
 import uz.efbazaar.marketplace.repository.ChatParticipantRepository;
 import uz.efbazaar.marketplace.repository.ChatRepository;
+import uz.efbazaar.marketplace.repository.ChatMessageRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
 
 import java.time.Instant;
@@ -36,6 +39,7 @@ import java.util.UUID;
 public class ChatAccountRequestService {
 
     private final ChatAccountRequestRepository requests;
+    private final ChatMessageRepository messages;
     private final ChatRepository chats;
     private final ListingRepository listings;
     private final ChatParticipantRepository participants;
@@ -76,7 +80,8 @@ public class ChatAccountRequestService {
         if (previous.isPresent()) {
             ChatAccountRequest prev = previous.get();
             if (prev.getListingId().equals(listingId)
-                    && prev.getRequesterId().equals(requesterId)) {
+                    && prev.getRequesterId().equals(requesterId)
+                    && !hasEndedProposal(prev)) {
                 return prev;   // same ask, e.g. a double click — idempotent
             }
             prev.close(AccountRequestStatus.CANCELLED);
@@ -86,15 +91,28 @@ public class ChatAccountRequestService {
             requests.saveAndFlush(prev);
         }
 
+        Instant openedAt = Instant.now();
         ChatAccountRequest req = requests.save(ChatAccountRequest.builder()
                 .chatId(chatId)
                 .requesterId(requesterId)
                 .listingId(listingId)
                 .status(AccountRequestStatus.OPEN)
+                .createdAt(openedAt)
+                .build());
+
+        String title = listing.getDescription() == null ? "" : listing.getDescription().lines()
+                .map(String::trim).filter(line -> !line.isEmpty()).findFirst().orElse("");
+        if (title.length() > 160) title = title.substring(0, 157) + "…";
+        messages.save(ChatMessage.builder()
+                .chatId(chatId)
+                .senderId(requesterId)
+                .messageType(ChatMessageType.TEXT)
+                .content("Akkount bo‘yicha so‘rov yuborildi." + (title.isEmpty() ? "" : "\nE’lon: " + title))
+                .createdAt(openedAt)
                 .build());
 
         chat.setListingId(listingId);
-        chat.setLastMessageAt(Instant.now());
+        chat.setLastMessageAt(openedAt);
         chats.save(chat);
 
         UUID partnerId = chat.partnerOf(requesterId);
@@ -111,6 +129,22 @@ public class ChatAccountRequestService {
         log.info("Account request opened: chat={} requester={} listing={}",
                 chatId, requesterId, listingId);
         return req;
+    }
+
+    /**
+     * Rejections/expiry resolve the trade message, but legacy contact rows stay OPEN.
+     * Renew only for the latest proposal in this request, not an older negotiation.
+     */
+    private boolean hasEndedProposal(ChatAccountRequest request) {
+        if (request.getCreatedAt() == null) return false;
+        return messages.findFirstByChatIdAndMessageTypeOrderByCreatedAtDescIdDesc(
+                        request.getChatId(), ChatMessageType.TRADE_PROPOSAL)
+                .filter(message -> request.getListingId().equals(message.getProposalListingId()))
+                .filter(message -> message.getCreatedAt() != null
+                        && !message.getCreatedAt().isBefore(request.getCreatedAt()))
+                .filter(message -> "REJECTED".equals(message.getProposalOutcome())
+                        || "EXPIRED".equals(message.getProposalOutcome()))
+                .isPresent();
     }
 
     @Transactional(readOnly = true)
