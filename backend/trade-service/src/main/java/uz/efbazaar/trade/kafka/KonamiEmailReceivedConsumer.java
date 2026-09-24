@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import uz.efbazaar.trade.trade.domain.ActorType;
+import uz.efbazaar.trade.trade.domain.ParticipantRole;
+import uz.efbazaar.trade.trade.domain.TradeSide;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.exception.InvalidTradeTransitionException;
 import uz.efbazaar.trade.trade.service.TradeService;
@@ -15,6 +17,7 @@ import uz.efbazaar.trade.trade.service.TradeService;
 public class KonamiEmailReceivedConsumer {
 
     private final TradeService trades;
+    private final uz.efbazaar.trade.trade.service.TradeSideService sides;
 
     @KafkaListener(
             topics = TradeEvents.TOPIC_KONAMI_EMAIL,
@@ -27,9 +30,17 @@ public class KonamiEmailReceivedConsumer {
                     e.tradeId());
             return;
         }
+        // Xat qaysi qutiga kelgan bo'lsa, o'sha tarafga yoziladi. Obmenda
+        // bu HAL QILUVCHI: manzilsiz trade-service uni "hali bajarmagan
+        // birinchi tarafga" yozardi, ya'ni bir tomonning parol tiklashi
+        // ikkinchisiniki bo'lib hisoblanardi. Eski hodisalarda manzil
+        // yo'q — o'shanda avvalgi taxminiy xulq saqlanadi.
+        ParticipantRole side = sides.byMailboxEmail(e.tradeId(), e.mailboxEmail())
+                .map(TradeSide::role)
+                .orElse(null);
         try {
             trades.transition(e.tradeId(), TradeEvent.KONAMI_EMAIL_RECEIVED,
-                    ActorType.WORKER, null);
+                    ActorType.WORKER, null, side);
         } catch (InvalidTradeTransitionException ex) {
             // Kafka is at-least-once; the trade may have already moved past
             // VERIFYING_KONAMI_LINK (e.g. a caller drove the transition

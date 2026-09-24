@@ -26,12 +26,19 @@ def test_forgot_password_request_round_trip():
     assert ev.konami_id is None
 
 
-def test_konami_email_received_uses_camel_case():
+def test_konami_email_received_names_the_mailbox_it_landed_in():
+    """Obmenda ikkita quti bor va javob qaysi biriga kelgani MUHIM.
+
+    Manzilsiz trade-service uni "hali bajarmagan birinchi tarafga" yozardi
+    — ya'ni tanga tashlash. Kod hodisalarida manzil boshidan bor edi,
+    shuning uchun ular to'g'ri tomonga borardi.
+    """
     ev = e.KonamiEmailReceived(
         trade_id=UUID("11111111-1111-1111-1111-111111111111"),
         reset_link_present=True,
         sender="noreply@konami.com",
         received_at=datetime(2026, 7, 15, 10, 30, tzinfo=UTC),
+        mailbox_email="trade-05a64118@efbazaar.uz",
     )
     encoded = to_json(ev)
     decoded = json.loads(encoded)
@@ -40,6 +47,7 @@ def test_konami_email_received_uses_camel_case():
         "resetLinkPresent": True,
         "sender": "noreply@konami.com",
         "receivedAt": "2026-07-15T10:30:00Z",
+        "mailboxEmail": "trade-05a64118@efbazaar.uz",
     }
 
 
