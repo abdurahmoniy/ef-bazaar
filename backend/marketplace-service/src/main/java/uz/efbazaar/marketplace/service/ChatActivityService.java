@@ -18,7 +18,6 @@ import java.util.UUID;
 
 @Service
 public class ChatActivityService {
-    private static final Duration PRESENCE_RETENTION = Duration.ofDays(2);
     private static final Duration TYPING_TTL = Duration.ofSeconds(6);
     private final ChatRepository chats;
     private final ChatParticipantRepository participants;
@@ -66,7 +65,9 @@ public class ChatActivityService {
         Instant now = clock.instant();
         boolean changed = lease(presenceSessionsKey(userId), sessionId, active, now, Duration.ofSeconds(40));
         if (active || changed) {
-            redis.opsForValue().set(presenceKey(userId), now.toString(), PRESENCE_RETENTION);
+            // Keep last seen after the short-lived online leases expire. Redis SET
+            // also removes the old two-day TTL from existing presence keys.
+            redis.opsForValue().set(presenceKey(userId), now.toString());
             signal(userId);
         }
     }

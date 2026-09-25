@@ -40,6 +40,20 @@ export function formatMessageTime(value: string | Date): string {
   return `${String(uz.getUTCHours()).padStart(2, '0')}:${String(uz.getUTCMinutes()).padStart(2, '0')}`;
 }
 
+/** Human-readable last seen, using the same Uzbekistan timezone as chat messages. */
+export function formatLastSeen(value: string | null, now: Date = new Date()): string {
+  if (!value) return 'Oflayn';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Oflayn';
+  const minutes = Math.max(0, Math.floor((now.getTime() - date.getTime()) / 60_000));
+  let label: string;
+  if (minutes < 1) label = 'hozirgina';
+  else if (minutes < 60) label = `${minutes} daqiqa oldin`;
+  else if (minutes < 24 * 60) label = `${Math.floor(minutes / 60)} soat oldin`;
+  else label = `${formatDayLabel(date, now).toLowerCase()} ${formatMessageTime(date)}`;
+  return `Oxirgi faollik: ${label}`;
+}
+
 /**
  * Returns the display name of the *other* participant of the chat, from the
  * viewer's perspective. The neutral fallback covers the window before the
