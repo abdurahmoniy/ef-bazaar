@@ -124,11 +124,12 @@ public class TradeEventPublisher {
     }
 
     public void tradeAction(UUID tradeId, UUID chatId, UUID recipientUserId,
-                            TradeEvents.TradeActionType actionType, long amountUzs, String details) {
+                            TradeEvents.TradeActionType actionType, long amountUzs, String details,
+                            uz.efbazaar.trade.trade.domain.TradeKind kind) {
         if (recipientUserId == null) return;
         send(TradeEvents.TOPIC_TRADE_ACTION, recipientUserId.toString(),
                 new TradeEvents.TradeActionNotification(tradeId, chatId, recipientUserId,
-                        actionType, amountUzs, details, Instant.now()));
+                        actionType, amountUzs, details, kind, Instant.now()));
     }
 
     /**

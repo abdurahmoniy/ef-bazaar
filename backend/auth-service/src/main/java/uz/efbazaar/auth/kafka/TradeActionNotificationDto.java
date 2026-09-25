@@ -10,4 +10,11 @@ public record TradeActionNotificationDto(
         String actionType,
         long amountUzs,
         String details,
+        /**
+         * Savdo turi: SALE / SWAP / SWAP_SURCHARGE. Xabar matni shunga
+         * qarab yoziladi — obmen obmen deb atalishi kerak, doplatalisi
+         * ham. Summa buni ayta olmaydi: doplatali obmenda u noldan katta
+         * va sotuvdan farq qilmaydi. Eski hodisalarda null.
+         */
+        String kind,
         Instant occurredAt) {}

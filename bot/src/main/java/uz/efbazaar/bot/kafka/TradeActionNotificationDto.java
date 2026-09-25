@@ -12,4 +12,9 @@ public record TradeActionNotificationDto(
         String actionType,
         long amountUzs,
         String details,
+        /**
+         * Savdo turi: SALE / SWAP / SWAP_SURCHARGE. Eski hodisalarda null —
+         * u holda summa bo'yicha taxmin qilinadi.
+         */
+        String kind,
         Instant occurredAt) {}
