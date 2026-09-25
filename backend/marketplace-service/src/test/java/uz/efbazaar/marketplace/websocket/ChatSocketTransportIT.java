@@ -46,7 +46,7 @@ class ChatSocketTransportIT {
     @SpringBootConfiguration
     @EnableAutoConfiguration(exclude = {DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class, KafkaAutoConfiguration.class})
     @Import({ChatSocketConfiguration.class, ChatSocketHandler.class, ChatSocketCommands.class, ChatSocketSignals.class,
-            ChatMutationNotifications.class, ChatActivityService.class, ChatService.class, ChatController.class,
+            ChatMutationNotifications.class, ChatActivityService.class, ChatService.class, ChatController.class, NotificationService.class,
             MessageController.class, MessageViewAssembler.class, SecurityConfig.class, HeaderAuthenticationFilter.class, InternalSecretFilter.class})
     static class App {
         @Bean ChatMapper mapper() { return Mappers.getMapper(ChatMapper.class); }
@@ -60,10 +60,11 @@ class ChatSocketTransportIT {
     @Autowired org.springframework.data.redis.listener.RedisMessageListenerContainer chatRedisListener;
     @MockBean ChatRepository chats;
     @MockBean ChatMessageRepository messages;
+    @MockBean ChatMessageSendRepository sends;
     @MockBean ChatParticipantRepository participants;
     @MockBean ListingRepository listings;
     @MockBean AuthNameClient authNames;
-    @MockBean NotificationService notifications;
+    @MockBean NotificationRepository notifications;
     @MockBean BlacklistGuard blacklist;
     @MockBean ChatAccountRequestService requests;
     @MockBean AuthSummaryClient telegram;
@@ -104,6 +105,11 @@ class ChatSocketTransportIT {
     }
     private WebSocket connect(UUID user, Peer peer) throws Exception { return connect(user, "http://localhost:" + port, peer); }
     @BeforeEach void setup() {
+        when(notifications.save(any(Notification.class))).thenAnswer(inv -> {
+            Notification notification = inv.getArgument(0);
+            notification.setId(UUID.randomUUID());
+            return notification;
+        });
         when(chats.findById(chatId)).thenReturn(Optional.of(Chat.builder().id(chatId).buyerId(buyer).sellerId(seller).build()));
         when(messages.save(any(ChatMessage.class))).thenAnswer(inv -> {
             ChatMessage message = inv.getArgument(0); message.setId(UUID.randomUUID()); message.setCreatedAt(Instant.now()); return message;

@@ -293,15 +293,17 @@ describe('draft recovery', () => {
     await click(findButton('Bekor qilish'));
     expect(container.querySelector('textarea')?.value).toBe('My unsent draft');
   });
-  it('retains a draft after a failed send and restores it on return', async () => {
+  it('retains a failed message in the outbox after navigation', async () => {
     await render(); await typeDraft('Do not lose this');
     const originalFetch = vi.mocked(fetch).getMockImplementation()!;
     vi.mocked(fetch).mockImplementation(async (input, init) => init?.method === 'POST' && String(input).endsWith('/messages')
       ? new Response(null, { status: 503 }) : originalFetch(input, init));
     await click(findButton('Xabarni yuborish'));
-    expect(container.querySelector('textarea')?.value).toBe('Do not lose this');
+    expect(container.querySelector('textarea')?.value).toBe('');
+    await vi.waitFor(() => expect(container.querySelector('[data-outbox-id]')?.textContent).toContain('Do not lose this'));
     await act(async () => root.render(null)); await render();
-    expect(container.querySelector('textarea')?.value).toBe('Do not lose this');
+    expect(container.querySelector('textarea')?.value).toBe('');
+    await vi.waitFor(() => expect(container.querySelector('[data-outbox-id]')?.textContent).toContain('Do not lose this'));
   });
 });
 
@@ -506,4 +508,55 @@ it('clears pinned trade history from a socket detail snapshot even when the chat
   });
   expect(container.textContent).not.toContain('Oxirgi savdo:');
   expect(findButton('Taklif yuborish')).toBeDefined();
+});
+
+it('shows an optimistic message and retries a failed send with its original client ID', async () => {
+  const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+  const ids: string[] = [];
+  let fail!: (reason: Error) => void;
+  vi.mocked(fetch).mockImplementation(async (input, init) => {
+    if (init?.method === 'POST' && String(input).endsWith('/messages')) {
+      const payload = JSON.parse(String(init.body)); ids.push(payload.clientMessageId);
+      if (ids.length === 1) return new Promise<Response>((_, reject) => { fail = reject; });
+      return Response.json(message('delivered', { senderId: 'buyer', content: 'Optimistic hello', clientMessageId: payload.clientMessageId }));
+    }
+    return originalFetch(input, init);
+  });
+  await render(); await typeDraft('Optimistic hello'); await click(findButton('Xabarni yuborish'));
+  expect(container.querySelector('textarea')?.value).toBe('');
+  expect(container.querySelector('[aria-label="Xabarlar"]')?.textContent).toContain('Optimistic hello');
+  expect(container.textContent).toContain('Yuborilmoqda');
+  await act(async () => fail(new Error('Disconnected')));
+  await vi.waitFor(() => expect(findButton('Xabarni qayta yuborish')).toBeTruthy());
+  await click(findButton('Xabarni qayta yuborish'));
+  expect(ids).toHaveLength(2); expect(ids[0]).toBeTruthy(); expect(ids[1]).toBe(ids[0]);
+  await vi.waitFor(() => expect(container.querySelectorAll('[data-message-id="delivered"]')).toHaveLength(1));
+  expect(container.querySelectorAll('[data-outbox-id]')).toHaveLength(0);
+});
+
+it('searches messages and navigates replies without opening message actions', async () => {
+  const scroll = vi.fn();
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scroll });
+  await render('buyer', false, [message('original', { content: 'Unique account' }), message('reply', { content: 'Yes', replyToId: 'original', replyPreview: 'Unique account', replySenderId: 'seller' })]);
+  await click(findButton('Asl xabarga o‘tish'));
+  expect(scroll).toHaveBeenCalled(); expect(dialogs()).toHaveLength(0);
+  expect(container.querySelector('[data-message-id="original"]')?.getAttribute('data-highlighted')).toBe('true');
+  await click(findButton('Chatda qidirish'));
+  const search = container.querySelector<HTMLInputElement>('[aria-label="Xabarlarni qidirish"]')!;
+  expect(search).toBeTruthy();
+});
+
+it('announces incoming messages while a failed outbox message remains and the reader is scrolled up', async () => {
+  const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation(async (input, init) => init?.method === 'POST' && String(input).endsWith('/messages')
+    ? new Response(null, { status: 503 }) : originalFetch(input, init));
+  await render('buyer', false, [message('old')]);
+  await typeDraft('Failed outgoing'); await click(findButton('Xabarni yuborish'));
+  await vi.waitFor(() => expect(container.querySelector('[data-outbox-id]')).toBeTruthy());
+  const list = container.querySelector<HTMLElement>('[aria-label="Xabarlar"]')!;
+  Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 1000 });
+  Object.defineProperty(list, 'clientHeight', { configurable: true, value: 100 });
+  await act(async () => { list.scrollTop = 0; list.dispatchEvent(new Event('scroll')); });
+  await act(async () => queryClient.setQueryData(chatKeys.messages('buyer', chat.id), [message('old'), message('new', { createdAt: '2026-09-19T10:02:00Z' })]));
+  await vi.waitFor(() => expect(findButton('Yangi xabarlar')).toBeTruthy());
 });

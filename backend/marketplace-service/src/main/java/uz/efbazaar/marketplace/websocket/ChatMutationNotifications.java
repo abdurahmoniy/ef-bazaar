@@ -18,9 +18,11 @@ public class ChatMutationNotifications {
     private final ChatSocketSignals signals;
     private final ChatMessageRepository messages;
 
-    @AfterReturning("execution(* uz.efbazaar.marketplace.service.ChatService.sendMessage(..)) || " +
-            "execution(* uz.efbazaar.marketplace.service.ChatService.sendAttachment(..)) || " +
-            "execution(* uz.efbazaar.marketplace.service.ChatService.editMessage(..)) || " +
+    // Only new sends reach the notification boundary; retry responses must not broadcast a mutation.
+    @AfterReturning("execution(* uz.efbazaar.marketplace.service.NotificationService.newMessage(..)) && args(chat,senderId)")
+    public void messageSent(Chat chat, UUID senderId) { signals.changed(chat.getId()); }
+
+    @AfterReturning("execution(* uz.efbazaar.marketplace.service.ChatService.editMessage(..)) || " +
             "execution(* uz.efbazaar.marketplace.service.ChatService.deleteMessage(..)) || " +
             "execution(* uz.efbazaar.marketplace.service.ChatService.markRead(..)) || " +
             "execution(* uz.efbazaar.marketplace.service.ChatService.toggleImportant(..)) || " +

@@ -456,6 +456,8 @@ export type AttachmentType = 'IMAGE' | 'FILE' | 'VOICE';
 
 export interface MessageResponse {
   id: string;
+  /** Stable sender-generated key used to reconcile retries with the server. */
+  clientMessageId?: string | null;
   chatId: string;
   senderId: string;
   content: string;

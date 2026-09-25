@@ -47,8 +47,10 @@ export function useChatScroll(lastMessageId: string | undefined) {
     if (followingRef.current) setHasNewMessages(false);
   }, []);
 
+  const stopFollowing = useCallback(() => { followingRef.current = false; }, []);
+
   return {
-    listRef, onScroll, scrollToBottom, hasNewMessages,
+    stopFollowing, listRef, onScroll, scrollToBottom, hasNewMessages,
     followNextMessage: scrollToBottom,
   };
 }

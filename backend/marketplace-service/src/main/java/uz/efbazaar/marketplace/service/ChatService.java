@@ -38,6 +38,7 @@ public class ChatService {
     private final ChatAccountRequestService accountRequests;
     private final uz.efbazaar.marketplace.security.AuthSummaryClient telegramUsers;
     private final TradeLiveClient tradeLive;
+    private final uz.efbazaar.marketplace.repository.ChatMessageSendRepository sends;
 
     @Transactional
     public Chat start(UUID buyerId, UUID listingId) {
@@ -128,57 +129,91 @@ public class ChatService {
 
     @Transactional
     public ChatMessage sendMessage(UUID chatId, UUID senderId, String content, UUID replyToId) {
-        Chat chat = chats.findById(chatId).orElseThrow(MarketplaceException::chatNotFound);
-        if (!chat.isParticipant(senderId)) {
-            throw MarketplaceException.notChatParticipant();
-        }
-        if (replyToId != null) {
-            // Quote must reference a message from THIS chat.
-            messages.findById(replyToId)
-                    .filter(m -> m.getChatId().equals(chatId))
-                    .orElseThrow(MarketplaceException::messageNotFound);
-        }
-
-        ChatMessage saved = messages.save(ChatMessage.builder()
-                .chatId(chatId)
-                .senderId(senderId)
-                .content(content)
-                .replyToId(replyToId)
-                .build());
-        chat.setLastMessageAt(saved.getCreatedAt());
-        // "Delete for me" is soft: a new message resurfaces the chat for
-        // whoever hid it, so the recipient never misses an active negotiation.
-        participants.unhideAll(chatId);
-        notifications.newMessage(chat, senderId);
-        return saved;
+        return sendMessage(chatId, senderId, content, replyToId, null);
     }
 
-    /**
-     * Persists a message carrying an already-uploaded attachment. The upload
-     * itself happens in {@link ChatAttachmentService} BEFORE this call (the
-     * controller checks participation first via {@link #getById} so strangers
-     * can't trigger Telegram uploads).
-     */
+    @Transactional
+    public ChatMessage sendMessage(UUID chatId, UUID senderId, String content, UUID replyToId, UUID clientMessageId) {
+        Chat chat = chatForSend(chatId, senderId, clientMessageId);
+        Optional<ChatMessage> previous = previousSend(chat, senderId, clientMessageId);
+        if (previous.isPresent()) return previous.get();
+        requireVisibleReply(chat, replyToId);
+        return saveSend(chat, senderId, clientMessageId, ChatMessage.builder()
+                .chatId(chatId).senderId(senderId).content(content).replyToId(replyToId)
+                .clientMessageId(clientMessageId).build());
+    }
+
     @Transactional
     public ChatMessage sendAttachment(UUID chatId, UUID senderId,
                                       ChatAttachmentService.Uploaded uploaded, String caption) {
-        Chat chat = chats.findById(chatId).orElseThrow(MarketplaceException::chatNotFound);
-        if (!chat.isParticipant(senderId)) {
-            throw MarketplaceException.notChatParticipant();
-        }
+        return sendAttachment(chatId, senderId, uploaded, caption, null, null);
+    }
 
-        ChatMessage saved = messages.save(ChatMessage.builder()
-                .chatId(chatId)
-                .senderId(senderId)
+    /** Uploads may race, but the final write shares the same database retry lock as text sends. */
+    @Transactional
+    public ChatMessage sendAttachment(UUID chatId, UUID senderId,
+                                      ChatAttachmentService.Uploaded uploaded, String caption,
+                                      UUID replyToId, UUID clientMessageId) {
+        Chat chat = chatForSend(chatId, senderId, clientMessageId);
+        Optional<ChatMessage> previous = previousSend(chat, senderId, clientMessageId);
+        if (previous.isPresent()) return previous.get();
+        requireVisibleReply(chat, replyToId);
+        return saveSend(chat, senderId, clientMessageId, ChatMessage.builder()
+                .chatId(chatId).senderId(senderId)
                 .content(caption == null ? "" : caption.trim())
-                .attachmentType(uploaded.type())
-                .attachmentFileId(uploaded.fileId())
-                .attachmentName(uploaded.name())
-                .attachmentMime(uploaded.mime())
-                .attachmentSize(uploaded.size())
-                .build());
+                .attachmentType(uploaded.type()).attachmentFileId(uploaded.fileId())
+                .attachmentName(uploaded.name()).attachmentMime(uploaded.mime()).attachmentSize(uploaded.size())
+                .replyToId(replyToId).clientMessageId(clientMessageId).build());
+    }
+
+    /** Authorize and check completed uploads before doing any outbound media work. */
+    @Transactional(readOnly = true)
+    public Optional<ChatMessage> attachmentRetry(UUID chatId, UUID senderId, UUID replyToId, UUID clientMessageId) {
+        Chat chat = getById(chatId, senderId);
+        Optional<ChatMessage> previous = previousSend(chat, senderId, clientMessageId);
+        if (previous.isEmpty()) requireVisibleReply(chat, replyToId);
+        return previous;
+    }
+
+    private Chat chatForSend(UUID chatId, UUID senderId, UUID clientMessageId) {
+        Chat chat = (clientMessageId == null ? chats.findById(chatId) : chats.findByIdForSend(chatId))
+                .orElseThrow(MarketplaceException::chatNotFound);
+        if (!chat.isParticipant(senderId)) throw MarketplaceException.notChatParticipant();
+        return chat;
+    }
+
+    private Optional<ChatMessage> previousSend(Chat chat, UUID senderId, UUID clientMessageId) {
+        if (clientMessageId == null) return Optional.empty();
+        return sends.findByChatIdAndSenderIdAndClientMessageId(chat.getId(), senderId, clientMessageId)
+                .map(receipt -> {
+                    ChatMessage original = messages.findById(receipt.getMessageId())
+                            .filter(m -> chat.getId().equals(m.getChatId()) && senderId.equals(m.getSenderId()))
+                            .filter(m -> chat.getClearedAt() == null || m.getCreatedAt().isAfter(chat.getClearedAt()))
+                            .orElseThrow(MarketplaceException::messageNotFound);
+                    if (participants.findByChatIdAndUserId(chat.getId(), senderId)
+                            .filter(p -> p.getHiddenAt() != null).isPresent()) {
+                        throw MarketplaceException.messageNotFound();
+                    }
+                    return original;
+                });
+    }
+
+    private void requireVisibleReply(Chat chat, UUID replyToId) {
+        if (replyToId == null) return;
+        messages.findById(replyToId)
+                .filter(m -> chat.getId().equals(m.getChatId()))
+                .filter(m -> chat.getClearedAt() == null || m.getCreatedAt().isAfter(chat.getClearedAt()))
+                .orElseThrow(MarketplaceException::messageNotFound);
+    }
+
+    private ChatMessage saveSend(Chat chat, UUID senderId, UUID clientMessageId, ChatMessage message) {
+        ChatMessage saved = messages.save(message);
+        if (clientMessageId != null) {
+            sends.save(ChatMessageSend.builder().chatId(chat.getId()).senderId(senderId)
+                    .clientMessageId(clientMessageId).messageId(saved.getId()).build());
+        }
         chat.setLastMessageAt(saved.getCreatedAt());
-        participants.unhideAll(chatId);
+        participants.unhideAll(chat.getId());
         notifications.newMessage(chat, senderId);
         return saved;
     }

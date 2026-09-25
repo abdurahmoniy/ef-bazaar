@@ -20,6 +20,17 @@ const client = () => {
   clients.push(value);
   return value;
 };
+it('does not commit an acknowledgement after its account is cleared during cancellation', async () => {
+  const queryClient = client();
+  const key = chatKeys.messages('viewer', 'chat');
+  queryClient.setQueryData(key, []);
+  const owner = queryClient.getQueryCache().find({ queryKey: key, exact: true });
+  const commit = commitChatMessages(queryClient, 'viewer', 'chat', () => [message('late')],
+    () => queryClient.getQueryCache().find({ queryKey: key, exact: true }) === owner);
+  clearOtherAccountQueries(queryClient, null);
+  await commit;
+  expect(queryClient.getQueryData(key)).toBeUndefined();
+});
 afterEach(() => { clients.forEach(value => value.clear()); clients.length = 0; vi.unstubAllGlobals(); });
 
 describe('account-scoped conversation cache', () => {

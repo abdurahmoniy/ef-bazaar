@@ -44,7 +44,7 @@ public class MessageViewAssembler {
                     base.replyToId(), quoted.getSenderId(), ChatService.previewOf(quoted),
                     base.editedAt(), base.createdAt(),
                     base.messageType(), base.proposalId(), base.proposalOutcome(),
-                    base.proposalKind(), base.proposalListingId(), base.proposalExpiresAt(), base.proposalTradeId());
+                    base.proposalKind(), base.proposalListingId(), base.proposalExpiresAt(), base.proposalTradeId(), base.clientMessageId());
         }).toList();
     }
 }

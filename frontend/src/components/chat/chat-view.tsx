@@ -15,10 +15,15 @@ import {
   Pencil,
   Reply,
   Send,
+  Search,
   Star,
   X,
 } from 'lucide-react';
 
+import { ChatSearch } from '@/components/chat/chat-search';
+import { ChatOutbox } from '@/components/chat/chat-outbox';
+import { useChatOutbox } from '@/hooks/use-chat-outbox';
+import { useChatMessageNavigation } from '@/hooks/use-chat-message-navigation';
 import { ChatComposerInput } from '@/components/chat/chat-composer-input';
 import { ChatActivityStatus, MessageReadReceipt } from '@/components/chat/chat-activity-status';
 import { useChatConnection } from '@/hooks/use-chat-connection';
@@ -44,7 +49,6 @@ import {
   partnerName,
   uzDayKey,
 } from '@/lib/chat-format';
-import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
 import { canGroupMessages } from '@/lib/chat-message-grouping';
 import { ChatRequestError, chatDetailsOptions, chatInboxOptions, chatKeys, chatMessagesOptions, commitChatMessages, invalidateChatInbox, markCachedChatRead, mergeMessages } from '@/lib/chat-cache';
 import type {
@@ -110,6 +114,8 @@ export function ChatView({
     refetchOnReconnect: query => !(query.state.error instanceof ChatRequestError && query.state.error.permanent),
   });
   const messages = messagesQuery.data;
+  const outbox = useChatOutbox(viewerId, chat.id, messages);
+  const [searchOpen, setSearchOpen] = useState(false);
   const initialMessageIds = useRef(new Set(messages.map(message => message.id)));
   const { activity, lastReadAt: partnerLastReadAt, setTyping } = useChatActivity(chat.id, viewerId);
 
@@ -143,7 +149,8 @@ export function ChatView({
   const [error, setError] = useState<string | null>(null);
   const [isSending, startSend] = useTransition();
   const [isUpdating, startUpdate] = useTransition();
-  const { listRef, onScroll, scrollToBottom, hasNewMessages, followNextMessage } = useChatScroll(messages.at(-1)?.id);
+  const { listRef, onScroll, scrollToBottom, hasNewMessages, followNextMessage, stopFollowing } = useChatScroll(`${messages.at(-1)?.id ?? ''}:${outbox.entries.at(-1)?.clientMessageId ?? ''}`);
+  const { jumpToMessage, highlightedMessageId } = useChatMessageNavigation(listRef, stopFollowing);
   const isKeyboardOpen = useVirtualKeyboard();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -197,6 +204,14 @@ export function ChatView({
     if (!content && !pendingFile) return;
     setTyping(false);
     setError(null);
+    if (!editing) {
+      outbox.send({ content, file: pendingFile, replyTo });
+      clearSubmittedDraft(draft);
+      setPendingFile(null);
+      setReplyTo(null);
+      followNextMessage();
+      return;
+    }
     startSend(async () => {
       if (editing) {
         const result = await editMessage(viewerId, chat.id, editing.id, content);
@@ -209,18 +224,6 @@ export function ChatView({
         await setMessages((prev) => prev.map((m) => (m.id === result.message.id ? result.message : m)));
         return;
       }
-      const result = pendingFile
-        ? await sendAttachment(chat.id, pendingFile, content)
-        : await sendMessage(viewerId, chat.id, content, replyTo?.id ?? null);
-      if (!result.ok) {
-        setError(result.error ?? 'Yuborilmadi');
-        return;
-      }
-      clearSubmittedDraft(draft);
-      setPendingFile(null);
-      setReplyTo(null);
-      followNextMessage();
-      await setMessages((prev) => mergeMessages(prev, [result.message]));
     });
   }
 
@@ -283,15 +286,9 @@ export function ChatView({
 
   function handleSendVoice(file: File) {
     setError(null);
-    startSend(async () => {
-      const result = await sendAttachment(chat.id, file, '', true);
-      if (!result.ok) {
-        setError(result.error ?? 'Yuborilmadi');
-        return;
-      }
-      followNextMessage();
-      await setMessages((prev) => mergeMessages(prev, [result.message]));
-    });
+    outbox.send({ content: '', file, voice: true, replyTo });
+    setReplyTo(null);
+    followNextMessage();
   }
 
   function handleToggleImportant() {
@@ -375,9 +372,12 @@ export function ChatView({
               <ChatActivityStatus activity={activity} />
             </div>
           </Link>
+          <Button type="button" variant="ghost" className="h-11 w-11 shrink-0 p-0" aria-label="Chatda qidirish" onClick={() => setSearchOpen(value => !value)}><Search className="h-5 w-5" /></Button>
           <ChatOptions important={chat.important} disabled={isUpdating} onToggleImportant={handleToggleImportant} onDelete={handleDelete} />
         </header>
 
+        {searchOpen && <ChatSearch messages={messages} onJump={jumpToMessage} onClose={() => setSearchOpen(false)} loading={messagesQuery.isFetching}
+          error={messagesQuery.isError ? 'Qidirish uchun barcha xabarlarni yuklab bo‘lmadi. Xabarlarni qayta yuklang.' : null} />}
         <TradePinnedBar />
         {!connected && <div role="status" className="flex shrink-0 items-center justify-center gap-2 border-b bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
           <LoaderCircle aria-hidden className="h-3 w-3 animate-spin motion-reduce:animate-none" /> Chatga ulanmoqda…
@@ -400,7 +400,7 @@ export function ChatView({
           aria-label="Xabarlar"
           className="chat-message-list h-full overflow-y-auto overscroll-contain px-4 py-4 md:px-8 md:py-5"
         >
-        {messages.length === 0 && !messagesQuery.isError && (
+        {messages.length === 0 && outbox.entries.length === 0 && !messagesQuery.isError && (
           <div className="flex h-full min-h-24 items-center justify-center text-center">
             <div className="max-w-xs rounded-3xl bg-card/80 px-6 py-5 shadow-sm backdrop-blur-sm">
               <span className="chat-empty-icon mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full" aria-hidden="true">
@@ -421,7 +421,7 @@ export function ChatView({
           const startsGroup = !canGroupMessages(messages[index - 1], message, firstUnreadId);
           const endsGroup = !canGroupMessages(message, messages[index + 1], firstUnreadId);
           return (
-            <div key={message.id} className="chat-message-entry mx-auto max-w-3xl" data-new={!initialMessageIds.current.has(message.id)}>
+            <div key={message.id} data-message-id={message.id} data-highlighted={highlightedMessageId === message.id} className="chat-message-entry mx-auto max-w-3xl" data-new={!initialMessageIds.current.has(message.id)}>
               {newDay && (
                 <div className="my-3 flex justify-center" role="separator">
                   <span className="chat-day-label rounded-full px-3 py-1 text-[11px] font-medium">
@@ -464,14 +464,18 @@ export function ChatView({
                     )}
                   >
                     {message.replyToId && (
-                      <span className="chat-message-reply mb-1.5 block rounded-md border-l-[3px] px-2 py-1.5 text-xs">
+                      <button type="button" aria-label="Asl xabarga o‘tish" className="chat-message-reply mb-1.5 block w-full rounded-md border-l-[3px] px-2 py-1.5 text-left text-xs focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (!jumpToMessage(message.replyToId!)) setError(messagesQuery.isFetching ? 'Xabarlar yuklanmoqda. Qayta urinib ko‘ring.' : 'Asl xabar o‘chirilgan yoki suhbat tarixida mavjud emas.');
+                        }}>
                         <span className="block font-semibold">
                           {message.replySenderId === viewerId ? 'Siz' : name}
                         </span>
                         <span className="block truncate">
                           {message.replyPreview ?? "O'chirilgan xabar"}
                         </span>
-                      </span>
+                      </button>
                     )}
                     {hasAttachment && (
                       // Media controls (lightbox, play, download) must not open
@@ -496,6 +500,7 @@ export function ChatView({
             </div>
           );
         })}
+        <ChatOutbox entries={outbox.entries} onRetry={outbox.retry} onDismiss={outbox.dismiss} />
       </div>
       {hasNewMessages && (
         <Button variant="outline" className="absolute bottom-4 right-4 min-h-11 gap-2 rounded-full border-border/60 bg-card shadow-lg" onClick={scrollToBottom}>
@@ -670,11 +675,6 @@ type SendResult =
   | { ok: true; message: MessageResponse }
   | { ok: false; error: string };
 
-async function sendMessage(viewerId: string, chatId: string, content: string, replyToId: string | null = null): Promise<SendResult> {
-  try { return { ok: true, message: await getChatSocket(viewerId).request('send', chatId, { content, replyToId }) }; }
-  catch (error) { return { ok: false, error: socketError(error) }; }
-}
-
 async function editMessage(viewerId: string, chatId: string, messageId: string, content: string): Promise<SendResult> {
   try { return { ok: true, message: await getChatSocket(viewerId).request('edit', chatId, { messageId, content }) }; }
   catch (error) { return { ok: false, error: socketError(error) }; }
@@ -686,25 +686,6 @@ async function deleteMessage(viewerId: string, chatId: string, messageId: string
 }
 
 function socketError(error: unknown) { return error instanceof Error ? error.message : "So‘rov bajarilmadi"; }
-
-async function sendAttachment(
-  chatId: string,
-  file: File,
-  caption: string,
-  voice = false,
-): Promise<SendResult> {
-  const form = new FormData();
-  form.append('file', file);
-  if (caption) form.append('caption', caption);
-  if (voice) form.append('voice', 'true');
-  const response = await fetch(
-    buildMarketplaceApiPath(['v1', 'chats', chatId, 'messages', 'attachments']),
-    { method: 'POST', credentials: 'include', body: form },
-  );
-  if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
-  const message = (await response.json()) as MessageResponse;
-  return { ok: true, message };
-}
 
 type ChatResult =
   | { ok: true; chat: ChatResponse }
@@ -726,20 +707,6 @@ async function hideChat(viewerId: string, chatId: string): Promise<HideResult> {
   try { await getChatSocket(viewerId).request('hide', chatId); return { ok: true }; }
   catch (error) { return { ok: false, error: socketError(error) }; }
 }
-
-async function readErrorMessage(response: Response) {
-  try {
-    const payload = (await response.json()) as { message?: unknown; error?: unknown };
-    if (typeof payload.message === 'string') return payload.message;
-    if (typeof payload.error === 'string') return payload.error;
-  } catch {
-    // ignore
-  }
-  return response.status === 401 || response.status === 403
-    ? 'Kirish talab qilinadi'
-    : "So'rov bajarilmadi";
-}
-
 
 function TradeSyncStatus() {
   const { loadError, refreshing, reload } = useTradeContext();

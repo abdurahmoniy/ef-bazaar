@@ -29,6 +29,9 @@ public class ChatMessage {
     @Column(nullable = false, columnDefinition = "text")
     private String content;
 
+    @Column(name = "client_message_id")
+    private UUID clientMessageId;
+
     // ----- optional attachment (bytes live in Telegram; see V12) -----
 
     @Enumerated(EnumType.STRING)

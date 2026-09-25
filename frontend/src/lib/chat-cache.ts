@@ -83,10 +83,12 @@ export async function commitChatMessages(
   viewerId: string,
   chatId: string,
   update: (previous: MessageResponse[]) => MessageResponse[],
+  isCurrent: () => boolean = () => true,
 ) {
   const queryKey = chatKeys.messages(viewerId, chatId);
   // A snapshot started before the mutation must not replace its confirmed result.
   await client.cancelQueries({ queryKey });
+  if (!isCurrent()) return;
   client.setQueryData<MessageResponse[]>(queryKey, previous => update(previous ?? []));
   // The cancelled snapshot may also contain another participant's concurrent
   // message. Reconcile after this acknowledgement so its push is never lost.
