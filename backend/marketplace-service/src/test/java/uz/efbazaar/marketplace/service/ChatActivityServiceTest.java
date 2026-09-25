@@ -35,9 +35,9 @@ class ChatActivityServiceTest {
         when(redis.opsForZSet()).thenReturn(leases);
         when(chats.findById(chatId)).thenReturn(Optional.of(Chat.builder().id(chatId).buyerId(viewer).sellerId(partner).build()));
     }
-    @Test void heartbeatUsesServerTimeAndRetainsLastSeenForTwoDays() {
+    @Test void heartbeatUsesServerTimeAndRetainsLastSeenWithoutExpiry() {
         service.presence(viewer);
-        verify(values).set("chat:presence:" + viewer, now.toString(), Duration.ofDays(2));
+        verify(values).set("chat:presence:" + viewer, now.toString());
         verify(redis, never()).delete(anyString());
     }
     @Test void partnerActivityIncludesDurableReadCursorOnly() {

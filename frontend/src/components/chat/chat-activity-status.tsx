@@ -1,12 +1,32 @@
 'use client';
 
 import { Check, CheckCheck } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { ChatActivity } from '@/hooks/use-chat-activity';
-import { formatDayLabel, formatMessageTime } from '@/lib/chat-format';
+import { formatDayLabel, formatLastSeen, formatMessageTime } from '@/lib/chat-format';
+
+function LastSeenStatus({ lastSeen }: { lastSeen: string | null }) {
+  const [now, setNow] = useState(() => new Date());
+  const valid = !!lastSeen && Number.isFinite(Date.parse(lastSeen));
+  useEffect(() => {
+    if (!valid) return;
+    // Only refresh the label locally; presence still arrives over WebSocket.
+    const refresh = () => setNow(new Date());
+    const timer = window.setInterval(refresh, 30_000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [valid]);
+  return <span title={valid ? `Oxirgi faollik: ${formatDayLabel(lastSeen, now)} ${formatMessageTime(lastSeen)}` : undefined}>
+    {formatLastSeen(lastSeen, now)}
+  </span>;
+}
 
 export function ChatActivityStatus({ activity }: { activity: ChatActivity | null }) {
   const state = activity?.typing ? 'typing' : activity?.online ? 'online' : activity ? 'offline' : 'unknown';
-  const lastSeen = activity?.lastSeenAt;
+  const lastSeen = activity?.lastSeenAt ?? null;
   return (
     <span className="chat-activity-status mt-0.5 flex min-h-4 items-center gap-1.5 text-xs" data-state={state}>
       <span key={state} className="chat-status-transition inline-flex items-center gap-1.5">
@@ -16,7 +36,7 @@ export function ChatActivityStatus({ activity }: { activity: ChatActivity | null
           </span>
           yozmoqda…
         </> : state === 'online' ? <><span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />Onlayn</>
-          : state === 'offline' ? <span title={lastSeen ? `Oxirgi faollik: ${formatDayLabel(lastSeen)} ${formatMessageTime(lastSeen)}` : undefined}>Oflayn</span>
+          : state === 'offline' ? <LastSeenStatus key={lastSeen} lastSeen={lastSeen} />
             : 'Savdo suhbati'}
       </span>
     </span>

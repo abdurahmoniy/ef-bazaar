@@ -62,6 +62,21 @@ class ChatSocketActivityIT {
         assertThat(service.activity(chatId, viewer).online()).isFalse();
         assertThat(service.activity(chatId, viewer).lastSeenAt()).isEqualTo(lastSeen);
     }
+    @Test void lastSeenHasNoExpiryAndRemainsAvailableAfterSeveralDays() {
+        String key = "chat:presence:" + partner;
+        // An existing expiring key is upgraded on the next presence update.
+        redis.opsForValue().set(key, now.minusSeconds(60).toString(), Duration.ofDays(2));
+        service.socketPresence(partner, "tab", true);
+        now = now.plusSeconds(10);
+        service.socketPresence(partner, "tab", false);
+        Instant lastSeen = now;
+        assertThat(redis.getExpire(key)).isEqualTo(-1L);
+        now = now.plus(Duration.ofDays(10));
+        assertThat(service.activity(chatId, viewer).online()).isFalse();
+        assertThat(service.activity(chatId, viewer).lastSeenAt()).isEqualTo(lastSeen);
+        var target = new ChatActivityService.ActivityTarget(chatId, partner, null);
+        assertThat(service.activities(List.of(target)).get(target).lastSeenAt()).isEqualTo(lastSeen);
+    }
     @Test void repeatedHiddenHeartbeatDoesNotPretendTheUserWasJustSeen() {
         service.socketPresence(partner, "tab", true);
         service.socketPresence(partner, "tab", false);

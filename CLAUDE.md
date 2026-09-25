@@ -1,5 +1,9 @@
 # efBazaar — CLAUDE.md (Root)
 
+## Required development rules
+
+Read and follow [AGENTS.md](AGENTS.md) for test-first development, complete CI-equivalent verification, and task completion requirements. These rules apply to every service in this repository.
+
 ## Loyiha haqida
 efBazaar — eFootball akkountlar savdo platformasi (marketplace).
 Monorepo. Har bir servis mustaqil deploy bo'ladi.
