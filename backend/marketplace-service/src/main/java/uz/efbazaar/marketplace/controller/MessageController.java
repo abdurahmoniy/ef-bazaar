@@ -50,7 +50,7 @@ public class MessageController {
                                 @PathVariable UUID chatId,
                                 @Valid @RequestBody SendMessageRequest request) {
         ChatMessage sent = chatService.sendMessage(
-                chatId, user.userId(), request.content(), request.replyToId());
+                chatId, user.userId(), request.content(), request.replyToId(), request.clientMessageId());
         return views.withReplyPreviews(List.of(sent)).get(0);
     }
 
@@ -89,10 +89,13 @@ public class MessageController {
                                           @RequestParam("file") MultipartFile file,
                                           @RequestParam(value = "caption", required = false) String caption,
                                           @RequestParam(value = "voice", required = false,
-                                                  defaultValue = "false") boolean voice) {
-        chatService.getById(chatId, user.userId()); // participant + existence check
+                                                  defaultValue = "false") boolean voice,
+                                          @RequestParam(value = "replyToId", required = false) UUID replyToId,
+                                          @RequestParam(value = "clientMessageId", required = false) UUID clientMessageId) {
+        var previous = chatService.attachmentRetry(chatId, user.userId(), replyToId, clientMessageId);
+        if (previous.isPresent()) return views.withReplyPreviews(List.of(previous.get())).get(0);
         ChatAttachmentService.Uploaded uploaded = attachments.upload(file, voice);
-        return mapper.toMessageResponse(
-                chatService.sendAttachment(chatId, user.userId(), uploaded, caption));
+        ChatMessage sent = chatService.sendAttachment(chatId, user.userId(), uploaded, caption, replyToId, clientMessageId);
+        return views.withReplyPreviews(List.of(sent)).get(0);
     }
 }

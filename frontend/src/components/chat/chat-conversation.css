@@ -167,3 +167,12 @@
 @keyframes chat-status-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes chat-message-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes chat-typing { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-2px); opacity: 1; } }
+
+.chat-message-entry[data-highlighted='true'] {
+  border-radius: 0.75rem;
+  background: hsl(var(--chat-accent) / 0.14);
+  outline: 2px solid hsl(var(--chat-accent) / 0.35);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .chat-message-entry { transition: background-color 180ms ease, outline-color 180ms ease; }
+}

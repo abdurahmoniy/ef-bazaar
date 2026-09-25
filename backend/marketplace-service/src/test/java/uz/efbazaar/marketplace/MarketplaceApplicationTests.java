@@ -68,6 +68,7 @@ class MarketplaceApplicationTests {
     @MockBean LikeRepository likeRepository;
     @MockBean ChatRepository chatRepository;
     @MockBean ChatMessageRepository chatMessageRepository;
+    @MockBean uz.efbazaar.marketplace.repository.ChatMessageSendRepository chatMessageSendRepository;
     @MockBean ProposalMessageResolutionRepository proposalMessageResolutionRepository;
     @MockBean ChatAccountRequestRepository chatAccountRequestRepository;
     @MockBean ChatParticipantRepository chatParticipantRepository;

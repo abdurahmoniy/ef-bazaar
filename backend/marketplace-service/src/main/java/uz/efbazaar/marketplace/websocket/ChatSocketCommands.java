@@ -39,7 +39,7 @@ public class ChatSocketCommands {
             case "messages" -> messages.list(user, chatId,
                     PageRequest.of(number(body, "page", 0, 0, 10000), number(body, "size", 200, 1, 200)));
             case "send" -> messages.send(user, chatId,
-                    valid(new SendMessageRequest(text(body, "content"), optionalId(body, "replyToId"))));
+                    valid(new SendMessageRequest(text(body, "content"), optionalId(body, "replyToId"), optionalId(body, "clientMessageId"))));
             case "edit" -> messages.edit(user, chatId, requiredId(body, "messageId"),
                     valid(new EditMessageRequest(text(body, "content"))));
             case "delete" -> { messages.delete(user, chatId, requiredId(body, "messageId")); yield null; }

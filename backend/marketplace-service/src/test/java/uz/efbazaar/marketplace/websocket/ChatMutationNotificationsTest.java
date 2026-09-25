@@ -32,7 +32,10 @@ class ChatMutationNotificationsTest {
         service.markRead(chatId, userId, UUID.randomUUID());
         service.toggleImportant(chatId, userId);
         service.clearHistory(chatId, userId);
-        verify(signals, times(9)).changed(chatId);
+        verify(signals, times(6)).changed(chatId);
+        NotificationService notifications = observed(mock(NotificationService.class));
+        notifications.newMessage(Chat.builder().id(chatId).build(), userId);
+        verify(signals, times(7)).changed(chatId);
     }
     @Test void accountRequestOpenAndCancelNotifyBothParticipantSnapshots() {
         ChatAccountRequestService service = observed(mock(ChatAccountRequestService.class));

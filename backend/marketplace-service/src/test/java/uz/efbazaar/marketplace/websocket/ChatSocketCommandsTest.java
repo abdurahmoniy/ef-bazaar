@@ -32,7 +32,7 @@ class ChatSocketCommandsTest {
     @BeforeEach void setup() {
         ChatService service = new ChatService(chats, messages, participants, mock(ListingRepository.class),
                 mock(AuthNameClient.class), mock(NotificationService.class), mock(BlacklistGuard.class),
-                mock(ChatAccountRequestService.class), mock(AuthSummaryClient.class), mock(TradeLiveClient.class));
+                mock(ChatAccountRequestService.class), mock(AuthSummaryClient.class), mock(TradeLiveClient.class), mock(ChatMessageSendRepository.class));
         ChatMapper mapper = Mappers.getMapper(ChatMapper.class);
         commands = new ChatSocketCommands(new ChatController(service, mock(ChatAccountRequestService.class), mapper),
                 new MessageController(service, mock(ChatAttachmentService.class), mapper, new MessageViewAssembler(service, mapper)),

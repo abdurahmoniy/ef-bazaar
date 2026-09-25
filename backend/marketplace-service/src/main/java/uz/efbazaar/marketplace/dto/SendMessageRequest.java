@@ -8,5 +8,11 @@ import java.util.UUID;
 public record SendMessageRequest(
         @NotBlank @Size(min = 1, max = 4000) String content,
         /** Optional Telegram-style quote — must reference a message in the same chat. */
-        UUID replyToId
-) {}
+        UUID replyToId,
+        /** Stable key reused for retries of this send. */
+        UUID clientMessageId
+) {
+    public SendMessageRequest(String content, UUID replyToId) {
+        this(content, replyToId, null);
+    }
+}

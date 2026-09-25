@@ -14,6 +14,11 @@ import java.util.UUID;
 
 public interface ChatRepository extends JpaRepository<Chat, UUID> {
 
+    /** Serialize keyed sends across application replicas until transaction commit. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Chat c WHERE c.id = :id")
+    java.util.Optional<Chat> findByIdForSend(@Param("id") UUID id);
+
     /** Every conversation on the platform, most recently active first — admin read-only view. */
     Page<Chat> findAllByOrderByLastMessageAtDesc(Pageable pageable);
 

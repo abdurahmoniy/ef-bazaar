@@ -32,5 +32,6 @@ public record MessageResponse(
         String proposalKind,
         UUID proposalListingId,
         Instant proposalExpiresAt,
-        UUID proposalTradeId
+        UUID proposalTradeId,
+        UUID clientMessageId
 ) {}
