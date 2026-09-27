@@ -65,6 +65,13 @@ class TradeActionConsumerTest {
     }
 
     @Test
+    void telegramTurnDoesNotCreateAnExtraInAppNotification() {
+        consumer.onTradeAction(new TradeActionDto(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                "YOUR_TURN", 0L, "WAITING_PASSWORD", Instant.now()));
+        verifyNoInteractions(notifications);
+    }
+
+    @Test
     void dropsWhenNoRecipient() {
         TradeActionDto dto = new TradeActionDto(
                 UUID.randomUUID(),

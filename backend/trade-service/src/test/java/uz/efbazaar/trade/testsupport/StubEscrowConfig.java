@@ -116,6 +116,8 @@ public class StubEscrowConfig {
         EscrowClient stub = mock(EscrowClient.class);
         doAnswer(i -> record("hold", i.getArgument(0)))
                 .when(stub).hold(any(), any(), any(), anyLong(), anyLong());
+        doAnswer(i -> record("hold", i.getArgument(0)))
+                .when(stub).hold(any(), any(), any(), anyLong(), anyLong(), any(), any());
         doAnswer(i -> record("settle", i.getArgument(0)))
                 .when(stub).settle(any(), any(), any(), anyLong(), anyLong());
         // The seven-argument overload has to be stubbed SEPARATELY. On a real

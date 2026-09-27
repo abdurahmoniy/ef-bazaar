@@ -13,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
+import uz.efbazaar.trade.trade.domain.AdminFeePayer;
 
 /**
  * Wallet escrow, over payment-service's {@code /internal} API.
@@ -142,6 +143,36 @@ public class EscrowClient {
                 "sellerId", proposerId.toString(),
                 "priceTiyin", accepterUzs * TIYIN_PER_SOM,
                 "feeBaseTiyin", feeBaseUzs * TIYIN_PER_SOM));
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Quote(long feeTiyin, long buyerHoldTiyin, long sellerHoldTiyin) {}
+
+    public Quote quote(UUID proposalId, UUID buyer, UUID seller, long priceUzs, long baseUzs, AdminFeePayer payer) {
+        try {
+            Quote quote = http.post().uri("/internal/trades/{id}/escrow/quote", proposalId)
+                    .header("X-Internal-Secret", secret)
+                    .body(Map.of("buyerId", buyer, "sellerId", seller,
+                            "priceTiyin", Math.multiplyExact(priceUzs, TIYIN_PER_SOM),
+                            "feeBaseTiyin", Math.multiplyExact(baseUzs, TIYIN_PER_SOM), "adminFeePayer", payer.name()))
+                    .retrieve().body(Quote.class);
+            if (quote == null) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Admin haqini tekshirib bo'lmadi");
+            return quote;
+        } catch (RestClientException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Admin haqini tekshirib bo'lmadi");
+        }
+    }
+
+    public void hold(UUID tradeId, UUID buyer, UUID seller, long priceUzs, long baseUzs,
+                     AdminFeePayer payer, Long expectedFeeTiyin) {
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("buyerId", buyer);
+        body.put("sellerId", seller);
+        body.put("priceTiyin", Math.multiplyExact(priceUzs, TIYIN_PER_SOM));
+        body.put("feeBaseTiyin", Math.multiplyExact(baseUzs, TIYIN_PER_SOM));
+        body.put("adminFeePayer", payer.name());
+        body.put("expectedFeeTiyin", expectedFeeTiyin);
+        call(tradeId, "hold", body);
     }
 
     private void call(UUID tradeId, String action, Map<String, Object> body) {

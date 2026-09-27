@@ -1,6 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { TradeFeeTerms } from './trade-fee-terms';
+import { proposalHoldTiyin, splitAdminFee } from '@/lib/trade-fee';
+import { formatTiyin } from '@/lib/money';
+import type { AdminFeePayer } from '@/lib/trade-types';
 import { TradeProposalRejectButton } from './trade-proposal-reject-button';
 import { useRouter } from 'next/navigation';
 import { useChatViewport } from '@/hooks/use-chat-viewport';
@@ -33,7 +37,7 @@ import {
   type ChatListingOption,
 } from '@/lib/account-request';
 import { CountdownText } from '@/components/trade-admin/countdown-text';
-import { isConfirmLocked, loginCodeOf, receivingMailboxEmail } from '@/lib/trade-login-code';
+import { loginCodeOf, receivingMailboxEmail } from '@/lib/trade-login-code';
 import { HumanPartyTradePanel } from '@/components/trade-admin/human-party-trade-panel';
 import { TradeAdminPicker } from '@/components/trade-admin/trade-admin-picker';
 import { SellerRatingForm } from '@/components/chat/seller-rating-form';
@@ -151,7 +155,7 @@ function ProposalDetails({ message }: { message: MessageResponse }) {
         </dl>
       </section>
 
-      <TradeProgressTimeline outcome={outcome} trade={trade} kind={kind} mode={matching?.mode} createdAt={message.createdAt} isProposalSender={message.senderId === viewerId} />
+      {matching && <TradeFeeTerms proposal={matching} viewerId={viewerId} />}
 
       {outcome === 'PENDING' && matching && (
         requiresAdminHandoff ? <TradeAdminHandoff listingId={listingId} platform={ownListing?.attributes?.platform} amountUzs={price} />
@@ -171,6 +175,7 @@ function ProposalDetails({ message }: { message: MessageResponse }) {
         <Button variant="outline" disabled={refreshing} onClick={() => void reload()}>Qayta urinish</Button>
       </div>)}
       {outcome === 'ACCEPTED' && !message.proposalTradeId && <p className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">Bu eski taklifning savdo tafsilotlari mavjud emas.</p>}
+      <TradeProgressTimeline outcome={outcome} trade={trade} kind={kind} mode={matching?.mode} createdAt={message.createdAt} isProposalSender={message.senderId === viewerId} />
     </div>
   );
 }
@@ -188,9 +193,9 @@ function TradeActionModals() {
   const [paymentSelection, setPaymentSelection] = useState<{ proposal: PendingProposal; chatId: string } | null>(null);
   useEffect(() => {
     if (!showAcceptModal) { setPaymentSelection(null); return; }
-    if (!paymentSelection && proposal && viewerId === proposal.buyerId
+    if (!paymentSelection && proposal
       && canAcceptTradeProposal(proposal, viewerId) && !isHumanProposal(proposal)
-      && hasTradeAmount(proposal.kind, proposal.priceUzs) && !requiresAdminHandoff) {
+      && proposalHoldTiyin(proposal, viewerId) > 0 && !requiresAdminHandoff) {
       setPaymentSelection({ proposal, chatId: chat.id });
     }
   }, [showAcceptModal, paymentSelection, proposal, viewerId, requiresAdminHandoff, chat.id]);
@@ -202,7 +207,7 @@ function TradeActionModals() {
 
   // A transfer may outlive its offer. Keep its instructions and original amount visible.
   if (showAcceptModal && paymentSelection?.chatId === chat.id
-    && paymentSelection.proposal.buyerId === viewerId) {
+    && canAcceptTradeProposal(paymentSelection.proposal, viewerId)) {
     const selected = paymentSelection.proposal;
     const resolved = viewedProposal?.proposalId === selected.id
       && tradeProposalDetails(viewedProposal, proposal).outcome !== 'PENDING';
@@ -519,6 +524,7 @@ function TradeDetails({ trade, viewerId, onRefresh, refreshing }: {
         <Badge variant="outline" className={cn('whitespace-normal', statusTone)}>{TRADE_STATE_LABEL_UZ[trade.state]}</Badge>
       </div>
       <p className="break-words text-2xl font-bold tracking-tight">{tradeAmountLabel(trade.kind, trade.priceUzs)}</p>
+      {isSwap(trade.kind) && <p className="text-sm">Admin haqi: {trade.adminFeePayer === 'SPLIT' ? 'teng bo‘linadi' : (trade.adminFeePayer ?? 'SELLER') === (trade.sellerId === viewerId ? 'SELLER' : 'BUYER') ? 'siz to‘laysiz' : 'sherigingiz to‘laydi'}</p>}
       <dl className="space-y-3 text-sm">
         {trade.createdAt && <div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Savdo boshlangan vaqt</dt>
           <dd><time dateTime={trade.createdAt}>{formatDayLabel(trade.createdAt)} · {formatMessageTime(trade.createdAt)}</time></dd></div>}
@@ -528,13 +534,13 @@ function TradeDetails({ trade, viewerId, onRefresh, refreshing }: {
           <dd className="tabular-nums"><CountdownText until={trade.stateDeadline} /></dd></div>}
       </dl>
     </section>
-    <TradeProgressTimeline outcome="ACCEPTED" trade={trade} tradeCreatedAt={trade.createdAt} />
     <section aria-label="Savdo jarayoni" className="border-t border-border pt-4">
       {isHumanTrade(trade)
         ? <HumanPartyTradePanel key={trade.id} trade={trade} viewerId={viewerId} onRefresh={onRefresh} />
         : <ActiveTradeCard key={`${trade.id}:${viewerId}:${trade.passwordMessageId}`} trade={trade} viewerId={viewerId}
             onRefresh={onRefresh} refreshing={refreshing} embedded showSummary={false} />}
     </section>
+    <TradeProgressTimeline outcome="ACCEPTED" trade={trade} tradeCreatedAt={trade.createdAt} />
   </div>;
 }
 
@@ -797,10 +803,23 @@ function WaitingEmailChangeSellerPanel({
 }) {
   const [showModal, setShowModal] = useState(false);
   const [submitting, startSubmit] = useTransition();
+  const [requestingCode, startCodeRequest] = useTransition();
   const [copied, setCopied] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const email = trade.mailboxEmail;
   const code = trade.emailChangeVerificationCode;
+
+  function requestEmailChangeCode() {
+    onActionError(null);
+    startCodeRequest(async () => {
+      const result = await postTradeAction(trade.id, 'email-change-code');
+      if (!result.ok) {
+        onActionError(result.error);
+        return;
+      }
+      await onRefresh();
+    });
+  }
 
   function confirm() {
     onActionError(null);
@@ -896,6 +915,12 @@ function WaitingEmailChangeSellerPanel({
             ? 'Bu kodni Konami sahifasidagi email o‘zgartirish oynasiga kiriting.'
             : 'Kod shu yerda avtomatik chiqadi. Kod kelgach tasdiqlash tugmasi faollashadi.'}
         </p>
+        <p className="text-xs text-muted-foreground">
+          Yangi kodni Konami’dagi email o‘zgartirish oynasida so‘rang. Kelgan kodni shu yerda qayta tekshirishingiz mumkin.
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={requestEmailChangeCode} disabled={requestingCode || !email}>
+          {requestingCode ? 'So‘ralmoqda…' : 'Kodni qayta so‘rash'}
+        </Button>
       </div>
 
       <Button
@@ -1116,13 +1141,7 @@ function WaitingBuyerVerifyBuyerPanel({
   // Obmenda qutilar teskari: kirib tekshiriladigani qarshi tomonniki.
   const mailboxEmail = receivingMailboxEmail(trade);
 
-  // Konami kirish kodi: akkountga kirayotganda pochtaga keladi, pochta esa
-  // hali platformada. Kod kelmaguncha tasdiqlash yopiq — lekin 2FA
-  // so'ramaydigan akkountlar ham bor, shuning uchun backend bir muddatdan
-  // keyin tugmani baribir ochadi va shu vaqt confirmUnlocksAt da keladi.
   const loginCode = loginCodeOf(trade);
-  const confirmUnlocksAt = trade.confirmUnlocksAt ?? null;
-  const confirmLocked = isConfirmLocked(trade);
 
   function requestLoginCode() {
     onActionError(null);
@@ -1292,21 +1311,22 @@ function WaitingBuyerVerifyBuyerPanel({
               ) : (
                 <>
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    Kirishda Konami pochtaga tasdiqlash kodi yuboradi. Pochta hali
-                    platformada, shuning uchun kodni shu yerda ko&apos;rsatamiz —
-                    odatda bir necha soniyada chiqadi.
+                    Konami kirishda kod so‘rasa, pochtaga kelgan kod shu yerda ko‘rinadi.
+                    Konami kod so‘ramasa ham, akkauntga kirib tekshirganingizdan so‘ng
+                    tasdiqlashingiz mumkin.
                   </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={requestLoginCode}
-                    disabled={requestingCode}
-                  >
-                    {requestingCode ? 'So‘ralmoqda…' : 'Kodni qayta so‘rash'}
-                  </Button>
                 </>
               )}
+              <p className="text-xs text-muted-foreground">Yangi kodni Konami’da so‘rang. Kelgan kod shu yerda ko‘rinadi.</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={requestLoginCode}
+                disabled={requestingCode}
+              >
+                {requestingCode ? 'So‘ralmoqda…' : 'Kodni qayta so‘rash'}
+              </Button>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1314,7 +1334,7 @@ function WaitingBuyerVerifyBuyerPanel({
               type="button"
               className="flex-1"
               onClick={() => setShowConfirmModal(true)}
-              disabled={confirming || rejecting || confirmLocked}
+              disabled={confirming || rejecting}
             >
               Tasdiqlash
             </Button>
@@ -1328,14 +1348,6 @@ function WaitingBuyerVerifyBuyerPanel({
               Rad etish
             </Button>
           </div>
-          {confirmLocked && (
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              Avval akkountga kiring: kirish kodi kelgach tasdiqlash ochiladi.
-              Konami kod so&apos;ramagan bo&apos;lsa, tugma{' '}
-              <CountdownText until={confirmUnlocksAt} /> dan keyin baribir ochiladi.
-              Kira olmayotgan bo&apos;lsangiz — rad etish har doim ochiq.
-            </p>
-          )}
         </>
       ) : (
         <Button
@@ -1367,10 +1379,19 @@ function WaitingBuyerVerifyBuyerPanel({
         <ConfirmModal
           title="Savdoni tasdiqlash"
           body={
-            <p>
-              Sotuvchining Konami akkauntiga muvaffaqiyatli kirdingizmi?
-              Tasdiqlagach savdo yakunlanadi.
-            </p>
+            <div className="space-y-3 text-sm leading-relaxed">
+              <p>Qabul qilayotgan Konami akkauntingizga kirib, uni tekshirdingizmi?</p>
+              <p>
+                {isSwap(trade.kind ?? 'SALE')
+                  ? trade.kind === 'SWAP_SURCHARGE'
+                    ? 'Ikkala taraf ham tasdiqlagach, almashuv yakunlanadi, akkauntlar yangi egalariga va qo‘shimcha to‘lov uni oluvchi tarafga o‘tkaziladi.'
+                    : 'Ikkala taraf ham tasdiqlagach, almashuv yakunlanadi va akkauntlar yangi egalariga o‘tkaziladi.'
+                  : 'Tasdiqlaganingizdan keyin savdo yakunlanadi va pul sotuvchiga o‘tkaziladi.'}
+              </p>
+              <p className="font-semibold text-amber-800 dark:text-amber-300">
+                Tasdiqlashni ortga qaytarib bo‘lmaydi. Faqat akkauntni tekshirib, hammasi joyida ekaniga ishonch hosil qilganingizdan keyin tasdiqlang.
+              </p>
+            </div>
           }
           confirmLabel={confirming ? 'Tasdiqlanmoqda…' : 'Ha, tasdiqlayman'}
           submitting={confirming}
@@ -1678,6 +1699,7 @@ function PendingProposalCard({
           </p>
         </div>
       </div>
+      <TradeFeeTerms proposal={proposal} viewerId={viewerId} />
       {proposal.expiresAt && <p className="text-sm text-muted-foreground"><CountdownText until={proposal.expiresAt} prefix="Muddati: " /></p>}
       <TradeProgressTimeline outcome="PENDING" kind={proposal.kind} mode={isHumanProposal(proposal) ? 'HUMAN' : proposal.mode} isProposalSender={proposal.proposerUserId === viewerId} />
       {requiresAdminHandoff ? (
@@ -1741,6 +1763,7 @@ function ProposeModal({
       : undefined;
 
   const [kind, setKind] = useState<TradeKind>('SALE');
+  const [adminFeePayer, setAdminFeePayer] = useState<AdminFeePayer>('SELLER');
   const [mode, setMode] = useState<TradeMode>('SMART');
   const [price, setPrice] = useState(initialPrice);
   const [surcharge, setSurcharge] = useState('');
@@ -1777,8 +1800,10 @@ function ProposeModal({
 
   const swapSurchargeFeeBase = originalPrice > 0 ? originalPrice : (hasValidSurcharge ? surchargeNum : 0);
   const swapSurchargeFeeNum = swapSurchargeFeeBase > 0 ? tradeFeeSom(swapSurchargeFeeBase, commissionConfig) : 0;
-  const swapSurchargeNetProceeds = Math.max(0, surchargeNum - swapSurchargeFeeNum);
-  const swapSurchargeProposerOwes = Math.max(0, swapSurchargeFeeNum - surchargeNum);
+  const swapShares = splitAdminFee(swapFeeNum * 100, adminFeePayer);
+  const surchargeShares = splitAdminFee(swapSurchargeFeeNum * 100, adminFeePayer);
+  const swapSurchargeNetProceeds = Math.max(0, surchargeNum * 100 - surchargeShares.seller);
+  const swapSurchargeProposerOwes = Math.max(0, surchargeShares.seller - surchargeNum * 100);
 
   useEffect(() => {
     setShowFeeWarning(false);
@@ -1813,6 +1838,7 @@ function ProposeModal({
       amountUzs: effectiveAmountUzs,
       mode,
       kind,
+      ...(isSwap(kind) ? { adminFeePayer } : {}),
       listingId: accountRequest?.listingId ?? listing?.id ?? null,
     };
     if (mode === 'HUMAN' && selectedAdmin) {
@@ -1892,6 +1918,17 @@ function ProposeModal({
             </div>
           </div>
         )}
+
+        {isSwap(kind) && <div className="space-y-1.5">
+          <Label htmlFor="admin-fee-payer">Admin haqini kim to‘laydi?</Label>
+          <select id="admin-fee-payer" aria-label="Admin haqini kim to‘laydi?" value={adminFeePayer}
+            onChange={event => setAdminFeePayer(event.target.value as AdminFeePayer)}
+            className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm">
+            <option value="SELLER">Men to‘layman</option>
+            <option value="BUYER">Sherigim to‘laydi</option>
+            <option value="SPLIT">Teng bo‘lamiz</option>
+          </select>
+        </div>}
 
         {/* Kind Selector */}
         <div>
@@ -2077,24 +2114,24 @@ function ProposeModal({
             {mode === 'SMART' && hasValidSurcharge && (
               <div className="rounded-xl border border-border bg-muted/20 p-2.5 sm:p-3 space-y-1.5 text-xs min-w-0">
                 <div className="flex items-center justify-between gap-2 text-muted-foreground text-[11.5px]">
-                  <span className="shrink-0">Qarshi taraf to‘laydi (doplata):</span>
-                  <span className="font-bold text-foreground truncate">{formatPriceUZS(surchargeNum)}</span>
+                  <span className="shrink-0">Sherigingiz hamyonidan:</span>
+                  <span className="font-bold text-foreground truncate">{formatTiyin(surchargeNum * 100 + surchargeShares.buyer)} so‘m</span>
                 </div>
                 <div className="flex items-center justify-between gap-2 text-muted-foreground text-[11.5px]">
-                  <span className="shrink-0">Smart-admin xizmati:</span>
+                  <span className="shrink-0">Smart-admin xizmati (taxminiy):</span>
                   <span className="font-semibold text-destructive truncate">
                     −{formatPriceUZS(swapSurchargeFeeNum)}
                   </span>
                 </div>
                 <div className="border-t border-border/60 pt-1.5 flex items-center justify-between gap-2">
-                  {surchargeNum >= swapSurchargeFeeNum ? (
+                  {surchargeNum * 100 >= surchargeShares.seller ? (
                     <>
                       <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs shrink-0">
                         <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                         Sizga sof doplata:
                       </span>
                       <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300 truncate">
-                        {formatPriceUZS(swapSurchargeNetProceeds)}
+                        {formatTiyin(swapSurchargeNetProceeds)} so‘m
                       </span>
                     </>
                   ) : (
@@ -2104,7 +2141,7 @@ function ProposeModal({
                         Yetishmagan xizmat haqi:
                       </span>
                       <span className="text-xs sm:text-sm font-black text-amber-700 dark:text-amber-300 truncate">
-                        {formatPriceUZS(swapSurchargeProposerOwes)}
+                        {formatTiyin(swapSurchargeProposerOwes)} so‘m
                       </span>
                     </>
                   )}
@@ -2119,21 +2156,21 @@ function ProposeModal({
           <div className="rounded-xl border border-border bg-muted/20 p-2.5 sm:p-3 space-y-1.5 text-xs min-w-0">
             <div className="flex items-center justify-between gap-2 text-muted-foreground text-[11.5px]">
               <span className="shrink-0">Qarshi taraf to‘laydi:</span>
-              <span className="font-bold text-foreground truncate">Pul o‘tmaydi</span>
+              <span className="font-bold text-foreground truncate">{formatTiyin(swapShares.buyer)} so‘m</span>
             </div>
             <div className="flex items-center justify-between gap-2 text-muted-foreground text-[11.5px]">
-              <span className="shrink-0">Smart-admin xizmati:</span>
+              <span className="shrink-0">Smart-admin xizmati (taxminiy):</span>
               <span className="font-semibold text-destructive truncate">
-                −{formatPriceUZS(swapFeeNum)}
+                {formatPriceUZS(swapFeeNum)}
               </span>
             </div>
             <div className="border-t border-border/60 pt-1.5 flex items-center justify-between gap-2">
               <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs shrink-0">
                 <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                Xizmat haqi (taklifchidan):
+                Sizning hamyoningizdan:
               </span>
               <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300 truncate">
-                {formatPriceUZS(swapFeeNum)}
+                {formatTiyin(swapShares.seller)} so‘m
               </span>
             </div>
           </div>
@@ -2146,7 +2183,7 @@ function ProposeModal({
             <div className="space-y-0.5 min-w-0 flex-1">
               <p className="font-bold text-foreground text-[11.5px]">100% Xavfsiz Garov (Escrow)</p>
               <p className="text-[10.5px] sm:text-[11px] text-muted-foreground leading-normal break-words">
-                To‘lov xaridorning hamyonidan yechiladi va savdo yakunlangunicha platformada saqlanadi.
+                Kelishilgan summa tegishli hamyonlardan yechiladi va savdo yakunlangunicha platformada saqlanadi.
               </p>
             </div>
           </div>
@@ -2282,9 +2319,9 @@ function AcceptModal({
     );
   }
 
-  if (viewerId === proposal.buyerId && !isHumanProposal(proposal) && hasTradeAmount(proposal.kind, proposal.priceUzs)) {
+  if (!isHumanProposal(proposal) && proposalHoldTiyin(proposal, viewerId) > 0) {
     return <ModalShell title="Taklifni qabul qilish" onClose={() => { if (!paymentBusy) onClose(); }}>
-      <TradeAcceptPayment proposal={proposal} unavailable={unavailable} onAccept={() => postProposalAccept(proposal.id, {})}
+      <TradeAcceptPayment proposal={proposal} viewerId={viewerId} unavailable={unavailable} onAccept={() => postProposalAccept(proposal.id, {})}
         onAccepted={onAccepted} onClose={onClose} onBusyChange={setPaymentBusy} />
     </ModalShell>;
   }
@@ -2292,6 +2329,7 @@ function AcceptModal({
   return (
     <ModalShell title="Taklifni qabul qilish" onClose={onClose}>
       <form className="space-y-3" onSubmit={handleSubmit}>
+        <TradeFeeTerms proposal={proposal} viewerId={viewerId} />
         <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           <p>
             <span className="font-semibold text-foreground">Savdo turi:</span>{' '}
@@ -2501,7 +2539,7 @@ async function postProposalAccept(
 
 async function postTradeAction(
   tradeId: string,
-  path: 'payment-confirmed' | 'email-changed' | 'recheck' | 'confirm' | 'reject' | 'login-code',
+  path: 'payment-confirmed' | 'email-changed' | 'email-change-code' | 'recheck' | 'confirm' | 'reject' | 'login-code',
 ): Promise<MutationResult<TradeResponse>> {
   const response = await fetch(
     `/api/trade/v1/trades/${encodeURIComponent(tradeId)}/actions/${path}`,

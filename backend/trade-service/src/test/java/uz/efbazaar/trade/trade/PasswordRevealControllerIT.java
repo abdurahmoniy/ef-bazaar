@@ -67,6 +67,14 @@ class PasswordRevealControllerIT extends AbstractIntegrationIT {
                 .as("and the seller opens the one the buyer gave up")
                 .isEqualTo(fromBuyer);
 
+        // A sender cannot consume the key intended for the other party.
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/messages/" + fromSeller + "/reveal")
+                        .with(asUser(seller)))
+                .andExpect(status().isNotFound());
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/messages/" + fromBuyer + "/reveal")
+                        .with(asUser(buyer)))
+                .andExpect(status().isNotFound());
+
         mvc.perform(post("/api/v1/trades/" + t.id() + "/messages/" + fromSeller + "/reveal")
                         .with(asUser(buyer)))
                 .andExpect(status().isOk());

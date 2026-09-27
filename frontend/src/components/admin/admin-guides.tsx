@@ -56,9 +56,7 @@ export function AdminGuides() {
   function pickVideo(file: File | null) {
     setError(null);
     if (file && file.size > MAX_VIDEO_BYTES) {
-      // Yuklashdan OLDIN aytamiz: 200 MB lik faylni tarmoqqa chiqarib,
-      // keyin rad etish adminning bir necha daqiqasini yeydi.
-      setError(`Video ${megabytes(file.size)} — Telegram boti 50 MB gacha qabul qiladi.`);
+      setError(`Video ${megabytes(file.size)} — saytda ijro etish uchun 20 MB dan oshmasligi kerak. Videoni siqib qayta tanlang.`);
       setVideo(null);
       if (fileInput.current) fileInput.current.value = '';
       return;
@@ -188,10 +186,8 @@ export function AdminGuides() {
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-muted file:px-3 file:py-1 file:text-sm"
           />
           <p className="text-xs text-muted-foreground">
-            50 MB gacha, <b>MP4</b> tavsiya etiladi. Telegram bot orqali
-            yuklangan videoni QAYTA KODLAMAYDI — ilovadagi siqish faqat odam
-            yuborganda ishlaydi. Boshqa formatlar (masalan <code>.MOV</code>)
-            o&apos;ynatiladigan video emas, oddiy fayl bo&apos;lib chiqishi mumkin.
+            20 MB gacha. Brauzerlarda ijro etish uchun <b>MP4 (H.264 video, AAC ovoz)</b>
+            {' '}tavsiya etiladi. Katta videoni yuklashdan oldin siqing.
           </p>
         </div>
 

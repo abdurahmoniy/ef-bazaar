@@ -131,6 +131,27 @@ class TradeActionNotificationConsumerTest {
         assertThat(telegram.calls.get(1).text()).contains("Yangi savdo taklifi!");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "WAITING_EMAIL_CHANGE,Emailni almashtiring",
+        "VERIFYING_KONAMI_LINK,Konami tekshiruvini bajaring",
+        "WAITING_PASSWORD,Konami parolini yuboring",
+        "WAITING_BUYER_VERIFY,Akkountni tekshiring",
+        "WAITING_ADMIN,Adminni tanlang",
+        "WAITING_CLOSE_CONFIRM,Savdoni tasdiqlang",
+        "<script>,Savdoni davom ettirish uchun chatga kiring"
+    })
+    void turnMessageIncludesTheNextActionAndTradeButton(String step, String instruction) {
+        UUID chat = UUID.randomUUID();
+        consumer.onTradeAction(new TradeActionNotificationDto(UUID.randomUUID(), chat, UUID.randomUUID(),
+                11223344L, "Ali", "YOUR_TURN", 0L, step, "SWAP", Instant.now()));
+        assertThat(telegram.calls).hasSize(1);
+        var call = telegram.calls.getFirst();
+        assertThat(call.text()).contains("Sizning navbatingiz", instruction).doesNotContain("<script>");
+        assertThat(call.button().url()).isEqualTo("https://efbazaar.uz/chats/" + chat);
+        assertThat(call.chatId()).isEqualTo("11223344");
+    }
+
     @Test
     void dropsWhenNoTelegramId() {
         TradeActionNotificationDto dto = new TradeActionNotificationDto(

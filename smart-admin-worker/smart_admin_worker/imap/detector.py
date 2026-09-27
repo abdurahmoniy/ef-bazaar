@@ -33,7 +33,7 @@ import re
 import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol
 
 log = logging.getLogger(__name__)
@@ -189,6 +189,9 @@ class KonamiEmailDetector:
         return None
 
     def check_2fa(self, messages: Iterable[Msg]) -> TwoFaHit | None:
+        # Unread messages survive polling. A resend must win over an older code
+        # regardless of the order returned by the IMAP client.
+        latest = None
         for m in messages:
             if not self._sender_ok(m.from_):
                 continue
@@ -197,12 +200,14 @@ class KonamiEmailDetector:
                 continue
             code = self._code_in(m.text or "")
             if code:
-                return TwoFaHit(
+                hit = TwoFaHit(
                     sender=m.from_.lower(),
-                    received_at=m.date,
+                    received_at=m.date if m.date.tzinfo else m.date.replace(tzinfo=UTC),
                     code=code,
                 )
-        return None
+                if latest is None or hit.received_at > latest.received_at:
+                    latest = hit
+        return latest
 
     @staticmethod
     def _code_in(text: str) -> str | None:
@@ -236,6 +241,7 @@ class KonamiEmailDetector:
         changing action on the seller's Konami account, so a false positive
         would surface the wrong 6 digits to the seller.
         """
+        latest = None
         for m in messages:
             if not self._sender_ok(m.from_):
                 continue
@@ -246,9 +252,11 @@ class KonamiEmailDetector:
             match = (_EMAIL_CHANGE_CODE_RE.search(body)
                      or _EMAIL_CHANGE_CODE_JA_RE.search(body))
             if match:
-                return EmailChangeCodeHit(
+                hit = EmailChangeCodeHit(
                     sender=m.from_.lower(),
-                    received_at=m.date,
+                    received_at=m.date if m.date.tzinfo else m.date.replace(tzinfo=UTC),
                     verification_code=match.group(1),
                 )
-        return None
+                if latest is None or hit.received_at > latest.received_at:
+                    latest = hit
+        return latest

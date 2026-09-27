@@ -10,4 +10,6 @@ public record TradeSucceededDto(
         /** Eski hodisalarda yo'q — null bo'lsa akkount ko'chirilmaydi. */
         UUID listingId,
         String mode,
+        /** SALE, SWAP, or SWAP_SURCHARGE; absent in older events. */
+        String kind,
         Instant occurredAt) {}

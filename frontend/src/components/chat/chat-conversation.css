@@ -94,14 +94,12 @@
 }
 
 .chat-message-meta {
-  float: right;
-  display: inline-flex;
+  display: flex;
+  justify-content: flex-end;
   align-items: center;
-  gap: 4px;
-  margin-top: 5px;
-  margin-left: 10px;
+  gap: 3px;
   color: hsl(var(--muted-foreground));
-  font-size: 10px;
+  font-size: 11px;
   line-height: 14px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -110,6 +108,53 @@
 .chat-message-bubble[data-mine='true'] .chat-message-meta {
   color: hsl(var(--chat-outgoing-meta));
 }
+
+.chat-message-text {
+  position: relative;
+  display: block;
+}
+
+.chat-message-text[data-caption='true'] {
+  padding: 6px 8px 4px;
+}
+
+/* Reserve exactly the label/checks' width on the last text line. The visible
+   metadata sits at its right edge, including when the reservation wraps. */
+.chat-message-meta-space {
+  display: inline-block;
+  padding-left: 8px;
+  visibility: hidden;
+  user-select: none;
+  vertical-align: bottom;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.chat-message-meta-space::before { content: attr(data-label); }
+.chat-message-meta-space[data-mine='true'] { padding-right: 17px; }
+.chat-message-text > .chat-message-meta {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+.chat-message-text[data-caption='true'] > .chat-message-meta {
+  right: 8px;
+  bottom: 4px;
+}
+.chat-message-bubble > .chat-message-meta { margin-top: 2px; }
+.chat-message-bubble .chat-message-meta[data-overlay='true'] {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  margin: 0;
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 45%);
+  color: white;
+  pointer-events: none;
+}
+.chat-message-meta[data-overlay='true'] .chat-read-receipt { color: inherit; }
 
 .chat-message-reply {
   border-color: hsl(var(--chat-accent));
@@ -169,10 +214,11 @@
 @keyframes chat-typing { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-2px); opacity: 1; } }
 
 .chat-message-entry[data-highlighted='true'] {
-  border-radius: 0.75rem;
-  background: hsl(var(--chat-accent) / 0.14);
-  outline: 2px solid hsl(var(--chat-accent) / 0.35);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .chat-message-entry { transition: background-color 180ms ease, outline-color 180ms ease; }
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--chat-accent) / 0.07) 15%,
+    hsl(var(--chat-accent) / 0.07) 85%,
+    transparent
+  );
 }

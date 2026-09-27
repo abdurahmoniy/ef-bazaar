@@ -34,7 +34,7 @@ public class TradeSucceededConsumer {
         referrals.rewardFor(e.tradeId(), e.buyerId(), e.sellerId());
         // Akkount sotuvchidan xaridorga ko'chadi. Mukofotdan KEYIN: ikkalasi
         // mustaqil va biri yiqilsa ikkinchisi baribir bajarilishi kerak.
-        accounts.onTradeSucceeded(e.tradeId(), e.listingId(), e.buyerId(), e.sellerId());
+        accounts.onTradeSucceeded(e.tradeId(), e.listingId(), e.buyerId(), e.sellerId(), e.kind());
         // Akkount ochilib COMMIT bo'lgach: pochta topshirilgani haqidagi
         // hodisa boshqa topikda va boshqa tranzaksiyada keladi. Bir vaqtda
         // ishlansa u akkountni ko'rmay manzilni kutishga qo'yib ketadi va

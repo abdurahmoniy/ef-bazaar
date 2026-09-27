@@ -5,9 +5,10 @@ Runs one task per (mailbox, purpose). Each iteration:
 1. Try to acquire the per-mailbox Redis lock (SET NX PX).
 2. On success, open the IMAP connection via the injected factory, fetch new
    messages in the "Konami" domain, feed them to the detector.
-3. On detection: invoke the caller's async callback and stop detecting further
-   hits (the task idles, sleeping each interval, until the caller cancels it
-   via ImapPollerRegistry.cancel — the task itself never returns on its own).
+3. On detection: invoke the caller's async callback. Login and email-change code polling keeps
+   watching for fresh messages, suppressing previously delivered and older
+   codes. Reset-link polling idles after its first hit. All tasks stop when the
+   caller cancels them via ImapPollerRegistry.cancel.
 4. Sleep POLL_INTERVAL and repeat.
 
 If the lock is held by another replica, we skip this iteration silently. If
@@ -64,6 +65,10 @@ class ImapPoller:
     async def run(self, mailbox_email: str, password: str, purpose: PollPurpose) -> None:
         lock_key = f"smartadmin:imap-poll:{mailbox_email}"
         detected = False
+        delivered_2fa: set[TwoFaHit] = set()
+        latest_2fa: TwoFaHit | None = None
+        delivered_email_codes: set[EmailChangeCodeHit] = set()
+        latest_email_code: EmailChangeCodeHit | None = None
         while True:
             await asyncio.sleep(self.poll_interval)
             if detected:
@@ -87,11 +92,24 @@ class ImapPoller:
                 await self.on_reset(hit)
                 detected = True
             elif isinstance(hit, TwoFaHit) and self.on_2fa is not None:
+                if hit in delivered_2fa or (
+                    latest_2fa is not None and hit.received_at < latest_2fa.received_at
+                ):
+                    continue
                 await self.on_2fa(hit)
-                detected = True
+                delivered_2fa.add(hit)
+                latest_2fa = hit
+                # Keep the existing registry task alive and watching: a repeated
+                # request must neither spawn a second poller nor replay an old code.
             elif isinstance(hit, EmailChangeCodeHit) and self.on_email_change_code is not None:
+                if hit in delivered_email_codes or (
+                    latest_email_code is not None
+                    and hit.received_at < latest_email_code.received_at
+                ):
+                    continue
                 await self.on_email_change_code(hit)
-                detected = True
+                delivered_email_codes.add(hit)
+                latest_email_code = hit
 
     def _fetch_and_detect(
         self, mailbox_email: str, password: str, purpose: PollPurpose

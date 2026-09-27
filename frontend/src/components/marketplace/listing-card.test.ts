@@ -148,7 +148,7 @@ describe('ListingCard', () => {
       'href="/marketplace/listing-1?q=Messi&amp;view=list&amp;tracking=one&amp;tracking=two"',
     );
     expect(markup).toContain('aria-label="Sevimlilarga qo&#x27;shish"');
-    expect(markup).toContain('min-h-11 min-w-11');
+    expect(markup).toContain('min-h-8 min-w-8');
     expect(markup).toContain('data-marketplace-listing-id="listing-1"');
     expect(markup).toContain('data-layout="auto"');
     expect(markup).toContain('data-priority="true"');

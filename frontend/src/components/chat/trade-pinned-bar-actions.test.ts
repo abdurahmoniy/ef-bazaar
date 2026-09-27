@@ -6,8 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { TradeResponse } from '@/lib/trade-types';
 import { useTradeContext } from './trade-context';
+import { toast } from 'sonner';
 import { TradePinnedBar } from './trade-pinned-bar';
 
+vi.mock('sonner', () => ({ toast: { info: vi.fn() } }));
 vi.mock('./trade-context', () => ({ useTradeContext: vi.fn() }));
 
 type Context = ReturnType<typeof useTradeContext>;
@@ -17,6 +19,7 @@ let root: ReturnType<typeof createRoot>;
 
 beforeEach(() => {
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  vi.mocked(toast.info).mockClear();
   context = {
     viewerId: 'buyer', isSeller: false, activeTrade: {
       id: 'trade-technical-id', sellerId: 'seller', buyerId: 'buyer',
@@ -95,4 +98,25 @@ describe('trade bar next steps', () => {
     expect(requiresAdminHandoff ? context.setIsDrawerOpen : context.setShowAcceptModal).toHaveBeenCalledWith(true);
     expect(requiresAdminHandoff ? context.setShowAcceptModal : context.setIsDrawerOpen).not.toHaveBeenCalled();
   });
+});
+
+it('announces the next action once when the partner finishes and the state advances', async () => {
+  await render();
+  expect(toast.info).not.toHaveBeenCalled();
+  context.activeTrade = { ...context.activeTrade!, state: 'WAITING_BUYER_VERIFY' };
+  await render();
+  expect(container.textContent).toContain('Sizning navbatingiz');
+  expect(toast.info).toHaveBeenCalledWith('Sizning navbatingiz', expect.objectContaining({ description: 'Akkountni tekshiring' }));
+  await render();
+  expect(toast.info).toHaveBeenCalledTimes(1);
+});
+
+it('shows and announces the partner finishing the same swap step', async () => {
+  context.activeTrade!.kind = 'SWAP';
+  context.activeTrade!.sides = [{ role: 'SELLER', emailChanged: false }, { role: 'BUYER', emailChanged: false }] as TradeResponse['sides'];
+  await render();
+  context.activeTrade = { ...context.activeTrade!, sides: [{ role: 'SELLER', emailChanged: true }, { role: 'BUYER', emailChanged: false }] as TradeResponse['sides'] };
+  await render();
+  expect(container.textContent).toContain('Sherigingiz bu bosqichni bajardi');
+  expect(toast.info).toHaveBeenCalledTimes(1);
 });

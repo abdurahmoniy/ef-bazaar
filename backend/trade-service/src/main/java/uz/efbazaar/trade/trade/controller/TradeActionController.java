@@ -55,9 +55,10 @@ public class TradeActionController {
     public TradeResponse emailChanged(@AuthenticationPrincipal AuthenticatedUser me,
                                       @PathVariable UUID id) {
         Trade t = trades.get(id, me.userId());
-        actingRole(t, me.userId(), ParticipantRole.SELLER);
+        ParticipantRole role = actingRole(t, me.userId(), ParticipantRole.SELLER);
         trades.transition(id, TradeEvent.EMAIL_CHANGED, ActorType.USER, me.userId());
-        events.tradeAction(id, t.getChatId(), t.getBuyerId(),
+        UUID recipient = role == ParticipantRole.SELLER ? t.getBuyerId() : t.getSellerId();
+        events.tradeAction(id, t.getChatId(), recipient,
                 TradeEvents.TradeActionType.EMAIL_CHANGED, t.getPriceUzs(), null, t.getKind());
         return trades.toResponseFor(id, me.userId());
     }
@@ -80,11 +81,19 @@ public class TradeActionController {
     public TradeResponse buyerConfirm(@AuthenticationPrincipal AuthenticatedUser me,
                                       @PathVariable UUID id) {
         Trade t = trades.get(id, me.userId());
-        ParticipantRole role = actingRole(t, me.userId(), ParticipantRole.BUYER);
-        // Akkountni ko'rmasdan tasdiqlash — savdoning butun ma'nosini
-        // yo'qotadi. Kirish kodi kelgani "kirib ko'rdim" degan belgi.
-        trades.assertLoginCodeSeen(t, role);
+        actingRole(t, me.userId(), ParticipantRole.BUYER);
+        // Konami may allow login without an email code. The participant confirms
+        // their inspection; the state machine still requires the verification stage.
         trades.transition(id, TradeEvent.BUYER_CONFIRM, ActorType.USER, me.userId());
+        return trades.toResponseFor(id, me.userId());
+    }
+
+    @PostMapping("/email-change-code")
+    public TradeResponse requestEmailChangeCode(@AuthenticationPrincipal AuthenticatedUser me,
+                                                @PathVariable UUID id) {
+        Trade t = trades.get(id, me.userId());
+        ParticipantRole role = actingRole(t, me.userId(), ParticipantRole.SELLER);
+        trades.requestEmailChangeCode(t, role);
         return trades.toResponseFor(id, me.userId());
     }
 

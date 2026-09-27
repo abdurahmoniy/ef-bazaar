@@ -79,6 +79,21 @@ class TradeActionEnricherTest {
     }
 
     @Test
+    void forwardsTurnAndStepToTheSameTelegramRecipient() {
+        UUID userId = UUID.randomUUID(), chatId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(User.builder()
+                .id(userId).telegramId(987654321L).build()));
+        enricher.onTradeAction(new TradeActionNotificationDto(UUID.randomUUID(), chatId, userId,
+                "YOUR_TURN", 0L, "WAITING_PASSWORD", "SWAP", Instant.now()));
+        var capture = ArgumentCaptor.forClass(TradeActionNotificationEvent.class);
+        verify(kafka).send(eq("efbazaar.notifications.trade-action"), eq(userId.toString()), capture.capture());
+        assertThat(capture.getValue().actionType()).isEqualTo("YOUR_TURN");
+        assertThat(capture.getValue().details()).isEqualTo("WAITING_PASSWORD");
+        assertThat(capture.getValue().recipientTelegramId()).isEqualTo(987654321L);
+        assertThat(capture.getValue().chatId()).isEqualTo(chatId);
+    }
+
+    @Test
     void dropsWhenUserNotFound() {
         UUID userId = UUID.randomUUID();
         when(userRepository.findById(userId)).thenReturn(Optional.empty());

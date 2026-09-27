@@ -27,11 +27,12 @@ import {
   type PendingProposalResponse,
   type ProposalResponse,
   type TradeKind,
+  type TradeFeeQuote,
   type TradeMode,
   type TradeResponse,
 } from '@/lib/trade-types';
 
-export interface PendingProposal extends Pick<PendingProposalResponse, 'sellerId' | 'buyerId' | 'proposerUserId'> {
+export interface PendingProposal extends TradeFeeQuote, Pick<PendingProposalResponse, 'sellerId' | 'buyerId' | 'proposerUserId'> {
   listingId?: string | null;
   id: string;
   priceUzs: number;
@@ -141,6 +142,10 @@ export function TradeProvider({
           adminId: initialPendingProposal.adminId ?? undefined,
           adminFeeUzs: initialPendingProposal.adminFeeUzs ?? undefined,
           kind: initialPendingProposal.kind ?? undefined,
+          adminFeePayer: initialPendingProposal.adminFeePayer,
+          adminFeeTiyin: initialPendingProposal.adminFeeTiyin,
+          buyerHoldTiyin: initialPendingProposal.buyerHoldTiyin,
+          sellerHoldTiyin: initialPendingProposal.sellerHoldTiyin,
         }
       : null,
   );
@@ -220,6 +225,8 @@ export function TradeProvider({
           expiresAt: p.expiresAt, mode: p.mode ?? undefined,
           adminId: p.adminId ?? undefined, adminFeeUzs: p.adminFeeUzs ?? undefined,
           kind: p.kind ?? undefined,
+          adminFeePayer: p.adminFeePayer, adminFeeTiyin: p.adminFeeTiyin,
+          buyerHoldTiyin: p.buyerHoldTiyin, sellerHoldTiyin: p.sellerHoldTiyin,
         } : null);
       }
       const failures = [list, request, pending].filter(result => result.status === 'rejected');
@@ -282,6 +289,8 @@ export function TradeProvider({
       kind?: TradeKind,
     ) => {
       setProposal({
+        adminFeePayer: p.adminFeePayer, adminFeeTiyin: p.adminFeeTiyin,
+        buyerHoldTiyin: p.buyerHoldTiyin, sellerHoldTiyin: p.sellerHoldTiyin,
         id: p.proposalId,
         sellerId: viewerId,
         buyerId: accountRequest?.requesterId ?? otherPartyId,

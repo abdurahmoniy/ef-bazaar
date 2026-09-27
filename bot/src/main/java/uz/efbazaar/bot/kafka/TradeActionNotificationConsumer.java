@@ -71,6 +71,7 @@ public class TradeActionNotificationConsumer {
                         : "\uD83D\uDE80 <b>Savdo boshlandi!</b>\n"
                             + "Taklif qabul qilindi (" + formattedPrice + ").")
                     + " Akkount transferi boshlanmoqda.";
+            case "YOUR_TURN" -> "🔔 <b>Sizning navbatingiz</b>\n" + nextAction(e.details());
             case "EMAIL_CHANGED" -> "\uD83D\uDCE7 <b>Konami emaili o'zgartirildi</b>\n"
                     + "Sotuvchi Konami emailini almashtirdi. Tekshiruv davom etmoqda.";
             case "PASSWORD_SENT" -> "\uD83D\uDD11 <b>Konami paroli yuborildi!</b>\n"
@@ -83,6 +84,19 @@ public class TradeActionNotificationConsumer {
                     + "Ajratilgan vaqt tugaganligi sababli savdo bekor qilindi.";
             default -> "\uD83D\uDD14 <b>Savdo yangilandi</b>\n"
                     + "Savdo holatida o'zgarish yuz berdi.";
+        };
+    }
+
+    private static String nextAction(String step) {
+        // State identifiers only: never interpolate event details into Telegram HTML.
+        return switch (step == null ? "" : step) {
+            case "WAITING_EMAIL_CHANGE" -> "Emailni almashtiring. Ko‘rsatmalarni ko‘rish uchun savdoni oching.";
+            case "VERIFYING_KONAMI_LINK" -> "Konami tekshiruvini bajaring. Savdo panelidagi ko‘rsatmalarga amal qiling.";
+            case "WAITING_PASSWORD" -> "Konami parolini yuboring. Buning uchun savdoni oching.";
+            case "WAITING_BUYER_VERIFY" -> "Akkountni tekshiring. Parolni ochib, akkauntga kiring va natijani tasdiqlang yoki rad eting.";
+            case "WAITING_ADMIN" -> "Adminni tanlang. Savdoni davom ettirish uchun admin taklif qiling.";
+            case "WAITING_CLOSE_CONFIRM" -> "Savdoni tasdiqlang. Admin ishni yakunladi — natijani tekshirib, tasdiqlang.";
+            default -> "Savdoni davom ettirish uchun chatga kiring.";
         };
     }
 

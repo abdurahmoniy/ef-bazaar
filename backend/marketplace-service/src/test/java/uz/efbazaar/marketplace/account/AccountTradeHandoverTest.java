@@ -74,7 +74,7 @@ class AccountTradeHandoverTest {
         when(pendingEmails.findByTradeIdAndUserId(tradeId, sellerId)).thenReturn(Optional.empty());
         when(accounts.saveAndFlush(any(UserAccount.class))).thenAnswer(i -> i.getArgument(0));
 
-        link.onTradeSucceeded(tradeId, listingId, buyerId, sellerId);
+        link.onTradeSucceeded(tradeId, listingId, buyerId, sellerId, null);
 
         assertThat(seller.getStatus()).isEqualTo(UserAccountStatus.ARCHIVED);
         assertThat(seller.getArchivedReason()).isEqualTo(ArchivedReason.SOLD_ON_PLATFORM);
@@ -90,6 +90,7 @@ class AccountTradeHandoverTest {
                 .orElseThrow();
         assertThat(buyerAccount.getStatus()).isEqualTo(UserAccountStatus.ACTIVE);
         assertThat(buyerAccount.getSourceTradeId()).isEqualTo(tradeId);
+        assertThat(buyerAccount.getTitle()).isEqualTo("Savdodan kelgan akkount");
         assertThat(buyerAccount.getDescription()).isEqualTo("tavsif");
         assertThat(buyerAccount.getMediaMessageIds()).containsExactly("msg-1");
         // Sotuv sharti e'lonniki — xaridorning akkountiga ko'chmaydi.
@@ -105,7 +106,7 @@ class AccountTradeHandoverTest {
                 .thenReturn(Optional.of(UserAccount.builder().id(UUID.randomUUID()).ownerId(buyerId).build()));
         when(pendingEmails.findByTradeIdAndUserId(tradeId, sellerId)).thenReturn(Optional.empty());
 
-        link.onTradeSucceeded(tradeId, listingId, buyerId, sellerId);
+        link.onTradeSucceeded(tradeId, listingId, buyerId, sellerId, null);
 
         // Takroriy hodisa: na sotuvchining akkounti qayta arxivlanadi,
         // na xaridorga ikkinchi kartochka ochiladi.
@@ -124,7 +125,7 @@ class AccountTradeHandoverTest {
         when(pendingEmails.findByTradeIdAndUserId(tradeId, sellerId)).thenReturn(Optional.empty());
         when(accounts.saveAndFlush(any(UserAccount.class))).thenAnswer(i -> i.getArgument(0));
 
-        link.onTradeSucceeded(tradeId, listingId, buyerId, sellerId);
+        link.onTradeSucceeded(tradeId, listingId, buyerId, sellerId, null);
 
         ArgumentCaptor<UserAccount> saved = ArgumentCaptor.forClass(UserAccount.class);
         verify(accounts).saveAndFlush(saved.capture());
@@ -143,7 +144,7 @@ class AccountTradeHandoverTest {
                 .thenReturn(Optional.of(UserAccount.builder().id(UUID.randomUUID()).ownerId(buyerId).build()));
         when(accounts.saveAndFlush(any(UserAccount.class))).thenAnswer(i -> i.getArgument(0));
 
-        link.onTradeSucceeded(tradeId, listingId, buyerId, sellerId);
+        link.onTradeSucceeded(tradeId, listingId, buyerId, sellerId, null);
 
         ArgumentCaptor<UserAccount> saved = ArgumentCaptor.forClass(UserAccount.class);
         verify(accounts).saveAndFlush(saved.capture());

@@ -20,9 +20,10 @@ import static org.mockito.Mockito.when;
 
 class TradeSucceededPublishTest {
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(uz.efbazaar.trade.trade.domain.TradeKind.class)
     @DisplayName("the event carries both parties and the mode")
-    void publishesBothParties() {
+    void publishesBothParties(uz.efbazaar.trade.trade.domain.TradeKind kind) {
         @SuppressWarnings("unchecked")
         KafkaTemplate<String, Object> kafka = mock(KafkaTemplate.class);
         // doSend chains whenComplete on the returned future, so a bare mock
@@ -38,6 +39,7 @@ class TradeSucceededPublishTest {
         trade.setBuyerId(UUID.randomUUID());
         trade.setSellerId(UUID.randomUUID());
         trade.setMode(TradeMode.SMART);
+        trade.setKind(kind);
 
         publisher.tradeSucceeded(trade);
 
@@ -56,6 +58,7 @@ class TradeSucceededPublishTest {
                     assertThat(e.buyerId()).isEqualTo(trade.getBuyerId());
                     assertThat(e.sellerId()).isEqualTo(trade.getSellerId());
                     assertThat(e.mode()).isEqualTo("SMART");
+                    assertThat(e.kind()).isEqualTo(kind.name());
                     assertThat(e.occurredAt()).isNotNull();
                 });
     }

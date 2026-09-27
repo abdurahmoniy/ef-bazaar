@@ -51,7 +51,14 @@ export async function GET(
     return NextResponse.json({ error: 'video_fetch_failed' }, { status: 502 });
   }
 
-  if (!upstreamResponse.ok && upstreamResponse.status !== 206) {
+  if (upstreamResponse.status === 416) {
+    const rangeHeaders = new Headers({ 'Cache-Control': 'no-store' });
+    const contentRange = upstreamResponse.headers.get('content-range');
+    if (contentRange) rangeHeaders.set('Content-Range', contentRange);
+    return new NextResponse(null, { status: 416, headers: rangeHeaders });
+  }
+
+  if (!upstreamResponse.ok) {
     return NextResponse.json(
       { error: 'upstream_error', status: upstreamResponse.status },
       { status: upstreamResponse.status },
@@ -60,9 +67,14 @@ export async function GET(
 
   const responseHeaders = new Headers();
   // Ensure inline video playback headers
-  responseHeaders.set('Content-Type', 'video/mp4');
+  const contentType = upstreamResponse.headers.get('content-type');
+  const isMultipartRange = upstreamResponse.status === 206
+    && contentType?.split(';')[0].trim().toLowerCase() === 'multipart/byteranges';
+  responseHeaders.set('Content-Type',
+    contentType && (contentType.startsWith('video/') || isMultipartRange) ? contentType : 'video/mp4');
   responseHeaders.set('Content-Disposition', 'inline');
-  responseHeaders.set('Accept-Ranges', 'bytes');
+  const acceptRanges = upstreamResponse.headers.get('accept-ranges');
+  if (acceptRanges) responseHeaders.set('Accept-Ranges', acceptRanges);
   responseHeaders.set('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
 
   const contentRange = upstreamResponse.headers.get('content-range');
@@ -71,7 +83,7 @@ export async function GET(
   const contentLength = upstreamResponse.headers.get('content-length');
   if (contentLength) responseHeaders.set('Content-Length', contentLength);
 
-  return new NextResponse(upstreamResponse.body, {
+  return new NextResponse(request.method === 'HEAD' ? null : upstreamResponse.body, {
     status: upstreamResponse.status,
     statusText: upstreamResponse.statusText,
     headers: responseHeaders,

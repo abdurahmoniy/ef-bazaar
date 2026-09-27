@@ -84,14 +84,14 @@ export function ListingLikeButton({
       aria-pressed={liked}
       aria-label={liked ? 'Sevimlilardan olib tashlash' : "Sevimlilarga qo'shish"}
       className={cn(
-        'inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-full bg-black/60 px-2 text-[11px] font-semibold text-white backdrop-blur transition',
+        'inline-flex min-h-8 min-w-8 items-center justify-center gap-0.5 rounded-full bg-black/60 px-2 text-[11px] font-semibold text-white backdrop-blur transition',
         'cursor-pointer touch-manipulation hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 active:bg-black/85',
         liked && 'bg-primary/90 hover:bg-primary',
         isPending && 'cursor-wait opacity-70',
         className,
       )}
     >
-      <Heart className={cn('h-4 w-4', liked && 'fill-white text-white')} />
+      <Heart className={cn('h-3.5 w-3.5', liked && 'fill-white text-white')} />
       {count > 0 && <span>{formatCompactNumber(count)}</span>}
     </button>
   );

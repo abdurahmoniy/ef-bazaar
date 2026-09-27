@@ -112,6 +112,11 @@ public class Trade {
     @Column(name = "email_change_verification_code_at")
     private Instant emailChangeVerificationCodeAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "admin_fee_payer", nullable = false, updatable = false, length = 8)
+    @Builder.Default
+    private AdminFeePayer adminFeePayer = AdminFeePayer.SELLER;
+
     // ----- human trade-admin mode -----
 
     @Enumerated(EnumType.STRING)

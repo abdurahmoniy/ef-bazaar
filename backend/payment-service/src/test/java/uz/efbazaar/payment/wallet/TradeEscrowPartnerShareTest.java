@@ -43,7 +43,10 @@ class TradeEscrowPartnerShareTest {
     void setUp() {
         ledger = mock(LedgerService.class);
         commissionService = mock(TradeCommissionService.class);
-        escrow = new TradeEscrowService(ledger, commissionService);
+        var terms = mock(uz.efbazaar.payment.wallet.repository.TradeEscrowTermsRepository.class);
+        when(terms.findForUpdate(tradeId)).thenReturn(java.util.Optional.of(
+                new uz.efbazaar.payment.wallet.repository.TradeEscrowTermsRepository.Terms(100_000L, 1_000_000L, 0, 900_000L, null)));
+        escrow = new TradeEscrowService(ledger, commissionService, terms);
         // settle and release both no-op on a trade that was never held.
         when(ledger.hasPosted(anyString())).thenReturn(true);
     }

@@ -80,7 +80,7 @@ export function ChatView({
   initialPendingProposal = null,
 }: ChatViewProps) {
   const router = useRouter();
-  const connected = useChatConnection(viewerId);
+  const { connected, networkOnline } = useChatConnection(viewerId);
   const queryClient = useQueryClient();
   const [chat, setChat] = useState(() => {
     const inboxKey = chatKeys.inbox(viewerId);
@@ -369,7 +369,7 @@ export function ChatView({
                 <p className="truncate text-[15px] font-semibold text-foreground">{name}</p>
                 {chat.important && <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-400" aria-label="Muhim" />}
               </div>
-              <ChatActivityStatus activity={activity} />
+              <ChatActivityStatus activity={activity} connected={connected} networkOnline={networkOnline} updating={messagesQuery.isFetching} />
             </div>
           </Link>
           <Button type="button" variant="ghost" className="h-11 w-11 shrink-0 p-0" aria-label="Chatda qidirish" onClick={() => setSearchOpen(value => !value)}><Search className="h-5 w-5" /></Button>
@@ -379,9 +379,6 @@ export function ChatView({
         {searchOpen && <ChatSearch messages={messages} onJump={jumpToMessage} onClose={() => setSearchOpen(false)} loading={messagesQuery.isFetching}
           error={messagesQuery.isError ? 'Qidirish uchun barcha xabarlarni yuklab bo‘lmadi. Xabarlarni qayta yuklang.' : null} />}
         <TradePinnedBar />
-        {!connected && <div role="status" className="flex shrink-0 items-center justify-center gap-2 border-b bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
-          <LoaderCircle aria-hidden className="h-3 w-3 animate-spin motion-reduce:animate-none" /> Chatga ulanmoqda…
-        </div>}
         <TradeSyncStatus />
         <TradePanel />
         {messagesQuery.isError && (
@@ -416,6 +413,14 @@ export function ChatView({
         {messages.map((message, index) => {
           const mine = message.senderId === viewerId;
           const hasAttachment = Boolean(message.attachmentType && message.attachmentFileId);
+          const timeLabel = formatMessageTime(message.createdAt);
+          const metadata = (
+            <span className="chat-message-meta" data-overlay={hasAttachment && message.attachmentType === 'IMAGE' && !message.content}>
+              {message.editedAt && <span>tahrirlangan</span>}
+              <time dateTime={message.createdAt}>{timeLabel}</time>
+              {mine && <MessageReadReceipt createdAt={message.createdAt} lastReadAt={partnerLastReadAt} />}
+            </span>
+          );
           const prev = index > 0 ? messages[index - 1] : null;
           const newDay = !prev || uzDayKey(prev.createdAt) !== uzDayKey(message.createdAt);
           const startsGroup = !canGroupMessages(messages[index - 1], message, firstUnreadId);
@@ -484,16 +489,14 @@ export function ChatView({
                         <MessageAttachment message={message} mine={mine} />
                       </span>
                     )}
-                    {message.content && (
-                      <span className={cn('whitespace-pre-wrap break-words', hasAttachment && 'block px-2 pb-1 pt-1.5')}>
+                    {message.content ? (
+                      <span className="chat-message-text whitespace-pre-wrap break-words" data-caption={hasAttachment}>
                         {message.content}
+                        <span aria-hidden="true" className="chat-message-meta-space" data-mine={mine}
+                          data-label={`${message.editedAt ? 'tahrirlangan ' : ''}${timeLabel}`} />
+                        {metadata}
                       </span>
-                    )}
-                    <span className={cn('chat-message-meta', hasAttachment && 'px-2 pb-0.5')}>
-                      {message.editedAt && <span>tahrirlangan</span>}
-                      <time dateTime={message.createdAt}>{formatMessageTime(message.createdAt)}</time>
-                      {mine && <MessageReadReceipt createdAt={message.createdAt} lastReadAt={partnerLastReadAt} />}
-                    </span>
+                    ) : metadata}
                   </div>
                 </div>
               )}

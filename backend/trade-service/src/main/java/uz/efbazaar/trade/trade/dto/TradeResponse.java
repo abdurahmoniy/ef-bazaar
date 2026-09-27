@@ -7,6 +7,7 @@ import uz.efbazaar.trade.trade.domain.TradeState;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import uz.efbazaar.trade.trade.domain.AdminFeePayer;
 
 public record TradeResponse(
         UUID id,
@@ -46,14 +47,13 @@ public record TradeResponse(
          * Konami uni pochtaga yuboradi, pochta esa hali platformada.
          */
         String loginVerificationCode,
-        /**
-         * Kirish kodisiz "Tasdiqlash" qachondan ochiladi.
-         *
-         * <p>Kod kelgan bo'lsa null — tugma allaqachon ochiq. 2FA so'ralmagan
-         * akkountlarda odam qamalib qolmasligi uchun shu muddat bor.
-         */
+        /** Legacy response field: always null; Konami login codes are optional. */
         Instant confirmUnlocksAt,
         /** Distinguishes a new contact from a request made before the trade finished. */
-        Instant updatedAt
-) {}
-
+        Instant updatedAt,
+        AdminFeePayer adminFeePayer
+) {
+    public TradeResponse(UUID id, TradeState state, UUID sellerId, UUID buyerId, long priceUzs, UUID mailboxId, String mailboxEmail, UUID chatId, Instant createdAt, Instant expiresAt, Instant stateDeadline, ParticipantRole role, UUID passwordMessageId, String emailChangeVerificationCode, TradeKind kind, List<TradeSideResponse> sides, String counterpartMailboxEmail, String loginVerificationCode, Instant confirmUnlocksAt, Instant updatedAt) {
+        this(id, state, sellerId, buyerId, priceUzs, mailboxId, mailboxEmail, chatId, createdAt, expiresAt, stateDeadline, role, passwordMessageId, emailChangeVerificationCode, kind, sides, counterpartMailboxEmail, loginVerificationCode, confirmUnlocksAt, updatedAt, AdminFeePayer.SELLER);
+    }
+}

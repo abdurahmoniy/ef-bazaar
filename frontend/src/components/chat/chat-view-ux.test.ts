@@ -1,4 +1,4 @@
-import { socketFixture } from '@/test/chat-socket-fixture';
+import { emitChatEvent, socketFixture } from '@/test/chat-socket-fixture';
 // @vitest-environment jsdom
 
 import { act, createElement } from 'react';
@@ -80,6 +80,101 @@ const message = (id: string, overrides: Partial<MessageResponse> = {}): MessageR
 });
 
 describe('conversation messages', () => {
+  it('prioritizes network availability and follows offline, online and socket events in the header', async () => {
+    const network = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    try {
+      await render('buyer', false, [message('existing')]);
+      const header = container.querySelector('header')!;
+      expect(header.textContent).toContain('Tarmoq kutilmoqda…');
+      await act(async () => emitChatEvent({ type: 'disconnected' }));
+      expect(header.textContent).toContain('Tarmoq kutilmoqda…');
+      network.mockReturnValue(true);
+      await act(async () => window.dispatchEvent(new Event('online')));
+      expect(header.textContent).toContain('Ulanmoqda…');
+      await act(async () => emitChatEvent({ type: 'connected' }));
+      expect(header.textContent).toContain('Savdo suhbati');
+      network.mockReturnValue(false);
+      await act(async () => window.dispatchEvent(new Event('offline')));
+      expect(header.textContent).toContain('Tarmoq kutilmoqda…');
+      expect(container.querySelector('[data-message-id="existing"]')).not.toBeNull();
+    } finally {
+      network.mockRestore();
+      onlineManager.setOnline(true);
+    }
+  });
+
+  it.each([200, 503])('shows updating only while messages are fetching, including completion with HTTP %s', async status => {
+    const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+    let finish!: (response: Response) => void;
+    const response = new Promise<Response>(resolve => { finish = resolve; });
+    vi.mocked(fetch).mockImplementation(async (...args) => {
+      if (String(args[0]).includes('/messages?')) return response;
+      if (String(args[0]).endsWith('/activity')) return Response.json({ online: true, typing: true, lastSeenAt: null, lastReadAt: null });
+      return originalFetch(...args);
+    });
+    await render('buyer', false, [message('existing')], undefined, 0);
+    const header = container.querySelector('header')!;
+    expect(header.querySelector('[role="status"]')?.textContent ?? '').toContain('Yangilanmoqda…');
+    expect(header.textContent).not.toContain('yozmoqda');
+    expect(container.querySelector('[data-message-id="existing"]')).not.toBeNull();
+    await act(async () => emitChatEvent({ type: 'disconnected' }));
+    expect(header.textContent).toContain('Ulanmoqda…');
+    await act(async () => emitChatEvent({ type: 'connected' }));
+    expect(header.textContent).toContain('Yangilanmoqda…');
+    await act(async () => {
+      finish(Response.json(status === 200 ? [message('existing')] : { message: 'Unavailable' }, { status }));
+    });
+    await vi.waitFor(async () => {
+      await act(async () => {});
+      expect(header.textContent).toContain('yozmoqda');
+      expect(header.textContent).not.toContain('Yangilanmoqda');
+    });
+    if (status === 503) expect(container.textContent).toContain('Xabarlarni yangilab bo‘lmadi');
+  });
+
+  it('shows connection progress in the header and restores activity after reconnecting', async () => {
+    const originalFetch = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (...args) => String(args[0]).endsWith('/activity')
+      ? Response.json({ online: true, typing: false, lastSeenAt: null, lastReadAt: null })
+      : originalFetch(...args));
+    socketFixture.connected = false;
+    try {
+      await render('buyer', false, [message('existing')]);
+      const header = container.querySelector('header')!;
+      expect(header.querySelector('[role="status"]')?.textContent ?? '').toContain('Ulanmoqda');
+      expect(header.textContent).not.toContain('Onlayn');
+      expect(container.textContent).not.toContain('Chatga ulanmoqda');
+      expect(container.querySelector('[data-message-id="existing"]')).not.toBeNull();
+      await act(async () => emitChatEvent({ type: 'connected' }));
+      expect(header.textContent).toContain('Onlayn');
+      expect(header.textContent).not.toContain('Ulanmoqda');
+      await act(async () => emitChatEvent({ type: 'disconnected' }));
+      expect(header.querySelector('[role="status"]')?.textContent ?? '').toContain('Ulanmoqda');
+    } finally {
+      socketFixture.connected = true;
+    }
+  });
+
+  it('keeps one accessible timestamp with the text or caption, and overlays it only on captionless photos', async () => {
+    await render('buyer', false, [
+      message('short', { senderId: 'buyer', content: 'Salom 👋' }),
+      message('long', { senderId: 'buyer', content: 'Akkount haqida batafsil ma’lumot bera olasizmi? Kartalarini ham ko‘rmoqchiman. Rahmat!', editedAt: '2026-09-19T10:01:00Z' }),
+      message('lines', { content: 'Birinchi qator\nIkkinchi qator' }),
+      message('caption', { content: 'Mana akkount rasmi', attachmentType: 'IMAGE', attachmentFileId: 'photo-id' }),
+      message('photo', { senderId: 'buyer', content: '', attachmentType: 'IMAGE', attachmentFileId: 'photo-id' }),
+    ]);
+    for (const id of ['short', 'long', 'lines', 'caption']) {
+      const bubble = container.querySelector(`[data-message-id="${id}"] .chat-message-bubble`)!;
+      expect(bubble.querySelectorAll('time')).toHaveLength(1);
+      expect(bubble.querySelector('.chat-message-text time')).not.toBeNull();
+      expect(bubble.querySelector('.chat-message-meta-space')?.getAttribute('aria-hidden')).toBe('true');
+    }
+    const photo = container.querySelector('[data-message-id="photo"] .chat-message-bubble')!;
+    expect(photo.querySelector('[data-overlay="true"] time')).not.toBeNull();
+    expect(photo.querySelector('.chat-message-meta-space')).toBeNull();
+    expect(container.querySelectorAll('[aria-label="Yuborilgan"]')).toHaveLength(3);
+  });
+
   it('keeps each timestamp and edited status inside its grouped bubble', async () => {
     await render('buyer', false, [message('one'), message('two', {
       createdAt: '2026-09-19T10:01:00Z', editedAt: '2026-09-19T10:02:00Z',

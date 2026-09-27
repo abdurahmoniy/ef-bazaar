@@ -208,3 +208,14 @@ vi.mock('@/lib/chat-socket', async importOriginal => ({
   getChatSocket: () => socketFixture,
   closeOtherChatSockets: () => {},
 }));
+
+it('retains authoritative fee terms through optimistic creation and server refresh', async () => {
+  pending = null; request = requestFrom('buyer');
+  await mount('seller');
+  const quote = { adminFeePayer: 'SPLIT' as const, adminFeeTiyin: 500001, buyerHoldTiyin: 250001, sellerHoldTiyin: 250000 };
+  await act(async () => state.handleProposalCreated({ proposalId: 'proposal', expiresAt: '', ...quote }, 0, 'SMART', undefined, 'SWAP'));
+  expect(state.proposal).toMatchObject(quote);
+  pending = { ...offer, kind: 'SWAP', amountUzs: 0, ...quote };
+  await act(async () => state.reload());
+  expect(state.proposal).toMatchObject(quote);
+});

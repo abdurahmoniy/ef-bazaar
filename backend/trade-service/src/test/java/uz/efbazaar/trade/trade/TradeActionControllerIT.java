@@ -3,6 +3,8 @@ package uz.efbazaar.trade.trade;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
+import uz.efbazaar.trade.testsupport.StubEscrowConfig;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
@@ -21,6 +23,7 @@ import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUse
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(StubEscrowConfig.class)
 class TradeActionControllerIT extends AbstractIntegrationIT {
 
     @Autowired MockMvc mvc;
@@ -115,15 +118,9 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
                 .andExpect(status().isOk());
     }
 
-    /**
-     * Akkountni ko'rmasdan tasdiqlab bo'lmaydi.
-     *
-     * <p>Kirish kodi "kirib ko'rdim" degan yagona belgi. U kelmaguncha
-     * tasdiqlash yopiq; rad etish esa ochiq qoladi, chunki kira olmagan odam
-     * aynan shuni bosadi.
-     */
+    /** Konami can allow login without emailing a code; receipt is not proof of inspection. */
     @Test
-    void confirmingBeforeTheLoginCodeIsRefused() throws Exception {
+    void bothSwapPartiesCanConfirmWithoutWaitingForALoginCode() throws Exception {
         UUID seller = UUID.randomUUID();
         UUID buyer = UUID.randomUUID();
         var t = trades.openTrade(UUID.randomUUID(), seller, buyer, 0L, null, null,
@@ -136,10 +133,57 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
         seed(t.id(), TradeState.WAITING_BUYER_VERIFY);
 
         mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/confirm").with(asUser(seller)))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/confirm").with(asUser(buyer)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void saleBuyerCanConfirmImmediatelyWithoutCodeButOtherActorsAndStagesCannot() throws Exception {
+        UUID seller = UUID.randomUUID();
+        UUID buyer = UUID.randomUUID();
+        var t = trades.openTrade(seller, buyer, 500_000L,
+                UUID.randomUUID(), UUID.randomUUID(), null);
+        leaveInitiated(trades, t.id());
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/confirm").with(asUser(buyer)))
+                .andExpect(status().isConflict());
+        seed(t.id(), TradeState.WAITING_BUYER_VERIFY);
+        assertThat(trades.toResponseFor(t.id(), buyer).loginVerificationCode()).isNull();
+        assertThat(trades.toResponseFor(t.id(), buyer).confirmUnlocksAt()).isNull();
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/confirm").with(asUser(seller)))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/confirm").with(asUser(UUID.randomUUID())))
+                .andExpect(status().isNotFound());
+        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/confirm").with(asUser(buyer)))
+                .andExpect(status().isOk());
+        assertThat(repo.findById(t.id()).orElseThrow().getState()).isEqualTo(TradeState.SUCCESS);
+        assertThat(StubEscrowConfig.calls).contains("settle:" + t.id());
+    }
+
+    @Test
+    void emailChangeRetryChecksParticipantsAndStageAndSupportsBothSwapSides() throws Exception {
+        UUID seller = UUID.randomUUID(), buyer = UUID.randomUUID();
+        var sale = trades.openTrade(seller, buyer, 500_000L, null, null, null);
+        reachEmailChange(sale.id());
+        mvc.perform(post("/api/v1/trades/" + sale.id() + "/actions/email-change-code").with(asUser(seller)))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/trades/" + sale.id() + "/actions/email-change-code").with(asUser(buyer)))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/trades/" + sale.id() + "/actions/email-change-code").with(asUser(UUID.randomUUID())))
+                .andExpect(status().isNotFound());
+        seed(sale.id(), TradeState.WAITING_BUYER_VERIFY);
+        mvc.perform(post("/api/v1/trades/" + sale.id() + "/actions/email-change-code").with(asUser(seller)))
                 .andExpect(status().isConflict());
 
-        mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/reject").with(asUser(seller)))
-                .andExpect(status().isOk());
+        var swap = trades.openTrade(UUID.randomUUID(), seller, buyer, 0L, null, null,
+                UUID.randomUUID(), null, uz.efbazaar.trade.trade.domain.TradeMode.SMART,
+                null, null, uz.efbazaar.trade.trade.domain.TradeKind.SWAP, 500_000L);
+        reachEmailChange(swap.id());
+        for (UUID who : new UUID[]{seller, buyer}) {
+            mvc.perform(post("/api/v1/trades/" + swap.id() + "/actions/email-change-code").with(asUser(who)))
+                    .andExpect(status().isOk());
+        }
     }
 
     /** Drives the trade to WAITING_EMAIL_CHANGE without leaning on Kafka timing. */

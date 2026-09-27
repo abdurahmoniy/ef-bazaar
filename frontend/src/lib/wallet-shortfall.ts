@@ -12,7 +12,12 @@
 const TIYIN_PER_SOM = 100;
 
 export function shortfallSom(priceSom: number, availableTiyin: number): number {
-  const missingTiyin = priceSom * TIYIN_PER_SOM - availableTiyin;
+  return shortfallTiyin(priceSom * TIYIN_PER_SOM, availableTiyin);
+}
+
+/** Compare server quotes in integer tiyin without a floating-point round trip. */
+export function shortfallTiyin(requiredTiyin: number, availableTiyin: number): number {
+  const missingTiyin = requiredTiyin - availableTiyin;
   if (missingTiyin <= 0) return 0;
   // Round up: topping up the exact tiyin still leaves the accept a tiyin short
   // if the balance carries a remainder, and so'm is the unit the user pays in.

@@ -10,11 +10,14 @@ import type { InvoiceResponse } from '@/lib/payment-types';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import { formatTiyin } from '@/lib/money';
 import { MIN_TOP_UP_UZS } from '@/lib/top-up-draft';
-import { isInsufficientFunds, shortfallSom } from '@/lib/wallet-shortfall';
+import { isInsufficientFunds, shortfallTiyin } from '@/lib/wallet-shortfall';
+import { proposalHoldTiyin } from '@/lib/trade-fee';
+import { TradeFeeTerms } from './trade-fee-terms';
 import type { PendingProposal } from './trade-context';
 
 interface TradeAcceptPaymentProps {
   proposal: PendingProposal;
+  viewerId: string;
   unavailable?: boolean;
   onAccept: () => Promise<{ ok: true } | { ok: false; error: string }>;
   onAccepted: () => void;
@@ -23,7 +26,7 @@ interface TradeAcceptPaymentProps {
 }
 
 /** Funding the wallet and authorizing a trade are separate, explicit actions. */
-export function TradeAcceptPayment({ proposal, unavailable = false, onAccept, onAccepted, onClose, onBusyChange }: TradeAcceptPaymentProps) {
+export function TradeAcceptPayment({ proposal, viewerId, unavailable = false, onAccept, onAccepted, onClose, onBusyChange }: TradeAcceptPaymentProps) {
   const [balance, setBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -38,7 +41,8 @@ export function TradeAcceptPayment({ proposal, unavailable = false, onAccept, on
   const invoiceRequest = useRef(0);
   const offerUnavailable = useRef(unavailable);
   offerUnavailable.current = unavailable;
-  const missing = balance === null ? null : shortfallSom(proposal.priceUzs, balance);
+  const requiredTiyin = proposalHoldTiyin(proposal, viewerId);
+  const missing = balance === null ? null : shortfallTiyin(requiredTiyin, balance);
   const topUpAmount = missing === null ? 0 : Math.max(MIN_TOP_UP_UZS, missing);
 
   const refreshWallet = useCallback(async () => {
@@ -67,7 +71,7 @@ export function TradeAcceptPayment({ proposal, unavailable = false, onAccept, on
     const invoiceRead = ++invoiceRequest.current;
     void (async () => {
       const available = await refreshWallet();
-      if (!active || available === null || shortfallSom(proposal.priceUzs, available) === 0) return;
+      if (!active || available === null || shortfallTiyin(requiredTiyin, available) === 0) return;
       try {
         const existing = await getActiveInvoice();
         if (active && invoiceRead === invoiceRequest.current) setInvoice(existing);
@@ -82,7 +86,7 @@ export function TradeAcceptPayment({ proposal, unavailable = false, onAccept, on
       mounted.current = false;
       document.removeEventListener('visibilitychange', onReturn);
     };
-  }, [proposal.priceUzs, refreshWallet]);
+  }, [requiredTiyin, refreshWallet]);
 
   useEffect(() => {
     if (!Number.isFinite(deadline)) return;
@@ -114,7 +118,7 @@ export function TradeAcceptPayment({ proposal, unavailable = false, onAccept, on
         // Recheck after the click: a deposit may have arrived while the dialog was open.
         const available = await refreshWallet();
         if (available === null || !mounted.current || offerUnavailable.current || deadline <= Date.now()) return;
-        const shortfall = shortfallSom(proposal.priceUzs, available);
+        const shortfall = shortfallTiyin(requiredTiyin, available);
         if (shortfall === 0) return; // Funding never authorizes the trade implicitly.
         if (Math.max(MIN_TOP_UP_UZS, shortfall) !== topUpAmount) {
           setError('Balans yangilandi. To‘ldirish summasini tekshirib, qayta tasdiqlang.');
@@ -144,6 +148,7 @@ export function TradeAcceptPayment({ proposal, unavailable = false, onAccept, on
 
   return (
     <div className="space-y-4">
+      <TradeFeeTerms proposal={proposal} viewerId={viewerId} />
       <dl className="space-y-3 rounded-xl border border-border bg-muted/20 p-4 text-sm">
         <div className="flex flex-wrap justify-between gap-2">
           <dt className="text-muted-foreground">{proposal.kind === 'SWAP_SURCHARGE' ? 'Doplata' : 'Savdo summasi'}</dt>
@@ -159,6 +164,7 @@ export function TradeAcceptPayment({ proposal, unavailable = false, onAccept, on
         </div>}
       </dl>
 
+      <p className="text-sm font-semibold">Hamyondan jami: {formatTiyin(requiredTiyin)} so‘m</p>
       <p className="flex gap-2 rounded-xl bg-emerald-500/10 p-3 text-xs text-muted-foreground">
         <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
         To‘lash va boshlash tugmasini bosganingizda summa hamyoningizdan yechiladi va savdo yakunlanguncha platformada saqlanadi.
@@ -190,7 +196,7 @@ export function TradeAcceptPayment({ proposal, unavailable = false, onAccept, on
         {balance === null && !loading && <Button type="button" variant="outline" onClick={() => { setError(null); void refreshWallet(); }}>Qayta urinish</Button>}
         {invoice && <Button type="button" variant="outline" disabled={loading || busy} onClick={() => { setError(null); void refreshWallet(); }}>Balansni tekshirish</Button>}
         {!expired && !unavailable && balance !== null && (missing === 0 || !invoice) && <Button type="button" className="min-h-11 whitespace-normal" disabled={loading || busy} onClick={() => void submit()}>
-          {busy ? 'Bajarilmoqda…' : missing === 0 ? `${formatPriceUZS(proposal.priceUzs)} to‘lash va boshlash` : `${formatPriceUZS(topUpAmount)} to‘ldirish`}
+          {busy ? 'Bajarilmoqda…' : missing === 0 ? `${formatTiyin(requiredTiyin)} so‘m to‘lash va boshlash` : `${formatPriceUZS(topUpAmount)} to‘ldirish`}
         </Button>}
       </div>
     </div>

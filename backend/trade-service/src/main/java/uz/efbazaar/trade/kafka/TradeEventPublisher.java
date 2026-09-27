@@ -120,6 +120,7 @@ public class TradeEventPublisher {
                         trade.getSellerId(),
                         trade.getListingId(),
                         trade.getMode().name(),
+                        trade.getKind().name(),
                         Instant.now()));
     }
 
