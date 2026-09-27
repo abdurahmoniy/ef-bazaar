@@ -2,6 +2,7 @@ package uz.efbazaar.bot.api;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -37,7 +38,7 @@ public class VideoProxyController {
     private final TelegramApiClient telegram;
 
     @GetMapping("/{fileId}")
-    public ResponseEntity<byte[]> video(@PathVariable String fileId) {
+    public ResponseEntity<ByteArrayResource> video(@PathVariable String fileId) {
         Optional<String> filePath = telegram.getFilePath(fileId);
         if (filePath.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Video topilmadi");
@@ -53,7 +54,9 @@ public class VideoProxyController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
                 .header(HttpHeaders.ACCEPT_RANGES, "bytes")
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(7)).cachePublic())
-                .body(bytes.get());
+                // Resource responses let Spring MVC honor browser Range requests,
+                // including suffix reads for MP4 metadata and 416 responses.
+                .body(new ByteArrayResource(bytes.get()));
     }
 
     static MediaType guessContentType(String path) {

@@ -25,13 +25,11 @@ export interface GuideButtonDraft {
 }
 
 /**
- * Telegram boti orqali 50 MB dan kattasini yubora olmaydi.
- *
- * <p>Chegara backend'da ham bor — bu yerdagisi yuklashdan OLDIN aytish
- * uchun: 200 MB lik faylni tarmoqqa chiqarib, keyin rad etish adminning
- * bir necha daqiqasini yeydi.
+ * Match GuideVideoUploader's 20 MiB limit: Telegram can accept larger
+ * uploads, but getFile cannot download them for website playback.
+ * Reject before sending the file so the admin can compress it first.
  */
-export const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
 
 export const BUTTON_LABEL_MAX = 64;
 

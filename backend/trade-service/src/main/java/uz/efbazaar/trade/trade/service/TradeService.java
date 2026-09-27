@@ -23,6 +23,7 @@ import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.domain.TradeMessage;
 import uz.efbazaar.trade.trade.domain.TradeMessageType;
 import uz.efbazaar.trade.trade.domain.TradeKind;
+import uz.efbazaar.trade.trade.domain.AdminFeePayer;
 import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.domain.TradeSide;
 import uz.efbazaar.trade.trade.domain.TradeState;
@@ -109,6 +110,15 @@ public class TradeService {
                                    UUID chatId, TradeMode mode,
                                    UUID assignedAdminId, Long adminFeeUzs,
                                    TradeKind kind, long feeBaseUzs) {
+        return openTrade(tradeId, sellerId, buyerId, priceUzs, sellerCardId, buyerCardId, listingId,
+                chatId, mode, assignedAdminId, adminFeeUzs, kind, feeBaseUzs, AdminFeePayer.SELLER);
+    }
+
+    @Transactional
+    public TradeResponse openTrade(UUID tradeId, UUID sellerId, UUID buyerId, long priceUzs,
+                                   UUID sellerCardId, UUID buyerCardId, UUID listingId,
+                                   UUID chatId, TradeMode mode, UUID assignedAdminId, Long adminFeeUzs,
+                                   TradeKind kind, long feeBaseUzs, AdminFeePayer adminFeePayer) {
         if (mode == TradeMode.HUMAN && assignedAdminId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Inson admin savdosi uchun admin tanlanishi kerak");
@@ -155,6 +165,7 @@ public class TradeService {
                 .mode(mode)
                 .kind(kind)
                 .feeBaseUzs(feeBaseUzs)
+                .adminFeePayer(adminFeePayer == null ? AdminFeePayer.SELLER : adminFeePayer)
                 .assignedAdminId(assignedAdminId)
                 .adminFeeUzs(adminFeeUzs)
                 .expiresAt(Instant.now().plus(Duration.ofHours(
@@ -262,6 +273,7 @@ public class TradeService {
         Trade t = trades.findByIdForUpdate(tradeId)
                 .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
         TradeState from = t.getState();
+        Map<ParticipantRole, String> previousTurns = turnSnapshot(t);
         // MAILBOX_PROVISIONED must only be driven by the worker's
         // email-provisioned response — otherwise any caller could advance
         // INITIATED -> WAITING_PAYMENT with a placeholder mailbox that has
@@ -291,18 +303,43 @@ public class TradeService {
             // party sees the other one move.
             broadcaster.publishStateChange(t.getId(),
                 toResponse(t, ParticipantRole.SELLER), toResponse(t, ParticipantRole.BUYER));
+            notifyNewTurns(t, previousTurns);
             return t;
         }
 
-        TradeState to = sm.transition(t.getMode(), from, event);
+        // A swap waits for both decisions, and either rejection vetoes success.
+        // The final event alone cannot decide it: reject then confirm must not
+        // transfer accounts that the first participant refused to exchange.
+        TradeEvent finalEvent = event;
+        if (t.getKind().isSwap()
+                && (event == TradeEvent.BUYER_CONFIRM || event == TradeEvent.BUYER_REJECT)) {
+            finalEvent = sideService.bothConfirmed(tradeId)
+                    ? TradeEvent.BUYER_CONFIRM : TradeEvent.BUYER_REJECT;
+        }
+        TradeState to = sm.transition(t.getMode(), from, finalEvent);
         t.setState(to);
-        handler.onEnter(t, to, actor, actorId, event);
+        handler.onEnter(t, to, actor, actorId, finalEvent);
         trades.save(t);
         audit.record(t.getId(), actor, actorId, "STATE_TRANSITION",
                 Map.of("from", from.name(), "to", to.name(), "event", event.name()));
         broadcaster.publishStateChange(t.getId(),
                 toResponse(t, ParticipantRole.SELLER), toResponse(t, ParticipantRole.BUYER));
+        notifyNewTurns(t, previousTurns);
         return t;
+    }
+
+    private Map<ParticipantRole, String> turnSnapshot(Trade trade) {
+        return trade.getChatId() == null ? Map.of() : TradeTurns.snapshot(trade, sideService.of(trade.getId()));
+    }
+
+    private void notifyNewTurns(Trade trade, Map<ParticipantRole, String> previous) {
+        turnSnapshot(trade).forEach((role, key) -> {
+            if (!key.equals(previous.get(role))) {
+                UUID recipient = role == ParticipantRole.SELLER ? trade.getSellerId() : trade.getBuyerId();
+                events.tradeAction(trade.getId(), trade.getChatId(), recipient,
+                        TradeEvents.TradeActionType.YOUR_TURN, trade.getPriceUzs(), trade.getState().name(), trade.getKind());
+            }
+        });
     }
 
     public TradeResponse toResponse(Trade t, ParticipantRole role) {
@@ -320,7 +357,7 @@ public class TradeService {
                 sideService.of(t.getId()).stream().map(TradeSideResponse::of).toList(),
                 counterpartMailboxEmail,
                 loginCodeFor(t, role),
-                confirmUnlocksAt(t, role), t.getUpdatedAt());
+                null, t.getUpdatedAt(), t.getAdminFeePayer());
     }
 
     /** Kirish kodi faqat o'z tarafiniki: boshqasining kodi bu akkountga yaramaydi. */
@@ -329,20 +366,18 @@ public class TradeService {
         return sideService.of(t.getId(), role).map(TradeSide::getLoginCode).orElse(null);
     }
 
-    /**
-     * Kirish kodisiz tasdiqlash qachondan ochiladi.
-     *
-     * <p>null — cheklov yo'q: kod kelgan, holat boshqa, yoki savdo inson
-     * admin rejimida (u yerda Konami avtomatikasi umuman ishlamaydi).
-     */
-    private Instant confirmUnlocksAt(Trade t, ParticipantRole role) {
-        if (role == null || t.getState() != TradeState.WAITING_BUYER_VERIFY) return null;
-        if (t.getMode() != TradeMode.SMART) return null;
-        boolean codeSeen = sideService.of(t.getId(), role)
-                .map(side -> side.getLoginCodeAt() != null)
-                .orElse(false);
-        if (codeSeen) return null;
-        return handler.loginCodeGraceEndsAt(t);
+    /** Re-observe the code for the caller's own email-transfer mailbox. */
+    public void requestEmailChangeCode(Trade t, ParticipantRole role) {
+        if (t.getMode() != TradeMode.SMART || t.getState() != TradeState.WAITING_EMAIL_CHANGE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Kod faqat emailni o‘zgartirish bosqichida so‘raladi");
+        }
+        String email = resolveMailboxEmail(t, mailboxFor(t, role));
+        if (email == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Pochta hali tayyor emas — birozdan keyin urinib ko‘ring");
+        }
+        events.imapPollRequest(t.getId(), email, TradeEvents.ImapPurpose.WAIT_EMAIL_CHANGE_CODE);
     }
 
     /**
@@ -365,21 +400,6 @@ public class TradeService {
         }
         events.imapPollRequest(t.getId(), email, TradeEvents.ImapPurpose.WAIT_2FA_CODE);
         log.info("Login code polling re-requested: trade={} role={}", t.getId(), role);
-    }
-
-    /**
-     * Tasdiqlashdan oldin oluvchi akkountga kirib ko'rgan bo'lishi kerak.
-     *
-     * <p>Kirish kodi kelgani shuning belgisi. Kod kelmasa ham imtiyoz
-     * muddatidan keyin tugma ochiladi — 2FA so'ramaydigan akkountlar bor va
-     * ular odamni savdo ichida qamab qo'ymasligi kerak.
-     */
-    public void assertLoginCodeSeen(Trade t, ParticipantRole role) {
-        if (t.getMode() != TradeMode.SMART || t.getState() != TradeState.WAITING_BUYER_VERIFY) return;
-        Instant unlocksAt = confirmUnlocksAt(t, role);
-        if (unlocksAt == null || Instant.now().isAfter(unlocksAt)) return;
-        throw new ResponseStatusException(HttpStatus.CONFLICT,
-                "Avval akkountga kiring: Konami yuborgan kirish kodi panelingizda chiqadi");
     }
 
     /**

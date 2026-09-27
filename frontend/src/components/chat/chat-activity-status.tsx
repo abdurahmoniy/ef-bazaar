@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, CheckCheck } from 'lucide-react';
+import { Check, CheckCheck, LoaderCircle, WifiOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ChatActivity } from '@/hooks/use-chat-activity';
 import { formatDayLabel, formatLastSeen, formatMessageTime } from '@/lib/chat-format';
@@ -24,13 +24,26 @@ function LastSeenStatus({ lastSeen }: { lastSeen: string | null }) {
   </span>;
 }
 
-export function ChatActivityStatus({ activity }: { activity: ChatActivity | null }) {
-  const state = activity?.typing ? 'typing' : activity?.online ? 'online' : activity ? 'offline' : 'unknown';
+export function ChatActivityStatus({ activity, connected = true, networkOnline = true, updating = false }: {
+  activity: ChatActivity | null;
+  connected?: boolean;
+  networkOnline?: boolean;
+  updating?: boolean;
+}) {
+  const state = !networkOnline ? 'waiting-network' : !connected ? 'connecting' : updating ? 'updating'
+    : activity?.typing ? 'typing' : activity?.online ? 'online' : activity ? 'offline' : 'unknown';
+  const connectionStatus = state === 'waiting-network' || state === 'connecting' || state === 'updating';
   const lastSeen = activity?.lastSeenAt ?? null;
   return (
-    <span className="chat-activity-status mt-0.5 flex min-h-4 items-center gap-1.5 text-xs" data-state={state}>
+    <span className="chat-activity-status mt-0.5 flex min-h-4 items-center gap-1.5 text-xs" data-state={state} role={connectionStatus ? 'status' : undefined}>
       <span key={state} className="chat-status-transition inline-flex items-center gap-1.5">
-        {state === 'typing' ? <>
+        {state === 'waiting-network' ? <>
+          <WifiOff className="h-3 w-3 shrink-0" aria-hidden="true" />
+          Tarmoq kutilmoqda…
+        </> : state === 'connecting' || state === 'updating' ? <>
+          <LoaderCircle className="h-3 w-3 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          {state === 'updating' ? 'Yangilanmoqda…' : 'Ulanmoqda…'}
+        </> : state === 'typing' ? <>
           <span className="inline-flex items-center gap-0.5" aria-hidden="true">
             <i className="chat-typing-dot" /><i className="chat-typing-dot" /><i className="chat-typing-dot" />
           </span>

@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import uz.efbazaar.trade.trade.domain.TradeKind;
+import uz.efbazaar.trade.trade.domain.AdminFeePayer;
 import uz.efbazaar.trade.trade.domain.TradeMode;
 
 import java.io.IOException;
@@ -47,8 +48,20 @@ public record ProposalCreateRequest(
         /** Required when {@code mode == HUMAN}; must sit inside the admin's band. */
         @Min(1) Long adminFeeUzs,
         /** {@code null} is treated as {@link TradeKind#SALE}. */
-        TradeKind kind
+        TradeKind kind,
+        AdminFeePayer adminFeePayer
 ) {
+    public ProposalCreateRequest(UUID marketplaceChatId, UUID otherPartyUserId, UUID sellerId, UUID buyerId,
+                                 Long amountUzs, UUID cardId, UUID listingId, TradeMode mode, UUID adminId,
+                                 Long adminFeeUzs, TradeKind kind) {
+        this(marketplaceChatId, otherPartyUserId, sellerId, buyerId, amountUzs, cardId, listingId,
+                mode, adminId, adminFeeUzs, kind, null);
+    }
+
+    public AdminFeePayer payerOrDefault() {
+        return kindOrDefault().isSwap() && adminFeePayer != null ? adminFeePayer : AdminFeePayer.SELLER;
+    }
+
     @JsonIgnore
     @AssertTrue(message = "Sotuv va doplata miqdori kamida 5 000 so‘m, oddiy obmen miqdori 0 bo‘lishi kerak")
     public boolean isAmountValid() {

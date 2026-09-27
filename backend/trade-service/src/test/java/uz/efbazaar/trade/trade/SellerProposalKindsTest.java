@@ -86,10 +86,10 @@ class SellerProposalKindsTest {
                 null, null, null, null, null, null, null, null, null, kind, null, null, null, null, null);
         when(trades.openTrade(any(UUID.class), eq(seller), eq(buyer), eq(amount),
                 isNull(), isNull(), eq(listing), isNull(), eq(TradeMode.SMART),
-                isNull(), isNull(), eq(kind), eq(feeBase))).thenReturn(trade);
+                isNull(), isNull(), eq(kind), eq(feeBase), eq(uz.efbazaar.trade.trade.domain.AdminFeePayer.SELLER))).thenReturn(trade);
 
         assertThat(service.accept(buyer, proposal, null)).isSameAs(trade);
-        verify(escrow).hold(any(UUID.class), eq(buyer), eq(seller), eq(amount), eq(feeBase));
+        verify(escrow).hold(any(UUID.class), eq(buyer), eq(seller), eq(amount), eq(feeBase), eq(uz.efbazaar.trade.trade.domain.AdminFeePayer.SELLER), isNull());
         if (kind == TradeKind.SALE) verify(escrow).validateSaleAmount(amount);
         else verify(escrow, never()).validateSaleAmount(anyLong());
     }

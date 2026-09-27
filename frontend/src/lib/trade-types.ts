@@ -50,6 +50,15 @@ export type HumanTradeState = 'WAITING_ADMIN' | 'IN_PROGRESS' | 'WAITING_CLOSE_C
 
 /** What is being exchanged. Absent on responses from before swaps shipped. */
 export type TradeKind = 'SALE' | 'SWAP' | 'SWAP_SURCHARGE';
+export type AdminFeePayer = 'SELLER' | 'BUYER' | 'SPLIT';
+
+/** Server quote in tiyin; optional for historical proposals and human trades. */
+export interface TradeFeeQuote {
+  adminFeePayer?: AdminFeePayer | null;
+  adminFeeTiyin?: number | null;
+  buyerHoldTiyin?: number | null;
+  sellerHoldTiyin?: number | null;
+}
 
 export interface TradeSideProgress {
   role: ParticipantRole;
@@ -62,6 +71,7 @@ export interface TradeSideProgress {
 }
 
 export interface TradeResponse {
+  adminFeePayer?: AdminFeePayer | null;
   id: string;
   state: TradeState;
   kind?: TradeKind | null;
@@ -78,14 +88,11 @@ export interface TradeResponse {
   /**
    * Konami kirish kodi — FAQAT shu ko'ruvchi uchun.
    *
-   * <p>Akkountga kirishda Konami uni pochtaga yuboradi, pochta esa hali
+   * <p>Akkountga kirishda Konami kod so‘rasa uni pochtaga yuboradi, pochta esa hali
    * platformada: kodni smart admin o'qib beradi.
    */
   loginVerificationCode?: string | null;
-  /**
-   * Kirish kodisiz "Tasdiqlash" qachondan ochiladi. null — allaqachon ochiq
-   * (kod kelgan, yoki bosqich boshqa).
-   */
+  /** Legacy field: newer servers return null; confirmation does not require a login code. */
   confirmUnlocksAt?: string | null;
   /** Added by the human-admin feature. Older backend DTOs may omit it. */
   mode?: TradeMode | null;
@@ -134,7 +141,7 @@ export interface TradePage {
   offset: number;
 }
 
-export interface ProposalResponse {
+export interface ProposalResponse extends TradeFeeQuote {
   proposalId: string;
   expiresAt: string;
 }
@@ -146,7 +153,7 @@ export interface ProposalResponse {
  * fetch this on chat open so the buyer sees the seller's pending proposal
  * without any real-time channel.
  */
-export interface PendingProposalResponse {
+export interface PendingProposalResponse extends TradeFeeQuote {
   /** What the accepter is agreeing to. Absent from older backends. */
   kind?: TradeKind | null;
   proposalId: string;
@@ -181,6 +188,7 @@ export interface CardResponse {
 }
 
 export interface ProposalCreateRequest {
+  adminFeePayer?: AdminFeePayer;
   /** Omitted by older clients; the server then treats it as a sale. */
   kind?: TradeKind;
   marketplaceChatId: string;

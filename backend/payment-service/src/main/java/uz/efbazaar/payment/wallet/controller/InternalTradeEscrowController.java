@@ -14,6 +14,7 @@ import uz.efbazaar.payment.wallet.service.TradeCommissionService;
 import uz.efbazaar.payment.wallet.service.TradeEscrowService;
 
 import java.util.UUID;
+import uz.efbazaar.payment.wallet.domain.AdminFeePayer;
 
 /**
  * Escrow, called by trade-service as the trade advances.
@@ -46,7 +47,11 @@ public class InternalTradeEscrowController {
      */
     public record HoldRequest(@NotNull UUID buyerId, UUID sellerId,
                               @NotNull @PositiveOrZero Long priceTiyin,
-                              Long feeBaseTiyin) {}
+                              Long feeBaseTiyin, AdminFeePayer adminFeePayer, Long expectedFeeTiyin) {
+        public HoldRequest(UUID buyerId, UUID sellerId, Long priceTiyin, Long feeBaseTiyin) {
+            this(buyerId, sellerId, priceTiyin, feeBaseTiyin, null, null);
+        }
+    }
 
     /**
      * {@code partnerUserId} and {@code partnerPercentBp} are the advertising
@@ -65,7 +70,8 @@ public class InternalTradeEscrowController {
                                  Long feeBaseTiyin) {}
 
     /** What the proposer will actually receive, so the caller can show it. */
-    public record EscrowResult(long priceTiyin, long feeTiyin, long sellerProceedsTiyin) {}
+    public record EscrowResult(long priceTiyin, long feeTiyin, long sellerProceedsTiyin,
+                               long buyerHoldTiyin, long sellerHoldTiyin) {}
 
     private static long feeBase(Long declared, long priceTiyin) {
         return declared != null ? declared : priceTiyin;
@@ -74,8 +80,8 @@ public class InternalTradeEscrowController {
     @PostMapping("/hold")
     public EscrowResult hold(@PathVariable UUID tradeId, @Valid @RequestBody HoldRequest req) {
         long base = feeBase(req.feeBaseTiyin(), req.priceTiyin());
-        escrow.hold(tradeId, req.buyerId(), req.sellerId(), req.priceTiyin(), base);
-        return quote(req.priceTiyin(), base);
+        escrow.hold(tradeId, req.buyerId(), req.sellerId(), req.priceTiyin(), base, req.adminFeePayer(), req.expectedFeeTiyin());
+        return result(req.priceTiyin(), escrow.heldQuote(tradeId, req.priceTiyin(), base, req.adminFeePayer()));
     }
 
     @PostMapping("/settle")
@@ -86,7 +92,7 @@ public class InternalTradeEscrowController {
                 req.partnerPercentBp() == null ? 0 : req.partnerPercentBp());
         // The quote is unchanged: the partner's share comes out of the
         // platform's half of the fee, so what the seller receives is the same.
-        return quote(req.priceTiyin(), base);
+        return result(req.priceTiyin(), escrow.heldQuote(tradeId, req.priceTiyin(), base, null));
     }
 
     @PostMapping("/release")
@@ -95,14 +101,19 @@ public class InternalTradeEscrowController {
         escrow.release(tradeId, req.buyerId(), req.sellerId(), req.priceTiyin(), base);
         // No fee is taken on a release; report it as zero rather than quoting
         // one that was never charged.
-        return new EscrowResult(req.priceTiyin(), 0, req.priceTiyin());
+        return new EscrowResult(req.priceTiyin(), 0, req.priceTiyin(), 0, 0);
     }
 
-    private EscrowResult quote(long priceTiyin, long feeBaseTiyin) {
-        long fee = commissionService.feeTiyin(feeBaseTiyin);
-        // May be negative on a swap whose fee outruns the surcharge: the
-        // proposer funds the difference, and reporting it as zero would hide
-        // that from the caller's confirmation screen.
-        return new EscrowResult(priceTiyin, fee, priceTiyin - fee);
+    @PostMapping("/quote")
+    public EscrowResult quote(@PathVariable UUID tradeId, @Valid @RequestBody HoldRequest req) {
+        return quote(req.priceTiyin(), feeBase(req.feeBaseTiyin(), req.priceTiyin()), req.adminFeePayer());
+    }
+
+    private EscrowResult quote(long price, long base, AdminFeePayer payer) {
+        return result(price, escrow.quote(price, base, payer));
+    }
+
+    private EscrowResult result(long price, uz.efbazaar.payment.wallet.repository.TradeEscrowTermsRepository.Terms q) {
+        return new EscrowResult(price, q.fee(), q.sellerProceeds(), q.buyerHold(), q.sellerHold());
     }
 }

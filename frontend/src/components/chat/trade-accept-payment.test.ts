@@ -191,3 +191,35 @@ it('lets the buyer close the dialog without creating an invoice or accepting', a
   expect(context.setShowAcceptModal).toHaveBeenCalledWith(false);
   expect(calls('/invoices')).toHaveLength(0); expect(calls('/accept')).toHaveLength(0);
 });
+
+it.each(['SWAP', 'SWAP_SURCHARGE'] as const)('includes the quoted buyer admin fee hold for %s', async kind => {
+  Object.assign(context.proposal!, { kind, priceUzs: kind === 'SWAP' ? 0 : 5000,
+    adminFeePayer: 'BUYER', adminFeeTiyin: 500000, buyerHoldTiyin: kind === 'SWAP' ? 500000 : 1000000, sellerHoldTiyin: 0 });
+  available = 0;
+  await render();
+  expect(text()).toContain('Admin haqini');
+  expect(button('to‘ldirish')).toBeDefined();
+  expect(text()).toContain(kind === 'SWAP' ? '5 000' : '10 000');
+  expect(calls('/accept')).toHaveLength(0);
+});
+
+it('uses the seller quote when a seller accepts a buyer initiated swap', async () => {
+  context.viewerId = 'seller';
+  Object.assign(context.proposal!, { proposerUserId: 'buyer', kind: 'SWAP', priceUzs: 0,
+    adminFeePayer: 'SPLIT', adminFeeTiyin: 500000, buyerHoldTiyin: 250000, sellerHoldTiyin: 250000 });
+  available = 250000;
+  await render();
+  expect(text()).toContain('2 500');
+  await click('to‘lash va boshlash');
+  expect(calls('/accept')).toHaveLength(1);
+});
+
+it('accepts an exact odd-tiyin wallet balance without inventing a shortfall', async () => {
+  Object.assign(context.proposal!, { kind: 'SWAP', priceUzs: 0,
+    adminFeePayer: 'SPLIT', adminFeeTiyin: 500001, buyerHoldTiyin: 250001, sellerHoldTiyin: 250000 });
+  available = 250001;
+  await render();
+  expect(button('to‘ldirish')).toBeUndefined();
+  await click('to‘lash va boshlash');
+  expect(calls('/accept')).toHaveLength(1);
+});

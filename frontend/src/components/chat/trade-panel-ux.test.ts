@@ -94,6 +94,19 @@ describe('seller proposal trade types', () => {
     );
   }
 
+  it.each([['Men to‘layman', 'SELLER'], ['Sherigim to‘laydi', 'BUYER'], ['Teng bo‘lamiz', 'SPLIT']])('persists swap fee choice %s', async (label, payer) => {
+    prepareProposal('BOTH');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ proposalId: 'proposal', expiresAt: '' })));
+    await render();
+    await act(async () => buttonWith('Obmen').click());
+    const select = dialog().querySelector<HTMLSelectElement>('[aria-label="Admin haqini kim to‘laydi?"]');
+    expect(select).not.toBeNull();
+    expect(select!.textContent).toContain(label);
+    await act(async () => { select!.value = payer; select!.dispatchEvent(new Event('change', { bubbles: true })); });
+    await act(async () => dialog().querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toMatchObject({ kind: 'SWAP', adminFeePayer: payer });
+  });
+
   async function enterAmount(selector: string, value: string) {
     const input = dialog().querySelector<HTMLInputElement>(selector)!;
     await act(async () => {
@@ -216,7 +229,7 @@ describe('seller proposal trade types', () => {
     await act(async () => dialog().querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
     expect(fetch).toHaveBeenCalledWith('/api/trade/v1/trades/proposals', expect.objectContaining({
       body: JSON.stringify({ marketplaceChatId: 'chat', otherPartyUserId: 'buyer', sellerId: 'seller',
-        buyerId: 'buyer', amountUzs: 0, mode: 'SMART', kind: 'SWAP', listingId: 'listing' }),
+        buyerId: 'buyer', amountUzs: 0, mode: 'SMART', kind: 'SWAP', adminFeePayer: 'SELLER', listingId: 'listing' }),
     }));
     expect(context.handleProposalCreated).toHaveBeenCalledWith(
       { proposalId: 'proposal', expiresAt: '' }, 0, 'SMART', undefined, 'SWAP',
@@ -272,6 +285,16 @@ describe('trade details', () => {
     expect(dialog().textContent).not.toContain(email);
   });
 
+  it('keeps linked active trade actions above the timeline when opened from a proposal message', async () => {
+    context.viewedProposal = { id: 'accepted', chatId: 'chat', senderId: 'seller', content: '20000',
+      createdAt: '2026-09-25T10:00:00Z', proposalId: 'offer', proposalOutcome: 'ACCEPTED',
+      proposalTradeId: context.activeTrade!.id, messageType: 'TRADE_PROPOSAL' };
+    await render();
+    const actions = dialog().querySelector('[aria-label="Savdo jarayoni"]')!;
+    const timeline = dialog().querySelector('[data-step]')!;
+    expect(actions.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('keeps legacy accepted requests inspectable without inventing a linked trade', async () => {
     context.viewedProposal = { id: 'old-message', chatId: 'chat', senderId: 'seller', content: '5000',
       createdAt: '2026-09-18T10:05:00Z', proposalOutcome: 'ACCEPTED' };
@@ -321,6 +344,31 @@ describe('trade details', () => {
     expect(dialog().querySelector('[data-step="ACCEPTED"]')?.getAttribute('data-status')).toBe('current');
     expect(dialog().querySelector('[data-step="WAITING_PASSWORD"]')?.getAttribute('data-status')).toBe('next');
     expect(buttonWith('Qabul qilish')).toBeDefined();
+  });
+
+  it.each([null, '112233'])('retries email-change codes before and after delivery (%s)', async code => {
+    context.activeTrade!.emailChangeVerificationCode = code;
+    await render();
+    const retry = buttonWith('Kodni qayta so‘rash');
+    expect(retry).toBeDefined();
+    let finish!: (response: Response) => void;
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => new Promise<Response>(resolve => { finish = resolve; })));
+    await act(async () => retry.click());
+    expect(retry.disabled).toBe(true);
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/actions/email-change-code'), expect.objectContaining({ method: 'POST' }));
+    await act(async () => finish(Response.json({})));
+    expect(context.reload).toHaveBeenCalled();
+    expect(retry.disabled).toBe(false);
+  });
+
+  it('shows email-code retry failures and allows another attempt', async () => {
+    await render();
+    const retry = buttonWith('Kodni qayta so‘rash');
+    expect(retry).toBeDefined();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ message: 'Pochta hali tayyor emas' }, { status: 409 })));
+    await act(async () => retry.click());
+    expect(dialog().textContent).toContain('Pochta hali tayyor emas');
+    expect(retry.disabled).toBe(false);
   });
 
   function prepareBuyer() {
@@ -386,7 +434,7 @@ describe('trade details', () => {
     expect(dialog().textContent).not.toContain('one-time-secret');
   });
 
-  it('preserves the confirmation cooldown after reopening a revealed password', async () => {
+  it('allows confirmation without a login code even after reopening the panel', async () => {
     prepareBuyer();
     context.activeTrade!.confirmUnlocksAt = new Date(Date.now() + 60_000).toISOString();
     await render();
@@ -396,8 +444,82 @@ describe('trade details', () => {
     context.isDrawerOpen = true;
     await render();
     expect(buttonWith("Parolni ko'rsatish")).toBeUndefined();
-    expect(buttonWith('Tasdiqlash').disabled).toBe(true);
+    expect(buttonWith('Tasdiqlash').disabled).toBe(false);
     expect(buttonWith('Rad etish').disabled).toBe(false);
+  });
+
+  it('explains optional Konami codes and submits confirmation after the buyer reveals the password', async () => {
+    prepareBuyer();
+    context.activeTrade!.loginVerificationCode = null;
+    context.activeTrade!.confirmUnlocksAt = new Date(Date.now() + 300_000).toISOString();
+    await render();
+    expect(buttonWith('Tasdiqlash')).toBeUndefined();
+    await revealPassword();
+    expect(dialog().textContent).toContain('Konami kod so‘ramasa ham');
+    await act(async () => buttonWith('Tasdiqlash').click());
+    const confirmation = document.querySelectorAll('[role="dialog"]')[1];
+    const accept = Array.from(confirmation.querySelectorAll('button'))
+      .find(button => button.textContent?.includes('Ha, tasdiqlayman'))!;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({})));
+    await act(async () => accept.click());
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/actions/confirm'), expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('keeps code retry available after a code arrives', async () => {
+    prepareBuyer();
+    context.activeTrade!.loginVerificationCode = '112233';
+    await render();
+    await revealPassword();
+    expect(dialog().textContent).toContain('112233');
+    const retry = buttonWith('Kodni qayta so‘rash');
+    expect(retry).toBeDefined();
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json(context.activeTrade));
+    await act(async () => retry.click());
+    expect(fetch).toHaveBeenLastCalledWith(expect.stringContaining('/actions/login-code'), expect.objectContaining({ method: 'POST' }));
+    expect(context.reload).toHaveBeenCalled();
+  });
+
+  it.each(['SALE', 'SWAP', 'SWAP_SURCHARGE'] as const)('warns about %s completion and lets the user cancel without confirming', async kind => {
+    prepareBuyer();
+    context.activeTrade!.kind = kind;
+    await render();
+    await revealPassword();
+    vi.mocked(fetch).mockClear();
+    await act(async () => buttonWith('Tasdiqlash').click());
+    const confirmation = document.querySelectorAll('[role="dialog"]')[1];
+    expect(confirmation.textContent).toContain('Tasdiqlashni ortga qaytarib bo‘lmaydi.');
+    if (kind === 'SALE') {
+      expect(confirmation.textContent).toContain('pul sotuvchiga o‘tkaziladi');
+    } else {
+      expect(confirmation.textContent).toContain('Ikkala taraf ham tasdiqlagach');
+      expect(confirmation.textContent).not.toContain('pul sotuvchiga o‘tkaziladi');
+      if (kind === 'SWAP_SURCHARGE') expect(confirmation.textContent).toContain('qo‘shimcha to‘lov');
+    }
+    expect(fetch).not.toHaveBeenCalled();
+    const cancel = Array.from(confirmation.querySelectorAll('button'))
+      .find(button => button.textContent === 'Bekor qilish')!;
+    await act(async () => cancel.click());
+    expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each(['SELLER', 'BUYER'] as const)('lets swap %s reveal the incoming password and decide without a code', async role => {
+    prepareBuyer();
+    context.viewerId = role === 'SELLER' ? 'seller' : 'buyer';
+    context.activeTrade = { ...context.activeTrade!, kind: 'SWAP', role,
+      passwordMessageId: `${role}-incoming`, confirmUnlocksAt: new Date(Date.now() + 300_000).toISOString() };
+    await render();
+    await revealPassword();
+    expect(buttonWith('Tasdiqlash').disabled).toBe(false);
+    expect(buttonWith('Rad etish').disabled).toBe(false);
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining(`/messages/${role}-incoming/reveal`), expect.anything());
+  });
+
+  it('places current actions before the long timeline', async () => {
+    await render();
+    const actions = dialog().querySelector('[aria-label="Savdo jarayoni"]')!;
+    const timeline = dialog().querySelector('[data-step]')!;
+    expect(actions.compareDocumentPosition(timeline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('keeps swap participants’ one-time reveal states separate', async () => {

@@ -67,7 +67,7 @@ class TradeEscrowWiringIT extends AbstractIntegrationIT {
 
         var trade = proposals.accept(buyer, pr.proposalId(), UUID.randomUUID());
 
-        verify(escrow).hold(eq(trade.id()), eq(buyer), any(), eq(500_000L), anyLong());
+        verify(escrow).hold(eq(trade.id()), eq(buyer), any(), eq(500_000L), anyLong(), eq(uz.efbazaar.trade.trade.domain.AdminFeePayer.SELLER), org.mockito.ArgumentMatchers.isNull());
     }
 
     @Test

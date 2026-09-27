@@ -2,6 +2,7 @@ package uz.efbazaar.trade.trade.dto;
 
 import java.time.Instant;
 import java.util.UUID;
+import uz.efbazaar.trade.trade.domain.AdminFeePayer;
 
 import uz.efbazaar.trade.trade.domain.TradeKind;
 import uz.efbazaar.trade.trade.domain.TradeMode;
@@ -30,5 +31,10 @@ public record ProposalDetailsResponse(
         /** SMART unless the seller hired a human admin. */
         TradeMode mode,
         UUID adminId,
-        Long adminFeeUzs
-) {}
+        Long adminFeeUzs,
+        AdminFeePayer adminFeePayer, Long adminFeeTiyin, Long buyerHoldTiyin, Long sellerHoldTiyin
+) {
+    public ProposalDetailsResponse(UUID proposalId, UUID marketplaceChatId, UUID sellerId, UUID buyerId, UUID proposerUserId, long amountUzs, UUID listingId, Instant expiresAt, TradeKind kind, TradeMode mode, UUID adminId, Long adminFeeUzs) {
+        this(proposalId, marketplaceChatId, sellerId, buyerId, proposerUserId, amountUzs, listingId, expiresAt, kind, mode, adminId, adminFeeUzs, AdminFeePayer.SELLER, null, null, null);
+    }
+}

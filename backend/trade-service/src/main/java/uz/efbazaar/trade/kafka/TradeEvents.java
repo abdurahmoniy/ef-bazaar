@@ -52,6 +52,7 @@ public final class TradeEvents {
         TRADE_STARTED,
         EMAIL_CHANGED,
         PASSWORD_SENT,
+        YOUR_TURN,
         TRADE_SUCCESS,
         TRADE_REJECTED,
         TRADE_ORPHANED
@@ -310,5 +311,6 @@ public final class TradeEvents {
              */
             UUID listingId,
             String mode,
+            String kind,
             Instant occurredAt) {}
 }

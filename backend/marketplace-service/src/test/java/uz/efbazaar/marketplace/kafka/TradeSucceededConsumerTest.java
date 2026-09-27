@@ -34,11 +34,11 @@ class TradeSucceededConsumerTest {
         UUID seller = UUID.randomUUID();
 
         consumer.onTradeSucceeded(new TradeSucceededDto(
-                trade, buyer, seller, UUID.randomUUID(), "SMART", Instant.now()));
+                trade, buyer, seller, UUID.randomUUID(), "SMART", "SWAP_SURCHARGE", Instant.now()));
 
         var order = inOrder(accounts);
         order.verify(accounts).onTradeSucceeded(eqTrade(trade), org.mockito.ArgumentMatchers.any(),
-                eqTrade(buyer), eqTrade(seller));
+                eqTrade(buyer), eqTrade(seller), org.mockito.ArgumentMatchers.eq("SWAP_SURCHARGE"));
         // Xaridor ham, sotuvchi ham: obmenda ikkala taraf akkount oladi.
         order.verify(accounts).drainPendingEmail(trade, buyer);
         order.verify(accounts).drainPendingEmail(trade, seller);

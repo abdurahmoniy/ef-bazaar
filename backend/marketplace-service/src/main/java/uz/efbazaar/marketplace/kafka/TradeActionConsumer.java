@@ -33,6 +33,9 @@ public class TradeActionConsumer {
             return;
         }
 
+        // The site announces turns from live trade state; this event is for Telegram.
+        if ("YOUR_TURN".equals(e.actionType())) return;
+
         NotificationType type = mapActionType(e.actionType());
         if (type == null) {
             log.warn("Unknown trade action type: {}", e.actionType());

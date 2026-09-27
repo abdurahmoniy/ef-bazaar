@@ -167,4 +167,16 @@ class TradeProposalServiceIT extends AbstractIntegrationIT {
         assertThat(redis.opsForValue().get(indexKey)).isNull();
         assertThat(svc.findActiveProposalByChatId(chatId, seller)).isEmpty();
     }
+
+    @Autowired uz.efbazaar.trade.trade.repository.TradeRepository tradeRows;
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(uz.efbazaar.trade.trade.domain.AdminFeePayer.class)
+    void acceptedSwapPersistsAndReturnsItsFeePayer(uz.efbazaar.trade.trade.domain.AdminFeePayer payer) {
+        var response = tradeService.openTrade(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 0L,
+                null, null, UUID.randomUUID(), null, TradeMode.SMART, null, null,
+                uz.efbazaar.trade.trade.domain.TradeKind.SWAP, 500_000L, payer);
+        assertThat(response.adminFeePayer()).isEqualTo(payer);
+        assertThat(tradeRows.findById(response.id()).orElseThrow().getAdminFeePayer()).isEqualTo(payer);
+    }
 }

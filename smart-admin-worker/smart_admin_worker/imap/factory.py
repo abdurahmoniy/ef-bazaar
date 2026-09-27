@@ -20,7 +20,7 @@ class _ImapConn:
     def fetch(self) -> Iterable[MailMessage]:
         # UNSEEN messages, left unread so a re-poll (e.g. after a crash) can
         # still see them; bounded to the most recent 50 to cap per-call cost.
-        return self._mailbox.fetch(AND(seen=False), mark_seen=False, limit=50)
+        return self._mailbox.fetch(AND(seen=False), mark_seen=False, limit=50, reverse=True)
 
     def __enter__(self) -> _ImapConn:
         return self

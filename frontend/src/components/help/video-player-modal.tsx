@@ -13,6 +13,18 @@ interface VideoPlayerModalProps {
 }
 
 export function VideoPlayerModal({ guide, category, onClose }: VideoPlayerModalProps) {
+  if (!guide) return null;
+  return (
+    <GuideVideoPlayer
+      key={`${guide.id}:${guide.videoFileId}`}
+      guide={guide}
+      category={category}
+      onClose={onClose}
+    />
+  );
+}
+
+function GuideVideoPlayer({ guide, category, onClose }: VideoPlayerModalProps & { guide: Guide }) {
   const [loadError, setLoadError] = useState(false);
   const [fallbackIndex, setFallbackIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -27,15 +39,12 @@ export function VideoPlayerModal({ guide, category, onClose }: VideoPlayerModalP
 
   // Lock body scroll while modal is open
   useEffect(() => {
-    if (!guide) return;
     const original = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = original;
     };
   }, [guide]);
-
-  if (!guide) return null;
 
   const categoryMeta = HELP_CATEGORIES.find((c) => c.id === category);
   const telegramGuideLink = guide?.id
@@ -131,7 +140,7 @@ export function VideoPlayerModal({ guide, category, onClose }: VideoPlayerModalP
               <AlertCircle className="h-10 w-10 text-amber-400 mb-2" />
               <p className="text-sm font-bold">Videoni brauzerda yuklab bo&apos;lmadi</p>
               <p className="mt-1.5 text-xs text-white/70 max-w-sm leading-relaxed">
-                Video hajmi katta bo&apos;lgani sababli veb-brauzerda ko&apos;rsatilmadi. Ushbu videoni rasmiy Telegram botimiz orqali to&apos;liq hajm va sifatda darhol ko&apos;rishingiz mumkin.
+                Video hozir yuklanmadi. Qayta urinib ko&apos;ring yoki Telegram botda oching.
               </p>
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                 <button

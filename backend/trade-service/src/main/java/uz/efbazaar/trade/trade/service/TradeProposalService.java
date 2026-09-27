@@ -16,6 +16,7 @@ import uz.efbazaar.trade.payment.EscrowClient;
 import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
 import uz.efbazaar.trade.trade.domain.TradeKind;
+import uz.efbazaar.trade.trade.domain.AdminFeePayer;
 import uz.efbazaar.trade.trade.domain.TradeMode;
 import uz.efbazaar.trade.trade.dto.ProposalCreateRequest;
 import uz.efbazaar.trade.trade.dto.ProposalDetailsResponse;
@@ -77,6 +78,13 @@ public class TradeProposalService {
     private long ttlSeconds;
 
     public ProposalResponse create(UUID proposerUserId, ProposalCreateRequest req) {
+        if (!proposerUserId.equals(req.sellerId()) && !proposerUserId.equals(req.buyerId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only a participant may propose a trade");
+        }
+        UUID counterpart = proposerUserId.equals(req.sellerId()) ? req.buyerId() : req.sellerId();
+        if (req.sellerId().equals(req.buyerId()) || !counterpart.equals(req.otherPartyUserId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trade participants must be distinct counterparts");
+        }
         TradeMode mode = req.modeOrDefault();
         if (mode == TradeMode.SMART && req.kindOrDefault() == TradeKind.SALE) {
             escrow.validateSaleAmount(req.amountUzs());
@@ -107,6 +115,12 @@ public class TradeProposalService {
 
         UUID proposalId = UUID.randomUUID();
         String key = redisKey(proposalId);
+        EscrowClient.Quote quote = null;
+        if (mode == TradeMode.SMART && req.kindOrDefault().isSwap()) {
+            if (req.listingId() == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Obmen uchun e'lon ko'rsatilishi shart");
+            quote = escrow.quote(proposalId, req.buyerId(), req.sellerId(), req.amountUzs(),
+                    listings.fetch(req.listingId()).priceUzs(), req.payerOrDefault());
+        }
 
         // LinkedHashMap, not Map.of: ten pairs is Map.of's ceiling and this
         // hash is already there.
@@ -117,6 +131,12 @@ public class TradeProposalService {
         hash.put("buyerId",           req.buyerId().toString());
         hash.put("amountUzs",         req.amountUzs().toString());
         hash.put("listingId",         req.listingId() != null ? req.listingId().toString() : "");
+        hash.put("adminFeePayer", req.payerOrDefault().name());
+        if (quote != null) {
+            hash.put("adminFeeTiyin", Long.toString(quote.feeTiyin()));
+            hash.put("buyerHoldTiyin", Long.toString(quote.buyerHoldTiyin()));
+            hash.put("sellerHoldTiyin", Long.toString(quote.sellerHoldTiyin()));
+        }
         hash.put("kind",              req.kindOrDefault().name());
         hash.put("proposerCardId",    req.cardId() != null ? req.cardId().toString() : "");
         hash.put("mode",              mode.name());
@@ -140,7 +160,9 @@ public class TradeProposalService {
                 TradeEvents.TradeActionType.PROPOSAL_CREATED, req.amountUzs(), null, req.kindOrDefault());
 
         return new ProposalResponse(proposalId,
-                Instant.now().plusSeconds(ttlSeconds));
+                Instant.now().plusSeconds(ttlSeconds), req.payerOrDefault(),
+                quote == null ? null : quote.feeTiyin(), quote == null ? null : quote.buyerHoldTiyin(),
+                quote == null ? null : quote.sellerHoldTiyin());
     }
 
     /**
@@ -184,7 +206,10 @@ public class TradeProposalService {
                 proposalId, marketplaceChatId, sellerId, buyerId,
                 proposerUserId, amountUzs, listingId, expiresAt,
                 TradeKind.valueOf(orDefault((String) raw.get("kind"), TradeKind.SALE.name())),
-                mode, adminId, adminFeeUzs));
+                mode, adminId, adminFeeUzs,
+                AdminFeePayer.valueOf(orDefault((String) raw.get("adminFeePayer"), "SELLER")),
+                optionalLong(raw.get("adminFeeTiyin")), optionalLong(raw.get("buyerHoldTiyin")),
+                optionalLong(raw.get("sellerHoldTiyin"))));
     }
 
     @Transactional
@@ -200,6 +225,13 @@ public class TradeProposalService {
         UUID buyerId        = UUID.fromString((String) raw.get("buyerId"));
         long amountUzs      = Long.parseLong((String) raw.get("amountUzs"));
         UUID proposerCard   = optionalUuid(raw.get("proposerCardId"));
+
+        if (sellerId.equals(buyerId) || (!proposerUserId.equals(sellerId) && !proposerUserId.equals(buyerId))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid proposal participants");
+        }
+        if (!accepterUserId.equals(sellerId) && !accepterUserId.equals(buyerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only a proposal participant may accept");
+        }
 
         // The accepter must be the OTHER party — a proposer accepting their own proposal is nonsense.
         if (accepterUserId.equals(proposerUserId)) {
@@ -286,16 +318,17 @@ public class TradeProposalService {
         // The hold is authoritative — no separate balance check, which would
         // only add a call and a race. Not enough money surfaces as the wallet's
         // own 409 and nothing is created.
+        AdminFeePayer payer = AdminFeePayer.valueOf(orDefault((String) raw.get("adminFeePayer"), "SELLER"));
         UUID tradeId = UUID.randomUUID();
         if (mode == TradeMode.SMART) {
-            escrow.hold(tradeId, buyerId, sellerId, amountUzs, feeBaseUzs);
+            escrow.hold(tradeId, buyerId, sellerId, amountUzs, feeBaseUzs, payer, optionalLong(raw.get("adminFeeTiyin")));
         }
 
         TradeResponse trade;
         try {
             trade = trades.openTrade(tradeId, sellerId, buyerId, amountUzs,
                     sellerCardId, buyerCardId, listingId, chatId, mode, adminId, adminFee,
-                    kind, feeBaseUzs);
+                    kind, feeBaseUzs, payer);
         } catch (RuntimeException e) {
             // The money is already frozen and there is no trade to release it.
             // Give it straight back rather than stranding it; release is keyed

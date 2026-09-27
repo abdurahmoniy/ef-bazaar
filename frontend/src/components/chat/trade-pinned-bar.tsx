@@ -1,4 +1,6 @@
 'use client';
+import { useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { TradeProposalRejectButton } from './trade-proposal-reject-button';
 
 import {
@@ -302,6 +304,20 @@ function ActiveTradePinnedBar({ trade }: { trade: TradeResponse }) {
     }
   }
 
+  const partnerFinished = !!viewerRole && hasClearedCurrentStep(trade, viewerRole === 'SELLER' ? 'BUYER' : 'SELLER');
+  const turnKey = `${trade.id}:${viewerId}:${trade.state}:${partnerFinished}`;
+  const previousTurn = useRef({ id: trade.id, viewerId, key: turnKey });
+  useEffect(() => {
+    const previous = previousTurn.current;
+    if (previous.id === trade.id && previous.viewerId === viewerId && previous.key !== turnKey && actionRequired) {
+      toast.info('Sizning navbatingiz', {
+        description: nextStep,
+        action: { label: 'Davom etish', onClick: () => setIsDrawerOpen(true) },
+      });
+    }
+    previousTurn.current = { id: trade.id, viewerId, key: turnKey };
+  }, [turnKey, trade.id, viewerId, actionRequired, nextStep, setIsDrawerOpen]);
+
   return (
     <div className={cn('shrink-0 border-b border-border/80', actionRequired ? 'bg-primary/5' : 'bg-card')}>
       <button
@@ -328,13 +344,14 @@ function ActiveTradePinnedBar({ trade }: { trade: TradeResponse }) {
           </span>
           <span className="flex items-center justify-between gap-3">
             <span className={cn('text-xs leading-4', actionRequired ? 'font-medium text-foreground' : 'text-muted-foreground')}>
-              {nextStep}
+              {actionRequired && <span className="font-semibold">Sizning navbatingiz · </span>}{nextStep}
             </span>
             <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-foreground">
               {actionRequired ? 'Davom etish' : 'Batafsil'}
               <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
             </span>
           </span>
+          {actionRequired && partnerFinished && <span role="status" className="text-[11px] text-muted-foreground">Sherigingiz bu bosqichni bajardi</span>}
         </span>
       </button>
     </div>

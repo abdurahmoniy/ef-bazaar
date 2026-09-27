@@ -79,11 +79,12 @@ public class ListingAccountLink {
      * allaqachon bo'lsa, hech narsa qilinmaydi.
      */
     @Transactional
-    public void onTradeSucceeded(UUID tradeId, UUID listingId, UUID buyerId, UUID sellerId) {
+    public void onTradeSucceeded(UUID tradeId, UUID listingId, UUID buyerId, UUID sellerId, String kind) {
         // Obmenda sotuvchi ham akkount oladi — lekin uning ortida e'lon yo'q,
         // shuning uchun faqat pochtasi bo'lgan bo'sh kartochka ochiladi.
         // Busiz o'sha manzil kutish jadvalida abadiy qolib ketardi.
-        openAccountForWaitingEmail(tradeId, sellerId);
+        boolean swap = "SWAP".equals(kind) || "SWAP_SURCHARGE".equals(kind);
+        openAccountForSwapRecipient(tradeId, sellerId, swap);
 
         if (listingId == null || buyerId == null || tradeId == null) {
             log.debug("trade-succeeded without ids, skipping account handover");
@@ -121,7 +122,7 @@ public class ListingAccountLink {
         UserAccount buyerAccount = UserAccount.builder()
                 .id(UUID.randomUUID())
                 .ownerId(buyerId)
-                .title(listing.getDescription() == null ? null : shortTitle(listing.getDescription()))
+                .title(swap ? "Obmendan kelgan akkount" : "Savdodan kelgan akkount")
                 .description(listing.getDescription())
                 .attributes(attributes)
                 .mediaMessageIds(listing.getMediaMessageIds() == null
@@ -145,36 +146,40 @@ public class ListingAccountLink {
     }
 
     /**
-     * Kutayotgan manzil bor, lekin uni biriktiradigan akkount yo'q —
+     * Obmenda sotuvchi olgan akkountning e'loni yo'q —
      * bo'sh kartochka ochiladi.
      *
      * <p>Obmenda ikkala taraf ham akkount oladi; e'lon esa bittasida.
      * Ma'lumotini egasi keyin o'zi to'ldiradi, muhimi — manzil yo'qolmaydi
      * va u qaysi savdodan kelgani ko'rinib turadi.
      */
-    private void openAccountForWaitingEmail(UUID tradeId, UUID userId) {
+    private void openAccountForSwapRecipient(UUID tradeId, UUID userId, boolean swap) {
         if (tradeId == null || userId == null) return;
-        pendingEmails.findByTradeIdAndUserId(tradeId, userId).ifPresent(pending -> {
-            if (accounts.findByOwnerIdAndSourceTradeId(userId, tradeId).isPresent()) {
-                pendingEmails.delete(pending);
-                return;
-            }
-            UserAccount account = UserAccount.builder()
-                    .id(UUID.randomUUID())
-                    .ownerId(userId)
-                    .title("Savdodan kelgan akkount")
-                    .attributes(new HashMap<>())
-                    .mediaMessageIds(new ArrayList<>())
-                    .status(UserAccountStatus.ACTIVE)
-                    .sourceTradeId(tradeId)
-                    .email(pending.getEmail())
-                    .emailSource(EmailSource.PLATFORM)
-                    .build();
-            UserAccount saved = accounts.saveAndFlush(account);
-            pendingEmails.delete(pending);
-            log.info("Bare account opened for handed-over mailbox: accountId={} tradeId={}",
-                    saved.getId(), tradeId);
+        var pending = pendingEmails.findByTradeIdAndUserId(tradeId, userId);
+        // Old events have no kind; a waiting seller mailbox still identifies a swap.
+        // New swap events open the account even when its mailbox arrives later.
+        if (!swap && pending.isEmpty()) return;
+        if (accounts.findByOwnerIdAndSourceTradeId(userId, tradeId).isPresent()) {
+            pending.ifPresent(pendingEmails::delete);
+            return;
+        }
+        UserAccount account = UserAccount.builder()
+                .id(UUID.randomUUID())
+                .ownerId(userId)
+                .title("Obmendan kelgan akkount")
+                .attributes(new HashMap<>())
+                .mediaMessageIds(new ArrayList<>())
+                .status(UserAccountStatus.ACTIVE)
+                .sourceTradeId(tradeId)
+                .build();
+        pending.ifPresent(email -> {
+            account.setEmail(email.getEmail());
+            account.setEmailSource(EmailSource.PLATFORM);
         });
+        UserAccount saved = accounts.saveAndFlush(account);
+        pending.ifPresent(pendingEmails::delete);
+        log.info("Bare account opened for swap recipient: accountId={} tradeId={}",
+                saved.getId(), tradeId);
     }
 
     /**
@@ -232,12 +237,6 @@ public class ListingAccountLink {
                     }
                     pendingEmails.delete(pending);
                 }));
-    }
-
-    /** Kartochkada ko'rinadigan qisqa nom — tavsifning birinchi qatori. */
-    private static String shortTitle(String description) {
-        String firstLine = description.strip().split("\\R", 2)[0].strip();
-        return firstLine.length() <= 60 ? firstLine : firstLine.substring(0, 57) + "…";
     }
 
     /**
