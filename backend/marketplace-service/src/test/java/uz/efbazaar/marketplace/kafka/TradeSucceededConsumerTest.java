@@ -25,6 +25,7 @@ class TradeSucceededConsumerTest {
 
     @Mock ReferralService referrals;
     @Mock uz.efbazaar.marketplace.account.ListingAccountLink accounts;
+    @Mock uz.efbazaar.marketplace.service.ListingService listingService;
     @InjectMocks TradeSucceededConsumer consumer;
 
     @Test
@@ -34,11 +35,12 @@ class TradeSucceededConsumerTest {
         UUID seller = UUID.randomUUID();
 
         consumer.onTradeSucceeded(new TradeSucceededDto(
-                trade, buyer, seller, UUID.randomUUID(), "SMART", "SWAP_SURCHARGE", Instant.now()));
+                trade, buyer, seller, UUID.randomUUID(), "SMART", "SWAP_SURCHARGE", null, Instant.now()));
 
         var order = inOrder(accounts);
         order.verify(accounts).onTradeSucceeded(eqTrade(trade), org.mockito.ArgumentMatchers.any(),
-                eqTrade(buyer), eqTrade(seller), org.mockito.ArgumentMatchers.eq("SWAP_SURCHARGE"));
+                eqTrade(buyer), eqTrade(seller), org.mockito.ArgumentMatchers.eq("SWAP_SURCHARGE"),
+                org.mockito.ArgumentMatchers.isNull());
         // Xaridor ham, sotuvchi ham: obmenda ikkala taraf akkount oladi.
         order.verify(accounts).drainPendingEmail(trade, buyer);
         order.verify(accounts).drainPendingEmail(trade, seller);

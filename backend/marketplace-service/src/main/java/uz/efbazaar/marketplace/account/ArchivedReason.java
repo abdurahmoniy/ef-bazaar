@@ -9,5 +9,7 @@ package uz.efbazaar.marketplace.account;
 public enum ArchivedReason {
     SOLD_ON_PLATFORM,
     SOLD_ELSEWHERE,
-    BY_OWNER
+    BY_OWNER,
+    /** Platformadagi obmenda boshqa tarafga berildi. */
+    SWAPPED_ON_PLATFORM
 }
