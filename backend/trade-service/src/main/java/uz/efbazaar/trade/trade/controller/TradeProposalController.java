@@ -54,7 +54,9 @@ public class TradeProposalController {
             // frozen from the buyer's wallet, so a bare POST has to work.
             @Valid @RequestBody(required = false) ProposalAcceptRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(
-                proposals.accept(me.userId(), proposalId, req == null ? null : req.cardId()));
+                proposals.accept(me.userId(), proposalId,
+                        req == null ? null : req.cardId(),
+                        req == null ? null : req.giveAccountId()));
     }
 
     @PostMapping("/{proposalId}/reject")

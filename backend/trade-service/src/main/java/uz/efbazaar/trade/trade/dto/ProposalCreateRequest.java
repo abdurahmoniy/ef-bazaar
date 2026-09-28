@@ -49,13 +49,22 @@ public record ProposalCreateRequest(
         @Min(1) Long adminFeeUzs,
         /** {@code null} is treated as {@link TradeKind#SALE}. */
         TradeKind kind,
-        AdminFeePayer adminFeePayer
+        AdminFeePayer adminFeePayer,
+        /** Obmenda xaridor beradigan akkount. Faqat xaridor yuboradi; null — "Boshqa". */
+        UUID giveAccountId
 ) {
+    public ProposalCreateRequest(UUID marketplaceChatId, UUID otherPartyUserId, UUID sellerId, UUID buyerId,
+                                 Long amountUzs, UUID cardId, UUID listingId, TradeMode mode, UUID adminId,
+                                 Long adminFeeUzs, TradeKind kind, AdminFeePayer adminFeePayer) {
+        this(marketplaceChatId, otherPartyUserId, sellerId, buyerId, amountUzs, cardId, listingId,
+                mode, adminId, adminFeeUzs, kind, adminFeePayer, null);
+    }
+
     public ProposalCreateRequest(UUID marketplaceChatId, UUID otherPartyUserId, UUID sellerId, UUID buyerId,
                                  Long amountUzs, UUID cardId, UUID listingId, TradeMode mode, UUID adminId,
                                  Long adminFeeUzs, TradeKind kind) {
         this(marketplaceChatId, otherPartyUserId, sellerId, buyerId, amountUzs, cardId, listingId,
-                mode, adminId, adminFeeUzs, kind, null);
+                mode, adminId, adminFeeUzs, kind, null, null);
     }
 
     public AdminFeePayer payerOrDefault() {
