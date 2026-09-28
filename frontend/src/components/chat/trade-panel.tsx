@@ -98,6 +98,8 @@ import { TradeProgressTimeline } from './trade-progress-timeline';
 import { TradeProposalRetryButton } from './trade-proposal-retry-button';
 import { TradeAcceptPayment } from './trade-accept-payment';
 import { SWAP_OTHER, SwapAccountPicker } from './swap-account-picker';
+import { GiveReceiveBlock, useSwapListingSide } from './swap-accounts-summary';
+import { givenSide } from '@/lib/swap-accounts';
 import { TradeAdminHandoff } from './trade-admin-handoff';
 import { useTradeContext, type PendingProposal } from './trade-context';
 
@@ -510,6 +512,14 @@ function AccountPickerModal({
 
 // -------------------- active trade --------------------
 
+/** Drawer: obmenda kim nima beradi va nima oladi. */
+function SwapGiveReceive({ trade, viewerId }: { trade: TradeResponse; viewerId: string }) {
+  const listing = useSwapListingSide(null);
+  const given = givenSide(trade.giveAccount);
+  const isSeller = trade.sellerId === viewerId;
+  return <GiveReceiveBlock give={isSeller ? listing : given} receive={isSeller ? given : listing} />;
+}
+
 function TradeDetails({ trade, viewerId, onRefresh, refreshing }: {
   trade: TradeResponse;
   viewerId: string;
@@ -534,6 +544,7 @@ function TradeDetails({ trade, viewerId, onRefresh, refreshing }: {
         {trade.stateDeadline && !isTerminalState(trade.state) && <div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Bosqich uchun qolgan vaqt</dt>
           <dd className="tabular-nums"><CountdownText until={trade.stateDeadline} /></dd></div>}
       </dl>
+      {isSwap(trade.kind) && <SwapGiveReceive trade={trade} viewerId={viewerId} />}
     </section>
     <section aria-label="Savdo jarayoni" className="border-t border-border pt-4">
       {isHumanTrade(trade)

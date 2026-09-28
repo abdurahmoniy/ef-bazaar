@@ -99,4 +99,24 @@ describe('TradeProposalMessageCard', () => {
     expect(html).toContain('SAVDO TAKLIFI');
     expect(html).toContain('Qabul qilingan');
   });
+
+  it('a pending seller swap shows both sides with the buyer still to choose', () => {
+    const message: MessageResponse = {
+      id: 'msg-swap', chatId: 'chat-1', senderId: 'user-seller', content: '0',
+      messageType: 'TRADE_PROPOSAL', proposalId: 'p-swap', proposalOutcome: 'PENDING', createdAt: '2026-08-20T10:05:00Z',
+    };
+    const html = renderToStaticMarkup(createElement(TradeProvider, {
+      chat: mockChat, viewerId: 'user-buyer',
+      listing: { id: 'listing-1', sellerId: 'user-seller', description: 'Mobile account', price: 500000, priceNegotiable: false, attributes: { platform: 'MOBILE' }, mediaMessageIds: [], status: 'ACTIVE', forwardCount: 0, likeCount: 0, createdAt: '', updatedAt: '' } satisfies ListingResponse,
+      initialPendingProposal: {
+        proposalId: 'p-swap', marketplaceChatId: 'chat-1', sellerId: 'user-seller', buyerId: 'user-buyer',
+        proposerUserId: 'user-seller', amountUzs: 0, listingId: 'listing-1', kind: 'SWAP',
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      },
+    }, createElement(TradeProposalMessageCard, { message, viewerId: 'user-buyer' })));
+
+    expect(html).toContain('⇄');
+    expect(html).toContain('Mobile account');
+    expect(html).toContain('Xaridor tanlaydi');
+  });
 });

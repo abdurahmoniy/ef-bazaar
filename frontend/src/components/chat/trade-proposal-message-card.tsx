@@ -15,6 +15,8 @@ import { formatPriceUZS } from '@/lib/marketplace-format';
 import { useTradeContext } from './trade-context';
 import { TradeProposalRetryButton } from './trade-proposal-retry-button';
 import { MessageReadReceipt } from './chat-activity-status';
+import { SwapPair, useSwapListingSide } from './swap-accounts-summary';
+import { givenSide } from '@/lib/swap-accounts';
 
 interface TradeProposalMessageCardProps {
   message: MessageResponse;
@@ -24,10 +26,20 @@ interface TradeProposalMessageCardProps {
 
 export function TradeProposalMessageCard({ message, viewerId, lastReadAt = null }: TradeProposalMessageCardProps) {
   const { requiresAdminHandoff, proposal, listing, accountRequest,
-    setShowAcceptModal, openProposal, viewedProposal, rejectedProposalIds } = useTradeContext();
+    setShowAcceptModal, openProposal, viewedProposal, rejectedProposalIds, trades } = useTradeContext();
   const isMine = message.senderId === viewerId;
   const { matching, price, kind, listingId, outcome } = tradeProposalDetails(message, proposal, rejectedProposalIds?.has(message.proposalId ?? ''));
   const ownListing = listingId ? [listing, accountRequest?.listing].find(item => item?.id === listingId) : null;
+  const listingSideForCard = useSwapListingSide(listingId);
+  // Qabul qilingandan keyin taklifni savdoga bog'laydigan id yo'q. `trades`
+  // allaqachon shu chatniki: taklifdan keyin ochilgan birinchi savdo — o'shaning o'zi.
+  const acceptedTrade = outcome === 'ACCEPTED'
+    ? trades?.filter(t => !!t.createdAt && t.createdAt >= message.createdAt)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0]
+    : undefined;
+  const pendingGive = matching?.giveAccount;
+  const rightSide = acceptedTrade ? givenSide(acceptedTrade.giveAccount)
+    : pendingGive ? givenSide(pendingGive) : null;
   // Keep the selected request current when chat receives its resolution event.
   useEffect(() => {
     if (viewedProposal?.id === message.id && viewedProposal !== message) openProposal(message);
@@ -71,6 +83,9 @@ export function TradeProposalMessageCard({ message, viewerId, lastReadAt = null 
           <Link href={`/marketplace/${encodeURIComponent(listingId)}`} className="block truncate text-sm font-medium text-foreground underline decoration-primary/50 underline-offset-4 hover:text-primary">
             {ownListing?.description?.split('\n')[0]?.trim() || 'Taklifdagi e’lonni ko‘rish'}
           </Link>
+        )}
+        {(kind === 'SWAP' || kind === 'SWAP_SURCHARGE') && (
+          <SwapPair left={listingSideForCard} right={rightSide} rightPending={outcome === 'PENDING' && !rightSide} />
         )}
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <p className="text-xs text-muted-foreground">
