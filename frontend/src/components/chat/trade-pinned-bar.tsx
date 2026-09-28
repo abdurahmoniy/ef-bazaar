@@ -271,7 +271,7 @@ function ActiveTradePinnedBar({ trade }: { trade: TradeResponse }) {
   const canTransfer = isSeller || (isBuyer && isSwap(trade.kind));
   const canVerify = isBuyer || (isSeller && isSwap(trade.kind));
   const confirmed = isSeller ? trade.sellerConfirmedAt : isBuyer ? trade.buyerConfirmedAt : null;
-  const listingSideForBar = useSwapListingSide(null);
+  const listingSideForBar = useSwapListingSide(trade.listingId ?? null);
   const received = isSwap(trade.kind) ? receivedSide(trade, viewerId, listingSideForBar) : null;
   const terminal = isTerminalState(trade.state);
   let nextStep = TRADE_STATE_LABEL_UZ[trade.state];

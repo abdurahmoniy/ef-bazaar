@@ -147,4 +147,22 @@ class SwapAccountProposalTest {
         assertThatThrownBy(() -> service.create(seller, request)).isInstanceOf(ResponseStatusException.class);
         verifyNoInteractions(redis);
     }
+
+    @Test
+    void losingTheRaceForAnAccountIs409AndReleasesTheHold() {
+        // Ikki savdo bir vaqtda bitta akkountni oladi: ikkalasi guard'dan o'tadi,
+        // ikkinchisini qisman unique indeks ushlaydi. Javob 409 bo'lishi, xom SQL
+        // matni esa klientga chiqmasligi kerak.
+        storedProposal(seller, TradeKind.SWAP, Map.of());
+        when(guard.check(account, buyer, TradeKind.SWAP)).thenReturn(snapshot);
+        when(trades.attachGiveAccount(any(), any(), any()))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("ux_trades_live_give_account"));
+
+        assertThatThrownBy(() -> service.accept(buyer, proposal, null, account))
+                .isInstanceOfSatisfying(ResponseStatusException.class, e -> {
+                    assertThat(e.getStatusCode().value()).isEqualTo(409);
+                    assertThat(e.getReason()).isEqualTo("Bu akkount boshqa savdoda");
+                });
+        verify(escrow).release(any(UUID.class), eq(buyer), eq(seller), anyLong(), anyLong());
+    }
 }

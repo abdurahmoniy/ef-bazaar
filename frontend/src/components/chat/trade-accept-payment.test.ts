@@ -48,6 +48,8 @@ beforeEach(() => {
       return Response.json(invoice);
     }
     if (url.endsWith('/status')) return Response.json({ id: 'invoice', status, creditedTiyin: 1500000 });
+    // Obmenda qabul oynasi xaridor akkountlarini so'raydi — bu yerda akkounti yo'q xaridor.
+    if (url.endsWith('/v1/accounts') || url.endsWith('/busy-accounts')) return Response.json([]);
     if (url.endsWith('/accept')) return acceptError ? Response.json({ detail: acceptError }, { status: 409 }) : Response.json({ id: 'trade' });
     throw new Error('Unexpected request: ' + url);
   }));

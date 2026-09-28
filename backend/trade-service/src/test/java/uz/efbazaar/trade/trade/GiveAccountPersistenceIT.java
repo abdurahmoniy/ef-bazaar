@@ -83,4 +83,14 @@ class GiveAccountPersistenceIT extends AbstractIntegrationIT {
         assertThat(trades.busyGiveAccounts(buyer)).containsExactly(account);
         assertThat(trades.busyGiveAccounts(UUID.randomUUID())).isEmpty();
     }
+
+    @Test
+    void theResponseNamesTheTradesListing() {
+        // Bir juftlikning chati ko'p e'lonni o'z ichiga oladi: UI "Siz olasiz"
+        // qatorini chatning joriy e'loniga emas, savdoning e'loniga bog'lashi kerak.
+        UUID listing = UUID.randomUUID();
+        var response = trades.openTrade(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 0L,
+                null, null, listing, null, TradeMode.SMART, null, null, TradeKind.SWAP, 500_000L);
+        assertThat(response.listingId()).isEqualTo(listing);
+    }
 }

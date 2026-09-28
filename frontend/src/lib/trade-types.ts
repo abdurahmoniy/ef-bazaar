@@ -142,6 +142,8 @@ export interface TradeResponse {
   emailChangeVerificationCode: string | null;
   /** Obmenda xaridor beradigan akkount. null — "Boshqa" yoki sotuv. */
   giveAccount?: GiveAccountSnapshot | null;
+  /** Savdoning e'loni — bitta chat bir necha e'lonni o'z ichiga oladi. */
+  listingId?: string | null;
 }
 
 /** Mirrors uz.efbazaar.trade.trade.dto.TradePage. */

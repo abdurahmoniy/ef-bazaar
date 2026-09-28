@@ -514,7 +514,7 @@ function AccountPickerModal({
 
 /** Drawer: obmenda kim nima beradi va nima oladi. */
 function SwapGiveReceive({ trade, viewerId }: { trade: TradeResponse; viewerId: string }) {
-  const listing = useSwapListingSide(null);
+  const listing = useSwapListingSide(trade.listingId ?? null);
   const given = givenSide(trade.giveAccount);
   const isSeller = trade.sellerId === viewerId;
   return <GiveReceiveBlock give={isSeller ? listing : given} receive={isSeller ? given : listing} />;

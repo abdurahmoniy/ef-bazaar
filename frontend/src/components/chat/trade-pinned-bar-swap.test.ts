@@ -11,7 +11,7 @@ import { TradePinnedBar } from './trade-pinned-bar';
 const trade = {
   id: 't-1', state: 'WAITING_EMAIL_CHANGE', sellerId: 'seller', buyerId: 'buyer', priceUzs: 0, kind: 'SWAP',
   mode: 'SMART', sides: [], createdAt: '2026-09-28T10:00:00Z', expiresAt: null, stateDeadline: null, role: null,
-  passwordMessageId: null, emailChangeVerificationCode: null, mailboxId: null, mailboxEmail: null, chatId: 'chat',
+  passwordMessageId: null, emailChangeVerificationCode: null, mailboxId: null, mailboxEmail: null, chatId: 'chat', listingId: 'listing',
   giveAccount: { id: 'acc-1', title: 'Asosiy akk', coverMessageId: 'm-1', summary: 'Kuchli', teamStrength: 3250 },
 } as unknown as TradeResponse;
 
@@ -48,4 +48,10 @@ it('the seller of an Other swap is told it is off-platform', () => {
 
 it('a sale shows no receive line', () => {
   expect(renderFor('seller', { kind: 'SALE', priceUzs: 50000 })).not.toContain('Siz olasiz');
+});
+
+it('the buyer never sees a different listing that the chat moved on to', () => {
+  // Bir juftlikda bitta doimiy chat: chat hozir B e'loni haqida, savdo esa A bo'yicha.
+  const html = renderFor('buyer', { listingId: 'another-listing' } as Partial<TradeResponse>);
+  expect(html).not.toContain('E’lon akk TS3100');
 });

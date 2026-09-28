@@ -132,4 +132,19 @@ class SwapAccountHandoverTest {
         assertThat(savedFor(sellerId).getTitle()).isEqualTo("Obmendan kelgan akkount");
         verify(accounts, never()).findById(givenId);
     }
+
+    @Test
+    void anAccountAlreadySoldElsewhereIsNotHandedOverAgain() {
+        // Obmen tirik turganda akkountning e'loni boshqa savdoda sotildi: akkount
+        // arxivda. Sotuvchiga uning nusxasi berilsa, ikki kishi bitta akkountga ega bo'lardi.
+        UserAccount given = given(null);
+        given.setStatus(UserAccountStatus.ARCHIVED);
+        given.setArchivedReason(ArchivedReason.SOLD_ON_PLATFORM);
+        common(given);
+
+        link.onTradeSucceeded(tradeId, listingId, buyerId, sellerId, "SWAP", givenId);
+
+        assertThat(given.getArchivedReason()).isEqualTo(ArchivedReason.SOLD_ON_PLATFORM);
+        assertThat(savedFor(sellerId).getTitle()).isEqualTo("Obmendan kelgan akkount");
+    }
 }

@@ -174,8 +174,11 @@ public class ListingAccountLink {
             return null;
         }
         UserAccount given = accounts.findById(giveAccountId).orElse(null);
-        if (given == null || !given.getOwnerId().equals(buyerId)) {
-            log.warn("Given account {} is gone or not the buyer's — seller {} gets a bare card from trade {}",
+        // ACTIVE shart: obmen tirik turganda akkount boshqa yo'l bilan (masalan, e'loni
+        // sotilib) ketgan bo'lishi mumkin — uni yana berish ikki egani keltirib chiqarardi.
+        if (given == null || !given.getOwnerId().equals(buyerId)
+                || given.getStatus() != UserAccountStatus.ACTIVE) {
+            log.warn("Given account {} is gone, inactive or not the buyer's — seller {} gets a bare card from trade {}",
                     giveAccountId, sellerId, tradeId);
             openAccountForSwapRecipient(tradeId, sellerId, true);
             return null;

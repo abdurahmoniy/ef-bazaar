@@ -356,6 +356,7 @@ public class TradeProposalService {
         }
 
         TradeResponse trade;
+        boolean attaching = false;
         try {
             trade = trades.openTrade(tradeId, sellerId, buyerId, amountUzs,
                     sellerCardId, buyerCardId, listingId, chatId, mode, adminId, adminFee,
@@ -363,6 +364,7 @@ public class TradeProposalService {
             // Try ichida: poygada qisman unique indeks shu yerda yiqilsa, pastdagi
             // catch muzlatilgan pulni qaytaradi.
             if (give != null) {
+                attaching = true;
                 trade = trades.attachGiveAccount(trade.id(), give,
                         accepterUserId.equals(sellerId) ? ParticipantRole.SELLER : ParticipantRole.BUYER);
             }
@@ -378,6 +380,11 @@ public class TradeProposalService {
                             + "released — buyer {} has {} so'm frozen with no trade",
                             tradeId, buyerId, amountUzs, releaseFailed);
                 }
+            }
+            // Poygada ikkinchi savdo akkountni ololmadi: qisman unique indeks.
+            // 500 va xom SQL matni o'rniga guard bergan javobning o'zi.
+            if (attaching && e instanceof org.springframework.dao.DataIntegrityViolationException) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Bu akkount boshqa savdoda", e);
             }
             throw e;
         }

@@ -360,7 +360,8 @@ public class TradeService {
                 counterpartMailboxEmail,
                 loginCodeFor(t, role),
                 null, t.getUpdatedAt(), t.getAdminFeePayer(),
-                GiveAccountSnapshot.fromMap(t.getGiveAccountId(), t.getGiveAccountSnapshot()));
+                GiveAccountSnapshot.fromMap(t.getGiveAccountId(), t.getGiveAccountSnapshot()),
+                t.getListingId());
     }
 
     /** Joriy foydalanuvchining tirik obmenlarda berilayotgan akkountlari. */

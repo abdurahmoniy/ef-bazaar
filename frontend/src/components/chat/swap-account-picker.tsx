@@ -21,22 +21,38 @@ export const SWAP_OTHER = 'OTHER';
 export function SwapAccountPicker({ value, onChange }: { value: string | null; onChange: (value: string) => void }) {
   const [accounts, setAccounts] = useState<UserAccountResponse[] | null>(null);
   const [busy, setBusy] = useState<Set<string>>(new Set());
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
     void (async () => {
       const [result, busyIds] = await Promise.all([getMyAccounts(), fetchBusyAccountIds()]);
       if (!active) return;
-      const list = result.ok ? result.data.filter(a => a.status === 'ACTIVE') : [];
+      // Xato bo'sh ro'yxat emas: akkountlari bor odam jimgina "Boshqa" bilan
+      // savdo ochib yubormasligi uchun hech narsa avtomatik tanlanmaydi.
+      if (!result.ok) {
+        setLoadError(result.message || 'Akkountlar yuklanmadi');
+        return;
+      }
+      const list = result.data.filter(a => a.status === 'ACTIVE');
+      setLoadError(null);
       setAccounts(list);
       setBusy(busyIds);
       if (list.length === 0) onChange(SWAP_OTHER);
     })();
     return () => { active = false; };
-    // onChange is a state setter from the parent; the list loads once.
+    // onChange is a state setter from the parent; the list reloads only on retry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [attempt]);
 
+  if (loadError) {
+    return <div role="alert" className="flex items-center justify-between gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+      <span>{loadError}</span>
+      <button type="button" onClick={() => { setLoadError(null); setAttempt(n => n + 1); }}
+        className="min-h-11 shrink-0 font-medium underline-offset-2 hover:underline">Qayta urinish</button>
+    </div>;
+  }
   if (accounts === null) return <p className="text-xs text-muted-foreground">Akkountlar yuklanmoqda…</p>;
 
   return (

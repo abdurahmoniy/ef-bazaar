@@ -83,3 +83,21 @@ it('with no accounts, Other is selected and a link to add one is shown', async (
   expect(picked).toBe(SWAP_OTHER);
   expect(container.textContent).toContain('Profilga akkount qo‘shish');
 });
+
+it('a failed load shows an error with retry and never picks Other on its own', async () => {
+  // Akkountlari bor xaridor tarmoq xatosida jimgina "Boshqa" bilan savdo ochib
+  // yubormasligi kerak: aks holda bergan akkounti profilida qolib ketardi.
+  vi.mocked(getMyAccounts).mockResolvedValueOnce({ ok: false, status: 503, message: 'Akkountlar yuklanmadi' } as never);
+  vi.mocked(fetchBusyAccountIds).mockResolvedValue(new Set());
+  await act(async () => root.render(createElement(Harness)));
+
+  expect(picked).toBeNull();
+  expect(container.textContent).toContain('Akkountlar yuklanmadi');
+  expect(container.textContent).not.toContain('Profilga akkount qo‘shish');
+
+  vi.mocked(getMyAccounts).mockResolvedValueOnce({ ok: true, data: [account('a', 'Asosiy akk')] } as never);
+  const retry = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Qayta urinish'));
+  expect(retry).toBeDefined();
+  await act(async () => retry!.click());
+  expect(radios().map(r => r.textContent)).toEqual([expect.stringContaining('Asosiy akk'), expect.stringContaining('Boshqa')]);
+});
