@@ -70,6 +70,15 @@ export interface TradeSideProgress {
   lastStepAt: string | null;
 }
 
+/** Mirrors uz.efbazaar.trade.trade.domain.GiveAccountSnapshot. */
+export interface GiveAccountSnapshot {
+  id: string;
+  title: string | null;
+  coverMessageId: string | null;
+  summary: string;
+  teamStrength: number | null;
+}
+
 export interface TradeResponse {
   adminFeePayer?: AdminFeePayer | null;
   id: string;
@@ -131,6 +140,8 @@ export interface TradeResponse {
    * `null` until the code arrives; ~5-min Konami TTL is not enforced here.
    */
   emailChangeVerificationCode: string | null;
+  /** Obmenda xaridor beradigan akkount. null — "Boshqa" yoki sotuv. */
+  giveAccount?: GiveAccountSnapshot | null;
 }
 
 /** Mirrors uz.efbazaar.trade.trade.dto.TradePage. */
@@ -167,6 +178,8 @@ export interface PendingProposalResponse extends TradeFeeQuote {
   adminFeeUzs?: number | null;
   listingId: string | null;
   expiresAt: string;
+  /** Xaridor o'zi taklif qilgan obmendagi akkount. */
+  giveAccount?: GiveAccountSnapshot | null;
 }
 
 /**
@@ -205,6 +218,8 @@ export interface ProposalCreateRequest {
 
 export interface ProposalAcceptRequest {
   cardId?: string;
+  /** Sotuvchi ochgan obmenni qabul qilayotgan xaridorning akkounti; yo'q — "Boshqa". */
+  giveAccountId?: string;
 }
 
 export type TradeAdminSort = 'DEFAULT' | 'RATING' | 'FEE_ASC';

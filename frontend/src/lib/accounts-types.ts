@@ -7,7 +7,7 @@
 
 export type UserAccountStatus = 'ACTIVE' | 'ARCHIVED';
 export type AccountEmailSource = 'MANUAL' | 'PLATFORM';
-export type AccountArchivedReason = 'SOLD_ON_PLATFORM' | 'SOLD_ELSEWHERE' | 'BY_OWNER';
+export type AccountArchivedReason = 'SOLD_ON_PLATFORM' | 'SOLD_ELSEWHERE' | 'BY_OWNER' | 'SWAPPED_ON_PLATFORM';
 
 /** Optional display data resolved from the current listing and owned mailboxes. */
 export interface AccountDisplayData {

@@ -27,6 +27,7 @@ import {
   type PendingProposalResponse,
   type ProposalResponse,
   type TradeKind,
+  type GiveAccountSnapshot,
   type TradeFeeQuote,
   type TradeMode,
   type TradeResponse,
@@ -41,6 +42,7 @@ export interface PendingProposal extends TradeFeeQuote, Pick<PendingProposalResp
   adminId?: string;
   adminFeeUzs?: number;
   kind?: TradeKind;
+  giveAccount?: GiveAccountSnapshot | null;
 }
 
 interface TradeContextValue {
@@ -142,6 +144,7 @@ export function TradeProvider({
           adminId: initialPendingProposal.adminId ?? undefined,
           adminFeeUzs: initialPendingProposal.adminFeeUzs ?? undefined,
           kind: initialPendingProposal.kind ?? undefined,
+          giveAccount: initialPendingProposal.giveAccount ?? null,
           adminFeePayer: initialPendingProposal.adminFeePayer,
           adminFeeTiyin: initialPendingProposal.adminFeeTiyin,
           buyerHoldTiyin: initialPendingProposal.buyerHoldTiyin,
@@ -225,6 +228,7 @@ export function TradeProvider({
           expiresAt: p.expiresAt, mode: p.mode ?? undefined,
           adminId: p.adminId ?? undefined, adminFeeUzs: p.adminFeeUzs ?? undefined,
           kind: p.kind ?? undefined,
+          giveAccount: p.giveAccount ?? null,
           adminFeePayer: p.adminFeePayer, adminFeeTiyin: p.adminFeeTiyin,
           buyerHoldTiyin: p.buyerHoldTiyin, sellerHoldTiyin: p.sellerHoldTiyin,
         } : null);
