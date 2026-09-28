@@ -312,5 +312,7 @@ public final class TradeEvents {
             UUID listingId,
             String mode,
             String kind,
+            /** Obmenda xaridor bergan akkount; null — "Boshqa" yoki sotuv. marketplace uni sotuvchiga ko'chiradi. */
+            UUID giveAccountId,
             Instant occurredAt) {}
 }

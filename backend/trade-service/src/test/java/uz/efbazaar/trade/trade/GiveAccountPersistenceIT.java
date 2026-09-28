@@ -72,4 +72,15 @@ class GiveAccountPersistenceIT extends AbstractIntegrationIT {
         assertThat(tradeRepo.existsLiveWithListing(listing, TradeState.nonTerminal())).isTrue();
         assertThat(tradeRepo.existsLiveWithListing(UUID.randomUUID(), TradeState.nonTerminal())).isFalse();
     }
+
+    @Test
+    void busyAccountsListsOnlyTheCallersLiveGivenAccounts() {
+        UUID buyer = UUID.randomUUID();
+        UUID account = UUID.randomUUID();
+        trades.attachGiveAccount(openSwap(buyer), new GiveAccountSnapshot(account, null, null, "", null),
+                ParticipantRole.BUYER);
+
+        assertThat(trades.busyGiveAccounts(buyer)).containsExactly(account);
+        assertThat(trades.busyGiveAccounts(UUID.randomUUID())).isEmpty();
+    }
 }

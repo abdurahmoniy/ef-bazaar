@@ -39,6 +39,7 @@ import uz.efbazaar.trade.trade.ws.TradeBroadcaster;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -360,6 +361,12 @@ public class TradeService {
                 loginCodeFor(t, role),
                 null, t.getUpdatedAt(), t.getAdminFeePayer(),
                 GiveAccountSnapshot.fromMap(t.getGiveAccountId(), t.getGiveAccountSnapshot()));
+    }
+
+    /** Joriy foydalanuvchining tirik obmenlarda berilayotgan akkountlari. */
+    @Transactional(readOnly = true)
+    public List<UUID> busyGiveAccounts(UUID userId) {
+        return trades.findGiveAccountIdsOfBuyer(userId, TradeState.nonTerminal());
     }
 
     /**
