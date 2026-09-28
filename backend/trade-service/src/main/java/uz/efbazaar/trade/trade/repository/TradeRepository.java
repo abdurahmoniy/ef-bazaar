@@ -59,6 +59,32 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
                              @Param("states") java.util.Collection<TradeState> states);
 
     @Query("""
+            SELECT COUNT(t) > 0 FROM Trade t
+             WHERE t.giveAccountId = :accountId
+               AND t.state IN :states
+            """)
+    boolean existsLiveWithGiveAccount(@Param("accountId") UUID accountId,
+                                      @Param("states") java.util.Collection<TradeState> states);
+
+    @Query("""
+            SELECT COUNT(t) > 0 FROM Trade t
+             WHERE t.listingId = :listingId
+               AND t.state IN :states
+            """)
+    boolean existsLiveWithListing(@Param("listingId") UUID listingId,
+                                  @Param("states") java.util.Collection<TradeState> states);
+
+    /** Qabul oynasida "Savdoda" belgisi uchun. */
+    @Query("""
+            SELECT t.giveAccountId FROM Trade t
+             WHERE t.buyerId = :buyerId
+               AND t.giveAccountId IS NOT NULL
+               AND t.state IN :states
+            """)
+    List<UUID> findGiveAccountIdsOfBuyer(@Param("buyerId") UUID buyerId,
+                                         @Param("states") java.util.Collection<TradeState> states);
+
+    @Query("""
             SELECT t FROM Trade t
              WHERE t.chatId = :chatId
                AND (t.sellerId = :userId OR t.buyerId = :userId)

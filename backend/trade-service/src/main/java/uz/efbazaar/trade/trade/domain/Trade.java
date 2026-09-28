@@ -1,5 +1,8 @@
 package uz.efbazaar.trade.trade.domain;
 
+import java.util.Map;
+import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.JdbcTypeCode;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -116,6 +119,15 @@ public class Trade {
     @Column(name = "admin_fee_payer", nullable = false, updatable = false, length = 8)
     @Builder.Default
     private AdminFeePayer adminFeePayer = AdminFeePayer.SELLER;
+
+    /** Obmenda xaridor beradigan akkount. null — "Boshqa" yoki obmen emas. */
+    @Column(name = "give_account_id")
+    private UUID giveAccountId;
+
+    /** {@link GiveAccountSnapshot#toMap()} — savdo ochilgandagi ko'rinish. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "give_account_snapshot", columnDefinition = "jsonb")
+    private Map<String, Object> giveAccountSnapshot;
 
     // ----- human trade-admin mode -----
 
