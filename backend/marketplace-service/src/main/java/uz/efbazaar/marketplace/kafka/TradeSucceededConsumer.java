@@ -6,6 +6,8 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import uz.efbazaar.marketplace.referral.ReferralService;
 
+import java.util.UUID;
+
 /**
  * Savdo muvaffaqiyatli yopilganda referal mukofotini ishga soladi.
  *
@@ -21,6 +23,7 @@ public class TradeSucceededConsumer {
 
     private final ReferralService referrals;
     private final uz.efbazaar.marketplace.account.ListingAccountLink accounts;
+    private final uz.efbazaar.marketplace.service.ListingService listingService;
 
     @KafkaListener(
             topics = "efbazaar.trade.trade-succeeded",
@@ -34,7 +37,13 @@ public class TradeSucceededConsumer {
         referrals.rewardFor(e.tradeId(), e.buyerId(), e.sellerId());
         // Akkount sotuvchidan xaridorga ko'chadi. Mukofotdan KEYIN: ikkalasi
         // mustaqil va biri yiqilsa ikkinchisi baribir bajarilishi kerak.
-        accounts.onTradeSucceeded(e.tradeId(), e.listingId(), e.buyerId(), e.sellerId(), e.kind());
+        UUID givenListing = accounts.onTradeSucceeded(e.tradeId(), e.listingId(), e.buyerId(),
+                e.sellerId(), e.kind(), e.giveAccountId());
+        // Berilgan akkount bozorda turgan bo'lsa, e'loni endi yolg'on: u sotuvchiga o'tdi.
+        // markSold idempotent va kanal postlarini ham belgilaydi.
+        if (givenListing != null) {
+            listingService.markSold(givenListing, e.sellerId(), java.time.Instant.now());
+        }
         // Akkount ochilib COMMIT bo'lgach: pochta topshirilgani haqidagi
         // hodisa boshqa topikda va boshqa tranzaksiyada keladi. Bir vaqtda
         // ishlansa u akkountni ko'rmay manzilni kutishga qo'yib ketadi va

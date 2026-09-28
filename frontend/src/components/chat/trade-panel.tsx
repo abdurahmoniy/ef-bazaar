@@ -97,6 +97,9 @@ import { canUseSmartAdmin, resolveTradeListing } from '@/lib/trade-platform';
 import { TradeProgressTimeline } from './trade-progress-timeline';
 import { TradeProposalRetryButton } from './trade-proposal-retry-button';
 import { TradeAcceptPayment } from './trade-accept-payment';
+import { SWAP_OTHER, SwapAccountPicker } from './swap-account-picker';
+import { GiveReceiveBlock, useSwapListingSide } from './swap-accounts-summary';
+import { givenSide } from '@/lib/swap-accounts';
 import { TradeAdminHandoff } from './trade-admin-handoff';
 import { useTradeContext, type PendingProposal } from './trade-context';
 
@@ -509,6 +512,14 @@ function AccountPickerModal({
 
 // -------------------- active trade --------------------
 
+/** Drawer: obmenda kim nima beradi va nima oladi. */
+function SwapGiveReceive({ trade, viewerId }: { trade: TradeResponse; viewerId: string }) {
+  const listing = useSwapListingSide(trade.listingId ?? null);
+  const given = givenSide(trade.giveAccount);
+  const isSeller = trade.sellerId === viewerId;
+  return <GiveReceiveBlock give={isSeller ? listing : given} receive={isSeller ? given : listing} />;
+}
+
 function TradeDetails({ trade, viewerId, onRefresh, refreshing }: {
   trade: TradeResponse;
   viewerId: string;
@@ -533,6 +544,7 @@ function TradeDetails({ trade, viewerId, onRefresh, refreshing }: {
         {trade.stateDeadline && !isTerminalState(trade.state) && <div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Bosqich uchun qolgan vaqt</dt>
           <dd className="tabular-nums"><CountdownText until={trade.stateDeadline} /></dd></div>}
       </dl>
+      {isSwap(trade.kind) && <SwapGiveReceive trade={trade} viewerId={viewerId} />}
     </section>
     <section aria-label="Savdo jarayoni" className="border-t border-border pt-4">
       {isHumanTrade(trade)
@@ -2291,14 +2303,19 @@ function AcceptModal({
     ? [selectedListing, listing].find((item) => item?.id === proposal.listingId) ?? null
     : null;
   const requiresAdmin = !isHumanProposal(proposal) && !canUseSmartAdmin(proposalListing);
+  // Sotuvchi ochgan obmenda xaridor qaysi akkountini berishini shu yerda tanlaydi.
+  const pickingAccount = isSwap(proposal.kind) && proposal.proposerUserId !== viewerId && proposal.buyerId === viewerId;
+  const [giveAccount, setGiveAccount] = useState<string | null>(null);
+  const acceptPayload: ProposalAcceptRequest =
+    pickingAccount && giveAccount && giveAccount !== SWAP_OTHER ? { giveAccountId: giveAccount } : {};
+  const accountMissing = pickingAccount && giveAccount === null;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (requiresAdmin) return;
+    if (requiresAdmin || accountMissing) return;
     setError(null);
-    const payload: ProposalAcceptRequest = {};
     startSubmit(async () => {
-      const result = await postProposalAccept(proposal.id, payload);
+      const result = await postProposalAccept(proposal.id, acceptPayload);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -2321,7 +2338,8 @@ function AcceptModal({
 
   if (!isHumanProposal(proposal) && proposalHoldTiyin(proposal, viewerId) > 0) {
     return <ModalShell title="Taklifni qabul qilish" onClose={() => { if (!paymentBusy) onClose(); }}>
-      <TradeAcceptPayment proposal={proposal} viewerId={viewerId} unavailable={unavailable} onAccept={() => postProposalAccept(proposal.id, {})}
+      {pickingAccount && <div className="mb-3"><SwapAccountPicker value={giveAccount} onChange={setGiveAccount} /></div>}
+      <TradeAcceptPayment proposal={proposal} viewerId={viewerId} unavailable={unavailable || accountMissing} onAccept={() => postProposalAccept(proposal.id, acceptPayload)}
         onAccepted={onAccepted} onClose={onClose} onBusyChange={setPaymentBusy} />
     </ModalShell>;
   }
@@ -2329,6 +2347,7 @@ function AcceptModal({
   return (
     <ModalShell title="Taklifni qabul qilish" onClose={onClose}>
       <form className="space-y-3" onSubmit={handleSubmit}>
+        {pickingAccount && <SwapAccountPicker value={giveAccount} onChange={setGiveAccount} />}
         <TradeFeeTerms proposal={proposal} viewerId={viewerId} />
         <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           <p>
@@ -2381,7 +2400,7 @@ function AcceptModal({
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
             Bekor qilish
           </Button>
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" disabled={submitting || accountMissing}>
             {submitting ? 'Tasdiqlanmoqda…' : 'Tasdiqlash'}
           </Button>
         </div>

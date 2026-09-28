@@ -40,7 +40,8 @@ class SellerProposalKindsTest {
     private final ListingTermsClient listings = mock(ListingTermsClient.class);
     private final TradeProposalService service = new TradeProposalService(redis,
             mock(TradeEventPublisher.class), trades, mock(TradeAuditService.class),
-            mock(TradeAdminProfileService.class), escrow, listings);
+            mock(TradeAdminProfileService.class), escrow, listings,
+            mock(uz.efbazaar.trade.trade.service.SwapAccountGuard.class));
 
     private long prepare(TradeKind kind, String exchangeMode, UUID proposer, UUID owner) {
         long amount = kind == TradeKind.SWAP ? 0 : 5000;

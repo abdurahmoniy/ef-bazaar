@@ -249,4 +249,61 @@ class ChannelPostCaptionTest {
         // Matn qoladi — obunachi nima sotilganini ko'rishi kerak.
         assertThat(sold).contains("4" + NB + "500" + NB + "000");
     }
+
+    @Test
+    @DisplayName("sarlavha e'lon turini aytadi: sotuv, obmen yoki obmen + doplata")
+    void theHeaderNamesTheDealType() {
+        // Ilgari har bir post "eFootball akkaunt" + narx bilan chiqardi,
+        // ya'ni obmen e'loni ham kanalda sotuvdek ko'rinardi.
+        assertThat(header(null)).contains("SOTILADI");
+        assertThat(header("NONE")).contains("SOTILADI");
+        assertThat(header("EXCHANGE_ONLY")).contains("OBMEN").doesNotContain("SOTILADI", "DOPLATA");
+        assertThat(header("EXCHANGE_WITH_SURCHARGE")).contains("OBMEN + DOPLATA");
+        assertThat(header("BOTH")).contains("OBMEN YOKI OBMEN + DOPLATA");
+    }
+
+    @Test
+    @DisplayName("faqat obmenda narx chiqmaydi, doplatalida qoladi")
+    void onlyAPureExchangeHidesThePrice() {
+        // Faqat obmen e'lonida pul so'ralmaydi — narx qatori xaridorni
+        // chalg'itib, postni yana sotuvga o'xshatardi.
+        assertThat(caption("EXCHANGE_ONLY")).doesNotContain("so'm");
+        assertThat(caption("EXCHANGE_WITH_SURCHARGE")).contains("4" + NB + "500" + NB + "000 so'm");
+        assertThat(caption("BOTH")).contains("so'm");
+        assertThat(caption(null)).contains("so'm");
+    }
+
+    @Test
+    @DisplayName("hamkor sarlavhani o'chirgan bo'lsa ham e'lon turi chiqadi")
+    void theDealTypeSurvivesADisabledHeader() {
+        var layout = ChannelPostLayout.parse(List.of("PRICE", "STRENGTH"));
+
+        String caption = ChannelPostCaption.of(
+                listing(Map.of("exchange_mode", "EXCHANGE_WITH_SURCHARGE")), URL, layout, null);
+
+        assertThat(caption).startsWith("<b>OBMEN + DOPLATA</b>");
+        assertThat(caption).doesNotContain("eFootball akkaunt");
+    }
+
+    @Test
+    @DisplayName("obmen qatori xom kod emas, o'qiladigan nom chiqaradi")
+    void theExchangeBlockShowsALabel() {
+        var layout = ChannelPostLayout.parse(List.of("HEADER", "EXCHANGE"));
+
+        String caption = ChannelPostCaption.of(
+                listing(Map.of("exchange_mode", "EXCHANGE_WITH_SURCHARGE")), URL, layout, null);
+
+        assertThat(caption).contains("🔄 Obmen + doplata");
+        assertThat(caption).doesNotContain("EXCHANGE_WITH_SURCHARGE");
+    }
+
+    private String caption(String exchangeMode) {
+        Map<String, Object> attributes = new LinkedHashMap<>();
+        if (exchangeMode != null) attributes.put("exchange_mode", exchangeMode);
+        return ChannelPostCaption.of(listing(attributes), URL);
+    }
+
+    private String header(String exchangeMode) {
+        return caption(exchangeMode).lines().findFirst().orElse("");
+    }
 }

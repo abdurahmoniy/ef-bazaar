@@ -34,7 +34,8 @@ class ProposalRejectionTest {
     private final TradeEventPublisher events = mock(TradeEventPublisher.class);
     private final TradeProposalService service = new TradeProposalService(redis, events,
             mock(TradeService.class), mock(TradeAuditService.class), mock(TradeAdminProfileService.class),
-            mock(EscrowClient.class), mock(ListingTermsClient.class));
+            mock(EscrowClient.class), mock(ListingTermsClient.class),
+            mock(uz.efbazaar.trade.trade.service.SwapAccountGuard.class));
 
     @BeforeEach
     void setup() {

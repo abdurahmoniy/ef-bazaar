@@ -16,6 +16,7 @@ import uz.efbazaar.trade.kafka.TradeEvents;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.trade.domain.ActorType;
+import uz.efbazaar.trade.trade.domain.GiveAccountSnapshot;
 import uz.efbazaar.trade.trade.domain.ParticipantRole;
 import uz.efbazaar.trade.trade.domain.Trade;
 import uz.efbazaar.trade.trade.domain.TradeChat;
@@ -38,6 +39,7 @@ import uz.efbazaar.trade.trade.ws.TradeBroadcaster;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -357,7 +359,30 @@ public class TradeService {
                 sideService.of(t.getId()).stream().map(TradeSideResponse::of).toList(),
                 counterpartMailboxEmail,
                 loginCodeFor(t, role),
-                null, t.getUpdatedAt(), t.getAdminFeePayer());
+                null, t.getUpdatedAt(), t.getAdminFeePayer(),
+                GiveAccountSnapshot.fromMap(t.getGiveAccountId(), t.getGiveAccountSnapshot()),
+                t.getListingId());
+    }
+
+    /** Joriy foydalanuvchining tirik obmenlarda berilayotgan akkountlari. */
+    @Transactional(readOnly = true)
+    public List<UUID> busyGiveAccounts(UUID userId) {
+        return trades.findGiveAccountIdsOfBuyer(userId, TradeState.nonTerminal());
+    }
+
+    /**
+     * Obmenda xaridor tanlagan akkountni savdoga yozadi.
+     *
+     * <p>{@code saveAndFlush}: qisman unique indeks poygani shu yerda ushlaydi,
+     * accept tranzaksiyasi esa butunlay orqaga qaytadi.
+     */
+    @Transactional
+    public TradeResponse attachGiveAccount(UUID tradeId, GiveAccountSnapshot snapshot, ParticipantRole role) {
+        Trade t = trades.findById(tradeId).orElseThrow();
+        t.setGiveAccountId(snapshot.id());
+        t.setGiveAccountSnapshot(snapshot.toMap());
+        trades.saveAndFlush(t);
+        return toResponse(t, role);
     }
 
     /** Kirish kodi faqat o'z tarafiniki: boshqasining kodi bu akkountga yaramaydi. */

@@ -37,7 +37,8 @@ class ProposalFeePayerTest {
                 .thenReturn(new EscrowClient.Quote(500001, buyerHold, sellerHold));
         TradeService trades = mock(TradeService.class);
         var service = new TradeProposalService(redis, mock(TradeEventPublisher.class), trades,
-                mock(TradeAuditService.class), mock(TradeAdminProfileService.class), escrow, listings);
+                mock(TradeAuditService.class), mock(TradeAdminProfileService.class), escrow, listings,
+                mock(uz.efbazaar.trade.trade.service.SwapAccountGuard.class));
         var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         var request = mapper.readValue("""
                 {"marketplaceChatId":"%s","otherPartyUserId":"%s","sellerId":"%s","buyerId":"%s",
@@ -81,7 +82,8 @@ class ProposalFeePayerTest {
         EscrowClient escrow = mock(EscrowClient.class);
         TradeService trades = mock(TradeService.class);
         var service = new TradeProposalService(redis, mock(TradeEventPublisher.class), trades,
-                mock(TradeAuditService.class), mock(TradeAdminProfileService.class), escrow, mock(ListingTermsClient.class));
+                mock(TradeAuditService.class), mock(TradeAdminProfileService.class), escrow, mock(ListingTermsClient.class),
+                mock(uz.efbazaar.trade.trade.service.SwapAccountGuard.class));
         assertThatThrownBy(() -> service.accept(forgedProposer ? buyer : UUID.randomUUID(), UUID.randomUUID(), null))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class).hasMessageContaining("403");
         verifyNoInteractions(escrow, trades);
@@ -97,7 +99,8 @@ class ProposalFeePayerTest {
         EscrowClient escrow = mock(EscrowClient.class);
         TradeEventPublisher events = mock(TradeEventPublisher.class);
         var service = new TradeProposalService(redis, events, mock(TradeService.class),
-                mock(TradeAuditService.class), mock(TradeAdminProfileService.class), escrow, mock(ListingTermsClient.class));
+                mock(TradeAuditService.class), mock(TradeAdminProfileService.class), escrow, mock(ListingTermsClient.class),
+                mock(uz.efbazaar.trade.trade.service.SwapAccountGuard.class));
         var request = new ProposalCreateRequest(UUID.randomUUID(), other, seller, buyer,
                 0L, null, UUID.randomUUID(), TradeMode.SMART, null, null, TradeKind.SWAP, AdminFeePayer.BUYER);
         assertThatThrownBy(() -> service.create(proposer, request))

@@ -15,6 +15,8 @@ import uz.efbazaar.trade.kafka.TradeEvents;
 import uz.efbazaar.trade.payment.EscrowClient;
 import uz.efbazaar.trade.trade.domain.ActorType;
 import uz.efbazaar.trade.trade.domain.TradeEvent;
+import uz.efbazaar.trade.trade.domain.GiveAccountSnapshot;
+import uz.efbazaar.trade.trade.domain.ParticipantRole;
 import uz.efbazaar.trade.trade.domain.TradeKind;
 import uz.efbazaar.trade.trade.domain.AdminFeePayer;
 import uz.efbazaar.trade.trade.domain.TradeMode;
@@ -73,6 +75,7 @@ public class TradeProposalService {
     private final TradeAdminProfileService adminProfiles;
     private final EscrowClient escrow;
     private final uz.efbazaar.trade.marketplace.ListingTermsClient listings;
+    private final SwapAccountGuard swapAccounts;
 
     @Value("${trade.proposal.ttl-seconds:600}")
     private long ttlSeconds;
@@ -85,6 +88,11 @@ public class TradeProposalService {
         if (req.sellerId().equals(req.buyerId()) || !counterpart.equals(req.otherPartyUserId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trade participants must be distinct counterparts");
         }
+        if (req.giveAccountId() != null && !proposerUserId.equals(req.buyerId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Obmen akkountini faqat xaridor tanlaydi");
+        }
+        GiveAccountSnapshot give = swapAccounts.check(req.giveAccountId(), req.buyerId(), req.kindOrDefault());
         TradeMode mode = req.modeOrDefault();
         if (mode == TradeMode.SMART && req.kindOrDefault() == TradeKind.SALE) {
             escrow.validateSaleAmount(req.amountUzs());
@@ -142,6 +150,7 @@ public class TradeProposalService {
         hash.put("mode",              mode.name());
         hash.put("adminId",           req.adminId() != null ? req.adminId().toString() : "");
         hash.put("adminFeeUzs",       req.adminFeeUzs() != null ? req.adminFeeUzs().toString() : "");
+        putGiveAccount(hash, give);
 
         redis.opsForHash().putAll(key, hash);
         redis.expire(key, Duration.ofSeconds(ttlSeconds));
@@ -209,11 +218,16 @@ public class TradeProposalService {
                 mode, adminId, adminFeeUzs,
                 AdminFeePayer.valueOf(orDefault((String) raw.get("adminFeePayer"), "SELLER")),
                 optionalLong(raw.get("adminFeeTiyin")), optionalLong(raw.get("buyerHoldTiyin")),
-                optionalLong(raw.get("sellerHoldTiyin"))));
+                optionalLong(raw.get("sellerHoldTiyin")), readGiveAccount(raw)));
     }
 
     @Transactional
     public TradeResponse accept(UUID accepterUserId, UUID proposalId, UUID accepterCardId) {
+        return accept(accepterUserId, proposalId, accepterCardId, null);
+    }
+
+    @Transactional
+    public TradeResponse accept(UUID accepterUserId, UUID proposalId, UUID accepterCardId, UUID giveAccountId) {
         String mainKey = redisKey(proposalId);
         Map<Object, Object> raw = redis.opsForHash().entries(mainKey);
         if (raw.isEmpty()) {
@@ -276,6 +290,23 @@ public class TradeProposalService {
         TradeKind kind = TradeKind.valueOf(
                 orDefault((String) raw.get("kind"), TradeKind.SALE.name()));
 
+        // Xaridor taklif qilgan bo'lsa akkount taklifda; sotuvchi taklif qilgan
+        // bo'lsa uni qabul qilayotgan xaridor hozir tanlaydi. Qolgan holatda
+        // (sotuvchi qabul qilyapti) akkount yuborish — boshqa odamning mulkini
+        // tanlash, rad etiladi.
+        UUID chosenAccount;
+        if (proposerUserId.equals(buyerId)) {
+            if (giveAccountId != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Obmen akkountini faqat xaridor tanlaydi");
+            }
+            chosenAccount = optionalUuid(raw.get("giveAccountId"));
+        } else {
+            chosenAccount = giveAccountId;
+        }
+        // Qayta tekshiruv: taklif yashagan 10 daqiqada akkount band bo'lishi yoki o'chishi mumkin.
+        GiveAccountSnapshot give = swapAccounts.check(chosenAccount, buyerId, kind);
+
         if (kind != TradeKind.SWAP && amountUzs < 5000) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Eng kam miqdor 5 000 so‘m");
         }
@@ -325,10 +356,18 @@ public class TradeProposalService {
         }
 
         TradeResponse trade;
+        boolean attaching = false;
         try {
             trade = trades.openTrade(tradeId, sellerId, buyerId, amountUzs,
                     sellerCardId, buyerCardId, listingId, chatId, mode, adminId, adminFee,
                     kind, feeBaseUzs, payer);
+            // Try ichida: poygada qisman unique indeks shu yerda yiqilsa, pastdagi
+            // catch muzlatilgan pulni qaytaradi.
+            if (give != null) {
+                attaching = true;
+                trade = trades.attachGiveAccount(trade.id(), give,
+                        accepterUserId.equals(sellerId) ? ParticipantRole.SELLER : ParticipantRole.BUYER);
+            }
         } catch (RuntimeException e) {
             // The money is already frozen and there is no trade to release it.
             // Give it straight back rather than stranding it; release is keyed
@@ -341,6 +380,11 @@ public class TradeProposalService {
                             + "released — buyer {} has {} so'm frozen with no trade",
                             tradeId, buyerId, amountUzs, releaseFailed);
                 }
+            }
+            // Poygada ikkinchi savdo akkountni ololmadi: qisman unique indeks.
+            // 500 va xom SQL matni o'rniga guard bergan javobning o'zi.
+            if (attaching && e instanceof org.springframework.dao.DataIntegrityViolationException) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Bu akkount boshqa savdoda", e);
             }
             throw e;
         }
@@ -383,6 +427,29 @@ public class TradeProposalService {
             throw new ProposalNotFoundException(proposalId.toString());
         }
         events.proposalResolved(proposalId, TradeEvents.ProposalOutcome.REJECTED);
+    }
+
+    private static void putGiveAccount(Map<String, String> hash, GiveAccountSnapshot give) {
+        hash.put("giveAccountId",      give == null ? "" : give.id().toString());
+        hash.put("giveAccountTitle",   give == null || give.title() == null ? "" : give.title());
+        hash.put("giveAccountCover",   give == null || give.coverMessageId() == null ? "" : give.coverMessageId());
+        hash.put("giveAccountSummary", give == null || give.summary() == null ? "" : give.summary());
+        hash.put("giveAccountTs",      give == null || give.teamStrength() == null ? "" : give.teamStrength().toString());
+    }
+
+    private static GiveAccountSnapshot readGiveAccount(Map<Object, Object> raw) {
+        UUID id = optionalUuid(raw.get("giveAccountId"));
+        if (id == null) return null;
+        Long ts = optionalLong(raw.get("giveAccountTs"));
+        return new GiveAccountSnapshot(id,
+                blankToNull(raw.get("giveAccountTitle")),
+                blankToNull(raw.get("giveAccountCover")),
+                raw.get("giveAccountSummary") == null ? "" : raw.get("giveAccountSummary").toString(),
+                ts == null ? null : ts.intValue());
+    }
+
+    private static String blankToNull(Object v) {
+        return v == null || v.toString().isBlank() ? null : v.toString();
     }
 
     private static UUID optionalUuid(Object v) {

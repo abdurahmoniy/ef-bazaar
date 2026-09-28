@@ -69,7 +69,8 @@ class AccountTradeOriginTest {
         listing.setMediaMessageIds(List.of("photo-1"));
         when(listings.findById(listingId)).thenReturn(Optional.of(listing));
         ListingAccountLink link = new ListingAccountLink(accounts, inventory, listings, pendingEmails);
-        TradeSucceededConsumer consumer = new TradeSucceededConsumer(mock(ReferralService.class), link);
+        TradeSucceededConsumer consumer = new TradeSucceededConsumer(mock(ReferralService.class), link,
+                mock(uz.efbazaar.marketplace.service.ListingService.class));
         // Parse the producer's wire payload, including an absent kind on old events.
         var mapper = JsonMapper.builder().findAndAddModules()
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();

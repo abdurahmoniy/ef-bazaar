@@ -74,6 +74,13 @@ public final class ChannelPostCaption {
         Map<String, Object> a = listing.getAttributes() == null ? Map.of() : listing.getAttributes();
         List<String> lines = new ArrayList<>();
 
+        // E'lon turi hamkor sozlamasiga bog'liq emas: sarlavhani o'chirgan
+        // kanalda ham obmen e'loni sotuvdek ko'rinmasligi kerak.
+        if (!layout.has(ChannelPostLayout.Block.HEADER)) {
+            lines.add("<b>" + deal(a) + "</b>");
+            lines.add("");
+        }
+
         for (ChannelPostLayout.Block block : layout.blocks()) {
             String rendered = render(block, listing, a);
             if (rendered == null || rendered.isBlank()) continue;
@@ -100,8 +107,11 @@ public final class ChannelPostCaption {
     private static String render(ChannelPostLayout.Block block, Listing listing,
                                  Map<String, Object> a) {
         return switch (block) {
-            case HEADER -> "🎮 <b>eFootball akkaunt</b>";
-            case PRICE -> "💰 <b>" + som(listing.getPrice()) + "</b>"
+            case HEADER -> "🎮 <b>eFootball akkaunt</b> — <b>" + deal(a) + "</b>";
+            // Faqat obmenda pul so'ralmaydi: narx qatori postni yana
+            // sotuvga o'xshatib qo'yardi. Doplatalida esa narx kerak.
+            case PRICE -> "EXCHANGE_ONLY".equals(exchangeMode(a)) ? ""
+                    : "💰 <b>" + som(listing.getPrice()) + "</b>"
                     + (listing.isPriceNegotiable() ? " · kelishiladi" : "");
             // Akkauntning kuchi bitta qatorda: uchtasi ham kichik son
             // va alohida qatorlarga yoyilsa matn bo'sh joyga cho'ziladi.
@@ -124,10 +134,45 @@ public final class ChannelPostCaption {
                     flag(a, "has_google_play_link", "🔗 Google Play ulangan"),
                     flag(a, "has_game_center_link", "🔗 Game Center ulangan"));
             case PLATFORM -> plain(a, "platform", v -> "📲 " + v);
-            case EXCHANGE -> plain(a, "exchange_mode", v -> "🔄 " + v);
+            case EXCHANGE -> {
+                String label = exchangeLabel(exchangeMode(a));
+                yield label == null ? "" : "🔄 " + label;
+            }
             case DEVICE_LIMIT -> plain(a, "device_transfer_limit",
                     v -> "📵 Qurilma almashtirish: <b>" + v + "</b>");
         };
+    }
+
+    /**
+     * E'lon turi — sarlavhada.
+     *
+     * <p>{@code exchange_mode} yo'q yoki {@code NONE} bo'lsa — oddiy sotuv.
+     * Noma'lum qiymat ham sotuv deb o'qiladi: platformadagi har bir
+     * e'lonning narxi bor.
+     */
+    private static String deal(Map<String, Object> a) {
+        return switch (String.valueOf(exchangeMode(a))) {
+            case "EXCHANGE_ONLY" -> "OBMEN";
+            case "EXCHANGE_WITH_SURCHARGE" -> "OBMEN + DOPLATA";
+            case "BOTH" -> "OBMEN YOKI OBMEN + DOPLATA";
+            default -> "SOTILADI";
+        };
+    }
+
+    /** Sayt kartasidagi nomlar bilan bir xil. */
+    private static String exchangeLabel(String mode) {
+        if (mode == null) return null;
+        return switch (mode) {
+            case "EXCHANGE_ONLY" -> "Faqat obmen";
+            case "EXCHANGE_WITH_SURCHARGE" -> "Obmen + doplata";
+            case "BOTH" -> "Obmen yoki obmen + doplata";
+            default -> null;
+        };
+    }
+
+    private static String exchangeMode(Map<String, Object> a) {
+        Object raw = a.get("exchange_mode");
+        return raw == null ? null : raw.toString().trim();
     }
 
     /**

@@ -40,6 +40,8 @@ class TradeSucceededPublishTest {
         trade.setSellerId(UUID.randomUUID());
         trade.setMode(TradeMode.SMART);
         trade.setKind(kind);
+        UUID given = kind.isSwap() ? UUID.randomUUID() : null;
+        trade.setGiveAccountId(given);
 
         publisher.tradeSucceeded(trade);
 
@@ -59,6 +61,8 @@ class TradeSucceededPublishTest {
                     assertThat(e.sellerId()).isEqualTo(trade.getSellerId());
                     assertThat(e.mode()).isEqualTo("SMART");
                     assertThat(e.kind()).isEqualTo(kind.name());
+                    // marketplace shu orqali xaridor bergan akkountni sotuvchiga ko'chiradi.
+                    assertThat(e.giveAccountId()).isEqualTo(given);
                     assertThat(e.occurredAt()).isNotNull();
                 });
     }

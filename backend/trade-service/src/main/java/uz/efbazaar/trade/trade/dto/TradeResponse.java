@@ -1,5 +1,6 @@
 package uz.efbazaar.trade.trade.dto;
 
+import uz.efbazaar.trade.trade.domain.GiveAccountSnapshot;
 import uz.efbazaar.trade.trade.domain.ParticipantRole;
 import uz.efbazaar.trade.trade.domain.TradeKind;
 import uz.efbazaar.trade.trade.domain.TradeState;
@@ -51,9 +52,21 @@ public record TradeResponse(
         Instant confirmUnlocksAt,
         /** Distinguishes a new contact from a request made before the trade finished. */
         Instant updatedAt,
-        AdminFeePayer adminFeePayer
+        AdminFeePayer adminFeePayer,
+        /** Obmenda xaridor beradigan akkount. null — tanlanmagan ("Boshqa") yoki sotuv. */
+        GiveAccountSnapshot giveAccount,
+        /** Savdoning e'loni — chat bir necha e'lonni o'z ichiga olishi mumkin. */
+        UUID listingId
 ) {
+    public TradeResponse(UUID id, TradeState state, UUID sellerId, UUID buyerId, long priceUzs, UUID mailboxId, String mailboxEmail, UUID chatId, Instant createdAt, Instant expiresAt, Instant stateDeadline, ParticipantRole role, UUID passwordMessageId, String emailChangeVerificationCode, TradeKind kind, List<TradeSideResponse> sides, String counterpartMailboxEmail, String loginVerificationCode, Instant confirmUnlocksAt, Instant updatedAt, AdminFeePayer adminFeePayer, GiveAccountSnapshot giveAccount) {
+        this(id, state, sellerId, buyerId, priceUzs, mailboxId, mailboxEmail, chatId, createdAt, expiresAt, stateDeadline, role, passwordMessageId, emailChangeVerificationCode, kind, sides, counterpartMailboxEmail, loginVerificationCode, confirmUnlocksAt, updatedAt, adminFeePayer, giveAccount, null);
+    }
+
+    public TradeResponse(UUID id, TradeState state, UUID sellerId, UUID buyerId, long priceUzs, UUID mailboxId, String mailboxEmail, UUID chatId, Instant createdAt, Instant expiresAt, Instant stateDeadline, ParticipantRole role, UUID passwordMessageId, String emailChangeVerificationCode, TradeKind kind, List<TradeSideResponse> sides, String counterpartMailboxEmail, String loginVerificationCode, Instant confirmUnlocksAt, Instant updatedAt, AdminFeePayer adminFeePayer) {
+        this(id, state, sellerId, buyerId, priceUzs, mailboxId, mailboxEmail, chatId, createdAt, expiresAt, stateDeadline, role, passwordMessageId, emailChangeVerificationCode, kind, sides, counterpartMailboxEmail, loginVerificationCode, confirmUnlocksAt, updatedAt, adminFeePayer, null);
+    }
+
     public TradeResponse(UUID id, TradeState state, UUID sellerId, UUID buyerId, long priceUzs, UUID mailboxId, String mailboxEmail, UUID chatId, Instant createdAt, Instant expiresAt, Instant stateDeadline, ParticipantRole role, UUID passwordMessageId, String emailChangeVerificationCode, TradeKind kind, List<TradeSideResponse> sides, String counterpartMailboxEmail, String loginVerificationCode, Instant confirmUnlocksAt, Instant updatedAt) {
-        this(id, state, sellerId, buyerId, priceUzs, mailboxId, mailboxEmail, chatId, createdAt, expiresAt, stateDeadline, role, passwordMessageId, emailChangeVerificationCode, kind, sides, counterpartMailboxEmail, loginVerificationCode, confirmUnlocksAt, updatedAt, AdminFeePayer.SELLER);
+        this(id, state, sellerId, buyerId, priceUzs, mailboxId, mailboxEmail, chatId, createdAt, expiresAt, stateDeadline, role, passwordMessageId, emailChangeVerificationCode, kind, sides, counterpartMailboxEmail, loginVerificationCode, confirmUnlocksAt, updatedAt, AdminFeePayer.SELLER, null);
     }
 }

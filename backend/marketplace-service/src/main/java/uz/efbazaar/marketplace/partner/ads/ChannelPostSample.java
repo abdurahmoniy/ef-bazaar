@@ -45,7 +45,7 @@ final class ChannelPostSample {
         a.put("has_google_play_link", true);
         a.put("has_game_center_link", true);
         a.put("platform", "Mobile");
-        a.put("exchange_mode", "Faqat obmen");
+        a.put("exchange_mode", "EXCHANGE_WITH_SURCHARGE");
         a.put("device_transfer_limit", 3);
         l.setAttributes(a);
         return l;

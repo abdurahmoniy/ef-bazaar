@@ -49,6 +49,15 @@ public class TradeController {
     }
 
     /**
+     * Joriy foydalanuvchining tirik obmenlarda berilayotgan akkountlari —
+     * qabul oynasida ular "Savdoda" deb o'chiq ko'rsatiladi.
+     */
+    @GetMapping("/busy-accounts")
+    public List<UUID> busyAccounts(@AuthenticationPrincipal AuthenticatedUser me) {
+        return trades.busyGiveAccounts(me.userId());
+    }
+
+    /**
      * Every trade the caller is a party to, newest first. Backs the profile's
      * "Savdolarim" tab; declared without {@code params} so it only matches
      * when {@code chatId} is absent.

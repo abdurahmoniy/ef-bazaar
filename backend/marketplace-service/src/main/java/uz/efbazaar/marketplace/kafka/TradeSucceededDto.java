@@ -12,4 +12,6 @@ public record TradeSucceededDto(
         String mode,
         /** SALE, SWAP, or SWAP_SURCHARGE; absent in older events. */
         String kind,
+        /** Obmenda xaridor bergan akkount; eski hodisalarda yo'q. */
+        UUID giveAccountId,
         Instant occurredAt) {}

@@ -35,6 +35,8 @@ import {
 } from '@/lib/trade-types';
 import { cn } from '@/lib/utils';
 import { useTradeContext } from './trade-context';
+import { ReceivedLine, useSwapListingSide } from './swap-accounts-summary';
+import { receivedSide } from '@/lib/swap-accounts';
 
 export function TradePinnedBar() {
   const {
@@ -269,6 +271,8 @@ function ActiveTradePinnedBar({ trade }: { trade: TradeResponse }) {
   const canTransfer = isSeller || (isBuyer && isSwap(trade.kind));
   const canVerify = isBuyer || (isSeller && isSwap(trade.kind));
   const confirmed = isSeller ? trade.sellerConfirmedAt : isBuyer ? trade.buyerConfirmedAt : null;
+  const listingSideForBar = useSwapListingSide(trade.listingId ?? null);
+  const received = isSwap(trade.kind) ? receivedSide(trade, viewerId, listingSideForBar) : null;
   const terminal = isTerminalState(trade.state);
   let nextStep = TRADE_STATE_LABEL_UZ[trade.state];
   let actionRequired = false;
@@ -352,6 +356,7 @@ function ActiveTradePinnedBar({ trade }: { trade: TradeResponse }) {
             </span>
           </span>
           {actionRequired && partnerFinished && <span role="status" className="text-[11px] text-muted-foreground">Sherigingiz bu bosqichni bajardi</span>}
+          {received && <ReceivedLine side={received} />}
         </span>
       </button>
     </div>

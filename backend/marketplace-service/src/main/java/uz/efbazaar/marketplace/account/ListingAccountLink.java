@@ -80,19 +80,34 @@ public class ListingAccountLink {
      */
     @Transactional
     public void onTradeSucceeded(UUID tradeId, UUID listingId, UUID buyerId, UUID sellerId, String kind) {
+        onTradeSucceeded(tradeId, listingId, buyerId, sellerId, kind, null);
+    }
+
+    /**
+     * @param giveAccountId obmenda xaridor bergan akkount; null — "Boshqa"
+     * @return yopilishi kerak bo'lgan e'lon (berilgan akkountning e'loni) yoki null
+     */
+    @Transactional
+    public UUID onTradeSucceeded(UUID tradeId, UUID listingId, UUID buyerId, UUID sellerId,
+                                 String kind, UUID giveAccountId) {
         // Obmenda sotuvchi ham akkount oladi — lekin uning ortida e'lon yo'q,
         // shuning uchun faqat pochtasi bo'lgan bo'sh kartochka ochiladi.
         // Busiz o'sha manzil kutish jadvalida abadiy qolib ketardi.
         boolean swap = "SWAP".equals(kind) || "SWAP_SURCHARGE".equals(kind);
-        openAccountForSwapRecipient(tradeId, sellerId, swap);
+        UUID listingToClose = null;
+        if (swap && giveAccountId != null) {
+            listingToClose = handOverGivenAccount(tradeId, giveAccountId, buyerId, sellerId);
+        } else {
+            openAccountForSwapRecipient(tradeId, sellerId, swap);
+        }
 
         if (listingId == null || buyerId == null || tradeId == null) {
             log.debug("trade-succeeded without ids, skipping account handover");
-            return;
+            return listingToClose;
         }
         if (accounts.findByOwnerIdAndSourceTradeId(buyerId, tradeId).isPresent()) {
             log.debug("Account for trade {} already moved to {}", tradeId, buyerId);
-            return;
+            return listingToClose;
         }
 
         accounts.findByCurrentListingId(listingId).ifPresent(sellerAccount -> {
@@ -112,7 +127,7 @@ public class ListingAccountLink {
         if (listing == null) {
             log.warn("Listing {} is gone — buyer {} gets no account from trade {}",
                     listingId, buyerId, tradeId);
-            return;
+            return listingToClose;
         }
 
         Map<String, Object> attributes = listing.getAttributes() == null
@@ -143,6 +158,61 @@ public class ListingAccountLink {
                 ? null : listing.getAttributes().get(SQUAD_KEY));
         log.info("Buyer account opened from trade: accountId={} buyerId={} tradeId={}",
                 saved.getId(), buyerId, tradeId);
+        return listingToClose;
+    }
+
+    /**
+     * Obmenda xaridor tanlagan akkount sotuvchiga ko'chadi.
+     *
+     * <p>Xuddi sotuvdagidek: berayotgan tarafda arxivga tushadi, oluvchida
+     * to'liq nusxa ochiladi. Bo'sh kartochka ochilmaydi — ma'lumot bor.
+     */
+    private UUID handOverGivenAccount(UUID tradeId, UUID giveAccountId, UUID buyerId, UUID sellerId) {
+        if (tradeId == null || sellerId == null) return null;
+        if (accounts.findByOwnerIdAndSourceTradeId(sellerId, tradeId).isPresent()) {
+            log.debug("Swap account for trade {} already moved to {}", tradeId, sellerId);
+            return null;
+        }
+        UserAccount given = accounts.findById(giveAccountId).orElse(null);
+        // ACTIVE shart: obmen tirik turganda akkount boshqa yo'l bilan (masalan, e'loni
+        // sotilib) ketgan bo'lishi mumkin — uni yana berish ikki egani keltirib chiqarardi.
+        if (given == null || !given.getOwnerId().equals(buyerId)
+                || given.getStatus() != UserAccountStatus.ACTIVE) {
+            log.warn("Given account {} is gone, inactive or not the buyer's — seller {} gets a bare card from trade {}",
+                    giveAccountId, sellerId, tradeId);
+            openAccountForSwapRecipient(tradeId, sellerId, true);
+            return null;
+        }
+        UUID listingToClose = given.getCurrentListingId();
+
+        given.setStatus(UserAccountStatus.ARCHIVED);
+        given.setArchivedReason(ArchivedReason.SWAPPED_ON_PLATFORM);
+        given.setEmail(null);
+        given.setEmailSource(null);
+        given.setMailboxId(null);
+        given.setCurrentListingId(null);
+        accounts.saveAndFlush(given);
+
+        UserAccount received = UserAccount.builder()
+                .id(UUID.randomUUID())
+                .ownerId(sellerId)
+                .title(given.getTitle())
+                .description(given.getDescription())
+                .attributes(given.getAttributes() == null ? new HashMap<>() : new HashMap<>(given.getAttributes()))
+                .mediaMessageIds(given.getMediaMessageIds() == null
+                        ? new ArrayList<>() : new ArrayList<>(given.getMediaMessageIds()))
+                .status(UserAccountStatus.ACTIVE)
+                .sourceTradeId(tradeId)
+                .build();
+        pendingEmails.findByTradeIdAndUserId(tradeId, sellerId).ifPresent(pending -> {
+            received.setEmail(pending.getEmail());
+            received.setEmailSource(EmailSource.PLATFORM);
+            pendingEmails.delete(pending);
+        });
+        UserAccount saved = accounts.saveAndFlush(received);
+        inventory.replace(saved.getId(), given.getAttributes() == null ? null : given.getAttributes().get(SQUAD_KEY));
+        log.info("Swap account handed over: from={} to={} tradeId={}", given.getId(), saved.getId(), tradeId);
+        return listingToClose;
     }
 
     /**
