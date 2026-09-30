@@ -198,8 +198,10 @@ jobs:
         env:
           BASE_SHA: ${{ steps.baseline.outputs.sha }}
         run: |
-          files=$(git diff --name-only "$BASE_SHA...HEAD")
-          echo "Changed files:"
+          # Markdown hech bir servisning build'iga kirmaydi (README, CLAUDE.md,
+          # docs/). Faqat hujjat o'zgargan servis uchun test job ochilmaydi.
+          files=$(git diff --name-only "$BASE_SHA...HEAD" | grep -v '\.md$' || true)
+          echo "Changed files (markdown excluded):"
           printf "%s\n" "$files"
           set_output() {
             local name="$1" prefix="$2"

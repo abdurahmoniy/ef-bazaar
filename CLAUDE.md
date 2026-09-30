@@ -9,6 +9,11 @@ efBazaar — eFootball akkountlar savdo platformasi (marketplace).
 Monorepo. Har bir servis mustaqil deploy bo'ladi.
 Auth-service boshqa tashqi loyihalar tomonidan ham ishlatilishi mumkin (SSO).
 
+**Hujjatlar:** umumiy ko'rinish — [README.md](README.md); har komponentning vazifasi, API,
+Kafka va jadvallari — `<komponent>/README.md`; Kafka topic katalogi —
+[docs/kafka-topics.md](docs/kafka-topics.md). Kod o'rganishdan oldin shularni o'qing.
+Endpoint, topic, jadval yoki env o'zgarsa — tegishli README'ni shu commit'da yangilang.
+
 ---
 
 ## Repo strukturasi
@@ -17,12 +22,18 @@ Auth-service boshqa tashqi loyihalar tomonidan ham ishlatilishi mumkin (SSO).
 efBazaar/
 ├── backend/
 │   ├── auth-service/           # JWT, SSO — Spring Boot, port 8081
-│   ├── marketplace-service/    # E'lonlar, like, savat, chat — Spring Boot, port 8082
-│   └── trade-service/          # Escrow trade lifecycle: proposals, state machine, encrypted per-role chats, one-time password passthrough, WSS live push, Kafka boundary to smart-admin-worker — Spring Boot, port 8085
-├── frontend/                   # Next.js — asosiy sayt (efbazaar.uz)
+│   ├── marketplace-service/    # E'lonlar, akkountlar, like, chat, kartalar, hamkorlik, referal, trust — Spring Boot, port 8082
+│   ├── trade-service/          # Escrow trade lifecycle: proposals, state machine, encrypted per-role chats, one-time password passthrough, WSS live push, Kafka boundary to smart-admin-worker — Spring Boot, port 8085
+│   ├── payment-service/        # Hamyon, ledger, karta rail (invoice), yechish, escrow, tariflar — Spring Boot, port 8087
+│   └── access-service/         # Login oldi kirish shartlari (kanal a'zoligi) — Spring Boot, port 8088
+├── frontend/                   # Next.js — asosiy sayt (efbazaar.uz) va Telegram Mini App
 ├── mail/                       # Next.js — read-only webmail (mail.efbazaar.uz), trade-service mail API frontendi
 ├── bot/                        # Telegram bot — Spring Boot, port 8084
+├── smart-admin-worker/         # Python — Mailcow/Konami/IMAP automation (Kafka orqali)
+├── humo-userbot/               # Python — Humo karta xabarlarini o'qib payment'ga uzatadi
 ├── nginx/                      # Reverse proxy
+├── infra/                      # Monitoring, backup, ops-bot, efhub scraper, Postgres init
+├── docs/                       # kafka-topics.md, superpowers/ (spec va plan tarixi)
 └── docker-compose.yml
 ```
 
@@ -33,7 +44,7 @@ efBazaar/
 | Qatlam | Texnologiya |
 |--------|-------------|
 | Backend + Bot | Java 21, Spring Boot 3.x |
-| Frontend | React 18 + Vite (MVP — minimal auth UI) |
+| Frontend | Next.js 16 + React 19, TypeScript, Tailwind + shadcn/ui |
 | Asosiy DB | PostgreSQL 16 (har servisga alohida DB) |
 | Cache / Blacklist | Redis 7 |
 | Event bus | Apache Kafka |
@@ -51,10 +62,11 @@ efBazaar/
 | auth-service | 8081 | /api/auth/** |
 | marketplace-service | 8082 | /api/marketplace/** |
 | bot | 8084 | /bot/webhook |
-| trade-service | 8085 | /api/v1/trades/** |
+| trade-service | 8085 | /api/trade/** |
+| payment-service | 8087 | /api/payment/** |
 | access-service | 8088 | /api/access/** (kirish shartlari; `/internal/access/**` — auth-service login paytida, fail-open) |
 | smart-admin-worker | 8086 | — (internal only) |
-| frontend | 80 | / |
+| frontend | 3000 | / |
 | mail-frontend | 3000 | mail.efbazaar.uz/ (Mailcow: /api, /SOGo, ActiveSync saqlanadi) |
 | PostgreSQL | 5432 | internal only |
 | Redis | 6379 | internal only |
@@ -122,34 +134,10 @@ docker compose up -d --no-deps <service-name>
 ## Kafka topic konvensiyasi
 
 Format: `efbazaar.<service>.<event>` — kichik harf, defis bilan.
+Har bir event'da idempotency kaliti; consumer takroriy xabarni zararsiz o'tkazadi.
 
-```
-efbazaar.auth.user-registered
-efbazaar.auth.user-logged-in
-efbazaar.marketplace.listing-created
-efbazaar.marketplace.listing-updated
-efbazaar.marketplace.listing-deleted
-efbazaar.marketplace.like-toggled
-efbazaar.marketplace.chat-created
-efbazaar.marketplace.cards-added     # { occurredAt, totalAdded, cards: [{efhubId, type, name, overallRating}] }
-efbazaar.marketplace.bot-settings-updated  # marketplace → bot (/start matni o'zgardi, kesh yangilansin)
-efbazaar.marketplace.partner-application-submitted  # marketplace → bot (adminlarga Telegram xabari)
-efbazaar.marketplace.partner-approved      # marketplace → auth (PARTNER roli), bot (arizachiga DM)
-efbazaar.marketplace.partner-rejected      # marketplace → bot (arizachiga DM, sabab bilan)
-efbazaar.marketplace.partner-cancelled     # marketplace → auth (rol olinadi), bot (DM; bySelf bo'lsa jim)
-efbazaar.marketplace.channel-post-requested # marketplace → bot (e'lonni hamkor kanaliga joyla)
-efbazaar.marketplace.channel-refresh-requested # marketplace → bot (kunlik: obunachi soni, nom, avatar)
-efbazaar.marketplace.channel-post-delete-requested # marketplace → bot (qayta yuborildi, eskisini o'chir)
-efbazaar.marketplace.official-post-requested # marketplace → bot (efBazaar kanaliga: post yoki forward)
-efbazaar.marketplace.channel-post-edit-requested # marketplace → bot (sotildi: ustidan chiz, tugmani ol)
-efbazaar.bot.media-uploaded          # { listingId, accountId, telegramMessageId, mediaType } — ikkala id ham nullable; akkount doimiy bog'lanish
-efbazaar.auth.user-role-changed      # auth → trade-service (deactivate trade-admin profile on role revoke)
-efbazaar.trade.admin-invited         # trade-service → marketplace-service (TRADE_ADMIN_INVITED notification)
-efbazaar.trade.trade-opened          # trade-service
-efbazaar.trade.trade-closed          # trade-service
-efbazaar.trade.trade-succeeded       # trade-service → marketplace-service (referal mukofoti + akkount xaridorga ko'chadi; { tradeId, buyerId, sellerId, listingId, mode })
-efbazaar.trade.email-provision-failed # worker → trade-service (quti ochilmadi, savdo yopiladi)
-```
+Barcha topiclar, producer va consumerlar, payload shakllari:
+**[docs/kafka-topics.md](docs/kafka-topics.md)**. Yangi topic yoki consumer qo'shsangiz — shu faylni yangilang.
 
 ---
 
