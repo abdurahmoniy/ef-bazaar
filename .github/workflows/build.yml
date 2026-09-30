@@ -52,49 +52,59 @@ jobs:
         with:
           fetch-depth: 2
 
+      # `every`: fayl filtrdagi HAMMA pattern'ga mos kelsagina hisoblanadi —
+      # `!**/*.md` shu tufayli ishlaydi (hujjat o'zgarishi image qurmaydi).
+      # Shu rejimda "servis YOKI build.yml" ni bitta filtrga yozib bo'lmaydi,
+      # shuning uchun build.yml o'zgarishi alohida `workflow` filtri va
+      # pastda FORCE_ALL bilan bir xil ishlaydi.
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          predicate-quantifier: 'every'
           filters: |
+            workflow:
+              - '.github/workflows/build.yml'
             auth:
               - 'backend/auth-service/**'
-              - '.github/workflows/build.yml'
+              - '!**/*.md'
             marketplace:
               - 'backend/marketplace-service/**'
-              - '.github/workflows/build.yml'
-              - '.github/workflows/build.yml'
+              - '!**/*.md'
             trade:
               - 'backend/trade-service/**'
-              - '.github/workflows/build.yml'
+              - '!**/*.md'
             payment:
               - 'backend/payment-service/**'
-              - '.github/workflows/build.yml'
+              - '!**/*.md'
             access:
               - 'backend/access-service/**'
-              - '.github/workflows/build.yml'
+              - '!**/*.md'
             bot:
               - 'bot/**'
-              - '.github/workflows/build.yml'
+              - '!**/*.md'
             frontend:
               - 'frontend/**'
-              - '.github/workflows/build.yml'
+              - '!**/*.md'
             mail:
               - 'mail/**'
-              - '.github/workflows/build.yml'
+              - '!**/*.md'
             nginx:
               - 'nginx/**'
-              - '.github/workflows/build.yml'
+              - '!**/*.md'
             smart-admin:
               - 'smart-admin-worker/**'
-              - '.github/workflows/build.yml'
+              - '!**/*.md'
             humo-userbot:
               - 'humo-userbot/**'
-              - '.github/workflows/build.yml'
+              - '!**/*.md'
 
       - id: build-matrix
         env:
           FORCE_ALL: ${{ github.event.inputs.force_all }}
+          WORKFLOW_CHANGED: ${{ steps.filter.outputs.workflow }}
         run: |
+          # build.yml o'zi o'zgarsa — hammasi qayta quriladi (avvalgidek).
+          if [[ "$WORKFLOW_CHANGED" == "true" ]]; then FORCE_ALL=true; fi
           ITEMS=()
           add() {
             local name="$1" context="$2" image="$3"
