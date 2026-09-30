@@ -46,8 +46,8 @@ public class OutboxAutoConfiguration {
 
     @Bean(destroyMethod = "destroy")
     @ConditionalOnMissingBean(OutboxSender.class)
-    KafkaOutboxSender outboxSender(ProducerFactory<?, ?> producerFactory) {
-        return new KafkaOutboxSender(producerFactory);
+    KafkaOutboxSender outboxSender(ProducerFactory<?, ?> producerFactory, OutboxProperties props) {
+        return new KafkaOutboxSender(producerFactory, props.getRelay().getSendTimeout());
     }
 
     @Bean(initMethod = "start", destroyMethod = "shutdown")

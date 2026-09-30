@@ -103,6 +103,8 @@ class OutboxSnapshotIT extends AbstractOutboxIT {
         tx.executeWithoutResult(s -> outbox.markSnapshot("thing", "missing"));
         relay.drainNow();
 
+        await().atMost(Duration.ofSeconds(5)).until(() ->
+                jdbc.queryForObject("SELECT count(*) FROM outbox_snapshot_pending", Long.class) == 0);
         assertThat(source.builds.get()).isEqualTo(1);
         assertThat(read(1)).isEmpty();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox_snapshot_pending", Long.class)).isZero();
@@ -113,7 +115,10 @@ class OutboxSnapshotIT extends AbstractOutboxIT {
         tx.executeWithoutResult(s -> outbox.markSnapshot("nobody-owns-this", "X"));
         relay.drainNow();
 
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox_snapshot_pending", Long.class)).isZero();
+        // commit'da uyg'ongan relay belgini qulflagan bo'lishi mumkin — drainNow uni SKIP LOCKED
+        // bilan o'tkazib yuboradi; ishchi ip tugashini kutamiz.
+        await().atMost(Duration.ofSeconds(5)).until(() ->
+                jdbc.queryForObject("SELECT count(*) FROM outbox_snapshot_pending", Long.class) == 0);
     }
 
     @Test

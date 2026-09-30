@@ -51,6 +51,28 @@ Dizayn: `docs/superpowers/specs/2026-09-30-transactional-outbox-design.md`.
 `outbox_pending_count`, `outbox_pending_oldest_seconds`, `outbox_send_failures_total`.
 Alert `OutboxBacklog`: eng eski yetkazilmagan yozuv 5 daqiqadan eski.
 
+## Navbat tiqilib qolsa (`OutboxBacklog` alerti)
+
+Relay birinchi xatoda to'xtaydi (bir kalit ichidagi tartib uchun). Demak Kafka **hech qachon
+qabul qilmaydigan** bitta yozuv (masalan `RecordTooLargeException` — 1 MB dan katta payload,
+noto'g'ri topic nomi, ruxsat yo'q) shu servisning **barcha** keyingi event'larini to'xtatadi.
+Yozuvlar yo'qolmaydi — navbatda turadi.
+
+1. Birinchi yetkazilmagan yozuv va xato sababi:
+   ```sql
+   SELECT id, topic, message_key, attempts, last_error, created_at, octet_length(payload) AS bytes
+     FROM outbox_events WHERE published_at IS NULL ORDER BY id LIMIT 5;
+   ```
+2. `last_error` vaqtinchalik (broker o'chiq, timeout) bo'lsa — Kafka'ni tiklang, relay o'zi davom etadi.
+3. Doimiy xato bo'lsa — yozuvni saqlab, navbatdan chiqaring (tranzaksiyada):
+   ```sql
+   CREATE TABLE IF NOT EXISTS outbox_events_parked (LIKE outbox_events INCLUDING ALL);
+   INSERT INTO outbox_events_parked SELECT * FROM outbox_events WHERE id = :id;
+   UPDATE outbox_events SET published_at = now(), last_error = 'parked: ' || last_error WHERE id = :id;
+   ```
+   Keyin sababni tuzating va kerak bo'lsa event'ni qo'lda qayta chiqaring. `outbox_events_parked`
+   tozalash job'iga kirmaydi.
+
 ## Build
 
 Kutubxona servislar Docker image'iga manba sifatida kiradi: servis Dockerfile'lari build context

@@ -32,6 +32,7 @@ class OutboxRelayIT extends AbstractOutboxIT {
     @Autowired TransactionTemplate tx;
     @Autowired ControllableSender sender;
     @Autowired KafkaTemplate<Object, Object> directTemplate;
+    @Autowired uz.efbazaar.outbox.internal.OutboxRepository repo;
 
     @AfterEach
     void reset() {
@@ -154,5 +155,22 @@ class OutboxRelayIT extends AbstractOutboxIT {
 
         await().atMost(Duration.ofSeconds(5)).until(() -> relay.pendingIsEmpty());
         assertThat(consume(topic, 1)).hasSize(1);
+    }
+
+    @Test
+    void synchronouslyBlockingSendStopsDispatchAndReleasesLocksQuickly() {
+        String topic = topic();
+        sender.mode(ControllableSender.Mode.BLOCK);
+        tx.executeWithoutResult(s -> {
+            for (int i = 0; i < 5; i++) {
+                outbox.publish(topic, "k", new Sample("x", i));
+            }
+        });
+
+        // Birinchi send() 2 s bloklanadi va yiqiladi; relay qolgan 4 tasini yubormasligi
+        // va qulflarni ~2 s ichida bo'shatishi kerak (5 x 2 s emas).
+        await().atMost(Duration.ofSeconds(4)).until(() ->
+                tx.execute(st -> repo.claimEvents(10)).size() == 5);
+        assertThat(sender.failuresSeen()).isEqualTo(1);
     }
 }

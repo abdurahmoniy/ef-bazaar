@@ -10,8 +10,8 @@ import uz.efbazaar.outbox.internal.KafkaOutboxSender;
 public class OutboxTestApplication {
 
     @Bean(destroyMethod = "destroy")
-    KafkaOutboxSender realSender(ProducerFactory<?, ?> pf) {
-        return new KafkaOutboxSender(pf);
+    KafkaOutboxSender realSender(ProducerFactory<?, ?> pf, uz.efbazaar.outbox.OutboxProperties props) {
+        return new KafkaOutboxSender(pf, props.getRelay().getSendTimeout());
     }
 
     @Bean

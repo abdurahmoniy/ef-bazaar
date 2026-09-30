@@ -9,6 +9,7 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,15 +25,23 @@ public class KafkaOutboxSender implements OutboxSender {
     private final DefaultKafkaProducerFactory<String, byte[]> factory;
     private final KafkaTemplate<String, byte[]> template;
 
-    public KafkaOutboxSender(ProducerFactory<?, ?> servicePf) {
+    public KafkaOutboxSender(ProducerFactory<?, ?> servicePf, Duration sendTimeout) {
+        this.factory = new DefaultKafkaProducerFactory<>(producerProperties(servicePf, sendTimeout),
+                new StringSerializer(), new ByteArraySerializer());
+        this.template = new KafkaTemplate<>(factory);
+    }
+
+    static Map<String, Object> producerProperties(ProducerFactory<?, ?> servicePf, Duration sendTimeout) {
         Map<String, Object> props = new HashMap<>(servicePf.getConfigurationProperties());
         props.remove(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG);
         props.remove(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
         props.remove(ProducerConfig.TRANSACTIONAL_ID_CONFIG);
         props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
         props.put(ProducerConfig.ACKS_CONFIG, "all");
-        this.factory = new DefaultKafkaProducerFactory<>(props, new StringSerializer(), new ByteArraySerializer());
-        this.template = new KafkaTemplate<>(factory);
+        // send() o'zi metadata yoki bufer kutib bloklanishi mumkin (default 60 s) — relay
+        // shu vaqt DB qulflarini ushlab turadi. Chegarani send-timeout bilan tenglashtiramiz.
+        props.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, sendTimeout.toMillis());
+        return props;
     }
 
     @Override

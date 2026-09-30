@@ -114,10 +114,16 @@ public class OutboxRelay {
             }
             List<CompletableFuture<?>> futures = new ArrayList<>(rows.size());
             for (OutboxRow row : rows) {
-                futures.add(sendSafely(row.topic(), row.key(), row.payload(), row.headersJson()));
+                CompletableFuture<?> future = sendSafely(row.topic(), row.key(), row.payload(), row.headersJson());
+                futures.add(future);
+                if (future.isCompletedExceptionally()) {
+                    // send() sinxron yiqildi (broker yo'q, max.block.ms tugadi) — qolganlarini
+                    // yuborish ham har biri shuncha bloklanadi va qulflarni ushlab turadi.
+                    break;
+                }
             }
             List<Long> sent = new ArrayList<>();
-            for (int i = 0; i < rows.size(); i++) {
+            for (int i = 0; i < futures.size(); i++) {
                 String error = await(futures.get(i));
                 if (error != null) {
                     repo.markPublished(sent);

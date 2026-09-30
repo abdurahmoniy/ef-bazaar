@@ -205,3 +205,18 @@ yuboriladi; `last_message_id` dan catch-up; takroriy xabar zararsiz.
 | Build context o'zgarishi deploy'ni sindiradi | 1-bosqichda 4 image CI'da quriladi |
 | Kafka uzoq o'chiq — jadval o'sadi | 5 daqiqalik alert; faqat yuborilganlar tozalanadi |
 | Kechikish | commit'da uyg'otish — odatda +10–30 ms |
+
+## 9. 1-bosqich review'dan keyingi ochiq masalalar
+
+- **Snapshot belgilari yuborish paytida qulflangan (5-bosqichdan oldin hal qilinadi).** Relay
+  `outbox_snapshot_pending` qatorlarini `FOR UPDATE` bilan olib, build + send davomida ushlab turadi.
+  Kafka o'chiq bo'lsa, shu entity'ga `markSnapshot` qiladigan biznes tranzaksiyasi (marketplace
+  e'lon tahriri) `send-timeout` gacha kutadi — broker nosozligi foydalanuvchi kechikishiga aylanadi.
+  Yechim: belgini qulfsiz o'qish (bitta relay uchun advisory lock), commit, build + send, keyin
+  `DELETE … WHERE marked_at <= seen` — `marked_at` qo'riqchisi aynan shu uchun bor.
+- **Kafka hech qachon qabul qilmaydigan yozuv (2-bosqichdan oldin).** Hozir qo'lda runbook
+  (kutubxona README'si). Kerak: doimiy xatolarni tasniflab `parked` holatga o'tkazish va takroriy
+  xatoda eksponensial kutish.
+- **Boshqa DataSource tranzaksiyasi.** `publish` faqat "faol tranzaksiya bormi" ni tekshiradi;
+  marketplace'ning `efbazaar` tranzaksiyasi ichida chaqirilsa yozuv asosiy bazaga atomik bo'lmay
+  tushadi. 5-bosqichda `TransactionSynchronizationManager.hasResource(dataSource)` tekshiruvi.

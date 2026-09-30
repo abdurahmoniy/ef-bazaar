@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Haqiqiy sender'ni o'raydi; testda yiqilish yoki osilish rejimini yoqish mumkin. */
 public class ControllableSender implements OutboxSender {
 
-    public enum Mode { PASS, FAIL, HANG, THROW }
+    public enum Mode { PASS, FAIL, HANG, THROW, BLOCK }
 
     private final OutboxSender delegate;
     private final AtomicReference<Mode> mode = new AtomicReference<>(Mode.PASS);
@@ -41,6 +41,17 @@ public class ControllableSender implements OutboxSender {
             case FAIL -> CompletableFuture.failedFuture(new IllegalStateException("broker down"));
             case HANG -> new CompletableFuture<>();
             case THROW -> throw new IllegalStateException("unexpected");
+            case BLOCK -> blockThenThrow();
         };
+    }
+
+    /** KafkaProducer.send() metadata/bufer kutib max.block.ms davomida bloklanib, keyin yiqilgandek. */
+    private static CompletableFuture<?> blockThenThrow() {
+        try {
+            Thread.sleep(2_000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        throw new IllegalStateException("max.block.ms exceeded");
     }
 }
