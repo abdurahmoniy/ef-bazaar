@@ -97,6 +97,9 @@ jobs:
             humo-userbot:
               - 'humo-userbot/**'
               - '!**/*.md'
+            libs:
+              - 'backend/libs/**'
+              - '!**/*.md'
 
       - id: build-matrix
         env:
@@ -105,22 +108,25 @@ jobs:
         run: |
           # build.yml o'zi o'zgarsa — hammasi qayta quriladi (avvalgidek).
           if [[ "$WORKFLOW_CHANGED" == "true" ]]; then FORCE_ALL=true; fi
+          LIBS_CHANGED="${{ steps.filter.outputs.libs }}"
           ITEMS=()
           add() {
-            local name="$1" context="$2" image="$3"
-            ITEMS+=("{\"name\":\"$name\",\"context\":\"$context\",\"image\":\"$image\"}")
+            local name="$1" context="$2" file="$3" image="$4"
+            ITEMS+=("{\"name\":\"$name\",\"context\":\"$context\",\"file\":\"$file\",\"image\":\"$image\"}")
           }
-          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.auth }}"           == "true" ]]; then add auth-service           backend/auth-service           auth-service;           fi
-          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.marketplace }}"    == "true" ]]; then add marketplace-service    backend/marketplace-service    marketplace-service;    fi
-          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.trade }}"          == "true" ]]; then add trade-service          backend/trade-service          trade-service;          fi
-          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.payment }}"        == "true" ]]; then add payment-service        backend/payment-service        payment-service;        fi
-          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.access }}"         == "true" ]]; then add access-service         backend/access-service         access-service;         fi
-          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.bot }}"            == "true" ]]; then add bot                    bot                            bot;                    fi
-          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.frontend }}"       == "true" ]]; then add frontend               frontend                       frontend;               fi
-          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.mail }}"           == "true" ]]; then add mail-frontend          mail                           mail-frontend;          fi
-          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs.nginx }}"          == "true" ]]; then add nginx                  nginx                          nginx;                  fi
-          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs['smart-admin'] }}" == "true" ]]; then add smart-admin-worker      smart-admin-worker             smart-admin-worker;     fi
-          if [[ "$FORCE_ALL" == "true" || "${{ steps.filter.outputs['humo-userbot'] }}" == "true" ]]; then add humo-userbot            humo-userbot                   humo-userbot;           fi
+          changed()    { [[ "$FORCE_ALL" == "true" || "$1" == "true" ]]; }
+          uses_libs()  { [[ "$FORCE_ALL" == "true" || "$LIBS_CHANGED" == "true" || "$1" == "true" ]]; }
+          if uses_libs "${{ steps.filter.outputs.auth }}";        then add auth-service        backend backend/auth-service/Dockerfile        auth-service;        fi
+          if uses_libs "${{ steps.filter.outputs.marketplace }}"; then add marketplace-service backend backend/marketplace-service/Dockerfile marketplace-service; fi
+          if uses_libs "${{ steps.filter.outputs.trade }}";       then add trade-service       backend backend/trade-service/Dockerfile       trade-service;       fi
+          if uses_libs "${{ steps.filter.outputs.payment }}";     then add payment-service     backend backend/payment-service/Dockerfile     payment-service;     fi
+          if changed "${{ steps.filter.outputs.access }}";                 then add access-service     backend/access-service backend/access-service/Dockerfile access-service;     fi
+          if changed "${{ steps.filter.outputs.bot }}";                    then add bot                bot                    bot/Dockerfile                    bot;                fi
+          if changed "${{ steps.filter.outputs.frontend }}";               then add frontend           frontend               frontend/Dockerfile               frontend;           fi
+          if changed "${{ steps.filter.outputs.mail }}";                   then add mail-frontend      mail                   mail/Dockerfile                   mail-frontend;      fi
+          if changed "${{ steps.filter.outputs.nginx }}";                  then add nginx              nginx                  nginx/Dockerfile                  nginx;              fi
+          if changed "${{ steps.filter.outputs['smart-admin'] }}";         then add smart-admin-worker smart-admin-worker     smart-admin-worker/Dockerfile     smart-admin-worker; fi
+          if changed "${{ steps.filter.outputs['humo-userbot'] }}";        then add humo-userbot       humo-userbot           humo-userbot/Dockerfile           humo-userbot;       fi
 
           if [ ${#ITEMS[@]} -eq 0 ]; then
             MATRIX='{"include":[]}'
@@ -160,6 +166,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.ns.outputs.ns }}-${{ matrix.image }}:latest
