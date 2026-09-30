@@ -54,6 +54,8 @@ class OutboxSnapshotIT extends AbstractOutboxIT {
     void close() {
         consumer.close();
         sender.mode(ControllableSender.Mode.PASS);
+        // Qolgan belgilarni yuborib, backoff holatini nolga qaytaradi — keyingi test toza relay bilan boshlanadi.
+        relay.drainNow();
     }
 
     private List<ConsumerRecord<String, byte[]>> read(int expected) {

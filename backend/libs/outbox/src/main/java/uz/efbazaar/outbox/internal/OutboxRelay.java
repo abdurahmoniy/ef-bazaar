@@ -55,6 +55,12 @@ public class OutboxRelay {
     });
     private final AtomicBoolean queued = new AtomicBoolean();
 
+    private static final long MAX_BACKOFF_MS = 60_000;
+    /** Ketma-ket yiqilgan aylanishlar; faqat relay ishchi ipi yozadi. */
+    private volatile int failureStreak;
+    /** Shu vaqtgacha (System.nanoTime) uyg'otishlar e'tiborsiz — Kafka o'chiq bo'lsa log to'lmasin. */
+    private volatile long notBeforeNanos = System.nanoTime();
+
     public OutboxRelay(OutboxRepository repo, OutboxSender sender, TransactionTemplate tx,
                        OutboxProperties props, List<SnapshotSource> sources, MessageEncoder encoder,
                        MeterRegistry registry) {
@@ -75,6 +81,12 @@ public class OutboxRelay {
         if (queued.compareAndSet(false, true)) {
             worker.execute(() -> {
                 queued.set(false);
+                long remaining = notBeforeNanos - System.nanoTime();
+                if (remaining > 0) {
+                    // Backoff: shu paytda commit bo'lgan event pollni kutmasin — backoff tugashi bilan qayta uyg'onamiz.
+                    poller.schedule(this::wake, remaining, TimeUnit.NANOSECONDS);
+                    return;
+                }
                 drain();
             });
         }
@@ -102,18 +114,44 @@ public class OutboxRelay {
 
     /** Navbat bo'shaguncha yoki birinchi xatogacha. Hech qachon exception tashlamaydi. */
     private void drain() {
+        boolean failed = false;
         try {
             while (true) {
                 BatchResult events = sendEventBatch();
                 BatchResult snapshots = sendSnapshotBatch();
-                if (events.failed() || snapshots.failed() || (events.sent() == 0 && snapshots.sent() == 0)) {
+                if (events.failed() || snapshots.failed()) {
+                    failed = true;
+                    return;
+                }
+                if (events.sent() == 0 && snapshots.sent() == 0) {
                     return;
                 }
             }
         } catch (RuntimeException e) {
+            failed = true;
             failures.increment();
             log.warn("outbox relay aylanishi yiqildi, keyingi aylanishda qayta: {}", e.toString());
+        } finally {
+            recordOutcome(failed);
         }
+    }
+
+    private void recordOutcome(boolean failed) {
+        if (!failed) {
+            failureStreak = 0;
+            notBeforeNanos = System.nanoTime();
+            return;
+        }
+        failureStreak++;
+        notBeforeNanos = System.nanoTime() + currentBackoff().toNanos();
+    }
+
+    /** Hozirgi kechikish: ketma-ket yiqilishlarda 1 s, 2 s, 4 s … 60 s; muvaffaqiyatda nol. */
+    public java.time.Duration currentBackoff() {
+        int streak = failureStreak;
+        return streak == 0
+                ? java.time.Duration.ZERO
+                : java.time.Duration.ofMillis(Math.min(MAX_BACKOFF_MS, 1_000L << Math.min(streak - 1, 16)));
     }
 
     public boolean pendingIsEmpty() {

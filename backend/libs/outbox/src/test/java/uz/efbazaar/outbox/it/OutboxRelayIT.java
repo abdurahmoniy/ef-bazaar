@@ -37,6 +37,8 @@ class OutboxRelayIT extends AbstractOutboxIT {
     @AfterEach
     void reset() {
         sender.mode(ControllableSender.Mode.PASS);
+        // Qolgan yozuvlarni yetkazib, backoff holatini nolga qaytaradi — keyingi test toza relay bilan boshlanadi.
+        relay.drainNow();
     }
 
     private String topic() {
@@ -205,5 +207,26 @@ class OutboxRelayIT extends AbstractOutboxIT {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox_events WHERE parked_at IS NOT NULL", Long.class))
                 .isZero();
         assertThat(repo.pendingCount()).isEqualTo(1);
+    }
+
+    @Test
+    void repeatedFailuresBackOffAndSuccessResetsIt() throws Exception {
+        String topic = topic();
+        sender.mode(ControllableSender.Mode.FAIL);
+        tx.executeWithoutResult(s -> outbox.publish(topic, "k", new Sample("a", 1)));
+        relay.drainNow();
+        relay.drainNow();
+
+        // Ketma-ket yiqilishlar: kechikish o'sadi, commit/poll uyg'otishi shu vaqt ichida hech narsa qilmaydi.
+        assertThat(relay.currentBackoff()).isGreaterThanOrEqualTo(Duration.ofSeconds(2));
+        sender.mode(ControllableSender.Mode.PASS);
+        relay.wake();
+        Thread.sleep(500);
+        assertThat(repo.pendingCount()).isEqualTo(1);
+
+        // Qo'lda drainNow kechikishni chetlab o'tadi; muvaffaqiyat uni nolga qaytaradi.
+        relay.drainNow();
+        assertThat(repo.pendingCount()).isZero();
+        assertThat(relay.currentBackoff()).isEqualTo(Duration.ZERO);
     }
 }
