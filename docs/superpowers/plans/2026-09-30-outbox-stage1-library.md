@@ -452,7 +452,7 @@ class OutboxRepositoryIT extends AbstractOutboxIT {
         long oldPublished = insert("t");
         long oldPending = insert("t");
         repo.markPublished(List.of(oldPublished));
-        jdbc.update("UPDATE outbox_events SET published_at = now() - interval '8 days', created_at = now() - interval '8 days'");
+        jdbc.update("UPDATE outbox_events SET published_at = now() - interval '8 days', created_at = now() - interval '8 days' WHERE id = ?", oldPublished);
 
         int deleted = repo.deletePublishedBefore(Instant.now().minusSeconds(7 * 24 * 3600));
 

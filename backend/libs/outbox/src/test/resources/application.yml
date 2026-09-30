@@ -1,0 +1,17 @@
+spring:
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:uz/efbazaar/outbox/outbox-schema.sql
+outbox:
+  relay:
+    send-timeout: 3s
+    # Zaxira polling amalda o'chiq: yetkazish faqat commit'dagi uyg'otish yoki
+    # testning drainNow() chaqiruvidan keladi. Barcha IT'lar AYNAN SHU sozlama bilan
+    # bitta Spring kontekstini bo'lishadi — alohida kontekstlarning relay'lari bir-birining
+    # "yiqilishi kerak" bo'lgan yozuvlarini yuborib yubormasligi uchun @TestPropertySource ishlatmang.
+    poll-interval: 1h
