@@ -208,15 +208,14 @@ yuboriladi; `last_message_id` dan catch-up; takroriy xabar zararsiz.
 
 ## 9. 1-bosqich review'dan keyingi ochiq masalalar
 
-- **Snapshot belgilari yuborish paytida qulflangan (5-bosqichdan oldin hal qilinadi).** Relay
-  `outbox_snapshot_pending` qatorlarini `FOR UPDATE` bilan olib, build + send davomida ushlab turadi.
-  Kafka o'chiq bo'lsa, shu entity'ga `markSnapshot` qiladigan biznes tranzaksiyasi (marketplace
-  e'lon tahriri) `send-timeout` gacha kutadi — broker nosozligi foydalanuvchi kechikishiga aylanadi.
-  Yechim: belgini qulfsiz o'qish (bitta relay uchun advisory lock), commit, build + send, keyin
-  `DELETE … WHERE marked_at <= seen` — `marked_at` qo'riqchisi aynan shu uchun bor.
-- **Kafka hech qachon qabul qilmaydigan yozuv (2-bosqichdan oldin).** Hozir qo'lda runbook
-  (kutubxona README'si). Kerak: doimiy xatolarni tasniflab `parked` holatga o'tkazish va takroriy
-  xatoda eksponensial kutish.
+- ✅ **Snapshot belgilari yuborish paytida qulflangan** — hal qilindi: belgilar qulfsiz o'qiladi,
+  build o'z read-only tranzaksiyasida, o'chirish `marked_at <= seen` qo'riqchisi bilan. Barcha drain'lar
+  bitta relay ipida — bir instansiya ichida takroriy yuborish yo'q; bir necha instansiya bir snapshot'ni
+  ikki marta yuborishi mumkin (ikkalasi ham hozirgi holat, `version` farqli).
+- ✅ **Kafka hech qachon qabul qilmaydigan yozuv** — hal qilindi: `RecordTooLargeException`,
+  `InvalidTopicException`, `TopicAuthorizationException`, `SerializationException` → `parked_at`,
+  qolganlari davom etadi (snapshot belgisi ERROR log bilan tashlanadi). Vaqtinchalik xatolar park
+  qilinmaydi. Ketma-ket yiqilishlarda backoff 1 s → 60 s. `OutboxParked` alerti va runbook.
 - **Boshqa DataSource tranzaksiyasi.** `publish` faqat "faol tranzaksiya bormi" ni tekshiradi;
   marketplace'ning `efbazaar` tranzaksiyasi ichida chaqirilsa yozuv asosiy bazaga atomik bo'lmay
   tushadi. 5-bosqichda `TransactionSynchronizationManager.hasResource(dataSource)` tekshiruvi.

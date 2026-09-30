@@ -21,5 +21,8 @@ public class OutboxMetrics implements MeterBinder {
         Gauge.builder("outbox.pending.oldest.seconds", repo, r -> r.oldestPendingAgeSeconds())
                 .description("Eng eski yetkazilmagan yozuvning yoshi")
                 .register(registry);
+        Gauge.builder("outbox.parked.count", repo, r -> r.parkedCount())
+                .description("Kafka doimiy rad etgan, odam ko'rishini kutayotgan yozuvlar")
+                .register(registry);
     }
 }

@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Haqiqiy sender'ni o'raydi; testda yiqilish yoki osilish rejimini yoqish mumkin. */
 public class ControllableSender implements OutboxSender {
 
-    public enum Mode { PASS, FAIL, HANG, THROW, BLOCK }
+    public enum Mode { PASS, FAIL, HANG, THROW, BLOCK, POISON }
 
     private final OutboxSender delegate;
     private final AtomicReference<Mode> mode = new AtomicReference<>(Mode.PASS);
@@ -33,7 +33,7 @@ public class ControllableSender implements OutboxSender {
     @Override
     public CompletableFuture<?> send(String topic, String key, byte[] payload, List<Header> headers) {
         Mode current = mode.get();
-        if (current != Mode.PASS) {
+        if (current != Mode.PASS && current != Mode.POISON) {
             failures.incrementAndGet();
         }
         return switch (current) {
@@ -42,6 +42,10 @@ public class ControllableSender implements OutboxSender {
             case HANG -> new CompletableFuture<>();
             case THROW -> throw new IllegalStateException("unexpected");
             case BLOCK -> blockThenThrow();
+            // Faqat "poison" so'zi bor payload'ni Kafka doimiy rad etadi (1 MB dan katta kabi).
+            case POISON -> new String(payload, java.nio.charset.StandardCharsets.UTF_8).contains("poison")
+                    ? CompletableFuture.failedFuture(new org.apache.kafka.common.errors.RecordTooLargeException("too big"))
+                    : delegate.send(topic, key, payload, headers);
         };
     }
 

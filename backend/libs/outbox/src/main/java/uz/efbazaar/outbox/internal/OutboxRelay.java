@@ -37,10 +37,12 @@ public class OutboxRelay {
     private final OutboxRepository repo;
     private final OutboxSender sender;
     private final TransactionTemplate tx;
+    private final TransactionTemplate readOnlyTx;
     private final OutboxProperties props;
     private final Map<String, SnapshotSource> sources;
     private final MessageEncoder encoder;
     private final Counter failures;
+    private final Counter parked;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "outbox-relay");
         t.setDaemon(true);
@@ -53,16 +55,25 @@ public class OutboxRelay {
     });
     private final AtomicBoolean queued = new AtomicBoolean();
 
+    private static final long MAX_BACKOFF_MS = 60_000;
+    /** Ketma-ket yiqilgan aylanishlar; faqat relay ishchi ipi yozadi. */
+    private volatile int failureStreak;
+    /** Shu vaqtgacha (System.nanoTime) uyg'otishlar e'tiborsiz — Kafka o'chiq bo'lsa log to'lmasin. */
+    private volatile long notBeforeNanos = System.nanoTime();
+
     public OutboxRelay(OutboxRepository repo, OutboxSender sender, TransactionTemplate tx,
                        OutboxProperties props, List<SnapshotSource> sources, MessageEncoder encoder,
                        MeterRegistry registry) {
         this.repo = repo;
         this.sender = sender;
         this.tx = tx;
+        this.readOnlyTx = new TransactionTemplate(java.util.Objects.requireNonNull(tx.getTransactionManager()));
+        this.readOnlyTx.setReadOnly(true);
         this.props = props;
         this.sources = sources.stream().collect(Collectors.toMap(SnapshotSource::source, Function.identity()));
         this.encoder = encoder;
         this.failures = Counter.builder("outbox.send.failures").register(registry);
+        this.parked = Counter.builder("outbox.parked").register(registry);
     }
 
     /** Commit'dan keyin chaqiriladi; navbatda turgan partiya bo'lsa ikkinchisini qo'shmaydi. */
@@ -70,7 +81,13 @@ public class OutboxRelay {
         if (queued.compareAndSet(false, true)) {
             worker.execute(() -> {
                 queued.set(false);
-                drainNow();
+                long remaining = notBeforeNanos - System.nanoTime();
+                if (remaining > 0) {
+                    // Backoff: shu paytda commit bo'lgan event pollni kutmasin — backoff tugashi bilan qayta uyg'onamiz.
+                    poller.schedule(this::wake, remaining, TimeUnit.NANOSECONDS);
+                    return;
+                }
+                drain();
             });
         }
     }
@@ -81,20 +98,60 @@ public class OutboxRelay {
         poller.scheduleWithFixedDelay(this::wake, interval, interval, TimeUnit.MILLISECONDS);
     }
 
-    /** Navbat bo'shaguncha yoki birinchi xatogacha. Hech qachon exception tashlamaydi. */
+    /**
+     * Relay ishchi ipida navbatni bo'shatadi va tugashini kutadi (testlar va qo'lda chaqiruv uchun).
+     * Barcha drain'lar bitta ipda ketma-ket — bir instansiya ichida bir yozuv ikki marta yuborilmaydi.
+     */
     public void drainNow() {
+        try {
+            worker.submit(this::drain).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (java.util.concurrent.ExecutionException e) {
+            log.warn("outbox relay drainNow yiqildi: {}", e.getCause().toString());
+        }
+    }
+
+    /** Navbat bo'shaguncha yoki birinchi xatogacha. Hech qachon exception tashlamaydi. */
+    private void drain() {
+        boolean failed = false;
         try {
             while (true) {
                 BatchResult events = sendEventBatch();
                 BatchResult snapshots = sendSnapshotBatch();
-                if (events.failed() || snapshots.failed() || (events.sent() == 0 && snapshots.sent() == 0)) {
+                if (events.failed() || snapshots.failed()) {
+                    failed = true;
+                    return;
+                }
+                if (events.sent() == 0 && snapshots.sent() == 0) {
                     return;
                 }
             }
         } catch (RuntimeException e) {
+            failed = true;
             failures.increment();
             log.warn("outbox relay aylanishi yiqildi, keyingi aylanishda qayta: {}", e.toString());
+        } finally {
+            recordOutcome(failed);
         }
+    }
+
+    private void recordOutcome(boolean failed) {
+        if (!failed) {
+            failureStreak = 0;
+            notBeforeNanos = System.nanoTime();
+            return;
+        }
+        failureStreak++;
+        notBeforeNanos = System.nanoTime() + currentBackoff().toNanos();
+    }
+
+    /** Hozirgi kechikish: ketma-ket yiqilishlarda 1 s, 2 s, 4 s … 60 s; muvaffaqiyatda nol. */
+    public java.time.Duration currentBackoff() {
+        int streak = failureStreak;
+        return streak == 0
+                ? java.time.Duration.ZERO
+                : java.time.Duration.ofMillis(Math.min(MAX_BACKOFF_MS, 1_000L << Math.min(streak - 1, 16)));
     }
 
     public boolean pendingIsEmpty() {
@@ -116,7 +173,7 @@ public class OutboxRelay {
             for (OutboxRow row : rows) {
                 CompletableFuture<?> future = sendSafely(row.topic(), row.key(), row.payload(), row.headersJson());
                 futures.add(future);
-                if (future.isCompletedExceptionally()) {
+                if (future.isCompletedExceptionally() && !PermanentFailures.isPermanent(failureOf(future))) {
                     // send() sinxron yiqildi (broker yo'q, max.block.ms tugadi) — qolganlarini
                     // yuborish ham har biri shuncha bloklanadi va qulflarni ushlab turadi.
                     break;
@@ -124,8 +181,17 @@ public class OutboxRelay {
             }
             List<Long> sent = new ArrayList<>();
             for (int i = 0; i < futures.size(); i++) {
-                String error = await(futures.get(i));
-                if (error != null) {
+                Throwable failure = awaitFailure(futures.get(i));
+                if (failure != null && PermanentFailures.isPermanent(failure)) {
+                    // Qayta urinish foydasiz — navbatdan chiqaramiz, qolganlari davom etadi.
+                    parked.increment();
+                    log.error("outbox: yozuv {} ({}) Kafka tomonidan doimiy rad etildi va park qilindi: {}",
+                            rows.get(i).id(), rows.get(i).topic(), describe(failure));
+                    repo.markParked(rows.get(i).id(), describe(failure));
+                    continue;
+                }
+                if (failure != null) {
+                    String error = describe(failure);
                     repo.markPublished(sent);
                     repo.markFailed(rows.get(i).id(), error);
                     return new BatchResult(sent.size(), true, error);
@@ -142,42 +208,50 @@ public class OutboxRelay {
         return result == null ? BatchResult.EMPTY : result;
     }
 
+    /**
+     * Snapshot'lar TRANZAKSIYASIZ: belgilar qulfsiz o'qiladi, har biri o'z qisqa read-only
+     * tranzaksiyasida quriladi, yuboriladi va faqat relay ko'rgan belgi o'chiriladi.
+     * Bir nechta relay instansiyasi bir snapshot'ni ikki marta yuborishi mumkin — ikkalasi ham
+     * hozirgi holat, version'lari farqli; consumer uchun zararsiz.
+     */
     private BatchResult sendSnapshotBatch() {
-        BatchResult result = tx.execute(status -> {
-            List<SnapshotMark> marks = repo.claimSnapshots(props.getRelay().getBatchSize());
-            if (marks.isEmpty()) {
-                return BatchResult.EMPTY;
-            }
-            int sent = 0;
-            for (SnapshotMark mark : marks) {
-                SnapshotSource source = sources.get(mark.source());
-                if (source == null) {
-                    log.warn("outbox: '{}' uchun SnapshotSource yo'q, belgi tashlab yuborildi", mark.source());
-                    repo.deleteSnapshot(mark);
-                    continue;
-                }
-                long version = repo.nextSnapshotVersion();
-                java.util.Optional<Object> payload = source.build(mark.entityId(), version);
-                if (payload.isEmpty()) {
-                    repo.deleteSnapshot(mark);
-                    continue;
-                }
-                EncodedMessage message = encoder.encode(source.topic(), payload.get());
-                String error = await(sendSafely(source.topic(), source.key(mark.entityId()),
-                        message.payload(), message.headersJson()));
-                if (error != null) {
-                    return new BatchResult(sent, true, error);
-                }
+        List<SnapshotMark> marks = repo.pendingSnapshots(props.getRelay().getBatchSize());
+        int sent = 0;
+        for (SnapshotMark mark : marks) {
+            SnapshotSource source = sources.get(mark.source());
+            if (source == null) {
+                log.warn("outbox: '{}' uchun SnapshotSource yo'q, belgi tashlab yuborildi", mark.source());
                 repo.deleteSnapshot(mark);
-                sent++;
+                continue;
             }
-            return new BatchResult(sent, false, null);
-        });
-        if (result != null && result.failed()) {
-            failures.increment();
-            log.warn("outbox: snapshot yuborilmadi, belgi navbatda qoldi: {}", result.error());
+            long version = repo.nextSnapshotVersion();
+            java.util.Optional<Object> payload = readOnlyTx.execute(status -> source.build(mark.entityId(), version));
+            if (payload == null || payload.isEmpty()) {
+                repo.deleteSnapshot(mark);
+                continue;
+            }
+            EncodedMessage message = encoder.encode(source.topic(), payload.get());
+            Throwable failure = awaitFailure(sendSafely(source.topic(), source.key(mark.entityId()),
+                    message.payload(), message.headersJson()));
+            if (failure != null && PermanentFailures.isPermanent(failure)) {
+                // Snapshot'ni park qilib bo'lmaydi (payload saqlanmaydi) — belgi tashlanadi,
+                // holat keyingi o'zgarishda yoki replay orqali qayta yuboriladi.
+                parked.increment();
+                log.error("outbox: snapshot {}:{} Kafka tomonidan doimiy rad etildi, belgi tashlandi: {}",
+                        mark.source(), mark.entityId(), describe(failure));
+                repo.deleteSnapshot(mark);
+                continue;
+            }
+            String error = failure == null ? null : describe(failure);
+            if (error != null) {
+                failures.increment();
+                log.warn("outbox: snapshot yuborilmadi, belgi navbatda qoldi: {}", error);
+                return new BatchResult(sent, true, error);
+            }
+            repo.deleteSnapshot(mark);
+            sent++;
         }
-        return result == null ? BatchResult.EMPTY : result;
+        return new BatchResult(sent, false, null);
     }
 
     private CompletableFuture<?> sendSafely(String topic, String key, byte[] payload, String headersJson) {
@@ -190,16 +264,42 @@ public class OutboxRelay {
 
     /** null — muvaffaqiyat; aks holda xato matni. */
     private String await(CompletableFuture<?> future) {
+        Throwable failure = awaitFailure(future);
+        return failure == null ? null : describe(failure);
+    }
+
+    /** null — muvaffaqiyat; aks holda xatoning o'zi (send-timeout tugashi ham xato). */
+    private Throwable awaitFailure(CompletableFuture<?> future) {
         try {
             future.get(props.getRelay().getSendTimeout().toMillis(), TimeUnit.MILLISECONDS);
             return null;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return "interrupted";
+            return e;
+        } catch (java.util.concurrent.ExecutionException e) {
+            return e.getCause() == null ? e : e.getCause();
         } catch (Exception e) {
-            Throwable cause = e.getCause() == null ? e : e.getCause();
-            return cause.getClass().getSimpleName() + ": " + cause.getMessage();
+            return e;
         }
+    }
+
+    private static Throwable failureOf(CompletableFuture<?> done) {
+        try {
+            done.getNow(null);
+            return null;
+        } catch (java.util.concurrent.CompletionException e) {
+            return e.getCause() == null ? e : e.getCause();
+        } catch (RuntimeException e) {
+            return e;
+        }
+    }
+
+    private static String describe(Throwable failure) {
+        Throwable root = failure;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        return root.getClass().getSimpleName() + ": " + root.getMessage();
     }
 
     record BatchResult(int sent, boolean failed, String error) {

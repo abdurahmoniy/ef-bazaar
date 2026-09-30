@@ -30,10 +30,16 @@ Dizayn: `docs/superpowers/specs/2026-09-30-transactional-outbox-design.md`.
   aylantiradi va serializer qo'shgan headerlarni saqlaydi — sim ustidagi xabar `kafkaTemplate.send`
   chiqaradigan bilan bayt-ma-bayt bir xil.
 - Commit'dan keyin relay darhol uyg'onadi (odatda +10–30 ms); `outbox.relay.poll-interval` — zaxira.
-- Relay: `FOR UPDATE SKIP LOCKED` partiya, idempotent producer, birinchi xatoda to'xtaydi (tartib uchun),
-  yozuv `attempts++` bilan qoladi.
+- Relay: `FOR UPDATE SKIP LOCKED` partiya, idempotent producer (`max.block.ms` = `send-timeout`),
+  vaqtinchalik xatoda to'xtaydi (tartib uchun), yozuv `attempts++` bilan qoladi.
+- **Park:** Kafka hech qachon qabul qilmaydigan yozuv (`RecordTooLargeException`, `InvalidTopicException`,
+  `TopicAuthorizationException`, `SerializationException`) `parked_at` bilan navbatdan chiqadi — qolganlari
+  davom etadi. Vaqtinchalik xatolar (broker o'chiq, timeout) hech qachon park qilinmaydi.
+- **Backoff:** ketma-ket yiqilishlarda relay 1 s, 2 s, 4 s … 60 s kutadi; birinchi muvaffaqiyatda nolga qaytadi.
 - Snapshot rejimi: `outbox.markSnapshot(source, id)` yoki DB trigger `outbox_snapshot_pending` ga belgi
-  qo'yadi; relay servisning `SnapshotSource` bean'i orqali hozirgi holatni quradi va yuboradi.
+  qo'yadi; relay belgilarni **qulfsiz** o'qib, servisning `SnapshotSource` bean'i orqali hozirgi holatni
+  quradi va yuboradi — biznes tranzaksiyasi relay'ni hech qachon kutmaydi. Doimiy rad etilgan snapshot
+  belgisi ERROR log bilan tashlanadi (holat keyingi o'zgarishda yoki replay orqali qayta ketadi).
 
 ## Sozlamalar
 
@@ -48,30 +54,43 @@ Dizayn: `docs/superpowers/specs/2026-09-30-transactional-outbox-design.md`.
 
 ## Kuzatuv
 
-`outbox_pending_count`, `outbox_pending_oldest_seconds`, `outbox_send_failures_total`.
-Alert `OutboxBacklog`: eng eski yetkazilmagan yozuv 5 daqiqadan eski.
+`outbox_pending_count`, `outbox_pending_oldest_seconds`, `outbox_parked_count`,
+`outbox_send_failures_total`, `outbox_parked_total`.
 
-## Navbat tiqilib qolsa (`OutboxBacklog` alerti)
+| Alert | Qachon | Ma'nosi |
+|---|---|---|
+| `OutboxBacklog` | eng eski yetkazilmagan yozuv > 5 daqiqa, 5 daqiqa davomida (amalda ~10 daqiqa) | Kafka yoki relay ishlamayapti; event'lar navbatda, yo'qolmagan |
+| `OutboxParked` | park qilingan yozuv bor, 1 daqiqa | Kafka doimiy rad etgan event — odam ko'rishi kerak |
 
-Relay birinchi xatoda to'xtaydi (bir kalit ichidagi tartib uchun). Demak Kafka **hech qachon
-qabul qilmaydigan** bitta yozuv (masalan `RecordTooLargeException` — 1 MB dan katta payload,
-noto'g'ri topic nomi, ruxsat yo'q) shu servisning **barcha** keyingi event'larini to'xtatadi.
-Yozuvlar yo'qolmaydi — navbatda turadi.
+## `OutboxBacklog` — navbat yetkazilmayapti
 
-1. Birinchi yetkazilmagan yozuv va xato sababi:
+1. Birinchi yetkazilmagan yozuvlar va xato sababi:
    ```sql
-   SELECT id, topic, message_key, attempts, last_error, created_at, octet_length(payload) AS bytes
-     FROM outbox_events WHERE published_at IS NULL ORDER BY id LIMIT 5;
+   SELECT id, topic, message_key, attempts, last_error, created_at
+     FROM outbox_events WHERE published_at IS NULL AND parked_at IS NULL ORDER BY id LIMIT 5;
    ```
-2. `last_error` vaqtinchalik (broker o'chiq, timeout) bo'lsa — Kafka'ni tiklang, relay o'zi davom etadi.
-3. Doimiy xato bo'lsa — yozuvni saqlab, navbatdan chiqaring (tranzaksiyada):
+2. `last_error` vaqtinchalik (broker o'chiq, timeout, `max.block.ms`) — Kafka'ni tiklang, relay backoff
+   tugashi bilan o'zi davom etadi.
+
+## `OutboxParked` — Kafka doimiy rad etgan event
+
+1. Park qilinganlar:
    ```sql
-   CREATE TABLE IF NOT EXISTS outbox_events_parked (LIKE outbox_events INCLUDING ALL);
-   INSERT INTO outbox_events_parked SELECT * FROM outbox_events WHERE id = :id;
-   UPDATE outbox_events SET published_at = now(), last_error = 'parked: ' || last_error WHERE id = :id;
+   SELECT id, topic, message_key, last_error, parked_at, octet_length(payload) AS bytes
+     FROM outbox_events WHERE parked_at IS NOT NULL AND published_at IS NULL ORDER BY id;
    ```
-   Keyin sababni tuzating va kerak bo'lsa event'ni qo'lda qayta chiqaring. `outbox_events_parked`
-   tozalash job'iga kirmaydi.
+2. Sababni tuzating (payload hajmi, topic nomi, ruxsat). Event consumer'ga baribir kerak bo'lsa —
+   sababni tuzatgandan keyin qayta navbatga qo'ying:
+   ```sql
+   UPDATE outbox_events SET parked_at = NULL, attempts = 0 WHERE id = :id;
+   ```
+3. Kerak bo'lmasa — yopib qo'ying (tozalash job'i 7 kundan keyin o'chiradi):
+   ```sql
+   UPDATE outbox_events SET published_at = now(), last_error = 'dismissed: ' || last_error WHERE id = :id;
+   ```
+
+Park qilingan yozuvdan keyingi, xuddi shu kalitli event'lar oldinga o'tib ketgan bo'ladi — butun servisni
+to'xtatishdan ko'ra bu kichik yomonlik. Qayta navbatga qo'yilgan event consumer'ga kechikib keladi.
 
 ## Build
 
