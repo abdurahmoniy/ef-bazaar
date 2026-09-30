@@ -48,6 +48,7 @@ jobs:
       mail: ${{ steps.filter.outputs.mail }}
       smart-admin: ${{ steps.filter.outputs['smart-admin'] }}
       humo-userbot: ${{ steps.filter.outputs['humo-userbot'] }}
+      libs: ${{ steps.filter.outputs.libs }}
       # Matritsalar SHU YERDA quriladi, matrisa ichida `if` bilan emas.
       #
       # Statik matritsa har servis uchun job yaratadi, hatto o'sha servis
@@ -221,6 +222,7 @@ jobs:
           set_output mail           'mail/'
           set_output smart-admin    'smart-admin-worker/'
           set_output humo-userbot   'humo-userbot/'
+          set_output libs           'backend/libs/'
 
       # Faqat o'zgargan servislardan matritsa yig'iladi.
       #
@@ -244,12 +246,14 @@ jobs:
             fi
           }
 
+          LIBS="${{ steps.filter.outputs.libs }}"
           JAVA=()
           add_java() { JAVA+=("{\"name\":\"$1\",\"path\":\"$2\"}"); }
-          if [ "${{ steps.filter.outputs.auth }}" = "true" ]; then add_java auth-service        backend/auth-service; fi
-          if [ "${{ steps.filter.outputs.marketplace }}" = "true" ]; then add_java marketplace-service backend/marketplace-service; fi
-          if [ "${{ steps.filter.outputs.trade }}" = "true" ]; then add_java trade-service       backend/trade-service; fi
-          if [ "${{ steps.filter.outputs.payment }}" = "true" ]; then add_java payment-service     backend/payment-service; fi
+          if [ "$LIBS" = "true" ]; then add_java outbox-lib backend/libs/outbox; fi
+          if [ "${{ steps.filter.outputs.auth }}" = "true" ] || [ "$LIBS" = "true" ]; then add_java auth-service        backend/auth-service; fi
+          if [ "${{ steps.filter.outputs.marketplace }}" = "true" ] || [ "$LIBS" = "true" ]; then add_java marketplace-service backend/marketplace-service; fi
+          if [ "${{ steps.filter.outputs.trade }}" = "true" ] || [ "$LIBS" = "true" ]; then add_java trade-service       backend/trade-service; fi
+          if [ "${{ steps.filter.outputs.payment }}" = "true" ] || [ "$LIBS" = "true" ]; then add_java payment-service     backend/payment-service; fi
           if [ "${{ steps.filter.outputs.access }}" = "true" ]; then add_java access-service      backend/access-service; fi
           if [ "${{ steps.filter.outputs.bot }}" = "true" ]; then add_java bot                 bot; fi
           emit java "${JAVA[@]}"
@@ -276,6 +280,8 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+      - name: Install shared libraries
+        run: mvn -B -ntp -f backend/libs/outbox/pom.xml install -DskipTests
       - name: Build & test ${{ matrix.name }}
         working-directory: ${{ matrix.path }}
         run: mvn -B -ntp verify

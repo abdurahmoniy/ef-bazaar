@@ -20,6 +20,7 @@ Current minimum checks (run inside the listed directory):
 | Component | Required verification |
 | --- | --- |
 | Changed Java service under `backend/`, or `bot/` | Java 21 and `mvn -B -ntp clean verify`; Docker must be available for Testcontainers. |
+| `backend/libs/outbox/` (va unga bog'liq servislar) | Java 21, `mvn -B -ntp clean verify` in `backend/libs/outbox`; shu kutubxonaga bog'liq har servis uchun avval `mvn -B -ntp -f backend/libs/outbox/pom.xml install -DskipTests`, keyin servisda `mvn -B -ntp clean verify`. |
 | `frontend/` | Node 22, dependencies from `package-lock.json` using `npm ci --no-audit --no-fund`; `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`. |
 | `mail/` | Node 22, `npm ci --no-audit --no-fund`; `npm run test` and `npm run build`. |
 | `smart-admin-worker/` | Python 3.12, dependencies from `requirements-dev.txt`; `ruff check smart_admin_worker/ tests/` and `pytest -q`. |

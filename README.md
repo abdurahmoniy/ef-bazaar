@@ -38,6 +38,7 @@ Monorepo: har bir komponent mustaqil build va deploy bo'ladi.
 | payment-service | `backend/payment-service` | Spring Boot | 8087 | `/api/payment/**` | [README](backend/payment-service/README.md) |
 | access-service | `backend/access-service` | Spring Boot | 8088 | `/api/access/**` | [README](backend/access-service/README.md) |
 | humo-userbot | `humo-userbot` | Python 3.12 (Pyrogram) | — | — (faqat Kafka) | [README](humo-userbot/README.md) |
+| outbox (kutubxona) | `backend/libs/outbox` | Java 21, Spring Boot auto-config | — | — | [README](backend/libs/outbox/README.md) |
 | frontend | `frontend` | Next.js 16, React 19 | 3000 | `/` | [README](frontend/README.md) |
 | mail-frontend | `mail` | Next.js 16 | 3000 | mail.efbazaar.uz | [README](mail/README.md) |
 | nginx | `nginx` | nginx | 80/443, 8080 (ichki) | — | [README](nginx/README.md) |
@@ -98,7 +99,8 @@ marketplace'ga) va barcha servislarning Swagger UI'si (basic auth ostida). Brauz
 To'liq talablar: [AGENTS.md](AGENTS.md).
 
 ```bash
-# Java servis (backend/* yoki bot/)
+# Java servis (backend/* yoki bot/) — avval umumiy kutubxona
+mvn -B -ntp -f backend/libs/outbox/pom.xml install -DskipTests
 cd backend/marketplace-service && mvn -B -ntp clean verify   # *IT testlar Failsafe'da — `mvn test` yetarli emas
 
 # frontend
