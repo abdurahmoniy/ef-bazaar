@@ -1,6 +1,7 @@
 # recommendation-service — dizayn
 
 Sana: 2026-09-30 · Holat: tasdiqlangan dizayn, reja yozilishi kutilmoqda
+Bog'liq: [transactional outbox](2026-09-30-transactional-outbox-design.md) — avval shu bajariladi.
 
 ## 1. Maqsad
 
@@ -66,7 +67,7 @@ Recommendation marketplace'ni HTTP orqali chaqirmaydi; birlashtirishni frontend 
 | `listings_view` | `listing_id` PK, `seller_id`, `status`, `price`, `value_score`, `version`, `updated_at` | `listing-snapshot` |
 | `listing_cards_view` | `listing_id`, `efhub_id`, `player_id`, PK(`listing_id`,`efhub_id`); indeks `player_id` | `listing-snapshot` (snapshot kelganda to'liq almashtiriladi) |
 | `cards_view` | `efhub_id` PK, `player_id`, `type`, `overall_rating`, `meta_tier`, `meta_priority`, `active_from`, `active_until`, `version` | `card-snapshot` |
-| `user_likes` | PK(`user_id`,`listing_id`), `liked_at` | `like-toggled` (unlike → o'chiriladi) |
+| `user_likes` | PK(`user_id`,`listing_id`), `liked`, `version` | `like-toggled` (unlike → `liked = false`; `version` eski event'ni to'sadi) |
 | `dream_teams` | marketplace'dagi bilan bir xil sxema (bitta foydalanuvchiga bitta, JSONB slotlar) | ko'chiriladi |
 | `user_card_interest` | PK(`user_id`,`efhub_id`), `last_at` | `POST /card-interest/apply` (faqat login qilgan) |
 | `consumed_events` | `idempotency_key` PK, `consumed_at` | barcha consumerlar |
@@ -139,43 +140,60 @@ Secret bo'sh bo'lsa servis ishga tushmaydi (hozirgidek). Karta ID validatsiyasi 
 
 ## 5. marketplace-service o'zgarishlari
 
-### 5.1 Outbox
+### 5.1 Outbox (kutubxona) va snapshot belgilari
 
-- `outbox_events`: `id` BIGSERIAL, `topic`, `event_key`, `payload` JSONB, `created_at`, `published_at`, `attempts`.
-- Event biznes o'zgarishi bilan **bitta tranzaksiyada** yoziladi.
-- Relay: har 1 s `SELECT … WHERE published_at IS NULL ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 100`,
-  `kafka.send(...).get()`, `published_at` belgilanadi. Xato → `attempts++`, keyingi aylanishda qayta.
-- Tozalash: yuborilganlar 7 kundan keyin o'chiriladi.
-- Metrika `outbox_pending_oldest_seconds`; Prometheus alert > 300 s.
-- Umumiy komponent sifatida yoziladi (keyinroq boshqa publisher'larni o'tkazish oson bo'lsin),
-  lekin bu ishda faqat yangi snapshot event'lari outbox'dan o'tadi.
+**Bog'liqlik:** bu bo'lim [transactional outbox](2026-09-30-transactional-outbox-design.md) kutubxonasining
+snapshot rejimidan foydalanadi — outbox ishi (kamida 1- va 5-bosqichi) recommendation'dan oldin tugaydi.
 
-### 5.2 Yangi event'lar
+Snapshot'lar Java'dagi bitta nuqtadan emas, **Postgres trigger'laridan** belgilanadi: `TrustService`
+(`retagBySellerAndStatus`) va `user-deleted` consumer'i bulk `UPDATE` qiladi — ular entity'ni yuklamaydi
+va har qanday Java "hook" ini chetlab o'tadi. Trigger esa istalgan yo'lni (kelajakdagi kod va qo'lda SQL'ni ham) ushlaydi.
 
-`efbazaar.marketplace.listing-snapshot` — kalit `listingId`:
+| Trigger | Qachon | Belgi |
+|---|---|---|
+| `listings` AFTER INSERT / UPDATE OF `status`, `price`, `seller_id`, `value_score` | har qator | `('listing', id)` |
+| `listing_cards` AFTER INSERT / DELETE | har qator | `('listing', listing_id)` |
+| `listing_likes` AFTER INSERT / DELETE | har qator | `('like', user_id || ':' || listing_id)` |
+
+Belgi `outbox_snapshot_pending` ga shu tranzaksiya ichida, `ON CONFLICT DO NOTHING` bilan yoziladi.
+Relay belgini olib, `SnapshotSource.build` orqali **hozirgi** holatni o'qiydi — shuning uchun
+`saveWithCardInventory` dagi "e'lon saqlandi, kartalar hali yozilmadi" oralig'i ham muammo emas.
+
+**Kartalar** `efbazaar` bazasida — trigger va atomiklik yo'q. Kod `efbazaar` commit'idan keyin darhol
+`outbox.markSnapshot("card", efhubId)` chaqiradi (kunlik sync'dagi yangi kartalar, admin META o'zgarishi,
+kunlik META chegarasi job'i). Qisqa oraliq qabul qilinadi: META o'zgarishi tegishli e'lonlarning
+`value_score` ini qayta hisoblaydi va ular `listings` trigger'i orqali atomik snapshot oladi; zaxira — replay.
+
+### 5.2 Snapshot event'lari
+
+`efbazaar.marketplace.listing-snapshot` — kalit `listingId`, source `listing`:
 ```
 { idempotencyKey, listingId, sellerId, status, price, valueScore,
   cards: [{ efhubId, playerId }], version, occurredAt }
 ```
-`version` = shu yozuvning `outbox_events.id` si (monoton). `updated_at` emas: `value_score` qayta
-hisoblanganda `updated_at` o'zgarmasligi mumkin. Consumer: `version` saqlangandan kichik yoki teng bo'lsa e'tiborsiz.
-Snapshot bitta joydan chiqariladi — e'lonni o'zgartiradigan har yo'l (yaratish, tahrirlash, relist,
-sold, o'chirish, admin delete/restore, `listing-sold` consumer, trust blok/tiklash) shu nuqtadan o'tadi.
 
-`efbazaar.marketplace.card-snapshot` — kalit `efhubId`:
+`efbazaar.marketplace.card-snapshot` — kalit `efhubId`, source `card`:
 ```
 { idempotencyKey, efhubId, playerId, type, overallRating,
   metaTier, metaPriority, activeFrom, activeUntil, version, occurredAt }
 ```
-`version` — xuddi shunday `outbox_events.id`. Kunlik sync'dagi yangi kartalar va admin META o'zgarishlarida.
+
+`efbazaar.marketplace.like-toggled` — kalit `listingId`, source `like` (mavjud topic, hozir consumer'i yo'q):
+```
+{ listingId, userId, liked, version, occurredAt }   // liked = hozir listing_likes da qator bormi
+```
+`LikeService` endi like-toggled'ni to'g'ridan-to'g'ri yubormaydi — faqat trigger + relay.
+
+`version` — `outbox_snapshot_version_seq` dan (monoton). Consumer: saqlangan `version` dan kichik yoki
+teng bo'lsa e'tiborsiz. `idempotencyKey` = `<source>:<entityId>:<version>`.
 
 Mavjud `listing-created/updated/deleted`, `cards-added` tegilmaydi.
 
 ### 5.3 Replay
 
-`POST /internal/marketplace/v1/rec/replay` (`X-Internal-Secret`): barcha e'lon va karta snapshot'larini
-hamda mavjud `listing_likes` ni `like-toggled` ko'rinishida outbox orqali qayta chiqaradi.
-Birinchi deploy va qo'lda tuzatish uchun. Kunlik reconcile yo'q — outbox yetkazishni kafolatlaydi.
+`POST /internal/marketplace/v1/rec/replay` (`X-Internal-Secret`): barcha e'lonlar, kartalar va
+`listing_likes` qatorlari uchun belgi qo'yadi (`markSnapshot`) — relay ularni odatdagidek yuboradi.
+Birinchi deploy va qo'lda tuzatish uchun. Kunlik reconcile yo'q.
 
 ### 5.4 "Katta bozor" — `value_score`
 
@@ -221,7 +239,7 @@ Mavjud `ListingSpecifications` filtrlari qo'llanadi, tartib `array_position(ids,
 
 Har bosqich alohida deploy bo'ladi va foydalanuvchi uchun hech narsani buzmaydi.
 
-1. **Marketplace tayyorgarligi:** outbox, `listing-snapshot`, `card-snapshot`, replay, `value_score`
+1. **Marketplace tayyorgarligi** (outbox kutubxonasi tayyor bo'lgach): trigger'lar, `listing-snapshot`, `card-snapshot`, like snapshot, replay, `value_score`
    + `sort=value`, `POST /listings/ranked`. Xatti-harakat o'zgarmaydi.
 2. **recommendation-service (qorong'i deploy):** servis, consumerlar, match, dream team, card interest,
    feed; nginx `/api/rec/` proxy; compose, CI (`ci.yml`, `build.yml`), `deploy.sh`, Prometheus,
@@ -249,8 +267,9 @@ Har bosqich alohida deploy bo'ladi va foydalanuvchi uchun hech narsani buzmaydi.
 AGENTS.md bo'yicha: avval yiqiladigan test, keyin kod; yakunda har ta'sirlangan komponentda to'liq CI tekshiruvi.
 
 **marketplace**
-- Outbox IT: rollback → event yo'q; commit → yetkaziladi; Kafka o'chiq → kutadi, keyin yetkaziladi.
-- Snapshot to'liqligi IT: 5.2 dagi har bir yo'l snapshot chiqaradi.
+- Trigger IT: rollback → belgi yo'q; commit → belgi bor; bulk `retagBySellerAndStatus` va `user-deleted` bulk UPDATE ham belgi qo'yadi.
+- Snapshot to'liqligi IT: e'lonni o'zgartiradigan har yo'l (yaratish, tahrirlash, relist, sold, o'chirish, admin delete/restore,
+  `listing-sold` consumer, trust blok/tiklash) snapshot chiqaradi; like/unlike like-toggled chiqaradi; META o'zgarishi card-snapshot chiqaradi.
 - `value_score` formulasi unit testlari; META o'zgarishi va muddat chegarasida qayta hisoblash IT.
 - `ranked`: tartib saqlanadi, filtrlar qo'llanadi, ACTIVE bo'lmaganlar tushadi, 1000 dan ortiq ID rad etiladi.
 
