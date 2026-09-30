@@ -415,7 +415,8 @@ services:
   trade-service:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-trade-service:${IMAGE_TAG:-latest}
     build:
-      context: ./backend/trade-service
+      context: ./backend
+      dockerfile: trade-service/Dockerfile
     container_name: efbazaar-trade
     restart: unless-stopped
     logging: *default-logging
@@ -458,7 +459,8 @@ services:
   payment-service:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-payment-service:${IMAGE_TAG:-latest}
     build:
-      context: ./backend/payment-service
+      context: ./backend
+      dockerfile: payment-service/Dockerfile
     container_name: efbazaar-payment
     restart: unless-stopped
     logging: *default-logging

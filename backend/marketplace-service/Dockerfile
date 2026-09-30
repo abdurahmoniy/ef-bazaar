@@ -1,5 +1,6 @@
 # ==============================================================
 # marketplace-service — multi-stage build with Spring Boot LAYERED jar.
+# Build context: backend/ (docker build -f backend/marketplace-service/Dockerfile backend).
 # ==============================================================
 
 FROM maven:3.9-eclipse-temurin-21 AS build
@@ -16,14 +17,25 @@ ENV MAVEN_OPTS="-Dmaven.wagon.http.retryHandler.count=5 \
                 -Dmaven.wagon.httpconnectionManager.ttlSeconds=120"
 # GHA cache RUN qatlamlarini saqlaydi, cache mount ichidagi ~/.m2 ni emas.
 # Kutubxonalar oddiy qatlamda qolsin: src o'zgarganda ham keyingi runner oladi.
-COPY pom.xml .
+# Umumiy kutubxonalar (build context — backend/). Servis pom'i ulardan
+# oldin o'rnatilgan bo'lishi kerak: aks holda go-offline ularni Maven
+# Central'dan qidirib yiqiladi.
+COPY libs/outbox/pom.xml libs/outbox/pom.xml
+COPY libs/outbox/src libs/outbox/src
+RUN n=0; until mvn -B -ntp -f libs/outbox/pom.xml install -DskipTests; do \
+      n=$((n+1)); \
+      if [ "$n" -ge 5 ]; then echo "Maven 5 urinishdan keyin ham yiqildi"; exit 1; fi; \
+      echo "Maven yiqildi (urinish $n/5) — $((n*20))s dan keyin qayta"; \
+      sleep $((n*20)); \
+    done
+COPY marketplace-service/pom.xml .
 RUN n=0; until mvn -B -ntp dependency:go-offline; do \
       n=$((n+1)); \
       if [ "$n" -ge 5 ]; then echo "Maven 5 urinishdan keyin ham yiqildi"; exit 1; fi; \
       echo "Maven yiqildi (urinish $n/5) — $((n*20))s dan keyin qayta"; \
       sleep $((n*20)); \
     done
-COPY src ./src
+COPY marketplace-service/src ./src
 RUN n=0; until mvn -B -ntp clean package -DskipTests; do \
       n=$((n+1)); \
       if [ "$n" -ge 5 ]; then echo "Maven 5 urinishdan keyin ham yiqildi"; exit 1; fi; \

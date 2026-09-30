@@ -3,11 +3,15 @@
 #
 # Why layered: dependencies (75 MB) o'zgarmaganida Docker cache hit.
 # Faqat kod o'zgarsa application/ layer (~50 KB) qayta build qilinadi.
+# Build context: backend/ (docker build -f backend/auth-service/Dockerfile backend).
 # ==============================================================
 
 # ---------------- Stage 1: build jar ----------------
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
+ENV MAVEN_OPTS="-Dmaven.wagon.http.retryHandler.count=5 \
+                -Dmaven.wagon.http.retryHandler.requestSentEnabled=true \
+                -Dmaven.wagon.httpconnectionManager.ttlSeconds=120"
 
 # Dependency layer — pom.xml o'zgarmagunicha cache reuses
 # Maven Central anonim CI trafigini cheklaydi va 429 qaytaradi. Bu VAQTINCHALIK
@@ -19,7 +23,18 @@ WORKDIR /workspace
 # yiqilganidan qat'i nazar ishlaydi.
 # GHA cache RUN qatlamlarini saqlaydi, cache mount ichidagi ~/.m2 ni emas.
 # Kutubxonalar oddiy qatlamda qolsin: src o'zgarganda ham keyingi runner oladi.
-COPY pom.xml .
+# Umumiy kutubxonalar (build context — backend/). Servis pom'i ulardan
+# oldin o'rnatilgan bo'lishi kerak: aks holda go-offline ularni Maven
+# Central'dan qidirib yiqiladi.
+COPY libs/outbox/pom.xml libs/outbox/pom.xml
+COPY libs/outbox/src libs/outbox/src
+RUN n=0; until mvn -B -ntp -f libs/outbox/pom.xml install -DskipTests; do \
+      n=$((n+1)); \
+      if [ "$n" -ge 5 ]; then echo "Maven 5 urinishdan keyin ham yiqildi"; exit 1; fi; \
+      echo "Maven yiqildi (urinish $n/5) — $((n*20))s dan keyin qayta"; \
+      sleep $((n*20)); \
+    done
+COPY auth-service/pom.xml .
 RUN n=0; until mvn -B -ntp dependency:go-offline; do \
       n=$((n+1)); \
       if [ "$n" -ge 5 ]; then echo "Maven 5 urinishdan keyin ham yiqildi"; exit 1; fi; \
@@ -28,7 +43,7 @@ RUN n=0; until mvn -B -ntp dependency:go-offline; do \
     done
 
 # Source layer
-COPY src ./src
+COPY auth-service/src ./src
 RUN n=0; until mvn -B -ntp clean package -DskipTests; do \
       n=$((n+1)); \
       if [ "$n" -ge 5 ]; then echo "Maven 5 urinishdan keyin ham yiqildi"; exit 1; fi; \
