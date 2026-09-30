@@ -19,3 +19,12 @@ groups:
         annotations:
           summary: "{{ $labels.instance }} javob bermayapti"
           description: "Prometheus 2 daqiqadan beri metrika ololmayapti."
+
+      - alert: OutboxBacklog
+        expr: outbox_pending_oldest_seconds > 300
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} — outbox Kafka'ga yetkazolmayapti"
+          description: "Eng eski yetkazilmagan event {{ $value | humanizeDuration }} oldin yozilgan. Kafka yoki relay'ni tekshiring; event'lar yo'qolmagan, navbatda turibdi."
