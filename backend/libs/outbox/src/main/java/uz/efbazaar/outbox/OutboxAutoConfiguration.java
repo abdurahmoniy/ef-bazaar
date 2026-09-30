@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
+import uz.efbazaar.outbox.internal.MessageEncoder;
 import uz.efbazaar.outbox.internal.OutboxRepository;
 
 @AutoConfiguration(after = {JdbcTemplateAutoConfiguration.class, KafkaAutoConfiguration.class})
@@ -19,5 +20,10 @@ public class OutboxAutoConfiguration {
     @Bean
     OutboxRepository outboxRepository(JdbcTemplate jdbc) {
         return new OutboxRepository(jdbc);
+    }
+
+    @Bean
+    MessageEncoder outboxMessageEncoder(org.springframework.kafka.core.ProducerFactory<?, ?> producerFactory) {
+        return new MessageEncoder(producerFactory);
     }
 }
