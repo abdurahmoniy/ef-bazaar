@@ -20,6 +20,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import uz.efbazaar.outbox.internal.DefaultOutbox;
 import uz.efbazaar.outbox.internal.KafkaOutboxSender;
 import uz.efbazaar.outbox.internal.MessageEncoder;
+import uz.efbazaar.outbox.internal.OutboxCleanup;
+import uz.efbazaar.outbox.internal.OutboxMetrics;
 import uz.efbazaar.outbox.internal.OutboxRelay;
 import uz.efbazaar.outbox.internal.OutboxRepository;
 import uz.efbazaar.outbox.internal.OutboxSender;
@@ -60,5 +62,15 @@ public class OutboxAutoConfiguration {
     @Bean
     Outbox outbox(OutboxRepository repo, MessageEncoder encoder, OutboxRelay relay) {
         return new DefaultOutbox(repo, encoder, relay::wake);
+    }
+
+    @Bean
+    OutboxCleanup outboxCleanup(OutboxRepository repo, OutboxProperties props) {
+        return new OutboxCleanup(repo, props);
+    }
+
+    @Bean
+    OutboxMetrics outboxMetrics(OutboxRepository repo) {
+        return new OutboxMetrics(repo);
     }
 }
