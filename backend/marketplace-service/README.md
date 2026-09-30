@@ -1,0 +1,110 @@
+# marketplace-service
+
+Platformaning eng katta servisi: e'lonlar, akkountlar, chat, like, bildirishnomalar,
+karta katalogi, hamkorlik (kanallar), referal, trust (shikoyat va qora ro'yxat),
+support chat, qo'llanmalar va bot sozlamalari. Savdoning o'zi (escrow) bu yerda **emas** —
+u trade-service'da. Pul esa payment-service'da.
+
+| | |
+|---|---|
+| Port | 8082 |
+| Public yo'l | `/api/marketplace/**` → `/api/**` (anonim ham o'tadi); WebSocket `/ws/chat` |
+| DB | `MARKETPLACE_DB_NAME` (Flyway, `V1`–`V70` + `R__`); ikkinchi datasource — `efbazaar` karta katalogi |
+| Redis | card interest sanagichlari, chat presence/typing va WebSocket signallari |
+| Anonim | Token bo'lmasa nginx identity headerlarni tozalab uzatadi — `X-User-Id` ga ishonishdan oldin null tekshiring |
+
+## Paketlar
+
+| Paket | Vazifasi |
+|---|---|
+| `controller`, `service`, `repository`, `domain`, `dto`, `mapper` | E'lonlar (listing), chat, like, bildirishnoma, dream team, dinamik atributlar — asosiy domen |
+| `account` | Foydalanuvchining akkountlari (`user_accounts`). Akkount e'londan mustaqil yashaydi: e'lon qilinadi (`publish`), savdodan keyin xaridorga ko'chadi. `UserAccountPublisher` — akkount ↔ bozor yagona ko'prigi |
+| `cards` | efhub karta katalogi (qidiruv, META tier, sinxronlash), card interest |
+| `cards/sync` | Kunlik efhub delta-sync (`EfhubSyncJob`), yangi kartalar → `cards-added` |
+| `partner` | Hamkor kanallar: ariza → bot tekshiradi → to'lov (payment) → admin tasdig'i; kanalga post, oylik to'lov, admin badge'lar |
+| `referral` | Taklif kodlari va mukofot (payment'ga yoziladi) |
+| `trust` | Shikoyatlar, bosqichli jazo (ogohlantirish → vaqtinchalik → doimiy blok), public qora ro'yxat, `BlacklistGuard` |
+| `support` | Foydalanuvchi ↔ admin support chat; Telegram orqali javob (bot) |
+| `gamer` | Gamer Card: Chempionat-X turnir statistikasi projection'i (`gamer_stats`) |
+| `websocket` | Chat real-time (`/ws/chat`), presence/typing; `chat.changed.v1` ni tinglaydi |
+| `push` | Firebase push bildirishnomalar (`FIREBASE_PUSH_ENABLED`) |
+| `guide`, `emoji`, `botsettings` | Video qo'llanmalar, Telegram emoji to'plamlari, bot `/start` matni va ommaviy xabar (broadcast) |
+| `kafka` | trade/payment/auth/tournament hodisalari consumerlari |
+| `event` | `MarketplaceEvents` — chiqadigan topic nomlari va payloadlar |
+
+## Asosiy API
+
+To'liq ro'yxat — controllerlarda. Asosiy guruhlar (`/api/v1/...`):
+
+| Guruh | Endpointlar |
+|---|---|
+| E'lonlar | `GET/POST /listings`, `GET/PUT/DELETE /listings/{id}`, `/listings/{id}/sold`, `/relist`, `/like`, `/views`, `/report`, `/listings/me`, `/liked`, `/user/{userId}`, `/listings/{id}/channel-posts` |
+| Qidiruv va match | `GET /listings?matchCard=...&matchStrictness=...` — kartalar bo'yicha ball bilan saralash |
+| Akkountlar | `GET/POST /accounts`, `GET/PATCH/DELETE /accounts/{id}`, `/publish`, `/unpublish`, `/media`, `/email` |
+| Kartalar | `GET /cards`, `/cards/search`; `POST /card-interest/apply`; `/dream-teams` (CRUD, `PUT /me`) |
+| Chat | `/chats`, `/chats/{id}`, `/messages`, `/account-request`, `/important`, `/hide`, `/read`, `/typing`, `/presence`, `/unread-total` |
+| Bildirishnoma | `/notifications`, `/read-all`, `/unread-count`, `/push-tokens`, `/push-status` |
+| Hamkorlik, referal | `/partners/**` (ariza, panel, to'lov, kanallar, click), `/referrals/claim`, `/referrals/me` |
+| Trust, support | `/complaints`, `/blacklist`, `/blacklist/check`, `/support/chats/**` |
+| Admin | `/admin/**`: listings, cards (sync, META), attributes, chats, partners, referrals, reports, trust, support, bot-settings, bot-broadcasts, guides, emoji-packs, stats, badges |
+| Ichki | `/internal/marketplace/v1/**`: `listings/{id}/terms`, `accounts/{id}` (trade uchun), bot-settings, guides/buttons, partners/* natijalari (bot), referrals/pending, support/telegram-reply, trust/complaints |
+
+> **Rejada:** dream team, card match va card interest alohida `recommendation-service` ga
+> ko'chiriladi (dizayn muhokamada). Bu qismlarga katta o'zgartirish kiritishdan oldin tekshiring.
+
+## Kafka
+
+Chiqaradi: `efbazaar.marketplace.*` — e'lon, like, chat, partner, kanal postlari, support,
+qora ro'yxat, `cards-added`, `bot-settings-updated`.
+Tinglaydi: `trade.*` (listing-sold, trade-succeeded, proposal-*, action-notification,
+admin-invited, mailbox-handed-over), `payment.*` (deposit-credited, withdrawal-*),
+`auth.user-registered`, `auth.user-deleted`, `bot.support-*`, `tournament.*`, `chat.changed.v1`.
+
+Partner hodisalari **tranzaksiya commit bo'lgandan keyin** chiqadi (`PartnerEventPublisher`) —
+aks holda consumer eski holatni o'qiydi. Yangi publisher yozsangiz shu uslubga amal qiling.
+
+Batafsil: [docs/kafka-topics.md](../../docs/kafka-topics.md).
+
+## Boshqa servislarga HTTP
+
+| Servis | Nima uchun |
+|---|---|
+| auth | Ismlar va profil qisqachasi (`names/batch`, `summary/batch` — fail-soft), adminlar ro'yxati |
+| bot | Media yuklash (rasmlar Telegram guruhiga), emoji to'plamlari, kanal ma'lumoti |
+| payment | Hamkorlik to'lovi (`PartnerFeeClient`), referal mukofoti (`ReferralRewardClient`) |
+| trade | Faol savdolar (`TradeLiveClient`) |
+
+## Rejali job'lar
+
+| Job | Jadval (default) |
+|---|---|
+| `EfhubSyncJob` — yangi kartalar | `EFHUB_SYNC_CRON` / `app.cards.sync.cron` (`0 0 9 * * *`) |
+| `TrustPenaltySweeper` — muddati o'tgan bloklar | har 5 daqiqa |
+| `ChannelRefreshJob` — kanal ma'lumotlarini yangilash | `PARTNER_REFRESH_CRON` (`0 30 3 * * *`) |
+| `PartnerMonthlyPayoutJob` | `PARTNER_MONTHLY_CRON` (`0 0 4 1 * *`) |
+| `PendingReferralSweeper` | `0 30 3 * * *` |
+
+## Ma'lumotlar
+
+- Asosiy jadvallar: `listings`, `listing_cards`, `listing_likes`, `listing_views`, `user_accounts`,
+  `user_account_cards`, `chats`, `chat_messages`, `notifications`, `dream_teams`,
+  `attribute_definitions`, `partner_*`, `referrals`, `complaints`, `penalties`, `support_*`, `gamer_*`.
+- `listing_cards` — e'londagi valuable kartalar: `efhub_id` (aniq karta) + `player_id`
+  (haqiqiy futbolchi; bir futbolchining turli kartalari bir xil `player_id` ga ega).
+- `efbazaar` karta katalogi Flyway'siz: sxema `infra/postgres/efbazaar/V*.sql` dan
+  `infra/scrapers/efhub/setup-db.sh` bilan qo'lda qo'llanadi. `CardSchemaBootstrap` startup'da
+  qo'shimcha (additive) ustunlarni qo'shib qo'yadi — kod sxemadan oldin deploy bo'lsa ham qidiruv yiqilmasin.
+- `R__attribute_definitions.sql` — e'lon atributlarining yakuniy holati; label/constraint
+  o'zgarsa shu faylni tahrirlang, yangi V-migratsiya ochmang.
+
+## Ehtiyot bo'l
+
+- `CARD_INTEREST_HMAC_SECRET` bo'sh bo'lsa servis **ishga tushmaydi**.
+- Media fayllar DB'da saqlanmaydi — faqat Telegram `message_id` / `file_id`.
+- `sellerId` hech qachon request body'dan olinmaydi — faqat `X-User-Id`.
+- Migratsiya raqami: `sort -V` bilan oxirgisini va `origin/main` ni tekshiring —
+  parallel branchlarda bir xil raqam ko'p marta to'qnashgan.
+
+## Test
+
+`mvn -B -ntp clean verify` — 97 unit test, 17 integratsion (`*IT`, Testcontainers).
