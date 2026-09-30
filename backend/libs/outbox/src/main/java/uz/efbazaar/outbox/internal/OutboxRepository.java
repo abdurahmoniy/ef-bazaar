@@ -75,13 +75,17 @@ public class OutboxRepository {
                 """, source, entityId);
     }
 
-    public List<SnapshotMark> claimSnapshots(int limit) {
+    /**
+     * Qulfsiz o'qiladi: relay yuborish paytida qatorni ushlab tursa, shu entity'ga belgi
+     * qo'yayotgan biznes tranzaksiyasi (masalan e'lon tahriri) Kafka'ni kutib qolardi.
+     * O'chirishda marked_at qo'riqchisi yangi belgini saqlaydi.
+     */
+    public List<SnapshotMark> pendingSnapshots(int limit) {
         return jdbc.query("""
                 SELECT source, entity_id, marked_at
                   FROM outbox_snapshot_pending
                  ORDER BY marked_at
                  LIMIT ?
-                   FOR UPDATE SKIP LOCKED
                 """, (rs, n) -> new SnapshotMark(rs.getString("source"), rs.getString("entity_id"),
                 rs.getTimestamp("marked_at").toInstant()), limit);
     }

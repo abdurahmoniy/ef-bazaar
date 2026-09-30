@@ -96,7 +96,7 @@ class OutboxRepositoryIT extends AbstractOutboxIT {
     void markCoalescesAndDeleteSkipsNewerMark() {
         repo.mark("listing", "L1");
         repo.mark("listing", "L1");
-        SnapshotMark seen = tx.execute(s -> repo.claimSnapshots(10)).get(0);
+        SnapshotMark seen = repo.pendingSnapshots(10).get(0);
 
         repo.mark("listing", "L1");      // relay ko'rgandan keyin yangi o'zgarish
         repo.deleteSnapshot(seen);

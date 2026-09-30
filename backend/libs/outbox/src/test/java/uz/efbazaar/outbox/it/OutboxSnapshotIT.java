@@ -135,4 +135,34 @@ class OutboxSnapshotIT extends AbstractOutboxIT {
         assertThat(read(1)).hasSize(1);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox_snapshot_pending", Long.class)).isZero();
     }
+
+    @Test
+    void businessMarkNeverWaitsForRelayAndNewerMarkSurvivesTheSend() throws Exception {
+        source.state.put("S", "v1");
+        java.util.concurrent.CountDownLatch inBuild = source.blockNextBuild("S");
+        tx.executeWithoutResult(s -> outbox.markSnapshot("thing", "S"));
+        assertThat(inBuild.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        try {
+            // Relay "S" ni qurayotgan paytda foydalanuvchi e'lonni yana tahrirlaydi.
+            java.util.concurrent.CompletableFuture<Void> business = java.util.concurrent.CompletableFuture.runAsync(() ->
+                    tx.executeWithoutResult(s -> {
+                        source.state.put("S", "v2");
+                        outbox.markSnapshot("thing", "S");
+                    }));
+            business.get(1, java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            source.release();
+        }
+
+        List<ConsumerRecord<String, byte[]>> first = read(1);
+        assertThat(first).hasSize(1);
+        // Yangi belgi relay o'chirmasligi kerak — keyingi aylanish v2 ni yuboradi.
+        await().atMost(Duration.ofSeconds(5)).until(() -> {
+            relay.drainNow();
+            return jdbc.queryForObject("SELECT count(*) FROM outbox_snapshot_pending", Long.class) == 0;
+        });
+        List<ConsumerRecord<String, byte[]>> all = new ArrayList<>(first);
+        all.addAll(read(1));
+        assertThat(json(all.get(all.size() - 1)).get("value").asText()).isEqualTo("v2");
+    }
 }

@@ -37,6 +37,7 @@ public class OutboxRelay {
     private final OutboxRepository repo;
     private final OutboxSender sender;
     private final TransactionTemplate tx;
+    private final TransactionTemplate readOnlyTx;
     private final OutboxProperties props;
     private final Map<String, SnapshotSource> sources;
     private final MessageEncoder encoder;
@@ -59,6 +60,8 @@ public class OutboxRelay {
         this.repo = repo;
         this.sender = sender;
         this.tx = tx;
+        this.readOnlyTx = new TransactionTemplate(java.util.Objects.requireNonNull(tx.getTransactionManager()));
+        this.readOnlyTx.setReadOnly(true);
         this.props = props;
         this.sources = sources.stream().collect(Collectors.toMap(SnapshotSource::source, Function.identity()));
         this.encoder = encoder;
@@ -70,7 +73,7 @@ public class OutboxRelay {
         if (queued.compareAndSet(false, true)) {
             worker.execute(() -> {
                 queued.set(false);
-                drainNow();
+                drain();
             });
         }
     }
@@ -81,8 +84,22 @@ public class OutboxRelay {
         poller.scheduleWithFixedDelay(this::wake, interval, interval, TimeUnit.MILLISECONDS);
     }
 
-    /** Navbat bo'shaguncha yoki birinchi xatogacha. Hech qachon exception tashlamaydi. */
+    /**
+     * Relay ishchi ipida navbatni bo'shatadi va tugashini kutadi (testlar va qo'lda chaqiruv uchun).
+     * Barcha drain'lar bitta ipda ketma-ket — bir instansiya ichida bir yozuv ikki marta yuborilmaydi.
+     */
     public void drainNow() {
+        try {
+            worker.submit(this::drain).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (java.util.concurrent.ExecutionException e) {
+            log.warn("outbox relay drainNow yiqildi: {}", e.getCause().toString());
+        }
+    }
+
+    /** Navbat bo'shaguncha yoki birinchi xatogacha. Hech qachon exception tashlamaydi. */
+    private void drain() {
         try {
             while (true) {
                 BatchResult events = sendEventBatch();
@@ -142,42 +159,40 @@ public class OutboxRelay {
         return result == null ? BatchResult.EMPTY : result;
     }
 
+    /**
+     * Snapshot'lar TRANZAKSIYASIZ: belgilar qulfsiz o'qiladi, har biri o'z qisqa read-only
+     * tranzaksiyasida quriladi, yuboriladi va faqat relay ko'rgan belgi o'chiriladi.
+     * Bir nechta relay instansiyasi bir snapshot'ni ikki marta yuborishi mumkin — ikkalasi ham
+     * hozirgi holat, version'lari farqli; consumer uchun zararsiz.
+     */
     private BatchResult sendSnapshotBatch() {
-        BatchResult result = tx.execute(status -> {
-            List<SnapshotMark> marks = repo.claimSnapshots(props.getRelay().getBatchSize());
-            if (marks.isEmpty()) {
-                return BatchResult.EMPTY;
-            }
-            int sent = 0;
-            for (SnapshotMark mark : marks) {
-                SnapshotSource source = sources.get(mark.source());
-                if (source == null) {
-                    log.warn("outbox: '{}' uchun SnapshotSource yo'q, belgi tashlab yuborildi", mark.source());
-                    repo.deleteSnapshot(mark);
-                    continue;
-                }
-                long version = repo.nextSnapshotVersion();
-                java.util.Optional<Object> payload = source.build(mark.entityId(), version);
-                if (payload.isEmpty()) {
-                    repo.deleteSnapshot(mark);
-                    continue;
-                }
-                EncodedMessage message = encoder.encode(source.topic(), payload.get());
-                String error = await(sendSafely(source.topic(), source.key(mark.entityId()),
-                        message.payload(), message.headersJson()));
-                if (error != null) {
-                    return new BatchResult(sent, true, error);
-                }
+        List<SnapshotMark> marks = repo.pendingSnapshots(props.getRelay().getBatchSize());
+        int sent = 0;
+        for (SnapshotMark mark : marks) {
+            SnapshotSource source = sources.get(mark.source());
+            if (source == null) {
+                log.warn("outbox: '{}' uchun SnapshotSource yo'q, belgi tashlab yuborildi", mark.source());
                 repo.deleteSnapshot(mark);
-                sent++;
+                continue;
             }
-            return new BatchResult(sent, false, null);
-        });
-        if (result != null && result.failed()) {
-            failures.increment();
-            log.warn("outbox: snapshot yuborilmadi, belgi navbatda qoldi: {}", result.error());
+            long version = repo.nextSnapshotVersion();
+            java.util.Optional<Object> payload = readOnlyTx.execute(status -> source.build(mark.entityId(), version));
+            if (payload == null || payload.isEmpty()) {
+                repo.deleteSnapshot(mark);
+                continue;
+            }
+            EncodedMessage message = encoder.encode(source.topic(), payload.get());
+            String error = await(sendSafely(source.topic(), source.key(mark.entityId()),
+                    message.payload(), message.headersJson()));
+            if (error != null) {
+                failures.increment();
+                log.warn("outbox: snapshot yuborilmadi, belgi navbatda qoldi: {}", error);
+                return new BatchResult(sent, true, error);
+            }
+            repo.deleteSnapshot(mark);
+            sent++;
         }
-        return result == null ? BatchResult.EMPTY : result;
+        return new BatchResult(sent, false, null);
     }
 
     private CompletableFuture<?> sendSafely(String topic, String key, byte[] payload, String headersJson) {
