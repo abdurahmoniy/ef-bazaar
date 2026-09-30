@@ -27,4 +27,13 @@ groups:
           severity: critical
         annotations:
           summary: "{{ $labels.instance }} — outbox Kafka'ga yetkazolmayapti"
-          description: "Eng eski yetkazilmagan event {{ $value | humanizeDuration }} oldin yozilgan. Kafka yoki relay'ni tekshiring; event'lar yo'qolmagan, navbatda turibdi. Doimiy xato bo'lsa: backend/libs/outbox/README.md → 'Navbat tiqilib qolsa'."
+          description: "Eng eski yetkazilmagan event {{ $value | humanizeDuration }} oldin yozilgan. Kafka yoki relay'ni tekshiring; event'lar yo'qolmagan, navbatda turibdi. Runbook: backend/libs/outbox/README.md → 'OutboxBacklog'."
+
+      - alert: OutboxParked
+        expr: outbox_parked_count > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} — Kafka {{ $value }} ta event'ni doimiy rad etdi"
+          description: "Event'lar park qilindi (juda katta, noto'g'ri topic yoki ruxsat yo'q); qolgan navbat ishlayapti. Consumer'ga yetmagan — ko'rib chiqing. Runbook: backend/libs/outbox/README.md → 'OutboxParked'."
