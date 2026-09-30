@@ -165,4 +165,21 @@ class OutboxSnapshotIT extends AbstractOutboxIT {
         all.addAll(read(1));
         assertThat(json(all.get(all.size() - 1)).get("value").asText()).isEqualTo("v2");
     }
+
+    @Test
+    void permanentlyRejectedSnapshotIsDroppedAndOthersFlow() throws Exception {
+        source.state.put("P", "poison");
+        source.state.put("G", "good");
+        sender.mode(ControllableSender.Mode.POISON);
+        tx.executeWithoutResult(s -> {
+            outbox.markSnapshot("thing", "P");
+            outbox.markSnapshot("thing", "G");
+        });
+        relay.drainNow();
+
+        List<ConsumerRecord<String, byte[]>> got = read(1);
+        assertThat(got).hasSize(1);
+        assertThat(json(got.get(0)).get("value").asText()).isEqualTo("good");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox_snapshot_pending", Long.class)).isZero();
+    }
 }

@@ -10,10 +10,13 @@ CREATE TABLE IF NOT EXISTS outbox_events (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     published_at TIMESTAMPTZ,
     attempts     INT         NOT NULL DEFAULT 0,
-    last_error   TEXT
+    last_error   TEXT,
+    -- Kafka doimiy rad etgan yozuv (juda katta, noto'g'ri topic, ruxsat yo'q). Navbatdan
+    -- chiqariladi, qolganlarini to'xtatmaydi; OutboxParked alerti odam ko'rishini talab qiladi.
+    parked_at    TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS outbox_events_pending_idx
-    ON outbox_events (id) WHERE published_at IS NULL;
+    ON outbox_events (id) WHERE published_at IS NULL AND parked_at IS NULL;
 
 -- Snapshot rejimi: "shu entity o'zgardi" belgisi. Relay hozirgi holatni
 -- SnapshotSource.build orqali o'qib yuboradi.

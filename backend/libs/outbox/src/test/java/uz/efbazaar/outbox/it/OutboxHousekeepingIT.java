@@ -42,4 +42,16 @@ class OutboxHousekeepingIT extends AbstractOutboxIT {
         assertThat(registry.get("outbox.pending.count").gauge().value()).isEqualTo(1.0);
         assertThat(registry.get("outbox.pending.oldest.seconds").gauge().value()).isGreaterThanOrEqualTo(360.0);
     }
+
+    @Test
+    void metricsReportParkedSeparatelyFromPending() {
+        MeterRegistry registry = new SimpleMeterRegistry();
+        metrics.bindTo(registry);
+        long id = repo.insert("t", "k", new byte[]{1}, "[]");
+        repo.markParked(id, "RecordTooLargeException: x");
+
+        assertThat(registry.get("outbox.parked.count").gauge().value()).isEqualTo(1.0);
+        assertThat(registry.get("outbox.pending.count").gauge().value()).isZero();
+        assertThat(registry.get("outbox.pending.oldest.seconds").gauge().value()).isZero();
+    }
 }

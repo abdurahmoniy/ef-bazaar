@@ -28,7 +28,7 @@ public class OutboxRepository {
         return jdbc.query("""
                 SELECT id, topic, message_key, payload, headers::text AS headers
                   FROM outbox_events
-                 WHERE published_at IS NULL
+                 WHERE published_at IS NULL AND parked_at IS NULL
                  ORDER BY id
                  LIMIT ?
                    FOR UPDATE SKIP LOCKED
@@ -49,16 +49,31 @@ public class OutboxRepository {
                 error, id);
     }
 
+    /** Kafka doimiy rad etgan yozuv — navbatdan chiqadi, lekin o'chirilmaydi. */
+    public void markParked(long id, String error) {
+        jdbc.update("""
+                UPDATE outbox_events
+                   SET parked_at = now(), attempts = attempts + 1, last_error = ?
+                 WHERE id = ?
+                """, error, id);
+    }
+
+    public long parkedCount() {
+        Long n = jdbc.queryForObject(
+                "SELECT count(*) FROM outbox_events WHERE parked_at IS NOT NULL AND published_at IS NULL", Long.class);
+        return n == null ? 0 : n;
+    }
+
     public long pendingCount() {
         Long n = jdbc.queryForObject(
-                "SELECT count(*) FROM outbox_events WHERE published_at IS NULL", Long.class);
+                "SELECT count(*) FROM outbox_events WHERE published_at IS NULL AND parked_at IS NULL", Long.class);
         return n == null ? 0 : n;
     }
 
     public double oldestPendingAgeSeconds() {
         Double age = jdbc.queryForObject("""
                 SELECT COALESCE(EXTRACT(EPOCH FROM now() - min(created_at)), 0)
-                  FROM outbox_events WHERE published_at IS NULL
+                  FROM outbox_events WHERE published_at IS NULL AND parked_at IS NULL
                 """, Double.class);
         return age == null ? 0 : age;
     }

@@ -173,4 +173,37 @@ class OutboxRelayIT extends AbstractOutboxIT {
                 tx.execute(st -> repo.claimEvents(10)).size() == 5);
         assertThat(sender.failuresSeen()).isEqualTo(1);
     }
+
+    @Test
+    void permanentlyRejectedMessageIsParkedAndTheRestFlows() {
+        String topic = topic();
+        sender.mode(ControllableSender.Mode.POISON);
+        tx.executeWithoutResult(s -> outbox.publish(topic, "k", new Sample("poison", 1)));
+        tx.executeWithoutResult(s -> outbox.publish(topic, "k", new Sample("good", 2)));
+        relay.drainNow();
+
+        List<ConsumerRecord<String, byte[]>> got = consume(topic, 1);
+        assertThat(got).extracting(r -> new String(r.value(), StandardCharsets.UTF_8))
+                .singleElement().satisfies(v -> assertThat(v).contains("good"));
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM outbox_events WHERE parked_at IS NOT NULL AND published_at IS NULL", Long.class))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT last_error FROM outbox_events WHERE parked_at IS NOT NULL", String.class))
+                .contains("RecordTooLargeException");
+        assertThat(repo.parkedCount()).isEqualTo(1);
+        assertThat(relay.pendingIsEmpty()).isTrue();
+    }
+
+    @Test
+    void transientFailureIsNeverParked() {
+        String topic = topic();
+        sender.mode(ControllableSender.Mode.FAIL);
+        tx.executeWithoutResult(s -> outbox.publish(topic, "k", new Sample("a", 1)));
+        relay.drainNow();
+        relay.drainNow();
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox_events WHERE parked_at IS NOT NULL", Long.class))
+                .isZero();
+        assertThat(repo.pendingCount()).isEqualTo(1);
+    }
 }

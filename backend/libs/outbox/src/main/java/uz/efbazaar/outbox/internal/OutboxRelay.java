@@ -42,6 +42,7 @@ public class OutboxRelay {
     private final Map<String, SnapshotSource> sources;
     private final MessageEncoder encoder;
     private final Counter failures;
+    private final Counter parked;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "outbox-relay");
         t.setDaemon(true);
@@ -66,6 +67,7 @@ public class OutboxRelay {
         this.sources = sources.stream().collect(Collectors.toMap(SnapshotSource::source, Function.identity()));
         this.encoder = encoder;
         this.failures = Counter.builder("outbox.send.failures").register(registry);
+        this.parked = Counter.builder("outbox.parked").register(registry);
     }
 
     /** Commit'dan keyin chaqiriladi; navbatda turgan partiya bo'lsa ikkinchisini qo'shmaydi. */
@@ -133,7 +135,7 @@ public class OutboxRelay {
             for (OutboxRow row : rows) {
                 CompletableFuture<?> future = sendSafely(row.topic(), row.key(), row.payload(), row.headersJson());
                 futures.add(future);
-                if (future.isCompletedExceptionally()) {
+                if (future.isCompletedExceptionally() && !PermanentFailures.isPermanent(failureOf(future))) {
                     // send() sinxron yiqildi (broker yo'q, max.block.ms tugadi) — qolganlarini
                     // yuborish ham har biri shuncha bloklanadi va qulflarni ushlab turadi.
                     break;
@@ -141,8 +143,17 @@ public class OutboxRelay {
             }
             List<Long> sent = new ArrayList<>();
             for (int i = 0; i < futures.size(); i++) {
-                String error = await(futures.get(i));
-                if (error != null) {
+                Throwable failure = awaitFailure(futures.get(i));
+                if (failure != null && PermanentFailures.isPermanent(failure)) {
+                    // Qayta urinish foydasiz — navbatdan chiqaramiz, qolganlari davom etadi.
+                    parked.increment();
+                    log.error("outbox: yozuv {} ({}) Kafka tomonidan doimiy rad etildi va park qilindi: {}",
+                            rows.get(i).id(), rows.get(i).topic(), describe(failure));
+                    repo.markParked(rows.get(i).id(), describe(failure));
+                    continue;
+                }
+                if (failure != null) {
+                    String error = describe(failure);
                     repo.markPublished(sent);
                     repo.markFailed(rows.get(i).id(), error);
                     return new BatchResult(sent.size(), true, error);
@@ -182,8 +193,18 @@ public class OutboxRelay {
                 continue;
             }
             EncodedMessage message = encoder.encode(source.topic(), payload.get());
-            String error = await(sendSafely(source.topic(), source.key(mark.entityId()),
+            Throwable failure = awaitFailure(sendSafely(source.topic(), source.key(mark.entityId()),
                     message.payload(), message.headersJson()));
+            if (failure != null && PermanentFailures.isPermanent(failure)) {
+                // Snapshot'ni park qilib bo'lmaydi (payload saqlanmaydi) — belgi tashlanadi,
+                // holat keyingi o'zgarishda yoki replay orqali qayta yuboriladi.
+                parked.increment();
+                log.error("outbox: snapshot {}:{} Kafka tomonidan doimiy rad etildi, belgi tashlandi: {}",
+                        mark.source(), mark.entityId(), describe(failure));
+                repo.deleteSnapshot(mark);
+                continue;
+            }
+            String error = failure == null ? null : describe(failure);
             if (error != null) {
                 failures.increment();
                 log.warn("outbox: snapshot yuborilmadi, belgi navbatda qoldi: {}", error);
@@ -205,16 +226,42 @@ public class OutboxRelay {
 
     /** null — muvaffaqiyat; aks holda xato matni. */
     private String await(CompletableFuture<?> future) {
+        Throwable failure = awaitFailure(future);
+        return failure == null ? null : describe(failure);
+    }
+
+    /** null — muvaffaqiyat; aks holda xatoning o'zi (send-timeout tugashi ham xato). */
+    private Throwable awaitFailure(CompletableFuture<?> future) {
         try {
             future.get(props.getRelay().getSendTimeout().toMillis(), TimeUnit.MILLISECONDS);
             return null;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return "interrupted";
+            return e;
+        } catch (java.util.concurrent.ExecutionException e) {
+            return e.getCause() == null ? e : e.getCause();
         } catch (Exception e) {
-            Throwable cause = e.getCause() == null ? e : e.getCause();
-            return cause.getClass().getSimpleName() + ": " + cause.getMessage();
+            return e;
         }
+    }
+
+    private static Throwable failureOf(CompletableFuture<?> done) {
+        try {
+            done.getNow(null);
+            return null;
+        } catch (java.util.concurrent.CompletionException e) {
+            return e.getCause() == null ? e : e.getCause();
+        } catch (RuntimeException e) {
+            return e;
+        }
+    }
+
+    private static String describe(Throwable failure) {
+        Throwable root = failure;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        return root.getClass().getSimpleName() + ": " + root.getMessage();
     }
 
     record BatchResult(int sent, boolean failed, String error) {
