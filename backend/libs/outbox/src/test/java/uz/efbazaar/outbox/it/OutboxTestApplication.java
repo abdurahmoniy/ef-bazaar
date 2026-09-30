@@ -19,4 +19,9 @@ public class OutboxTestApplication {
     ControllableSender controllableSender(KafkaOutboxSender real) {
         return new ControllableSender(real);
     }
+
+    @Bean
+    TestSnapshotSource testSnapshotSource() {
+        return new TestSnapshotSource();
+    }
 }

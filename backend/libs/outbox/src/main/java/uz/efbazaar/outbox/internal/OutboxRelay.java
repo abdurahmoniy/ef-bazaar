@@ -137,7 +137,41 @@ public class OutboxRelay {
     }
 
     private BatchResult sendSnapshotBatch() {
-        return BatchResult.EMPTY; // Task 5
+        BatchResult result = tx.execute(status -> {
+            List<SnapshotMark> marks = repo.claimSnapshots(props.getRelay().getBatchSize());
+            if (marks.isEmpty()) {
+                return BatchResult.EMPTY;
+            }
+            int sent = 0;
+            for (SnapshotMark mark : marks) {
+                SnapshotSource source = sources.get(mark.source());
+                if (source == null) {
+                    log.warn("outbox: '{}' uchun SnapshotSource yo'q, belgi tashlab yuborildi", mark.source());
+                    repo.deleteSnapshot(mark);
+                    continue;
+                }
+                long version = repo.nextSnapshotVersion();
+                java.util.Optional<Object> payload = source.build(mark.entityId(), version);
+                if (payload.isEmpty()) {
+                    repo.deleteSnapshot(mark);
+                    continue;
+                }
+                EncodedMessage message = encoder.encode(source.topic(), payload.get());
+                String error = await(sendSafely(source.topic(), source.key(mark.entityId()),
+                        message.payload(), message.headersJson()));
+                if (error != null) {
+                    return new BatchResult(sent, true, error);
+                }
+                repo.deleteSnapshot(mark);
+                sent++;
+            }
+            return new BatchResult(sent, false, null);
+        });
+        if (result != null && result.failed()) {
+            failures.increment();
+            log.warn("outbox: snapshot yuborilmadi, belgi navbatda qoldi: {}", result.error());
+        }
+        return result == null ? BatchResult.EMPTY : result;
     }
 
     private CompletableFuture<?> sendSafely(String topic, String key, byte[] payload, String headersJson) {
