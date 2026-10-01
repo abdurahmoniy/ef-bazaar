@@ -80,6 +80,16 @@ class RankedListingsIT {
         assertThat(second.getTotalPages()).isEqualTo(2);
     }
 
+    @Test
+    void pageFarBeyondTheEndIsEmptyWithoutOverflow() {
+        UUID a = listing("100000", ListingStatus.ACTIVE);
+
+        Page<Listing> page = RankedListings.page(listings, List.of(a), noFilter(), Integer.MAX_VALUE, 100);
+
+        assertThat(page.getContent()).isEmpty();
+        assertThat(page.getTotalElements()).isEqualTo(1);
+    }
+
     @org.springframework.boot.autoconfigure.domain.EntityScan(basePackageClasses = Listing.class)
     @org.springframework.data.jpa.repository.config.EnableJpaRepositories(basePackageClasses = ListingRepository.class)
     static class Config {}

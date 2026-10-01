@@ -70,4 +70,24 @@ class RankedListingsControllerTest {
                 .andExpect(jsonPath("$.content[1].id").value(a.toString()))
                 .andExpect(jsonPath("$.totalElements").value(2));
     }
+
+    private void expect400(String body) throws Exception {
+        mvc.perform(post("/api/v1/listings/ranked").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void hugePageIsRejected() throws Exception {
+        expect400("{\"ids\":[],\"page\":2147483647,\"size\":100}");
+    }
+
+    @Test
+    void nullIdIsRejected() throws Exception {
+        expect400("{\"ids\":[null],\"page\":0,\"size\":20}");
+    }
+
+    @Test
+    void malformedIdIsRejected() throws Exception {
+        expect400("{\"ids\":[\"not-a-uuid\"],\"page\":0,\"size\":20}");
+    }
 }

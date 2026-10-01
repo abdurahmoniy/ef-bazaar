@@ -12,12 +12,12 @@ import java.util.UUID;
 
 /** recommendation tartiblagan ID'lar + bozor filtrlari. ids ≤ 1000. */
 public record RankedListingsRequest(
-        @NotNull @Size(max = 1000) List<UUID> ids,
+        @NotNull @Size(max = 1000) List<@NotNull UUID> ids,
         BigDecimal minPrice,
         BigDecimal maxPrice,
         Boolean priceNegotiable,
         String search,
         Map<String, Object> attributes,
-        @Min(0) int page,
+        @Min(0) @Max(1000) int page,
         @Min(1) @Max(100) int size) {
 }

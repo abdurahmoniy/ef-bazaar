@@ -38,8 +38,8 @@ public final class RankedListings {
         Map<UUID, Listing> found = repo.findAll(ListingSpecifications.withFilter(activeOnly).and(idIn)).stream()
                 .collect(Collectors.toMap(Listing::getId, Function.identity()));
         List<Listing> ordered = unique.stream().map(found::get).filter(Objects::nonNull).toList();
-        int from = Math.min(page * size, ordered.size());
-        int to = Math.min(from + size, ordered.size());
+        int from = (int) Math.min((long) page * size, ordered.size());
+        int to = (int) Math.min((long) from + size, ordered.size());
         return new PageImpl<>(ordered.subList(from, to), PageRequest.of(page, size), ordered.size());
     }
 }
