@@ -71,6 +71,12 @@ app:
     hmac-secret: ${CARD_INTEREST_HMAC_SECRET:}
   recommendation:
     retention-cron: ${REC_RETENTION_CRON:0 30 3 * * *}
+    feed:
+      max-ids: ${REC_FEED_MAX_IDS:1000}
+      snapshot-ttl: ${REC_FEED_SNAPSHOT_TTL:30m}
+      meta-boost: ${REC_FEED_META_BOOST:1.5}
+      profile-limit: ${REC_FEED_PROFILE_LIMIT:50}
+      interest-window: ${REC_FEED_INTEREST_WINDOW:30d}
 
 management:
   endpoints:
