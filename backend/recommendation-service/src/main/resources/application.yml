@@ -41,12 +41,30 @@ spring:
       # Redis sekin bo'lsa lenta uni kutib qolmasin — joyida hisoblanadi.
       timeout: 300ms
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: recommendation-service
+      # Birinchi ulanishda topic boshidan — A bosqichidan beri chiqqan snapshot'lar ham tushadi.
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # Xom matn: JSON'ni SnapshotConsumers o'zi o'qiydi. StringDeserializer yiqilmaydi,
+      # shuning uchun poll() ichida cheksiz qayta o'qish tsikli bo'lmaydi.
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
 server:
   port: 8083
   forward-headers-strategy: framework
 
 app:
   debug-errors: ${APP_DEBUG_ERRORS:false}
+  logging:
+    kafka-forward:
+      # WARN/ERROR → efbazaar.system.log-event → bot → Telegram logs topigi.
+      enabled: ${LOG_KAFKA_FORWARD_ENABLED:true}
 
 management:
   endpoints:
