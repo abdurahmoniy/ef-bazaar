@@ -29,7 +29,7 @@ import uz.efbazaar.outbox.internal.OutboxSender;
 @AutoConfiguration(after = {JdbcTemplateAutoConfiguration.class, KafkaAutoConfiguration.class,
         TransactionAutoConfiguration.class})
 @ConditionalOnProperty(prefix = "outbox", name = "enabled", havingValue = "true", matchIfMissing = true)
-@ConditionalOnBean(JdbcTemplate.class)
+@ConditionalOnBean({JdbcTemplate.class, ProducerFactory.class})
 @EnableConfigurationProperties(OutboxProperties.class)
 @EnableScheduling
 public class OutboxAutoConfiguration {
@@ -60,8 +60,8 @@ public class OutboxAutoConfiguration {
     }
 
     @Bean
-    Outbox outbox(OutboxRepository repo, MessageEncoder encoder, OutboxRelay relay) {
-        return new DefaultOutbox(repo, encoder, relay::wake);
+    Outbox outbox(OutboxRepository repo, MessageEncoder encoder, OutboxRelay relay, JdbcTemplate jdbc) {
+        return new DefaultOutbox(repo, encoder, relay::wake, jdbc.getDataSource());
     }
 
     @Bean
