@@ -65,6 +65,12 @@ app:
     kafka-forward:
       # WARN/ERROR → efbazaar.system.log-event → bot → Telegram logs topigi.
       enabled: ${LOG_KAFKA_FORWARD_ENABLED:true}
+  card-interest:
+    # Bo'sh bo'lsa servis ishga tushmaydi — marketplace bilan BIR XIL qiymat bo'lishi shart,
+    # aks holda dedupe va 30 kunlik tarix uziladi.
+    hmac-secret: ${CARD_INTEREST_HMAC_SECRET:}
+  recommendation:
+    retention-cron: ${REC_RETENTION_CRON:0 30 3 * * *}
 
 management:
   endpoints:
