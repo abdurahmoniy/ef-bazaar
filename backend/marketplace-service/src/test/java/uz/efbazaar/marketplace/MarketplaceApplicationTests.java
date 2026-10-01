@@ -43,7 +43,8 @@ import static org.assertj.core.api.Assertions.assertThat;
         "app.cards.datasource.username=test",
         "app.cards.datasource.password=test",
         "app.cards.schema-bootstrap.enabled=false",
-        "app.card-interest.hmac-secret=test-card-interest-secret"
+        "app.card-interest.hmac-secret=test-card-interest-secret",
+        "app.recommendation.value-score.backfill-enabled=false"
 })
 @EnableAutoConfiguration(exclude = {
         DataSourceAutoConfiguration.class,

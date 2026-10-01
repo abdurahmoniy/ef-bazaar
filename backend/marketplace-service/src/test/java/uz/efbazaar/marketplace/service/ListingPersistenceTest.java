@@ -21,7 +21,9 @@ class ListingPersistenceTest {
     void saves_listing_and_replaces_inventory_in_one_transaction() throws Exception {
         ListingRepository listings = mock(ListingRepository.class);
         ListingCardInventory inventory = mock(ListingCardInventory.class);
-        ListingPersistence persistence = new ListingPersistence(listings, inventory);
+        uz.efbazaar.marketplace.recommendation.ListingValueScorer valueScorer =
+                mock(uz.efbazaar.marketplace.recommendation.ListingValueScorer.class);
+        ListingPersistence persistence = new ListingPersistence(listings, inventory, valueScorer);
         UUID listingId = UUID.randomUUID();
         List<Map<String, Object>> cards = List.of(Map.of(
                 "efhub_id", 101L, "player_id", UUID.randomUUID().toString(), "name", "Messi"));
@@ -44,6 +46,7 @@ class ListingPersistenceTest {
         // valuable-players card failed to publish.
         ordered.verify(listings).saveAndFlush(listing);
         ordered.verify(inventory).replace(listingId, cards);
+        org.mockito.Mockito.verify(valueScorer).recompute(List.of(listingId));
         assertThat(ListingPersistence.class
                 .getMethod("saveWithCardInventory", Listing.class)
                 .isAnnotationPresent(Transactional.class)).isTrue();
