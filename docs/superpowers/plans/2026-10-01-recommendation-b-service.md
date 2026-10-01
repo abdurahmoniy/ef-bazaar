@@ -4439,7 +4439,7 @@ Xuddi shu fayldagi ichki `listen 8080;` server'ida, `location @access_anon_inter
 Run: `grep -c 'backend_rec' nginx/conf.d/efbazaar.conf nginx/conf.d/backends.inc; grep -n 'recommendation_service_unavailable' nginx/conf.d/efbazaar.conf`
 Expected: `efbazaar.conf:4`, `backends.inc:1`; ikkinchi `grep` bo'sh.
 
-Run (sintaksis, sertifikatsiz): 
+Run (sintaksis, sertifikatsiz):
 ```bash
 docker run --rm -v "$PWD/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" -v "$PWD/nginx/conf.d:/etc/nginx/conf.d:ro" \
   --add-host recommendation-service:127.0.0.1 nginx:1.27-alpine nginx -t 2>&1 | tail -3
