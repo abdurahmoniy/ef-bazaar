@@ -30,7 +30,7 @@ Yagona kirish nuqtasi: TLS, domenlar bo'yicha marshrutlash, har so'rovda auth te
 | `/api/payment/**` | payment-service | shart (401) |
 | `/api/access/**` | access-service | ixtiyoriy |
 | `/api/tournaments/**` | Chempionat-X (`chempionat-api:8080`) | ixtiyoriy |
-| `/api/rec/**` | — | 503 "Coming soon" (servis olib tashlangan) |
+| `/api/rec/**` | recommendation-service | ixtiyoriy (token yo'q → `@rec_anon`, identity headerlar tozalanadi) |
 | `/ws/chat` | marketplace WebSocket | shart |
 | `/bot/**` | bot (webhook, media proxy); `/bot/internal/**` → 404 | — |
 | `/actuator/**` | bloklangan (403) | — |

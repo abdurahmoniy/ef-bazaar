@@ -100,6 +100,7 @@ write_env() {
   upsert_env .env TRADE_DB_NAME              trade_db
   upsert_env .env PAYMENT_DB_NAME            payment_db
   upsert_env .env ACCESS_DB_NAME             access_db
+  upsert_env .env RECOMMENDATION_DB_NAME     recommendation_db
 
   upsert_env .env REDIS_HOST                 redis
   upsert_env .env REDIS_PORT                 6379
@@ -436,6 +437,31 @@ access_bootstrap() {
   ensure_db "$access_db"
 }
 
+# ─── Recommendation-service bootstrap ───────────────────────────────────────
+# recommendation_db ni yaratadi (yo'q bo'lsa). 2026-08-23 da o'chirilgan eski
+# recommendation-service ham shu nomdagi bazani ishlatgan: undan jadval qolgan
+# bo'lsa Flyway V1 ni qo'llamaydi va servis crash-loop'ga tushadi. Hech narsa
+# o'chirilmaydi — faqat deploy logida aniq ko'rsatiladi; tozalash qo'lda
+# (backend/recommendation-service/README.md → "Eski baza").
+# ─────────────────────────────────────────────────────────────────────────────
+recommendation_bootstrap() {
+  local rec_db="${RECOMMENDATION_DB_NAME:-recommendation_db}"
+
+  ensure_db "$rec_db"
+
+  local foreign
+  foreign=$(docker compose exec -T postgres psql -U efbazaar -d "$rec_db" -tAc "
+      SELECT count(*) FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name NOT IN ('flyway_schema_history', 'listings_view', 'listing_cards_view',
+                               'cards_view', 'user_likes', 'dream_teams', 'user_card_interest',
+                               'consumed_events')" 2>/dev/null || echo "?")
+  if [[ "$foreign" != "0" ]]; then
+    echo "!! $rec_db da recommendation-service'ga tegishli bo'lmagan jadval(lar) bor: $foreign"
+    echo "!! Flyway V1 qo'llanmasligi mumkin. Ko'ring: backend/recommendation-service/README.md → 'Eski baza'"
+  fi
+}
+
 # ─── Smart-admin-worker bootstrap ──────────────────────────────────────────
 # Writes mailcow_api_key from the CI-injected env var (same pattern as
 # master_key). If the env var is empty we leave any existing file untouched
@@ -630,6 +656,7 @@ sync_db_password
 trade_bootstrap
 payment_bootstrap
 access_bootstrap
+recommendation_bootstrap
 sa_worker_bootstrap
 
 # Force-all override

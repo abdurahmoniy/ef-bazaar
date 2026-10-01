@@ -52,8 +52,9 @@ To'liq ro'yxat — controllerlarda. Asosiy guruhlar (`/api/v1/...`):
 | Admin | `/admin/**`: listings, cards (sync, META), attributes, chats, partners, referrals, reports, trust, support, bot-settings, bot-broadcasts, guides, emoji-packs, stats, badges |
 | Ichki | `/internal/marketplace/v1/**`: `listings/{id}/terms`, `accounts/{id}` (trade uchun), bot-settings, guides/buttons, partners/* natijalari (bot), referrals/pending, support/telegram-reply, trust/complaints, `POST rec/replay` (`X-Internal-Secret`; `{ listings, likes, cards }` sonlari — hammasini qayta yuborishga belgilaydi) |
 
-> **Rejada:** dream team, card match va card interest alohida `recommendation-service` ga
-> ko'chiriladi (dizayn muhokamada). Bu qismlarga katta o'zgartirish kiritishdan oldin tekshiring.
+> **Ko'chirilmoqda:** dream team, card match va card interest `recommendation-service` da ham bor
+> (B bosqichi, qorong'i). Frontend C bosqichida unga o'tadi, D bosqichida bu yerdan o'chiriladi —
+> shu orada bu qismlarga o'zgartirish ikkala servisda ham kerak bo'ladi.
 
 ## Kafka
 

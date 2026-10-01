@@ -25,7 +25,8 @@ efBazaar/
 │   ├── marketplace-service/    # E'lonlar, akkountlar, like, chat, kartalar, hamkorlik, referal, trust — Spring Boot, port 8082
 │   ├── trade-service/          # Escrow trade lifecycle: proposals, state machine, encrypted per-role chats, one-time password passthrough, WSS live push, Kafka boundary to smart-admin-worker — Spring Boot, port 8085
 │   ├── payment-service/        # Hamyon, ledger, karta rail (invoice), yechish, escrow, tariflar — Spring Boot, port 8087
-│   └── access-service/         # Login oldi kirish shartlari (kanal a'zoligi) — Spring Boot, port 8088
+│   ├── access-service/         # Login oldi kirish shartlari (kanal a'zoligi) — Spring Boot, port 8088
+│   └── recommendation-service/ # Lenta, player filtri (match), dream team, card interest — Spring Boot, port 8083
 ├── frontend/                   # Next.js — asosiy sayt (efbazaar.uz) va Telegram Mini App
 ├── mail/                       # Next.js — read-only webmail (mail.efbazaar.uz), trade-service mail API frontendi
 ├── bot/                        # Telegram bot — Spring Boot, port 8084
@@ -61,6 +62,7 @@ efBazaar/
 |--------|--------------|------------|
 | auth-service | 8081 | /api/auth/** |
 | marketplace-service | 8082 | /api/marketplace/** |
+| recommendation-service | 8083 | /api/rec/** (auth ixtiyoriy; marketplace bilan faqat Kafka) |
 | bot | 8084 | /bot/webhook |
 | trade-service | 8085 | /api/trade/** |
 | payment-service | 8087 | /api/payment/** |

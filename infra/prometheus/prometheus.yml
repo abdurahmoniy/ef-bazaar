@@ -26,6 +26,7 @@ scrape_configs:
       - targets:
           - auth-service:8081
           - marketplace-service:8082
+          - recommendation-service:8083
           - bot:8084
           - trade-service:8085
           - payment-service:8087
