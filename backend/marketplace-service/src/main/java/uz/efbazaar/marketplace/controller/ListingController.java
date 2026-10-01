@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.dto.*;
+import uz.efbazaar.marketplace.recommendation.RankedListingsRequest;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
 import uz.efbazaar.marketplace.service.LegacyDreamTeamAdapter;
 import uz.efbazaar.marketplace.service.ListingService;
@@ -84,6 +85,22 @@ public class ListingController {
         List<ListingResponse> content = assembler.assembleAll(page.getContent(), viewerId);
 
         return new PageResponse<>(content,
+                page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+    }
+
+    /**
+     * recommendation-service tartiblagan e'lonlar — marketplace filtrlari va sahifalash bilan,
+     * tartib saqlanadi, faqat ACTIVE. Frontend: rec'dan ID'lar → shu endpoint.
+     */
+    @PostMapping("/ranked")
+    public PageResponse<ListingResponse> ranked(@AuthenticationPrincipal AuthenticatedUser viewer,
+                                                @Valid @RequestBody RankedListingsRequest request) {
+        ListingFilter filter = new ListingFilter(request.minPrice(), request.maxPrice(),
+                request.priceNegotiable(), request.search(),
+                request.attributes() == null ? Map.of() : request.attributes(), false);
+        Page<Listing> page = listingService.ranked(request.ids(), filter, request.page(), request.size());
+        UUID viewerId = viewer == null ? null : viewer.userId();
+        return new PageResponse<>(assembler.assembleAll(page.getContent(), viewerId),
                 page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
     }
 

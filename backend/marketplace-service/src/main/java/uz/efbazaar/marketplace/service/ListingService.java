@@ -344,6 +344,11 @@ public class ListingService {
      * attribute (or send a non-numeric bound) would abort the whole query.
      * Offending keys are dropped silently; equality keys pass through as-is.
      */
+    @Transactional(readOnly = true)
+    public Page<Listing> ranked(List<UUID> ids, ListingFilter filter, int page, int size) {
+        return RankedListings.page(listings, ids, sanitizeRangeFilters(filter), page, size);
+    }
+
     ListingFilter sanitizeRangeFilters(ListingFilter filter) {
         Map<String, Object> attrs = filter.attributes();
         if (attrs == null || attrs.isEmpty()
