@@ -155,7 +155,7 @@ va har qanday Java "hook" ini chetlab o'tadi. Trigger esa istalgan yo'lni (kelaj
 | `listing_cards` AFTER INSERT / DELETE | har qator | `('listing', listing_id)` |
 | `listing_likes` AFTER INSERT / DELETE | har qator | `('like', user_id || ':' || listing_id)` |
 
-Belgi `outbox_snapshot_pending` ga shu tranzaksiya ichida, `ON CONFLICT DO NOTHING` bilan yoziladi.
+Belgi `outbox_snapshot_pending` ga shu tranzaksiya ichida, `ON CONFLICT DO UPDATE SET marked_at = clock_timestamp()` bilan yoziladi (relay yuborayotgan paytdagi o'zgarish yo'qolmasin).
 Relay belgini olib, `SnapshotSource.build` orqali **hozirgi** holatni o'qiydi — shuning uchun
 `saveWithCardInventory` dagi "e'lon saqlandi, kartalar hali yozilmadi" oralig'i ham muammo emas.
 
@@ -180,7 +180,7 @@ kunlik META chegarasi job'i). Qisqa oraliq qabul qilinadi: META o'zgarishi tegis
 
 `efbazaar.marketplace.like-toggled` — kalit `listingId`, source `like` (mavjud topic, hozir consumer'i yo'q):
 ```
-{ listingId, userId, liked, version, occurredAt }   // liked = hozir listing_likes da qator bormi
+{ idempotencyKey, listingId, userId, liked, version, occurredAt }   // liked = hozir listing_likes da qator bormi
 ```
 `LikeService` endi like-toggled'ni to'g'ridan-to'g'ri yubormaydi — faqat trigger + relay.
 
@@ -211,12 +211,12 @@ Qayta hisoblash: e'lon saqlanganda; admin META o'zgartirganda yoki muddatini tug
 `efhub_id` li e'lonlar); kunlik job — `active_from`/`active_until` chegarasini kesib o'tgan kartalar.
 Qayta hisoblangan e'lon yangi `listing-snapshot` chiqaradi.
 
-`GET /listings?sort=value` — `value_score DESC, id`.
+`GET /listings?sort=valueScore,desc` — `value_score DESC NULLS LAST, id ASC` (`asc` ham bor; `includeSold` bo'lsa avval `status`; `valueScore` bor bo'lsa boshqa sort xossalari e'tiborsiz). `NULLS LAST` Hibernate Criteria order orqali — Spring Data `Sort` ning nullsLast'ini e'tiborsiz qoldiradi.
 
 ### 5.5 `POST /api/v1/listings/ranked`
 
 ```
-{ ids: [uuid, ...] (≤1000, tartibli), filters: {...ListingFilter}, page, size }
+{ ids: [uuid, ...] (≤1000, null emas, tartibli), minPrice, maxPrice, priceNegotiable, search, attributes, page (0..1000), size (1..100) }
 ```
 Mavjud `ListingSpecifications` filtrlari qo'llanadi, tartib `array_position(ids, id)` bilan saqlanadi,
 `ACTIVE` bo'lmaganlar tushib qoladi, sahifalanadi. Javob — oddiy `PageResponse<ListingResponse>`
@@ -228,7 +228,7 @@ Mavjud `ListingSpecifications` filtrlari qo'llanadi, tartib `array_position(ids,
 - Mening qiziqishlarim: `GET /api/rec/v1/feed[?profileHash=]` → `ids` → `POST /api/marketplace/v1/listings/ranked`
   (joriy filtrlar va sahifa bilan) → `GET /api/rec/v1/feed/details?ids=` (sahifadagi ID'lar) → birlashtirish.
   `empty: true` yoki recommendation xatosi → Katta bozor ochiladi (xato bo'lsa kichik izoh).
-- Katta bozor: `GET /api/marketplace/v1/listings?sort=value` (+ filtrlar).
+- Katta bozor: `GET /api/marketplace/v1/listings?sort=valueScore,desc` (+ filtrlar).
 - Player filtri faol bo'lsa (har ikki tabda): `GET /api/rec/v1/match` → `ranked` → `GET /api/rec/v1/match/details` → birlashtirish.
   recommendation xato bersa — xato holati; filtrlanmagan ro'yxat ko'rsatilmaydi.
 - E'lon sahifasi match izohi, dream team, card interest, admin talab sonlari → `/api/rec/v1/...`.
@@ -240,7 +240,7 @@ Mavjud `ListingSpecifications` filtrlari qo'llanadi, tartib `array_position(ids,
 Har bosqich alohida deploy bo'ladi va foydalanuvchi uchun hech narsani buzmaydi.
 
 1. **Marketplace tayyorgarligi** (outbox kutubxonasi tayyor bo'lgach): trigger'lar, `listing-snapshot`, `card-snapshot`, like snapshot, replay, `value_score`
-   + `sort=value`, `POST /listings/ranked`. Xatti-harakat o'zgarmaydi.
+   + `sort=valueScore,desc`, `POST /listings/ranked`. Xatti-harakat o'zgarmaydi.
 2. **recommendation-service (qorong'i deploy):** servis, consumerlar, match, dream team, card interest,
    feed; nginx `/api/rec/` proxy; compose, CI (`ci.yml`, `build.yml`), `deploy.sh`, Prometheus,
    `KafkaLogForwarder`, README/CLAUDE.md, `docs/kafka-topics.md`, root README.

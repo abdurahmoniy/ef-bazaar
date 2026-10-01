@@ -9,7 +9,7 @@ u trade-service'da. Pul esa payment-service'da.
 |---|---|
 | Port | 8082 |
 | Public yo'l | `/api/marketplace/**` → `/api/**` (anonim ham o'tadi); WebSocket `/ws/chat` |
-| DB | `MARKETPLACE_DB_NAME` (Flyway, `V1`–`V70` + `R__`); ikkinchi datasource — `efbazaar` karta katalogi |
+| DB | `MARKETPLACE_DB_NAME` (Flyway, `V1`–`V73` + `R__`); ikkinchi datasource — `efbazaar` karta katalogi |
 | Redis | card interest sanagichlari, chat presence/typing va WebSocket signallari |
 | Anonim | Token bo'lmasa nginx identity headerlarni tozalab uzatadi — `X-User-Id` ga ishonishdan oldin null tekshiring |
 
@@ -31,6 +31,7 @@ u trade-service'da. Pul esa payment-service'da.
 | `guide`, `emoji`, `botsettings` | Video qo'llanmalar, Telegram emoji to'plamlari, bot `/start` matni va ommaviy xabar (broadcast) |
 | `kafka` | trade/payment/auth/tournament hodisalari consumerlari |
 | `event` | `MarketplaceEvents` — chiqadigan topic nomlari va payloadlar |
+| `recommendation` | `value_score` formulasi (`ValueScore*`), startup `ValueScoreBackfill`, `MetaBoundaryJob`, snapshot payloadlari (`RecommendationSnapshots`), replay |
 
 ## Asosiy API
 
@@ -40,6 +41,8 @@ To'liq ro'yxat — controllerlarda. Asosiy guruhlar (`/api/v1/...`):
 |---|---|
 | E'lonlar | `GET/POST /listings`, `GET/PUT/DELETE /listings/{id}`, `/listings/{id}/sold`, `/relist`, `/like`, `/views`, `/report`, `/listings/me`, `/liked`, `/user/{userId}`, `/listings/{id}/channel-posts` |
 | Qidiruv va match | `GET /listings?matchCard=...&matchStrictness=...` — kartalar bo'yicha ball bilan saralash |
+| Katta bozor | `GET /listings?sort=valueScore,desc` (yoki `asc`) — `value_score NULLS LAST`, keyin `id ASC`; `includeSold` bo'lsa avval `status`; `valueScore` bor bo'lsa boshqa sort xossalari e'tiborsiz |
+| Ranked | `POST /listings/ranked` (anonim ham) — body `{ ids (≤1000, null emas UUID), minPrice, maxPrice, priceNegotiable, search, attributes, page (0..1000), size (1..100) }`; chaqiruvchi tartibini saqlaydi, faqat `ACTIVE`, takrorlarni olib tashlaydi, `PageResponse<ListingResponse>` qaytaradi |
 | Akkountlar | `GET/POST /accounts`, `GET/PATCH/DELETE /accounts/{id}`, `/publish`, `/unpublish`, `/media`, `/email` |
 | Kartalar | `GET /cards`, `/cards/search`; `POST /card-interest/apply`; `/dream-teams` (CRUD, `PUT /me`) |
 | Chat | `/chats`, `/chats/{id}`, `/messages`, `/account-request`, `/important`, `/hide`, `/read`, `/typing`, `/presence`, `/unread-total` |
@@ -47,14 +50,14 @@ To'liq ro'yxat — controllerlarda. Asosiy guruhlar (`/api/v1/...`):
 | Hamkorlik, referal | `/partners/**` (ariza, panel, to'lov, kanallar, click), `/referrals/claim`, `/referrals/me` |
 | Trust, support | `/complaints`, `/blacklist`, `/blacklist/check`, `/support/chats/**` |
 | Admin | `/admin/**`: listings, cards (sync, META), attributes, chats, partners, referrals, reports, trust, support, bot-settings, bot-broadcasts, guides, emoji-packs, stats, badges |
-| Ichki | `/internal/marketplace/v1/**`: `listings/{id}/terms`, `accounts/{id}` (trade uchun), bot-settings, guides/buttons, partners/* natijalari (bot), referrals/pending, support/telegram-reply, trust/complaints |
+| Ichki | `/internal/marketplace/v1/**`: `listings/{id}/terms`, `accounts/{id}` (trade uchun), bot-settings, guides/buttons, partners/* natijalari (bot), referrals/pending, support/telegram-reply, trust/complaints, `POST rec/replay` (`X-Internal-Secret`; `{ listings, likes, cards }` sonlari — hammasini qayta yuborishga belgilaydi) |
 
 > **Rejada:** dream team, card match va card interest alohida `recommendation-service` ga
 > ko'chiriladi (dizayn muhokamada). Bu qismlarga katta o'zgartirish kiritishdan oldin tekshiring.
 
 ## Kafka
 
-Chiqaradi: `efbazaar.marketplace.*` — e'lon, like, chat, partner, kanal postlari, support,
+Chiqaradi: `efbazaar.marketplace.*` — e'lon, like, `listing-snapshot`, `card-snapshot`, chat, partner, kanal postlari, support,
 qora ro'yxat, `cards-added`, `bot-settings-updated`.
 Tinglaydi: `trade.*` (listing-sold, trade-succeeded, proposal-*, action-notification,
 admin-invited, mailbox-handed-over), `payment.*` (deposit-credited, withdrawal-*),
@@ -62,6 +65,19 @@ admin-invited, mailbox-handed-over), `payment.*` (deposit-credited, withdrawal-*
 
 Partner hodisalari **tranzaksiya commit bo'lgandan keyin** chiqadi (`PartnerEventPublisher`) —
 aks holda consumer eski holatni o'qiydi. Yangi publisher yozsangiz shu uslubga amal qiling.
+
+### Recommendation snapshot'lari (outbox)
+
+Servis `uz.efbazaar:outbox` kutubxonasiga bog'liq (jadvallar — `V71`). `V73` PL/pgSQL trigger'lari
+`listings`, `listing_cards`, `listing_likes` o'zgarganda `outbox_snapshot_pending` ga `('listing', id)` /
+`('like', userId:listingId)` belgisini qo'yadi (`ON CONFLICT DO UPDATE SET marked_at` — takroriy belgi
+vaqtni yangilaydi). Relay belgini olib **hozirgi** holatni o'qiydi va yuboradi:
+`listing-snapshot` (kalit `listingId`), `card-snapshot` (kalit `efhubId`; `efbazaar` bazasida trigger yo'q,
+kod `markSnapshot("card", ...)` chaqiradi) va `like-toggled` (endi `LikeService` emas, `listing_likes` trigger'i + outbox;
+payload `{ idempotencyKey, listingId, userId, liked, version, occurredAt }`). Iste'molchi — `recommendation-service`
+(rejada, B bosqich). Qayta yuborish: `POST /internal/marketplace/v1/rec/replay`.
+
+Servis ichidagi o'qilmaydigan JSON request body endi ilova bo'ylab 400 qaytaradi (`GlobalExceptionHandler`), 500 emas.
 
 Batafsil: [docs/kafka-topics.md](../../docs/kafka-topics.md).
 
@@ -83,12 +99,18 @@ Batafsil: [docs/kafka-topics.md](../../docs/kafka-topics.md).
 | `ChannelRefreshJob` — kanal ma'lumotlarini yangilash | `PARTNER_REFRESH_CRON` (`0 30 3 * * *`) |
 | `PartnerMonthlyPayoutJob` | `PARTNER_MONTHLY_CRON` (`0 0 4 1 * *`) |
 | `PendingReferralSweeper` | `0 30 3 * * *` |
+| `MetaBoundaryJob` — `active_from`/`active_until` chegarasini kesgan kartalar (25 soatlik oyna) uchun `value_score` va card-snapshot | `META_BOUNDARY_CRON` / `app.recommendation.meta-boundary-cron` (`0 5 0 * * *`, UTC) |
 
 ## Ma'lumotlar
 
 - Asosiy jadvallar: `listings`, `listing_cards`, `listing_likes`, `listing_views`, `user_accounts`,
   `user_account_cards`, `chats`, `chat_messages`, `notifications`, `dream_teams`,
   `attribute_definitions`, `partner_*`, `referrals`, `complaints`, `penalties`, `support_*`, `gamer_*`.
+- `listings.value_score` (nullable, `V72`; qisman indeks) — «Katta bozor» bali, 0..1. Hisoblanadi: e'lon saqlanganda
+  (`ListingPersistence`), admin META o'zgartirganda/tugatganda va yangi efhub kartalarida (`CardChangeHandler`),
+  `MetaBoundaryJob` orqali. `efbazaar` katalogi o'qilmasa ball o'zgarmaydi (WARN), e'lon saqlash hech qachon yiqilmaydi.
+  Startup'da `ValueScoreBackfill` NULL qatorlarni to'ldiradi (xato log'ga yoziladi, startup'ni bloklamaydi).
+- `outbox_*` (`V71`) — outbox kutubxonasi jadvallari: `outbox_snapshot_pending`, `outbox_snapshot_version_seq` va boshqalar.
 - `listing_cards` — e'londagi valuable kartalar: `efhub_id` (aniq karta) + `player_id`
   (haqiqiy futbolchi; bir futbolchining turli kartalari bir xil `player_id` ga ega).
 - `efbazaar` karta katalogi Flyway'siz: sxema `infra/postgres/efbazaar/V*.sql` dan
@@ -99,6 +121,9 @@ Batafsil: [docs/kafka-topics.md](../../docs/kafka-topics.md).
 
 ## Ehtiyot bo'l
 
+- Konfiguratsiya: `app.recommendation.value-score.*` (formula konstantalari: `rating-floor`, `rating-span`, `meta-base`,
+  `meta-priority-step`, `card-cap`, `price-floor`, `price-cap`, `price-weight`), `VALUE_SCORE_BACKFILL_ENABLED` (default `true`),
+  `META_BOUNDARY_CRON`.
 - `CARD_INTEREST_HMAC_SECRET` bo'sh bo'lsa servis **ishga tushmaydi**.
 - Media fayllar DB'da saqlanmaydi — faqat Telegram `message_id` / `file_id`.
 - `sellerId` hech qachon request body'dan olinmaydi — faqat `X-User-Id`.
@@ -107,4 +132,4 @@ Batafsil: [docs/kafka-topics.md](../../docs/kafka-topics.md).
 
 ## Test
 
-`mvn -B -ntp clean verify` — 97 unit test, 17 integratsion (`*IT`, Testcontainers).
+`mvn -B -ntp clean verify` — 663 unit test, 104 integratsion (`*IT`, Testcontainers).
