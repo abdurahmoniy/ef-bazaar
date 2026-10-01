@@ -155,7 +155,7 @@ teamStrength          int
 price                 BigDecimal     — so'mda
 isPriceNegotiable     boolean        — savdolashish mumkinmi (checkbox)
 mediaMessageIds       List<String>   — Telegram message_id lar
-status                ACTIVE | SOLD | DELETED
+status                ACTIVE | SOLD | DELETED | BLOCKED (sotuvchi trust blacklist'ida — ochiq ro'yxatlarda ko'rinmaydi)
 ```
 
 ### Chat (akkount almashinuvi uchun)
