@@ -1,5 +1,6 @@
 package uz.efbazaar.marketplace.recommendation;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
  * har yozuvda listing snapshot'ini belgilaydi, keraksiz snapshot'lar chiqmasin.
  * Chaqiruvchining tranzaksiyasida ishlaydi (bo'lsa).
  */
+@Slf4j
 @Component
 public class ListingValueScorer {
 
@@ -62,7 +64,15 @@ public class ListingValueScorer {
                             .add(rs.getLong("efhub_id"));
                 }, ids.toArray());
         Set<Long> allCards = cardsByListing.values().stream().flatMap(List::stream).collect(Collectors.toSet());
-        Map<Long, CardFacts> facts = catalog.read(allCards);
+        Map<Long, CardFacts> facts;
+        try {
+            facts = catalog.read(allCards);
+        } catch (org.springframework.dao.DataAccessException e) {
+            // Katalog boshqa DataSource'da — marketplace tranzaksiyasini buzmaydi; e'lon saqlanishi davom etadi.
+            log.warn("value_score: karta katalogi o'qilmadi, {} e'lon keyinroq hisoblanadi: {}",
+                    ids.size(), e.getMessage());
+            return 0;
+        }
         Instant now = clock.instant();
 
         int written = 0;

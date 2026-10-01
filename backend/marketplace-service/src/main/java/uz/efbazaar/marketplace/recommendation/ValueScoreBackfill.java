@@ -21,11 +21,16 @@ public class ValueScoreBackfill implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         int total = 0;
-        int batch;
-        do {
-            batch = scorer.backfillBatch(BATCH);
-            total += batch;
-        } while (batch == BATCH);
+        try {
+            int batch;
+            do {
+                batch = scorer.backfillBatch(BATCH);
+                total += batch;
+            } while (batch == BATCH);
+        } catch (RuntimeException e) {
+            // Start-up yiqilmasin: keyingi boot qayta urinadi.
+            log.warn("value_score backfill to'xtadi ({} e'lon hisoblandi): {}", total, e.getMessage());
+        }
         if (total > 0) {
             log.info("value_score backfill: {} e'lon hisoblandi", total);
         }

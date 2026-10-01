@@ -114,4 +114,21 @@ class ListingValueScorerIT {
         scorer.recompute(List.of(id));
         assertThat(score(id)).isZero();
     }
+
+    @Test
+    void catalogOutageLeavesScoreUntouchedAndDoesNotThrow() {
+        CardCatalogReader down = new CardCatalogReader(jdbc) {
+            @Override
+            public java.util.Map<Long, CardFacts> read(java.util.Collection<Long> efhubIds) {
+                throw new org.springframework.dao.DataAccessResourceFailureException("down");
+            }
+        };
+        ListingValueScorer broken = new ListingValueScorer(jdbc, down, new ValueScoreCalculator(
+                new ValueScoreProperties(80, 20, 2.0, 0.25, 15, new BigDecimal("5000"),
+                        new BigDecimal("50000000"), 0.5)), Clock.fixed(NOW, ZoneOffset.UTC));
+        UUID id = listing("500000", 8900000001L);
+
+        assertThat(broken.recompute(List.of(id))).isZero();
+        assertThat(score(id)).isNull();
+    }
 }
