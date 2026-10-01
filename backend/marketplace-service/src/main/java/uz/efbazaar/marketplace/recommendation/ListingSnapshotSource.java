@@ -34,7 +34,12 @@ public class ListingSnapshotSource implements SnapshotSource {
 
     @Override
     public Optional<Object> build(String entityId, long version) {
-        UUID id = UUID.fromString(entityId);
+        UUID id;
+        try {
+            id = UUID.fromString(entityId);
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
         List<CardRef> cards = jdbc.query(
                 "SELECT efhub_id, player_id FROM listing_cards WHERE listing_id = ? ORDER BY ordinal",
                 (rs, n) -> new CardRef(rs.getLong("efhub_id"), rs.getObject("player_id", UUID.class)), id);

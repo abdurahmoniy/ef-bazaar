@@ -82,4 +82,9 @@ class SnapshotSourcesIT {
     void malformedLikeEntityIsDropped() {
         assertThat(new LikeSnapshotSource(jdbc).build("garbage", 1)).isEmpty();
     }
+
+    @Test
+    void malformedListingEntityIsDropped() {
+        assertThat(new ListingSnapshotSource(jdbc).build("not-a-uuid", 1)).isEmpty();
+    }
 }
