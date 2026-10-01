@@ -59,4 +59,26 @@ class CardChangeHandlerTest {
         new CardChangeHandler(outbox, scorer, new RecordingTxManager()).cardsChanged(List.of());
         verifyNoInteractions(outbox, scorer);
     }
+
+    @Test
+    void nullAndDuplicateIdsAreIgnored() {
+        Outbox outbox = mock(Outbox.class);
+        ListingValueScorer scorer = mock(ListingValueScorer.class);
+        RecordingTxManager tm = new RecordingTxManager();
+
+        new CardChangeHandler(outbox, scorer, tm).cardsChanged(java.util.Arrays.asList(null, 123L, 123L));
+
+        verify(scorer).recomputeForCards(List.of(123L));
+        verify(outbox).markSnapshot("card", "123");
+        verifyNoMoreInteractions(outbox);
+        assertThat(tm.commits).isEqualTo(1);
+    }
+
+    @Test
+    void onlyNullIdsDoNothing() {
+        Outbox outbox = mock(Outbox.class);
+        ListingValueScorer scorer = mock(ListingValueScorer.class);
+        new CardChangeHandler(outbox, scorer, new RecordingTxManager()).cardsChanged(java.util.Collections.singletonList(null));
+        verifyNoInteractions(outbox, scorer);
+    }
 }

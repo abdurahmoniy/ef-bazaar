@@ -7,6 +7,7 @@ import uz.efbazaar.outbox.Outbox;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * efbazaar'da karta o'zgargandan KEYIN chaqiriladi (META, yangi karta, META chegarasi).
@@ -31,10 +32,10 @@ public class CardChangeHandler {
     }
 
     public void cardsChanged(Collection<Long> efhubIds) {
-        if (efhubIds.isEmpty()) {
+        List<Long> ids = efhubIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
             return;
         }
-        List<Long> ids = List.copyOf(efhubIds);
         tx.executeWithoutResult(status -> {
             scorer.recomputeForCards(ids);
             ids.forEach(id -> outbox.markSnapshot(RecommendationTopics.SOURCE_CARD, Long.toString(id)));
