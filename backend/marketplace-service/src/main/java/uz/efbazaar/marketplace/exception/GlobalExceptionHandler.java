@@ -3,6 +3,7 @@ package uz.efbazaar.marketplace.exception;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -77,6 +78,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> onTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return build(HttpStatus.BAD_REQUEST, "bad_request",
                 "So'rov parametri noto'g'ri", null);
+    }
+
+    /** O'qib bo'lmaydigan JSON yoki noto'g'ri tur (masalan UUID o'rniga matn) — mijoz xatosi, 400. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> onUnreadable(HttpMessageNotReadableException ex) {
+        return build(HttpStatus.BAD_REQUEST, "bad_request",
+                "So'rov tanasi noto'g'ri", null);
     }
 
     /**

@@ -48,6 +48,7 @@ public class SecurityConfig {
                                 "/api/v1/listings/*",
                                 "/api/v1/listings/user/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/listings/*/views").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/listings/ranked").permitAll()
                         // Public — card picker (read-only player card lookup)
                         .requestMatchers(HttpMethod.GET, "/api/v1/cards/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/card-interest/apply").permitAll()

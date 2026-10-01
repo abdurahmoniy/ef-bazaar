@@ -13,6 +13,7 @@ public class ListingPersistence {
 
     private final ListingRepository listings;
     private final ListingCardInventory inventory;
+    private final uz.efbazaar.marketplace.recommendation.ListingValueScorer valueScorer;
 
     @Transactional
     public Listing saveWithCardInventory(Listing listing) {
@@ -28,6 +29,8 @@ public class ListingPersistence {
                 ? null
                 : saved.getAttributes().get("valuable_players");
         inventory.replace(saved.getId(), cards);
+        // value_score kartalar va narxga bog'liq — shu tranzaksiyada qayta hisoblanadi.
+        valueScorer.recompute(java.util.List.of(saved.getId()));
         return saved;
     }
 }

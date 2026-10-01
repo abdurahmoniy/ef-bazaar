@@ -23,4 +23,16 @@ class OutboxDisabledTest {
         runner.withPropertyValues("outbox.enabled=false")
                 .run(ctx -> assertThat(ctx).doesNotHaveBean(Outbox.class));
     }
+
+    @Test
+    void noBeansWithoutKafkaProducerFactory() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(DataSourceAutoConfiguration.class,
+                        JdbcTemplateAutoConfiguration.class, OutboxAutoConfiguration.class))
+                .withPropertyValues("spring.datasource.url=jdbc:postgresql://localhost:1/none")
+                .run(ctx -> {
+                    assertThat(ctx).hasNotFailed();
+                    assertThat(ctx).doesNotHaveBean(Outbox.class);
+                });
+    }
 }

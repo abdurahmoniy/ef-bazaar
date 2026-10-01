@@ -96,6 +96,13 @@ public class Listing {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /**
+     * "Katta bozor" bali — faqat ListingValueScorer yozadi (JdbcTemplate). JPA saqlash
+     * uni ustidan yozib yubormasligi uchun faqat o'qish.
+     */
+    @Column(name = "value_score", insertable = false, updatable = false)
+    private Double valueScore;
+
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();

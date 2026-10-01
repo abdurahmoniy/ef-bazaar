@@ -5,16 +5,20 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import uz.efbazaar.outbox.Outbox;
 
+import javax.sql.DataSource;
+
 public class DefaultOutbox implements Outbox {
 
     private final OutboxRepository repo;
     private final MessageEncoder encoder;
     private final Runnable wake;
+    private final DataSource dataSource;
 
-    public DefaultOutbox(OutboxRepository repo, MessageEncoder encoder, Runnable wake) {
+    public DefaultOutbox(OutboxRepository repo, MessageEncoder encoder, Runnable wake, DataSource dataSource) {
         this.repo = repo;
         this.encoder = encoder;
         this.wake = wake;
+        this.dataSource = dataSource;
     }
 
     @Override
@@ -32,10 +36,15 @@ public class DefaultOutbox implements Outbox {
         wakeAfterCommit();
     }
 
-    private static void requireTransaction(String operation) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+    /**
+     * Faol tranzaksiya yetarli emas — u AYNAN outbox bazasi ustida bo'lishi kerak. Boshqa
+     * DataSource tranzaksiyasi ichida yozuv autocommit bo'lib, biznes o'zgarishidan ajralib qolardi.
+     */
+    private void requireTransaction(String operation) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.hasResource(dataSource)) {
             throw new IllegalTransactionStateException(
-                    "Outbox." + operation + " faqat faol tranzaksiya ichida chaqiriladi");
+                    "Outbox." + operation + " faqat outbox bazasi ustidagi faol tranzaksiya ichida chaqiriladi");
         }
     }
 

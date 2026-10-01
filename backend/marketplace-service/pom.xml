@@ -26,6 +26,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>uz.efbazaar</groupId>
+            <artifactId>outbox</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
             <groupId>com.google.firebase</groupId>
             <artifactId>firebase-admin</artifactId>
             <version>9.9.0</version>

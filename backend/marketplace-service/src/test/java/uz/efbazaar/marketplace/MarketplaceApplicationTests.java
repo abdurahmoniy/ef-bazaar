@@ -43,7 +43,8 @@ import static org.assertj.core.api.Assertions.assertThat;
         "app.cards.datasource.username=test",
         "app.cards.datasource.password=test",
         "app.cards.schema-bootstrap.enabled=false",
-        "app.card-interest.hmac-secret=test-card-interest-secret"
+        "app.card-interest.hmac-secret=test-card-interest-secret",
+        "app.recommendation.value-score.backfill-enabled=false"
 })
 @EnableAutoConfiguration(exclude = {
         DataSourceAutoConfiguration.class,
@@ -80,6 +81,7 @@ class MarketplaceApplicationTests {
     @MockBean uz.efbazaar.marketplace.account.UserAccountRepository userAccountRepository;
     @MockBean uz.efbazaar.marketplace.account.PendingAccountEmailRepository pendingAccountEmailRepository;
     @MockBean KafkaTemplate<String, Object> kafkaTemplate;
+    @MockBean uz.efbazaar.outbox.Outbox outbox;
     @MockBean StringRedisTemplate stringRedisTemplate;
     @MockBean(name = "chatRedisListener") org.springframework.data.redis.listener.RedisMessageListenerContainer chatRedisListener;
     // gamer paketi (Gamer Card projection)

@@ -201,6 +201,19 @@ app:
     # Required rotatable secret used only to pseudonymize user/network dedupe identities.
     # No checked-in fallback: a missing production secret must fail startup.
     hmac-secret: ${CARD_INTEREST_HMAC_SECRET:}
+  # "Katta bozor" reyting formulasi konstantalari (spec §5.4).
+  recommendation:
+    value-score:
+      rating-floor: 80
+      rating-span: 20
+      meta-base: 2.0
+      meta-priority-step: 0.25
+      card-cap: 15
+      price-floor: 5000
+      price-cap: 50000000
+      price-weight: 0.5
+      backfill-enabled: ${VALUE_SCORE_BACKFILL_ENABLED:true}
+    meta-boundary-cron: ${META_BOUNDARY_CRON:0 5 0 * * *}
 
 springdoc:
   api-docs:

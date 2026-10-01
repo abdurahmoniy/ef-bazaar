@@ -42,7 +42,9 @@ topiclarni tinglaydi — unda DB yo'q.
 | `efbazaar.marketplace.listing-created` | marketplace | — |
 | `efbazaar.marketplace.listing-updated` | marketplace | — |
 | `efbazaar.marketplace.listing-deleted` | marketplace | — |
-| `efbazaar.marketplace.like-toggled` | marketplace | — |
+| `efbazaar.marketplace.like-toggled` | marketplace (`listing_likes` trigger + outbox) — `{ idempotencyKey, listingId, userId, liked, version, occurredAt }`; kalit `listingId` | recommendation (B bosqichidan) |
+| `efbazaar.marketplace.listing-snapshot` | marketplace (outbox snapshot, trigger) — `{ idempotencyKey, listingId, sellerId, status, price, valueScore, cards: [{efhubId, playerId}], version, occurredAt }`; kalit `listingId` | recommendation (B bosqichidan) |
+| `efbazaar.marketplace.card-snapshot` | marketplace (outbox snapshot; META/sync/chegara job) — `{ idempotencyKey, efhubId, playerId, type, overallRating, metaTier, metaPriority, activeFrom, activeUntil, version, occurredAt }`; kalit `efhubId` | recommendation (B bosqichidan) |
 | `efbazaar.marketplace.cards-added` | marketplace (kunlik efhub sync) — `{ occurredAt, totalAdded, cards: [{efhubId, type, name, overallRating}] }` | — |
 | `efbazaar.marketplace.chat-created` | marketplace | auth (enricher → `notifications.chat-created`) |
 | `efbazaar.marketplace.user-blacklisted` | marketplace | — (javadoc bo'yicha tashqi Chempionat-X) |
