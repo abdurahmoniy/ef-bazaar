@@ -37,6 +37,7 @@ Monorepo: har bir komponent mustaqil build va deploy bo'ladi.
 | smart-admin-worker | `smart-admin-worker` | Python 3.12 | 8086 (health) | — (faqat Kafka) | [README](smart-admin-worker/README.md) |
 | payment-service | `backend/payment-service` | Spring Boot | 8087 | `/api/payment/**` | [README](backend/payment-service/README.md) |
 | access-service | `backend/access-service` | Spring Boot | 8088 | `/api/access/**` | [README](backend/access-service/README.md) |
+| recommendation-service | `backend/recommendation-service` | Spring Boot | 8083 | `/api/rec/**` | [README](backend/recommendation-service/README.md) |
 | humo-userbot | `humo-userbot` | Python 3.12 (Pyrogram) | — | — (faqat Kafka) | [README](humo-userbot/README.md) |
 | outbox (kutubxona) | `backend/libs/outbox` | Java 21, Spring Boot auto-config | — | — | [README](backend/libs/outbox/README.md) |
 | frontend | `frontend` | Next.js 16, React 19 | 3000 | `/` | [README](frontend/README.md) |
@@ -86,7 +87,7 @@ marketplace'ga) va barcha servislarning Swagger UI'si (basic auth ostida). Brauz
 
 ## Ma'lumotlar
 
-- Har bir servisning o'z PostgreSQL bazasi: auth, marketplace, trade, payment, access.
+- Har bir servisning o'z PostgreSQL bazasi: auth, marketplace, trade, payment, access, recommendation.
   Boshqa servisning bazasiga to'g'ridan-to'g'ri ulanish taqiqlanadi.
 - `efbazaar` bazasi — efhub'dan olinadigan futbolchi kartalari katalogi. Uni
   marketplace-service ikkinchi datasource sifatida ishlatadi. Migratsiyalari:
