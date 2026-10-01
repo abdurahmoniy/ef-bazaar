@@ -269,6 +269,13 @@ public class ListingService {
 
     @Transactional(readOnly = true)
     public Page<Listing> browse(ListingFilter filter, Pageable pageable) {
+        var scoreDir = ListingSorts.valueScoreDirection(pageable);
+        if (scoreDir.isPresent()) {
+            // valueScore path: other sort properties are ignored; status-first kept for includeSold.
+            var spec = ListingSpecifications.withFilter(sanitizeRangeFilters(filter))
+                    .and(ListingSorts.orderByValueScore(scoreDir.get(), Boolean.TRUE.equals(filter.includeSold())));
+            return listings.findAll(spec, ListingSorts.withoutSort(pageable));
+        }
         // When includeSold is true, prepend "status ASC" so ACTIVE (alphabetically
         // less than SOLD) is always ranked ahead of SOLD. When includeSold is false,
         // all matched listings are ACTIVE so pageable sort applies directly.
