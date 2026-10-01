@@ -213,6 +213,7 @@ app:
       price-cap: 50000000
       price-weight: 0.5
       backfill-enabled: ${VALUE_SCORE_BACKFILL_ENABLED:true}
+    meta-boundary-cron: ${META_BOUNDARY_CRON:0 5 0 * * *}
 
 springdoc:
   api-docs:

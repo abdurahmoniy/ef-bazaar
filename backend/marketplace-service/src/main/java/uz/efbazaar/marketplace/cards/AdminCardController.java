@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import uz.efbazaar.marketplace.cards.sync.EfhubSyncTrigger;
 import uz.efbazaar.marketplace.cards.sync.MaxOvrRefreshService;
+import uz.efbazaar.marketplace.recommendation.CardChangeHandler;
 import uz.efbazaar.marketplace.security.AuthenticatedUser;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
@@ -34,6 +35,7 @@ public class AdminCardController {
     private final MaxOvrRefreshService maxOvrRefreshService;
     private final CardInterestService cardInterestService;
     private final EfhubSyncTrigger efhubSyncTrigger;
+    private final CardChangeHandler cardChangeHandler;
 
     /** @return how many rows actually changed (already-correct cards don't count) */
     @PutMapping("/meta-tier")
@@ -41,6 +43,7 @@ public class AdminCardController {
             @AuthenticationPrincipal AuthenticatedUser admin,
             @Valid @RequestBody CardMetaTierUpdateRequest request) {
         int updated = cardSearchService.updateMetaLifecycle(request, admin.userId());
+        cardChangeHandler.cardsChanged(request.efhubIds());
         return new CardMetaTierUpdateResponse(updated, request.efhubIds().size());
     }
 
@@ -49,6 +52,7 @@ public class AdminCardController {
             @AuthenticationPrincipal AuthenticatedUser admin,
             @Valid @RequestBody CardMetaExpireRequest request) {
         int updated = cardSearchService.expireMeta(request.efhubIds(), request.reason(), admin.userId());
+        cardChangeHandler.cardsChanged(request.efhubIds());
         return new CardMetaTierUpdateResponse(updated, request.efhubIds().size());
     }
 

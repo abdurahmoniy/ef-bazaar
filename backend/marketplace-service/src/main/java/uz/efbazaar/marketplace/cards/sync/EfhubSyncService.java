@@ -6,6 +6,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import uz.efbazaar.marketplace.cards.CardType;
 import uz.efbazaar.marketplace.observability.NotifyMarker;
+import uz.efbazaar.marketplace.recommendation.CardChangeHandler;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -36,18 +37,21 @@ public class EfhubSyncService {
     private final CardWriter writer;
     private final KafkaTemplate<String, Object> kafka;
     private final EfhubSyncProperties props;
+    private final CardChangeHandler cardChangeHandler;
     private final ReentrantLock lock = new ReentrantLock();
 
     public EfhubSyncService(EfhubClient client,
                             PlayerPageParser parser,
                             CardWriter writer,
                             KafkaTemplate<String, Object> kafka,
-                            EfhubSyncProperties props) {
+                            EfhubSyncProperties props,
+                            CardChangeHandler cardChangeHandler) {
         this.client = client;
         this.parser = parser;
         this.writer = writer;
         this.kafka = kafka;
         this.props = props;
+        this.cardChangeHandler = cardChangeHandler;
     }
 
     /**
@@ -144,6 +148,12 @@ public class EfhubSyncService {
 
         if (!added.isEmpty()) {
             publish(added);
+            try {
+                cardChangeHandler.cardsChanged(added.stream().map(CardsAddedEvent.Added::efhubId).toList());
+            } catch (RuntimeException e) {
+                // Kartalar allaqachon DB'da; xulosa yo'qolmasin. Zaxira — snapshot replay.
+                log.warn("efhub: card snapshot/value_score update failed: {}", e.toString());
+            }
         }
         notifyRun(added, failures, newIds.size());
         return new SyncResult(added.size(), failures, newIds.size(), false);
