@@ -82,4 +82,19 @@ class SnapshotConsumersTest {
                 .isInstanceOf(JsonProcessingException.class);
         verifyNoInteractions(writer);
     }
+
+    /** A bosqichidan oldingi like-toggled (kalit va version yo'q) — jim o'tkaziladi, DLT'ga emas. */
+    @Test
+    void legacyPayloadWithoutKeyOrVersionIsSkipped() throws Exception {
+        consumers.onLike("""
+                {"listingId":"3f0c2d8e-0d2a-4a43-9a3e-6b1b1c2d3e4f",
+                 "userId":"8b9f6d55-1c55-4f7e-9e0a-0e1d2c3b4a59","liked":true}
+                """);
+        consumers.onListing("""
+                {"idempotencyKey":"listing:x:0","listingId":"3f0c2d8e-0d2a-4a43-9a3e-6b1b1c2d3e4f",
+                 "status":"ACTIVE","price":1}
+                """);
+
+        verifyNoInteractions(writer);
+    }
 }

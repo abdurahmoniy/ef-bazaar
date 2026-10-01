@@ -57,6 +57,10 @@ Konfiguratsiya: `app.recommendation.feed.*` (`REC_FEED_MAX_IDS`, `REC_FEED_SNAPS
 | `consumed_events` | barcha consumerlar; 30 kun |
 
 Takror va tartibsiz xabar: `consumed_events` (aynan shu xabar) + `version` (eski holat) to'sadi.
+Xato: o'qib bo'lmaydigan yoki noto'g'ri xabar (JSON, kalit yo'q, ustun cheklovi) darhol `<topic>.DLT` ga;
+DB/tarmoq uzilishi esa 1 s → 60 s oraliq bilan cheksiz qayta uriniladi (to'g'ri snapshot yo'qolmaydi).
+A bosqichidan oldingi version'siz `like-toggled` xabarlari WARN bilan o'tkaziladi.
+**DLT bo'sh emas → sababini ko'ring, tuzatgach replay** (DLT'ni hech kim o'qimaydi).
 Tozalash — `RetentionJob` (`REC_RETENTION_CRON`, default `0 30 3 * * *` UTC).
 
 ## Env

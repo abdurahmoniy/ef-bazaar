@@ -12,7 +12,8 @@ DST_DB="${RECOMMENDATION_DB_NAME:-recommendation_db}"
 PG_CONTAINER="${PG_CONTAINER:-efbazaar-postgres}"
 
 read -r -d '' SCRIPT <<'SH' || true
-set -eu
+# pipefail: manba eksporti yiqilsa butun skript yiqilsin — aks holda 0 qator "muvaffaqiyat" bo'lardi.
+set -eu -o pipefail
 psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$SRC_DB" \
   -c "\copy (SELECT id, user_id, name, formation, slots, created_at, updated_at FROM dream_teams) TO STDOUT WITH CSV" \
 | psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$DST_DB" \
