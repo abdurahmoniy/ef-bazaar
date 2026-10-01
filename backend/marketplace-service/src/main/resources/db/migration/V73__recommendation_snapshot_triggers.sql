@@ -1,3 +1,4 @@
+SET lock_timeout = '5s';
 -- Recommendation snapshot'lari uchun belgilar (uz.efbazaar:outbox snapshot rejimi).
 -- Trigger — Java'dagi har qanday yo'lni, jumladan bulk UPDATE'larni (TrustService, user-deleted)
 -- ushlaydi. Belgi shu tranzaksiyada qo'yiladi; relay hozirgi holatni SnapshotSource orqali quradi.
