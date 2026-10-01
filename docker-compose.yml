@@ -525,6 +525,42 @@ services:
     networks:
       - efbazaar-net
 
+  # ---------- recommendation-service (lenta, player filtri, dream team, card interest) ----------
+  # marketplace'dan faqat Kafka snapshot'lari orqali o'qiydi; uning bazasiga ulanmaydi.
+  recommendation-service:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-recommendation-service:${IMAGE_TAG:-latest}
+    build:
+      context: ./backend/recommendation-service
+    container_name: efbazaar-recommendation
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      JAVA_OPTS: "-Xms64m -Xmx200m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${RECOMMENDATION_DB_NAME:-recommendation_db}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # marketplace bilan BIR XIL qiymat — card interest dedupe va 30 kunlik tarix umumiy.
+      CARD_INTEREST_HMAC_SECRET: ${CARD_INTEREST_HMAC_SECRET}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      APP_DEBUG_ERRORS: ${APP_DEBUG_ERRORS:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    mem_limit: 300m
+    memswap_limit: 400m
+    networks:
+      - efbazaar-net
+
   # ---------- Smart-admin worker (Plan C) ----------
   smart-admin-worker:
     image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-smart-admin-worker:${IMAGE_TAG:-latest}

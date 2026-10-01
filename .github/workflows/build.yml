@@ -79,6 +79,9 @@ jobs:
             access:
               - 'backend/access-service/**'
               - '!**/*.md'
+            recommendation:
+              - 'backend/recommendation-service/**'
+              - '!**/*.md'
             bot:
               - 'bot/**'
               - '!**/*.md'
@@ -121,6 +124,7 @@ jobs:
           if uses_libs "${{ steps.filter.outputs.trade }}";       then add trade-service       backend backend/trade-service/Dockerfile       trade-service;       fi
           if uses_libs "${{ steps.filter.outputs.payment }}";     then add payment-service     backend backend/payment-service/Dockerfile     payment-service;     fi
           if changed "${{ steps.filter.outputs.access }}";                 then add access-service     backend/access-service backend/access-service/Dockerfile access-service;     fi
+          if changed "${{ steps.filter.outputs.recommendation }}";         then add recommendation-service backend/recommendation-service backend/recommendation-service/Dockerfile recommendation-service; fi
           if changed "${{ steps.filter.outputs.bot }}";                    then add bot                bot                    bot/Dockerfile                    bot;                fi
           if changed "${{ steps.filter.outputs.frontend }}";               then add frontend           frontend               frontend/Dockerfile               frontend;           fi
           if changed "${{ steps.filter.outputs.mail }}";                   then add mail-frontend      mail                   mail/Dockerfile                   mail-frontend;      fi
