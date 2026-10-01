@@ -8,7 +8,6 @@ import uz.efbazaar.marketplace.domain.Like;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.domain.ListingStatus;
 import uz.efbazaar.marketplace.dto.LikeToggleResponse;
-import uz.efbazaar.marketplace.event.MarketplaceEventPublisher;
 import uz.efbazaar.marketplace.exception.MarketplaceException;
 import uz.efbazaar.marketplace.repository.LikeRepository;
 import uz.efbazaar.marketplace.repository.ListingRepository;
@@ -26,7 +25,6 @@ public class LikeService {
 
     private final LikeRepository likes;
     private final ListingRepository listings;
-    private final MarketplaceEventPublisher events;
 
     @Transactional
     public LikeToggleResponse toggle(UUID listingId, UUID userId) {
@@ -51,7 +49,8 @@ public class LikeService {
         }
 
         long total = likes.countByListingId(listingId);
-        events.likeToggled(listingId, userId, nowLiked);
+        // like-toggled endi listing_likes trigger'i + outbox relay orqali chiqadi (V73) —
+        // tranzaksiya bilan atomik, qo'lda yuborish ikkinchi nusxa bo'lardi.
         return new LikeToggleResponse(listingId, nowLiked, total);
     }
 

@@ -35,11 +35,6 @@ public class MarketplaceEventPublisher {
                 new MarketplaceEvents.ListingDeleted(listingId, sellerId, newStatus, Instant.now()));
     }
 
-    public void likeToggled(UUID listingId, UUID userId, boolean liked) {
-        send(MarketplaceEvents.TOPIC_LIKE_TOGGLED, listingId.toString(),
-                new MarketplaceEvents.LikeToggled(listingId, userId, liked, Instant.now()));
-    }
-
     public void chatCreated(UUID chatId, UUID listingId, UUID buyerId, UUID sellerId) {
         send(MarketplaceEvents.TOPIC_CHAT_CREATED, chatId.toString(),
                 new MarketplaceEvents.ChatCreated(chatId, listingId, buyerId, sellerId, Instant.now()));
