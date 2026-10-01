@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: recommendation-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  # Foydalanuvchi nginx headerlaridan o'qiladi — UserDetailsService kerak emas.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:recommendation_db}
+    username: ${POSTGRES_USER:efbazaar}
+    password: ${POSTGRES_PASSWORD:efbazaar}
+    driver-class-name: org.postgresql.Driver
+    # Ulanish byudjeti auth-service application.yml da — yig'indi 50 dan oshmasin.
+    hikari:
+      maximum-pool-size: 4
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+  # baseline-on-migrate ATAYLAB yo'q: serverdagi recommendation_db da 2026-08-23
+  # da o'chirilgan eski servisdan jadvallar qolgan bo'lishi mumkin. Flyway ularni
+  # jim "baseline" qilsa V1 qo'llanmay qoladi; yiqilsa — deploy logida ko'rinadi.
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      # Redis sekin bo'lsa lenta uni kutib qolmasin — joyida hisoblanadi.
+      timeout: 300ms
+
+server:
+  port: 8083
+  forward-headers-strategy: framework
+
+app:
+  debug-errors: ${APP_DEBUG_ERRORS:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  health:
+    # Redis faqat kesh — u tushsa konteyner qayta ishga tushmasin.
+    redis:
+      enabled: false
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      minimum-expected-value:
+        http.server.requests: 10ms
+      maximum-expected-value:
+        http.server.requests: 5s
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    enabled: false
+  show-actuator: false
