@@ -41,4 +41,9 @@ def test_legacy_session_name_default_is_unchanged(monkeypatch):
     monkeypatch.setenv("TELEGRAM_API_ID", "1")
     monkeypatch.setenv("TELEGRAM_API_HASH", "hash")
     monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+    monkeypatch.setenv("RUNNER", "payment")
+    monkeypatch.setenv("POSTGRES_HOST", "postgres")
+    monkeypatch.setenv("POSTGRES_USER", "u")
+    monkeypatch.setenv("POSTGRES_PASSWORD", "p")
+    monkeypatch.setenv("USERBOT_SESSION_KEY", "k")
     assert Settings().telegram_session_name == "humo_userbot_session"

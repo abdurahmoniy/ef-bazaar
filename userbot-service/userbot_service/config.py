@@ -8,6 +8,8 @@ that can never authenticate.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Literal
+from urllib.parse import quote
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -37,7 +39,7 @@ class Settings(BaseSettings):
         default="humo_userbot_session", alias="TELEGRAM_SESSION_NAME"
     )
     telegram_session_dir: str = Field(
-        default="/run/secrets", alias="TELEGRAM_SESSION_DIR"
+        default="/session", alias="TELEGRAM_SESSION_DIR"
     )
     source_chat: str = Field(default="humocardbot", alias="HUMO_SOURCE_CHAT")
 
@@ -46,6 +48,29 @@ class Settings(BaseSettings):
         default=60, alias="HEARTBEAT_INTERVAL_SECONDS"
     )
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+
+    runner: Literal["core", "payment"] = Field(alias="RUNNER")
+
+    postgres_host: str = Field(alias="POSTGRES_HOST")
+    postgres_port: int = Field(default=5432, alias="POSTGRES_PORT")
+    postgres_user: str = Field(alias="POSTGRES_USER")
+    postgres_password: str = Field(alias="POSTGRES_PASSWORD")
+    postgres_db: str = Field(default="userbot_db", alias="POSTGRES_DB")
+
+    # base64 of 32 random bytes; `openssl rand -base64 32`. Losing it makes
+    # every stored session unreadable — the accounts must then be re-connected.
+    session_key: str = Field(alias="USERBOT_SESSION_KEY")
+
+    http_port: int = Field(default=8089, alias="HTTP_PORT")
+    avatar_dir: str = Field(default="/avatars", alias="AVATAR_DIR")
+
+    @property
+    def database_url(self) -> str:
+        return (
+            f"postgresql+asyncpg://{quote(self.postgres_user, safe='')}:"
+            f"{quote(self.postgres_password, safe='')}@{self.postgres_host}:"
+            f"{self.postgres_port}/{self.postgres_db}"
+        )
 
 
 @lru_cache
