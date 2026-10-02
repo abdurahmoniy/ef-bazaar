@@ -14,6 +14,10 @@ service be tested without Telegram and keeps every money rule inside one transac
 | `efbazaar.payment.card-credit-observed` | `telegramMessageId` | `{"telegramMessageId": 12345, "cardLast4": "4556", "amountTiyin": 3000000, "cardBalanceTiyin": 3165916, "observedAt": "2026-08-10T20:41:00Z", "rawText": "..."}` |
 | `efbazaar.payment.userbot-heartbeat` | — | `{"sentAt": "2026-08-10T20:41:00Z"}` |
 
+payment-service payload'da ixtiyoriy `userbotTelegramId` ni ham qabul qiladi (idempotency kaliti
+`(userbotTelegramId, telegramMessageId)`). Bu servis uni hozircha yubormaydi — userbot-service
+rejasida (`docs/superpowers/plans/2026-10-03-userbot-2-userbot-service.md`) qo'shiladi.
+
 Both are **plain JSON with no Kafka headers**. The Java side names the type with
 `spring.json.value.default.type` on its listener — the same convention trade-service already uses
 for every message smart-admin-worker produces. Do not stamp a `__TypeId__` header here: it would

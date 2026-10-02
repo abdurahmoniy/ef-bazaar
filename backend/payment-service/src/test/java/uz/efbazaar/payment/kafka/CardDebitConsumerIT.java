@@ -131,6 +131,24 @@ class CardDebitConsumerIT extends AbstractIntegrationIT {
         });
     }
 
+    @Test
+    void theAccountIdInBareJsonReachesTheDebit() {
+        long messageId = 88_103L;
+
+        publishRaw(("""
+                {"telegramMessageId":%d,"cardLast4":"0101","amountTiyin":1000000,\
+                "commissionTiyin":0,"cardBalanceTiyin":4400000,\
+                "description":"Openbank P2P HUMO OT","observedAt":"2026-09-10T20:34:00Z",\
+                "rawText":"💸 Amaliyot","userbotTelegramId":5550001}"""
+                .formatted(messageId))
+                .getBytes(StandardCharsets.UTF_8));
+
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(debits.findByUserbotTelegramIdAndTelegramMessageId(5550001L, messageId))
+                        .isPresent());
+        assertThat(debits.findByUserbotTelegramIdAndTelegramMessageId(null, messageId)).isEmpty();
+    }
+
     /** Bypasses the app's producer on purpose — the point is headerless bytes. */
     private void publishRaw(byte[] payload) {
         Map<String, Object> props = new HashMap<>();

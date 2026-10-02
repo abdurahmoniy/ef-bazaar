@@ -49,6 +49,9 @@ Userbot'dan `userbot-heartbeat` kelmay qolsa yangi to'ldirishlar qabul qilinmayd
 ## Kafka
 
 - Tinglaydi: `payment.card-credit-observed`, `payment.card-debit-observed`, `payment.userbot-heartbeat` (humo-userbot'dan).
+  Kuzatuvlar `(userbotTelegramId, telegramMessageId)` juftligi bo'yicha idempotent (V14): Telegram xabar
+  id'lari faqat bitta akkount ichida noyob, payment kuzatuvi boshqa akkountga o'tkazilsa id'lar
+  to'qnashadi. `userbotTelegramId` siz (eski userbot) xabar `NULL` bilan saqlanadi va o'zaro takror deb topiladi.
 - Chiqaradi: `payment.deposit-credited`, `payment.withdrawal-requested` / `-closed`,
   `payment.plan-entitlements`, `payment.subscription-changed`.
 

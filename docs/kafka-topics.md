@@ -113,6 +113,10 @@ so'rov topiclarini tinglaydi.
 | `efbazaar.payment.plan-entitlements` | payment | trade (`plan_entitlement_view` projection) |
 | `efbazaar.payment.subscription-changed` | payment | trade (`user_plan_view` projection) |
 
+`card-credit-observed` va `card-debit-observed` payload'larida ixtiyoriy `userbotTelegramId` (Long) —
+kuzatgan Telegram akkountining id'si. Idempotency kaliti `(userbotTelegramId, telegramMessageId)`:
+xabar id'lari faqat bitta akkount ichida noyob. Maydonsiz xabar eski userbotdan, `NULL` sifatida saqlanadi.
+
 ## Tashqi (Chempionat-X turnir loyihasi)
 
 | Topic | Producer | Consumer |
