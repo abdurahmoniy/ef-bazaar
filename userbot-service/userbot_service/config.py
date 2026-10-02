@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     telegram_api_id: int = Field(alias="TELEGRAM_API_ID")
     telegram_api_hash: str = Field(alias="TELEGRAM_API_HASH")
     telegram_session_name: str = Field(
-        default="userbot_service_session", alias="TELEGRAM_SESSION_NAME"
+        default="humo_userbot_session", alias="TELEGRAM_SESSION_NAME"
     )
     telegram_session_dir: str = Field(
         default="/run/secrets", alias="TELEGRAM_SESSION_DIR"

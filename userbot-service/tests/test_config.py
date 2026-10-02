@@ -10,7 +10,7 @@ No env vars and no Settings instance here: `as_chat_ref` is a pure function so
 this stays runnable without a Telegram account.
 """
 
-from userbot_service.config import as_chat_ref
+from userbot_service.config import Settings, as_chat_ref
 
 
 def test_a_username_stays_a_string():
@@ -32,3 +32,13 @@ def test_a_negative_supergroup_id_becomes_an_int():
 def test_surrounding_whitespace_is_stripped():
     assert as_chat_ref("  -1001234567890  ") == -1001234567890
     assert as_chat_ref("  humocardbot  ") == "humocardbot"
+
+
+def test_legacy_session_name_default_is_unchanged(monkeypatch):
+    # The production volume holds humo_userbot_session.session and nothing
+    # overrides TELEGRAM_SESSION_NAME; renaming the default would hide it.
+    monkeypatch.delenv("TELEGRAM_SESSION_NAME", raising=False)
+    monkeypatch.setenv("TELEGRAM_API_ID", "1")
+    monkeypatch.setenv("TELEGRAM_API_HASH", "hash")
+    monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+    assert Settings().telegram_session_name == "humo_userbot_session"
