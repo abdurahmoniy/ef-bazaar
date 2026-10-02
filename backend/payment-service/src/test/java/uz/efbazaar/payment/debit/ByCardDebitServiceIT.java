@@ -181,4 +181,42 @@ class ByCardDebitServiceIT extends AbstractPostgresIT {
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
                 .hasMessageContaining("faolsizlantiring");
     }
+
+    // ---- Idempotency is per (userbot account, message id) ---------------
+
+    private CardDebitEvent eventFrom(Long account, long messageId, String last4, long amountTiyin) {
+        return new CardDebitEvent(messageId, last4, amountTiyin, 0L, 4_400_000L,
+                "Openbank P2P HUMO OT", OBSERVED_AT, "💸 Amaliyot ➖ 10.000,00 UZS", account);
+    }
+
+    @Test
+    void theSameMessageIdFromTwoDifferentAccountsIsTwoDebits() {
+        PlatformCard card = ourCard();
+
+        debits.ingest(eventFrom(111L, 600L, card.getLast4(), 1_000_000L));
+        debits.ingest(eventFrom(222L, 600L, card.getLast4(), 1_000_000L));
+
+        assertThat(repo.findAll()).hasSize(2);
+    }
+
+    @Test
+    void aDebitRedeliveryFromTheSameAccountIsRecordedOnce() {
+        PlatformCard card = ourCard();
+
+        debits.ingest(eventFrom(111L, 601L, card.getLast4(), 1_000_000L));
+        debits.ingest(eventFrom(111L, 601L, card.getLast4(), 1_000_000L));
+
+        assertThat(repo.findAll()).hasSize(1);
+        assertThat(repo.findAll().get(0).getUserbotTelegramId()).isEqualTo(111L);
+    }
+
+    @Test
+    void aLegacyDebitWithoutAnAccountIsStillIdempotent() {
+        PlatformCard card = ourCard();
+
+        debits.ingest(eventFrom(null, 602L, card.getLast4(), 1_000_000L));
+        debits.ingest(eventFrom(null, 602L, card.getLast4(), 1_000_000L));
+
+        assertThat(repo.findAll()).hasSize(1);
+    }
 }

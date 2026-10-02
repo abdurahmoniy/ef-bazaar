@@ -16,7 +16,9 @@ import java.util.UUID;
 public interface CardCreditObservationRepository
         extends JpaRepository<CardCreditObservation, UUID> {
 
-    Optional<CardCreditObservation> findByTelegramMessageId(long telegramMessageId);
+    /** Spring Data turns a null userbotTelegramId into IS NULL, which is what legacy rows need. */
+    Optional<CardCreditObservation> findByUserbotTelegramIdAndTelegramMessageId(
+            Long userbotTelegramId, long telegramMessageId);
 
     /**
      * Whether the userbot ever saw money land on this card number.

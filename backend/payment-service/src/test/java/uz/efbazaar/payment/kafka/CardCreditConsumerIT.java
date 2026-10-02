@@ -118,7 +118,7 @@ class CardCreditConsumerIT extends AbstractIntegrationIT {
                 .getBytes(StandardCharsets.UTF_8));
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            var obs = observations.findByTelegramMessageId(messageId);
+            var obs = observations.findByUserbotTelegramIdAndTelegramMessageId(null, messageId);
             assertThat(obs)
                     .as("a card credit carrying no Java type header is still a card credit")
                     .isPresent();
@@ -162,7 +162,7 @@ class CardCreditConsumerIT extends AbstractIntegrationIT {
                     });
         }
 
-        assertThat(observations.findByTelegramMessageId(messageId))
+        assertThat(observations.findByUserbotTelegramIdAndTelegramMessageId(null, messageId))
                 .as("the malformed record must not have half-written a row either")
                 .isEmpty();
     }

@@ -55,13 +55,26 @@ public class ByCardService {
      */
     private final ApplicationEventPublisher appEvents;
 
+    /**
+     * @param userbotTelegramId Telegram user id of the account that saw the
+     *        message; null from a userbot that predates the field. Message ids
+     *        are per-account, so this is half of the idempotency key.
+     */
     public record CardCreditEvent(
             Long telegramMessageId,
             String cardLast4,
             Long amountTiyin,
             Long cardBalanceTiyin,
             Instant observedAt,
-            String rawText) {}
+            String rawText,
+            Long userbotTelegramId) {
+
+        /** The pre-userbot-panel shape; in-process callers and tests that do not care about the account. */
+        public CardCreditEvent(Long telegramMessageId, String cardLast4, Long amountTiyin,
+                               Long cardBalanceTiyin, Instant observedAt, String rawText) {
+            this(telegramMessageId, cardLast4, amountTiyin, cardBalanceTiyin, observedAt, rawText, null);
+        }
+    }
 
     /**
      * @return the stored observation, or {@code null} when the card is not the
@@ -69,10 +82,11 @@ public class ByCardService {
      */
     @Transactional
     public CardCreditObservation ingest(CardCreditEvent event) {
-        Optional<CardCreditObservation> seen =
-                observations.findByTelegramMessageId(event.telegramMessageId());
+        Optional<CardCreditObservation> seen = observations.findByUserbotTelegramIdAndTelegramMessageId(
+                event.userbotTelegramId(), event.telegramMessageId());
         if (seen.isPresent()) {
-            log.debug("Telegram message {} already ingested", event.telegramMessageId());
+            log.debug("Telegram message {} from account {} already ingested",
+                    event.telegramMessageId(), event.userbotTelegramId());
             return seen.get();
         }
 
@@ -91,6 +105,7 @@ public class ByCardService {
         CardCreditObservation obs = CardCreditObservation.builder()
                 .id(UUID.randomUUID())
                 .telegramMessageId(event.telegramMessageId())
+                .userbotTelegramId(event.userbotTelegramId())
                 .cardLast4(event.cardLast4())
                 .amountTiyin(event.amountTiyin())
                 .cardBalanceTiyin(event.cardBalanceTiyin())

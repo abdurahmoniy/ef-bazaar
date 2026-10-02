@@ -94,7 +94,7 @@ class CardDebitConsumerIT extends AbstractIntegrationIT {
                 .getBytes(StandardCharsets.UTF_8));
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            var obs = debits.findByTelegramMessageId(messageId);
+            var obs = debits.findByUserbotTelegramIdAndTelegramMessageId(null, messageId);
             assertThat(obs)
                     .as("a debit carrying no Java type header is still a debit")
                     .isPresent();
@@ -124,7 +124,7 @@ class CardDebitConsumerIT extends AbstractIntegrationIT {
                 .getBytes(StandardCharsets.UTF_8));
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            var obs = debits.findByTelegramMessageId(messageId);
+            var obs = debits.findByUserbotTelegramIdAndTelegramMessageId(null, messageId);
             assertThat(obs).isPresent();
             assertThat(obs.orElseThrow().getCommissionTiyin()).isNull();
             assertThat(obs.orElseThrow().getDescription()).isNull();

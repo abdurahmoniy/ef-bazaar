@@ -44,6 +44,7 @@ public class ByCardDebitService {
     private final PlatformCardService cards;
     private final ApplicationEventPublisher appEvents;
 
+    /** @param userbotTelegramId see {@link uz.efbazaar.payment.observation.service.ByCardService.CardCreditEvent} */
     public record CardDebitEvent(
             Long telegramMessageId,
             String cardLast4,
@@ -52,7 +53,16 @@ public class ByCardDebitService {
             Long cardBalanceTiyin,
             String description,
             Instant observedAt,
-            String rawText) {}
+            String rawText,
+            Long userbotTelegramId) {
+
+        public CardDebitEvent(Long telegramMessageId, String cardLast4, Long amountTiyin,
+                              Long commissionTiyin, Long cardBalanceTiyin, String description,
+                              Instant observedAt, String rawText) {
+            this(telegramMessageId, cardLast4, amountTiyin, commissionTiyin, cardBalanceTiyin,
+                    description, observedAt, rawText, null);
+        }
+    }
 
     @Transactional
     /**
@@ -60,10 +70,11 @@ public class ByCardDebitService {
      *         platform's — in which case nothing at all is recorded
      */
     public CardDebitObservation ingest(CardDebitEvent event) {
-        Optional<CardDebitObservation> seen =
-                debits.findByTelegramMessageId(event.telegramMessageId());
+        Optional<CardDebitObservation> seen = debits.findByUserbotTelegramIdAndTelegramMessageId(
+                event.userbotTelegramId(), event.telegramMessageId());
         if (seen.isPresent()) {
-            log.debug("Telegram message {} already ingested", event.telegramMessageId());
+            log.debug("Telegram message {} from account {} already ingested",
+                    event.telegramMessageId(), event.userbotTelegramId());
             return seen.get();
         }
 
@@ -81,6 +92,7 @@ public class ByCardDebitService {
         CardDebitObservation obs = CardDebitObservation.builder()
                 .id(UUID.randomUUID())
                 .telegramMessageId(event.telegramMessageId())
+                .userbotTelegramId(event.userbotTelegramId())
                 .cardId(card.get().getId())
                 .cardLast4(event.cardLast4())
                 .amountTiyin(event.amountTiyin())
