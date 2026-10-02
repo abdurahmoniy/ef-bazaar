@@ -8,6 +8,7 @@ requires-python = ">=3.12,<3.13"
 # va async testlar JIMGINA o'tkazib yuborilardi — "s" belgisi bilan, ya'ni
 # yashil natija ichida. smart-admin-worker'dagi bilan bir xil sozlama.
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = "-ra -q --strict-markers"
 
