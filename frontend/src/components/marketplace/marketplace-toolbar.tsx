@@ -58,7 +58,7 @@ export function MarketplaceToolbar({
           {quickChips}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <SortMenu options={sortOptions} activeId={activeSortId} compact />
+          {sortOptions.length > 0 && <SortMenu options={sortOptions} activeId={activeSortId} compact />}
           <div className="hidden sm:block"><MarketplaceViewMenu rawQuery={rawQuery} view={view} /></div>
         </div>
       </div>

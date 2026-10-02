@@ -31,7 +31,7 @@ let mediaChange: ((event: { matches: boolean }) => void) | undefined;
 let observers: { callback: IntersectionObserverCallback; disconnect: ReturnType<typeof vi.fn> }[];
 let fetchMock: ReturnType<typeof vi.fn>;
 const initialPage = page(['one', 'two']);
-const props = { initialPage, filters: { size: 2 }, rawQuery: '', view: 'auto' as const, matchCriteria: [] };
+const props = { initialPage, filters: { size: 2 }, rawQuery: '', view: 'auto' as const, matchCriteria: [], tab: 'market' as const, authenticated: false, mode: 'market' as const };
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

@@ -9,6 +9,7 @@ import { buildListingSearchParams } from '@/lib/marketplace-format';
 import { marketplaceHref, setMarketplacePage, type MarketplaceView } from '@/lib/marketplace-query';
 import { normalizeMarketplaceQuery } from '@/lib/marketplace-scroll-state';
 import type { ListingBrowseParams, ListingResponse, PageResponse } from '@/lib/marketplace-types';
+import type { MarketplaceMode, MarketplaceTab } from '@/lib/marketplace-page-loader';
 import type { PlayerMatchCriterion } from '@/lib/player-match-query';
 import { useMarketplaceHistory } from './marketplace-history-provider';
 import { MarketplaceScrollRestorer } from './marketplace-scroll-restorer';
@@ -21,6 +22,10 @@ interface MarketplaceListingFeedProps {
   rawQuery: string;
   view: MarketplaceView;
   matchCriteria: PlayerMatchCriterion[];
+  tab: MarketplaceTab;
+  authenticated: boolean;
+  mode: MarketplaceMode;
+  profileHash?: string;
 }
 
 export function MarketplaceListingFeed(props: MarketplaceListingFeedProps) {
