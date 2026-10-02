@@ -234,3 +234,25 @@ describe('listing card model', () => {
     }), []).clean).toBe(false);
   });
 });
+
+const feedBase = {
+  id: 'l', description: 'Akkount', price: 100000, priceNegotiable: false, status: 'ACTIVE',
+  attributes: {}, createdAt: '2026-10-01T00:00:00Z', likeCount: 0,
+} as unknown as ListingResponse;
+const details = {
+  percent: 7, exactCount: 2, alternateCount: 1, missingCount: 40, selectedCount: 43, strictness: 0,
+  exactEfhubIds: [1, 2], alternateEfhubIds: [3], missingEfhubIds: [], priorityEfhubIds: [],
+  earnedWeight: 3, possibleWeight: 44,
+};
+
+describe('match label', () => {
+  it('feed matches count players instead of a meaningless percent', () => {
+    const model = buildListingCardModel({ ...feedBase, matchDetails: details, matchKind: 'feed' }, []);
+    expect(model.matchLabel).toBe("3 ta o'yinchi mos");
+  });
+
+  it('player filter keeps the coverage label', () => {
+    const model = buildListingCardModel({ ...feedBase, matchDetails: details, matchKind: 'filter' }, []);
+    expect(model.matchLabel).toBe('3/43 mos · 7%');
+  });
+});

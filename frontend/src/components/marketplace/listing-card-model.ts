@@ -133,8 +133,11 @@ export function buildListingCardModel(
     coins: isMobile ? undefined : attributeNumber(listing, 'coins'),
     valuableCount: valuable.length,
     hasMetaCard: valuable.some((card) => card.metaTier === 'META'),
+    // Lentada profil 50 tagacha kriteriy — foiz ma'nosiz, shuning uchun faqat mos o'yinchilar soni.
     matchLabel: details
-      ? `${details.exactCount + details.alternateCount}/${details.selectedCount} mos · ${details.percent}%`
+      ? listing.matchKind === 'feed'
+        ? `${details.exactCount + details.alternateCount} ta o'yinchi mos`
+        : `${details.exactCount + details.alternateCount}/${details.selectedCount} mos · ${details.percent}%`
       : typeof listing.matchPercent === 'number'
         ? `${listing.matchPercent}% mos`
         : null,
