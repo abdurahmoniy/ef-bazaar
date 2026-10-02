@@ -26,27 +26,41 @@ class HumoWatcher:
         self._kafka = kafka
         self._chat = as_chat_ref(source_chat)
         self._flush_lock = asyncio.Lock()
+        self._resync_lock = asyncio.Lock()
 
     async def attach(self) -> None:
         # Handler first, history second: a message arriving in between is seen
         # twice, which the queue's primary key and payment's idempotency absorb.
         # The other order would lose it.
         self._client.on_incoming(self._chat, self._on_message)
-        last = await self._queue.last_message_id(self.account_id)
-        if last is None:
+        if await self._queue.last_message_id(self.account_id) is None:
             # A newly bound account: its past is not the platform's money.
             newest = await self._client.newest_message_id(self._chat)
             await self._queue.init_state(self.account_id, newest)
         else:
+            await self.resync()
+        await self.flush()
+
+    async def resync(self) -> int:
+        """Scan history after the watermark, oldest first, advancing the
+        watermark message by message. A crash mid-scan resumes at the first
+        unrecorded message. Returns how many messages were scanned."""
+        async with self._resync_lock:
+            last = await self._queue.last_message_id(self.account_id)
+            if last is None:
+                return 0
             missed = await self._client.history_after(self._chat, last)
             for msg in missed:
                 await self._queue.record(self.account_id, msg.id, observation_for(msg, self._tg))
             if missed:
-                log.info("caught up %d message(s) missed while down", len(missed))
-        await self.flush()
+                log.info("resync scanned %d message(s) after %d", len(missed), last)
+            return len(missed)
 
     async def _on_message(self, msg: Msg) -> None:
-        await self._queue.record(self.account_id, msg.id, observation_for(msg, self._tg))
+        # Enqueue only: the watermark moves solely by sequential scan, so a live
+        # failure (or a live message ahead of an unfinished scan) cannot hide a
+        # received message below it. resync() picks up anything this missed.
+        await self._queue.enqueue(self.account_id, msg.id, observation_for(msg, self._tg))
         await self.flush()
 
     async def flush(self) -> None:

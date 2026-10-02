@@ -38,21 +38,38 @@ class PendingQueue:
                 "INSERT INTO humo_watch_state (account_id, last_message_id) VALUES (:a, :m)"
                 " ON CONFLICT (account_id) DO NOTHING"), {"a": account_id, "m": last_id})
 
+    async def enqueue(self, account_id: UUID, message_id: int,
+                      item: tuple[str, dict[str, Any]] | None) -> None:
+        """Queue an observation WITHOUT touching the watermark. This is what the
+        live handler uses: a live message may arrive out of order with a scan, so
+        it must never move the watermark past messages not yet seen."""
+        if item is None:
+            return
+        async with self._engine.begin() as conn:
+            await self._insert(conn, account_id, message_id, item)
+
     async def record(self, account_id: UUID, message_id: int,
                      item: tuple[str, dict[str, Any]] | None) -> None:
+        """Enqueue AND advance the watermark, in one transaction. Only for a
+        sequential, oldest-first scan of history: there everything below
+        message_id has already been recorded, so advancing is safe."""
         async with self._engine.begin() as conn:
             if item is not None:
-                await conn.execute(text(
-                    "INSERT INTO humo_pending (account_id, message_id, topic, payload)"
-                    " VALUES (:a, :m, :t, CAST(:p AS JSONB)) ON CONFLICT DO NOTHING"),
-                    {"a": account_id, "m": message_id, "t": item[0],
-                     "p": json.dumps(item[1])})
+                await self._insert(conn, account_id, message_id, item)
             await conn.execute(text(
                 "INSERT INTO humo_watch_state (account_id, last_message_id) VALUES (:a, :m)"
                 " ON CONFLICT (account_id) DO UPDATE"
                 " SET last_message_id = GREATEST("
                 "humo_watch_state.last_message_id, EXCLUDED.last_message_id)"),
                 {"a": account_id, "m": message_id})
+
+    @staticmethod
+    async def _insert(conn, account_id: UUID, message_id: int,
+                      item: tuple[str, dict[str, Any]]) -> None:
+        await conn.execute(text(
+            "INSERT INTO humo_pending (account_id, message_id, topic, payload)"
+            " VALUES (:a, :m, :t, CAST(:p AS JSONB)) ON CONFLICT DO NOTHING"),
+            {"a": account_id, "m": message_id, "t": item[0], "p": json.dumps(item[1])})
 
     async def pending(self, account_id: UUID) -> list[Pending]:
         async with self._engine.connect() as conn:

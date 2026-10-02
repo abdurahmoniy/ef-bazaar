@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import pytest
 from sqlalchemy import text
 
 from tests.fakes import FakeAccountClient, FakeKafka
@@ -93,3 +94,68 @@ async def test_health_fails_when_the_client_is_down(repo, engine):
 async def test_health_fails_when_no_handler_is_registered(repo, engine):
     _, _, _, _, watcher = await setup(repo, engine)
     assert (await watcher.health())[0] is False   # attach() never ran
+
+
+async def test_a_live_delivery_does_not_move_the_watermark(repo, engine):
+    acc, client, queue, _, watcher = await setup(repo, engine)
+    await queue.init_state(acc.id, 5)
+    await watcher.attach()
+    await client.deliver(30, TOPUP)
+    assert await queue.last_message_id(acc.id) == 5
+
+
+async def test_a_live_enqueue_failure_is_recovered_by_resync(repo, engine):
+    acc, client, queue, kafka, watcher = await setup(repo, engine)
+    await queue.init_state(acc.id, 19)
+    await watcher.attach()
+
+    real = queue.enqueue
+    failed = []
+
+    async def flaky(account_id, message_id, item):
+        if message_id == 20 and not failed:
+            failed.append(message_id)
+            raise RuntimeError("db blip")
+        await real(account_id, message_id, item)
+
+    queue.enqueue = flaky
+    with pytest.raises(RuntimeError):      # Pyrogram's dispatcher swallows this in production
+        await client.deliver(20, TOPUP)
+    await client.deliver(21, TOPUP)
+    assert await queue.last_message_id(acc.id) == 19
+
+    client.history = [Msg(20, TOPUP, AT), Msg(21, TOPUP, AT)]
+    assert await watcher.resync() == 2
+    await watcher.flush()
+    published = [v["telegramMessageId"] for _, v, _ in kafka.sent]
+    # 21 was already published live and is re-observed by the scan: the duplicate
+    # is absorbed by payment's (userbotTelegramId, telegramMessageId) idempotency.
+    assert set(published) == {20, 21}
+    assert published.count(20) == 1
+
+
+async def test_a_crash_mid_catch_up_does_not_skip_the_rest(repo, engine):
+    acc, client, queue, kafka, watcher = await setup(repo, engine)
+    await queue.init_state(acc.id, 5)
+    await watcher.attach()
+    await client.deliver(9, TOPUP)          # live message arrives before catch-up runs
+    client.history = [Msg(i, TOPUP, AT) for i in (6, 7, 8, 9)]
+
+    real = queue.record
+
+    async def dying(account_id, message_id, item):
+        if message_id == 7:
+            raise RuntimeError("crash")
+        await real(account_id, message_id, item)
+
+    queue.record = dying
+    with pytest.raises(RuntimeError):
+        await watcher.resync()
+    assert await queue.last_message_id(acc.id) == 6
+
+    queue.record = real
+    await watcher.resync()
+    await watcher.flush()
+    published = [v["telegramMessageId"] for _, v, _ in kafka.sent]
+    assert set(published) == {6, 7, 8, 9}
+    assert all(published.count(i) == 1 for i in (6, 7, 8))
