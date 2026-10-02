@@ -28,9 +28,17 @@ public class CardCreditObservation {
     @Column(columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id;
 
-    /** Idempotency key. A Kafka redelivery collides here and credits nothing. */
+    /** Idempotency key together with userbotTelegramId. A Kafka redelivery collides here and credits nothing. */
     @Column(name = "telegram_message_id", nullable = false, updatable = false)
     private long telegramMessageId;
+
+    /**
+     * Telegram user id of the userbot account that saw the message. Message ids
+     * are only unique within one account, so this is half of the idempotency
+     * key. NULL on rows from the userbot that predates the field.
+     */
+    @Column(name = "userbot_telegram_id", updatable = false)
+    private Long userbotTelegramId;
 
     @Column(name = "card_last4", nullable = false, length = 4)
     private String cardLast4;
