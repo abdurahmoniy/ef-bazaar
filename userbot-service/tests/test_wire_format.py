@@ -56,6 +56,7 @@ def test_the_card_credit_payload_key_set_is_exactly_what_java_expects():
         card_balance_tiyin=3_165_916,
         observed_at=datetime(2026, 8, 10, 20, 41, tzinfo=UTC),
         raw_text="🎉 To'ldirish",
+        userbot_telegram_id=5_550_001,
     )
 
     assert set(payload) == {
@@ -65,6 +66,7 @@ def test_the_card_credit_payload_key_set_is_exactly_what_java_expects():
         "cardBalanceTiyin",
         "observedAt",
         "rawText",
+        "userbotTelegramId",
     }
     assert payload["observedAt"] == "2026-08-10T20:41:00Z"
     assert payload["amountTiyin"] == 3_000_000
@@ -79,6 +81,7 @@ def test_a_missing_card_balance_stays_null_rather_than_zero():
         card_balance_tiyin=None,
         observed_at=datetime(2026, 8, 10, 20, 41, tzinfo=UTC),
         raw_text="x",
+        userbot_telegram_id=5_550_001,
     )
     assert payload["cardBalanceTiyin"] is None
 
@@ -100,6 +103,7 @@ def test_the_card_debit_payload_key_set_is_exactly_what_java_expects():
         description="Openbank P2P HUMO OT",
         observed_at=datetime(2026, 9, 10, 20, 34, tzinfo=UTC),
         raw_text="💸 Amaliyot",
+        userbot_telegram_id=5_550_001,
     )
 
     assert set(payload) == {
@@ -111,6 +115,7 @@ def test_the_card_debit_payload_key_set_is_exactly_what_java_expects():
         "description",
         "observedAt",
         "rawText",
+        "userbotTelegramId",
     }
     assert payload["observedAt"] == "2026-09-10T20:34:00Z"
     assert payload["amountTiyin"] == 1_000_000
@@ -128,6 +133,7 @@ def test_a_debit_amount_is_always_positive_on_the_wire():
         description=None,
         observed_at=datetime(2026, 9, 10, 20, 34, tzinfo=UTC),
         raw_text="x",
+        userbot_telegram_id=5_550_001,
     )
     assert payload["amountTiyin"] > 0
 
@@ -143,5 +149,14 @@ def test_an_absent_commission_stays_null_rather_than_zero():
         description=None,
         observed_at=datetime(2026, 9, 10, 20, 43, tzinfo=UTC),
         raw_text="x",
+        userbot_telegram_id=5_550_001,
     )
     assert payload["commissionTiyin"] is None
+
+
+def test_the_observing_account_travels_with_every_observation():
+    """Message ids are only unique per account; payment-service keys on the pair."""
+    credit = build_card_credit_payload(
+        telegram_message_id=1, card_last4="4556", amount_tiyin=1, card_balance_tiyin=None,
+        observed_at=datetime(2026, 8, 10, tzinfo=UTC), raw_text="x", userbot_telegram_id=5_550_001)
+    assert credit["userbotTelegramId"] == 5_550_001

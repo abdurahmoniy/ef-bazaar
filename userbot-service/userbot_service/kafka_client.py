@@ -43,14 +43,18 @@ def build_card_credit_payload(
     card_balance_tiyin: int | None,
     observed_at: datetime,
     raw_text: str,
+    userbot_telegram_id: int,
 ) -> dict[str, Any]:
     """The card-credit wire payload.
 
-    Pure and separate from main.py on purpose: main.py imports pyrogram, which
+    Pure and separate from the watcher on purpose: the Telegram adapter imports pyrogram, which
     a test environment need not have, and these key names are a contract with
     a Java record on the other side. Renaming one here leaves every Python and
     Java test green while every deposit silently stops arriving, so the key set
     is asserted in tests/test_wire_format.py.
+
+    `userbotTelegramId` — the observing account; payment's idempotency key is
+    the (userbotTelegramId, telegramMessageId) pair.
     """
     return {
         "telegramMessageId": telegram_message_id,
@@ -59,6 +63,7 @@ def build_card_credit_payload(
         "cardBalanceTiyin": card_balance_tiyin,
         "observedAt": iso_z(observed_at),
         "rawText": raw_text,
+        "userbotTelegramId": userbot_telegram_id,
     }
 
 
@@ -98,6 +103,7 @@ def build_card_debit_payload(
     description: str | None,
     observed_at: datetime,
     raw_text: str,
+    userbot_telegram_id: int,
 ) -> dict[str, Any]:
     """The card-debit wire payload.
 
@@ -109,6 +115,9 @@ def build_card_debit_payload(
 
     Key names are a contract with a Java record; see the note on
     build_card_credit_payload.
+
+    `userbotTelegramId` — the observing account; payment's idempotency key is
+    the (userbotTelegramId, telegramMessageId) pair.
     """
     return {
         "telegramMessageId": telegram_message_id,
@@ -119,4 +128,5 @@ def build_card_debit_payload(
         "description": description,
         "observedAt": iso_z(observed_at),
         "rawText": raw_text,
+        "userbotTelegramId": userbot_telegram_id,
     }
