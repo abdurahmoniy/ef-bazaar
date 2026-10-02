@@ -1,35 +1,110 @@
-# humo-userbot
+# userbot-service
 
-A Pyrogram **MTProto user session** — a personal Telegram account, not a bot — that watches the
-Humo card bot's chat, parses top-up notifications and publishes them to Kafka.
+Several Telegram **user accounts** (MTProto, not bots) run from encrypted sessions kept in
+Postgres. An admin panel API connects and disconnects them and binds them to **tasks**; the
+payment task watches the Humo card bot's chat, parses card notifications and publishes them to
+Kafka. It replaces the old single-account `humo-userbot`.
 
-It is deliberately dumb. It knows nothing about invoices, users or money rules: it observes and
-reports, and `payment-service` decides what an observation means. That split is what lets this
-service be tested without Telegram and keeps every money rule inside one transactional service.
+It is deliberately dumb about money. It observes and reports; `payment-service` decides what an
+observation means. That split lets the service be tested without Telegram and keeps every money
+rule inside one transactional service.
 
-## What it publishes
+## Containers and tasks
+
+One image, two containers (`RUNNER` selects the entrypoint):
+
+| Container | Entrypoint | Runs |
+|-----------|-----------|------|
+| `userbot-core` (port 8089) | `userbot_service.main_core` | admin panel API, login sweeper, every ACTIVE account **not** bound to PAYMENT |
+| `userbot-payment` | `userbot_service.main_payment` | only the account bound to the `PAYMENT` task: Humo watcher, heartbeat, legacy-session import |
+
+The split keeps anything done for other tasks from stalling the process money depends on.
+Tasks (`features.py`): `PAYMENT` only for now.
+
+**Lease rule.** An account runs in exactly one container at a time, because Telegram revokes an
+auth key used from two places (`AUTH_KEY_DUPLICATED`). A client starts only after its row in
+`userbot_leases` is ours and stops before the lease could expire. Supervisor timing: the lease
+is renewed in its own task every 5 s with a 30 s TTL; a watchdog stops every client if no
+renewal succeeded for TTL-10 s; Telegram calls time out at 15 s, `on_started` (catch-up) at
+120 s, DB calls at 5 s. A failed log-out keeps the account `ACTIVE` and returns
+`TELEGRAM_ERROR`.
+
+## Admin panel API
+
+Behind nginx at `/api/userbot/**` (rewritten to `/api/**`); nginx authenticates and the service
+requires `ROLE_ADMIN` in `X-User-Roles`. Base path below is `/api/userbot`.
+
+| Method and path | Purpose |
+|-----------------|---------|
+| `POST /v1/logins` `{phone}` | Start a login; Telegram sends a code. Returns `{loginId, status, codeType, timeoutSec}` |
+| `POST /v1/logins/{id}/code` `{code}` | Submit the code. Status `CODE_SENT`, `PASSWORD_REQUIRED` (with `hint`) or done (with `account`) |
+| `POST /v1/logins/{id}/password` `{password}` | Submit the 2FA password |
+| `POST /v1/logins/{id}/resend` | Resend the code |
+| `DELETE /v1/logins/{id}` | Cancel (204) |
+| `GET /v1/accounts` | Accounts with status, masked phone, `alive`, `lastHeartbeat`, `runner`, bound `features`, `hasAvatar` |
+| `GET /v1/accounts/{id}/avatar` | JPEG avatar, 404 if none |
+| `DELETE /v1/accounts/{id}` | Log out and disconnect (204); refused with `ACCOUNT_BOUND` while bound |
+| `GET /v1/features` | Tasks with the bound account id |
+| `PUT /v1/features/{feature}` `{accountId}` | Bind a task to an ACTIVE account |
+
+`GET /healthz` is unauthenticated (container healthcheck). Pending logins live in memory for 300 s,
+at most 5 at a time, 5 attempts each; a sweeper drops abandoned ones every 30 s and survives its
+own failures.
+
+### Errors
+
+Every error is `{code, message, ...}` with an Uzbek `message` (extra keys such as `retryAfterSec`,
+`features` or `fields` where relevant). `422 VALIDATION_ERROR` lists only the failing field names
+in `fields` and **never echoes the input** (it may be a login code or password).
+
+| Code | HTTP |
+|------|------|
+| `FORBIDDEN` | 403 |
+| `PHONE_INVALID`, `PHONE_NOT_REGISTERED`, `PHONE_BANNED` | 400 |
+| `CODE_INVALID`, `CODE_EXPIRED`, `PASSWORD_INVALID` | 400 |
+| `FLOOD_WAIT` (`retryAfterSec`), `TOO_MANY_LOGINS` | 429 |
+| `LOGIN_GONE` | 410 |
+| `ALREADY_CONNECTED`, `ACCOUNT_BOUND`, `ACCOUNT_NOT_ACTIVE`, `ACCOUNT_BUSY` | 409 |
+| `ACCOUNT_NOT_FOUND`, `UNKNOWN_FEATURE`, `NOT_FOUND` | 404 |
+| `METHOD_NOT_ALLOWED` | 405 |
+| `VALIDATION_ERROR` | 422 |
+| `TELEGRAM_ERROR` | 502 |
+
+## What it publishes (Kafka)
+
+Only `userbot-payment` produces; `userbot-core` publishes nothing but log events.
 
 | Topic | Key | Payload |
 |-------|-----|---------|
-| `efbazaar.payment.card-credit-observed` | `telegramMessageId` | `{"telegramMessageId": 12345, "cardLast4": "4556", "amountTiyin": 3000000, "cardBalanceTiyin": 3165916, "observedAt": "2026-08-10T20:41:00Z", "rawText": "..."}` |
+| `efbazaar.payment.card-credit-observed` | `<userbotTelegramId>:<telegramMessageId>` | `{"userbotTelegramId": 777, "telegramMessageId": 12345, "cardLast4": "4556", "amountTiyin": 3000000, "cardBalanceTiyin": 3165916, "observedAt": "2026-08-10T20:41:00Z", "rawText": "..."}` |
+| `efbazaar.payment.card-debit-observed` | same | same plus `commissionTiyin`, `description` |
 | `efbazaar.payment.userbot-heartbeat` | — | `{"sentAt": "2026-08-10T20:41:00Z"}` |
 
-payment-service payload'da ixtiyoriy `userbotTelegramId` ni ham qabul qiladi (idempotency kaliti
-`(userbotTelegramId, telegramMessageId)`). Bu servis uni hozircha yubormaydi — userbot-service
-rejasida (`docs/superpowers/plans/2026-10-03-userbot-2-userbot-service.md`) qo'shiladi.
+`payment-service` dedupes on `(userbotTelegramId, telegramMessageId)`. Both are **plain JSON with
+no Kafka headers**: the Java side names the type with `spring.json.value.default.type`. Do not
+stamp a `__TypeId__` header; it would couple this service to a Java package path.
+**Renaming a field breaks the consumer silently** (the message is dropped); `tests/test_wire_format.py`
+pins the keys.
 
-Both are **plain JSON with no Kafka headers**. The Java side names the type with
-`spring.json.value.default.type` on its listener — the same convention trade-service already uses
-for every message smart-admin-worker produces. Do not stamp a `__TypeId__` header here: it would
-couple this Python service to a Java package path, and a Java-side refactor would silently break
-deposits.
+The heartbeat is the liveness signal. `payment-service` refuses new deposits without a recent one.
+`userbot-payment` **withholds** it (logging ERROR `withholding the heartbeat`) when no account is
+bound/running, the client is disconnected, no handler is registered, or an observation has been
+unpublished for over 60 s.
 
-`payment-service` deserializes both into fixed record types. **Renaming a field here breaks the
-consumer silently** — the message is dropped, not rejected loudly.
+### Payment watcher: delivery guarantees
 
-The heartbeat is this service's only liveness signal. `payment-service` refuses new deposits when
-it has not seen one recently, and counts the userbot as unhealthy before the very first beat
-arrives — which is the state every fresh deployment starts in.
+- Observations are written to the Postgres queue `humo_pending` **first** and deleted only after
+  Kafka acknowledged them, so neither a Kafka outage nor a restart loses money.
+- The live handler only enqueues. The watermark (`humo_watch_state.last_message_id`) moves only
+  by **sequential, oldest-first history scans**: `attach()` on start and `resync()` every 60 s;
+  `payment_maintenance` also flushes the queue every 5 s.
+- Consequence: an observation is normally published **twice** (live, then by resync). That is
+  safe because payment-service dedupes on `(userbotTelegramId, telegramMessageId)`.
+- Catch-up reads history up to the watermark with a **5000-message safety cap**; hitting it logs
+  ERROR.
+- A newly bound or imported account **starts at the newest message and replays nothing**. For an
+  imported account old rows were published without `userbotTelegramId`; a replay would
+  double-credit.
 
 ## The filter is a correctness boundary
 
@@ -50,72 +125,82 @@ makes the service fail **closed** — we stop crediting — rather than open.
 Money is integer tiyin end to end; no float ever touches an amount. `30.000,00` is `.`-grouped
 thousands and `,`-separated decimals, i.e. 30 000 UZS = 3 000 000 tiyin.
 
-## One-time interactive login — this cannot be automated in CI
+## Tables (`userbot_db`)
 
-A user session is created by an interactive Telegram login. There is no token, no API call and no
-headless path: Telegram sends a login code to the account and it must be typed in by a human.
+Alembic migrations (`db/migrations`, immutable once merged) run at container start.
 
-Run this **once**, on the server, in a terminal:
+| Table | Purpose |
+|-------|---------|
+| `userbot_accounts` | Account, masked phone, status (`ACTIVE`/`REVOKED`/`DISCONNECTED`), source, AES-GCM encrypted session (`session_ciphertext`, `session_iv`) |
+| `userbot_bindings` | `feature` -> `account_id` |
+| `userbot_leases` | Which runner holds an account, `lease_until`, `last_heartbeat` |
+| `humo_watch_state` | Watermark `last_message_id` per account |
+| `humo_pending` | Write-ahead queue of observations, PK `(account_id, message_id)` |
+| `userbot_audit` | Connect/disconnect/bind/revoke trail |
 
-```bash
-cd /opt/efbazaar
-docker compose run --rm -it humo-userbot python -c "
-from userbot_service.config import get_settings
-from pyrogram import Client
-s = get_settings()
-with Client(s.telegram_session_name, api_id=s.telegram_api_id,
-            api_hash=s.telegram_api_hash, workdir=s.telegram_session_dir) as app:
-    print('logged in as', app.get_me().username or app.get_me().id)
-"
-```
+## Connecting an account
 
-You will be prompted for, in order:
+Admin panel -> "Userbotlar" -> "Userbot ulash": phone, code, 2FA password if any. The old terminal
+command is gone. A session file left from the old deployment is **imported automatically on the
+first start** of `userbot-payment` (only while no PAYMENT binding exists; the file stays in the
+`humo-userbot-session` volume for rollback). If the import fails it is logged and the runner keeps
+starting; bind another account from the panel.
 
-1. **Phone number** of the account, in international format (`+998...`).
-2. **The login code** Telegram sends to that account (in the Telegram app, not by SMS, if the
-   account is already signed in elsewhere).
-3. **The 2FA password**, if the account has two-step verification enabled.
+**Sessions are credentials.** Anyone holding one controls the account. They are stored encrypted
+with `USERBOT_SESSION_KEY`; session strings, full phone numbers, codes and passwords are never
+logged or returned by the API. `*.session` is gitignored. Losing the key makes every stored
+session unreadable and the accounts must be reconnected.
 
-That writes `humo_userbot_session.session` into `TELEGRAM_SESSION_DIR` — the mounted
-`humo-userbot-session` volume — after which `docker compose up -d humo-userbot` starts without
-prompting. Until the session exists the container crash-loops: with no TTY the login prompt raises
-immediately. That is the expected state of a fresh deployment, not a bug.
+### Deploy and rollback
 
-**The `.session` file is a credential.** Anyone holding it has full control of that Telegram
-account. It is never committed (`*.session` is gitignored), never logged, and lives only in the
-Docker volume. Deleting the volume means redoing the interactive login.
+- Before the first deploy add the GitHub Secret `USERBOT_SESSION_KEY` (`openssl rand -base64 32`).
+- `deploy.sh` creates `userbot_db` and removes the old `efbazaar-humo-userbot` container as the
+  **last** bootstrap step, right before `docker compose up -d`.
+- After deploy: `docker logs efbazaar-userbot-payment | grep imported` should show the import and
+  `grep withholding` should be empty.
+- **Rollback:** stop `userbot-payment` first, then run the old `humo-userbot` image. Never both at
+  once; `AUTH_KEY_DUPLICATED` revokes the session.
 
 ## Configuration
 
 | Env var | Required | Default | Notes |
 |---------|----------|---------|-------|
+| `RUNNER` | **yes** | — | `core` or `payment` (set per container in compose). |
 | `TELEGRAM_API_ID` | **yes** | — | From <https://my.telegram.org>. GitHub Secret. |
-| `TELEGRAM_API_HASH` | **yes** | — | Same. GitHub Secret. |
+| `TELEGRAM_API_HASH` | **yes** | — | Same. |
 | `KAFKA_BOOTSTRAP_SERVERS` | **yes** | — | `kafka:9092` in compose. |
+| `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | **yes** | — | |
+| `POSTGRES_PORT` | no | `5432` | |
+| `POSTGRES_DB` | no | `userbot_db` | Compose passes `USERBOT_DB_NAME`. |
+| `USERBOT_SESSION_KEY` | **yes** | — | base64 of 32 bytes. GitHub Secret. |
+| `HTTP_PORT` | no | `8089` | Admin API (core). |
+| `AVATAR_DIR` | no | `/avatars` | Avatar cache volume. |
 | `HUMO_SOURCE_CHAT` | no | `humocardbot` | Username **or** numeric chat id; a numeric value is coerced to `int` so `filters.chat` matches on id rather than username. |
-| `TELEGRAM_SESSION_NAME` | no | `humo_userbot_session` | |
-| `TELEGRAM_SESSION_DIR` | no | `/run/secrets` | `/session` in compose. |
+| `TELEGRAM_SESSION_NAME` | no | `humo_userbot_session` | Legacy import only. |
+| `TELEGRAM_SESSION_DIR` | no | `/session` | Legacy import only. |
 | `HEARTBEAT_INTERVAL_SECONDS` | no | `60` | |
 | `LOG_LEVEL` | no | `INFO` | |
 
-`TELEGRAM_API_ID`, `TELEGRAM_API_HASH` and the chat id are secrets. They never appear as literals
-in a committed file: GitHub Secrets → `deploy.yml` → `deploy.sh` → `.env` on the server.
-
-The first two have **no default**, so `Settings()` raises at import if they are unset and the
-container crash-loops rather than starting a client that could never authenticate.
+`TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `USERBOT_SESSION_KEY` and the chat id are secrets. They
+never appear as literals in a committed file: GitHub Secrets -> `deploy.yml` -> `deploy.sh` ->
+`.env` on the server. Required fields have no default, so `Settings()` raises at start and the
+container crash-loops rather than running a client that could never authenticate.
 
 ## Development
 
 ```bash
-pip install -r requirements-dev.txt
-python -m pytest tests/ -v
+cd userbot-service
+uv venv -p 3.12 .venv && . .venv/bin/activate
+uv pip install -r requirements-dev.txt
 ruff check userbot_service/ tests/
+pytest -q
 ```
 
-The tests need neither Telegram nor Kafka: `parse_topup` and `as_chat_ref` are pure functions, and
-that is on purpose — the filter above is the single place where being wrong costs real money, so it
-must be testable offline.
+DB tests need Docker (testcontainers). On Docker versions where testcontainers' Ryuk reaper dies,
+use `TESTCONTAINERS_RYUK_DISABLED=true pytest -o addopts="" -q`.
 
-`tests/test_parser.py` keeps every fixture as a module-level constant. The top-up fixture is a real
-captured message; the withdrawal one is a **reconstruction**, and real captures should be pasted
-over the constants without touching any assertion.
+The parser and `as_chat_ref` are pure functions and need neither Telegram nor Kafka, on purpose:
+the filter above is where being wrong costs real money, so it must be testable offline.
+`tests/test_parser.py` keeps every fixture as a module-level constant. The top-up fixture is a
+real captured message; the withdrawal one is a **reconstruction**, and real captures should be
+pasted over the constants without touching any assertion.

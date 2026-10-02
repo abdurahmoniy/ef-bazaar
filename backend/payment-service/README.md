@@ -18,7 +18,7 @@ hisob-kitobi. Pul qoidalari faqat shu servisda — boshqalar `/internal/**` orqa
    kartasi va shu invoice uchun **noyob summa** beriladi. (karta, summa) jufti invoice
    yashagan davomida band.
 2. Foydalanuvchi kartaga pul o'tkazadi.
-3. `humo-userbot` Humo bot chatidagi xabarni o'qib `payment.card-credit-observed` chiqaradi.
+3. `userbot-payment` Humo bot chatidagi xabarni o'qib `payment.card-credit-observed` chiqaradi.
 4. `ByCardService` kuzatuvni ochiq invoice bilan moslaydi va hamyonga yozadi. Mos kelmasa —
    admin navbatiga (`/admin/payments/observations/unmatched`). Shubhali holatda xavfsizroq yo'l tanlanadi.
 5. `InvoiceExpirySweeper` muddati o'tgan invoicelarni `EXPIRED` qiladi va (karta, summa) juftini bo'shatadi.
@@ -48,7 +48,7 @@ Userbot'dan `userbot-heartbeat` kelmay qolsa yangi to'ldirishlar qabul qilinmayd
 
 ## Kafka
 
-- Tinglaydi: `payment.card-credit-observed`, `payment.card-debit-observed`, `payment.userbot-heartbeat` (humo-userbot'dan).
+- Tinglaydi: `payment.card-credit-observed`, `payment.card-debit-observed`, `payment.userbot-heartbeat` (userbot-payment'dan).
   Kuzatuvlar `(userbotTelegramId, telegramMessageId)` juftligi bo'yicha idempotent (V14): Telegram xabar
   id'lari faqat bitta akkount ichida noyob, payment kuzatuvi boshqa akkountga o'tkazilsa id'lar
   to'qnashadi. `userbotTelegramId` siz (eski userbot) xabar `NULL` bilan saqlanadi va o'zaro takror deb topiladi.
@@ -62,7 +62,7 @@ Hozirgi publisher broker ishlamasa xabarni log qilib tashlab yuboradi (outbox yo
 
 - Ledger'ga faqat `LedgerService.post` orqali yozing. Har harakat idempotent kalit bilan
   (masalan withdrawal ticket id) — qayta urinish ikki marta yozmaydi.
-- `humo-userbot` chiqishiga pastda ikkinchi tekshiruv yo'q: kuzatuv payload'idagi maydon
+- `userbot-payment` chiqishiga pastda ikkinchi tekshiruv yo'q: kuzatuv payload'idagi maydon
   nomini o'zgartirish consumer'ni **jim** sindiradi (xabar tashlab yuboriladi).
 - Platformaning zarari (kartadagi puldan ko'p majburiyat) — biznes holati, xato emas.
 

@@ -104,9 +104,9 @@ so'rov topiclarini tinglaydi.
 
 | Topic | Producer | Consumer(lar) |
 |---|---|---|
-| `efbazaar.payment.card-credit-observed` | humo-userbot | payment (kartaga pul tushdi) |
-| `efbazaar.payment.card-debit-observed` | humo-userbot | payment (kartadan pul chiqdi) |
-| `efbazaar.payment.userbot-heartbeat` | humo-userbot | payment (userbot tirikmi) |
+| `efbazaar.payment.card-credit-observed` | userbot-payment | payment (kartaga pul tushdi) |
+| `efbazaar.payment.card-debit-observed` | userbot-payment | payment (kartadan pul chiqdi) |
+| `efbazaar.payment.userbot-heartbeat` | userbot-payment | payment (userbot tirikmi) |
 | `efbazaar.payment.deposit-credited` | payment | marketplace (qo'ng'iroqcha), auth (enricher → bot) |
 | `efbazaar.payment.withdrawal-requested` | payment | marketplace |
 | `efbazaar.payment.withdrawal-closed` | payment | marketplace |
@@ -128,6 +128,6 @@ xabar id'lari faqat bitta akkount ichida noyob. Maydonsiz xabar eski userbotdan,
 
 | Topic | Producer | Consumer |
 |---|---|---|
-| `efbazaar.system.log-event` | auth, marketplace, trade, payment (`KafkaLogForwarder`), smart-admin-worker, humo-userbot | bot (WARN/ERROR → Telegram logs topigi) |
+| `efbazaar.system.log-event` | auth, marketplace, trade, payment (`KafkaLogForwarder`), smart-admin-worker, userbot-core, userbot-payment | bot (WARN/ERROR → Telegram logs topigi) |
 
 access-service va bot o'zi bu topicga yozmaydi.

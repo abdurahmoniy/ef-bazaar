@@ -1,4 +1,4 @@
-# humo-userbot
+# userbot-service
 
 Bu komponentning vazifasi, API, Kafka, jadvallar va ehtiyot bo'ladigan joylari:
 
