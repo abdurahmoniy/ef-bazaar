@@ -27,6 +27,7 @@ import { isUserBlacklisted } from '@/lib/gamer-server';
 import { getSellerRatingSummary } from '@/lib/trade-server';
 import { resolveOptionalUser } from '@/lib/optional-auth';
 import { absoluteUrl, siteConfig } from '@/lib/site';
+import { getListingMatch } from '@/lib/rec-server';
 
 export const dynamic = 'force-dynamic';
 // Browser route reuse only; listing mutations clear this through router.refresh.
@@ -162,9 +163,10 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
   backParams.delete('view');
   const backQuery = backParams.toString();
   const backHref = backQuery ? `/marketplace?${backQuery}` : '/marketplace';
-  const [viewer, result] = await Promise.all([
+  const [viewer, result, match] = await Promise.all([
     resolveOptionalUser(getMe),
-    getListing(id, matchFilters.matchCards, matchFilters.matchStrictness),
+    getListing(id),
+    getListingMatch(id, matchFilters.matchCards, matchFilters.matchStrictness),
   ]);
 
   // Kanaldagi postdan kelgan bo'lsa yozib qo'yamiz. Savdo ulushi
@@ -183,7 +185,7 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
     );
   }
 
-  const listing = result.data;
+  const listing = match ? { ...result.data, matchDetails: match, matchKind: 'filter' as const } : result.data;
   const isOwner = viewer?.id === listing.sellerId;
   const buyerPreview = isOwner && originatingParams.view === 'buyer';
   const completion = isOwner && (originatingParams.result === 'created' || originatingParams.result === 'published')

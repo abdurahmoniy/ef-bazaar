@@ -1,6 +1,6 @@
 'use client';
 
-import { buildMarketplaceApiPath } from './marketplace-client-api';
+import { buildMarketplaceApiPath, REC_API_BASE } from './marketplace-client-api';
 import { publishListingLikeChange } from './listing-cache-event';
 import type {
   AttributeDefinitionCreatePayload,
@@ -57,9 +57,10 @@ export async function marketplaceRequest<T>(
   path: string[],
   init: RequestInit,
   fallbackMessage: string,
+  basePath?: string,
 ): Promise<ActionResult<T>> {
   try {
-    const response = await fetch(buildMarketplaceApiPath(path), {
+    const response = await fetch(buildMarketplaceApiPath(path, undefined, basePath), {
       ...init,
       headers: {
         Accept: 'application/json',
@@ -255,6 +256,7 @@ export function saveDreamTeam(payload: DreamTeamPayload): Promise<ActionResult<D
     ['v1', 'dream-teams', 'me'],
     { method: 'PUT', body: JSON.stringify(payload) },
     'Jamoa saqlanmadi',
+    REC_API_BASE,
   );
 }
 

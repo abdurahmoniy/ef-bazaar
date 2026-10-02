@@ -3,6 +3,7 @@ import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
 import { getAdminCards } from '@/lib/marketplace-server';
 import type { CardType, MetaTier } from '@/lib/marketplace-types';
+import { getCardInterestCounts } from '@/lib/rec-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,12 +34,19 @@ export default async function AdminPlayersPage({ searchParams }: AdminPlayersPag
     return <ApiErrorPanel title="O'yinchilar yuklanmadi" error={result.error} />;
   }
 
+  // Talab sonlari recommendation-service'da; u o'chiq bo'lsa katalog nol bilan ochiladi.
+  const demand = await getCardInterestCounts(result.data.items.map((card) => card.efhubId));
+  const cards = result.data.items.map((card) => {
+    const counts = demand[String(card.efhubId)];
+    return counts ? { ...card, interest7d: counts.days7, interest30d: counts.days30 } : card;
+  });
+
   const totalPages = Math.max(1, Math.ceil(result.data.total / (result.data.size || PAGE_SIZE)));
 
   return (
     <div className="space-y-4">
       <AdminPlayers
-        cards={result.data.items}
+        cards={cards}
         total={result.data.total}
         query={query}
         activeType={type}

@@ -61,7 +61,7 @@ describe('saveDreamTeam', () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(fetchMock).toHaveBeenCalledWith('/api/marketplace/v1/dream-teams/me', expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith('/api/rec/v1/dream-teams/me', expect.objectContaining({
       method: 'PUT',
       credentials: 'include',
     }));

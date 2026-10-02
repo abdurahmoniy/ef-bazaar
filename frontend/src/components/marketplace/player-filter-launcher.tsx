@@ -7,7 +7,7 @@ import {
   PlayerFilterDialog,
   type PlayerMatchSelection,
 } from '@/components/marketplace/player-filter-dialog';
-import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
+import { buildMarketplaceApiPath, REC_API_BASE } from '@/lib/marketplace-client-api';
 import {
   mergeCachedPlayerSelections,
   parsePlayerFilterCache,
@@ -105,7 +105,7 @@ export function PlayerFilterLauncher({
     teamLoadStartedRef.current = true;
     const controller = new AbortController();
     teamControllerRef.current = controller;
-    fetch(buildMarketplaceApiPath(['v1', 'dream-teams']), {
+    fetch(buildMarketplaceApiPath(['v1', 'dream-teams'], undefined, REC_API_BASE), {
       headers: { Accept: 'application/json' },
       credentials: 'include',
       signal: controller.signal,
@@ -153,7 +153,7 @@ export function PlayerFilterLauncher({
     if (criteria?.length) {
       // Buyer intent is informational only. Fire-and-forget so Redis/network
       // issues can never delay applying the marketplace filter.
-      void fetch(buildMarketplaceApiPath(['v1', 'card-interest', 'apply']), {
+      void fetch(buildMarketplaceApiPath(['v1', 'card-interest', 'apply'], undefined, REC_API_BASE), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'include',

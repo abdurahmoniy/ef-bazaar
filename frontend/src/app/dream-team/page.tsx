@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { DreamTeamEditor } from '@/components/marketplace/dream-team-editor';
 import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
-import { getDreamTeams } from '@/lib/marketplace-server';
+import { getDreamTeams } from '@/lib/rec-server';
 import { FeatureGate } from '@/components/feature-gate';
 
 export const dynamic = 'force-dynamic';
