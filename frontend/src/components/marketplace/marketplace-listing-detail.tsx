@@ -1,3 +1,4 @@
+import { PopupTriggerSignal } from '@/components/popups/popup-trigger';
 import Link from 'next/link';
 import Image from 'next/image';
 import { CompletionNotice } from './completion-notice';
@@ -201,6 +202,7 @@ export function MarketplaceListingDetail({
 
   return (
     <article className="space-y-4">
+      {ownerView && listing.status === 'ACTIVE' && completion && <PopupTriggerSignal trigger="LISTING_PUBLISHED" eventKey={listing.id} userId={viewer!.id} />}
       {ownerView && <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-muted-foreground">Sizning e’loningiz</p>
         <Button asChild variant="outline" className="min-h-11"><Link href={`/marketplace/${listing.id}?view=buyer`}>Xaridor ko‘rinishi</Link></Button>

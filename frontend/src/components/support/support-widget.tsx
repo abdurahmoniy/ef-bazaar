@@ -99,7 +99,7 @@ export function SupportWidget({ user }: SupportWidgetProps) {
 
       {/* Floating Chat Modal / Panel */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-end justify-center sm:justify-end p-0 sm:p-6 bg-black/40 sm:bg-transparent backdrop-blur-sm sm:backdrop-blur-none pointer-events-auto">
+        <div data-interruption-open="support" className="fixed inset-0 z-50 flex items-end sm:items-end justify-center sm:justify-end p-0 sm:p-6 bg-black/40 sm:bg-transparent backdrop-blur-sm sm:backdrop-blur-none pointer-events-auto">
           <div
             className={cn(
               'w-full sm:max-w-md bg-card border border-border sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col',

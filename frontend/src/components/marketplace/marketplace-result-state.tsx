@@ -1,3 +1,4 @@
+import { PopupTriggerSignal } from '@/components/popups/popup-trigger';
 import { AlertTriangle, PackageSearch } from 'lucide-react';
 
 import { MarketplacePendingLink } from '@/components/marketplace/marketplace-navigation';
@@ -104,6 +105,7 @@ export function MarketplaceEmptyState({ state }: { state: MarketplaceEmptyStateM
       title={state.title}
       body={state.body}
     >
+      <PopupTriggerSignal trigger="EMPTY_SEARCH" eventKey={state.title + state.primaryHref} />
       <Button asChild className="min-h-11">
         <MarketplacePendingLink href={state.primaryHref}>
           {state.primaryLabel}

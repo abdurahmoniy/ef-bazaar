@@ -66,3 +66,12 @@ npm run typecheck && npm run lint && npm test && npm run build   # CI bilan bir 
   orqali o'rnatiladi; u yerda DevTools inspector ishlamaydi.
 - Media URL'lar bot proxy'siga ishora qiladi (`/bot/photo/{fileId}`) — faylning o'zi Telegram'da.
 - Firebase push: [docs/firebase-notifications.md](docs/firebase-notifications.md).
+
+## Kontekstli pop-up xabarlar
+
+- Admin: `/admin/popups` — qoralama, ko‘rib chiqish, auditoriya (barcha/sotuvchilar/tanlangan UUID), trigger, muddat, ichki CTA, faollashtirish/to‘xtatish va ko‘rsatish/bosish/yopish statistikasi.
+- `src/components/popups/` — Radix dialog, brauzer koordinatori va haqiqiy voqea signallari. `src/lib/popups/` — API, tiplar va e’tibor siyosati. Marketplace shell autentifikatsiyalangan foydalanuvchini uzatadi; alohida auth so‘rovi kerak emas.
+- BROWSE, LISTING_PUBLISHED, EMPTY_SEARCH va yangi TRADE_COMPLETED signallari. Savdo tarixi signal bermaydi. Savdo signali 5 daqiqa, qolgan kontekstlar 60 soniya amal qiladi.
+- Brauzer 15 soniya sahifada va 3 soniya tinchlikni kutadi; so‘rovlar foydalanuvchi/sessiya uchun kamida 60 soniya oralig‘ida. Chat/hamyon/forma/admin sahifalarida, yashirin tabda, matn yozayotganda yoki boshqa oynada ko‘rsatilmaydi. Push taklifi xuddi shu slot va brauzer limitlarini ishlatadi, kamida 45 soniya kutadi.
+- Backend atomik limitlari: bir sessiyada 1, 24 soatda 2, oraliq kamida 6 soat, har kampaniya foydalanuvchiga bir marta. Claim rezervatsiyasi limitni sarflaydi; faqat renderdan keyingi SHOWN ko‘rsatish deb sanaladi. Yo‘l o‘zgarsa kechikkan javob tashlanadi.
+- Mavjud marketplace-servisdagi `/api/v1/popups/**` va admin endpointlar ishlatiladi. Alohida worker, deploy sozlamasi yoki boshlang‘ich faol kampaniya yo‘q. Lokal preview yubormaydi va statistikani o‘zgartirmaydi.

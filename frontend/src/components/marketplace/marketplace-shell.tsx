@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PopupHost } from '@/components/popups/popup-host';
 import {
   MessageCircle,
   Plus,
@@ -112,6 +113,7 @@ export function MarketplaceShell({
   return (
     <div
       data-marketplace-shell
+      data-popup-user-id={!sessionPending ? user?.id : undefined}
       className="min-h-app bg-background"
     >
       {/*
@@ -122,6 +124,7 @@ export function MarketplaceShell({
         sahifalarning aksariyatini o'raydi.
       */}
       <ReferralCapture authenticated={!!user} />
+      {!sessionPending && <PopupHost userId={user?.id ?? null} />}
       {!sessionPending && <SessionCacheBoundary accountId={user?.id ?? null} />}
       <header className={cn(
         "sticky top-0 z-40 border-b border-border surface-nav pt-[var(--app-content-safe-top)]",

@@ -55,7 +55,7 @@ function Invitation({ userId, state, mode, busy, enable, transport = 'browser' }
         : 'Yangi xabar va savdo yangiliklarini sayt yopiq bo‘lsa ham shu qurilmada oling.';
 
   return (
-    <aside aria-label="Bildirishnomalarni yoqish taklifi" className="fixed bottom-[calc(var(--marketplace-bottom-bar-height,4.5rem)+0.75rem)] left-4 right-4 z-50 rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-lg sm:bottom-6 sm:left-auto sm:right-6 sm:w-96">
+    <aside data-interruption-open="push" aria-label="Bildirishnomalarni yoqish taklifi" className="fixed bottom-[calc(var(--marketplace-bottom-bar-height,4.5rem)+0.75rem)] left-4 right-4 z-50 rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-lg sm:bottom-6 sm:left-auto sm:right-6 sm:w-96">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Bell aria-hidden className="h-5 w-5" /></span>
         <div className="min-w-0 flex-1">

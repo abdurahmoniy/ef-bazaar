@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { usePushInvitationSlot } from '@/components/popups/use-push-invitation-slot';
 import { enableTelegramPush, getTelegramPushApp, getTelegramPushState } from '@/lib/telegram-push';
 import type { TelegramWebApp } from '@/lib/types';
 import { dismissPushInvitation, isPushInvitationDismissed, PushPermissionPrompt } from './push-permission-prompt';
@@ -33,6 +34,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
   const unsubscribe = useRef<(() => void) | null>(null);
   const mounted = useRef(true);
   const automaticAttempts = useRef(new Set<string>());
+  const invitationAllowed = usePushInvitationSlot(userId, ['available', 'install', 'unsupported', 'error'].includes(state) && Boolean(userId && !isPushInvitationDismissed(userId)));
 
   const refresh = useCallback(async () => {
     if (pending.current) return;
@@ -120,7 +122,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!userId || state !== 'available' || pending.current
+    if (!invitationAllowed || !userId || state !== 'available' || pending.current
       || (transport === 'browser' && (!('Notification' in window) || Notification.permission !== 'default'))
       || isPushInvitationDismissed(userId)
       || automaticAttempts.current.has(userId)) return;
@@ -129,7 +131,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
     automaticAttempts.current.add(userId);
     try { sessionStorage.setItem(key, 'attempted'); } catch { /* Storage may be unavailable. */ }
     startEnable(true);
-  }, [userId, state, transport, startEnable]);
+  }, [userId, state, transport, startEnable, invitationAllowed]);
 
   const enable = () => startEnable(false);
   function disable() {
@@ -143,6 +145,6 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
   }
   return <PushControlsContext.Provider value={{ state, transport, busy, enable, disable, retry: () => { void refresh(); } }}>
     {children}
-    <PushPermissionPrompt transport={transport} userId={userId} state={state} busy={busy} enable={enable} />
+    {invitationAllowed && <PushPermissionPrompt transport={transport} userId={userId} state={state} busy={busy} enable={enable} />}
   </PushControlsContext.Provider>;
 }
