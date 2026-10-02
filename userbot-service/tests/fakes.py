@@ -99,7 +99,7 @@ class FakeAccountClient:
         for h in self.handlers:
             await h(Msg(msg_id, text, datetime(2026, 10, 1, tzinfo=UTC)))
 
-    async def history_after(self, chat, after_id, limit=500):
+    async def history_after(self, chat, after_id, limit=5000):
         return [m for m in self.history if m.id > after_id]
 
     async def newest_message_id(self, chat):

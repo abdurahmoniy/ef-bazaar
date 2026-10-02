@@ -138,14 +138,31 @@ class PyrogramAccountClient:
         try:
             await self._client.start()
         except Exception as e:
+            # Client.start() disconnects only if authorization fails; a get_me()
+            # failure afterwards leaves it connected but not initialized.
+            await self._disconnect_quietly()
             dead = as_session_dead(e)
             if dead is not None:
                 raise dead from e
             raise
 
     async def stop(self) -> None:
-        if self._client.is_connected and not self._logged_out:
-            await self._client.stop()
+        if not self._client.is_connected or self._logged_out:
+            return
+        try:
+            if self._client.is_initialized:
+                await self._client.stop()
+            else:
+                await self._client.disconnect()
+        except ConnectionError:
+            log.debug("client was already terminated", exc_info=True)
+
+    async def _disconnect_quietly(self) -> None:
+        try:
+            if self._client.is_connected:
+                await self._client.disconnect()
+        except Exception:
+            log.warning("disconnecting after a failed start failed", exc_info=True)
 
     async def get_me(self) -> Me:
         try:
@@ -175,10 +192,18 @@ class PyrogramAccountClient:
 
         self._client.add_handler(MessageHandler(handler, filters.chat(chat) & filters.incoming))
 
-    async def history_after(self, chat: str | int, after_id: int, limit: int = 500) -> list[Msg]:
+    async def history_after(
+        self, chat: str | int, after_id: int, limit: int = 5000
+    ) -> list[Msg]:
+        # No Pyrogram-side limit: it would keep the newest N and silently drop
+        # the oldest, and the caller advances past whatever we return.
         found: list[Msg] = []
-        async for message in self._client.get_chat_history(chat, limit=limit):
+        async for message in self._client.get_chat_history(chat):
             if message.id <= after_id:
+                break
+            if len(found) >= limit:
+                log.error("history catch-up hit its cap: read %d messages after %d "
+                          "and older ones remain unread", len(found), after_id)
                 break
             if message.outgoing:
                 continue
