@@ -63,7 +63,7 @@ oladi.
 
 ## 4. Komponentlar
 
-### 4.1 DB: `efbazaar_userbot`
+### 4.1 DB: `userbot_db`
 
 Postgres'da alohida baza (`infra/` init skripti). Migratsiyalar Alembic bilan, kod SQLAlchemy async +
 asyncpg. Alembic revision'lari Flyway V-fayllari kabi **immutable**: merge bo'lganini edit qilish
@@ -178,7 +178,16 @@ Takrorlanish xavfsiz, chunki payment `(userbot_telegram_id, telegram_message_id)
 
 Ikkalasi ham to'g'ri bo'lsa: fayldan client ochiladi, `get_me()` va `export_session_string()`
 chaqiriladi, `userbot_accounts` ga `source=IMPORTED` bilan yoziladi va `PAYMENT` ga biriktiriladi
-(audit `IMPORTED`). Client to'xtatiladi va oddiy runner oqimi davom etadi. Fayl **o'chirilmaydi**,
+(audit `IMPORTED`). Client to'xtatiladi va oddiy runner oqimi davom etadi.
+
+Import qilingan akkount uchun `humo_watch_state` joriy oxirgi xabardan boshlanadi, tarix qayta
+**o'ynalmaydi**. Sabab: eski userbot xabarlarni `userbotTelegramId` siz (`NULL`) yuborgan, qayta
+o'ynalgan nusxa esa id bilan ketadi. payment ular uchun boshqa kalit ko'radi va pulni **ikki marta**
+kreditlaydi. Deploy paytidagi bir necha soniyalik bo'shliq bugungi har deploydagi bo'shliq bilan bir xil.
+
+Eski `efbazaar-humo-userbot` container'i yangi runner ishga tushishidan **oldin** to'xtashi shart,
+aks holda bitta auth key ikki joyda ishlaydi (cheklov 1). `deploy.sh` `up -d` dan oldin uni
+`docker rm -f` qiladi, `--remove-orphans` ga ishonilmaydi. Fayl **o'chirilmaydi**,
 shuning uchun rollback mumkin. Import bitta tranzaksiyada bo'ladi va `telegram_user_id UNIQUE`
 tufayli takroriy start ikkinchi yozuv yaratmaydi.
 
@@ -267,7 +276,7 @@ kerak bo'lgani uchun ikkala runner rasmni umumiy volume'dagi `avatars/<accountId
 
 `2026-09-30-transactional-outbox-design.md` §4.2 humo-userbot uchun volume'dagi SQLite navbatini
 rejalashtirgan edi. U hali qilinmagan. Shu dizayn uning o'rnini bosadi: navbat (`humo_pending`) va
-holat (`humo_watch_state`) `efbazaar_userbot` Postgres'ida, akkount bo'yicha saqlanadi. Outbox
+holat (`humo_watch_state`) `userbot_db` Postgres'ida, akkount bo'yicha saqlanadi. Outbox
 spec'iga shu haqda eslatma qo'shiladi.
 
 ## 8. Frontend
@@ -302,7 +311,7 @@ Har qadam orqaga moslashuvchan, har biri alohida PR:
    - `git mv humo-userbot userbot-service`.
    - compose: `userbot-core` va `userbot-payment`. Eski `humo-userbot-session` volume'i
      `userbot-payment` ga mount qilinadi (import uchun), `userbot-avatars` volume'i ikkalasiga.
-   - `infra/` da `efbazaar_userbot` DB init, nginx'da `/api/userbot/**`, `deploy.yml` va `ci.yml` path
+   - `infra/` da `userbot_db` DB init, nginx'da `/api/userbot/**`, `deploy.yml` va `ci.yml` path
      filter'lari, `USERBOT_SESSION_KEY` va DB parol secret'lari (GitHub Secrets → `deploy.sh` → `.env`).
    - Alembic migratsiyasi container startida ishlaydi (`alembic upgrade head`, advisory lock bilan,
      chunki ikki container bir vaqtda turadi).
