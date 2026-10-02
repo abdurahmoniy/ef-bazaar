@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { TradeCompletedPopupTrigger } from '@/components/popups/popup-trigger';
 import React, {
   createContext,
   useCallback,
@@ -374,7 +375,7 @@ export function TradeProvider({
     requiresAdminHandoff,
   };
 
-  return <TradeContext.Provider value={value}>{children}</TradeContext.Provider>;
+  return <TradeContext.Provider value={value}><TradeCompletedPopupTrigger userId={viewerId} trades={loadedTrades} />{children}</TradeContext.Provider>;
 }
 
 class TradeReadError extends Error {

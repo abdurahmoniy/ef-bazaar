@@ -2,6 +2,8 @@
 import { createElement, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
+const invitationPolicy = vi.hoisted(() => ({ allowed: true }));
+vi.mock('@/components/popups/use-push-invitation-slot', () => ({ usePushInvitationSlot: () => invitationPolicy.allowed }));
 vi.mock('next/navigation', () => ({ usePathname: () => '/notifications' }));
 vi.mock('@/lib/firebase-push', () => ({
   enablePush: vi.fn(), disablePush: vi.fn(), syncPushSubscription: vi.fn(),
@@ -18,6 +20,7 @@ function Controls() {
     createElement('button', { onClick: disable, 'data-control': 'disable' }, 'disable'));
 }
 beforeEach(() => {
+  invitationPolicy.allowed = true;
   localStorage.clear();
   sessionStorage.clear();
   vi.stubGlobal('Notification', { permission: 'granted' });
@@ -28,6 +31,13 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 describe('push controls', () => {
+  it('defers both the invitation and native permission while the coordinator blocks interruptions', async () => {
+    invitationPolicy.allowed = false;
+    vi.stubGlobal('Notification', { permission: 'default' });
+    await act(async () => root.render(createElement(PushProvider, null, createElement(Controls))));
+    expect(enablePush).not.toHaveBeenCalled();
+    expect(container.querySelector('aside')).toBeNull();
+  });
   it('requests permission immediately after authenticated configuration loads', async () => {
     vi.stubGlobal('Notification', { permission: 'default' });
     vi.mocked(enablePush).mockResolvedValue('enabled');

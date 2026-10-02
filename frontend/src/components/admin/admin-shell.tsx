@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   Activity,
+  BellRing,
   ArrowLeft,
   ArrowUpFromLine,
   Bot,
@@ -193,6 +194,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     id: 'system',
     title: 'Tizim & Resurslar',
     items: [
+      { href: '/admin/popups', label: 'Pop-up xabarlar', icon: BellRing },
       {
         href: '/admin/mailboxes',
         label: 'Pochtalar (Mailboxes)',

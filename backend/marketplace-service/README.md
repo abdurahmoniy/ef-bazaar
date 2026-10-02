@@ -9,7 +9,7 @@ u trade-service'da. Pul esa payment-service'da.
 |---|---|
 | Port | 8082 |
 | Public yo'l | `/api/marketplace/**` → `/api/**` (anonim ham o'tadi); WebSocket `/ws/chat` |
-| DB | `MARKETPLACE_DB_NAME` (Flyway, `V1`–`V73` + `R__`); ikkinchi datasource — `efbazaar` karta katalogi |
+| DB | `MARKETPLACE_DB_NAME` (Flyway, `V1`–`V75` + `R__`); ikkinchi datasource — `efbazaar` karta katalogi |
 | Redis | card interest sanagichlari, chat presence/typing va WebSocket signallari |
 | Anonim | Token bo'lmasa nginx identity headerlarni tozalab uzatadi — `X-User-Id` ga ishonishdan oldin null tekshiring |
 
@@ -27,6 +27,7 @@ u trade-service'da. Pul esa payment-service'da.
 | `support` | Foydalanuvchi ↔ admin support chat; Telegram orqali javob (bot) |
 | `gamer` | Gamer Card: Chempionat-X turnir statistikasi projection'i (`gamer_stats`) |
 | `websocket` | Chat real-time (`/ws/chat`), presence/typing; `chat.changed.v1` ni tinglaydi |
+| `popup` | Kontekstli in-app xabar kampaniyalari, admin draft/publish/pause va PostgreSQL delivery limitlari |
 | `push` | Firebase push bildirishnomalar (`FIREBASE_PUSH_ENABLED`) |
 | `guide`, `emoji`, `botsettings` | Video qo'llanmalar, Telegram emoji to'plamlari, bot `/start` matni va ommaviy xabar (broadcast) |
 | `kafka` | trade/payment/auth/tournament hodisalari consumerlari |
@@ -46,6 +47,8 @@ To'liq ro'yxat — controllerlarda. Asosiy guruhlar (`/api/v1/...`):
 | Akkountlar | `GET/POST /accounts`, `GET/PATCH/DELETE /accounts/{id}`, `/publish`, `/unpublish`, `/media`, `/email` |
 | Kartalar | `GET /cards`, `/cards/search`; `POST /card-interest/apply`; `/dream-teams` (CRUD, `PUT /me`) |
 | Chat | `/chats`, `/chats/{id}`, `/messages`, `/account-request`, `/important`, `/hide`, `/read`, `/typing`, `/presence`, `/unread-total` |
+| Kontekstli xabarlar | `GET /popups/next?trigger=...`, `POST /popups/{id}/claim`, `POST /popups/deliveries/{id}/events`; faqat autentifikatsiyalangan foydalanuvchi |
+| Admin xabarlar | `GET/POST /admin/popups`, `PATCH /admin/popups/{id}/status`; faqat `ROLE_ADMIN` |
 | Bildirishnoma | `/notifications`, `/read-all`, `/unread-count`, `/push-tokens`, `/push-status` |
 | Hamkorlik, referal | `/partners/**` (ariza, panel, to'lov, kanallar, click), `/referrals/claim`, `/referrals/me` |
 | Trust, support | `/complaints`, `/blacklist`, `/blacklist/check`, `/support/chats/**` |
@@ -55,6 +58,45 @@ To'liq ro'yxat — controllerlarda. Asosiy guruhlar (`/api/v1/...`):
 > **Ko'chirilmoqda:** dream team, card match va card interest `recommendation-service` da ham bor
 > (B bosqichi, qorong'i). Frontend C bosqichida unga o'tadi, D bosqichida bu yerdan o'chiriladi —
 > shu orada bu qismlarga o'zgartirish ikkala servisda ham kerak bo'ladi.
+
+## Kontekstli in-app xabarlar
+
+Kampaniya yaratish faqat `DRAFT` saqlaydi; `PATCH /admin/popups/{id}/status` body
+`{ "status": "ACTIVE" | "PAUSED" }` uni ochiq e'lon qiladi/to'xtatadi. Muddati tugagan
+kampaniya `ACTIVE` bo'lmaydi. `GET /admin/popups` eng yangi 100 tagacha kampaniyani
+(`createdAt DESC, id DESC`) `shownCount`, `clickedCount`, `dismissedCount` bilan qaytaradi.
+
+Yaratish body: `title` (1–100), `message` (1–600), `tone` (`INFO/SUCCESS/WARNING`),
+`audience` (`ALL/SELLERS/SELECTED`), `recipientIds` (faqat `SELECTED` uchun 1–100 UUID),
+`trigger` (`BROWSE/LISTING_PUBLISHED/EMPTY_SEARCH/TRADE_COMPLETED`), ixtiyoriy juftlik
+`actionLabel` (1–60) + `actionPath` (≤200), `startsAt`, `endsAt` (majburiy ISO UTC sana;
+0 dan katta, 30 kungacha oraliq), `priority` (0–10). `SELLERS` — kamida bitta
+`DELETED` bo'lmagan e'lon egasi. `createdBy` ishonchli auth principal'dan olinadi;
+body'dan berilgan identifikator yoki holat yuboruvchini/holatni o'zgartirmaydi.
+
+Matn HTML sifatida talqin qilinmaydi. CTA aniq allowlist: `/marketplace`, `/profile`,
+`/help`, `/invite`, `/notifications`, `/marketplace/new`, `/blacklist`,
+`/profile?tab=accounts`, `/profile?tab=favorites`, `/marketplace/{UUID}` va
+`/help/{kichik-harf-raqam-defis-slug}`. Boshqa query, fragment, tashqi URL yoki redirect yo'q.
+
+`next` eng ustuvor ayni paytda mos xabarni, yo'q bo'lsa `204` qaytaradi. Public response:
+`{ id, title, message, tone, trigger, actionLabel, actionPath, endsAt }`; recipient IDlar
+va admin shaxsi oshkor qilinmaydi. `claim` body `{ trigger, sessionId: UUID }`;
+natija `{ deliveryId, campaign }` yoki `204`. `popup_delivery_users` qatori tranzaksiyada
+qulflanib, barcha tab/qurilma uchun bir foydalanuvchiga bir sessiyada bittadan, sirg'aluvchi
+24 soatda ikkitadan, orasida kamida 6 soat, bir kampaniyadan jami bittadan rezervatsiya
+beradi. Campaign share lock publish/pause bilan poygani tartiblaydi; claim barcha
+mosliklarni qayta tekshiradi. Sessiya UUID mijozda saqlanadi, foydalanuvchi esa principal'dan.
+
+`events` body `{ "event": "SHOWN" | "CLICKED" | "DISMISSED" }`; muvaffaqiyat `204`,
+begona/yo'q delivery `404`. Takrorlar idempotent. `SHOWN` faqat haqiqiy renderdan keyin
+mijoz tomonidan tasdiqlanadi; rezervatsiya impression emas. Birinchi click/dismiss
+natijasi saqlanadi; keyin kelgan `SHOWN` uni yo'qotmaydi. Render bo'lmagan rezervatsiya
+ham limitni band qiladi. Yangi worker, Kafka hodisasi yoki boshlang'ich aktiv seed yo'q.
+
+Jadvallar (`V75`): `popup_campaigns` — matn, auditoriya, jadval va holat;
+`popup_delivery_users` — foydalanuvchi lock qatori; `popup_deliveries` — rezervatsiya
+hamda har bir tasdiq vaqti. User/campaign va user/session unique constraintlari mavjud.
 
 ## Kafka
 
@@ -133,4 +175,12 @@ Batafsil: [docs/kafka-topics.md](../../docs/kafka-topics.md).
 
 ## Test
 
-`mvn -B -ntp clean verify` — 663 unit test, 104 integratsion (`*IT`, Testcontainers).
+Java 21 bilan avval `mvn -B -ntp -f backend/libs/outbox/pom.xml install -DskipTests`
+(repo ildizidan), keyin ushbu papkada `mvn -B -ntp clean verify`. `*IT` integratsion
+testlar Failsafe orqali Docker/Testcontainers PostgreSQL bilan ham ishlaydi. Mahalliy
+Docker 29 eski docker-java API defaultini rad etsa, qo'shimcha
+`-DargLine=-Dapi.version=1.44` ishlatiladi; CI runtime/config o'zgartirilmaydi.
+
+`PopupCampaignIT` haqiqiy HTTP security/controller/service tranzaksiyalari va barcha
+Flyway migratsiyalarini tekshiradi: targeting, schedule, CTA, limitlar, parallel claim,
+event tartibi/idempotency/ownership va admin statistika.

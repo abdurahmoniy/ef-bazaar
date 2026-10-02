@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock('next/navigation', () => ({ usePathname: () => '/marketplace/listing-1', useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock('@/lib/marketplace-actions', () => ({ deleteListing: vi.fn() }));
 vi.mock('./listing-media-gallery', () => ({ ListingMediaGallery: () => createElement('div', { 'data-testid': 'listing-media' }) }));
 vi.mock('./listing-actions', () => ({ ListingActions: () => null }));
