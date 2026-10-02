@@ -15,10 +15,17 @@ function withQuery(path: string, params?: URLSearchParams) {
   return query ? `${path}?${query}` : path;
 }
 
+/**
+ * rec chaqiruvlari chegaralangan: sekin rec (o'lik emas) login qilgan har foydalanuvchining default
+ * sahifasini nginx'ning 60 s timeout'igacha ushlab turmasin — muddat o'tsa yuklovchi Katta bozorga o'tadi.
+ */
+export const REC_TIMEOUT_MS = 2500;
+
 export const serverMarketplaceTransport: MarketplaceTransport = {
   marketplaceGet: (path, params) => apiFetch(withQuery(`/marketplace/${path}`, params)),
   marketplacePost: (path, body) => apiFetch(`/marketplace/${path}`, { method: 'POST', body }),
-  recGet: (path, params) => apiFetch(withQuery(`/rec/${path}`, params)),
+  recGet: (path, params) =>
+    apiFetch(withQuery(`/rec/${path}`, params), { signal: AbortSignal.timeout(REC_TIMEOUT_MS) }),
 };
 
 export type MarketplacePageLoad =

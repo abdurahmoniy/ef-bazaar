@@ -33,7 +33,7 @@ let mediaChange: ((event: { matches: boolean }) => void) | undefined;
 let observers: { callback: IntersectionObserverCallback; disconnect: ReturnType<typeof vi.fn> }[];
 let fetchMock: ReturnType<typeof vi.fn>;
 const initialPage = page(['one', 'two']);
-const props = { initialPage, filters: { size: 2 }, rawQuery: '', view: 'auto' as const, matchCriteria: [], tab: 'market' as const, authenticated: false, mode: 'market' as 'market' | 'match' | 'mine' };
+const props = { initialPage, filters: { size: 2 }, rawQuery: '', view: 'auto' as const, matchCriteria: [], tab: 'market' as 'market' | 'mine', authenticated: false, mode: 'market' as 'market' | 'match' | 'mine' };
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -80,6 +80,14 @@ describe('mobile marketplace infinite scrolling', () => {
     expect(url.searchParams.get('attr.platform')).toBe('STEAM');
     expect(url.searchParams.get('sort')).toBe('valueScore,desc');
     expect(host.querySelector('[data-marketplace-listing-link="three"]')?.getAttribute('href')).toBe(`/marketplace/three?${rawQuery}`);
+  });
+
+  it('a market fallback page keeps loading from the market even on the interests tab', async () => {
+    await render({ tab: 'mine', authenticated: true, mode: 'market' });
+    await intersect();
+    expect(ids()).toEqual(['one', 'two', 'three', 'four']);
+    const paths = fetchMock.mock.calls.map(([input]) => new URL(input, 'https://efbazaar.uz').pathname);
+    expect(paths).toEqual(['/api/marketplace/v1/listings']);
   });
 
   it('player filter pages come from recommendation order through ranked', async () => {

@@ -77,7 +77,9 @@ function ListingFeed({
       const nextPage = lastPage.page + 1;
       const result = await loadMarketplacePage(createBrowserMarketplaceTransport(controller.signal), {
         filters: { ...filters, page: nextPage, size: initialPage.size },
-        tab,
+        // 1-sahifa Katta bozor fallback'i bo'lsa, davomi ham bozordan — lenta o'rtada to'lsa ham
+        // (masalan foydalanuvchi like bosdi) rejim o'zgarib, yuklash to'xtab qolmasin.
+        tab: mode === 'market' ? 'market' : tab,
         authenticated,
         feedHash: profileHash,
       });

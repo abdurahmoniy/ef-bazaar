@@ -1,4 +1,5 @@
 import { buildListingSearchParams } from './marketplace-format';
+import { DEFAULT_LISTING_SORT, LISTING_SORT_OPTIONS } from './marketplace-sort';
 import type {
   FeedResponse,
   ListingBrowseParams,
@@ -95,10 +96,12 @@ export async function loadMarketplacePage(
 }
 
 async function marketPage(transport: MarketplaceTransport, filters: ListingBrowseParams) {
-  const { matchCards: _ignored, matchStrictness: _strictness, ...rest } = filters;
+  const { matchCards: _ignored, matchStrictness: _strictness, sort, ...rest } = filters;
+  // Menyuda yo'q tartib (masalan eski `sort=createdAt,desc` havolasi) — default: eng yangi tepaga qaytmasin.
+  const known = LISTING_SORT_OPTIONS.some((option) => option.param === sort);
   try {
     const page = await transport.marketplaceGet<PageResponse<ListingResponse>>(
-      'v1/listings', buildListingSearchParams(rest));
+      'v1/listings', buildListingSearchParams({ ...rest, sort: known ? sort : DEFAULT_LISTING_SORT }));
     return { mode: 'market' as const, page };
   } catch (error) {
     throw new MarketplaceLoadError('market', error);

@@ -143,4 +143,12 @@ describe('loadMarketplacePage', () => {
     await expect(loadMarketplacePage(t, { filters: {}, tab: 'market', authenticated: true }))
       .rejects.toBeInstanceOf(MarketplaceLoadError);
   });
+  it('old recency links fall back to value sort; menu sorts pass through', async () => {
+    const { t, calls } = transport();
+    await loadMarketplacePage(t, { filters: { sort: 'createdAt,desc' }, tab: 'market', authenticated: true });
+    await loadMarketplacePage(t, { filters: { sort: 'price,asc' }, tab: 'market', authenticated: true });
+    expect(calls[0]).toContain('sort=valueScore%2Cdesc');
+    expect(calls[0]).not.toContain('createdAt');
+    expect(calls[1]).toContain('sort=price%2Casc');
+  });
 });
