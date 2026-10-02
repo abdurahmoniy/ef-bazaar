@@ -11,11 +11,24 @@ describe('MarketplaceTabs', () => {
     const html = renderToStaticMarkup(createElement(MarketplaceTabs, {
       active: 'mine', rawQuery: 'minPrice=5&page=2',
     }));
-    expect(html).toContain('Mening qiziqishlarim');
+    expect(html).toContain('Qiziqishlarim');
     expect(html).toContain('Katta bozor');
     expect(html).toContain('href="/marketplace?minPrice=5"');
     expect(html).toContain('href="/marketplace?minPrice=5&amp;tab=market"');
-    expect(html).toMatch(/aria-current="page"[^>]*>[^<]*Mening qiziqishlarim/);
+    expect(html).toMatch(/aria-current="page"[^>]*><span[^>]*>Qiziqishlarim</);
+  });
+
+  /** Telegram WebView'da shrift kattaroq — matn ikki qatorga bo'linib chetga surilmasin. */
+  it('keeps each tab label on one centered line', () => {
+    const html = renderToStaticMarkup(createElement(MarketplaceTabs, { active: 'mine', rawQuery: '' }));
+    const links = html.match(/<a [^>]*>/g) ?? [];
+    expect(links).toHaveLength(2);
+    for (const link of links) {
+      expect(link).toContain('text-center');
+      expect(link).toContain('whitespace-nowrap');
+      expect(link).toContain('min-w-0');
+    }
+    expect(html).toContain('truncate');
   });
 
   it('has a sentence for every notice', () => {

@@ -130,7 +130,7 @@ export function searchParamsToInput(params: URLSearchParams): SearchParamInput {
 
 const FEED_HASH = /^[0-9a-f]{64}$/;
 
-/** Mehmon doim Katta bozorda; login qilgan uchun default — "Mening qiziqishlarim". */
+/** Mehmon doim Katta bozorda; login qilgan uchun default — "Qiziqishlarim". */
 export function getMarketplaceTab(params: URLSearchParams, authenticated: boolean): MarketplaceTab {
   if (!authenticated) return 'market';
   return params.get('tab') === 'market' ? 'market' : 'mine';

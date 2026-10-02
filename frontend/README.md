@@ -33,7 +33,7 @@ Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
 
 ### Bozor: tablar va recommendation
 
-- **Mening qiziqishlarim** (login qilganlarga default) — `recommendation-service` `/feed` tartibi,
+- **Qiziqishlarim** (login qilganlarga default) — `recommendation-service` `/feed` tartibi,
   filtr va sahifalash marketplace `POST /listings/ranked` da. Snapshot hash `feed=` URL parametrida.
 - **Katta bozor** (`tab=market`; mehmonga yagona ko'rinish) — `GET /listings?sort=valueScore,desc`.
   Saralash: Qiymat / Arzon / Qimmat / Ko'p yoqtirilgan ("eng yangi" yo'q).

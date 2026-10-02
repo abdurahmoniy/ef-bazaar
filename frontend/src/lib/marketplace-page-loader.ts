@@ -49,7 +49,7 @@ export class MarketplaceLoadError extends Error {
 
 /**
  * Rejim tanlovi (spec §6): player filtri bor → `match` (har ikki tabda); login qilgan va
- * "Mening qiziqishlarim" → `mine`; aks holda `market`. Lenta bo'sh yoki rec xato → `market` + izoh.
+ * "Qiziqishlarim" → `mine`; aks holda `market`. Lenta bo'sh yoki rec xato → `market` + izoh.
  * Player filtri xatosi esa xato — filtrlanmagan ro'yxat ko'rsatilmaydi.
  */
 export async function loadMarketplacePage(

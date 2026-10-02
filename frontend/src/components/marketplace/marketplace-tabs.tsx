@@ -5,7 +5,7 @@ import type { MarketplaceNotice, MarketplaceTab } from '@/lib/marketplace-page-l
 import { marketplaceHref, setMarketplaceTab } from '@/lib/marketplace-query';
 
 const TABS: { id: MarketplaceTab; label: string }[] = [
-  { id: 'mine', label: 'Mening qiziqishlarim' },
+  { id: 'mine', label: 'Qiziqishlarim' },
   { id: 'market', label: 'Katta bozor' },
 ];
 
@@ -27,11 +27,12 @@ export function MarketplaceTabs({ active, rawQuery }: { active: MarketplaceTab; 
             href={marketplaceHref(setMarketplaceTab(params, tab.id))}
             aria-current={selected ? 'page' : undefined}
             className={cn(
-              'flex min-h-10 flex-1 items-center justify-center rounded-lg px-3 text-sm font-semibold transition-colors',
+              // Telegram WebView shriftni kattalashtiradi: matn bir qatorda, markazda; sig'masa "…".
+              'flex min-h-10 min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-lg px-2 text-center text-[13px] font-semibold leading-none transition-colors sm:px-3 sm:text-sm',
               selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted',
             )}
           >
-            {tab.label}
+            <span className="truncate">{tab.label}</span>
           </Link>
         );
       })}
