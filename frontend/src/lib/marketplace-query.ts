@@ -60,11 +60,10 @@ export function setMarketplaceView(current: URLSearchParams, view: MarketplaceVi
 }
 
 export function setMarketplaceSort(current: URLSearchParams, sort: string) {
-  const next = cloneParams(current);
-  next.delete('sort');
   const value = sort.trim();
+  const next = setMarketplaceTab(current, value ? 'market' : 'mine');
+  next.delete('sort');
   if (value) next.set('sort', value);
-  resetPage(next);
   return next;
 }
 
@@ -130,10 +129,10 @@ export function searchParamsToInput(params: URLSearchParams): SearchParamInput {
 
 const FEED_HASH = /^[0-9a-f]{64}$/;
 
-/** Mehmon doim Katta bozorda; login qilgan uchun default — "Qiziqishlarim". */
+/** Explicit sorts and legacy market links use the market; signed-in buyers otherwise default to interests. */
 export function getMarketplaceTab(params: URLSearchParams, authenticated: boolean): MarketplaceTab {
   if (!authenticated) return 'market';
-  return params.get('tab') === 'market' ? 'market' : 'mine';
+  return params.get('tab') === 'market' || params.get('sort')?.trim() ? 'market' : 'mine';
 }
 
 /** Tab almashganda filtrlar qoladi; sahifa va lenta snapshot'i yangidan boshlanadi. */
@@ -143,6 +142,7 @@ export function setMarketplaceTab(current: URLSearchParams, tab: MarketplaceTab)
   next.delete('feed');
   next.delete('tab');
   if (tab === 'market') next.set('tab', 'market');
+  else next.delete('sort');
   return next;
 }
 

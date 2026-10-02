@@ -7,7 +7,7 @@ import {
   MarketplaceToolbar,
 } from '@/components/marketplace/marketplace-toolbar';
 import { PlayerFilterLauncher } from '@/components/marketplace/player-filter-launcher';
-import { MarketplaceNoticeBanner, MarketplaceTabs } from '@/components/marketplace/marketplace-tabs';
+import { MarketplaceNoticeBanner } from '@/components/marketplace/marketplace-notice';
 import {
   MarketplaceEmptyState,
   MarketplaceErrorState,
@@ -26,6 +26,7 @@ import {
 import {
   marketplaceHref,
   setMarketplaceSort,
+  setMarketplaceTab,
   type MarketplaceView,
 } from '@/lib/marketplace-query';
 import { LISTING_SORT_OPTIONS, paramToSortId } from '@/lib/marketplace-sort';
@@ -79,9 +80,15 @@ export function MarketplaceBrowser({
     label: option.label,
     href: marketplaceHref(setMarketplaceSort(rawParams, option.param)),
   }));
-  const activeSortId = paramToSortId(filters.sort);
-  const activeSortLabel = LISTING_SORT_OPTIONS.find((option) => option.id === activeSortId)?.label
-    ?? LISTING_SORT_OPTIONS[0].label;
+  if (authenticated) {
+    sortOptions.unshift({
+      id: 'mine',
+      label: 'Qiziqishlarim',
+      href: marketplaceHref(setMarketplaceTab(rawParams, 'mine')),
+    });
+  }
+  const activeSortId = authenticated && tab === 'mine' ? 'mine' : paramToSortId(filters.sort);
+  const activeSortLabel = sortOptions.find((option) => option.id === activeSortId)!.label;
   const title = query ? `“${query}” bo‘yicha natijalar` : 'eFootball akkountlar';
   const filterProps = { filters, rawQuery: currentQuery };
 
@@ -106,14 +113,13 @@ export function MarketplaceBrowser({
       <ListingFilters {...filterProps} />
 
       <MarketplaceResultsRegion>
-        {authenticated && <MarketplaceTabs active={tab} rawQuery={currentQuery} />}
         {notice && <MarketplaceNoticeBanner notice={notice} />}
         <MarketplaceToolbar
           title={title}
           totalElements={page?.totalElements ?? 0}
           filterTrigger={filterTrigger}
           playerTrigger={playerTrigger}
-          sortOptions={mode === 'market' ? sortOptions : []}
+          sortOptions={mode === 'match' ? [] : sortOptions}
           activeSortId={activeSortId}
           activeSortLabel={activeSortLabel}
           rawQuery={currentQuery}

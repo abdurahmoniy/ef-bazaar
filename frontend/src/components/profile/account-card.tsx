@@ -113,7 +113,7 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
   }
 
   return (
-    <article className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-card">
+    <article className="flex h-full flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-card">
       <div className="flex items-start gap-3">
         <AccountPhoto photo={photo} title={title} />
         <div className="min-w-0 flex-1">

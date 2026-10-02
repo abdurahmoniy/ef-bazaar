@@ -31,13 +31,16 @@ Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
 - Sessiya: access cookie 15 daqiqa, refresh 30 kun. Access tugagan bo'lsa `proxy.ts` refresh
   qiladi va **ketayotgan so'rovning Cookie headerini ham** yangilaydi (aks holda birinchi so'rov 401 oladi).
 
-### Bozor: tablar va recommendation
+### Bozor: saralash va recommendation
 
-- **Qiziqishlarim** (login qilganlarga default) — `recommendation-service` `/feed` tartibi,
+- **Qiziqishlarim** (saralash menyusida birinchi, login qilganlarga default) — `recommendation-service` `/feed` tartibi,
   filtr va sahifalash marketplace `POST /listings/ranked` da. Snapshot hash `feed=` URL parametrida.
-- **Katta bozor** (`tab=market`; mehmonga yagona ko'rinish) — `GET /listings?sort=valueScore,desc`.
-  Saralash: Qiymat / Arzon / Qimmat / Ko'p yoqtirilgan ("eng yangi" yo'q).
-- Player filtri har ikki tabda: rec `/match` → `ranked` → rec `/match/details`. rec xatosi → xato holati.
+- **Katta bozor** — shu menyudagi Qiymat / Arzon / Qimmat / Ko'p yoqtirilgan tartiblaridan biri
+  tanlanganda (`sort=` yoki eski `tab=market` havolasi). Mehmonlar uchun default:
+  `GET /listings?sort=valueScore,desc`. Alohida bo'lim tablari va "eng yangi" tartibi yo'q.
+- Qiziqishlarimga qaytish `sort`, `tab`, `page`, `feed` parametrlarini tozalaydi; boshqa filtrlar saqlanadi.
+- Player filtri har ikki rejimda: rec `/match` → `ranked` → rec `/match/details`. Bu rejimda saralash
+  menyusi yashiriladi, chunki tartibni moslik belgilaydi. rec xatosi → xato holati.
 - Hammasi bitta `loadMarketplacePage` (`src/lib/marketplace-page-loader.ts`) orqali; server transporti
   `marketplace-page-server.ts`, brauzer transporti `marketplace-page-transport.ts`.
 - Brauzer → `/api/rec/**` (Next route) → `nginx:8080/api/rec/**`.
