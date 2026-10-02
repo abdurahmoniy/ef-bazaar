@@ -32,6 +32,9 @@ MESSAGES: dict[str, tuple[int, str]] = {
     ),
     "ACCOUNT_NOT_FOUND": (404, "Userbot topilmadi."),
     "UNKNOWN_FEATURE": (404, "Bunday vazifa yo'q."),
+    "VALIDATION_ERROR": (422, "So'rov noto'g'ri."),
+    "NOT_FOUND": (404, "Topilmadi."),
+    "METHOD_NOT_ALLOWED": (405, "Bu usul ruxsat etilmagan."),
     "TELEGRAM_ERROR": (502, "Telegram xatosi. Qayta urinib ko'ring."),
 }
 

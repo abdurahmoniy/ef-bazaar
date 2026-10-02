@@ -148,3 +148,28 @@ async def test_avatar_is_served_when_present(client, repo, tmp_path):
 
 async def test_healthz_needs_no_auth(client):
     assert (await client.get("/healthz")).status_code == 200
+
+
+async def test_a_number_for_the_password_is_not_echoed_back(client):
+    url = f"/api/v1/logins/{uuid.uuid4()}/password"
+    r = await client.post(url, json={"password": 12345}, headers=H)
+    assert r.status_code == 422
+    assert r.json() == {"code": "VALIDATION_ERROR", "message": "So'rov noto'g'ri.",
+                        "fields": ["body.password"]}
+    assert "12345" not in r.text
+
+
+async def test_a_number_for_the_code_is_not_echoed_back(client):
+    r = await client.post(f"/api/v1/logins/{uuid.uuid4()}/code", json={"code": 98765}, headers=H)
+    assert r.status_code == 422
+    assert r.json()["code"] == "VALIDATION_ERROR"
+    assert "98765" not in r.text
+
+
+async def test_an_unknown_path_uses_the_same_error_shape(client):
+    r = await client.get("/api/v1/nope", headers=H)
+    assert r.status_code == 404
+    assert r.json()["code"] == "NOT_FOUND"
+    r = await client.patch("/api/v1/accounts", headers=H)
+    assert r.status_code == 405
+    assert r.json()["code"] == "METHOD_NOT_ALLOWED"

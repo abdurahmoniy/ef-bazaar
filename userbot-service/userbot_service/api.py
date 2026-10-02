@@ -10,10 +10,12 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from userbot_service.errors import ApiError
+from userbot_service.errors import MESSAGES, ApiError
 from userbot_service.features import FEATURES
 from userbot_service.login import LoginService, LoginStep
 from userbot_service.repository import Account, AccountRepository
@@ -63,6 +65,21 @@ def create_app(
     async def _api_error(_req: Request, e: ApiError) -> JSONResponse:
         body = {"code": e.code, "message": e.message, **e.params}
         return JSONResponse(body, status_code=e.status)
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error(_req: Request, e: RequestValidationError) -> JSONResponse:
+        # Never echo `input`: it may be a login code or a password.
+        fields = [".".join(str(part) for part in err["loc"]) for err in e.errors()]
+        err = ApiError("VALIDATION_ERROR")
+        return JSONResponse({"code": err.code, "message": err.message, "fields": fields},
+                            status_code=err.status)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_error(_req: Request, e: StarletteHTTPException) -> JSONResponse:
+        known = {404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED"}
+        code = known.get(e.status_code, f"HTTP_{e.status_code}")
+        message = MESSAGES[code][1] if code in MESSAGES else "So'rovni bajarib bo'lmadi."
+        return JSONResponse({"code": code, "message": message}, status_code=e.status_code)
 
     def avatar_path(account_id: UUID) -> str:
         return os.path.join(avatar_dir, f"{account_id}.jpg")
