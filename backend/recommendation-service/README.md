@@ -91,3 +91,5 @@ Tozalash — `RetentionJob` (`REC_RETENTION_CRON`, default `0 30 3 * * *` UTC).
 3. Bir necha daqiqadan keyin: `scripts/rec-verify-projection.sh` — hammasi `OK`.
 4. Dream team'lar: `scripts/rec-copy-dream-teams.sh` (C deploy'idan oldin yana bir marta).
 5. Player filtri: bir nechta haqiqiy `matchCard` bilan `scripts/rec-compare-match.sh` — `OK`.
+6. **Frontend (C) deploy'idan oldin:** 3-qadam `OK`, `scripts/rec-copy-dream-teams.sh` yana bir marta
+   (B→C oralig'ida marketplace'da saqlangan jamoalar), keyin frontend.

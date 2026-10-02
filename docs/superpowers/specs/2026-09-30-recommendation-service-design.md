@@ -1,6 +1,6 @@
 # recommendation-service — dizayn
 
-Sana: 2026-09-30 · Holat: A (marketplace) va B (recommendation-service, qorong'i) bajarilgan; C, D — navbatda
+Sana: 2026-09-30 · Holat: A, B, C bajarilgan; D (marketplace tozalash) — C prod'da barqaror bo'lgach
 Bog'liq: [transactional outbox](2026-09-30-transactional-outbox-design.md) — avval shu bajariladi.
 
 ## 1. Maqsad

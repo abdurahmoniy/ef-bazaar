@@ -188,3 +188,15 @@ describe('authenticated chat WebSocket routing', () => {
     expect(route).toContain('proxy_read_timeout 75s;');
   });
 });
+
+describe('nginx recommendation routing', () => {
+  it('proxies /api/rec with optional auth and strips identity for anonymous calls', () => {
+    const siteConfig = readFileSync(configPath, 'utf8');
+    expect(siteConfig).toContain('location /api/rec/ {');
+    expect(siteConfig).toContain('location @rec_anon {');
+    expect(siteConfig).toContain('location @rec_anon_internal {');
+    expect(siteConfig).not.toContain('recommendation_service_unavailable');
+    const anon = siteConfig.slice(siteConfig.indexOf('location @rec_anon {'));
+    expect(anon.slice(0, anon.indexOf('}'))).toContain('proxy_set_header X-User-Id     ""');
+  });
+});

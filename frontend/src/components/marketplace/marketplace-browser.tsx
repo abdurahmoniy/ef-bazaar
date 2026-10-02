@@ -7,6 +7,7 @@ import {
   MarketplaceToolbar,
 } from '@/components/marketplace/marketplace-toolbar';
 import { PlayerFilterLauncher } from '@/components/marketplace/player-filter-launcher';
+import { MarketplaceNoticeBanner, MarketplaceTabs } from '@/components/marketplace/marketplace-tabs';
 import {
   MarketplaceEmptyState,
   MarketplaceErrorState,
@@ -28,19 +29,17 @@ import {
   type MarketplaceView,
 } from '@/lib/marketplace-query';
 import { LISTING_SORT_OPTIONS, paramToSortId } from '@/lib/marketplace-sort';
-import type { FetchResult } from '@/lib/marketplace-server';
-import type {
-  ListingBrowseParams,
-  ListingResponse,
-  PageResponse,
-} from '@/lib/marketplace-types';
+import type { MarketplaceTab } from '@/lib/marketplace-page-loader';
+import type { MarketplacePageLoad } from '@/lib/marketplace-page-server';
+import type { ListingBrowseParams } from '@/lib/marketplace-types';
 import { parsePlayerMatchValues } from '@/lib/player-match-query';
 
 interface MarketplaceBrowserProps {
   filters: ListingBrowseParams;
   activeFilter: MarketplaceFilterId;
   query?: string;
-  result: FetchResult<PageResponse<ListingResponse>>;
+  load: MarketplacePageLoad;
+  tab: MarketplaceTab;
   rawQuery: string;
   view: MarketplaceView;
   authenticated: boolean;
@@ -50,12 +49,16 @@ export function MarketplaceBrowser({
   filters,
   activeFilter,
   query,
-  result,
+  load,
+  tab,
   rawQuery,
   view,
   authenticated,
 }: MarketplaceBrowserProps) {
-  const page = result.ok ? result.data : null;
+  const page = load.ok ? load.data.page : null;
+  const mode = load.ok ? load.data.mode : load.mode;
+  const notice = load.ok ? load.data.notice : undefined;
+  const profileHash = load.ok ? load.data.profileHash : undefined;
 
   const activeMatch = parsePlayerMatchValues(
     filters.matchCards,
@@ -103,12 +106,14 @@ export function MarketplaceBrowser({
       <ListingFilters {...filterProps} />
 
       <MarketplaceResultsRegion>
+        {authenticated && <MarketplaceTabs active={tab} rawQuery={currentQuery} />}
+        {notice && <MarketplaceNoticeBanner notice={notice} />}
         <MarketplaceToolbar
           title={title}
           totalElements={page?.totalElements ?? 0}
           filterTrigger={filterTrigger}
           playerTrigger={playerTrigger}
-          sortOptions={sortOptions}
+          sortOptions={mode === 'market' ? sortOptions : []}
           activeSortId={activeSortId}
           activeSortLabel={activeSortLabel}
           rawQuery={currentQuery}
@@ -123,7 +128,7 @@ export function MarketplaceBrowser({
 
         <AppliedFilterChips items={appliedFilters} rawQuery={currentQuery} />
 
-        {!result.ok ? (
+        {!load.ok ? (
           <MarketplaceErrorState retryHref={marketplaceHref(rawParams)} />
         ) : page === null || page.content.length === 0 ? (
           <MarketplaceEmptyState state={getMarketplaceEmptyState(rawParams)} />
@@ -134,6 +139,10 @@ export function MarketplaceBrowser({
             view={view}
             rawQuery={currentQuery}
             matchCriteria={activeMatch.criteria}
+            tab={tab}
+            authenticated={authenticated}
+            mode={mode}
+            profileHash={profileHash}
           />
         )}
       </MarketplaceResultsRegion>

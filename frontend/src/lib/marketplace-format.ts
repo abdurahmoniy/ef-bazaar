@@ -1,4 +1,5 @@
 import type { ListingBrowseParams } from './marketplace-types';
+import { DEFAULT_LISTING_SORT } from './marketplace-sort';
 import { parsePlayerMatchValues } from './player-match-query';
 
 export type SearchParamInput = Record<string, string | string[] | undefined>;
@@ -240,7 +241,7 @@ export function buildListingSearchParams(input: ListingBrowseParams = {}) {
 
   appendDefined(params, 'page', input.page);
   appendDefined(params, 'size', input.size);
-  appendDefined(params, 'sort', input.sort ?? 'createdAt,desc');
+  appendDefined(params, 'sort', input.sort ?? DEFAULT_LISTING_SORT);
   appendDefined(params, 'minPrice', input.minPrice);
   appendDefined(params, 'maxPrice', input.maxPrice);
   appendDefined(params, 'priceNegotiable', input.priceNegotiable);

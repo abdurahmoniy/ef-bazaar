@@ -123,7 +123,7 @@ export function ListingFilterFields({
           <Label htmlFor={sortId}>Saralash</Label>
           <Select
             id={sortId}
-            value={draft.sort ?? 'newest'}
+            value={draft.sort ?? 'value'}
             onChange={(event) => update('sort', event.target.value as ListingSortId)}
             className="mt-1.5"
           >

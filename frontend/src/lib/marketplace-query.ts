@@ -1,4 +1,5 @@
 import type { MarketplaceFilterId, SearchParamInput } from './marketplace-format';
+import type { MarketplaceTab } from './marketplace-page-loader';
 
 export type MarketplaceView = 'auto' | 'list' | 'grid';
 
@@ -125,4 +126,34 @@ export function searchParamsToInput(params: URLSearchParams): SearchParamInput {
     }
   }
   return input;
+}
+
+const FEED_HASH = /^[0-9a-f]{64}$/;
+
+/** Mehmon doim Katta bozorda; login qilgan uchun default — "Mening qiziqishlarim". */
+export function getMarketplaceTab(params: URLSearchParams, authenticated: boolean): MarketplaceTab {
+  if (!authenticated) return 'market';
+  return params.get('tab') === 'market' ? 'market' : 'mine';
+}
+
+/** Tab almashganda filtrlar qoladi; sahifa va lenta snapshot'i yangidan boshlanadi. */
+export function setMarketplaceTab(current: URLSearchParams, tab: MarketplaceTab) {
+  const next = new URLSearchParams(current);
+  next.delete('page');
+  next.delete('feed');
+  next.delete('tab');
+  if (tab === 'market') next.set('tab', 'market');
+  return next;
+}
+
+export function setMarketplaceFeed(current: URLSearchParams, hash: string | undefined) {
+  const next = new URLSearchParams(current);
+  next.delete('feed');
+  if (hash && FEED_HASH.test(hash)) next.set('feed', hash);
+  return next;
+}
+
+export function getMarketplaceFeedHash(params: URLSearchParams): string | undefined {
+  const value = params.get('feed') ?? undefined;
+  return value && FEED_HASH.test(value) ? value : undefined;
 }

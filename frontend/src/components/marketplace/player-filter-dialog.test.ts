@@ -281,7 +281,8 @@ describe('PlayerFilterDialog accessibility contract', () => {
   });
 
   it('passes authentication state from the page into the player launcher', () => {
-    expect(page).toContain('authenticated={user !== null}');
+    expect(page).toContain('const authenticated = user !== null;');
+    expect(page).toContain('authenticated={authenticated}');
     expect(browser).toContain('authenticated: boolean');
     expect(browser).toContain('authenticated={authenticated}');
     expect(launcher).toContain('authenticated: boolean');

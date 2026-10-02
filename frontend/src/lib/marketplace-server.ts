@@ -11,7 +11,6 @@ import type {
   AdminCardPage,
   CardType,
   ChatResponse,
-  DreamTeam,
   MetaTier,
   ListingBrowseParams,
   ListingResponse,
@@ -94,18 +93,9 @@ export async function browseListings(
   return safeFetch<PageResponse<ListingResponse>>(`${MARKETPLACE_PREFIX}/listings${suffix}`);
 }
 
-export async function getListing(
-  id: string,
-  matchCards?: string[],
-  matchStrictness?: number,
-): Promise<FetchResult<ListingResponse>> {
-  const params = new URLSearchParams();
-  for (const criterion of matchCards ?? []) params.append('matchCard', criterion);
-  if (matchCards?.length) params.set('matchStrictness', String(matchStrictness ?? 4));
-  const query = params.toString();
-  return safeFetch<ListingResponse>(
-    `${MARKETPLACE_PREFIX}/listings/${encodeURIComponent(id)}${query ? `?${query}` : ''}`,
-  );
+/** E'lonning o'zi. Player filtri bo'yicha moslik — `rec-server.getListingMatch`. */
+export async function getListing(id: string): Promise<FetchResult<ListingResponse>> {
+  return safeFetch<ListingResponse>(`${MARKETPLACE_PREFIX}/listings/${encodeURIComponent(id)}`);
 }
 
 export async function getAttributeDefinitions(): Promise<AttributeDefinitionResponse[]> {
@@ -199,10 +189,6 @@ export async function getAdminUsers(
 }
 
 /** The caller's saved squads. Returns [] rather than an error when signed out. */
-export async function getDreamTeams(): Promise<FetchResult<DreamTeam[]>> {
-  return safeFetch<DreamTeam[]>(`${MARKETPLACE_PREFIX}/dream-teams`);
-}
-
 /**
  * Player card catalogue for the admin players page. The read endpoint itself
  * is public (same one the card picker uses) — only the meta_tier write is

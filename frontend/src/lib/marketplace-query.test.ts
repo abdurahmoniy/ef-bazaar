@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getMarketplaceFeedHash,
+  getMarketplaceTab,
+  setMarketplaceFeed,
+  setMarketplaceTab,
   clearMarketplaceCriteria,
   getMarketplaceView,
   loosenMarketplaceMatch,
@@ -196,5 +200,34 @@ describe('marketplace query state', () => {
     expect(next.get('utm_source')).toBe('telegram');
     expect(next.getAll('matchCard')).toEqual([MESSI_CARD, NEYMAR_CARD]);
     expect(current.get('matchStrictness')).toBe(raw);
+  });
+});
+
+describe('marketplace tabs', () => {
+  const hash = 'a'.repeat(64);
+
+  it('defaults signed-in buyers to their interests and guests to the market', () => {
+    expect(getMarketplaceTab(new URLSearchParams(), true)).toBe('mine');
+    expect(getMarketplaceTab(new URLSearchParams('tab=market'), true)).toBe('market');
+    expect(getMarketplaceTab(new URLSearchParams('tab=mine'), false)).toBe('market');
+    expect(getMarketplaceTab(new URLSearchParams(), false)).toBe('market');
+  });
+
+  it('switching tabs keeps filters but drops paging and the feed snapshot', () => {
+    const current = new URLSearchParams(`minPrice=5&page=3&feed=${hash}&attr.platform=pc`);
+    expect(setMarketplaceTab(current, 'market').toString()).toBe('minPrice=5&attr.platform=pc&tab=market');
+    expect(setMarketplaceTab(new URLSearchParams('tab=market&page=2'), 'mine').toString()).toBe('');
+  });
+
+  it('page links keep the feed snapshot', () => {
+    const withFeed = setMarketplaceFeed(new URLSearchParams('minPrice=5'), hash);
+    expect(setMarketplacePage(withFeed, 2).get('feed')).toBe(hash);
+    expect(setMarketplaceFeed(withFeed, undefined).has('feed')).toBe(false);
+  });
+
+  it('accepts only a well-formed feed hash', () => {
+    expect(getMarketplaceFeedHash(new URLSearchParams(`feed=${hash}`))).toBe(hash);
+    expect(getMarketplaceFeedHash(new URLSearchParams('feed=../x'))).toBeUndefined();
+    expect(getMarketplaceFeedHash(new URLSearchParams())).toBeUndefined();
   });
 });

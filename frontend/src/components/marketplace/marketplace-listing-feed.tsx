@@ -4,11 +4,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Loader2 } from 'lucide-react';
 
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
-import { buildListingSearchParams } from '@/lib/marketplace-format';
-import { marketplaceHref, setMarketplacePage, type MarketplaceView } from '@/lib/marketplace-query';
+import { loadMarketplacePage } from '@/lib/marketplace-page-loader';
+import { createBrowserMarketplaceTransport } from '@/lib/marketplace-page-transport';
+import { marketplaceHref, setMarketplaceFeed, setMarketplacePage, type MarketplaceView } from '@/lib/marketplace-query';
 import { normalizeMarketplaceQuery } from '@/lib/marketplace-scroll-state';
 import type { ListingBrowseParams, ListingResponse, PageResponse } from '@/lib/marketplace-types';
+import type { MarketplaceMode, MarketplaceTab } from '@/lib/marketplace-page-loader';
 import type { PlayerMatchCriterion } from '@/lib/player-match-query';
 import { useMarketplaceHistory } from './marketplace-history-provider';
 import { MarketplaceScrollRestorer } from './marketplace-scroll-restorer';
@@ -21,6 +22,15 @@ interface MarketplaceListingFeedProps {
   rawQuery: string;
   view: MarketplaceView;
   matchCriteria: PlayerMatchCriterion[];
+  tab: MarketplaceTab;
+  authenticated: boolean;
+  mode: MarketplaceMode;
+  profileHash?: string;
+}
+
+/** Keyingi sahifa boshqa rejimdan kelsa (masalan rec yiqildi) — aralash ro'yxat bo'lmasin. */
+export function nextPageAccepted(expected: MarketplaceMode, actual: MarketplaceMode) {
+  return expected === actual;
 }
 
 export function MarketplaceListingFeed(props: MarketplaceListingFeedProps) {
@@ -28,7 +38,9 @@ export function MarketplaceListingFeed(props: MarketplaceListingFeedProps) {
   return <ListingFeed key={normalizeMarketplaceQuery(props.rawQuery)} {...props} />;
 }
 
-function ListingFeed({ initialPage, filters, rawQuery, view, matchCriteria }: MarketplaceListingFeedProps) {
+function ListingFeed({
+  initialPage, filters, rawQuery, view, matchCriteria, tab, authenticated, mode, profileHash,
+}: MarketplaceListingFeedProps) {
   const mobile = useMediaQuery('(max-width: 639px)');
   const { feedCache, popstateMarker } = useMarketplaceHistory();
   const queryKey = normalizeMarketplaceQuery(rawQuery);
@@ -63,12 +75,16 @@ function ListingFeed({ initialPage, filters, rawQuery, view, matchCriteria }: Ma
     const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
       const nextPage = lastPage.page + 1;
-      const params = buildListingSearchParams({ ...filters, page: nextPage, size: initialPage.size });
-      const response = await fetch(buildMarketplaceApiPath('v1/listings', params), {
-        credentials: 'include', cache: 'no-store', signal: controller.signal,
+      const result = await loadMarketplacePage(createBrowserMarketplaceTransport(controller.signal), {
+        filters: { ...filters, page: nextPage, size: initialPage.size },
+        // 1-sahifa Katta bozor fallback'i bo'lsa, davomi ham bozordan — lenta o'rtada to'lsa ham
+        // (masalan foydalanuvchi like bosdi) rejim o'zgarib, yuklash to'xtab qolmasin.
+        tab: mode === 'market' ? 'market' : tab,
+        authenticated,
+        feedHash: profileHash,
       });
-      if (!response.ok) throw new Error('Listing page failed');
-      const page = await response.json() as PageResponse<ListingResponse>;
+      if (!nextPageAccepted(mode, result.mode)) throw new Error('Marketplace mode changed');
+      const page = result.page;
       if (controller.signal.aborted) return;
       if (!Array.isArray(page.content) || page.page !== nextPage || !Number.isInteger(page.totalPages)) {
         throw new Error('Invalid listing page');
@@ -92,7 +108,7 @@ function ListingFeed({ initialPage, filters, rawQuery, view, matchCriteria }: Ma
         setLoading(false);
       }
     }
-  }, [feedCache, filters, hasMore, initialPage.size, lastPage.page, mobile, pages, queryKey]);
+  }, [authenticated, feedCache, filters, hasMore, initialPage.size, lastPage.page, mobile, mode, pages, profileHash, queryKey, tab]);
 
   useEffect(() => {
     if (!mobile || !hasMore || error || !sentinel.current || typeof IntersectionObserver === 'undefined') return;
@@ -132,7 +148,7 @@ function ListingFeed({ initialPage, filters, rawQuery, view, matchCriteria }: Ma
         </div>
       ) : (
         <ListingsPagination page={initialPage.page} totalPages={initialPage.totalPages}
-          buildHref={page => marketplaceHref(setMarketplacePage(new URLSearchParams(rawQuery), page))} />
+          buildHref={page => marketplaceHref(setMarketplaceFeed(setMarketplacePage(new URLSearchParams(rawQuery), page), profileHash))} />
       )}
     </>
   );
