@@ -48,3 +48,18 @@ def test_mailbox_notifications_fall_back_to_logs_when_email_topic_is_unset(monke
     monkeypatch.setenv("TELEGRAM_TOPIC_LOGS", "6")
     monkeypatch.delenv("TELEGRAM_TOPIC_EMAIL", raising=False)
     assert Settings().mailbox_topic_id == 6
+
+
+def test_imap_idle_defaults(monkeypatch):
+    monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+    s = Settings()
+    assert s.imap_idle_max_connections == 200
+    assert s.imap_idle_refresh_seconds == 300
+    assert s.imap_idle_max_lifetime_seconds == 86400
+
+
+def test_imap_idle_refresh_is_clamped_below_rfc2177_limit(monkeypatch):
+    # RFC 2177: IDLE must be re-issued at least every 29 minutes.
+    monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+    monkeypatch.setenv("IMAP_IDLE_REFRESH_SECONDS", "7200")
+    assert Settings().imap_idle_refresh_seconds == 29 * 60

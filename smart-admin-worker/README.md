@@ -38,8 +38,8 @@ logs to `efbazaar.system.log-event`. Full catalogue: [docs/kafka-topics.md](../d
 | `handlers/` | One handler per request topic |
 | `mailcow/` | Mailcow API client (create, rotate, delete mailboxes) |
 | `konami/` | Konami client; `konami/rotate/rotate.py` runs Chromium as a subprocess for forgot-password |
-| `imap/` | Poller, sender allowlist and code detector for Konami emails |
-| `redis/` | Locks — one IMAP poll per mailbox at a time |
+| `imap/` | IDLE watcher (one connection per mailbox), poller, sender allowlist and code detector for Konami emails |
+| `redis/` | Locks — one IMAP poll per mailbox at a time (polling fallback only) |
 | `crypto/` | Field encryption with the shared master key (same key as trade-service) |
 | `telegram/` | Notifier for the email topic in the admin group |
 | `kafka/` | Topic names (`topics.py`), event schemas (`events.py`) |
@@ -48,6 +48,8 @@ logs to `efbazaar.system.log-event`. Full catalogue: [docs/kafka-topics.md](../d
 
 `KAFKA_BOOTSTRAP_SERVERS`, `MAILCOW_API_URL`, `MAILCOW_API_KEY_FILE`, `MASTER_KEY_FILE`,
 `IMAP_HOST`, `IMAP_PORT`, `IMAP_POLL_INTERVAL_SECONDS`, `IMAP_POLL_LOCK_TTL_SECONDS`,
+`IMAP_IDLE_MAX_CONNECTIONS` (default 200; 0 — IDLE o'chiq), `IMAP_IDLE_REFRESH_SECONDS` (default 300, ≤ 1740),
+`IMAP_IDLE_MAX_LIFETIME_SECONDS` (default 86400),
 `KONAMI_SENDER_ALLOWLIST`, `MAX_CONCURRENT_ROTATE` (default 1, capped by `MAX_CONCURRENT_ROTATE_CAP`, default 5),
 `REDIS_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_GROUP_CHAT_ID`, `TELEGRAM_TOPIC_EMAIL`, `TELEGRAM_TOPIC_LOGS`.
 
@@ -55,6 +57,39 @@ logs to `efbazaar.system.log-event`. Full catalogue: [docs/kafka-topics.md](../d
 
 Messages are plain JSON with no `__TypeId__` header; trade-service picks the
 Java type per listener. Renaming a field here silently breaks the consumer.
+
+## IMAP: IDLE va o'qilgan belgisi
+
+**Kod qanday keladi.** Har quti uchun bitta doimiy IMAP IDLE ulanish
+(`imap/watcher.py`), o'z thread'ida. Dovecot xat tushishi bilan xabar beradi,
+watcher UNSEEN'ni olib, shu qutini kuzatayotgan har bir qadamga (purpose)
+uzatadi — kod xat kelgandan ~1 soniya ichida Kafka'da. Bitta qutining barcha
+qadamlari bitta ulanishni bo'lishadi; turli savdolar parallel ishlaydi.
+
+- Ulanish qutiga birinchi `imap-poll-request` kelganda ochiladi va qutining
+  oxirgi poller'i bekor qilinganda yopiladi — savdo tugaganda
+  (`SUCCESS`/`REJECTED`/`ORPHANED` → `mailbox-rotate-request` →
+  `cancel_mailbox`).
+- Ulanish ochilganda va har qayta ulanishda UNSEEN bir marta o'qiladi: oraliqda
+  kelgan xat yo'qolmaydi. IDLE har `IMAP_IDLE_REFRESH_SECONDS` da yangilanadi
+  (NAT/firewall jim ulanishni uzmasligi uchun). Uzilsa — backoff bilan qayta
+  ulanadi.
+- `IMAP_IDLE_MAX_LIFETIME_SECONDS` — himoya: rotate kelmay qolsa ham ulanish
+  shu muddatdan keyin yopiladi va qutining poller'lari to'xtaydi.
+- `IMAP_IDLE_MAX_CONNECTIONS` dan oshgan qutilar eski usulda
+  `IMAP_POLL_INTERVAL_SECONDS` bilan poll qilinadi — hech kim navbat kutmaydi.
+- Har ulanishda 30s socket timeout (`SOCKET_TIMEOUT_SECONDS`): yarim ochiq TCP
+  thread'ni abadiy ushlab qolmaydi.
+
+**O'qilgan belgisi.** Poller faqat UNSEEN xatlarni o'qiydi va qadamning
+sarlavhasiga mos kelgan eng yangi xatdan kodni oladi. Kod Kafka'ga
+muvaffaqiyatli publish qilingandan **keyingina** shu qadamning xatlari
+(yuborilgani va undan eskilari) SEEN qilinadi; boshqa qadamning xatlari
+o'qilmagan bo'lib qoladi. Shunda "qayta jo'natish" yoki worker restartidan
+keyin eski kod qayta yuborilmaydi. Publish yiqilsa xat UNSEEN qoladi va
+`IMAP_POLL_INTERVAL_SECONDS` dan keyin qayta urinadi. Ogohlantirish:
+foydalanuvchi xatni webmail'da ochib qo'ysa, u SEEN bo'ladi va worker uni
+ko'rmaydi.
 
 ## Local dev
 
