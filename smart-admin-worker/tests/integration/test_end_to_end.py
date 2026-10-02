@@ -32,6 +32,9 @@ class _FakeImapConn:
     def fetch(self):
         return list(self._msgs)
 
+    def mark_seen(self, uids):
+        pass
+
     def __enter__(self):
         return self
 

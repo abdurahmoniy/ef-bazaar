@@ -44,6 +44,9 @@ class SnapshotFactory:
         self.loop.call_soon_threadsafe(self.polled.put_nowait, snapshot)
         return snapshot
 
+    def mark_seen(self, uids):
+        pass
+
     def __enter__(self):
         return self
 

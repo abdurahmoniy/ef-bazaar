@@ -92,6 +92,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         poll_interval=settings.imap_poll_interval_seconds,
         imap_host=settings.imap_host,
         imap_port=settings.imap_port,
+        max_idle_connections=settings.imap_idle_max_connections,
+        idle_refresh_seconds=settings.imap_idle_refresh_seconds,
+        idle_max_lifetime_seconds=settings.imap_idle_max_lifetime_seconds,
     )
 
     # --- MVP simplification (documented, not fixed here) ---------------------

@@ -1,15 +1,25 @@
-"""Async periodic IMAP poller.
+"""Async IMAP poller.
 
-Runs one task per (mailbox, purpose). Each iteration:
+Runs one task per (mailbox, purpose). Messages come from one of two sources:
 
-1. Try to acquire the per-mailbox Redis lock (SET NX PX).
-2. On success, open the IMAP connection via the injected factory, fetch new
-   messages in the "Konami" domain, feed them to the detector.
-3. On detection: invoke the caller's async callback. Login and email-change code polling keeps
+- IDLE (preferred): the registry's MailboxWatcher holds one connection per
+  mailbox and pushes an UNSEEN snapshot into ``snapshots`` as soon as mail
+  lands. A ``None`` in the queue means the watcher closed; the poller exits.
+- Polling (fallback, when the IDLE cap is reached): sleep POLL_INTERVAL, take
+  the per-mailbox Redis lock (SET NX PX), open a connection and fetch.
+
+For each batch:
+
+1. Feed the messages to the detector for this purpose.
+2. On detection: invoke the caller's async callback. Login and email-change code polling keeps
    watching for fresh messages, suppressing previously delivered and older
    codes. Reset-link polling idles after its first hit. All tasks stop when the
    caller cancels them via ImapPollerRegistry.cancel.
-4. Sleep POLL_INTERVAL and repeat.
+3. Only after the callback succeeded, mark this step's messages SEEN — the
+   delivered one and older ones of the same step. Other steps' mail stays
+   unread. A resend (or a poller restarted after a worker restart) then sees
+   only the new message, never the old code again. A failed callback leaves
+   the mail unread, so the next batch retries it.
 
 If the lock is held by another replica, we skip this iteration silently. If
 the IMAP connection fails, we log and retry next iteration — imap-tools
@@ -61,6 +71,7 @@ class ImapPoller:
     on_email_change_code: Callable[[EmailChangeCodeHit], Awaitable[None]] | None = None
     imap_host: str = "mail.efbazaar.uz"
     imap_port: int = 993
+    snapshots: asyncio.Queue | None = None
 
     async def run(self, mailbox_email: str, password: str, purpose: PollPurpose) -> None:
         lock_key = f"smartadmin:imap-poll:{mailbox_email}"
@@ -69,55 +80,123 @@ class ImapPoller:
         latest_2fa: TwoFaHit | None = None
         delivered_email_codes: set[EmailChangeCodeHit] = set()
         latest_email_code: EmailChangeCodeHit | None = None
+        msgs: list | None = []
+        retry = False
         while True:
-            await asyncio.sleep(self.poll_interval)
-            if detected:
-                # Already dispatched a hit; idle until the caller cancels us
-                # (via ImapPollerRegistry.cancel or direct task.cancel()).
-                continue
-            if not await self.lock.try_acquire(lock_key):
-                continue
-            try:
-                hit = await asyncio.to_thread(
-                    self._fetch_and_detect, mailbox_email, password, purpose
-                )
-            except Exception as e:  # noqa: BLE001
-                log.warning("imap poll failed for %s: %s", mailbox_email, e)
+            if self.snapshots is not None:
+                if retry:
+                    # The callback failed; retry the same batch unless a newer
+                    # one arrives first — IDLE may stay quiet for minutes.
+                    try:
+                        msgs = await asyncio.wait_for(self.snapshots.get(), self.poll_interval)
+                    except TimeoutError:
+                        pass
+                else:
+                    msgs = await self.snapshots.get()
+                while not self.snapshots.empty():
+                    msgs = self.snapshots.get_nowait()  # only the newest matters
+                if msgs is None:
+                    log.info("imap watcher for %s closed, %s poller stops",
+                             mailbox_email, purpose.value)
+                    return
+                if detected:
+                    continue
+            else:
+                await asyncio.sleep(self.poll_interval)
+                if detected:
+                    # Already dispatched a hit; idle until the caller cancels us
+                    # (via ImapPollerRegistry.cancel or direct task.cancel()).
+                    continue
+                if not await self.lock.try_acquire(lock_key):
+                    continue
+                try:
+                    msgs = await asyncio.to_thread(self._fetch, mailbox_email, password)
+                except Exception as e:  # noqa: BLE001
+                    log.warning("imap poll failed for %s: %s", mailbox_email, e)
+                    await self.lock.release(lock_key)
+                    continue
                 await self.lock.release(lock_key)
-                continue
-            await self.lock.release(lock_key)
+            retry = False
+            hit, consumed_uids = self._detect(msgs, purpose)
             if hit is None:
                 continue
             if isinstance(hit, ResetHit) and self.on_reset is not None:
-                await self.on_reset(hit)
+                if not await self._deliver(self.on_reset, hit, mailbox_email):
+                    retry = True
+                    continue
                 detected = True
             elif isinstance(hit, TwoFaHit) and self.on_2fa is not None:
-                if hit in delivered_2fa or (
-                    latest_2fa is not None and hit.received_at < latest_2fa.received_at
-                ):
-                    continue
-                await self.on_2fa(hit)
-                delivered_2fa.add(hit)
-                latest_2fa = hit
+                fresh = hit not in delivered_2fa and (
+                    latest_2fa is None or hit.received_at >= latest_2fa.received_at
+                )
+                if fresh:
+                    if not await self._deliver(self.on_2fa, hit, mailbox_email):
+                        retry = True
+                        continue
+                    delivered_2fa.add(hit)
+                    latest_2fa = hit
                 # Keep the existing registry task alive and watching: a repeated
                 # request must neither spawn a second poller nor replay an old code.
             elif isinstance(hit, EmailChangeCodeHit) and self.on_email_change_code is not None:
-                if hit in delivered_email_codes or (
-                    latest_email_code is not None
-                    and hit.received_at < latest_email_code.received_at
-                ):
-                    continue
-                await self.on_email_change_code(hit)
-                delivered_email_codes.add(hit)
-                latest_email_code = hit
+                fresh = hit not in delivered_email_codes and (
+                    latest_email_code is None
+                    or hit.received_at >= latest_email_code.received_at
+                )
+                if fresh:
+                    if not await self._deliver(self.on_email_change_code, hit, mailbox_email):
+                        retry = True
+                        continue
+                    delivered_email_codes.add(hit)
+                    latest_email_code = hit
+            else:
+                continue
+            # Already-delivered or stale codes are marked too: a previous
+            # mark may have failed, and they must not resurface after restart.
+            await self._mark_seen(mailbox_email, password, consumed_uids)
 
-    def _fetch_and_detect(
-        self, mailbox_email: str, password: str, purpose: PollPurpose
-    ) -> ResetHit | TwoFaHit | EmailChangeCodeHit | None:
+    @staticmethod
+    async def _deliver(callback, hit, mailbox_email: str) -> bool:
+        try:
+            await callback(hit)
+        except Exception as e:  # noqa: BLE001
+            log.warning("delivering %s for %s failed, will retry: %s",
+                        type(hit).__name__, mailbox_email, e)
+            return False
+        return True
+
+    async def _mark_seen(self, mailbox_email: str, password: str, uids: list[str]) -> None:
+        if not uids:
+            return
+        try:
+            await asyncio.to_thread(self._mark_seen_sync, mailbox_email, password, uids)
+        except Exception as e:  # noqa: BLE001
+            # The in-memory dedup above still stops a replay within this poller.
+            log.warning("marking %s seen failed for %s: %s", uids, mailbox_email, e)
+
+    def _mark_seen_sync(self, mailbox_email: str, password: str, uids: list[str]) -> None:
         with self.factory.open(self.imap_host, self.imap_port, mailbox_email, password) as conn:
-            msgs = list(conn.fetch())
+            conn.mark_seen(uids)
+
+    def _fetch(self, mailbox_email: str, password: str) -> list:
+        with self.factory.open(self.imap_host, self.imap_port, mailbox_email, password) as conn:
+            return list(conn.fetch())
+
+    def _detect(
+        self, msgs: list, purpose: PollPurpose
+    ) -> tuple[ResetHit | TwoFaHit | EmailChangeCodeHit | None, list[str]]:
+        """Returns the step's newest hit and the UIDs of every message that
+        belongs to this step (allowlisted sender, step subject, parsable)."""
         if purpose is PollPurpose.VERIFY_LINK:
-            return self.detector.check_reset(msgs)
-        if purpose is PollPurpose.WAIT_EMAIL_CHANGE_CODE:
-            return self.detector.check_email_change_verification(msgs)
-        return self.detector.check_2fa(msgs)
+            check = self.detector.check_reset
+        elif purpose is PollPurpose.WAIT_EMAIL_CHANGE_CODE:
+            check = self.detector.check_email_change_verification
+        else:
+            check = self.detector.check_2fa
+        hit = check(msgs)
+        if hit is None:
+            return None, []
+        uids = [
+            m.uid for m in msgs
+            if getattr(m, "uid", None) and check([m]) is not None
+        ]
+        return hit, uids

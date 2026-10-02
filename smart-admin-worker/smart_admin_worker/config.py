@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     imap_port: int = Field(default=993, alias="IMAP_PORT")
     imap_poll_interval_seconds: int = Field(default=5, alias="IMAP_POLL_INTERVAL_SECONDS")
     imap_poll_lock_ttl_seconds: int = Field(default=6, alias="IMAP_POLL_LOCK_TTL_SECONDS")
+    # Doimiy IDLE ulanishlar: bitta quti — bitta ulanish va thread. Limitdan
+    # oshgan qutilar IMAP_POLL_INTERVAL_SECONDS bilan poll qilinadi; 0 — IDLE o'chiq.
+    imap_idle_max_connections: int = Field(default=200, alias="IMAP_IDLE_MAX_CONNECTIONS")
+    imap_idle_refresh_seconds: int = Field(default=300, alias="IMAP_IDLE_REFRESH_SECONDS")
+    imap_idle_max_lifetime_seconds: int = Field(
+        default=86400, alias="IMAP_IDLE_MAX_LIFETIME_SECONDS"
+    )
 
     # Konami
     konami_sender_allowlist: str = Field(
@@ -76,6 +83,11 @@ class Settings(BaseSettings):
         mailbox credentials, so losing them is worse than misfiling them.
         """
         return self.telegram_topic_email or self.telegram_topic_logs
+
+    @model_validator(mode="after")
+    def clamp_imap_idle_refresh(self) -> Settings:
+        self.imap_idle_refresh_seconds = max(1, min(self.imap_idle_refresh_seconds, 29 * 60))
+        return self
 
     @model_validator(mode="after")
     def clamp_concurrent_rotate(self) -> Settings:
