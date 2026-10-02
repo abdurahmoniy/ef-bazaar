@@ -37,6 +37,10 @@ class LeaseStore:
         self.runner = runner
         self._ttl = ttl_seconds
 
+    @property
+    def ttl_seconds(self) -> int:
+        return self._ttl
+
     async def acquire(self, account_id: UUID) -> bool:
         async with self._engine.begin() as conn:
             row = (await conn.execute(
