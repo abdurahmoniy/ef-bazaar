@@ -265,3 +265,43 @@ async def test_log_out_failure_stops_the_client_keeps_account_and_restarts_once(
     assert a not in core.running
     await core.reconcile()
     assert len(factory.made[a]) == 2 and set(core.running) == {a}
+
+
+async def test_an_account_acquired_during_a_renew_is_not_treated_as_lost(repo, engine, caplog):
+    a, b = sorted([await acc(repo, 1), await acc(repo, 2)])
+    factory = Factory()
+    core = sup("core", repo, engine, factory)
+    core._held.add(a)
+    core.running[a] = FakeAccountClient()
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def slow_renew(held, alive):
+        entered.set()
+        await release.wait()
+        return {a}                              # b was not part of this renew
+    core._leases.renew = slow_renew
+
+    task = asyncio.create_task(core.renew_once())
+    await entered.wait()
+    core._hold(b)                               # acquired while the renew is in flight
+    client_b = FakeAccountClient()
+    client_b.started = True
+    core.running[b] = client_b
+    release.set()
+    with caplog.at_level("ERROR"):
+        await task
+
+    assert b in core.running and client_b.stopped is False
+    assert b in core._held
+    assert "lost the lease" not in caplog.text
+
+
+async def test_on_started_has_its_own_longer_timeout(repo, engine):
+    a = await acc(repo, 1)
+
+    async def slow_hook(account_id, client):
+        await asyncio.sleep(0.1)
+    core = sup("core", repo, engine, Factory(), on_started=slow_hook,
+               telegram_timeout=0.02, on_started_timeout=1)
+    await core.reconcile()
+    assert set(core.running) == {a}

@@ -40,6 +40,7 @@ class Supervisor:
         avatar_dir: str | None = None, clock: Callable[[], float] = time.monotonic,
         lease_ttl: float | None = None, safety_margin: float = 10,
         renew_interval: float = 5, db_timeout: float = 5, telegram_timeout: float = 15,
+        on_started_timeout: float = 120,
     ) -> None:
         self._runner = runner
         self._repo = repo
@@ -54,6 +55,7 @@ class Supervisor:
         self._renew_interval = renew_interval
         self._db_timeout = db_timeout
         self._tg_timeout = telegram_timeout
+        self._on_started_timeout = on_started_timeout
         self._last_renew_ok = clock()
         self._lock = asyncio.Lock()
         self._held: set[UUID] = set()      # every lease we hold, clients still starting included
@@ -84,16 +86,17 @@ class Supervisor:
             self._last_renew_ok = self._clock()
             return
         started = self._clock()
+        sent = set(self._held)      # accounts acquired during the call were not part of it
         alive = {i for i, c in list(self.running.items()) if c.is_connected}
         try:
             held = await asyncio.wait_for(
-                self._leases.renew(list(self._held), alive), self._db_timeout)
+                self._leases.renew(list(sent), alive), self._db_timeout)
         except Exception:
             log.exception("lease renewal failed")
             await self._watchdog()
             return
         self._last_renew_ok = started
-        for account_id in self._held - set(held):
+        for account_id in (sent - set(held)) & self._held:
             log.error("lost the lease on account %s; stopping it here", account_id)
             await self._stop(account_id, release=False)
         await self._watchdog()
@@ -247,7 +250,8 @@ class Supervisor:
         log.info("runner %s started account %s", self._runner, account_id)
         if self._on_started:
             try:
-                await self._tg(self._on_started(account_id, client))
+                await asyncio.wait_for(
+                    self._on_started(account_id, client), self._on_started_timeout)
             except Exception:
                 log.exception("on_started of account %s failed; stopping it", account_id)
                 await self._stop(account_id)
