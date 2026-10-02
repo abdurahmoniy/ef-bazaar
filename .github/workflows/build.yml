@@ -97,8 +97,8 @@ jobs:
             smart-admin:
               - 'smart-admin-worker/**'
               - '!**/*.md'
-            humo-userbot:
-              - 'humo-userbot/**'
+            userbot-service:
+              - 'userbot-service/**'
               - '!**/*.md'
             libs:
               - 'backend/libs/**'
@@ -130,7 +130,7 @@ jobs:
           if changed "${{ steps.filter.outputs.mail }}";                   then add mail-frontend      mail                   mail/Dockerfile                   mail-frontend;      fi
           if changed "${{ steps.filter.outputs.nginx }}";                  then add nginx              nginx                  nginx/Dockerfile                  nginx;              fi
           if changed "${{ steps.filter.outputs['smart-admin'] }}";         then add smart-admin-worker smart-admin-worker     smart-admin-worker/Dockerfile     smart-admin-worker; fi
-          if changed "${{ steps.filter.outputs['humo-userbot'] }}";        then add humo-userbot       humo-userbot           humo-userbot/Dockerfile           humo-userbot;       fi
+          if changed "${{ steps.filter.outputs['userbot-service'] }}"; then add userbot-service userbot-service userbot-service/Dockerfile userbot-service; fi
 
           if [ ${#ITEMS[@]} -eq 0 ]; then
             MATRIX='{"include":[]}'

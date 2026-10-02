@@ -10,7 +10,7 @@ No env vars and no Settings instance here: `as_chat_ref` is a pure function so
 this stays runnable without a Telegram account.
 """
 
-from humo_userbot.config import as_chat_ref
+from userbot_service.config import as_chat_ref
 
 
 def test_a_username_stays_a_string():

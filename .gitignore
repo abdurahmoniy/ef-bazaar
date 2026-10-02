@@ -66,7 +66,7 @@ infra/secrets/mailcow_api_key
 # Alertmanager konfiguratsiyada ${...} o'qimaydi, shuning uchun qiymatlar
 # tayyor holda yoziladi va bu faylni hech qachon commit qilib bo'lmaydi.
 infra/alertmanager/alertmanager.yml
-# Pyrogram MTProto user session (humo-userbot) — full control of a Telegram
+# Pyrogram MTProto user session (userbot-service) — full control of a Telegram
 # account. Created by a one-time interactive login, lives only in the mounted
 # docker volume.
 *.session

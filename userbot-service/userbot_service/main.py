@@ -18,8 +18,8 @@ from datetime import UTC, datetime
 
 from pyrogram import Client, filters
 
-from humo_userbot.config import as_chat_ref, get_settings
-from humo_userbot.kafka_client import (
+from userbot_service.config import as_chat_ref, get_settings
+from userbot_service.kafka_client import (
     CARD_CREDIT_OBSERVED,
     CARD_DEBIT_OBSERVED,
     USERBOT_HEARTBEAT,
@@ -28,8 +28,8 @@ from humo_userbot.kafka_client import (
     build_card_debit_payload,
     iso_z,
 )
-from humo_userbot.observability.kafka_log_forwarder import KafkaLogForwarder
-from humo_userbot.parser import parse_debit, parse_topup
+from userbot_service.observability.kafka_log_forwarder import KafkaLogForwarder
+from userbot_service.parser import parse_debit, parse_topup
 
 settings = get_settings()
 

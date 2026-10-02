@@ -8,7 +8,7 @@ o'lardi.
 
 from __future__ import annotations
 
-from humo_userbot.observability.log_throttle import LogThrottle
+from userbot_service.observability.log_throttle import LogThrottle
 
 WINDOW = 60.0
 CAP = 20

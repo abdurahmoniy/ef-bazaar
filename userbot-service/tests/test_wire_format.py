@@ -13,7 +13,7 @@ ISO-8601, second precision, literal 'Z'. This matches it, and matches the
 
 from datetime import UTC, datetime, timedelta, timezone
 
-from humo_userbot.kafka_client import (
+from userbot_service.kafka_client import (
     build_card_credit_payload,
     build_card_debit_payload,
     iso_z,

@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from humo_userbot.observability.kafka_log_forwarder import KafkaLogForwarder
+from userbot_service.observability.kafka_log_forwarder import KafkaLogForwarder
 
 
 class RecordingProducer:
@@ -34,7 +34,7 @@ async def _forwarder():
 async def test_a_warning_is_published_in_the_shape_the_bot_expects():
     producer, fwd = await _forwarder()
     handler = fwd.logging_handler()
-    logger = logging.getLogger("humo_userbot.test.caller")
+    logger = logging.getLogger("userbot_service.test.caller")
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     try:
@@ -59,7 +59,7 @@ async def test_a_warning_is_published_in_the_shape_the_bot_expects():
 async def test_info_is_not_forwarded():
     producer, fwd = await _forwarder()
     handler = fwd.logging_handler()
-    logger = logging.getLogger("humo_userbot.test.quiet")
+    logger = logging.getLogger("userbot_service.test.quiet")
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     try:
@@ -90,7 +90,7 @@ async def test_kafkas_own_logs_are_never_forwarded():
 async def test_a_repeating_failure_is_forwarded_once():
     producer, fwd = await _forwarder()
     handler = fwd.logging_handler()
-    logger = logging.getLogger("humo_userbot.test.loop")
+    logger = logging.getLogger("userbot_service.test.loop")
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     try:

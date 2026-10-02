@@ -60,7 +60,7 @@ Run this **once**, on the server, in a terminal:
 ```bash
 cd /opt/efbazaar
 docker compose run --rm -it humo-userbot python -c "
-from humo_userbot.config import get_settings
+from userbot_service.config import get_settings
 from pyrogram import Client
 s = get_settings()
 with Client(s.telegram_session_name, api_id=s.telegram_api_id,
@@ -76,7 +76,7 @@ You will be prompted for, in order:
    account is already signed in elsewhere).
 3. **The 2FA password**, if the account has two-step verification enabled.
 
-That writes `humo_userbot_session.session` into `TELEGRAM_SESSION_DIR` — the mounted
+That writes `userbot_service_session.session` into `TELEGRAM_SESSION_DIR` — the mounted
 `humo-userbot-session` volume — after which `docker compose up -d humo-userbot` starts without
 prompting. Until the session exists the container crash-loops: with no TTY the login prompt raises
 immediately. That is the expected state of a fresh deployment, not a bug.
@@ -93,7 +93,7 @@ Docker volume. Deleting the volume means redoing the interactive login.
 | `TELEGRAM_API_HASH` | **yes** | — | Same. GitHub Secret. |
 | `KAFKA_BOOTSTRAP_SERVERS` | **yes** | — | `kafka:9092` in compose. |
 | `HUMO_SOURCE_CHAT` | no | `humocardbot` | Username **or** numeric chat id; a numeric value is coerced to `int` so `filters.chat` matches on id rather than username. |
-| `TELEGRAM_SESSION_NAME` | no | `humo_userbot_session` | |
+| `TELEGRAM_SESSION_NAME` | no | `userbot_service_session` | |
 | `TELEGRAM_SESSION_DIR` | no | `/run/secrets` | `/session` in compose. |
 | `HEARTBEAT_INTERVAL_SECONDS` | no | `60` | |
 | `LOG_LEVEL` | no | `INFO` | |
@@ -109,7 +109,7 @@ container crash-loops rather than starting a client that could never authenticat
 ```bash
 pip install -r requirements-dev.txt
 python -m pytest tests/ -v
-ruff check humo_userbot/ tests/
+ruff check userbot_service/ tests/
 ```
 
 The tests need neither Telegram nor Kafka: `parse_topup` and `as_chat_ref` are pure functions, and

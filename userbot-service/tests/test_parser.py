@@ -23,7 +23,7 @@ Fixture provenance:
                 top-up heading nor the plus sign.
 """
 
-from humo_userbot.parser import parse_debit, parse_topup
+from userbot_service.parser import parse_debit, parse_topup
 
 TOPUP = (
     "🎉 To'ldirish\n"

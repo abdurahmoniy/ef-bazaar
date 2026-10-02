@@ -48,7 +48,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       mail: ${{ steps.filter.outputs.mail }}
       smart-admin: ${{ steps.filter.outputs['smart-admin'] }}
-      humo-userbot: ${{ steps.filter.outputs['humo-userbot'] }}
+      userbot-service: ${{ steps.filter.outputs['userbot-service'] }}
       libs: ${{ steps.filter.outputs.libs }}
       # Matritsalar SHU YERDA quriladi, matrisa ichida `if` bilan emas.
       #
@@ -223,7 +223,7 @@ jobs:
           set_output frontend       'frontend/'
           set_output mail           'mail/'
           set_output smart-admin    'smart-admin-worker/'
-          set_output humo-userbot   'humo-userbot/'
+          set_output userbot-service 'userbot-service/'
           set_output libs           'backend/libs/'
 
       # Faqat o'zgargan servislardan matritsa yig'iladi.
@@ -264,7 +264,7 @@ jobs:
           PY=()
           add_py() { PY+=("{\"name\":\"$1\",\"path\":\"$2\",\"package\":\"$3\",\"image_check\":$4}"); }
           if [ "${{ steps.filter.outputs['smart-admin'] }}" = "true" ]; then add_py smart-admin-worker smart-admin-worker smart_admin_worker false; fi
-          if [ "${{ steps.filter.outputs['humo-userbot'] }}" = "true" ]; then add_py humo-userbot       humo-userbot       humo_userbot       true; fi
+          if [ "${{ steps.filter.outputs['userbot-service'] }}" = "true" ]; then add_py userbot-service userbot-service userbot_service true; fi
           emit python "${PY[@]}"
 
           cat "$GITHUB_OUTPUT"

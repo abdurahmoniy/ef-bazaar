@@ -24,7 +24,7 @@ Current minimum checks (run inside the listed directory):
 | `frontend/` | Node 22, dependencies from `package-lock.json` using `npm ci --no-audit --no-fund`; `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build`. |
 | `mail/` | Node 22, `npm ci --no-audit --no-fund`; `npm run test` and `npm run build`. |
 | `smart-admin-worker/` | Python 3.12, dependencies from `requirements-dev.txt`; `ruff check smart_admin_worker/ tests/` and `pytest -q`. |
-| `humo-userbot/` | Python 3.12, dependencies from `requirements-dev.txt`; `ruff check humo_userbot/ tests/`, `pytest -q`, and `docker build -t humo-userbot:ci .`. |
+| `userbot-service/` | Python 3.12, dependencies from `requirements-dev.txt`; `ruff check userbot_service/ tests/`, `pytest -q` (Docker kerak — testcontainers), and `docker build -t userbot-service:ci .`. |
 
 Reinstall dependencies when the lockfile or environment changes. If workflows change, update this table to match. For Dockerfiles, proxy configuration, deployment scripts, or shared infrastructure, also validate the affected image/configuration with the checks used by its workflow.
 

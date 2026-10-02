@@ -26,13 +26,13 @@ import traceback
 from datetime import UTC, datetime
 from typing import Any
 
-from humo_userbot.observability.log_throttle import LogThrottle
+from userbot_service.observability.log_throttle import LogThrottle
 
 LOG_TOPIC = "efbazaar.system.log-event"
 
 # Kafka's own logging would feed itself: publishing a record logs, which
 # publishes a record. Same guard the Java forwarders apply to org.apache.kafka.
-_MUTED_PREFIXES = ("aiokafka", "kafka", "humo_userbot.observability")
+_MUTED_PREFIXES = ("aiokafka", "kafka", "userbot_service.observability")
 
 _LEVEL_NAMES = {
     "critical": "ERROR", "exception": "ERROR", "error": "ERROR",

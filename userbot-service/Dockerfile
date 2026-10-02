@@ -1,5 +1,5 @@
 # ==============================================================
-# humo-userbot — watches the Humo bot's Telegram chat
+# userbot-service — watches the Humo bot's Telegram chat
 # ==============================================================
 FROM python:3.12-slim
 
@@ -9,7 +9,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY humo_userbot/ ./humo_userbot/
+COPY userbot_service/ ./userbot_service/
 
 # The session directory is a mounted volume; the non-root app user must be
 # able to write to it (Pyrogram keeps its SQLite session there).
@@ -22,4 +22,4 @@ ENV PYTHONUNBUFFERED=1
 # No EXPOSE and no healthcheck: this service has no HTTP surface. Its liveness
 # is reported through the Kafka heartbeat, which is what payment-service gates
 # deposits on.
-CMD ["python", "-m", "humo_userbot.main"]
+CMD ["python", "-m", "userbot_service.main"]
