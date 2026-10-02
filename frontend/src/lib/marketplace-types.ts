@@ -90,6 +90,8 @@ export interface ListingResponse {
     earnedWeight: number;
     possibleWeight: number;
   } | null;
+  /** Faqat frontend: moslik qayerdan — player filtri yoki shaxsiy lenta. */
+  matchKind?: 'filter' | 'feed';
   createdAt: string;
   updatedAt: string;
 }
@@ -530,3 +532,18 @@ export interface AdminSupportChatSummary {
   lastMessageAt: string;
   createdAt: string;
 }
+
+export type MatchDetails = NonNullable<ListingResponse['matchDetails']>;
+
+/** recommendation-service `/feed` javobi. `empty` → Katta bozor ko'rsatiladi. */
+export interface FeedResponse {
+  empty: boolean;
+  profileHash: string | null;
+  ids: string[];
+}
+
+export interface MatchIdsResponse {
+  ids: string[];
+}
+
+export type CardInterestCounts = Record<string, { days7: number; days30: number }>;

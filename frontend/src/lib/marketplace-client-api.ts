@@ -17,6 +17,9 @@
 
 const DEFAULT_BASE_PATH = '/api/marketplace';
 
+/** recommendation-service uchun same-origin proxy (`/app/api/rec/[...path]`). */
+export const REC_API_BASE = '/api/rec';
+
 function normalizeSegments(path: string | string[]) {
   const segments = Array.isArray(path) ? path : path.split('/');
   const normalized = segments.map((segment) => segment.trim()).filter(Boolean);
