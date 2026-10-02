@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 
 from userbot_service.telegram.ports import (
@@ -35,6 +36,7 @@ class FakeLoginGateway:
         return CodeSent("hash", "SMS", 120)
 
     async def sign_in(self, phone, phone_code_hash, code):
+        await asyncio.sleep(0)
         if code != self.code:
             raise TelegramError("CODE_INVALID")
         if self.password is not None:

@@ -67,12 +67,14 @@ class LoginService:
         if len(self._pending) >= self._max_pending:
             raise ApiError("TOO_MANY_LOGINS")
         gateway = self._factory()
-        await gateway.connect()
         try:
+            await gateway.connect()
             sent = await gateway.send_code(phone)
-        except TelegramError as e:
-            await gateway.disconnect()
-            raise _api_error(e) from e
+        except BaseException as e:
+            await self._disconnect_quietly(gateway)
+            if isinstance(e, TelegramError):
+                raise _api_error(e) from e
+            raise
         login_id = uuid.uuid4()
         self._pending[login_id] = _Pending(
             gateway, phone, sent.phone_code_hash, actor, self._clock())
@@ -81,6 +83,7 @@ class LoginService:
     async def submit_code(self, login_id: UUID, code: str) -> LoginStep:
         p = self._get(login_id)
         async with p.lock:
+            self._ensure_current(login_id, p)
             if p.awaiting_password:
                 raise ApiError("LOGIN_GONE")
             try:
@@ -97,6 +100,7 @@ class LoginService:
     async def submit_password(self, login_id: UUID, password: str) -> LoginStep:
         p = self._get(login_id)
         async with p.lock:
+            self._ensure_current(login_id, p)
             if not p.awaiting_password:
                 await self._close(login_id)
                 raise ApiError("LOGIN_GONE")
@@ -111,6 +115,7 @@ class LoginService:
     async def resend(self, login_id: UUID) -> LoginStep:
         p = self._get(login_id)
         async with p.lock:
+            self._ensure_current(login_id, p)
             try:
                 sent = await p.gateway.resend_code(p.phone, p.phone_code_hash)
             except TelegramError as e:
@@ -125,6 +130,19 @@ class LoginService:
         now = self._clock()
         for login_id in [i for i, p in self._pending.items() if now - p.created_at > self._ttl]:
             await self._close(login_id)
+
+    def _ensure_current(self, login_id: UUID, p: _Pending) -> None:
+        # Re-checked under the lock: a queued request may find the login already
+        # finished, dropped after its last attempt, or expired.
+        if self._pending.get(login_id) is not p or self._clock() - p.created_at > self._ttl:
+            raise ApiError("LOGIN_GONE")
+
+    @staticmethod
+    async def _disconnect_quietly(gateway: LoginGateway) -> None:
+        try:
+            await gateway.disconnect()
+        except Exception:  # noqa: BLE001 - best effort, the original error matters more
+            pass
 
     def _get(self, login_id: UUID) -> _Pending:
         p = self._pending.get(login_id)

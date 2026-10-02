@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 
 import pytest
@@ -147,3 +148,35 @@ async def test_cancel_closes_the_client(repo):
     step = await svc.start("+998901234567", ADMIN)
     await svc.cancel(step.login_id)
     assert gw.connected is False
+
+
+async def test_an_unexpected_error_while_starting_closes_the_client(repo):
+    gw = FakeLoginGateway(send_error=OSError("network down"))
+    svc = service(repo, gw)
+    with pytest.raises(OSError):
+        await svc.start("+998901234567", ADMIN)
+    assert gw.connected is False
+
+
+async def test_concurrent_submissions_finish_only_once(repo):
+    svc = service(repo, FakeLoginGateway())
+    step = await svc.start("+998901234567", ADMIN)
+    results = await asyncio.gather(
+        svc.submit_code(step.login_id, "12345"),
+        svc.submit_code(step.login_id, "12345"),
+        return_exceptions=True)
+    done = [r for r in results if not isinstance(r, Exception)]
+    gone = [r for r in results if isinstance(r, ApiError) and r.code == "LOGIN_GONE"]
+    assert len(done) == 1 and len(gone) == 1
+    assert len(await repo.list()) == 1
+
+
+async def test_submissions_queued_behind_the_last_failure_do_not_reach_telegram(repo):
+    gw = FakeLoginGateway()
+    svc = service(repo, gw, max_attempts=1)
+    step = await svc.start("+998901234567", ADMIN)
+    results = await asyncio.gather(
+        svc.submit_code(step.login_id, "00000"),
+        svc.submit_code(step.login_id, "12345"),
+        return_exceptions=True)
+    assert [r.code for r in results] == ["CODE_INVALID", "LOGIN_GONE"]
