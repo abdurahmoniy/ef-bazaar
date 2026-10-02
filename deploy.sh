@@ -101,6 +101,7 @@ write_env() {
   upsert_env .env PAYMENT_DB_NAME            payment_db
   upsert_env .env ACCESS_DB_NAME             access_db
   upsert_env .env RECOMMENDATION_DB_NAME     recommendation_db
+  upsert_env .env USERBOT_DB_NAME            userbot_db
 
   upsert_env .env REDIS_HOST                 redis
   upsert_env .env REDIS_PORT                 6379
@@ -148,6 +149,13 @@ write_env() {
   upsert_env .env TELEGRAM_API_ID             "${TELEGRAM_API_ID:-}"
   upsert_env .env TELEGRAM_API_HASH           "${TELEGRAM_API_HASH:-}"
   upsert_env .env HUMO_SOURCE_CHAT            "${HUMO_SOURCE_CHAT:-humocardbot}"
+
+  # userbot-service — sessiyalarni shifrlash kaliti. Yo'qolsa barcha akkountlar
+  # qayta ulanadi. `openssl rand -base64 32`.
+  if [[ -n "${USERBOT_SESSION_KEY:-}" ]]; then
+    assert_safe_for_env USERBOT_SESSION_KEY "$USERBOT_SESSION_KEY"
+    upsert_env .env USERBOT_SESSION_KEY "$USERBOT_SESSION_KEY"
+  fi
 
   upsert_env .env MEDIA_MIN_FILES         1
   upsert_env .env MEDIA_MAX_FILES         6
@@ -437,6 +445,16 @@ access_bootstrap() {
   ensure_db "$access_db"
 }
 
+# ─── Userbot-service bootstrap ──────────────────────────────────────────────
+# userbot_db ni yaratadi va eski bitta-akkountli humo-userbot containerini
+# o'chiradi. Ikkinchisi --remove-orphans ga qoldirilmaydi: compose yangi
+# containerlarni eskisi o'chishidan OLDIN ishga tushirishi mumkin, va bitta
+# sessiya ikki joyda ishlasa Telegram uni bekor qiladi (AUTH_KEY_DUPLICATED).
+userbot_bootstrap() {
+  ensure_db "${USERBOT_DB_NAME:-userbot_db}"
+  docker rm -f efbazaar-humo-userbot >/dev/null 2>&1 || true
+}
+
 # ─── Recommendation-service bootstrap ───────────────────────────────────────
 # recommendation_db ni yaratadi (yo'q bo'lsa). 2026-08-23 da o'chirilgan eski
 # recommendation-service ham shu nomdagi bazani ishlatgan: undan jadval qolgan
@@ -656,6 +674,7 @@ sync_db_password
 trade_bootstrap
 payment_bootstrap
 access_bootstrap
+userbot_bootstrap
 recommendation_bootstrap
 sa_worker_bootstrap
 

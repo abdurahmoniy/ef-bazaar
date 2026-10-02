@@ -1,5 +1,6 @@
 # ==============================================================
-# userbot-service — watches the Humo bot's Telegram chat
+# userbot-service — Telegram user accounts: admin panel API (userbot-core)
+# and the Humo payment watcher (userbot-payment). Same image, two commands.
 # ==============================================================
 FROM python:3.12-slim
 
@@ -9,17 +10,15 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY alembic.ini .
 COPY userbot_service/ ./userbot_service/
 
-# The session directory is a mounted volume; the non-root app user must be
-# able to write to it (Pyrogram keeps its SQLite session there).
-RUN mkdir -p /session && chown app:app /session
+# /session: the pre-panel .session file, read once by the importer (rw: Pyrogram
+# opens its SQLite file for writing). /avatars: profile photos, shared by both.
+RUN mkdir -p /session /avatars && chown app:app /session /avatars
 
 USER app
-
 ENV PYTHONUNBUFFERED=1
 
-# No EXPOSE and no healthcheck: this service has no HTTP surface. Its liveness
-# is reported through the Kafka heartbeat, which is what payment-service gates
-# deposits on.
-CMD ["python", "-m", "userbot_service.main"]
+EXPOSE 8089
+CMD ["python", "-m", "userbot_service.main_core"]

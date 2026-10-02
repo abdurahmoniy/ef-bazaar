@@ -1,9 +1,9 @@
 """Publishes this service's own WARN/ERROR logs to `efbazaar.system.log-event`.
 
 The bot consumes that topic and posts to the Telegram logs channel, so this is
-how the worker joins the same reporting path as auth, marketplace, trade and
-payment. Until now it only spoke up when a Kafka handler raised (the wrapper
-in `main.py`); an IMAP poller dying or Mailcow refusing went nowhere.
+how this service joins the same reporting path as auth, marketplace, trade and
+payment. Without it a failure inside the supervisor or the Humo watcher would
+only reach the container log.
 
 This service logs only through stdlib `logging`, so the handler alone covers
 it. The structlog adapter is carried along unused, so the file stays

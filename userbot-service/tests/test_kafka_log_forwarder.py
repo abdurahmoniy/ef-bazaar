@@ -1,8 +1,7 @@
 """Worker xatolari ham Telegramga chiqadi — Java servislar bilan bir topikda.
 
-Ilgari worker faqat Kafka handler'i yiqilganda xabar berardi
-(`main.py` dagi `_wrap`), qolgan hamma `log.error` esa hech qayerga
-bormasdi — IMAP poller yiqilishi, Mailcow javob bermasligi va hokazo.
+Servis xatolari (supervisor, watcher) faqat container logida qolmasligi
+uchun `log.error` ham shu topikka chiqadi.
 """
 
 from __future__ import annotations
@@ -106,7 +105,7 @@ async def test_a_repeating_failure_is_forwarded_once():
 
 
 async def test_structlog_events_are_forwarded_too():
-    # Worker aralash yozadi: main.py structlog, consumer.py stdlib. structlog
+    # Worker aralash yozadi: structlog va stdlib aralash. structlog
     # PrintLogger bilan stdout'ga to'g'ridan-to'g'ri yozadi va stdlib
     # handler uni UMUMAN ko'rmaydi.
     producer, fwd = await _forwarder()
