@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 
 import uvicorn
 
@@ -20,6 +21,20 @@ from userbot_service.supervisor import Supervisor
 from userbot_service.telegram.pyrogram_adapter import PyrogramAccountClient, PyrogramLoginGateway
 
 log = logging.getLogger(__name__)
+
+
+async def login_sweeper(
+    logins: LoginService, *, every: float = 30,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> None:
+    """Drop abandoned logins every `every` seconds. A failing sweep is logged and
+    retried next round; only cancellation ends the loop."""
+    while True:
+        try:
+            await logins.sweep()
+        except Exception:
+            log.exception("login sweep failed; retrying next round")
+        await sleep(every)
 
 
 async def main() -> None:
@@ -46,12 +61,8 @@ async def main() -> None:
     server = uvicorn.Server(uvicorn.Config(app, host="0.0.0.0", port=s.http_port,
                                            log_level=s.log_level.lower(), access_log=False))
 
-    async def sweeper() -> None:
-        while True:
-            await logins.sweep()
-            await asyncio.sleep(30)
-
-    tasks = [asyncio.create_task(supervisor.run_forever()), asyncio.create_task(sweeper())]
+    tasks = [asyncio.create_task(supervisor.run_forever()),
+             asyncio.create_task(login_sweeper(logins))]
     try:
         await server.serve()
     finally:

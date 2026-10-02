@@ -674,9 +674,11 @@ sync_db_password
 trade_bootstrap
 payment_bootstrap
 access_bootstrap
-userbot_bootstrap
 recommendation_bootstrap
 sa_worker_bootstrap
+# Last bootstrap, right before `up`: a later bootstrap failing under set -e
+# must not leave the old userbot removed and the new one never started.
+userbot_bootstrap
 
 # Force-all override
 RECREATE_FLAG=""
