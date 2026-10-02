@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MarketplaceListingFeed } from './marketplace-listing-feed';
+import { MarketplaceListingFeed, nextPageAccepted } from './marketplace-listing-feed';
 import { MarketplaceHistoryProvider } from './marketplace-history-provider';
 import { MARKETPLACE_FEED_STATE_KEY, normalizeMarketplaceQuery } from '@/lib/marketplace-scroll-state';
 import type { ListingResponse, PageResponse } from '@/lib/marketplace-types';
@@ -31,7 +33,7 @@ let mediaChange: ((event: { matches: boolean }) => void) | undefined;
 let observers: { callback: IntersectionObserverCallback; disconnect: ReturnType<typeof vi.fn> }[];
 let fetchMock: ReturnType<typeof vi.fn>;
 const initialPage = page(['one', 'two']);
-const props = { initialPage, filters: { size: 2 }, rawQuery: '', view: 'auto' as const, matchCriteria: [], tab: 'market' as const, authenticated: false, mode: 'market' as const };
+const props = { initialPage, filters: { size: 2 }, rawQuery: '', view: 'auto' as const, matchCriteria: [], tab: 'market' as const, authenticated: false, mode: 'market' as 'market' | 'match' | 'mine' };
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -65,8 +67,8 @@ function ids() { return Array.from(host.querySelectorAll('[data-marketplace-list
 
 describe('mobile marketplace infinite scrolling', () => {
   it('appends the next page without navigation and preserves API filters and detail links', async () => {
-    const rawQuery = 'q=Messi&matchCard=1%3Ax%3AN&matchCard=2%3Ay%3AP';
-    await render({ rawQuery, filters: { size: 2, search: 'Messi', matchCards: ['1:x:N', '2:y:P'], matchStrictness: 4, attributes: { platform: 'STEAM' } } as typeof props.filters });
+    const rawQuery = 'q=Messi&tab=market';
+    await render({ rawQuery, filters: { size: 2, search: 'Messi', attributes: { platform: 'STEAM' } } as typeof props.filters });
     expect(ids()).toEqual(['one', 'two']);
     expect(host.querySelector('nav[aria-label="Sahifalash"]')).toBeNull();
     await intersect();
@@ -76,8 +78,23 @@ describe('mobile marketplace infinite scrolling', () => {
     expect(url.searchParams.get('page')).toBe('1');
     expect(url.searchParams.get('search')).toBe('Messi');
     expect(url.searchParams.get('attr.platform')).toBe('STEAM');
-    expect(url.searchParams.getAll('matchCard')).toEqual(['1:x:N', '2:y:P']);
+    expect(url.searchParams.get('sort')).toBe('valueScore,desc');
     expect(host.querySelector('[data-marketplace-listing-link="three"]')?.getAttribute('href')).toBe(`/marketplace/three?${rawQuery}`);
+  });
+
+  it('player filter pages come from recommendation order through ranked', async () => {
+    fetchMock.mockImplementation(async (input: string) => {
+      const url = new URL(input, 'https://efbazaar.uz');
+      if (url.pathname === '/api/rec/v1/match') return new Response(JSON.stringify({ ids: ['one', 'two', 'three', 'four'] }));
+      if (url.pathname === '/api/marketplace/v1/listings/ranked') return new Response(JSON.stringify(page(['three', 'four'], 1)));
+      return new Response(JSON.stringify({}));
+    });
+    await render({ mode: 'match', filters: { size: 2, matchCards: ['1:x:N'], matchStrictness: 4 } as typeof props.filters });
+    await intersect();
+    expect(ids()).toEqual(['one', 'two', 'three', 'four']);
+    const paths = fetchMock.mock.calls.map(([input]) => new URL(input, 'https://efbazaar.uz').pathname);
+    expect(paths).toEqual(['/api/rec/v1/match', '/api/marketplace/v1/listings/ranked', '/api/rec/v1/match/details']);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({ ids: ['one', 'two', 'three', 'four'], page: 1, size: 2 });
   });
 
   it('loads one request at a time, deduplicates overlapping listings, and stops at the final page', async () => {
@@ -138,5 +155,27 @@ describe('mobile marketplace infinite scrolling', () => {
     expect(host.querySelector('nav[aria-label="Sahifalash"]')).not.toBeNull();
     await act(async () => mediaChange?.({ matches: true }));
     expect(ids()).toEqual(['one', 'two', 'three', 'four']);
+  });
+});
+
+describe('next page mode guard', () => {
+  it('rejects a next page whose mode differs', () => {
+    expect(nextPageAccepted('mine', 'mine')).toBe(true);
+    expect(nextPageAccepted('mine', 'market')).toBe(false);
+    expect(nextPageAccepted('match', 'match')).toBe(true);
+  });
+});
+
+describe('feed wiring', () => {
+  const feedSource = readFileSync(
+    resolve(process.cwd(), 'src/components/marketplace/marketplace-listing-feed.tsx'), 'utf8');
+
+  it('loads further pages through the shared loader, not the old browse endpoint', () => {
+    expect(feedSource).toContain('loadMarketplacePage(createBrowserMarketplaceTransport(controller.signal)');
+    expect(feedSource).not.toContain("buildMarketplaceApiPath('v1/listings'");
+  });
+
+  it('desktop page links carry the feed snapshot', () => {
+    expect(feedSource).toMatch(/setMarketplaceFeed\(\s*setMarketplacePage\(/);
   });
 });
