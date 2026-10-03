@@ -53,7 +53,7 @@ To'liq ro'yxat — controllerlarda. Asosiy guruhlar (`/api/v1/...`):
 | Hamkorlik, referal | `/partners/**` (ariza, panel, to'lov, kanallar, click), `/referrals/claim`, `/referrals/me` |
 | Trust, support | `/complaints`, `/blacklist`, `/blacklist/check`, `/support/chats/**` |
 | Admin | `/admin/**`: listings, cards (sync, META), attributes, chats, partners, referrals, reports, trust, support, bot-settings, bot-broadcasts, guides, emoji-packs, stats, badges |
-| Ichki | `/internal/marketplace/v1/**`: `listings/{id}/terms`, `accounts/{id}` (trade uchun), bot-settings, guides/buttons, partners/* natijalari (bot), referrals/pending, support/telegram-reply, trust/complaints, `POST rec/replay` (`X-Internal-Secret`; `{ listings, likes, cards }` sonlari — hammasini qayta yuborishga belgilaydi) |
+| Ichki | `/internal/marketplace/v1/**`: `listings/{id}/terms`, `accounts/{id}` (trade uchun), bot-settings, `inline/listings?telegramId&q&offset` (bot inline rejimi: o'z ACTIVE e'lonlari, kanal matni, muqova, Mini App havolasi, 20 talik sahifa), guides/buttons, partners/* natijalari (bot), referrals/pending, support/telegram-reply, trust/complaints, `POST rec/replay` (`X-Internal-Secret`; `{ listings, likes, cards }` sonlari — hammasini qayta yuborishga belgilaydi) |
 
 > **Ko'chirilmoqda:** dream team, card match va card interest `recommendation-service` da ham bor
 > (B bosqichi, qorong'i). Frontend C bosqichida unga o'tadi, D bosqichida bu yerdan o'chiriladi —
