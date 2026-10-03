@@ -611,12 +611,32 @@ public class TelegramApiClient {
      * holatda uni YUBORMAYDI va ro'yxat berilmasa bot kanalga admin qilib
      * qo'shilganini umuman bilmay qolardi. Ro'yxat berilgach, unda
      * sanalmagan tur ham kelmaydi — shuning uchun `message` ham bu yerda.
+     * {@code inline_query} — `@EfBazaarBot` inline rejimi (o'z e'lonlarini
+     * ulashish); ro'yxatda bo'lmasa inline so'rovlar botga umuman kelmaydi.
      */
+    static final List<String> ALLOWED_UPDATES =
+            List.of("message", "callback_query", "my_chat_member", "inline_query");
+
     private ArrayNode allowedUpdates() {
-        return objectMapper.createArrayNode()
-                .add("message")
-                .add("callback_query")
-                .add("my_chat_member");
+        ArrayNode list = objectMapper.createArrayNode();
+        ALLOWED_UPDATES.forEach(list::add);
+        return list;
+    }
+
+    /**
+     * answerInlineQuery. {@code nextOffset} va {@code button} null bo'lsa
+     * yuborilmaydi. Natijalar shaxsiy bo'lishi kerak bo'lsa {@code isPersonal}.
+     */
+    public void answerInlineQuery(String inlineQueryId, ArrayNode results, int cacheTime,
+                                  boolean isPersonal, String nextOffset, ObjectNode button) {
+        ObjectNode body = objectMapper.createObjectNode()
+                .put("inline_query_id", inlineQueryId)
+                .put("cache_time", cacheTime)
+                .put("is_personal", isPersonal);
+        body.set("results", results);
+        if (nextOffset != null) body.put("next_offset", nextOffset);
+        if (button != null) body.set("button", button);
+        postJson("answerInlineQuery", body);
     }
 
     /**
