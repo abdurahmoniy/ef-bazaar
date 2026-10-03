@@ -59,7 +59,12 @@ export function loginReducer(s: LoginState, a: LoginAction): LoginState {
     case 'failure': {
       const { code, message } = a.error;
 
-      if (code === 'LOGIN_GONE' || code === 'CODE_EXPIRED') {
+      // Not a bad attempt: the admin's own session lapsed; the login itself is intact.
+      if (code === 'UNAUTHENTICATED') {
+        return { ...s, busy: false, error: message };
+      }
+
+      if (code === 'LOGIN_GONE' || code === 'CODE_EXPIRED' || code === 'ALREADY_CONNECTED') {
         return { ...initialLogin, error: message };
       }
 

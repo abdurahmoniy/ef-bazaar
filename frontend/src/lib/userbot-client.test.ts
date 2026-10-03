@@ -54,3 +54,13 @@ describe('userbot client', () => {
     expect(avatarUrl('a/../b')).toBe('/api/userbot/v1/accounts/a%2F..%2Fb/avatar');
   });
 });
+
+describe('401', () => {
+  it('maps to UNAUTHENTICATED with the session message regardless of body', async () => {
+    vi.stubGlobal('fetch', respond(401, { code: 'X', message: 'boshqa' }));
+    const err = await startLogin('+998901234567').catch((e) => e);
+    expect(err).toBeInstanceOf(UserbotApiError);
+    expect(err.code).toBe('UNAUTHENTICATED');
+    expect(err.message).toBe('Sessiya tugadi — sahifani yangilang.');
+  });
+});

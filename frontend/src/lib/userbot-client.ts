@@ -16,10 +16,10 @@ export class UserbotApiError extends Error {
   readonly retryAfterSec?: number;
 
   constructor(status: number, body: Partial<UserbotErrorBody>) {
-    super(body.message || `So'rov bajarilmadi (${status})`);
+    super(status === 401 ? 'Sessiya tugadi — sahifani yangilang.' : body.message || `So'rov bajarilmadi (${status})`);
     this.name = 'UserbotApiError';
     this.status = status;
-    this.code = body.code || `HTTP_${status}`;
+    this.code = status === 401 ? 'UNAUTHENTICATED' : body.code || `HTTP_${status}`;
     this.retryAfterSec = body.retryAfterSec;
   }
 }

@@ -101,3 +101,17 @@ describe('login flow', () => {
     expect(s).toMatchObject({ step: 'password', failures: 0 });
   });
 });
+
+describe('final review fixes', () => {
+  const atCode = { ...initialLogin, step: 'code' as const, loginId: 'L1' };
+
+  it('ALREADY_CONNECTED on submit starts over and keeps the message', () => {
+    const s = loginReducer(atCode, { type: 'failure', op: 'submit', error: { code: 'ALREADY_CONNECTED', message: 'Allaqachon ulangan.' } });
+    expect(s).toMatchObject({ step: 'phone', loginId: null, error: 'Allaqachon ulangan.' });
+  });
+
+  it('UNAUTHENTICATED on submit stays on the step without counting an attempt', () => {
+    const s = loginReducer({ ...atCode, failures: 2 }, { type: 'failure', op: 'submit', error: { code: 'UNAUTHENTICATED', message: 'Sessiya tugadi' } });
+    expect(s).toMatchObject({ step: 'code', loginId: 'L1', failures: 2, busy: false, error: 'Sessiya tugadi' });
+  });
+});
