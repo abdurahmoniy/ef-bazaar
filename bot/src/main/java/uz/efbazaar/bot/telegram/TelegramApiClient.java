@@ -626,8 +626,11 @@ public class TelegramApiClient {
     /**
      * answerInlineQuery. {@code nextOffset} va {@code button} null bo'lsa
      * yuborilmaydi. Natijalar shaxsiy bo'lishi kerak bo'lsa {@code isPersonal}.
+     *
+     * @return Telegram javobni qabul qildimi. Bitta natijaning HTML'i buzilgan
+     *         bo'lsa Telegram butun javobni rad etadi.
      */
-    public void answerInlineQuery(String inlineQueryId, ArrayNode results, int cacheTime,
+    public boolean answerInlineQuery(String inlineQueryId, ArrayNode results, int cacheTime,
                                   boolean isPersonal, String nextOffset, ObjectNode button) {
         ObjectNode body = objectMapper.createObjectNode()
                 .put("inline_query_id", inlineQueryId)
@@ -636,7 +639,7 @@ public class TelegramApiClient {
         body.set("results", results);
         if (nextOffset != null) body.put("next_offset", nextOffset);
         if (button != null) body.set("button", button);
-        postJson("answerInlineQuery", body);
+        return postJson("answerInlineQuery", body).isPresent();
     }
 
     /**

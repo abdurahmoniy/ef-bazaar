@@ -75,7 +75,12 @@ public class InlineQueryHandler {
             button = webAppButton(POST_TEXT, "/marketplace/new");
         }
         String next = page.nextOffset() == null ? null : String.valueOf(page.nextOffset());
-        telegram.answerInlineQuery(id, results, CACHE_SECONDS, true, next, button);
+        if (!telegram.answerInlineQuery(id, results, CACHE_SECONDS, true, next, button)) {
+            // One result with HTML Telegram cannot parse makes it reject the whole
+            // answer; the user would see an empty picker with no explanation.
+            log.warn("answerInlineQuery rad etildi ({} natija) — zaxira javob yuborilmoqda", results.size());
+            answerFailure(id);
+        }
     }
 
     private void answerFailure(String id) {

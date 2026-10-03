@@ -36,11 +36,14 @@ public class InlineListingClient {
         if (props.secret() == null || props.secret().isBlank()) return Optional.empty();
         try {
             return Optional.ofNullable(marketplaceWebClient.get()
+                    // Values go through template variables so the user's text is
+                    // strictly encoded: a literal "{x}" would be read as a template
+                    // variable and "+" would arrive as a space.
                     .uri(u -> u.path("/internal/marketplace/v1/inline/listings")
-                            .queryParam("telegramId", telegramId)
-                            .queryParam("q", q)
-                            .queryParam("offset", offset)
-                            .build())
+                            .queryParam("telegramId", "{telegramId}")
+                            .queryParam("q", "{q}")
+                            .queryParam("offset", "{offset}")
+                            .build(telegramId, q == null ? "" : q, offset))
                     .header("X-Internal-Secret", props.secret())
                     .retrieve()
                     .bodyToMono(InlinePage.class)

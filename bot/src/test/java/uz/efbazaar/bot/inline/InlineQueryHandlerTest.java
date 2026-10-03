@@ -34,6 +34,11 @@ class InlineQueryHandlerTest {
     final ArgumentCaptor<Integer> cache = ArgumentCaptor.forClass(Integer.class);
     final ArgumentCaptor<String> next = ArgumentCaptor.forClass(String.class);
 
+    {
+        when(telegram.answerInlineQuery(anyString(), any(ArrayNode.class), anyInt(),
+                org.mockito.ArgumentMatchers.anyBoolean(), any(), any())).thenReturn(true);
+    }
+
     JsonNode query(String q, String offset) {
         ObjectNode n = json.createObjectNode().put("id", "Q1").put("query", q).put("offset", offset);
         n.putObject("from").put("id", 42L);
@@ -151,6 +156,20 @@ class InlineQueryHandlerTest {
         assertThat(button.getValue().path("text").asText()).isEqualTo("Hozir e'lonlarni olib bo'lmadi — qayta urinib ko'ring");
         assertThat(button.getValue().path("web_app").path("url").asText()).isEqualTo("https://efbazaar.uz/marketplace");
         assertThat(cache.getValue()).isEqualTo(0);
+    }
+
+    @Test
+    void whenTelegramRejectsTheAnswerAFallbackAnswerIsSent() {
+        when(client.find(42L, "", 0)).thenReturn(Optional.of(new InlineListingClient.InlinePage(
+                true, List.of(item("F", "<a href=")), null)));
+        when(telegram.answerInlineQuery(eq("Q1"), any(ArrayNode.class), eq(10), eq(true), any(), any()))
+                .thenReturn(false);
+
+        handler.handle(query("", ""));
+
+        verify(telegram).answerInlineQuery(eq("Q1"), any(ArrayNode.class), eq(0), eq(true), isNull(),
+                org.mockito.ArgumentMatchers.argThat(b -> b != null
+                        && b.path("text").asText().startsWith("Hozir e'lonlarni olib bo'lmadi")));
     }
 
     @Test
