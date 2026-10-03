@@ -246,7 +246,7 @@ export function MarketplaceSearch({
 						onChange={(event) => setValue(event.target.value)}
 						aria-label='Marketplace qidiruvi'
 						placeholder='Nimani qidiryapsiz?'
-						className={cn('h-11 pl-9', state.sessionOpen ? 'pr-11' : 'pr-12 lg:pr-3')}
+						className={cn('h-11 pl-9 focus-visible:ring-inset focus-visible:ring-1 focus-visible:ring-primary', state.sessionOpen ? 'pr-11' : 'pr-12 lg:pr-3')}
 					/>
 					{!state.sessionOpen && (
 						<button

@@ -33,6 +33,7 @@ const source = (file: string) => readFileSync(
 );
 
 const sheetSource = source('marketplace-filter-sheet.tsx');
+const previewSource = readFileSync(resolve(process.cwd(), 'src/hooks/use-marketplace-filter-preview.ts'), 'utf8');
 const fieldsSource = source('listing-filter-fields.tsx');
 const cardFieldSource = source('card-picker-field.tsx');
 const filtersSource = source('listing-filters.tsx');
@@ -44,7 +45,7 @@ const reactActEnvironment = globalThis as typeof globalThis & {
 
 let container: HTMLDivElement;
 let root: Root;
-let fetchMock: ReturnType<typeof vi.fn>;
+let fetchMock: ReturnType<typeof vi.fn<(url: string, options?: RequestInit) => Promise<Response>>>;
 
 function matchMedia(matches = false): MediaQueryList {
   return {
@@ -156,7 +157,9 @@ beforeEach(() => {
   reactActEnvironment.IS_REACT_ACT_ENVIRONMENT = true;
   routerPush.mockReset();
   fetchMock = vi.fn();
-  vi.stubGlobal('fetch', fetchMock);
+  vi.stubGlobal('fetch', (url: string, options: RequestInit) => url.startsWith('/api/rec/v1/match')
+    ? Promise.resolve({ ok: true, json: async () => ({ ids: ['listing-1'] }) })
+    : fetchMock(url, options));
   window.matchMedia = vi.fn(() => matchMedia(false));
   container = document.createElement('div');
   document.body.append(container);
@@ -179,27 +182,27 @@ describe('marketplace detailed filter sheet contract', () => {
     expect(sheetSource).toContain("@radix-ui/react-dialog");
     expect(sheetSource).toContain('<Dialog.Title');
     expect(sheetSource).toContain('<Dialog.Description');
-    expect(sheetSource).toContain('300');
-    expect(sheetSource).toContain('AbortController');
-    expect(sheetSource).toContain('controller.abort()');
+    expect(previewSource).toContain('300');
+    expect(previewSource).toContain('AbortController');
+    expect(previewSource).toContain('controller.abort()');
     expect(sheetSource).toContain('validateMarketplaceFilterDraft');
     expect(sheetSource).toContain('useTelegramBackLayer');
     expect(sheetSource).toContain("kind: 'overlay'");
     expect(sheetSource).toContain('lockVerticalSwipes: true');
-    expect(sheetSource).toContain('var(--tg-viewport-height,92dvh)');
+    expect(sheetSource).toContain('var(--tg-viewport-height,100dvh)');
     expect(sheetSource).toContain('var(--app-content-safe-bottom)');
     expect(sheetSource).toContain('overscroll-contain');
   });
 
   it('renders the exact labeled groups, numeric/error semantics, and controlled card picker', async () => {
-    expect(fieldsSource).toContain('Asosiy');
+    expect(fieldsSource).toContain('Platforma');
     expect(fieldsSource).toContain('Akkount');
-    expect(fieldsSource).toContain('Xavfsizlik');
+    expect(fieldsSource).toContain('Ulanishlar va coin balansi');
     expect(fieldsSource).toContain('<Label');
     expect(fieldsSource).toContain('aria-invalid');
     expect(fieldsSource).toContain('role="alert"');
     expect(fieldsSource).toContain('inputMode="numeric"');
-    expect(fieldsSource).toContain('type="number"');
+
     expect(cardFieldSource).toContain('value: PlayerCard | null');
     expect(cardFieldSource).toContain('onChange(value: PlayerCard | null): void');
     expect(cardFieldSource).not.toContain('useState');
@@ -210,6 +213,7 @@ describe('marketplace detailed filter sheet contract', () => {
       errors: { minPrice: 'Narx xato.' },
       onChange: vi.fn(),
     })));
+    expect(controlNamed('Android coin', container).getAttribute('type')).toBe('number');
     const minimumPrice = controlNamed('Eng kam narx', container);
     expect(minimumPrice.getAttribute('aria-invalid')).toBe('true');
     expect(minimumPrice.nextElementSibling?.getAttribute('role')).toBe('alert');
@@ -226,6 +230,60 @@ describe('marketplace detailed filter sheet contract', () => {
       process.cwd(),
       'src/components/marketplace/mobile-filter-sheet.tsx',
     ))).toBe(false);
+  });
+});
+
+describe('buyer-focused filter fields', () => {
+  function fields(draft = clearMarketplaceFilterDraft(), onChange = vi.fn()) {
+    return React.createElement(ListingFilterFields, { draft, errors: {}, onChange, playerCount: 2 });
+  }
+
+  it('keeps search and sorting outside the panel and secondary options collapsed', async () => {
+    await act(async () => root.render(fields()));
+    expect(container.querySelector('input[type="text"][placeholder*="Messi"]')).toBeNull();
+    expect(container.textContent).not.toContain('Saralash');
+    expect(controlNamed('Sotilganlarni', container).closest('details')?.open).toBe(false);
+    expect(controlNamed('Eng yuqori Team Strength', container).closest('details')?.open).toBe(false);
+    expect(buttonNamed('O‘yinchilar', container).textContent).toContain('2');
+  });
+
+  it('hides mobile-only fields for console and clears them when switching platforms', async () => {
+    const onChange = vi.fn();
+    const draft = { ...clearMarketplaceFilterDraft(), androidCoinsMin: '100', googlePlayDisconnected: true };
+    await act(async () => root.render(fields(draft, onChange)));
+    const platform = controlNamed('Platforma', container);
+    await act(async () => {
+      platform.value = 'PLAYSTATION';
+      platform.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ platform: 'PLAYSTATION', androidCoinsMin: '', googlePlayDisconnected: false }));
+    await act(async () => root.render(fields(onChange.mock.calls[0][0])));
+    expect(container.textContent).not.toContain('Android coin');
+    expect(container.textContent).not.toContain('Google Play');
+    expect(container.textContent).not.toContain('Qurilma');
+  });
+
+  it('applies the clean preset without lowering stricter balance requirements', async () => {
+    const onChange = vi.fn();
+    await act(async () => root.render(fields({ ...clearMarketplaceFilterDraft(), androidCoinsMin: '500', iosCoinsMin: '-20' }, onChange)));
+    await click(controlNamed('Toza akkount', container));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ androidCoinsMin: '500', iosCoinsMin: '0', googlePlayDisconnected: true, gameCenterDisconnected: true }));
+  });
+
+  it('turns off the clean preset without deleting a stricter coin minimum', async () => {
+    const onChange = vi.fn();
+    await act(async () => root.render(fields({ ...clearMarketplaceFilterDraft(), androidCoinsMin: '500', iosCoinsMin: '0', googlePlayDisconnected: true, gameCenterDisconnected: true }, onChange)));
+    await click(controlNamed('Toza akkount', container));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ androidCoinsMin: '500', iosCoinsMin: '', googlePlayDisconnected: false, gameCenterDisconnected: false }));
+  });
+
+  it('formats price for display and keeps the draft numeric', async () => {
+    const onChange = vi.fn();
+    await act(async () => root.render(fields({ ...clearMarketplaceFilterDraft(), minPrice: '100000' }, onChange)));
+    expect(controlNamed('Eng kam narx', container).value).toBe('100 000');
+    expect(container.textContent).toContain('so‘m');
+    await input(controlNamed('Eng kam narx', container) as HTMLInputElement, '250 000');
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ minPrice: '250000' }));
   });
 });
 
@@ -248,6 +306,35 @@ describe('MarketplaceFilterSheet lifecycle', () => {
   function sheet(activeCount = 2) {
     return React.createElement(MarketplaceFilterSheet, { filters, rawQuery, activeCount });
   }
+
+  it('animates both dialog states and honors reduced motion', async () => {
+    await renderWithProviders(sheet());
+    await click(buttonNamed('Filtrlar', container));
+    const dialog = document.querySelector('[role="dialog"]')!;
+    expect(dialog.classList.contains('data-[state=open]:animate-sheet-up')).toBe(true);
+    expect(dialog.classList.contains('data-[state=closed]:animate-sheet-down')).toBe(true);
+    expect(dialog.classList.contains('motion-reduce:animate-none')).toBe(true);
+  });
+
+  it('shows a compact mobile overview, preserves edits when collapsing, and opens invalid groups', async () => {
+    await renderWithProviders(sheet());
+    await click(buttonNamed('Filtrlar', container));
+    const price = controlNamed('Eng kam narx') as HTMLInputElement;
+    const group = price.closest('details');
+    expect(group).not.toBeNull();
+    expect(group!.open).toBe(false);
+    expect(group!.querySelector('summary')?.textContent).toContain('100 so‘m dan');
+    group!.open = true;
+    await input(price, '250000');
+    group!.open = false;
+    expect(group!.querySelector('summary')?.textContent).toContain('250 000 so‘m dan');
+    expect(price.value).toBe('250 000');
+    group!.open = true;
+    await input(price, '-1');
+    expect(group!.open).toBe(true);
+    expect(price.getAttribute('aria-invalid')).toBe('true');
+    expect(routerPush).not.toHaveBeenCalled();
+  });
 
   it('resets on every open; Clear stays local; cancel aborts and restores trigger focus', async () => {
     vi.useFakeTimers();
@@ -402,6 +489,21 @@ describe('MarketplaceFilterSheet lifecycle', () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
+  it('hands the current detailed draft to the existing player selector without stacking sheets', async () => {
+    await renderWithProviders(sheet());
+    await click(buttonNamed('Filtrlar', container));
+    await input(controlNamed('Eng kam narx') as HTMLInputElement, '250000');
+    await click(buttonNamed('O‘yinchilarni tanlash'));
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(routerPush).toHaveBeenCalledTimes(1);
+    const target = new URL(routerPush.mock.calls[0][0], 'http://localhost');
+    expect(target.hash).toBe('#marketplace-player-filter');
+    expect(target.searchParams.get('minPrice')).toBe('250000');
+    expect(target.searchParams.get('q')).toBe('Messi');
+    expect(target.searchParams.get('sort')).toBe('price,asc');
+    expect(target.searchParams.getAll('matchCard')).toHaveLength(1);
+  });
+
   it('locks swipes while open and native Back cancels with trigger focus restoration', async () => {
     vi.useFakeTimers();
     const telegram = createTelegramWebApp();
@@ -437,6 +539,21 @@ describe('desktop detailed filter controller', () => {
     expect(params.getAll('matchCard')).toHaveLength(1);
     expect(params.has('minPrice')).toBe(false);
     expect(params.has('page')).toBe(false);
+  });
+
+  it('previews desktop counts, aborts stale requests, and remains usable on failure', async () => {
+    vi.useFakeTimers();
+    window.matchMedia = vi.fn(() => matchMedia(true));
+    fetchMock.mockResolvedValueOnce(countResponse(12)).mockResolvedValueOnce({ ok: false, status: 503 } as Response);
+    await renderWithProviders(React.createElement(ListingFilters, { filters: {}, rawQuery: '' }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(container.textContent).toContain('12 ta e‘lon');
+    const signal = fetchMock.mock.calls[0][1]!.signal as AbortSignal;
+    await input(controlNamed('Eng kam narx', container) as HTMLInputElement, '500');
+    expect(signal.aborted).toBe(true);
+    expect(container.textContent).not.toContain('12 ta e‘lon');
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    expect(buttonNamed('Qo‘llash', container).disabled).toBe(false);
   });
 
   it('maps a controlled card removal to null', async () => {

@@ -70,6 +70,7 @@ export function PlayerFilterLauncher({
   const [open, setOpen] = useState(false);
   const [teams, setTeams] = useState<DreamTeam[]>([]);
   const teamLoadStartedRef = useRef(false);
+  const handoffQueryRef = useRef<string | null>(null);
   const teamControllerRef = useRef<AbortController | null>(null);
   const active = useMemo(
     () => parsePlayerMatchValues(activeMatchCards, String(activeMinMatch)),
@@ -93,6 +94,7 @@ export function PlayerFilterLauncher({
 
   const changeOpen = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen);
+    if (!nextOpen) handoffQueryRef.current = null;
     if (!nextOpen && window.location.hash === '#marketplace-player-filter') {
       window.history.replaceState(
         window.history.state,
@@ -126,10 +128,20 @@ export function PlayerFilterLauncher({
     const openFromHash = () => {
       if (window.location.hash === '#marketplace-player-filter') changeOpen(true);
     };
+    if (handoffQueryRef.current === currentQuery) handoffQueryRef.current = null;
     openFromHash();
+    const openFromPanel = (event: Event) => {
+      const query = (event as CustomEvent<unknown>).detail;
+      handoffQueryRef.current = typeof query === 'string' ? query : null;
+      changeOpen(true);
+    };
+    window.addEventListener('open-marketplace-player-filter', openFromPanel);
     window.addEventListener('hashchange', openFromHash);
-    return () => window.removeEventListener('hashchange', openFromHash);
-  }, [changeOpen]);
+    return () => {
+      window.removeEventListener('open-marketplace-player-filter', openFromPanel);
+      window.removeEventListener('hashchange', openFromHash);
+    };
+  }, [changeOpen, currentQuery]);
 
   function apply(cards: PlayerMatchSelection[] | undefined, strictness: number) {
     const criteria = cards?.flatMap((card) => card.playerId ? [{
@@ -138,7 +150,7 @@ export function PlayerFilterLauncher({
       importance: card.priority ? 'P' as const : 'N' as const,
       name: card.name,
     }] : []);
-    const params = writePlayerMatch(new URLSearchParams(currentQuery), criteria?.length
+    const params = writePlayerMatch(new URLSearchParams(handoffQueryRef.current ?? currentQuery), criteria?.length
       ? { criteria, strictness }
       : undefined);
     const qs = params.toString();

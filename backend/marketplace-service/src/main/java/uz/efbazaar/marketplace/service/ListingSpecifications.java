@@ -168,7 +168,11 @@ public final class ListingSpecifications {
                 continue;
             }
             Expression<String> extracted = extractText(cb, root, key);
-            ps.add(cb.equal(extracted, String.valueOf(entry.getValue())));
+            if ("exchange_mode".equals(key) && "ACCEPTS_EXCHANGE".equals(entry.getValue())) {
+                ps.add(extracted.in("EXCHANGE_ONLY", "EXCHANGE_WITH_SURCHARGE", "BOTH"));
+            } else {
+                ps.add(cb.equal(extracted, String.valueOf(entry.getValue())));
+            }
         }
     }
 

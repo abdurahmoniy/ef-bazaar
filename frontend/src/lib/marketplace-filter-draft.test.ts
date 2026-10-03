@@ -388,3 +388,27 @@ describe('marketplace filter draft', () => {
     expect(cleared.get('includeSold')).toBeNull();
   });
 });
+
+describe('buyer-focused draft contract', () => {
+  it('accepts the broad exchange intent and preserves existing marketplace chrome', () => {
+    const selection = draft({ exchangeMode: 'ACCEPTS_EXCHANGE' as never });
+    expect(validateMarketplaceFilterDraft(selection)).toEqual({});
+    const params = applyMarketplaceFilterDraft(new URLSearchParams('q=Messi&sort=price,asc&matchCard=101:fixture:N'), selection);
+    expect(params.get('attr.exchange_mode')).toBe('ACCEPTS_EXCHANGE');
+    expect(params.get('q')).toBe('Messi');
+    expect(params.get('sort')).toBe('price,asc');
+    expect(params.getAll('matchCard')).toEqual(['101:fixture:N']);
+  });
+
+  it('does not apply invisible mobile fields on nonmobile platforms', () => {
+    const selection = draft({ platform: 'STEAM', googlePlayDisconnected: true, gameCenterDisconnected: true, androidCoinsMin: '200', iosCoinsMin: '0', transferLimitMin: '2' });
+    const params = applyMarketplaceFilterDraft(new URLSearchParams(), selection);
+    for (const key of ['has_google_play_link', 'has_game_center_link', 'android_coins.min', 'ios_coins.min', 'device_transfer_limit.min']) {
+      expect(params.has(`attr.${key}`)).toBe(false);
+    }
+  });
+});
+
+it('ignores invalid mobile-only constraints when the selected platform has no such fields', () => {
+  expect(validateMarketplaceFilterDraft(draft({ platform: 'PLAYSTATION', androidCoinsMin: 'bad', iosCoinsMin: 'bad', transferLimitMin: '11' }))).toEqual({});
+});

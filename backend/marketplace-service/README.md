@@ -59,6 +59,10 @@ To'liq ro'yxat — controllerlarda. Asosiy guruhlar (`/api/v1/...`):
 > (B bosqichi, qorong'i). Frontend C bosqichida unga o'tadi, D bosqichida bu yerdan o'chiriladi —
 > shu orada bu qismlarga o'zgartirish ikkala servisda ham kerak bo'ladi.
 
+### Exchange acceptance filter
+
+`attr.exchange_mode=ACCEPTS_EXCHANGE` is a synthetic browse-filter value matching stored `EXCHANGE_ONLY`, `EXCHANGE_WITH_SURCHARGE`, or `BOTH` modes. The shared specification applies it to ordinary browse and ranked results. Existing exact mode filters retain their behavior; account/listing write enums are unchanged.
+
 ## Kontekstli in-app xabarlar
 
 Kampaniya yaratish faqat `DRAFT` saqlaydi; `PATCH /admin/popups/{id}/status` body

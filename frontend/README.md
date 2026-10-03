@@ -46,6 +46,14 @@ Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
 - Brauzer → `/api/rec/**` (Next route) → `nginx:8080/api/rec/**`.
 - Dream team, card interest, admin talab sonlari va e'lon sahifasidagi moslik — `src/lib/rec-server.ts` / `REC_API_BASE`.
 
+### Marketplace filter panel
+
+- Header search and toolbar sorting are independent of detailed filters. Clear resets detailed filters to Mobile and preserves search, sort, and player criteria.
+- Desktop sidebar and mobile sheet share fields, validation and cancellable 300ms count previews. Player and personalized-feed counts use recommendation `/match` or `/feed` followed by marketplace `/listings/ranked`, matching the result list and detailed constraints.
+- Mobile coin balances, account links and remaining device transfers are hidden and cleared when switching to Steam or PlayStation. The clean-account preset requires both links disconnected and both balances at least zero; stricter balance minimums are retained when enabling it.
+- Team Strength maximum and sold listings are expandable secondary options. Price displays space-separated integers in so‘m; URLs retain unformatted integers.
+- `attr.exchange_mode=ACCEPTS_EXCHANGE` includes `EXCHANGE_ONLY`, `EXCHANGE_WITH_SURCHARGE` and `BOTH`; existing exact values still work. Opening the player selector applies the current detailed draft and closes the general sheet first.
+
 ## Konfiguratsiya
 
 Server: `INTERNAL_API_BASE_URL`, `INTERNAL_BOT_BASE_URL`, `TELEGRAM_BOT_USERNAME`, `FIREBASE_*`.
@@ -82,3 +90,5 @@ npm run typecheck && npm run lint && npm test && npm run build   # CI bilan bir 
 - Brauzer 15 soniya sahifada va 3 soniya tinchlikni kutadi; so‘rovlar foydalanuvchi/sessiya uchun kamida 60 soniya oralig‘ida. Chat/hamyon/forma/admin sahifalarida, yashirin tabda, matn yozayotganda yoki boshqa oynada ko‘rsatilmaydi. Push taklifi xuddi shu slot va brauzer limitlarini ishlatadi, kamida 45 soniya kutadi.
 - Backend atomik limitlari: bir sessiyada 1, 24 soatda 2, oraliq kamida 6 soat, har kampaniya foydalanuvchiga bir marta. Claim rezervatsiyasi limitni sarflaydi; faqat renderdan keyingi SHOWN ko‘rsatish deb sanaladi. Yo‘l o‘zgarsa kechikkan javob tashlanadi.
 - Mavjud marketplace-servisdagi `/api/v1/popups/**` va admin endpointlar ishlatiladi. Alohida worker, deploy sozlamasi yoki boshlang‘ich faol kampaniya yo‘q. Lokal preview yubormaydi va statistikani o‘zgartirmaydi.
+
+Marketplace filters use a plain desktop sidebar and a full-height mobile overview with selection summaries. Groups expand inline; collapsed controls retain drafts and invalid groups stay visible. Result counts remain debounced and cancellable.

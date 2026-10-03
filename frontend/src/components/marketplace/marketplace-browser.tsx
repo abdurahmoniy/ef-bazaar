@@ -90,13 +90,14 @@ export function MarketplaceBrowser({
   const activeSortId = authenticated && tab === 'mine' ? 'mine' : paramToSortId(filters.sort);
   const activeSortLabel = sortOptions.find((option) => option.id === activeSortId)!.label;
   const title = query ? `“${query}” bo‘yicha natijalar` : 'eFootball akkountlar';
-  const filterProps = { filters, rawQuery: currentQuery };
+  const filterProps = { filters, rawQuery: currentQuery, authenticated };
 
   const filterTrigger = (
     <MarketplaceFilterSheet
       filters={filters}
       rawQuery={currentQuery}
       activeCount={generalFilterCount}
+      authenticated={authenticated}
     />
   );
   const playerTrigger = (
