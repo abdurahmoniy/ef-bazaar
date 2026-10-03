@@ -59,9 +59,16 @@ export function UserbotLoginDialog({ open, onClose, onConnected }: UserbotLoginD
   };
 
   const close = () => {
-    abandon();
+    const connected = step === 'done';
+    if (connected) {
+      generation.current += 1;
+      loginIdRef.current = null;
+    } else {
+      abandon();
+    }
     clear();
     dispatch({ type: 'reset' });
+    if (connected) onConnected();
     onClose();
   };
 
@@ -100,7 +107,13 @@ export function UserbotLoginDialog({ open, onClose, onConnected }: UserbotLoginD
       const error = e instanceof UserbotApiError
         ? { code: e.code, message: e.message }
         : { code: 'NETWORK', message: "Tarmoq xatosi. Qayta urinib ko'ring." };
-      dispatch({ type: 'failure', op, error });
+      const action = { type: 'failure', op, error } as const;
+      // The reducer starting over means the server still holds this login: release it.
+      if (state.loginId && loginReducer(state, action).loginId === null) {
+        cancelLogin(state.loginId).catch(() => {});
+        loginIdRef.current = null;
+      }
+      dispatch(action);
       setCode('');
       setPassword('');
     }

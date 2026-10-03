@@ -28,7 +28,7 @@ export function UserbotPanel({ initialAccounts, initialFeatures }: UserbotPanelP
   const [loginOpen, setLoginOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState<Date | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -42,6 +42,7 @@ export function UserbotPanel({ initialAccounts, initialFeatures }: UserbotPanelP
   }, []);
 
   useEffect(() => {
+    setNow(new Date());
     const poll = setInterval(() => {
       if (document.visibilityState === 'visible') void refresh();
     }, POLL_MS);

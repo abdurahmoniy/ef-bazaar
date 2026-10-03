@@ -26,7 +26,7 @@ const DOT_CLASS: Record<BadgeTone, string> = {
 
 interface UserbotAccountCardProps {
   account: UserbotAccount;
-  now: Date;
+  now: Date | null;
   onDisconnect: (id: string) => Promise<void>;
   onReconnect: (account: UserbotAccount) => void;
 }
@@ -102,7 +102,7 @@ export function UserbotAccountCard({ account, now, onDisconnect, onReconnect }: 
       <dl className="grid grid-cols-2 gap-2 text-sm">
         <div>
           <dt className="text-muted-foreground">Oxirgi signal</dt>
-          <dd className="font-medium">{relativeAgo(account.lastHeartbeat, now)}</dd>
+          <dd className="font-medium">{now ? relativeAgo(account.lastHeartbeat, now) : '—'}</dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Ishlayapti</dt>
