@@ -43,9 +43,10 @@ public class InlineListingService {
 
     public record InlinePage(boolean linked, List<InlineListingItem> items, Integer nextOffset) {}
 
+    /** @throws uz.efbazaar.marketplace.exception.MarketplaceException 503 when auth cannot answer. */
     @Transactional(readOnly = true)
     public InlinePage find(long telegramId, String query, int offset) {
-        Optional<AuthSummaryClient.UserSummary> user = auth.resolveByTelegramId(telegramId);
+        Optional<AuthSummaryClient.UserSummary> user = auth.lookupByTelegramId(telegramId);
         if (user.isEmpty()) return new InlinePage(false, List.of(), null);
 
         String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);

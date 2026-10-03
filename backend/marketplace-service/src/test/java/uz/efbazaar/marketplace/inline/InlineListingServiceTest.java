@@ -51,7 +51,7 @@ class InlineListingServiceTest {
     }
 
     void linked() {
-        when(auth.resolveByTelegramId(42L)).thenReturn(Optional.of(new AuthSummaryClient.UserSummary(
+        when(auth.lookupByTelegramId(42L)).thenReturn(Optional.of(new AuthSummaryClient.UserSummary(
                 SELLER, "Aziz", "aziz", 42L, true, Instant.now(), false)));
     }
 
@@ -61,13 +61,23 @@ class InlineListingServiceTest {
 
     @Test
     void anUnlinkedTelegramAccountGetsNothingAndIsToldSo() {
-        when(auth.resolveByTelegramId(42L)).thenReturn(Optional.empty());
+        when(auth.lookupByTelegramId(42L)).thenReturn(Optional.empty());
 
         var page = service.find(42L, "", 0);
 
         assertThat(page.linked()).isFalse();
         assertThat(page.items()).isEmpty();
         assertThat(page.nextOffset()).isNull();
+        verifyNoInteractions(listings);
+    }
+
+    @Test
+    void anAuthOutageIsNotReportedAsUnlinked() {
+        when(auth.lookupByTelegramId(42L)).thenThrow(new uz.efbazaar.marketplace.exception.MarketplaceException(
+                org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "telegram_check_unavailable", "down"));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.find(42L, "", 0))
+                .isInstanceOf(uz.efbazaar.marketplace.exception.MarketplaceException.class);
         verifyNoInteractions(listings);
     }
 
