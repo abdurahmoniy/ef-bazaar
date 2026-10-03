@@ -5,7 +5,7 @@ import { CreditCard } from 'lucide-react';
 
 import { UserbotApiError } from '@/lib/userbot-client';
 import type { UserbotAccount, UserbotFeature } from '@/lib/userbot-types';
-import { bindable } from '@/lib/userbot-view';
+import { bindable, statusBadge } from '@/lib/userbot-view';
 import { ConfirmDialog } from './confirm-dialog';
 
 const DESCRIPTIONS: Record<string, string> = {
@@ -79,6 +79,11 @@ export function UserbotFeatureRow({ feature, accounts, onBind }: UserbotFeatureR
           }}
         >
           <option value="" disabled>Userbotni tanlang</option>
+          {feature.accountId && !options.some((a) => a.id === feature.accountId) && (
+            <option value={feature.accountId} disabled>
+              {current ? `${nameOf(current)} (${statusBadge(current).label})` : "Noma'lum userbot"}
+            </option>
+          )}
           {options.map((a) => (
             <option key={a.id} value={a.id}>{nameOf(a)}</option>
           ))}
