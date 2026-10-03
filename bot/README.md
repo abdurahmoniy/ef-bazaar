@@ -19,6 +19,22 @@ Rasm, video va fayllar Telegram guruhining media topigiga yuklanadi; boshqa serv
 faqat `message_id` / `file_id` ni saqlaydi. Ko'rsatish uchun proxy:
 `GET /bot/photo/{fileId}`, `/bot/video/{fileId}`, `/bot/file/{fileId}`, `/bot/emoji/{fileId}`.
 
+## Inline rejim (`@EfBazaarBot` — o'z e'lonini ulashish)
+
+Telegram'i bog'langan foydalanuvchi istalgan chatda `@EfBazaarBot` yozsa, o'zining `ACTIVE`
+e'lonlari chiqadi (`@EfBazaarBot messi` — o'yinchi/tavsif bo'yicha qidiruv). Tanlangani rasmiy
+kanal formatida yuboriladi: muqova katta link preview, kanal matni va "🛒 E'lonni ochish"
+(Mini App) tugmasi; tepada Telegram "via @EfBazaarBot" yozadi.
+
+- `InlineQueryHandler` → marketplace `GET /internal/marketplace/v1/inline/listings?telegramId&q&offset`
+  (`X-Internal-Secret`, 1,5 s timeout). Kimlik — Telegram yuborgan `from.id`.
+- Natija turi `article` (ro'yxatda rasm va matn birga faqat shunda ko'rinadi); kichik rasm va preview
+  `{app.web.base-url}/bot/photo/{fileId}` dan. `is_personal=true`, `cache_time=10` (xatoda 0), sahifa 20 ta.
+- Ro'yxat tepasidagi Mini App tugmasi: bog'lanmagan → `/profile`, e'lon yo'q → `/marketplace/new`,
+  marketplace xatosi → `/marketplace`.
+- `allowed_updates` da `inline_query` bor (webhook va long-polling). BotFather'da `/setinline` yoqilgan
+  bo'lishi shart, aks holda Telegram inline so'rov yubormaydi.
+
 ## Ichki API (`X-Internal-Secret`)
 
 | Endpoint | Kim chaqiradi |

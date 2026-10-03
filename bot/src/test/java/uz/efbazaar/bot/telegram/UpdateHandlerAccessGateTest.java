@@ -50,7 +50,8 @@ class UpdateHandlerAccessGateTest {
         var props = new TelegramProperties("token", "testbot", "http://tg.api", null,
                 new TelegramProperties.Topics(1, 2, 3, 4, 5), null, null);
         handler = new UpdateHandler(telegram, access, settings, channels, pendingReferrals,
-                premiumEmoji, guides, props, kafka);
+                premiumEmoji, guides, props, kafka,
+                org.mockito.Mockito.mock(uz.efbazaar.bot.inline.InlineQueryHandler.class));
     }
 
     @Test

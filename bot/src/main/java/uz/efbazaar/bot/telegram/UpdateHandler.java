@@ -40,6 +40,7 @@ public class UpdateHandler {
     private final GuideMessenger guides;
     private final TelegramProperties props;
     private final KafkaTemplate<String, Object> kafka;
+    private final uz.efbazaar.bot.inline.InlineQueryHandler inline;
 
     @Value("${app.web.base-url:https://efbazaar.uz}")
     private String webBaseUrl;
@@ -53,6 +54,13 @@ public class UpdateHandler {
         JsonNode myChatMember = update.path("my_chat_member");
         if (!myChatMember.isMissingNode()) {
             channels.handle(myChatMember);
+            return;
+        }
+
+        // `@EfBazaarBot` inline rejimi — foydalanuvchi o'z e'lonini ulashmoqda.
+        JsonNode inlineQuery = update.path("inline_query");
+        if (!inlineQuery.isMissingNode()) {
+            inline.handle(inlineQuery);
             return;
         }
 

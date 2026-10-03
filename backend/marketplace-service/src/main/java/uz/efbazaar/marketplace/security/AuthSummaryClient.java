@@ -78,6 +78,32 @@ public class AuthSummaryClient {
         }
     }
 
+    /**
+     * Like {@link #resolveByTelegramId} but keeps "not linked" (404, empty) apart
+     * from "cannot tell" (auth down, timeout, rejected secret — throws 503).
+     * The inline picker tells an unlinked user to link Telegram; saying that to a
+     * linked user during an auth restart would be wrong.
+     */
+    public Optional<UserSummary> lookupByTelegramId(Long telegramId) {
+        if (telegramId == null) return Optional.empty();
+        try {
+            return Optional.ofNullable(http.get()
+                    .uri("/internal/auth/v1/users/by-telegram-id/{id}", telegramId)
+                    .header(HEADER, secret)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(UserSummary.class));
+        } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+            return Optional.empty();
+        } catch (Exception e) {
+            log.warn("Telegram id bo'yicha foydalanuvchini tekshirib bo'lmadi: {}", e.getMessage());
+            throw new uz.efbazaar.marketplace.exception.MarketplaceException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                    "telegram_check_unavailable",
+                    "Telegram ulanishini tekshirib bo'lmadi. Qayta urinib ko'ring.");
+        }
+    }
+
     /** Fresh identity check for actions that require Telegram notifications. Never fail open. */
     public void requireTelegramLinked(UUID userId) {
         UserSummary user = resolve(userId).orElseThrow(() ->

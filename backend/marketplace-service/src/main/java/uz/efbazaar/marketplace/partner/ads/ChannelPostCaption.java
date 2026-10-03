@@ -236,6 +236,15 @@ public final class ChannelPostCaption {
      * <p>Matn ham qabul qilinadi: eski e'lonlarda bu maydon oddiy
      * ro'yxat bo'lgan bo'lishi mumkin.
      */
+    /** O'yinchi nomlari oddiy matn sifatida (inline natija tavsifi uchun) — HTML escape yo'q. */
+    public static String plainPlayers(Map<String, Object> attributes, int limit) {
+        Object raw = attributes == null ? null : attributes.get("valuable_players");
+        if (!(raw instanceof Collection<?> collection) || collection.isEmpty()) return "";
+        return collection.stream().map(ChannelPostCaption::playerName)
+                .filter(s -> !s.isBlank()).limit(limit)
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
+
     private static String playerName(Object card) {
         if (card == null) return "";
         if (card instanceof Map<?, ?> map) {
