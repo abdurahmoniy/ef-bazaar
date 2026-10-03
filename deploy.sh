@@ -450,7 +450,25 @@ access_bootstrap() {
 # o'chiradi. Ikkinchisi --remove-orphans ga qoldirilmaydi: compose yangi
 # containerlarni eskisi o'chishidan OLDIN ishga tushirishi mumkin, va bitta
 # sessiya ikki joyda ishlasa Telegram uni bekor qiladi (AUTH_KEY_DUPLICATED).
+# USERBOT_SESSION_KEY: base64 of exactly 32 bytes. Without a valid key both new
+# containers crash-loop, so the old userbot must not be removed first. The key
+# is never printed.
+userbot_session_key_ok() {
+  local key="$1" bytes
+  [[ -n "$key" ]] || return 1
+  bytes=$(printf '%s' "$key" | base64 -d 2>/dev/null | wc -c) || return 1
+  [[ "$bytes" -eq 32 ]]
+}
+
 userbot_bootstrap() {
+  local key="${USERBOT_SESSION_KEY:-}"
+  if [[ -z "$key" && -f .env ]]; then
+    key=$(grep -m1 '^USERBOT_SESSION_KEY=' .env | cut -d= -f2- || true)
+  fi
+  if ! userbot_session_key_ok "$key"; then
+    echo "!! USERBOT_SESSION_KEY yo'q yoki base64(32 bayt) emas — eski userbot o'chirilmadi, deploy to'xtatildi"
+    return 1
+  fi
   ensure_db "${USERBOT_DB_NAME:-userbot_db}"
   docker rm -f efbazaar-humo-userbot >/dev/null 2>&1 || true
 }
