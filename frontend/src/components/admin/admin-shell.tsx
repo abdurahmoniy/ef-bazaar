@@ -23,6 +23,7 @@ import {
   MessagesSquare,
   Package,
   Percent,
+  Send,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
@@ -200,6 +201,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Pochtalar (Mailboxes)',
         shortLabel: 'Pochtalar',
         icon: Mail,
+      },
+      {
+        href: '/admin/userbots',
+        label: 'Userbotlar (Telegram)',
+        shortLabel: 'Userbotlar',
+        icon: Send,
       },
       {
         href: '/admin/players',
