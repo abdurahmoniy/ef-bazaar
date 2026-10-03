@@ -357,3 +357,77 @@ describe('fix round: pending login is cancelled', () => {
     root = spare; // afterEach unmounts the spare
   });
 });
+
+describe('final review fixes', () => {
+  const feat: UserbotFeature = { feature: 'PAYMENT', title: 'T', accountId: 'r' };
+  const revoked = () => acc({ id: 'r', firstName: 'Revoked', lastName: null, status: 'REVOKED', alive: false, features: ['PAYMENT'] });
+
+  it('C1: a revoked bound account is shown as the selected, disabled option', () => {
+    const html = renderToStaticMarkup(createElement(UserbotFeatureRow, {
+      feature: feat, onBind: vi.fn(), accounts: [revoked(), acc({ id: 'a1', features: [] })],
+    }));
+    expect(html).toMatch(/<option[^>]*value="r"[^>]*selected/);
+    expect(html).toContain('Revoked (Bekor qilingan)');
+    expect(html).toMatch(/<option[^>]*value="a1"/);
+  });
+
+  it('C1: a missing bound account shows "Noma\'lum userbot"', () => {
+    const html = renderToStaticMarkup(createElement(UserbotFeatureRow, {
+      feature: feat, onBind: vi.fn(), accounts: [acc({ id: 'a1', features: [] })],
+    }));
+    expect(html).toContain('Noma&#x27;lum userbot');
+    expect(html).toMatch(/<option[^>]*value="r"[^>]*selected/);
+  });
+
+  it('C1: choosing the active account from a revoked binding confirms and binds it', async () => {
+    const onBind = vi.fn().mockResolvedValue(undefined);
+    render(createElement(UserbotFeatureRow, {
+      feature: feat, onBind, accounts: [revoked(), acc({ id: 'a1', features: [] })],
+    }));
+    const select = document.querySelector('select')!;
+    expect(select.value).toBe('r');
+    await setValue(select, 'a1', 'change');
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    await click(byText('button', "O'tkazish"));
+    expect(onBind).toHaveBeenCalledWith('a1');
+  });
+
+  async function toCodeStep(timeoutSec = 60) {
+    vi.mocked(client.startLogin).mockResolvedValue({ loginId: 'L1', status: 'CODE_SENT', codeType: 'APP', timeoutSec });
+    vi.mocked(client.cancelLogin).mockResolvedValue(undefined);
+    await setValue(document.querySelector('input[inputmode="tel"]')!, '+998 90 123 45 67', 'input');
+    await click(byText('button', 'Kodni yuborish'));
+    await flush();
+  }
+
+  it('M1: a CODE_EXPIRED on resend cancels the old login and shows the phone step', async () => {
+    vi.mocked(client.resendCode).mockRejectedValue(new client.UserbotApiError(410, { code: 'CODE_EXPIRED', message: 'Kod eskirdi.' }));
+    render(createElement(UserbotLoginDialog, { open: true, onClose: vi.fn(), onConnected: vi.fn() }));
+    await toCodeStep(0);
+    await click(byText('button', 'Kodni qayta yuborish'));
+    await flush();
+    expect(client.cancelLogin).toHaveBeenCalledWith('L1');
+    expect(document.body.textContent).toContain('Kodni yuborish');
+    expect(document.body.textContent).toContain('Kod eskirdi.');
+  });
+
+  it('Done-close: Escape on the done step reports the connection and cancels nothing', async () => {
+    vi.mocked(client.submitCode).mockResolvedValue({ loginId: 'L1', status: 'DONE', account: acc() });
+    const onConnected = vi.fn();
+    render(createElement(UserbotLoginDialog, { open: true, onClose: vi.fn(), onConnected }));
+    await toCodeStep();
+    await setValue(document.querySelector('input[inputmode="numeric"]')!, '12345', 'input');
+    await click(byText('button', 'Davom etish'));
+    await flush();
+    expect(document.body.textContent).toContain('Userbot ulandi');
+    await act(async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+    expect(onConnected).toHaveBeenCalledTimes(1);
+    expect(client.cancelLogin).not.toHaveBeenCalled();
+  });
+
+  it('M3: the server render shows relative times as a dash', () => {
+    const html = renderToStaticMarkup(createElement(UserbotPanel, { initialAccounts: [acc()], initialFeatures: [] }));
+    expect(html).not.toContain('oldin');
+    expect(html).not.toContain('hozirgina');
+  });
+});
