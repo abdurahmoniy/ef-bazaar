@@ -58,7 +58,8 @@ class UpdateHandlerSupportReplyTest {
                 premiumEmoji,
                 guides,
                 props,
-                kafka
+                kafka,
+                org.mockito.Mockito.mock(uz.efbazaar.bot.inline.InlineQueryHandler.class)
         );
     }
 
