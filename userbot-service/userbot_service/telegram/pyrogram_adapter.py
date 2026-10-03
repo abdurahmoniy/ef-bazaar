@@ -125,6 +125,21 @@ class PyrogramAccountClient:
         self._client = Client(str(account_id), api_id=api_id, api_hash=api_hash,
                               session_string=session_string or None, in_memory=True)
         self._logged_out = False
+        self._warmed_chats: set[int] = set()
+
+    async def _warm_peer(self, chat: str | int) -> None:
+        """An in-memory session has an empty peer cache and a numeric id carries
+        no access_hash; Telegram may then answer PeerIdInvalid. Listing the
+        dialogs once stores the peer with its hash. Usernames resolve on their own."""
+        if isinstance(chat, str) or chat in self._warmed_chats:
+            return
+        try:
+            await self._client.get_chat(chat)
+        except (errors.PeerIdInvalid, KeyError, ValueError):
+            async for dialog in self._client.get_dialogs():
+                if dialog.chat.id == chat:
+                    break
+        self._warmed_chats.add(chat)
 
     @property
     def is_connected(self) -> bool:
@@ -198,6 +213,7 @@ class PyrogramAccountClient:
         # No Pyrogram-side limit: it would keep the newest N and silently drop
         # the oldest, and the caller advances past whatever we return.
         found: list[Msg] = []
+        await self._warm_peer(chat)
         async for message in self._client.get_chat_history(chat):
             if message.id <= after_id:
                 break
@@ -212,6 +228,7 @@ class PyrogramAccountClient:
         return found
 
     async def newest_message_id(self, chat: str | int) -> int:
+        await self._warm_peer(chat)
         async for message in self._client.get_chat_history(chat, limit=1):
             return message.id
         return 0

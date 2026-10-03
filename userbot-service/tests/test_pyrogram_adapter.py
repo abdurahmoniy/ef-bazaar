@@ -64,8 +64,10 @@ def test_non_auth_errors_are_not_session_dead():
 class _StubClient:
     """Stands in for pyrogram.Client; mimics its connect/initialize split."""
 
-    def __init__(self, *, start_error=None, history=()):
+    def __init__(self, *, start_error=None, history=(), cold_peer_cache=False):
         self.start_error = start_error
+        self.cold_peer_cache = cold_peer_cache
+        self.dialog_calls = 0
         self.history = list(history)
         self.is_connected = False
         self.is_initialized = False
@@ -89,7 +91,20 @@ class _StubClient:
     async def log_out(self):
         self.is_connected = self.is_initialized = False
 
+    async def get_chat(self, chat):
+        if self.cold_peer_cache:
+            raise errors.PeerIdInvalid()
+        return SimpleNamespace(id=chat)
+
+    async def get_dialogs(self):
+        self.dialog_calls += 1
+        self.cold_peer_cache = False
+        for chat_id in (-1, -1001234):
+            yield SimpleNamespace(chat=SimpleNamespace(id=chat_id))
+
     async def get_chat_history(self, chat, limit=0):
+        if self.cold_peer_cache:
+            raise errors.PeerIdInvalid()
         for i, m in enumerate(self.history):
             if limit and i >= limit:
                 return
@@ -159,3 +174,18 @@ async def test_history_after_logs_an_error_when_the_cap_is_reached(caplog):
         found = await adapter.history_after("c", 0, limit=4)
     assert len(found) == 4
     assert any("4" in r.getMessage() and r.levelname == "ERROR" for r in caplog.records)
+
+
+async def test_a_numeric_chat_warms_the_peer_cache_once():
+    stub = _StubClient(history=[_m(9)], cold_peer_cache=True)
+    adapter = _adapter(stub)
+    assert await adapter.newest_message_id(-1001234) == 9
+    assert [m.id for m in await adapter.history_after(-1001234, 0)] == [9]
+    assert stub.dialog_calls == 1
+
+
+async def test_a_username_chat_never_lists_dialogs():
+    stub = _StubClient(history=[_m(9)])
+    adapter = _adapter(stub)
+    assert await adapter.newest_message_id("@HUMOcardbot") == 9
+    assert stub.dialog_calls == 0
