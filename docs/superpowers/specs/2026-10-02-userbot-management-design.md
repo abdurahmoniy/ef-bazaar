@@ -287,7 +287,7 @@ Design'da tayyorlanadi.
 - **Akkount kartalari:** avatar, ism, @username, maskalangan telefon, status belgisi
   (yashil tirik / qizil REVOKED / kulrang DISCONNECTED), manba ("Terminal orqali import qilingan" /
   "Panel orqali ulangan · <admin>"), vazifa chiplari, oxirgi heartbeat. `REVOKED` kartada
-  "Qayta ulash" tugmasi bo'ladi, u login oynasini shu raqam bilan ochadi.
+  "Qayta ulash" tugmasi bo'ladi, u login oynasini ochadi (to'liq telefon raqam saqlanmaydi, shuning uchun admin uni qayta kiritadi).
 - **"Userbot ulash"**: Telegram login oynasining efBazaar ranglaridagi nusxasi.
   1. Mamlakat (default O'zbekiston) va telefon raqami.
   2. Kod: qayerga yuborilgani ("Telegram ilovangizga" / SMS), qayta yuborish taymeri, raqamni
