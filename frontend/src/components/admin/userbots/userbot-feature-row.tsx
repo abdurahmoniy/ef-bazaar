@@ -32,7 +32,7 @@ export function UserbotFeatureRow({ feature, accounts, onBind }: UserbotFeatureR
   const description = DESCRIPTIONS[feature.feature] ?? '';
 
   const body = current
-    ? `${feature.feature} vazifasi ${nameOf(current)}dan ${nameOf(next)}ga o'tkaziladi. Ish bir necha soniyaga to'xtashi mumkin.`
+    ? `To'lovlarni kuzatish ${nameOf(current)} dan ${nameOf(next)} ga o'tadi. Yangi akkountda Humo bot chati ochiq bo'lishi va platforma kartalari shu akkountga ulangan bo'lishi kerak. O'tish vaqtida bir necha soniya depozitlar to'xtaydi.`
     : `To'lovlarni kuzatish ${nameOf(next)} ga biriktiriladi.`;
 
   const cancel = () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useId, useReducer, useRef, useState } from 'react';
 import { ArrowLeft, Eye, EyeOff, Loader2, Send, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import {
 } from '@/lib/userbot-client';
 import { initialLogin, loginReducer, resendSecondsLeft, type LoginStep } from '@/lib/userbot-login-flow';
 import type { LoginStepResponse } from '@/lib/userbot-types';
-import { codeDestination, handleLine, initials, sanitizeCode } from '@/lib/userbot-view';
+import { codeDestination, formatCountdown, handleLine, initials, sanitizeCode } from '@/lib/userbot-view';
 
 interface UserbotLoginDialogProps {
   open: boolean;
@@ -30,6 +30,26 @@ export function UserbotLoginDialog({ open, onClose, onConnected }: UserbotLoginD
   const [now, setNow] = useState(() => Date.now());
 
   const { step, busy, error } = state;
+  const phoneId = useId();
+  const passwordId = useId();
+
+  // Bumped whenever the login is abandoned; a request that resolves under an older
+  // generation belongs to a dead login and must not touch the dialog.
+  const generation = useRef(0);
+  const loginIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    loginIdRef.current = state.loginId;
+  });
+  useEffect(() => () => {
+    generation.current += 1;
+    if (loginIdRef.current) cancelLogin(loginIdRef.current).catch(() => {});
+  }, []);
+
+  const abandon = () => {
+    generation.current += 1;
+    if (loginIdRef.current) cancelLogin(loginIdRef.current).catch(() => {});
+    loginIdRef.current = null;
+  };
 
   const clear = () => {
     setCode('');
@@ -39,7 +59,7 @@ export function UserbotLoginDialog({ open, onClose, onConnected }: UserbotLoginD
   };
 
   const close = () => {
-    if (state.loginId) cancelLogin(state.loginId).catch(() => {});
+    abandon();
     clear();
     dispatch({ type: 'reset' });
     onClose();
@@ -64,13 +84,19 @@ export function UserbotLoginDialog({ open, onClose, onConnected }: UserbotLoginD
   if (!open) return null;
 
   const run = async (op: 'start' | 'submit' | 'resend', req: () => Promise<LoginStepResponse>) => {
+    const gen = generation.current;
     dispatch({ type: 'submit' });
     try {
       const res = await req();
+      if (gen !== generation.current) {
+        if (res.loginId && res.status !== 'DONE') cancelLogin(res.loginId).catch(() => {});
+        return;
+      }
       dispatch({ type: 'response', res, now: Date.now() });
       setCode('');
       setPassword('');
     } catch (e) {
+      if (gen !== generation.current) return;
       const error = e instanceof UserbotApiError
         ? { code: e.code, message: e.message }
         : { code: 'NETWORK', message: "Tarmoq xatosi. Qayta urinib ko'ring." };
@@ -81,12 +107,14 @@ export function UserbotLoginDialog({ open, onClose, onConnected }: UserbotLoginD
   };
 
   const back = () => {
-    if (state.loginId) cancelLogin(state.loginId).catch(() => {});
+    abandon();
     clear();
     dispatch({ type: 'back' });
   };
 
   const finish = () => {
+    generation.current += 1;
+    loginIdRef.current = null;
     clear();
     dispatch({ type: 'reset' });
     onConnected();
@@ -137,10 +165,12 @@ export function UserbotLoginDialog({ open, onClose, onConnected }: UserbotLoginD
               <span className="text-muted-foreground">Mamlakat</span>
               <span className="font-medium">O&apos;zbekiston +998</span>
             </div>
+            <label htmlFor={phoneId} className="-mb-2 text-sm font-medium">Telefon raqam</label>
             <Input
+              id={phoneId}
               inputMode="tel"
               autoComplete="tel"
-              aria-label="Telefon raqami"
+              autoFocus
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               disabled={busy}
@@ -185,7 +215,7 @@ export function UserbotLoginDialog({ open, onClose, onConnected }: UserbotLoginD
             />
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             {secondsLeft > 0 ? (
-              <p className="text-sm text-muted-foreground">Kodni qayta yuborish: {secondsLeft} soniya</p>
+              <p className="text-sm text-muted-foreground">Qayta yuborish {formatCountdown(secondsLeft)} dan keyin</p>
             ) : (
               <button
                 type="button"
@@ -210,13 +240,14 @@ export function UserbotLoginDialog({ open, onClose, onConnected }: UserbotLoginD
           >
             <div>
               <h2 id="userbot-login-title" className="text-xl font-bold">Ikki bosqichli parol</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Akkountda bulutli parol yoqilgan. Uni kiriting.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Akkountda qo&apos;shimcha parol yoqilgan. Uni kiriting.</p>
             </div>
+            <label htmlFor={passwordId} className="-mb-2 text-sm font-medium">Parol</label>
             <div className="relative">
               <Input
+                id={passwordId}
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="current-password"
-                aria-label="Parol"
                 className="pr-12"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -245,7 +276,7 @@ export function UserbotLoginDialog({ open, onClose, onConnected }: UserbotLoginD
           <div className="flex flex-col gap-4">
             <div>
               <h2 id="userbot-login-title" className="text-xl font-bold">Userbot ulandi</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Akkount muvaffaqiyatli ulandi.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Bir necha soniyada ishga tushadi. Uni vazifaga &quot;Vazifalar&quot; bo&apos;limidan biriktiring.</p>
             </div>
             {state.account && (
               <div className="flex items-center gap-3 rounded-xl border border-border p-3">
@@ -258,7 +289,7 @@ export function UserbotLoginDialog({ open, onClose, onConnected }: UserbotLoginD
                 </div>
               </div>
             )}
-            <Button type="button" onClick={finish}>Tayyor</Button>
+            <Button type="button" onClick={finish} autoFocus>Tayyor</Button>
           </div>
         )}
       </div>

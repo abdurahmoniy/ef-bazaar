@@ -132,8 +132,8 @@ export function UserbotAccountCard({ account, now, onDisconnect, onReconnect }: 
 
       <ConfirmDialog
         open={confirming}
-        title={`${account.firstName}'ni uzish`}
-        body="Telegram sessiyasi yopiladi va userbot ro'yxatdan chiqariladi. Keyin uni qayta ulash uchun yana kirish kerak bo'ladi."
+        title={`${name}'ni uzish`}
+        body="Sessiya Telegram tomonida ham yopiladi. Qayta ishlatish uchun akkountni boshidan ulash kerak bo'ladi."
         confirmLabel="Uzish"
         destructive
         busy={busy}

@@ -71,3 +71,8 @@ export function codeDestination(codeType: string | undefined): string {
 export function sanitizeCode(raw: string): string {
   return raw.replace(/\D/g, '').slice(0, 6);
 }
+
+export function formatCountdown(totalSec: number): string {
+  const s = Math.max(0, Math.floor(totalSec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}

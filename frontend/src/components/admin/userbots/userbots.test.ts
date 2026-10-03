@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { UserbotAccount, UserbotFeature } from '@/lib/userbot-types';
 import * as client from '@/lib/userbot-client';
+import { ConfirmDialog } from './confirm-dialog';
+import { formatCountdown } from '@/lib/userbot-view';
 import { UserbotAccountCard } from './userbot-account-card';
 import { UserbotFeatureRow } from './userbot-feature-row';
 import { UserbotLoginDialog } from './userbot-login-dialog';
@@ -243,5 +245,115 @@ describe('behaviour: feature row', () => {
     expect(onBind).not.toHaveBeenCalled();
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.querySelector('select')!.value).toBe('a1');
+  });
+});
+
+describe('fix round: copy', () => {
+  it('formats the resend countdown as m:ss', () => {
+    expect(formatCountdown(42)).toBe('0:42');
+    expect(formatCountdown(65)).toBe('1:05');
+    expect(formatCountdown(0)).toBe('0:00');
+  });
+
+  it('phone step has a visible bound label', () => {
+    const html = renderToStaticMarkup(createElement(UserbotLoginDialog, { open: true, onClose: vi.fn(), onConnected: vi.fn() }));
+    expect(html).toMatch(/<label[^>]*for="([^"]+)"[^>]*>Telefon raqam<\/label>/);
+    const id = /<label[^>]*for="([^"]+)"/.exec(html)![1];
+    expect(html).toContain(`id="${id}"`);
+  });
+
+  it('disconnect dialog copy matches the design', async () => {
+    render(createElement(UserbotAccountCard, { account: acc({ features: [] }), now: NOW, onDisconnect: vi.fn(), onReconnect: vi.fn() }));
+    await click(byText('button', 'Uzish'));
+    const text = document.querySelector('[role="dialog"]')!.textContent!;
+    expect(text).toContain("Aziz Karimov'ni uzish");
+    expect(text).toContain("Sessiya Telegram tomonida ham yopiladi. Qayta ishlatish uchun akkountni boshidan ulash kerak bo'ladi.");
+  });
+
+  it('rebind dialog copy matches the design', async () => {
+    render(createElement(UserbotFeatureRow, {
+      feature: { feature: 'PAYMENT', title: 'T', accountId: 'a1' },
+      accounts: [acc(), acc({ id: 'b', firstName: 'Efbazaar', lastName: 'Post', features: [] })], onBind: vi.fn(),
+    }));
+    await setValue(document.querySelector('select')!, 'b', 'change');
+    expect(document.querySelector('[role="dialog"]')!.textContent).toContain(
+      "To'lovlarni kuzatish Aziz Karimov dan Efbazaar Post ga o'tadi. Yangi akkountda Humo bot chati ochiq bo'lishi va platforma kartalari shu akkountga ulangan bo'lishi kerak. O'tish vaqtida bir necha soniya depozitlar to'xtaydi.",
+    );
+  });
+
+  it('code and password steps use design copy', async () => {
+    vi.mocked(client.startLogin).mockResolvedValue({ loginId: 'L1', status: 'CODE_SENT', codeType: 'APP', timeoutSec: 42 });
+    vi.mocked(client.submitCode).mockResolvedValue({ loginId: 'L1', status: 'PASSWORD_REQUIRED', hint: null });
+    render(createElement(UserbotLoginDialog, { open: true, onClose: vi.fn(), onConnected: vi.fn() }));
+    await setValue(document.querySelector('input[inputmode="tel"]')!, '+998 90 123 45 67', 'input');
+    await click(byText('button', 'Kodni yuborish'));
+    await flush();
+    expect(document.body.textContent).toMatch(/Qayta yuborish 0:4\d dan keyin/);
+    await setValue(document.querySelector('input[inputmode="numeric"]')!, '12345', 'input');
+    await click(byText('button', 'Davom etish'));
+    await flush();
+    expect(document.body.textContent).toContain("Akkountda qo'shimcha parol yoqilgan. Uni kiriting.");
+    expect(byText('label', 'Parol')).toBeTruthy();
+  });
+
+  it('done step description matches the design', async () => {
+    vi.mocked(client.startLogin).mockResolvedValue({ loginId: 'L1', status: 'DONE', account: acc({ features: [] }) });
+    render(createElement(UserbotLoginDialog, { open: true, onClose: vi.fn(), onConnected: vi.fn() }));
+    await setValue(document.querySelector('input[inputmode="tel"]')!, '+998 90 123 45 67', 'input');
+    await click(byText('button', 'Kodni yuborish'));
+    await flush();
+    expect(document.body.textContent).toContain('Bir necha soniyada ishga tushadi. Uni vazifaga "Vazifalar" bo\'limidan biriktiring.');
+    expect(document.activeElement?.textContent).toBe('Tayyor');
+  });
+});
+
+describe('fix round: focus', () => {
+  it('re-rendering a confirm dialog with a new onCancel does not steal focus', async () => {
+    const props = { open: true, title: 't', body: 'b', confirmLabel: 'Uzish', destructive: true, onConfirm: vi.fn() };
+    render(createElement(ConfirmDialog, { ...props, onCancel: vi.fn() }));
+    expect(document.activeElement?.textContent).toBe('Uzish');
+    const cancel = byText('button', 'Bekor qilish');
+    act(() => cancel.focus());
+    render(createElement(ConfirmDialog, { ...props, onCancel: vi.fn() }));
+    expect(document.activeElement).toBe(cancel);
+  });
+
+  it('focus enters the login dialog on the phone input', () => {
+    render(createElement(UserbotLoginDialog, { open: true, onClose: vi.fn(), onConnected: vi.fn() }));
+    expect(document.activeElement).toBe(document.querySelector('input[inputmode="tel"]'));
+  });
+});
+
+describe('fix round: pending login is cancelled', () => {
+  it('closing while startLogin is pending cancels the late login and reopens on the phone step', async () => {
+    let resolve!: (v: Awaited<ReturnType<typeof client.startLogin>>) => void;
+    vi.mocked(client.startLogin).mockReturnValue(new Promise((r) => { resolve = r; }));
+    vi.mocked(client.cancelLogin).mockResolvedValue(undefined);
+    const el = (open: boolean) => createElement(UserbotLoginDialog, { open, onClose: vi.fn(), onConnected: vi.fn() });
+    render(el(true));
+    await setValue(document.querySelector('input[inputmode="tel"]')!, '+998 90 123 45 67', 'input');
+    await click(byText('button', 'Kodni yuborish'));
+    await click(document.querySelector<HTMLElement>('button[aria-label="Yopish"]')!);
+    render(el(false));
+    await act(async () => { resolve({ loginId: 'L9', status: 'CODE_SENT', codeType: 'APP', timeoutSec: 60 }); });
+    expect(client.cancelLogin).toHaveBeenCalledWith('L9');
+    render(el(true));
+    expect(document.body.textContent).toContain('Kodni yuborish');
+    expect(document.body.textContent).not.toContain('Davom etish');
+  });
+
+  it('unmounting with a live login cancels it once', async () => {
+    vi.mocked(client.startLogin).mockResolvedValue({ loginId: 'L1', status: 'CODE_SENT', codeType: 'APP', timeoutSec: 60 });
+    vi.mocked(client.cancelLogin).mockResolvedValue(undefined);
+    render(createElement(UserbotLoginDialog, { open: true, onClose: vi.fn(), onConnected: vi.fn() }));
+    await setValue(document.querySelector('input[inputmode="tel"]')!, '+998 90 123 45 67', 'input');
+    await click(byText('button', 'Kodni yuborish'));
+    await flush();
+    expect(client.cancelLogin).not.toHaveBeenCalled();
+    const spare = createRoot(document.createElement('div'));
+    act(() => root.unmount());
+    expect(client.cancelLogin).toHaveBeenCalledTimes(1);
+    expect(client.cancelLogin).toHaveBeenCalledWith('L1');
+    root = spare; // afterEach unmounts the spare
   });
 });
