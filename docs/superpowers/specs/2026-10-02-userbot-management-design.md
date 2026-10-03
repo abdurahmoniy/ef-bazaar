@@ -319,8 +319,9 @@ Har qadam orqaga moslashuvchan, har biri alohida PR:
      yangilanadi.
 3. **frontend**: §8.
 
-**Rollback:** import `.session` faylini o'chirmaydi. Eski `humo-userbot` image'ini qaytarish yetarli.
-payment'dagi o'zgarish eski formatni ham qabul qiladi.
+**Rollback:** import `.session` faylini o'chirmaydi. Avval `userbot-payment` (va `userbot-core`) ni to'xtating, so'ng eski `humo-userbot`
+image'ini ishga tushiring — hech qachon ikkalasi birga emas: bir sessiya ikki joyda ishlasa Telegram
+uni bekor qiladi. payment-service eski formatni ham qabul qiladi.
 
 ## 10. Test
 

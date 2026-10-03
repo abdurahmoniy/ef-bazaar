@@ -158,6 +158,9 @@ session unreadable and the accounts must be reconnected.
   **last** bootstrap step, right before `docker compose up -d`.
 - After deploy: `docker logs efbazaar-userbot-payment | grep imported` should show the import and
   `grep withholding` should be empty.
+- After a deploy, check the Humo chat for top-ups that arrived in the few seconds between removing
+  the old container and the new watcher starting (the imported account starts at the newest
+  message) and reconcile them manually in the admin panel.
 - **Rollback:** stop `userbot-payment` first, then run the old `humo-userbot` image. Never both at
   once; `AUTH_KEY_DUPLICATED` revokes the session.
 
