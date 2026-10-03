@@ -1,14 +1,10 @@
-import {
-  paramToSortId,
-  sortIdToParam,
-  type ListingSortId,
-} from './marketplace-sort';
 import type { ListingBrowseParams } from './marketplace-types';
 
 export type MarketplacePlatform = 'MOBILE' | 'STEAM' | 'PLAYSTATION';
 export type MarketplaceDivision = '' | '1' | '2' | '3' | '4';
 export type MarketplaceExchangeMode =
   | ''
+  | 'ACCEPTS_EXCHANGE'
   | 'NONE'
   | 'EXCHANGE_ONLY'
   | 'EXCHANGE_WITH_SURCHARGE'
@@ -30,8 +26,6 @@ export interface MarketplaceFilterDraft {
   googlePlayDisconnected: boolean;
   gameCenterDisconnected: boolean;
   valuablePlayer: { efhubId: number; name: string } | null;
-  sort?: ListingSortId;
-  query?: string;
 }
 
 export type MarketplaceFilterDraftErrorKey =
@@ -56,6 +50,7 @@ const PLATFORM_VALUES = new Set<MarketplacePlatform>(['MOBILE', 'STEAM', 'PLAYST
 const DIVISION_VALUES = new Set<MarketplaceDivision>(['', '1', '2', '3', '4']);
 const EXCHANGE_MODE_VALUES = new Set<MarketplaceExchangeMode>([
   '',
+  'ACCEPTS_EXCHANGE',
   'NONE',
   'EXCHANGE_ONLY',
   'EXCHANGE_WITH_SURCHARGE',
@@ -177,8 +172,6 @@ export function filterDraftFromBrowseParams(filters: ListingBrowseParams): Marke
   const platform = attributes.platform;
   const division = attributeText(filters, 'highest_division_level');
   const exchangeMode = attributeText(filters, 'exchange_mode');
-  const sort = filters.sort ? paramToSortId(filters.sort) : undefined;
-  const query = filters.q ?? filters.search ?? undefined;
 
   return {
     ...clearMarketplaceFilterDraft(),
@@ -197,8 +190,6 @@ export function filterDraftFromBrowseParams(filters: ListingBrowseParams): Marke
     googlePlayDisconnected: attributes.has_google_play_link === 'false',
     gameCenterDisconnected: attributes.has_game_center_link === 'false',
     valuablePlayer: id !== undefined && name ? { efhubId: id, name } : null,
-    sort,
-    query,
   };
 }
 
@@ -252,15 +243,17 @@ export function validateMarketplaceFilterDraft(draft: MarketplaceFilterDraft): M
     errors.teamStrength = 'Eng kam kuch eng yuqori kuchdan oshmasligi kerak.';
   }
 
-  for (const key of ['androidCoinsMin', 'iosCoinsMin'] as const) {
-    if (integerValue(draft[key]) === null) errors[key] = 'Butun son kiriting.';
-  }
+  if (draft.platform === 'MOBILE') {
+    for (const key of ['androidCoinsMin', 'iosCoinsMin'] as const) {
+      if (integerValue(draft[key]) === null) errors[key] = 'Butun son kiriting.';
+    }
 
-  const transferLimit = integerValue(draft.transferLimitMin);
-  if (transferLimit === null) {
-    errors.transferLimitMin = 'Butun son kiriting.';
-  } else if (transferLimit !== undefined && (transferLimit < 0n || transferLimit > 10n)) {
-    errors.transferLimitMin = '0 dan 10 gacha son kiriting.';
+    const transferLimit = integerValue(draft.transferLimitMin);
+    if (transferLimit === null) {
+      errors.transferLimitMin = 'Butun son kiriting.';
+    } else if (transferLimit !== undefined && (transferLimit < 0n || transferLimit > 10n)) {
+      errors.transferLimitMin = '0 dan 10 gacha son kiriting.';
+    }
   }
 
   return errors;
@@ -295,38 +288,27 @@ export function applyMarketplaceFilterDraft(
     setInteger(next, 'attr.team_strength.min', minStrength);
     setInteger(next, 'attr.team_strength.max', maxStrength);
   }
-  setInteger(next, 'attr.android_coins.min', boundedInteger(draft.androidCoinsMin));
-  setInteger(next, 'attr.ios_coins.min', boundedInteger(draft.iosCoinsMin));
-  setInteger(
-    next,
-    'attr.device_transfer_limit.min',
-    boundedInteger(draft.transferLimitMin, 0n, 10n),
-  );
   if (validExchangeMode(draft.exchangeMode) && draft.exchangeMode) {
     next.set('attr.exchange_mode', draft.exchangeMode);
   }
-  if (draft.googlePlayDisconnected) next.set('attr.has_google_play_link', 'false');
-  if (draft.gameCenterDisconnected) next.set('attr.has_game_center_link', 'false');
+  if (draft.platform === 'MOBILE') {
+    setInteger(next, 'attr.android_coins.min', boundedInteger(draft.androidCoinsMin));
+    setInteger(next, 'attr.ios_coins.min', boundedInteger(draft.iosCoinsMin));
+    setInteger(
+      next,
+      'attr.device_transfer_limit.min',
+      boundedInteger(draft.transferLimitMin, 0n, 10n),
+    );
+    if (draft.googlePlayDisconnected) next.set('attr.has_google_play_link', 'false');
+    if (draft.gameCenterDisconnected) next.set('attr.has_game_center_link', 'false');
+
+  }
 
   const valuableId = draft.valuablePlayer?.efhubId;
   const valuableName = text(draft.valuablePlayer?.name);
   if (valuableId !== undefined && Number.isSafeInteger(valuableId) && valuableId > 0 && valuableName) {
     next.set('attr.valuable_players_id', String(valuableId));
     next.set('attr.valuable_players_name', valuableName);
-  }
-  if (draft.sort !== undefined) {
-    const sortParam = sortIdToParam(draft.sort);
-    if (sortParam) next.set('sort', sortParam);
-  }
-  if (draft.query !== undefined) {
-    const q = draft.query.trim();
-    if (q) {
-      next.set('q', q);
-      next.delete('search');
-    } else {
-      next.delete('q');
-      next.delete('search');
-    }
   }
   return next;
 }

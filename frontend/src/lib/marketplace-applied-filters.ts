@@ -31,6 +31,7 @@ const RANGE_FILTERS = [
 ] as const;
 
 const EXCHANGE_LABELS: Record<string, string> = {
+  ACCEPTS_EXCHANGE: 'Obmen qabul qiladi',
   NONE: "Obmen yo'q",
   EXCHANGE_ONLY: 'Faqat obmen',
   EXCHANGE_WITH_SURCHARGE: 'Obmen + doplata',

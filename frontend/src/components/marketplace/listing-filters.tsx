@@ -1,6 +1,6 @@
 'use client';
 
-import { SlidersHorizontal } from 'lucide-react';
+import { Loader2, SlidersHorizontal } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
@@ -25,20 +25,26 @@ import { getTelegramWebApp } from '@/lib/telegram';
 import { telegramHaptic } from '@/lib/telegram-shell';
 import type { ListingBrowseParams } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
+import { useMediaQuery } from '@/hooks/use-media-query';
+import { useMarketplaceFilterPreview } from '@/hooks/use-marketplace-filter-preview';
+import { formatCompactNumber } from '@/lib/marketplace-format';
+import { playerAppliedFilterCount } from '@/lib/marketplace-applied-filters';
 
 interface ListingFiltersProps {
   filters: ListingBrowseParams;
   rawQuery: string;
+  authenticated?: boolean;
 }
-/** Desktop detailed-filter controller. It shares the mobile draft contract but
- * intentionally performs no preview request. Clear remains local until Apply. */
-export function ListingFilters({ filters, rawQuery }: ListingFiltersProps) {
+/** Desktop detailed-filter controller sharing the mobile draft and preview contract. */
+export function ListingFilters({ filters, rawQuery, authenticated = false }: ListingFiltersProps) {
   const router = useRouter();
   const navigation = useMarketplaceNavigation();
   const [draft, setDraft] = React.useState(() => filterDraftFromBrowseParams(filters));
   const applyStartedRef = React.useRef(false);
   const errors = validateMarketplaceFilterDraft(draft);
   const valid = Object.keys(errors).length === 0;
+  const desktop = useMediaQuery('(min-width: 1024px)');
+  const preview = useMarketplaceFilterPreview(rawQuery, draft, valid && desktop, authenticated);
 
   React.useEffect(() => {
     setDraft(filterDraftFromBrowseParams(filters));
@@ -57,32 +63,47 @@ export function ListingFilters({ filters, rawQuery }: ListingFiltersProps) {
   }
 
   return (
-    <aside className="hidden space-y-3 lg:sticky lg:top-32 lg:block">
+    <aside className="hidden self-start lg:sticky lg:top-32 lg:block">
       <form
         onSubmit={apply}
-        className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-card"
+        className="flex max-h-[calc(100dvh-9rem)] flex-col overflow-hidden "
       >
-        <div className="flex items-center gap-2 text-sm font-bold text-foreground">
+        <div className="flex shrink-0 items-center gap-2 pb-4 text-sm font-bold text-foreground">
           <SlidersHorizontal className="h-4 w-4 text-primary" aria-hidden />
           Filtrlar
         </div>
-        <ListingFilterFields
-          draft={draft}
-          errors={errors}
-          onChange={setDraft}
-        />
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <Button type="submit" className="min-h-11" disabled={!valid}>
-            Qo‘llash
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11"
-            onClick={() => setDraft(clearMarketplaceFilterDraft())}
-          >
-            Tozalash
-          </Button>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-3">
+          <ListingFilterFields
+            draft={draft}
+            errors={errors}
+            onChange={setDraft}
+            playerCount={playerAppliedFilterCount(new URLSearchParams(rawQuery))}
+            onOpenPlayers={() => {
+              if (!valid) return;
+              const params = applyMarketplaceFilterDraft(new URLSearchParams(rawQuery), draft);
+              router.push(`${marketplaceHref(params)}#marketplace-player-filter`);
+              window.dispatchEvent(new CustomEvent('open-marketplace-player-filter', { detail: params.toString() }));
+            }}
+          />
+        </div>
+        <div className="shrink-0 space-y-2 border-t border-border bg-background py-4 pr-3">
+          <p className="flex min-h-4 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+            {preview.status === 'loading' && <Loader2 className="h-3 w-3 animate-spin motion-reduce:animate-none" aria-hidden />}
+            {preview.status === 'success' ? `${formatCompactNumber(preview.count)} ta e‘lon` : preview.status === 'loading' ? 'Hisoblanmoqda' : preview.status === 'error' ? 'Natijalar sonini hisoblab bo‘lmadi. Filtrlarni qo‘llashingiz mumkin.' : ''}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button type="submit" className="min-h-11" disabled={!valid}>
+              Qo‘llash
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => setDraft(clearMarketplaceFilterDraft())}
+            >
+              Tozalash
+            </Button>
+          </div>
         </div>
       </form>
     </aside>

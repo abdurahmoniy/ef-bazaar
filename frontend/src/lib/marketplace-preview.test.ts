@@ -18,7 +18,7 @@ describe('fetchMarketplaceResultCount', () => {
     }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     vi.stubGlobal('fetch', fetchMock);
     const controller = new AbortController();
-    const current = new URLSearchParams(`q=Messi&filter=clean&page=4&matchCard=${encodeURIComponent(MESSI_CARD)}&matchCard=bad&matchStrictness=6&view=grid`);
+    const current = new URLSearchParams(`q=Messi&filter=clean&page=4&view=grid`);
 
     await expect(fetchMarketplaceResultCount(current, draft({
       platform: 'STEAM',
@@ -38,12 +38,11 @@ describe('fetchMarketplaceResultCount', () => {
     expect(url.searchParams.get('minPrice')).toBe('100000');
     expect(url.searchParams.get('attr.platform')).toBe('STEAM');
     expect(url.searchParams.get('attr.team_strength.min')).toBe('3200');
-    expect(url.searchParams.get('attr.has_google_play_link')).toBe('false');
+    expect(url.searchParams.get('attr.has_google_play_link')).toBeNull();
     expect(url.searchParams.get('attr.has_game_center_link')).toBeNull();
     expect(url.searchParams.get('attr.valuable_players_id')).toBe('101');
     expect(url.searchParams.get('attr.valuable_players_name')).toBe('Messi');
-    expect(url.searchParams.getAll('matchCard')).toEqual([MESSI_CARD]);
-    expect(url.searchParams.get('matchStrictness')).toBe('6');
+    expect(url.searchParams.getAll('matchCard')).toEqual([]);
     expect(options).toEqual({
       headers: { Accept: 'application/json' },
       credentials: 'include',
@@ -136,4 +135,64 @@ describe('fetchMarketplaceResultCount', () => {
     await expect(fetchMarketplaceResultCount(current, draft(), controller.signal)).rejects.toBe(aborted);
     expect(current.toString()).toBe('q=Messi&page=3&attr.platform=PLAYSTATION');
   });
+});
+
+describe('player-aware preview', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('counts only player matches after applying the detailed constraints', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ids: ['listing-1', 'listing-2'] })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ totalElements: 1 })));
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    await expect(fetchMarketplaceResultCount(new URLSearchParams(`matchCard=${encodeURIComponent(MESSI_CARD)}&matchStrictness=6`), draft({ minPrice: '500000' }), controller.signal)).resolves.toBe(1);
+    const [matchUrl] = fetchMock.mock.calls[0];
+    expect(new URL(matchUrl, 'http://localhost').pathname).toBe('/api/rec/v1/match');
+    expect(new URL(matchUrl, 'http://localhost').searchParams.getAll('matchCard')).toEqual([MESSI_CARD]);
+    const [rankedUrl, options] = fetchMock.mock.calls[1];
+    expect(rankedUrl).toBe('/api/marketplace/v1/listings/ranked');
+    expect(JSON.parse(options.body)).toEqual(expect.objectContaining({ ids: ['listing-1', 'listing-2'], minPrice: 500000, page: 0, size: 1 }));
+    expect(options.signal).toBe(controller.signal);
+  });
+  it('returns zero without a ranked request when no players match', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ids: [] })));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(fetchMarketplaceResultCount(new URLSearchParams(`matchCard=${encodeURIComponent(MESSI_CARD)}`), draft(), new AbortController().signal)).resolves.toBe(0);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+it('previews the personalized feed using the same ranked constraints as the result list', async () => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ ids: ['listing-1'], empty: false })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ totalElements: 1 })));
+  vi.stubGlobal('fetch', fetchMock);
+  try {
+    await expect(fetchMarketplaceResultCount(new URLSearchParams('feed=snapshot'), draft({ minPrice: '500000' }), new AbortController().signal, true)).resolves.toBe(1);
+    expect(new URL(fetchMock.mock.calls[0][0], 'http://localhost').pathname).toBe('/api/rec/v1/feed');
+    expect(new URL(fetchMock.mock.calls[0][0], 'http://localhost').searchParams.get('profileHash')).toBe('snapshot');
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/marketplace/v1/listings/ranked');
+  } finally { vi.unstubAllGlobals(); }
+});
+
+it.each(['empty', 'unavailable'] as const)('uses the market count for an %s personalized feed', async (state) => {
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(state === 'empty'
+      ? new Response(JSON.stringify({ ids: [], empty: true }))
+      : new Response('', { status: 503 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ totalElements: 12 })));
+  vi.stubGlobal('fetch', fetchMock);
+  try {
+    await expect(fetchMarketplaceResultCount(new URLSearchParams(), draft(), new AbortController().signal, true)).resolves.toBe(12);
+    expect(new URL(fetchMock.mock.calls[1][0], 'http://localhost').pathname).toBe('/api/marketplace/v1/listings');
+  } finally { vi.unstubAllGlobals(); }
+});
+
+it('does not fall back to unfiltered results when player matching fails', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 503 }));
+  vi.stubGlobal('fetch', fetchMock);
+  try {
+    await expect(fetchMarketplaceResultCount(new URLSearchParams(`matchCard=${encodeURIComponent(MESSI_CARD)}`), draft(), new AbortController().signal, true)).rejects.toThrow('marketplace_preview_503');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  } finally { vi.unstubAllGlobals(); }
 });

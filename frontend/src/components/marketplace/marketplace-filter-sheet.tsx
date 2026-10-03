@@ -18,28 +18,25 @@ import {
   validateMarketplaceFilterDraft,
   type MarketplaceFilterDraft,
 } from '@/lib/marketplace-filter-draft';
-import { fetchMarketplaceResultCount } from '@/lib/marketplace-preview';
+import { useMarketplaceFilterPreview } from '@/hooks/use-marketplace-filter-preview';
+import { playerAppliedFilterCount } from '@/lib/marketplace-applied-filters';
 import { marketplaceHref } from '@/lib/marketplace-query';
 import { getTelegramWebApp } from '@/lib/telegram';
 import { telegramHaptic } from '@/lib/telegram-shell';
 import type { ListingBrowseParams } from '@/lib/marketplace-types';
 
-type PreviewState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'success'; count: number }
-  | { status: 'error' };
-
 interface MarketplaceFilterSheetProps {
   filters: ListingBrowseParams;
   rawQuery: string;
   activeCount: number;
+  authenticated?: boolean;
 }
 
 export function MarketplaceFilterSheet({
   filters,
   rawQuery,
   activeCount,
+  authenticated = false,
 }: MarketplaceFilterSheetProps) {
   const router = useRouter();
   const navigation = useMarketplaceNavigation();
@@ -48,20 +45,15 @@ export function MarketplaceFilterSheet({
   const [draft, setDraft] = React.useState<MarketplaceFilterDraft>(
     () => filterDraftFromBrowseParams(filters),
   );
-  const [preview, setPreview] = React.useState<PreviewState>({ status: 'idle' });
   const filterLayerId = React.useId();
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const restoreFocusRef = React.useRef(false);
   const applyStartedRef = React.useRef(false);
-  const previewGenerationRef = React.useRef(0);
   const errors = validateMarketplaceFilterDraft(draft);
   const valid = Object.keys(errors).length === 0;
 
-  const changeDraft = React.useCallback((nextDraft: MarketplaceFilterDraft) => {
-    previewGenerationRef.current += 1;
-    setPreview({ status: 'idle' });
-    setDraft(nextDraft);
-  }, []);
+  const preview = useMarketplaceFilterPreview(rawQuery, draft, open && valid, authenticated);
+  const changeDraft = setDraft;
 
   const close = React.useCallback(() => {
     restoreFocusRef.current = true;
@@ -76,40 +68,6 @@ export function MarketplaceFilterSheet({
   }, open);
 
   React.useEffect(() => {
-    const generation = previewGenerationRef.current + 1;
-    previewGenerationRef.current = generation;
-    if (!open || !valid) {
-      setPreview({ status: 'idle' });
-      return;
-    }
-    setPreview({ status: 'idle' });
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      if (previewGenerationRef.current !== generation) return;
-      setPreview({ status: 'loading' });
-      fetchMarketplaceResultCount(new URLSearchParams(rawQuery), draft, controller.signal)
-        .then((count) => {
-          if (previewGenerationRef.current === generation) {
-            setPreview({ status: 'success', count });
-          }
-        })
-        .catch((error) => {
-          if (previewGenerationRef.current === generation
-            && (error as Error).name !== 'AbortError') {
-            setPreview({ status: 'error' });
-          }
-        });
-    }, 300);
-    return () => {
-      if (previewGenerationRef.current === generation) {
-        previewGenerationRef.current += 1;
-      }
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [open, valid, rawQuery, draft]);
-
-  React.useEffect(() => {
     if (open || !restoreFocusRef.current) return;
     restoreFocusRef.current = false;
     triggerRef.current?.focus();
@@ -118,7 +76,6 @@ export function MarketplaceFilterSheet({
   const changeOpen = React.useCallback((nextOpen: boolean) => {
     if (nextOpen) {
       setDraft(filterDraftFromBrowseParams(filters));
-      setPreview({ status: 'idle' });
       applyStartedRef.current = false;
     } else {
       restoreFocusRef.current = true;
@@ -186,12 +143,12 @@ export function MarketplaceFilterSheet({
             event.preventDefault();
             triggerRef.current?.focus();
           }}
-          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[min(92dvh,var(--tg-viewport-height,92dvh))] flex-col overflow-hidden rounded-t-2xl border-t border-border bg-card shadow-2xl outline-none data-[state=open]:animate-sheet-up data-[state=closed]:animate-sheet-down motion-reduce:animate-none lg:hidden"
+          className="fixed inset-x-0 top-0 bottom-0 z-50 flex h-[min(100dvh,var(--tg-viewport-height,100dvh))] flex-col overflow-hidden border-border bg-card shadow-2xl outline-none data-[state=open]:animate-sheet-up data-[state=closed]:animate-sheet-down motion-reduce:animate-none lg:hidden"
         >
           <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
             <div className="min-w-0">
               <Dialog.Title className="text-base font-black text-foreground">Filtrlar</Dialog.Title>
-              <Dialog.Description className="mt-0.5 text-xs text-muted-foreground">
+              <Dialog.Description className="sr-only">
                 Kerakli akkount xususiyatlarini tanlang.
               </Dialog.Description>
             </div>
@@ -206,15 +163,25 @@ export function MarketplaceFilterSheet({
             </Dialog.Close>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
             <ListingFilterFields
+              overview
               draft={draft}
               errors={errors}
               onChange={changeDraft}
+              playerCount={playerAppliedFilterCount(new URLSearchParams(rawQuery))}
+              onOpenPlayers={() => {
+                if (!valid) return;
+                setOpen(false);
+                const params = applyMarketplaceFilterDraft(new URLSearchParams(rawQuery), draft);
+                const href = `${marketplaceHref(params)}#marketplace-player-filter`;
+                router.push(href);
+                window.dispatchEvent(new CustomEvent('open-marketplace-player-filter', { detail: params.toString() }));
+              }}
             />
           </div>
 
-          <footer className="grid shrink-0 grid-cols-2 gap-2 border-t border-border bg-card/95 px-4 pb-[calc(0.75rem+var(--app-content-safe-bottom))] pt-3 backdrop-blur">
+          <footer className="flex shrink-0 gap-2 border-t border-border bg-card/95 px-4 pb-[calc(0.75rem+var(--app-content-safe-bottom))] pt-3 backdrop-blur">
             <Button
               type="button"
               variant="outline"
@@ -225,7 +192,7 @@ export function MarketplaceFilterSheet({
             </Button>
             <Button
               type="button"
-              className="min-h-11"
+              className="min-h-11 flex-1"
               disabled={!valid}
               onClick={apply}
             >

@@ -203,7 +203,7 @@ describe('marketplace query state', () => {
   });
 });
 
-describe('marketplace tabs', () => {
+describe('marketplace feed selection', () => {
   const hash = 'a'.repeat(64);
 
   it('defaults signed-in buyers to their interests and guests to the market', () => {
@@ -211,12 +211,65 @@ describe('marketplace tabs', () => {
     expect(getMarketplaceTab(new URLSearchParams('tab=market'), true)).toBe('market');
     expect(getMarketplaceTab(new URLSearchParams('tab=mine'), false)).toBe('market');
     expect(getMarketplaceTab(new URLSearchParams(), false)).toBe('market');
+    expect(getMarketplaceTab(new URLSearchParams('sort=+++'), true)).toBe('mine');
+  });
+
+  it.each(['valueScore,desc', 'price,asc', 'price,desc', 'likeCount,desc', 'createdAt,desc', 'unknown'])(
+    'opens the market for an explicit %s sort even with a legacy interests tab',
+    (sort) => {
+      const params = new URLSearchParams({ sort: ` ${sort} ` });
+      expect(getMarketplaceTab(params, true)).toBe('market');
+      params.set('tab', 'mine');
+      expect(getMarketplaceTab(params, true)).toBe('market');
+    },
+  );
+
+  it.each(['valueScore,desc', 'price,asc', 'price,desc', 'likeCount,desc'])(
+    'switches interests to %s with fresh paging while preserving buyer criteria',
+    (sort) => {
+      const current = new URLSearchParams(`tab=mine&q=Messi&minPrice=5&filter=clean&attr.platform=pc&view=list&utm_source=telegram&page=3&feed=${hash}`);
+      current.append('matchCard', MESSI_CARD);
+      current.append('matchCard', NEYMAR_CARD);
+      const original = current.toString();
+
+      const next = setMarketplaceSort(current, ` ${sort} `);
+
+      expect(next.get('tab')).toBe('market');
+      expect(getMarketplaceTab(next, true)).toBe('market');
+      expect(next.get('sort')).toBe(sort);
+      expect(next.has('page')).toBe(false);
+      expect(next.has('feed')).toBe(false);
+      for (const key of ['q', 'minPrice', 'filter', 'attr.platform', 'view', 'utm_source', 'matchCard']) {
+        expect(next.getAll(key)).toEqual(current.getAll(key));
+      }
+      expect(current.toString()).toBe(original);
+    },
+  );
+
+  it.each([
+    ['blank sort', (params: URLSearchParams) => setMarketplaceSort(params, '   ')],
+    ['interests selection', (params: URLSearchParams) => setMarketplaceTab(params, 'mine')],
+  ] as const)('returns to default interests through %s without a stale market sort', (_name, apply) => {
+    const current = new URLSearchParams(`tab=market&sort=price%2Casc&page=2&feed=${hash}&minPrice=5&view=grid`);
+    current.append('matchCard', MESSI_CARD);
+    current.append('matchCard', NEYMAR_CARD);
+    const original = current.toString();
+
+    const next = apply(current);
+
+    for (const key of ['tab', 'sort', 'page', 'feed']) expect(next.has(key)).toBe(false);
+    expect(getMarketplaceTab(next, true)).toBe('mine');
+    for (const key of ['minPrice', 'view', 'matchCard']) {
+      expect(next.getAll(key)).toEqual(current.getAll(key));
+    }
+    expect(current.toString()).toBe(original);
   });
 
   it('switching tabs keeps filters but drops paging and the feed snapshot', () => {
     const current = new URLSearchParams(`minPrice=5&page=3&feed=${hash}&attr.platform=pc`);
     expect(setMarketplaceTab(current, 'market').toString()).toBe('minPrice=5&attr.platform=pc&tab=market');
     expect(setMarketplaceTab(new URLSearchParams('tab=market&page=2'), 'mine').toString()).toBe('');
+    expect(setMarketplaceTab(new URLSearchParams('sort=price%2Cdesc&page=2'), 'market').get('sort')).toBe('price,desc');
   });
 
   it('page links keep the feed snapshot', () => {

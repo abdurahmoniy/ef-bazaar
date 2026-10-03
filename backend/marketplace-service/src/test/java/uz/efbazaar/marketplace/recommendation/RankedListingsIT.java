@@ -90,6 +90,26 @@ class RankedListingsIT {
         assertThat(page.getTotalElements()).isEqualTo(1);
     }
 
+    @Test
+    void acceptsExchangeIncludesAllCompatibleModesInBrowseAndRanked() {
+        List<UUID> ids = new java.util.ArrayList<>();
+        for (String mode : List.of("NONE", "EXCHANGE_ONLY", "EXCHANGE_WITH_SURCHARGE", "BOTH")) {
+            ids.add(listings.saveAndFlush(Listing.builder().sellerId(UUID.randomUUID()).description("d")
+                    .price(new BigDecimal("100000")).priceNegotiable(false).status(ListingStatus.ACTIVE)
+                    .attributes(Map.of("exchange_mode", mode)).build()).getId());
+        }
+        ListingFilter accepts = new ListingFilter(null, null, null, null,
+                Map.of("exchange_mode", "ACCEPTS_EXCHANGE"), false);
+        assertThat(listings.findAll(uz.efbazaar.marketplace.service.ListingSpecifications.withFilter(accepts)))
+                .extracting(Listing::getId).containsExactlyInAnyOrderElementsOf(ids.subList(1, 4));
+        assertThat(RankedListings.page(listings, ids, accepts, 0, 10).getContent())
+                .extracting(Listing::getId).containsExactlyElementsOf(ids.subList(1, 4));
+        ListingFilter exact = new ListingFilter(null, null, null, null,
+                Map.of("exchange_mode", "EXCHANGE_ONLY"), false);
+        assertThat(RankedListings.page(listings, ids, exact, 0, 10).getContent())
+                .extracting(Listing::getId).containsExactly(ids.get(1));
+    }
+
     @org.springframework.boot.autoconfigure.domain.EntityScan(basePackageClasses = Listing.class)
     @org.springframework.data.jpa.repository.config.EnableJpaRepositories(basePackageClasses = ListingRepository.class)
     static class Config {}
