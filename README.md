@@ -22,7 +22,7 @@ Monorepo: har bir komponent mustaqil build va deploy bo'ladi.
   (Next.js)      -service         -service       -service      -service     (Telegram)
                      │                │              │
                      └──────── Kafka (efbazaar.*) ───┴──── smart-admin-worker (Python)
-                                                     └──── humo-userbot (Python)
+                                                     └──── userbot-service (Python)
         PostgreSQL (har servisga alohida DB)   ·   Redis   ·   Mailcow (pochta)
 ```
 
@@ -38,7 +38,7 @@ Monorepo: har bir komponent mustaqil build va deploy bo'ladi.
 | payment-service | `backend/payment-service` | Spring Boot | 8087 | `/api/payment/**` | [README](backend/payment-service/README.md) |
 | access-service | `backend/access-service` | Spring Boot | 8088 | `/api/access/**` | [README](backend/access-service/README.md) |
 | recommendation-service | `backend/recommendation-service` | Spring Boot | 8083 | `/api/rec/**` | [README](backend/recommendation-service/README.md) |
-| humo-userbot | `humo-userbot` | Python 3.12 (Pyrogram) | — | — (faqat Kafka) | [README](humo-userbot/README.md) |
+| userbot-service | `userbot-service` | Python 3.12 (Pyrogram, FastAPI) | 8089 (userbot-core) | `/api/userbot/**` (faqat ROLE_ADMIN) | [README](userbot-service/README.md) |
 | outbox (kutubxona) | `backend/libs/outbox` | Java 21, Spring Boot auto-config | — | — | [README](backend/libs/outbox/README.md) |
 | frontend | `frontend` | Next.js 16, React 19 | 3000 | `/` | [README](frontend/README.md) |
 | mail-frontend | `mail` | Next.js 16 | 3000 | mail.efbazaar.uz | [README](mail/README.md) |
@@ -110,7 +110,7 @@ cd frontend && npm ci --no-audit --no-fund && npm run typecheck && npm run lint 
 # mail
 cd mail && npm ci --no-audit --no-fund && npm run test && npm run build
 
-# Python (smart-admin-worker, humo-userbot)
+# Python (smart-admin-worker, userbot-service)
 cd smart-admin-worker && pip install -r requirements-dev.txt && ruff check smart_admin_worker/ tests/ && pytest -q
 ```
 

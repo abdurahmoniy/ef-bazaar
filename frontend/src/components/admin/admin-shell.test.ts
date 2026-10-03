@@ -55,6 +55,10 @@ describe('AdminShell & Navigation', () => {
     expect(cardsBreadcrumbs.groupTitle).toBe("Moliya & To'lovlar");
     expect(cardsBreadcrumbs.itemLabel).toBe('Platforma kartalari');
 
+    const userbotBreadcrumbs = getActiveBreadcrumbs('/admin/userbots');
+    expect(userbotBreadcrumbs.groupTitle).toBe('Tizim & Resurslar');
+    expect(userbotBreadcrumbs.itemLabel).toBe('Userbotlar (Telegram)');
+
     const rootBreadcrumbs = getActiveBreadcrumbs('/admin');
     expect(rootBreadcrumbs.groupTitle).toBe('Boshqaruv');
     expect(rootBreadcrumbs.itemLabel).toBe('Boshqaruv paneli');

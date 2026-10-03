@@ -118,7 +118,7 @@ class CardCreditConsumerIT extends AbstractIntegrationIT {
                 .getBytes(StandardCharsets.UTF_8));
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            var obs = observations.findByTelegramMessageId(messageId);
+            var obs = observations.findByUserbotTelegramIdAndTelegramMessageId(null, messageId);
             assertThat(obs)
                     .as("a card credit carrying no Java type header is still a card credit")
                     .isPresent();
@@ -130,6 +130,31 @@ class CardCreditConsumerIT extends AbstractIntegrationIT {
                     .isEqualTo(InvoiceStatus.PAID);
             assertThat(ledger.balanceOf(user).getAvailableTiyin()).isEqualTo(10_000_000);
         });
+    }
+
+    /**
+     * The userbot names the account that saw the message; payment keys on the
+     * pair. If Jackson silently ignored the field (two record constructors make
+     * that a real risk) the row would land with NULL and collide with the next
+     * account's message of the same id.
+     */
+    @Test
+    void theAccountIdInBareJsonReachesTheObservation() {
+        UUID user = UUID.randomUUID();
+        Invoice inv = allocator.allocate(user, 10_000_000);
+        long messageId = 77_003L;
+
+        publishRaw(("""
+                {"telegramMessageId":%d,"cardLast4":"0101","amountTiyin":%d,\
+                "cardBalanceTiyin":3165916,"observedAt":"2026-08-10T20:41:00Z",\
+                "rawText":"Xaridingiz uchun rahmat! Karta *0101","userbotTelegramId":5550001}"""
+                .formatted(messageId, inv.getTransferAmountTiyin()))
+                .getBytes(StandardCharsets.UTF_8));
+
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(observations.findByUserbotTelegramIdAndTelegramMessageId(5550001L, messageId))
+                        .hasValueSatisfying(o -> assertThat(o.getStatus()).isEqualTo(ObservationStatus.MATCHED)));
+        assertThat(observations.findByUserbotTelegramIdAndTelegramMessageId(null, messageId)).isEmpty();
     }
 
     /**
@@ -162,7 +187,7 @@ class CardCreditConsumerIT extends AbstractIntegrationIT {
                     });
         }
 
-        assertThat(observations.findByTelegramMessageId(messageId))
+        assertThat(observations.findByUserbotTelegramIdAndTelegramMessageId(null, messageId))
                 .as("the malformed record must not have half-written a row either")
                 .isEmpty();
     }

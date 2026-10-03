@@ -140,6 +140,8 @@ xabar ikkinchi qo'ng'iroqcha / ikkinchi DM / ikkinchi rol berish qilmasligi) —
 
 ### 4.2 humo-userbot
 
+> 2026-10-03: o'rnini [userbot boshqaruvi dizayni](2026-10-02-userbot-management-design.md) §4.4 egalladi — navbat Postgres'da (userbot_db).
+
 - `TELEGRAM_SESSION_DIR` volume'ida SQLite: `pending(message_id INTEGER PRIMARY KEY, topic, payload, created_at)`
   va `state(key PRIMARY KEY, value)` (`last_message_id`).
 - Xabar kelganda: **avval** `pending` ga yoziladi, keyin yuboriladi, muvaffaqiyatda o'chiriladi va
