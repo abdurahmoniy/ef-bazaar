@@ -47,7 +47,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_MULTIPLE_DATABASES: ${AUTH_DB_NAME},${MARKETPLACE_DB_NAME},${TRADE_DB_NAME},${PAYMENT_DB_NAME},${ACCESS_DB_NAME:-access_db},${EFBAZAAR_DB_NAME:-efbazaar}
+      POSTGRES_MULTIPLE_DATABASES: ${AUTH_DB_NAME},${MARKETPLACE_DB_NAME},${TRADE_DB_NAME},${PAYMENT_DB_NAME},${ACCESS_DB_NAME:-access_db},${EFBAZAAR_DB_NAME:-efbazaar},${USERBOT_DB_NAME:-userbot_db}
     # 127.0.0.1 ga bog'langan — serverning o'zidan ko'rinadi, internetdan yo'q.
     #
     # Ilgari "${POSTGRES_PORT_HOST:-5432}:5432" edi, ya'ni 0.0.0.0 — va
@@ -627,33 +627,71 @@ services:
     networks:
       - efbazaar-net
 
-  # ---------- Humo userbot (deposit rail) ----------
-  # An MTProto *user* session, not a bot: it watches the Humo card bot's chat,
-  # parses top-up notifications and publishes them to Kafka. No HTTP surface,
-  # so no EXPOSE and no healthcheck — liveness is the Kafka heartbeat, which
-  # is what payment-service gates deposits on.
-  #
-  # The session file in humo-userbot-session is a CREDENTIAL and is created by
-  # a one-time interactive login (phone + code + 2FA). Until it exists this
-  # container crash-loops: there is no TTY for the prompt. See
-  # humo-userbot/README.md.
-  humo-userbot:
-    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-humo-userbot:${IMAGE_TAG:-latest}
+  # ---------- userbot-service (Telegram user akkountlari) ----------
+  # Bitta image, ikki container. userbot-core — admin panel API (login, ro'yxat,
+  # uzish, vazifaga biriktirish) va PAYMENT'ga biriktirilmagan akkountlar.
+  # userbot-payment — faqat PAYMENT akkounti: Humo kuzatuvi va heartbeat.
+  # Sessiyalar userbot_db da shifrlangan (USERBOT_SESSION_KEY). Akkount faqat
+  # lease olgan containerda ishlaydi — bitta auth key ikki joyda ishlasa
+  # Telegram uni bekor qiladi. Qarang: userbot-service/README.md.
+  userbot-core:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-userbot-service:${IMAGE_TAG:-latest}
     build:
-      context: ./humo-userbot
-    container_name: efbazaar-humo-userbot
+      context: ./userbot-service
+    container_name: efbazaar-userbot-core
+    command: ["python", "-m", "userbot_service.main_core"]
+    restart: unless-stopped
+    logging: *default-logging
+    environment: &userbot-env
+      RUNNER: core
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      HUMO_SOURCE_CHAT: ${HUMO_SOURCE_CHAT:-humocardbot}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${USERBOT_DB_NAME:-userbot_db}
+      USERBOT_SESSION_KEY: ${USERBOT_SESSION_KEY}
+      AVATAR_DIR: /avatars
+      LOG_LEVEL: INFO
+    volumes:
+      - userbot-avatars:/avatars
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8089/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    mem_limit: 256m
+    memswap_limit: 384m
+    networks:
+      - efbazaar-net
+
+  userbot-payment:
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-abdurahmoniy/efbazaar}-userbot-service:${IMAGE_TAG:-latest}
+    container_name: efbazaar-userbot-payment
+    command: ["python", "-m", "userbot_service.main_payment"]
     restart: unless-stopped
     logging: *default-logging
     environment:
-      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
-      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      <<: *userbot-env
+      RUNNER: payment
       TELEGRAM_SESSION_DIR: /session
-      HUMO_SOURCE_CHAT: ${HUMO_SOURCE_CHAT:-humocardbot}
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
-      LOG_LEVEL: INFO
     volumes:
+      # Pre-panel session from the terminal login; read once by the importer
+      # and kept for rollback.
       - humo-userbot-session:/session
+      - userbot-avatars:/avatars
     depends_on:
+      postgres:
+        condition: service_healthy
       kafka:
         condition: service_started
     mem_limit: 256m
@@ -850,6 +888,7 @@ volumes:
   # Holds the Pyrogram .session credential — created by a one-time interactive
   # login, never rebuilt automatically. Deleting it means redoing that login.
   humo-userbot-session:
+  userbot-avatars:
 
 networks:
   efbazaar-net:

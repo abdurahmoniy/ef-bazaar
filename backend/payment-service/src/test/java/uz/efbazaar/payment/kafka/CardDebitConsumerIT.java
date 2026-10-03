@@ -94,7 +94,7 @@ class CardDebitConsumerIT extends AbstractIntegrationIT {
                 .getBytes(StandardCharsets.UTF_8));
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            var obs = debits.findByTelegramMessageId(messageId);
+            var obs = debits.findByUserbotTelegramIdAndTelegramMessageId(null, messageId);
             assertThat(obs)
                     .as("a debit carrying no Java type header is still a debit")
                     .isPresent();
@@ -124,11 +124,29 @@ class CardDebitConsumerIT extends AbstractIntegrationIT {
                 .getBytes(StandardCharsets.UTF_8));
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            var obs = debits.findByTelegramMessageId(messageId);
+            var obs = debits.findByUserbotTelegramIdAndTelegramMessageId(null, messageId);
             assertThat(obs).isPresent();
             assertThat(obs.orElseThrow().getCommissionTiyin()).isNull();
             assertThat(obs.orElseThrow().getDescription()).isNull();
         });
+    }
+
+    @Test
+    void theAccountIdInBareJsonReachesTheDebit() {
+        long messageId = 88_103L;
+
+        publishRaw(("""
+                {"telegramMessageId":%d,"cardLast4":"0101","amountTiyin":1000000,\
+                "commissionTiyin":0,"cardBalanceTiyin":4400000,\
+                "description":"Openbank P2P HUMO OT","observedAt":"2026-09-10T20:34:00Z",\
+                "rawText":"💸 Amaliyot","userbotTelegramId":5550001}"""
+                .formatted(messageId))
+                .getBytes(StandardCharsets.UTF_8));
+
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(debits.findByUserbotTelegramIdAndTelegramMessageId(5550001L, messageId))
+                        .isPresent());
+        assertThat(debits.findByUserbotTelegramIdAndTelegramMessageId(null, messageId)).isEmpty();
     }
 
     /** Bypasses the app's producer on purpose — the point is headerless bytes. */

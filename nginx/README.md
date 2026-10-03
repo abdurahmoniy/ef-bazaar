@@ -29,6 +29,7 @@ Yagona kirish nuqtasi: TLS, domenlar bo'yicha marshrutlash, har so'rovda auth te
 | `/api/trade/**` | trade-service | shart (401) |
 | `/api/payment/**` | payment-service | shart (401) |
 | `/api/access/**` | access-service | ixtiyoriy |
+| `/api/userbot/**` | userbot-core (`:8089`, admin panel API; ROLE_ADMIN ni servisning o'zi tekshiradi) | shart (401) |
 | `/api/tournaments/**` | Chempionat-X (`chempionat-api:8080`) | ixtiyoriy |
 | `/api/rec/**` | recommendation-service | ixtiyoriy (token yo'q → `@rec_anon`, identity headerlar tozalanadi) |
 | `/ws/chat` | marketplace WebSocket | shart |

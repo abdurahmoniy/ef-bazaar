@@ -378,4 +378,47 @@ class ByCardServiceIT extends AbstractIntegrationIT {
 
         assertThat(creditSignals()).isEmpty();
     }
+
+    // ---- Idempotency is per (userbot account, message id) ---------------
+    // Telegram message ids are only unique within one account. When PAYMENT
+    // moves to another userbot account its ids restart from that account's
+    // history and collide with the old one's.
+
+    private CardCreditEvent eventFrom(Long account, long messageId, long amountTiyin) {
+        return new CardCreditEvent(messageId, "0101", amountTiyin, 3_165_916L,
+                Instant.parse("2026-10-01T10:00:00Z"), "To'ldirish ➕ karta *0101", account);
+    }
+
+    @Test
+    void theSameMessageIdFromTwoDifferentAccountsIsTwoObservations() {
+        byCard.ingest(eventFrom(111L, 500L, 1_000_000L));
+        byCard.ingest(eventFrom(222L, 500L, 2_000_000L));
+
+        assertThat(observations.findAll()).hasSize(2);
+    }
+
+    @Test
+    void aRedeliveryFromTheSameAccountIsIngestedOnce() {
+        byCard.ingest(eventFrom(111L, 501L, 1_000_000L));
+        byCard.ingest(eventFrom(111L, 501L, 1_000_000L));
+
+        assertThat(observations.findAll()).hasSize(1);
+    }
+
+    @Test
+    void aLegacyEventWithoutAnAccountIsStillIdempotent() {
+        byCard.ingest(eventFrom(null, 502L, 1_000_000L));
+        byCard.ingest(eventFrom(null, 502L, 1_000_000L));
+
+        assertThat(observations.findAll()).hasSize(1);
+        assertThat(observations.findAll().get(0).getUserbotTelegramId()).isNull();
+    }
+
+    @Test
+    void aLegacyRowDoesNotSwallowANewAccountsMessageWithTheSameId() {
+        byCard.ingest(eventFrom(null, 503L, 1_000_000L));
+        byCard.ingest(eventFrom(111L, 503L, 1_000_000L));
+
+        assertThat(observations.findAll()).hasSize(2);
+    }
 }

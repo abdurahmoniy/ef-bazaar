@@ -31,7 +31,7 @@ efBazaar/
 ├── mail/                       # Next.js — read-only webmail (mail.efbazaar.uz), trade-service mail API frontendi
 ├── bot/                        # Telegram bot — Spring Boot, port 8084
 ├── smart-admin-worker/         # Python — Mailcow/Konami/IMAP automation (Kafka orqali)
-├── humo-userbot/               # Python — Humo karta xabarlarini o'qib payment'ga uzatadi
+├── userbot-service/            # Python — Telegram userbot akkountlari: admin panel API (8089) va Humo payment kuzatuvi
 ├── nginx/                      # Reverse proxy
 ├── infra/                      # Monitoring, backup, ops-bot, efhub scraper, Postgres init
 ├── docs/                       # kafka-topics.md, superpowers/ (spec va plan tarixi)
@@ -66,6 +66,7 @@ efBazaar/
 | bot | 8084 | /bot/webhook |
 | trade-service | 8085 | /api/trade/** |
 | payment-service | 8087 | /api/payment/** |
+| userbot-core | 8089 | /api/userbot/** (faqat ROLE_ADMIN) |
 | access-service | 8088 | /api/access/** (kirish shartlari; `/internal/access/**` — auth-service login paytida, fail-open) |
 | smart-admin-worker | 8086 | — (internal only) |
 | frontend | 3000 | / |

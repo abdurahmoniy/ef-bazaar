@@ -101,6 +101,7 @@ write_env() {
   upsert_env .env PAYMENT_DB_NAME            payment_db
   upsert_env .env ACCESS_DB_NAME             access_db
   upsert_env .env RECOMMENDATION_DB_NAME     recommendation_db
+  upsert_env .env USERBOT_DB_NAME            userbot_db
 
   upsert_env .env REDIS_HOST                 redis
   upsert_env .env REDIS_PORT                 6379
@@ -148,6 +149,13 @@ write_env() {
   upsert_env .env TELEGRAM_API_ID             "${TELEGRAM_API_ID:-}"
   upsert_env .env TELEGRAM_API_HASH           "${TELEGRAM_API_HASH:-}"
   upsert_env .env HUMO_SOURCE_CHAT            "${HUMO_SOURCE_CHAT:-humocardbot}"
+
+  # userbot-service — sessiyalarni shifrlash kaliti. Yo'qolsa barcha akkountlar
+  # qayta ulanadi. `openssl rand -base64 32`.
+  if [[ -n "${USERBOT_SESSION_KEY:-}" ]]; then
+    assert_safe_for_env USERBOT_SESSION_KEY "$USERBOT_SESSION_KEY"
+    upsert_env .env USERBOT_SESSION_KEY "$USERBOT_SESSION_KEY"
+  fi
 
   upsert_env .env MEDIA_MIN_FILES         1
   upsert_env .env MEDIA_MAX_FILES         6
@@ -437,6 +445,34 @@ access_bootstrap() {
   ensure_db "$access_db"
 }
 
+# ─── Userbot-service bootstrap ──────────────────────────────────────────────
+# userbot_db ni yaratadi va eski bitta-akkountli humo-userbot containerini
+# o'chiradi. Ikkinchisi --remove-orphans ga qoldirilmaydi: compose yangi
+# containerlarni eskisi o'chishidan OLDIN ishga tushirishi mumkin, va bitta
+# sessiya ikki joyda ishlasa Telegram uni bekor qiladi (AUTH_KEY_DUPLICATED).
+# USERBOT_SESSION_KEY: base64 of exactly 32 bytes. Without a valid key both new
+# containers crash-loop, so the old userbot must not be removed first. The key
+# is never printed.
+userbot_session_key_ok() {
+  local key="$1" bytes
+  [[ -n "$key" ]] || return 1
+  bytes=$(printf '%s' "$key" | base64 -d 2>/dev/null | wc -c) || return 1
+  [[ "$bytes" -eq 32 ]]
+}
+
+userbot_bootstrap() {
+  local key="${USERBOT_SESSION_KEY:-}"
+  if [[ -z "$key" && -f .env ]]; then
+    key=$(grep -m1 '^USERBOT_SESSION_KEY=' .env | cut -d= -f2- || true)
+  fi
+  if ! userbot_session_key_ok "$key"; then
+    echo "!! USERBOT_SESSION_KEY yo'q yoki base64(32 bayt) emas — eski userbot o'chirilmadi, deploy to'xtatildi"
+    return 1
+  fi
+  ensure_db "${USERBOT_DB_NAME:-userbot_db}"
+  docker rm -f efbazaar-humo-userbot >/dev/null 2>&1 || true
+}
+
 # ─── Recommendation-service bootstrap ───────────────────────────────────────
 # recommendation_db ni yaratadi (yo'q bo'lsa). 2026-08-23 da o'chirilgan eski
 # recommendation-service ham shu nomdagi bazani ishlatgan: undan jadval qolgan
@@ -658,6 +694,9 @@ payment_bootstrap
 access_bootstrap
 recommendation_bootstrap
 sa_worker_bootstrap
+# Last bootstrap, right before `up`: a later bootstrap failing under set -e
+# must not leave the old userbot removed and the new one never started.
+userbot_bootstrap
 
 # Force-all override
 RECREATE_FLAG=""
