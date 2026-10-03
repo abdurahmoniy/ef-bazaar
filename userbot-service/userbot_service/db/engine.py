@@ -17,5 +17,6 @@ def run_migrations(url: str) -> None:
     """Sync on purpose: called before any event loop exists (env.py runs its own)."""
     cfg = Config(str(_ROOT / "alembic.ini"))
     cfg.set_main_option("script_location", str(_ROOT / "userbot_service/db/migrations"))
-    cfg.set_main_option("sqlalchemy.url", url)
+    # Config is a ConfigParser: a literal % (from the percent-encoded password) must be doubled.
+    cfg.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
     command.upgrade(cfg, "head")
