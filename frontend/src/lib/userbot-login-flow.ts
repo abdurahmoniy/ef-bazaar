@@ -18,21 +18,23 @@ export interface LoginState {
   account: UserbotAccount | null;
   error: string | null;
   busy: boolean;
+  failures: number;
 }
 
 export type LoginAction =
   | { type: 'submit' }
   | { type: 'response'; res: LoginStepResponse; now: number }
-  | { type: 'failure'; error: { code: string; message: string } }
+  | { type: 'failure'; op: 'start' | 'submit' | 'resend'; error: { code: string; message: string } }
   | { type: 'back' }
   | { type: 'reset' };
 
 export const initialLogin: LoginState = {
   step: 'phone', loginId: null, codeType: undefined, resendAt: null,
-  hint: null, account: null, error: null, busy: false,
+  hint: null, account: null, error: null, busy: false, failures: 0,
 };
 
-const START_OVER = new Set(['LOGIN_GONE', 'CODE_EXPIRED']);
+/** Maximum failed code or password attempts before session resets (userbot-service login.py _drop_if_spent) */
+export const MAX_ATTEMPTS = 5;
 
 export function loginReducer(s: LoginState, a: LoginAction): LoginState {
   switch (a.type) {
@@ -43,17 +45,40 @@ export function loginReducer(s: LoginState, a: LoginAction): LoginState {
       if (res.status === 'CODE_SENT') {
         return {
           ...s, step: 'code', loginId: res.loginId, codeType: res.codeType, busy: false, error: null,
-          resendAt: res.timeoutSec ? now + res.timeoutSec * 1000 : null,
+          resendAt: res.timeoutSec ? now + res.timeoutSec * 1000 : null, failures: 0,
         };
       }
       if (res.status === 'PASSWORD_REQUIRED') {
-        return { ...s, step: 'password', loginId: res.loginId, hint: res.hint ?? null, busy: false, error: null };
+        return { ...s, step: 'password', loginId: res.loginId, hint: res.hint ?? null, busy: false, error: null, failures: 0 };
       }
-      return { ...initialLogin, step: 'done', account: res.account ?? null };
+      if (res.status === 'DONE') {
+        return { ...initialLogin, step: 'done', account: res.account ?? null };
+      }
+      return { ...s, busy: false, error: 'Kutilmagan javob. Qayta urinib ko\'ring.' };
     }
-    case 'failure':
-      if (START_OVER.has(a.error.code)) return { ...initialLogin, error: a.error.message };
-      return { ...s, busy: false, error: a.error.message };
+    case 'failure': {
+      const { code, message } = a.error;
+
+      if (code === 'LOGIN_GONE' || code === 'CODE_EXPIRED') {
+        return { ...initialLogin, error: message };
+      }
+
+      if (a.op === 'submit') {
+        if (code === 'FLOOD_WAIT') {
+          return { ...initialLogin, error: message };
+        }
+
+        const nextFailures = s.failures + 1;
+        if (nextFailures >= MAX_ATTEMPTS) {
+          return { ...initialLogin, error: `${message} Urinishlar tugadi — boshidan boshlang.` };
+        }
+
+        return { ...s, busy: false, error: message, failures: nextFailures };
+      }
+
+      // op === 'start' or 'resend' (not 'submit')
+      return { ...s, busy: false, error: message };
+    }
     case 'back':
       return { ...initialLogin };
     case 'reset':
