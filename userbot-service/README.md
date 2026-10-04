@@ -138,6 +138,11 @@ Alembic migrations (`db/migrations`, immutable once merged) run at container sta
 | `humo_pending` | Write-ahead queue of observations, PK `(account_id, message_id)` |
 | `userbot_audit` | Connect/disconnect/bind/revoke trail |
 
+**Connection budget.** Production Postgres runs with `max_connections=50` and the Java services
+keep 40 open. Each container's engine is capped at 2 connections (`db/engine.py`
+`MAX_CONNECTIONS`, `max_overflow=0`), 4 in total. Raising it fills the database and the next
+deploy's `psql` step fails with "too many clients already".
+
 ## Connecting an account
 
 Admin panel -> "Userbotlar" -> "Userbot ulash": phone, code, 2FA password if any. The old terminal
