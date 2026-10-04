@@ -136,10 +136,23 @@ class InlineQueryHandlerTest {
     }
 
     @Test
-    void anEmptySearchResultHasNoButton() {
+    void anEmptySearchResultSaysNothingWasFound() {
         when(client.find(42L, "xyz", 0)).thenReturn(Optional.of(new InlineListingClient.InlinePage(true, List.of(), null)));
 
         handler.handle(query("xyz", ""));
+
+        answered();
+        assertThat(results.getValue()).isEmpty();
+        assertThat(button.getValue().path("text").asText()).isEqualTo("Mos e'lon topilmadi");
+        assertThat(button.getValue().path("web_app").path("url").asText()).isEqualTo("https://efbazaar.uz/marketplace");
+        assertThat(cache.getValue()).isEqualTo(10);
+    }
+
+    @Test
+    void aLaterEmptyPageOfASearchHasNoButton() {
+        when(client.find(42L, "messi", 20)).thenReturn(Optional.of(new InlineListingClient.InlinePage(true, List.of(), null)));
+
+        handler.handle(query("messi", "20"));
 
         answered();
         assertThat(button.getValue()).isNull();
