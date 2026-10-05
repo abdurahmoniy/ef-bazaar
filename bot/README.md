@@ -30,7 +30,7 @@ kanal formatida yuboriladi: muqova katta link preview, kanal matni va "🛒 E'lo
   (`X-Internal-Secret`, 1,5 s timeout). Kimlik — Telegram yuborgan `from.id`.
 - Natija turi `article` (ro'yxatda rasm va matn birga faqat shunda ko'rinadi); kichik rasm va preview
   `{app.web.base-url}/bot/photo/{fileId}` dan. `is_personal=true`, `cache_time=10` (xatoda 0), sahifa 20 ta.
-- Ro'yxat tepasidagi Mini App tugmasi: bog'lanmagan → `/profile`, e'lon yo'q → `/marketplace/new`,
+- Ro'yxat tepasidagi Mini App tugmasi: bog'lanmagan → `/profile`, e'lon yo'q → `/marketplace/new`, qidiruvga mos e'lon yo'q → "Mos e'lon topilmadi" (`/marketplace`),
   marketplace xatosi → `/marketplace`.
 - `allowed_updates` da `inline_query` bor (webhook va long-polling). BotFather'da `/setinline` yoqilgan
   bo'lishi shart, aks holda Telegram inline so'rov yubormaydi.

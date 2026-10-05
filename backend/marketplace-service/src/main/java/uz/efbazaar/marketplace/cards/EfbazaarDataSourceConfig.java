@@ -18,6 +18,13 @@ import javax.sql.DataSource;
  *
  * Note: Spring Boot's DataSourceAutoConfiguration backs off when any DataSource
  * bean is declared, so we define the primary one here explicitly too.
+ *
+ * <p>{@code initializeDataSourceBuilder()} does NOT apply the {@code hikari.*}
+ * keys — they are bound onto each pool with {@code @ConfigurationProperties}
+ * below. Without that, marketplace_db ran Hikari's default 10 and the cards
+ * pool a hard-coded 8: 18 connections instead of the budgeted 12, and with
+ * Postgres capped at max_connections=50 for every service that was enough to
+ * refuse backups and deploys ("too many clients already").
  */
 @Configuration
 public class EfbazaarDataSourceConfig {
@@ -33,7 +40,8 @@ public class EfbazaarDataSourceConfig {
 
     @Bean
     @Primary
-    public DataSource dataSource(
+    @ConfigurationProperties("spring.datasource.hikari")
+    public HikariDataSource dataSource(
             @Qualifier("marketplaceDataSourceProperties") DataSourceProperties props) {
         return props.initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
@@ -56,12 +64,12 @@ public class EfbazaarDataSourceConfig {
     }
 
     @Bean("efbazaarDataSource")
-    public DataSource efbazaarDataSource(
+    @ConfigurationProperties("app.cards.datasource.hikari")
+    public HikariDataSource efbazaarDataSource(
             @Qualifier("efbazaarDataSourceProperties") DataSourceProperties props) {
         HikariDataSource ds = props.initializeDataSourceBuilder()
                 .type(HikariDataSource.class)
                 .build();
-        ds.setMaximumPoolSize(8);
         ds.setPoolName("efbazaar-cards-pool");
         return ds;
     }

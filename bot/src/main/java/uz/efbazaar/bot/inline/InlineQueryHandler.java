@@ -31,6 +31,7 @@ public class InlineQueryHandler {
     static final String LINK_TEXT = "Telegram'ni efBazaar'ga bog'lash";
     static final String POST_TEXT = "E'lon joylash";
     static final String RETRY_TEXT = "Hozir e'lonlarni olib bo'lmadi — qayta urinib ko'ring";
+    static final String NOT_FOUND_TEXT = "Mos e'lon topilmadi";
 
     private final InlineListingClient client;
     private final TelegramApiClient telegram;
@@ -71,8 +72,12 @@ public class InlineQueryHandler {
         ObjectNode button = null;
         if (!page.linked()) {
             button = webAppButton(LINK_TEXT, "/profile");
-        } else if (items.isEmpty() && q.isEmpty() && offset == 0) {
-            button = webAppButton(POST_TEXT, "/marketplace/new");
+        } else if (items.isEmpty() && offset == 0) {
+            // An empty picker says nothing on its own; Telegram only lets the
+            // results button carry text, and it must open something.
+            button = q.isEmpty()
+                    ? webAppButton(POST_TEXT, "/marketplace/new")
+                    : webAppButton(NOT_FOUND_TEXT, "/marketplace");
         }
         String next = page.nextOffset() == null ? null : String.valueOf(page.nextOffset());
         if (!telegram.answerInlineQuery(id, results, CACHE_SECONDS, true, next, button)) {
