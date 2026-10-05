@@ -10,6 +10,7 @@ import { deleteAccount, unpublishAccount } from '@/lib/accounts-client';
 import type { UserAccountResponse, AccountDisplayData } from '@/lib/accounts-types';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import { listingMediaUrl } from '@/lib/marketplace-media';
+import { accountDetailsIncomplete } from '@/lib/account-completeness';
 import { cn } from '@/lib/utils';
 
 export function AccountCard({ account, onPublish, display, pinned = false, onTogglePin }: {
@@ -211,11 +212,13 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
             <Button asChild variant={display?.mailboxHref ? 'outline' : 'default'} className="min-h-11">
               <Link href={`/marketplace/${account.currentListingId}`}>E&apos;lonni ko&apos;rish<ArrowUpRight aria-hidden className="h-4 w-4" /></Link>
             </Button>
-          ) : !archived && (
+          ) : !archived && (accountDetailsIncomplete(account) ? (
+            <Button asChild variant="outline" className="min-h-11"><Link href={`/profile/accounts/${encodeURIComponent(account.id)}`}><Pencil aria-hidden className="h-4 w-4" />Ma’lumotlarni to‘ldirish</Link></Button>
+          ) : (
             <Button type="button" variant={display?.mailboxHref ? 'outline' : 'default'} className="min-h-11" onClick={() => onPublish?.(account)}>
               <Store aria-hidden className="h-4 w-4" />Bozorga chiqarish
             </Button>
-          )}
+          ))}
         </div>
       )}
     </article>

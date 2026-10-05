@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { publishAccount } from '@/lib/accounts-client';
 import type { UserAccountResponse } from '@/lib/accounts-types';
+import { accountDetailsIncomplete } from '@/lib/account-completeness';
 import { formatPriceUZS } from '@/lib/marketplace-format';
 
 /** Backend ham shu chegarani qo'yadi — bu yerda faqat tezroq aytiladi. */
@@ -73,6 +74,10 @@ export function PublishAccountDialog({
     if (pending) return;
     if (account.mediaMessageIds.length === 0) {
       setError('Kamida 1 ta rasm yuklang.');
+      return;
+    }
+    if (accountDetailsIncomplete(account)) {
+      setError('Sotuvga qo‘yishdan oldin akkount ma’lumotlarini to‘ldiring.');
       return;
     }
     if (!priceValid) {
@@ -183,8 +188,8 @@ export function PublishAccountDialog({
           {error && (
             <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{error}{account.mediaMessageIds.length === 0 && (
-                <Link href={`/profile/accounts/${encodeURIComponent(account.id)}`} className="mt-1 block font-semibold underline">Rasm qo‘shish</Link>
+              <span>{error}{(account.mediaMessageIds.length === 0 || accountDetailsIncomplete(account)) && (
+                <Link href={`/profile/accounts/${encodeURIComponent(account.id)}`} className="mt-1 block font-semibold underline">{accountDetailsIncomplete(account) ? 'Ma’lumotlarni to‘ldirish' : 'Rasm qo‘shish'}</Link>
               )}</span>
             </div>
           )}
