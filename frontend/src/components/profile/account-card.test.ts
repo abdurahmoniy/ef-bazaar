@@ -22,8 +22,8 @@ vi.mock('@/lib/accounts-client', () => ({
 const account = (over: Partial<UserAccountResponse> = {}): UserAccountResponse => ({
   id: 'acc-1',
   title: 'Asosiy akkount',
-  description: 'tavsif',
-  attributes: { platform: 'MOBILE', highest_division_level: 3, team_strength: 3150 },
+  description: 'Akkount tavsifi',
+  attributes: { platform: 'MOBILE', highest_division_level: 3, team_strength: 3150, device_transfer_limit: 5 },
   mediaMessageIds: [],
   email: 'a7f2@efbazaar.uz',
   emailSource: 'PLATFORM',
@@ -84,6 +84,15 @@ describe('AccountCard', () => {
     await render();
     expect(button('Bozorga chiqarish')).toBeDefined();
     expect(button('Bozordan olish')).toBeUndefined();
+  });
+
+  it('sends incomplete accounts to the editor instead of publishing', async () => {
+    const onPublish = vi.fn();
+    await render({ attributes: {} }, { onPublish });
+    expect(container.textContent).toContain("Ma'lumot to'ldirilmagan");
+    expect(button('Bozorga chiqarish')).toBeUndefined();
+    expect(container.querySelector('a[href="/profile/accounts/acc-1"]')?.textContent).toContain('Ma’lumotlarni to‘ldirish');
+    expect(onPublish).not.toHaveBeenCalled();
   });
 
   it('summarises the account attributes', async () => {

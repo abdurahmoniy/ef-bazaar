@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push, refres
 vi.mock('@/lib/accounts-client', () => ({ publishAccount: mocks.publishAccount }));
 
 const account: UserAccountResponse = {
-  id: 'acc-1', title: 'Asosiy', description: 'tavsif', attributes: {}, mediaMessageIds: ['msg-1'],
+  id: 'acc-1', title: 'Asosiy', description: 'Akkount tavsifi', attributes: { platform: 'MOBILE', highest_division_level: 3, team_strength: 3150, device_transfer_limit: 5 }, mediaMessageIds: ['msg-1'],
   email: null, emailSource: null, status: 'ACTIVE', onMarket: false, currentListingId: null,
   createdAt: '2026-09-18T00:00:00Z', updatedAt: '2026-09-18T00:00:00Z',
 };
@@ -61,6 +61,16 @@ describe('PublishAccountDialog', () => {
     await act(async () => submit().click());
     expect(mocks.publishAccount).not.toHaveBeenCalled();
     expect(container.textContent).toContain('Kamida 1 ta rasm');
+    expect(container.querySelector('a')?.getAttribute('href')).toBe('/profile/accounts/acc-1');
+  });
+
+  it('blocks incomplete details even with photos and a valid price', async () => {
+    mocks.publishAccount.mockResolvedValue({ ok: true, data: { id: 'listing-1' } });
+    await act(async () => root.render(createElement(PublishAccountDialog, { account: { ...account, attributes: {} }, onClose: vi.fn() })));
+    await typePrice('250000');
+    await act(async () => submit().click());
+    expect(mocks.publishAccount).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('Ma’lumotlarni to‘ldirish');
     expect(container.querySelector('a')?.getAttribute('href')).toBe('/profile/accounts/acc-1');
   });
 

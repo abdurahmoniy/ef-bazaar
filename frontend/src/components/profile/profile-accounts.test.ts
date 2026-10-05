@@ -11,6 +11,8 @@ vi.mock('./account-card', () => ({
     createElement('article', { 'data-id': account.id }, account.title, createElement('button', { onClick: onTogglePin }, pinned ? 'Unpin' : 'Pin')),
 }));
 const accounts = Array.from({ length: 6 }, (_, index) => ({
+  mediaMessageIds: ['msg-1'], email: null, emailSource: null, currentListingId: null, createdAt: '', updatedAt: '',
+  description: 'Akkount tavsifi', attributes: { platform: 'MOBILE', highest_division_level: 3, team_strength: 3150, device_transfer_limit: 5 },
   id: `acc-${index}`, title: `Team ${index}`, status: 'ACTIVE', onMarket: index < 2,
 })) as UserAccountResponse[];
 let root: Root;
@@ -67,4 +69,11 @@ it('reveals and focuses a saved account despite restored filters, retaining its 
 it('does not claim a missing or another owner’s account was saved', async () => {
   await act(async () => root.render(createElement(ProfileAccounts, { viewerId: 'viewer', accounts, savedAccountId: 'unknown' })));
   expect(container.textContent).not.toContain('Akkount saqlandi');
+});
+
+it('offers editing instead of publishing an incomplete saved account', async () => {
+  await act(async () => root.render(createElement(ProfileAccounts, { viewerId: 'viewer', accounts: [{ ...accounts[4], attributes: {} }], savedAccountId: 'acc-4' })));
+  expect(button('Bozorga chiqarish')).toBeUndefined();
+  expect(container.querySelector('a[href="/profile/accounts/acc-4"]')?.textContent).toBe('Ma’lumotlarni to‘ldirish');
+  expect(container.querySelector('[role="dialog"]')).toBeNull();
 });

@@ -9,6 +9,7 @@ import { AccountCard } from '@/components/profile/account-card';
 import { PublishAccountDialog } from '@/components/profile/publish-account-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { accountDetailsIncomplete } from '@/lib/account-completeness';
 import type { AccountDisplayData, UserAccountResponse } from '@/lib/accounts-types';
 
 type AccountFilter = 'all' | 'market' | 'unlisted' | 'archived';
@@ -123,7 +124,7 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
       {savedAccount && <CompletionNotice key={savedAccount.id} title="Akkount saqlandi" description={savedAccount.onMarket ? 'O‘zgarishlar saqlandi. Akkountingiz bozorda.' : savedAccount.status === 'ARCHIVED' ? 'O‘zgarishlar saqlandi. Akkount arxivda.' : 'Hali bozorga chiqarilmagan. Tayyor bo‘lganda sotuvga qo‘yishingiz mumkin.'} queryKey="saved" focusOnMount={false} onDismiss={() => setHighlighted(false)}>
         <p className="mb-3 break-words text-sm font-semibold">{savedAccount.title?.trim() || 'Nomsiz akkount'}</p>
         {savedAccount.onMarket && savedAccount.currentListingId ? <Button asChild className="min-h-11"><Link href={`/marketplace/${savedAccount.currentListingId}`}>E’lonni ko‘rish</Link></Button>
-          : savedAccount.status !== 'ARCHIVED' && <Button className="min-h-11" onClick={() => setPublishing(savedAccount)}>Bozorga chiqarish</Button>}
+          : savedAccount.status !== 'ARCHIVED' && (accountDetailsIncomplete(savedAccount) ? <Button asChild className="min-h-11"><Link href={`/profile/accounts/${encodeURIComponent(savedAccount.id)}`}>Ma’lumotlarni to‘ldirish</Link></Button> : <Button className="min-h-11" onClick={() => setPublishing(savedAccount)}>Bozorga chiqarish</Button>)}
       </CompletionNotice>}
       {showControls && (
         <div className="space-y-3">
