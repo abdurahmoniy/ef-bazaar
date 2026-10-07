@@ -224,11 +224,12 @@ export function EmojiPicker({ packs, onPick, onClose }: EmojiPickerProps) {
                 {searchResults.map((item) => (
                   <button
                     key={item.customEmojiId}
+                    data-emoji-id={item.customEmojiId}
                     type="button"
                     title={item.emoji ? `${item.emoji} (${item.customEmojiId})` : item.customEmojiId}
+                    onClick={() => handlePick(item)}
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      handlePick(item);
                     }}
                     className="flex h-9 w-9 items-center justify-center rounded-lg p-0.5 transition-all hover:bg-muted hover:scale-110 active:scale-95"
                   >
@@ -264,11 +265,12 @@ export function EmojiPicker({ packs, onPick, onClose }: EmojiPickerProps) {
                 {recents.map((item) => (
                   <button
                     key={item.customEmojiId}
+                    data-emoji-id={item.customEmojiId}
                     type="button"
                     title={item.emoji ? `${item.emoji} (${item.customEmojiId})` : item.customEmojiId}
+                    onClick={() => handlePick(item)}
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      handlePick(item);
                     }}
                     className="flex h-9 w-9 items-center justify-center rounded-lg p-0.5 transition-all hover:bg-muted hover:scale-110 active:scale-95"
                   >
@@ -299,11 +301,12 @@ export function EmojiPicker({ packs, onPick, onClose }: EmojiPickerProps) {
               {activePack.items.map((item) => (
                 <button
                   key={item.customEmojiId}
+                  data-emoji-id={item.customEmojiId}
                   type="button"
                   title={item.emoji ? `${item.emoji} (${item.customEmojiId})` : item.customEmojiId}
+                  onClick={() => handlePick(item)}
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    handlePick(item);
                   }}
                   className="flex h-9 w-9 items-center justify-center rounded-lg p-0.5 transition-all hover:bg-muted hover:scale-110 active:scale-95"
                 >
@@ -333,9 +336,9 @@ export function EmojiPicker({ packs, onPick, onClose }: EmojiPickerProps) {
                       key={`recent-${item.customEmojiId}`}
                       type="button"
                       title={item.emoji ? `${item.emoji} (${item.customEmojiId})` : item.customEmojiId}
+                      onClick={() => handlePick(item)}
                       onMouseDown={(e) => {
                         e.preventDefault();
-                        handlePick(item);
                       }}
                       className="flex h-9 w-9 items-center justify-center rounded-lg p-0.5 transition-all hover:bg-muted hover:scale-110 active:scale-95"
                     >
@@ -371,11 +374,12 @@ export function EmojiPicker({ packs, onPick, onClose }: EmojiPickerProps) {
                     {pack.items.map((item) => (
                       <button
                         key={item.customEmojiId}
+                        data-emoji-id={item.customEmojiId}
                         type="button"
                         title={item.emoji ? `${item.emoji} (${item.customEmojiId})` : item.customEmojiId}
+                        onClick={() => handlePick(item)}
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          handlePick(item);
                         }}
                         className="flex h-9 w-9 items-center justify-center rounded-lg p-0.5 transition-all hover:bg-muted hover:scale-110 active:scale-95"
                       >

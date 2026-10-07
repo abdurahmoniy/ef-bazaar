@@ -61,7 +61,7 @@ describe('marketplace sort integration', () => {
     expect(container.querySelector('nav[aria-label="Bozor bo\'limlari"]')).toBeNull();
     const items = await openSort();
     expect(items.map((item) => item.textContent)).toEqual([
-      'Qiziqishlarim', "Qiymat bo'yicha", 'Arzon narx', 'Qimmat narx', "Ko'p yoqtirilgan",
+      'Qiziqishlarim', "Qiymat bo'yicha", 'Arzon narx', 'Qimmat narx', "Ko'p yoqtirilgan", 'Eng yangi', 'Eng eski',
     ]);
     expect(items.filter((item) => item.getAttribute('aria-checked') === 'true')).toEqual([items[0]]);
     expect(document.activeElement).toBe(items[0]);
@@ -81,14 +81,14 @@ describe('marketplace sort integration', () => {
 
   it('allows leaving interests when the personalized feed fails', async () => {
     await renderBrowser('', { ok: false, mode: 'mine' });
-    expect(await openSort()).toHaveLength(5);
+    expect(await openSort()).toHaveLength(7);
   });
 
   it('switches to each public ordering with filters preserved and a fresh page', async () => {
     await renderBrowser(`q=Messi&minPrice=5&view=list&tracking=a&tracking=b&page=3&feed=${'a'.repeat(64)}`);
     const items = await openSort();
 
-    for (const [index, sort] of ['valueScore,desc', 'price,asc', 'price,desc', 'likeCount,desc'].entries()) {
+    for (const [index, sort] of ['valueScore,desc', 'price,asc', 'price,desc', 'likeCount,desc', 'createdAt,desc', 'createdAt,asc'].entries()) {
       const params = new URL(items[index + 1].href).searchParams;
       expect(getMarketplaceTab(params, true)).toBe('market');
       expect(params.get('sort')).toBe(sort);
@@ -99,6 +99,12 @@ describe('marketplace sort integration', () => {
       expect(params.has('page')).toBe(false);
       expect(params.has('feed')).toBe(false);
     }
+  });
+
+  it.each([['createdAt,desc', 'Eng yangi'], ['createdAt,asc', 'Eng eski']])('marks %s as selected', async (sort, label) => {
+    await renderBrowser(`sort=${sort}`, loaded('market'));
+    const items = await openSort();
+    expect(items.filter((item) => item.getAttribute('aria-checked') === 'true').map((item) => item.textContent)).toEqual([label]);
   });
 
   it('returns from a public ordering to interests without retaining the old sort', async () => {
@@ -113,7 +119,7 @@ describe('marketplace sort integration', () => {
   it('keeps public value ordering as the guest default without a personal option', async () => {
     await renderBrowser('', loaded('market'), false);
     const items = await openSort();
-    expect(items).toHaveLength(4);
+    expect(items).toHaveLength(6);
     expect(items[0].textContent).toBe("Qiymat bo'yicha");
     expect(items[0].getAttribute('aria-checked')).toBe('true');
     expect(container.textContent).not.toContain('Qiziqishlarim');

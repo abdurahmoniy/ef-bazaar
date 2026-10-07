@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import { chatPlainText } from '@/lib/chat-custom-emoji';
 import Link from 'next/link';
 import { ArrowUpRight, Handshake, Layers } from 'lucide-react';
 
@@ -149,7 +150,7 @@ function TranscriptMessage({ message, chat, showName }: { message: MessageRespon
             {hasAttachment && <MessageAttachment message={message} mine={seller} />}
             {message.content && (
               <span className={cn('block', hasAttachment && 'px-2 pb-1 pt-1.5')}>
-                {message.content}
+                {chatPlainText(message.content)}
               </span>
             )}
           </div>

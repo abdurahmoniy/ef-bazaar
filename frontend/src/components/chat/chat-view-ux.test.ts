@@ -2,6 +2,9 @@ import { emitChatEvent, socketFixture } from '@/test/chat-socket-fixture';
 // @vitest-environment jsdom
 
 import { act, createElement } from 'react';
+import { readFileSync } from 'node:fs';
+import postcss from 'postcss';
+import tailwindcss from 'tailwindcss';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatView } from './chat-view';
@@ -11,6 +14,11 @@ import type { ChatResponse, ListingResponse, MessageResponse } from '@/lib/marke
 import type { AccountRequest } from '@/lib/account-request';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock('@/lib/use-emoji-packs', () => ({ useEmojiPacks: () => ({
+  packs: [{ id: 'pack', title: 'Football', setName: 'Football', items: [{ customEmojiId: '123', emoji: '😊', format: 'static', thumbnailUrl: '/bot/emoji/thumb', fileUrl: '/bot/emoji/file' }] }],
+  thumbnailUrls: new Map([['123', '/bot/emoji/thumb']]),
+  fileUrls: new Map([['123', '/bot/emoji/file']]),
+}) }));
 
 const listing: ListingResponse = {
   id: 'listing', sellerId: 'seller', description: 'Romario yangi akkount', price: 25000,
@@ -169,6 +177,18 @@ describe('conversation messages', () => {
       expect(bubble.querySelector('.chat-message-text time')).not.toBeNull();
       expect(bubble.querySelector('.chat-message-meta-space')?.getAttribute('aria-hidden')).toBe('true');
     }
+    const style = document.createElement('style');
+    style.textContent = readFileSync('src/components/chat/chat-conversation.css', 'utf8');
+    document.head.appendChild(style);
+    try {
+      for (const id of ['short', 'long', 'lines', 'caption']) {
+        const meta = container.querySelector(`[data-message-id="${id}"] .chat-message-text > .chat-message-meta`)!;
+        expect(window.getComputedStyle(meta).position).toBe('absolute');
+        expect(window.getComputedStyle(meta).bottom).toBe(meta.parentElement!.getAttribute('data-caption') === 'true' ? '4px' : '0px');
+      }
+    } finally {
+      style.remove();
+    }
     const photo = container.querySelector('[data-message-id="photo"] .chat-message-bubble')!;
     expect(photo.querySelector('[data-overlay="true"] time')).not.toBeNull();
     expect(photo.querySelector('.chat-message-meta-space')).toBeNull();
@@ -266,6 +286,85 @@ describe('first-contact chat', () => {
     await render();
     await click(findButton('Chat amallari'));
     expect(dialogs()[0].querySelector('a[href="/help#safety"]')?.textContent).toContain('Xavfsiz savdo qoidalari');
+  });
+
+  it('inserts a picked emoji at the cursor without sending the draft', async () => {
+    await render();
+    const input = container.querySelector('textarea')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(input, 'Salom dunyo');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    input.setSelectionRange(6, 6);
+    expect(findButton('Emoji tanlash')).toBeDefined();
+    await click(findButton('Emoji tanlash'));
+    const custom = container.querySelector<HTMLButtonElement>('button[data-emoji-id="123"]');
+    expect(custom).not.toBeNull();
+    await click(custom!);
+    const editor = container.querySelector('[contenteditable="true"][aria-label="Xabar"]')!;
+    expect(editor.textContent).toBe('Salom dunyo');
+    expect(editor.querySelector('img[data-emoji-id="123"]')).not.toBeNull();
+    expect(sessionStorage.getItem('chat-draft:buyer:chat')).toBe('Salom <tg-emoji emoji-id="123">😊</tg-emoji>dunyo');
+    await click(container.querySelector<HTMLButtonElement>('button[data-emoji-id="123"]')!);
+    expect(editor.querySelectorAll('img[data-emoji-id="123"]')).toHaveLength(2);
+    expect(sessionStorage.getItem('chat-draft:buyer:chat')).toBe('Salom <tg-emoji emoji-id="123">😊</tg-emoji><tg-emoji emoji-id="123">😊</tg-emoji>dunyo');
+    expect(container.querySelector('[aria-label="Emoji tanlash paneli"]')).not.toBeNull();
+    await click(findButton('Emoji tanlash'));
+    expect(container.querySelector('[aria-label="Emoji tanlash paneli"]')).toBeNull();
+    expect(editor.querySelector('img[data-emoji-id="123"]')).not.toBeNull();
+  });
+
+  it('renders stored custom emoji inline without exposing token markup', async () => {
+    await render('buyer', false, [message('custom', { content: 'Hi <tg-emoji emoji-id="123">😊</tg-emoji>!' })]);
+    const text = container.querySelector('[data-message-id="custom"] .chat-message-text')!;
+    expect(text.querySelector('img')?.getAttribute('src')).toBe('/bot/emoji/file');
+    expect(text.textContent).toContain('Hi !');
+    expect(text.textContent).not.toContain('tg-emoji');
+  });
+
+  it('retains bottom safe-area padding when a mobile composer stays focused', async () => {
+    const previousWidth = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+    try {
+      await render();
+      const input = container.querySelector('textarea')!;
+      await act(async () => input.focus());
+      const composer = input.parentElement!.parentElement!.parentElement!.parentElement!;
+      const css = await postcss([tailwindcss({ content: [{ raw: composer.outerHTML, extension: 'html' }], corePlugins: { preflight: false } })])
+        .process('@tailwind utilities;', { from: undefined });
+      const style = document.createElement('style');
+      style.textContent = css.css;
+      document.head.appendChild(style);
+      try {
+        expect(window.getComputedStyle(composer).paddingBottom).toContain('--app-content-safe-bottom');
+      } finally { style.remove(); }
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { value: previousWidth, configurable: true });
+    }
+  });
+
+  it('toggles and persists dark mode from the chat menu', async () => {
+    const previousClass = document.documentElement.className;
+    const previousTheme = localStorage.getItem('efbazaar-theme');
+    const previousResolved = document.documentElement.dataset.resolvedTheme;
+    document.documentElement.classList.remove('dark');
+    try {
+      await render();
+      await click(findButton('Chat amallari'));
+      expect(findButton('Qorong‘i rejim', dialogs()[0])).toBeDefined();
+      await click(findButton('Qorong‘i rejim', dialogs()[0]));
+      expect(document.documentElement.classList.contains('dark')).toBe(true);
+      expect(localStorage.getItem('efbazaar-theme')).toBe('dark');
+      await click(findButton('Yorug‘ rejim', dialogs()[0]));
+      expect(document.documentElement.classList.contains('dark')).toBe(false);
+      expect(localStorage.getItem('efbazaar-theme')).toBe('light');
+    } finally {
+      document.documentElement.className = previousClass;
+      if (previousTheme === null) localStorage.removeItem('efbazaar-theme');
+      else localStorage.setItem('efbazaar-theme', previousTheme);
+      if (previousResolved === undefined) delete document.documentElement.dataset.resolvedTheme;
+      else document.documentElement.dataset.resolvedTheme = previousResolved;
+    }
   });
 
   it('opens a single proposal form directly from the seller summary', async () => {

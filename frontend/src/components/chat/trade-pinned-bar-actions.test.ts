@@ -8,6 +8,7 @@ import type { TradeResponse } from '@/lib/trade-types';
 import { useTradeContext } from './trade-context';
 import { toast } from 'sonner';
 import { TradePinnedBar } from './trade-pinned-bar';
+import { readFileSync } from 'node:fs';
 
 vi.mock('sonner', () => ({ toast: { info: vi.fn() } }));
 vi.mock('./trade-context', () => ({ useTradeContext: vi.fn() }));
@@ -40,6 +41,23 @@ async function render() {
 }
 
 describe('trade bar next steps', () => {
+  it('gives proposal text its own row and keeps all actions together', async () => {
+    context.activeTrade = null;
+    context.proposal = { id: 'proposal', sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', priceUzs: 6000, kind: 'SWAP', expiresAt: '2099-01-01T00:00:00Z' } as Context['proposal'];
+    await render();
+    const style = document.createElement('style');
+    style.textContent = readFileSync('src/components/chat/chat-conversation.css', 'utf8');
+    document.head.appendChild(style);
+    try {
+      const row = container.querySelector('.trade-pinned-proposal')!;
+      expect(row).not.toBeNull();
+      expect(window.getComputedStyle(row).display).toBe('grid');
+      expect(window.getComputedStyle(row).gridTemplateColumns).toBe('minmax(0, 1fr)');
+      const actions = row.querySelector('.trade-pinned-actions')!;
+      expect(actions.querySelectorAll('button')).toHaveLength(3);
+      expect(window.getComputedStyle(actions).flexWrap).toBe('nowrap');
+    } finally { style.remove(); }
+  });
   it('shows waiting as status and opens details using one native button', async () => {
     await render();
     expect(container.textContent).toContain('Sotuvchi emailni almashtirmoqda');

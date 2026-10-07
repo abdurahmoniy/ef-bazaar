@@ -5,7 +5,6 @@ import { ArrowUpDown, Check } from 'lucide-react';
 
 import { MarketplacePendingLink } from '@/components/marketplace/marketplace-navigation';
 import {
-  TOOLBAR_MENU_VIEWPORT_CLASSNAME,
   useToolbarMenuKeyboardNavigation,
 } from '@/components/marketplace/marketplace-view-menu';
 import { useTelegramBackLayer } from '@/components/telegram/telegram-back-provider';
@@ -93,7 +92,6 @@ export function SortMenu({ options, activeId, className, compact = false }: Sort
           onKeyDown={menuNavigation.onMenuKeyDown}
           className={cn(
             'absolute right-0 top-12 z-40 w-52 origin-top-right animate-menu-in rounded-xl border border-border bg-card p-1.5 shadow-card-hover',
-            TOOLBAR_MENU_VIEWPORT_CLASSNAME,
           )}
         >
           {options.map((option, index) => {

@@ -5,6 +5,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MessageResponse } from '@/lib/marketplace-types';
 import { ChatSearch } from './chat-search';
+import postcss from 'postcss';
+import tailwindcss from 'tailwindcss';
 
 describe('chat history search', () => {
   let container: HTMLDivElement;
@@ -45,6 +47,19 @@ describe('chat history search', () => {
     });
     return input;
   }
+
+  it('uses a rounded search field for the focus treatment', async () => {
+    const input = await render();
+    const css = await postcss([tailwindcss({ content: [{ raw: container.innerHTML, extension: 'html' }], corePlugins: { preflight: false } })])
+      .process('@tailwind utilities;', { from: undefined });
+    const style = document.createElement('style');
+    style.textContent = css.css;
+    document.head.appendChild(style);
+    try {
+      expect(window.getComputedStyle(input).borderRadius).toBe('0.5rem');
+      expect(document.activeElement).toBe(input);
+    } finally { style.remove(); }
+  });
 
   it('focuses the search and finds older text and attachment names ignoring case', async () => {
     const input = await render();

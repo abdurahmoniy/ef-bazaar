@@ -1,4 +1,5 @@
 'use client';
+import { chatPlainText } from '@/lib/chat-custom-emoji';
 
 import { useEffect } from 'react';
 import { Copy, Pencil, Reply, Trash2 } from 'lucide-react';
@@ -54,7 +55,7 @@ export function MessageActionSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <p className="truncate px-3 py-2 text-[11px] text-muted-foreground">
-          {message.content.trim() || message.attachmentName || 'Xabar'}
+          {chatPlainText(message.content).trim() || message.attachmentName || 'Xabar'}
         </p>
         <SheetButton icon={<Reply className="h-4.5 w-4.5" />} label="Javob berish" onClick={onReply} />
         {canCopy && (

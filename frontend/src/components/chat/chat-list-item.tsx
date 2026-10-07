@@ -1,4 +1,5 @@
 'use client';
+import { chatPlainText } from '@/lib/chat-custom-emoji';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -77,7 +78,7 @@ export function ChatListItem({ chat, viewerId }: ChatListItemProps) {
               unread > 0 ? 'text-foreground/85' : 'text-muted-foreground',
             )}
           >
-            {chat.lastMessagePreview ?? "Hali xabar yo'q"}
+            {chatPlainText(chat.lastMessagePreview ?? "Hali xabar yo'q")}
           </p>
           {chat.important && (
             <span className="shrink-0 text-muted-foreground" title="Muhim">

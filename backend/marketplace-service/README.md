@@ -188,3 +188,5 @@ Docker 29 eski docker-java API defaultini rad etsa, qo'shimcha
 `PopupCampaignIT` haqiqiy HTTP security/controller/service tranzaksiyalari va barcha
 Flyway migratsiyalarini tekshiradi: targeting, schedule, CTA, limitlar, parallel claim,
 event tartibi/idempotency/ownership va admin statistika.
+
+Chat custom emoji catalog: authenticated users may GET `/api/v1/emoji-packs` and `/api/v1/emoji-packs/{id}`. Pack creation, refresh and deletion remain restricted to `/api/v1/admin/emoji-packs`. Chat text preserves custom emoji IDs using `<tg-emoji emoji-id="ID">fallback</tg-emoji>`; clients render only recognized emoji tokens, treating other content as plain text.

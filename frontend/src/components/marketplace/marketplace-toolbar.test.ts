@@ -156,7 +156,7 @@ describe('marketplace mobile toolbar contract', () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it('keeps all five sort choices scroll-safe and closes naturally on Tab/outside pointer', async () => {
+  it('shows all sort choices without an internal scroll area and closes on Tab/outside pointer', async () => {
     await act(async () => root.render(createElement(SortMenu, {
       options: sortOptions,
       activeId: 'cheapest',
@@ -170,14 +170,7 @@ describe('marketplace mobile toolbar contract', () => {
     expect(items).toHaveLength(5);
     expect(items[2]?.getAttribute('aria-checked')).toBe('true');
     expect(document.activeElement).toBe(items[2]);
-    expect(menu.className).toContain('overflow-y-auto');
-    expect(menu.className).toContain('max-h-[min(18rem,calc(var(--tg-viewport-height,100dvh)-var(--marketplace-bottom-bar-height)-var(--marketplace-sticky-height)-1rem))]');
-    expect(menu.className).toContain('[@media(max-height:32rem)]:fixed');
-    expect(menu.className).toContain('[@media(max-height:32rem)]:left-4');
-    expect(menu.className).toContain('[@media(max-height:32rem)]:right-4');
-    expect(menu.className).toContain('[@media(max-height:32rem)]:top-[calc(var(--marketplace-sticky-height)+0.5rem)]');
-    expect(menu.className).toContain('[@media(max-height:32rem)]:bottom-[calc(var(--marketplace-bottom-bar-height)+0.5rem)]');
-    expect(menu.className).toContain('[@media(max-height:32rem)]:max-h-none');
+    expect(menu.className).not.toMatch(/overflow-y-auto|max-h-|\]:fixed|\]:bottom-/);
 
     await press(items[2], 'ArrowDown');
     expect(document.activeElement).toBe(items[3]);

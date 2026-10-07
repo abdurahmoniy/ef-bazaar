@@ -57,8 +57,8 @@ function packsPath(...segments: string[]): string {
   return buildMarketplaceApiPath(['v1', 'admin', 'emoji-packs', ...segments]);
 }
 
-export async function listEmojiPacks(): Promise<EmojiPackSummary[]> {
-  const response = await fetch(packsPath(), {
+export async function listEmojiPacks(scope: 'admin' | 'chat' = 'admin'): Promise<EmojiPackSummary[]> {
+  const response = await fetch(scope === 'admin' ? packsPath() : buildMarketplaceApiPath(['v1', 'emoji-packs']), {
     headers: { Accept: 'application/json' },
     credentials: 'include',
     cache: 'no-store',
@@ -67,8 +67,8 @@ export async function listEmojiPacks(): Promise<EmojiPackSummary[]> {
   return response.json();
 }
 
-export async function getEmojiPack(id: string): Promise<EmojiPackDetail> {
-  const response = await fetch(packsPath(id), {
+export async function getEmojiPack(id: string, scope: 'admin' | 'chat' = 'admin'): Promise<EmojiPackDetail> {
+  const response = await fetch(scope === 'admin' ? packsPath(id) : buildMarketplaceApiPath(['v1', 'emoji-packs', id]), {
     headers: { Accept: 'application/json' },
     credentials: 'include',
     cache: 'no-store',

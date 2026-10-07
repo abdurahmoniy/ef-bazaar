@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react';
 import {
   AlertTriangle,
   ArrowDown,
@@ -15,6 +15,7 @@ import {
   Pencil,
   Reply,
   Send,
+  Smile,
   Search,
   Star,
   X,
@@ -25,6 +26,12 @@ import { ChatOutbox } from '@/components/chat/chat-outbox';
 import { useChatOutbox } from '@/hooks/use-chat-outbox';
 import { useChatMessageNavigation } from '@/hooks/use-chat-message-navigation';
 import { ChatComposerInput } from '@/components/chat/chat-composer-input';
+import { ChatEmojiPicker } from '@/components/chat/chat-emoji-picker';
+import { ChatRichComposer } from './chat-rich-composer';
+import { ChatMessageContent } from './chat-message-content';
+import { useEmojiPacks } from '@/lib/use-emoji-packs';
+import type { EmojiItem } from '@/lib/emoji-packs';
+import { customEmojiToken, chatTextParts, chatPlainText } from '@/lib/chat-custom-emoji';
 import { ChatActivityStatus, MessageReadReceipt } from '@/components/chat/chat-activity-status';
 import { useChatConnection } from '@/hooks/use-chat-connection';
 import { getChatSocket } from '@/lib/chat-socket';
@@ -40,7 +47,6 @@ import { VoiceRecorder } from '@/components/chat/voice-recorder';
 import { Button } from '@/components/ui/button';
 import { useChatDraft } from '@/hooks/use-chat-draft';
 import { useChatScroll } from '@/hooks/use-chat-scroll';
-import { useVirtualKeyboard } from '@/hooks/use-virtual-keyboard';
 import {
   avatarTone,
   formatDayLabel,
@@ -151,8 +157,45 @@ export function ChatView({
   const [isUpdating, startUpdate] = useTransition();
   const { listRef, onScroll, scrollToBottom, hasNewMessages, followNextMessage, stopFollowing } = useChatScroll(`${messages.at(-1)?.id ?? ''}:${outbox.entries.at(-1)?.clientMessageId ?? ''}`);
   const { jumpToMessage, highlightedMessageId } = useChatMessageNavigation(listRef, stopFollowing);
-  const isKeyboardOpen = useVirtualKeyboard();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const emojiCaret = useRef<number | null>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [richMode, setRichMode] = useState(false);
+  const emojiCatalog = useEmojiPacks('chat');
+  const richInsert = useRef<((item: EmojiItem) => void) | null>(null);
+  const richDraft = richMode || chatTextParts(draft).some(part => part.emojiId);
+  useLayoutEffect(() => {
+    if (emojiCaret.current === null || !composerRef.current) return;
+    composerRef.current.focus({ preventScroll: true });
+    composerRef.current.setSelectionRange(emojiCaret.current, emojiCaret.current);
+    emojiCaret.current = null;
+  }, [draft]);
+
+  function insertEmoji(item: EmojiItem) {
+    if (isSending) return;
+    if (richDraft && richInsert.current) { richInsert.current(item); return; }
+    const emoji = customEmojiToken(item);
+    setRichMode(true);
+    const start = composerRef.current?.selectionStart ?? draft.length;
+    const end = composerRef.current?.selectionEnd ?? start;
+    emojiCaret.current = start + 1;
+    setDraft(draft.slice(0, start) + emoji + draft.slice(end));
+    setTyping(!editing);
+  }
+
+  function handleComposerPaste(e: React.ClipboardEvent<HTMLElement>) {
+    if (isSending) { e.preventDefault(); return; }
+    if (editing) return;
+    const item = Array.from(e.clipboardData.items).find(
+      (candidate) => candidate.kind === 'file' && candidate.type.startsWith('image/'),
+    );
+    const file = item?.getAsFile();
+    if (file) {
+      e.preventDefault();
+      handlePickFile(file);
+    }
+  }
 
   const name = partnerName(chat, viewerId);
   const partnerId = chat.sellerId === viewerId ? chat.buyerId : chat.sellerId;
@@ -202,6 +245,7 @@ export function ChatView({
     if (isSending) return;
     const content = draft.trim();
     if (!content && !pendingFile) return;
+    setRichMode(false);
     setTyping(false);
     setError(null);
     if (!editing) {
@@ -252,7 +296,7 @@ export function ChatView({
   async function handleCopyMessage(message: MessageResponse) {
     setActionTarget(null);
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(chatPlainText(message.content));
     } catch {
       setError("Nusxa olib bo'lmadi");
     }
@@ -478,7 +522,7 @@ export function ChatView({
                           {message.replySenderId === viewerId ? 'Siz' : name}
                         </span>
                         <span className="block truncate">
-                          {message.replyPreview ?? "O'chirilgan xabar"}
+                          {chatPlainText(message.replyPreview ?? "") || "O'chirilgan xabar"}
                         </span>
                       </button>
                     )}
@@ -491,9 +535,12 @@ export function ChatView({
                     )}
                     {message.content ? (
                       <span className="chat-message-text whitespace-pre-wrap break-words" data-caption={hasAttachment}>
-                        {message.content}
-                        <span aria-hidden="true" className="chat-message-meta-space" data-mine={mine}
-                          data-label={`${message.editedAt ? 'tahrirlangan ' : ''}${timeLabel}`} />
+                        {<ChatMessageContent content={message.content} packs={emojiCatalog.packs} />}
+                        <span aria-hidden="true" className="chat-message-meta-space">
+                          {message.editedAt && <span>tahrirlangan</span>}
+                          <span>{timeLabel}</span>
+                          {mine && <span className="chat-message-receipt-space" />}
+                        </span>
                         {metadata}
                       </span>
                     ) : metadata}
@@ -503,7 +550,7 @@ export function ChatView({
             </div>
           );
         })}
-        <ChatOutbox entries={outbox.entries} onRetry={outbox.retry} onDismiss={outbox.dismiss} />
+        <ChatOutbox packs={emojiCatalog.packs} entries={outbox.entries} onRetry={outbox.retry} onDismiss={outbox.dismiss} />
       </div>
       {hasNewMessages && (
         <Button variant="outline" className="absolute bottom-4 right-4 min-h-11 gap-2 rounded-full border-border/60 bg-card shadow-lg" onClick={scrollToBottom}>
@@ -519,7 +566,7 @@ export function ChatView({
         </div>
       )}
 
-      <div className={cn('shrink-0 px-3 pb-2 pt-1 md:px-8 md:pb-4', !isKeyboardOpen && 'pb-[calc(var(--app-content-safe-bottom,0px)+0.5rem)]')}>
+      <div className="shrink-0 px-3 pb-[calc(var(--app-content-safe-bottom,0px)+0.5rem)] pt-1 md:px-8 md:pb-4">
         <div className="mx-auto max-w-3xl">
           {(replyTo || editing) && (
             <div className="mb-2 flex items-center gap-2 rounded-2xl bg-card px-3 py-2 shadow-sm">
@@ -535,7 +582,7 @@ export function ChatView({
                     : (replyTo?.senderId === viewerId ? 'Siz' : name) + 'ga javob'}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {(editing ?? replyTo)?.content.trim() ||
+                  {chatPlainText((editing ?? replyTo)?.content ?? "").trim() ||
                     (editing ?? replyTo)?.attachmentName ||
                     'Xabar'}
                 </p>
@@ -581,6 +628,7 @@ export function ChatView({
               </Button>
             </div>
           )}
+          {emojiOpen && !isRecording && <ChatEmojiPicker {...emojiCatalog} onPick={insertEmoji} onClose={() => setEmojiOpen(false)} />}
           <div className="flex items-end gap-2">
             <input
               ref={fileInputRef}
@@ -607,26 +655,26 @@ export function ChatView({
                     <Paperclip className="h-5 w-5" />
                   </Button>
                 )}
-                <ChatComposerInput
+                {richDraft ? <ChatRichComposer value={draft} packs={emojiCatalog.packs} readOnly={isSending} caret={emojiCaret} pickerOpen={emojiOpen}
+                  registerInsert={(insert) => { richInsert.current = insert; }}
+                  onChange={(value) => { setDraft(value); setTyping(!editing && Boolean(value.trim())); }}
+                  onSend={handleSend} onBlur={() => setTyping(false)}
+                  onPaste={handleComposerPaste}
+                /> : <ChatComposerInput
+                  textareaRef={composerRef}
                   value={draft}
                   onChange={(e) => { setDraft(e.target.value); setTyping(!editing && Boolean(e.target.value.trim())); }}
                   onBlur={() => setTyping(false)}
                   onSend={handleSend}
-                  onPaste={(e) => {
-                    if (isSending) { e.preventDefault(); return; }
-                    if (editing) return;
-                    const item = Array.from(e.clipboardData.items).find(
-                      (i) => i.kind === 'file' && i.type.startsWith('image/'),
-                    );
-                    const file = item?.getAsFile();
-                    if (file) {
-                      e.preventDefault();
-                      handlePickFile(file);
-                    }
-                  }}
+                  onPaste={handleComposerPaste}
                   placeholder={pendingFile ? 'Izoh (ixtiyoriy)…' : 'Xabar yozing…'}
                   readOnly={isSending}
-                />
+                />}
+                <Button type="button" variant="ghost" className="h-11 w-11 shrink-0 rounded-full p-0 text-muted-foreground hover:text-foreground"
+                  aria-label="Emoji tanlash" aria-expanded={emojiOpen} disabled={isSending}
+                  onClick={() => setEmojiOpen((open) => !open)}>
+                  <Smile className="h-5 w-5" />
+                </Button>
               </div>
             )}
             {draft.trim().length === 0 && !pendingFile && !editing && !replyTo ? (

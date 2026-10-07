@@ -114,16 +114,16 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
   }
 
   return (
-    <article className="flex h-full flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-card">
+    <article className="flex h-full flex-col gap-3 rounded-xl border border-border/70 bg-card p-3 sm:p-4">
       <div className="flex items-start gap-3">
         <AccountPhoto photo={photo} title={title} />
         <div className="min-w-0 flex-1">
-          <h2 className="flex items-center gap-1.5 text-base font-bold text-foreground">
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold leading-5 text-foreground">
             <span className="truncate">{title}</span>
             {pinned && <Pin aria-label="Mahkamlangan" className="h-3.5 w-3.5 shrink-0 text-primary" />}
           </h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">{summary(account.attributes)}</p>
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{summary(account.attributes)}</p>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Users aria-hidden className="h-3.5 w-3.5" />{squadCount(account.attributes)} o&apos;yinchi
           </p>
         </div>
@@ -165,25 +165,21 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
         {account.onMarket && display?.price != null && <span className="text-sm font-bold tabular-nums">{formatPriceUZS(display.price)}</span>}
       </div>
 
-      <div className="rounded-xl border border-border/70 bg-muted/30 px-3 pt-3">
-        <div className="flex items-start gap-2 text-sm">
-          <Mail aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 break-all text-foreground select-text">
-            {account.email ? emailShown ? account.email : '•••••••••@•••' : 'Email biriktirilmagan'}
-          </span>
-        </div>
-        {account.email ? (
-          <div className="mt-1 flex flex-wrap items-center gap-x-2">
-            <Button type="button" variant="ghost" className="h-11 px-1.5 text-xs text-primary" aria-pressed={emailShown} onClick={() => setEmailShown(!emailShown)}>
-              {emailShown ? <EyeOff aria-hidden className="h-4 w-4" /> : <Eye aria-hidden className="h-4 w-4" />}
-              {emailShown ? 'Yashirish' : "Ko'rsatish"}
-            </Button>
-            <Button type="button" variant="ghost" className="h-11 px-1.5 text-xs" aria-label="Emailni nusxalash" onClick={copyEmail}>
-              {copied ? <Check aria-hidden className="h-4 w-4" /> : <Copy aria-hidden className="h-4 w-4" />}
-              <span role="status">{copied ? 'Nusxalandi' : 'Nusxalash'}</span>
-            </Button>
-          </div>
-        ) : <div className="h-3" />}
+      <div className="flex min-h-11 items-center gap-2 border-t border-border/60 pt-1">
+        <Mail aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 break-all text-xs leading-5 text-muted-foreground select-text">
+          {account.email ? emailShown ? account.email : '•••••••••@•••' : 'Email biriktirilmagan'}
+        </span>
+        {account.email && <div className="flex shrink-0 items-center">
+          <Button type="button" variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
+            aria-label={emailShown ? 'Emailni yashirish' : 'Emailni ko‘rsatish'} aria-pressed={emailShown} onClick={() => setEmailShown(!emailShown)}>
+            {emailShown ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+          </Button>
+          <Button type="button" variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground" aria-label="Emailni nusxalash" onClick={copyEmail}>
+            {copied ? <Check aria-hidden className="text-emerald-600 dark:text-emerald-300" /> : <Copy aria-hidden />}
+          </Button>
+          <span role="status" className="sr-only">{copied ? 'Nusxalandi' : 'Nusxalash'}</span>
+        </div>}
       </div>
 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
@@ -204,18 +200,18 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
           </div>
         </div>
       ) : (
-        <div className="mt-auto flex flex-col gap-2">
+        <div className="mt-auto flex flex-wrap gap-2">
           {display?.mailboxHref && (
-            <Button asChild className="min-h-11"><a href={display.mailboxHref}><Mail aria-hidden className="h-4 w-4" />Pochtani ochish<ArrowUpRight aria-hidden className="h-4 w-4" /></a></Button>
+            <Button asChild variant="ghost" className="min-h-11 flex-1 px-2 text-xs"><a href={display.mailboxHref}><Mail aria-hidden className="h-4 w-4" />Pochtani ochish<ArrowUpRight aria-hidden className="h-4 w-4" /></a></Button>
           )}
           {account.onMarket ? account.currentListingId && (
-            <Button asChild variant={display?.mailboxHref ? 'outline' : 'default'} className="min-h-11">
+            <Button asChild variant="ghost" className="min-h-11 flex-1 bg-muted px-2 text-xs hover:bg-muted/80">
               <Link href={`/marketplace/${account.currentListingId}`}>E&apos;lonni ko&apos;rish<ArrowUpRight aria-hidden className="h-4 w-4" /></Link>
             </Button>
           ) : !archived && (accountDetailsIncomplete(account) ? (
-            <Button asChild variant="outline" className="min-h-11"><Link href={`/profile/accounts/${encodeURIComponent(account.id)}`}><Pencil aria-hidden className="h-4 w-4" />Ma’lumotlarni to‘ldirish</Link></Button>
+            <Button asChild variant="ghost" className="min-h-11 flex-1 bg-muted px-2 text-xs hover:bg-muted/80"><Link href={`/profile/accounts/${encodeURIComponent(account.id)}`}><Pencil aria-hidden className="h-4 w-4" />Ma’lumotlarni to‘ldirish</Link></Button>
           ) : (
-            <Button type="button" variant={display?.mailboxHref ? 'outline' : 'default'} className="min-h-11" onClick={() => onPublish?.(account)}>
+            <Button type="button" variant="ghost" className="min-h-11 flex-1 bg-muted px-2 text-xs hover:bg-muted/80" onClick={() => onPublish?.(account)}>
               <Store aria-hidden className="h-4 w-4" />Bozorga chiqarish
             </Button>
           ))}
