@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
  * FILE with video/* mime → inline <video> player.
  * FILE → download card (bot file proxy: octet-stream + attachment disposition).
  */
-export function MessageAttachment({ message, mine }: { message: MessageResponse; mine: boolean }) {
+export function MessageAttachment({ message, mine, onOpenImage }: { message: MessageResponse; mine: boolean; onOpenImage?: () => void }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const fileId = message.attachmentFileId;
   if (!fileId || !message.attachmentType) return null;
@@ -32,7 +32,7 @@ export function MessageAttachment({ message, mine }: { message: MessageResponse;
         <>
           <button
             type="button"
-            onClick={() => setLightboxOpen(true)}
+            onClick={() => onOpenImage ? onOpenImage() : setLightboxOpen(true)}
             className="block w-full cursor-zoom-in"
             aria-label="Rasmni kattalashtirish"
           >

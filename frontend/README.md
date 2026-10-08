@@ -94,3 +94,14 @@ npm run typecheck && npm run lint && npm test && npm run build   # CI bilan bir 
 Marketplace filters use a plain desktop sidebar and a full-height mobile overview with selection summaries. Groups expand inline; collapsed controls retain drafts and invalid groups stay visible. Result counts remain debounced and cancellable.
 
 Chat custom emoji uses the authenticated read-only `/api/marketplace/v1/emoji-packs` catalog. The existing admin catalog remains used for management. Drafts and chat message text preserve `<tg-emoji emoji-id="ID">fallback</tg-emoji>` tokens; only numeric IDs are recognized, all other content stays plain text. WebM emoji animate inline; static WebP items render as images; TGS items currently use their static thumbnails.
+
+## Savdo tasdiqlash kodlari
+
+`TRADE_EMAIL_CHANGE_CODE` va `TRADE_LOGIN_CODE` bildirishnomalaridagi `verificationCode`
+Konami emailini o‘zgartirish yoki akkountga kirish uchun ko‘rsatiladi. Global dialog
+joriy autentifikatsiyalangan foydalanuvchining o‘qilmagan, aniqlanganiga 5 daqiqadan
+oshmagan kodlarini 10 soniyada, oynaga qaytganda va bildirishnoma voqeasida tekshiradi.
+Telegram Mini App va brauzerda push ruxsatisiz ham ishlaydi. Bir savdo va maqsad uchun
+eng yangi kod ko‘rsatiladi; yopilgan kod brauzer sessiyasida qayta ochilmaydi.
+Dialog kodni nusxalash va savdo chatini ochish imkonini beradi. Sessiya identifikatori
+`/api/push/config` dan Firebase konfiguratsiyasi bo‘lmasa ham olinadi.

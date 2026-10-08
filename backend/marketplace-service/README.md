@@ -190,3 +190,10 @@ Flyway migratsiyalarini tekshiradi: targeting, schedule, CTA, limitlar, parallel
 event tartibi/idempotency/ownership va admin statistika.
 
 Chat custom emoji catalog: authenticated users may GET `/api/v1/emoji-packs` and `/api/v1/emoji-packs/{id}`. Pack creation, refresh and deletion remain restricted to `/api/v1/admin/emoji-packs`. Chat text preserves custom emoji IDs using `<tg-emoji emoji-id="ID">fallback</tg-emoji>`; clients render only recognized emoji tokens, treating other content as plain text.
+
+Konami OTP action events `EMAIL_CHANGE_CODE_RECEIVED` and `LOGIN_CODE_RECEIVED` create
+`TRADE_EMAIL_CHANGE_CODE` / `TRADE_LOGIN_CODE` notifications. `details` must contain
+a numeric 4–8 digit code and `occurredAt` its detection timestamp (maximum age five
+minutes). The recipient comes exclusively from `recipientUserId`. Responses expose
+nullable `verificationCode`; push bodies include the code. Replays are atomically
+deduplicated by recipient, trade, type, code and detection timestamp.

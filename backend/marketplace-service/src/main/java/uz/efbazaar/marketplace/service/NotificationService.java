@@ -219,6 +219,22 @@ public class NotificationService {
                 .build());
     }
 
+    @Transactional
+    public void tradeVerificationCode(UUID userId, UUID tradeId, UUID chatId,
+                                      NotificationType type, String code, Instant occurredAt) {
+        if (userId == null || tradeId == null || occurredAt == null || code == null
+                || !code.matches("[0-9]{4,8}")
+                || occurredAt.isBefore(Instant.now().minusSeconds(300))
+                || occurredAt.isAfter(Instant.now())
+                || (type != NotificationType.TRADE_EMAIL_CHANGE_CODE && type != NotificationType.TRADE_LOGIN_CODE)) return;
+        Notification notification = Notification.builder().id(UUID.randomUUID()).userId(userId)
+                .tradeId(tradeId).chatId(chatId).type(type).verificationCode(code).createdAt(occurredAt).build();
+        if (notifications.insertVerificationCode(notification.getId(), userId, tradeId, chatId,
+                type.name(), code, occurredAt) == 1) {
+            events.publishEvent(uz.efbazaar.marketplace.push.NotificationPushEvent.from(notification));
+        }
+    }
+
     /**
      * Hamkorlik bo'yicha qaror.
      *

@@ -495,6 +495,8 @@ export type NotificationType =
   | 'TRADE_MAILBOX_RETURNED'
   | 'TRADE_PROPOSAL_CREATED'
   | 'TRADE_STARTED'
+  | 'TRADE_EMAIL_CHANGE_CODE'
+  | 'TRADE_LOGIN_CODE'
   | 'TRADE_EMAIL_CHANGED'
   | 'TRADE_PASSWORD_SENT'
   | 'TRADE_SUCCESS'
@@ -505,6 +507,7 @@ export type NotificationType =
   | 'PARTNER_CANCELLED';
 
 export interface NotificationResponse {
+  verificationCode?: string | null;
   id: string;
   type: NotificationType;
   chatId?: string | null;

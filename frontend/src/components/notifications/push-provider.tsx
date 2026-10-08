@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { VerificationCodeDialog } from './verification-code-dialog';
 import { usePathname } from 'next/navigation';
 import { usePushInvitationSlot } from '@/components/popups/use-push-invitation-slot';
 import { enableTelegramPush, getTelegramPushApp, getTelegramPushState } from '@/lib/telegram-push';
@@ -28,6 +29,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
   const [transport, setTransport] = useState<'browser' | 'telegram'>('browser');
   const telegram = useRef<TelegramWebApp | null>(null);
   const [busy, setBusy] = useState(false);
+  const [verificationUserId, setVerificationUserId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const context = useRef<PushContext | null>(null);
   const pending = useRef(false);
@@ -46,6 +48,10 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
       unsubscribe.current?.();
       unsubscribe.current = null;
       if (mounted.current) setTransport(app ? 'telegram' : 'browser');
+      const identityResponse = await fetch('/api/push/config', { credentials: 'same-origin', cache: 'no-store' });
+      if (!identityResponse.ok) throw new Error('Session unavailable');
+      const next = await identityResponse.json() as PushContext;
+      if (mounted.current) setVerificationUserId(next.userId);
       if (app) {
         const response = await fetch('/api/telegram-webapp', { credentials: 'same-origin', cache: 'no-store' });
         if (!response.ok) throw new Error('Telegram session unavailable');
@@ -59,9 +65,6 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
         }
         return;
       }
-      const response = await fetch('/api/push/config', { credentials: 'same-origin', cache: 'no-store' });
-      if (!response.ok) throw new Error('Push unavailable');
-      const next = await response.json() as PushContext;
       context.current = next;
       const status = await syncPushSubscription(next);
       if (mounted.current) { setState(status); setUserId(next.userId); }
@@ -70,19 +73,31 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
         if (mounted.current) unsubscribe.current = cleanup;
         else cleanup();
       }
-    } catch { if (mounted.current) { setState('error'); setUserId(null); } }
+    } catch { if (mounted.current) { setState('error'); setUserId(null); setVerificationUserId(null); } }
     finally { pending.current = false; }
   }, []);
 
   useEffect(() => {
     mounted.current = true;
     void refresh();
+    const identityTimer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible' || pending.current) return;
+      pending.current = true;
+      void fetch('/api/push/config', { credentials: 'same-origin', cache: 'no-store' })
+        .then(async response => {
+          if (!response.ok) throw new Error('Session unavailable');
+          const identity = await response.json() as PushContext;
+          if (mounted.current) setVerificationUserId(identity.userId);
+        }).catch(() => { if (mounted.current) setVerificationUserId(null); })
+        .finally(() => { pending.current = false; });
+    }, 10_000);
     const visible = () => { if (document.visibilityState === 'visible') void refresh(); };
     const changed = (event: StorageEvent) => { if (event.key === 'efbazaar.push') void refresh(); };
     window.addEventListener('focus', refresh);
     window.addEventListener('storage', changed);
     document.addEventListener('visibilitychange', visible);
     return () => {
+      window.clearInterval(identityTimer);
       mounted.current = false;
       unsubscribe.current?.();
       window.removeEventListener('focus', refresh);
@@ -145,6 +160,7 @@ export function PushProvider({ children }: { children: React.ReactNode }) {
   }
   return <PushControlsContext.Provider value={{ state, transport, busy, enable, disable, retry: () => { void refresh(); } }}>
     {children}
+    <VerificationCodeDialog userId={verificationUserId} />
     {invitationAllowed && <PushPermissionPrompt transport={transport} userId={userId} state={state} busy={busy} enable={enable} />}
   </PushControlsContext.Provider>;
 }

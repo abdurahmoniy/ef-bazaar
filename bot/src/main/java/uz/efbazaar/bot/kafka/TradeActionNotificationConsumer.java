@@ -1,5 +1,7 @@
 package uz.efbazaar.bot.kafka;
 
+import java.time.Instant;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +33,16 @@ public class TradeActionNotificationConsumer {
     public void onTradeAction(TradeActionNotificationDto e) {
         if (e == null || e.recipientTelegramId() == null) {
             log.info("Skipping trade action DM — no Telegram identity");
+            return;
+        }
+
+        Instant now = Instant.now();
+        if (isOtp(e.actionType()) && (e.details() == null
+                || !e.details().matches("[0-9]{4,8}")
+                || e.occurredAt() == null
+                || e.occurredAt().isBefore(now.minusSeconds(300))
+                || e.occurredAt().isAfter(now))) {
+            log.info("Skipping invalid or expired trade OTP actionType={}", e.actionType());
             return;
         }
 
@@ -72,6 +84,10 @@ public class TradeActionNotificationConsumer {
                             + "Taklif qabul qilindi (" + formattedPrice + ").")
                     + " Akkount transferi boshlanmoqda.";
             case "YOUR_TURN" -> "🔔 <b>Sizning navbatingiz</b>\n" + nextAction(e.details());
+            case "EMAIL_CHANGE_CODE_RECEIVED" -> "📧 <b>Emailni almashtirish kodi</b>\n"
+                    + "Konami emailini almashtirish uchun kod: <code>" + e.details() + "</code>";
+            case "LOGIN_CODE_RECEIVED" -> "🔑 <b>Akkountni tekshirish kodi</b>\n"
+                    + "Konami akkountiga kirib tekshirish uchun kod: <code>" + e.details() + "</code>";
             case "EMAIL_CHANGED" -> "\uD83D\uDCE7 <b>Konami emaili o'zgartirildi</b>\n"
                     + "Sotuvchi Konami emailini almashtirdi. Tekshiruv davom etmoqda.";
             case "PASSWORD_SENT" -> "\uD83D\uDD11 <b>Konami paroli yuborildi!</b>\n"
@@ -85,6 +101,10 @@ public class TradeActionNotificationConsumer {
             default -> "\uD83D\uDD14 <b>Savdo yangilandi</b>\n"
                     + "Savdo holatida o'zgarish yuz berdi.";
         };
+    }
+
+    private static boolean isOtp(String action) {
+        return "EMAIL_CHANGE_CODE_RECEIVED".equals(action) || "LOGIN_CODE_RECEIVED".equals(action);
     }
 
     private static String nextAction(String step) {

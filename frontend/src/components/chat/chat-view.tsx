@@ -37,6 +37,9 @@ import { useChatConnection } from '@/hooks/use-chat-connection';
 import { getChatSocket } from '@/lib/chat-socket';
 import { useChatActivity } from '@/hooks/use-chat-activity';
 import { ChatOptions } from '@/components/chat/chat-options';
+import { TouchMessageBubble } from './touch-message-bubble';
+import { MediaLightbox } from './media-lightbox';
+import { listingMediaUrl } from '@/lib/marketplace-media';
 import { MessageActionSheet } from '@/components/chat/message-action-sheet';
 import { TradeProvider, useTradeContext } from '@/components/chat/trade-context';
 import { TradePinnedBar } from '@/components/chat/trade-pinned-bar';
@@ -147,6 +150,8 @@ export function ChatView({
   const [editDraft, setEditDraft] = useState('');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [imageId, setImageId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [actionTarget, setActionTarget] = useState<MessageResponse | null>(null);
   const [replyTo, setReplyTo] = useState<MessageResponse | null>(null);
   const [editing, setEditing] = useState<MessageResponse | null>(null);
@@ -379,6 +384,11 @@ export function ChatView({
     });
   }
 
+  const images = messages.filter(message => message.attachmentType === 'IMAGE' && message.attachmentFileId);
+  const imageIndex = images.findIndex(message => message.id === imageId);
+  const image = images[imageIndex];
+  const selectedMessage = messages.find(message => message.id === selectedId);
+
   return (
     <TradeProvider
       key={`${chat.id}:${clearedAt ?? ''}`}
@@ -495,20 +505,19 @@ export function ChatView({
                 <div
                   className={cn('flex', mine ? 'justify-end' : 'justify-start', startsGroup ? 'mt-3' : 'mt-1')}
                 >
-                  <div
+                  <TouchMessageBubble
                     role="button"
                     tabIndex={0}
                     data-mine={mine}
                     data-group-start={startsGroup}
                     data-group-end={endsGroup}
-                    onClick={() => setActionTarget(message)}
-                    onKeyDown={(e) => {
-                      if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
-                      e.preventDefault();
-                      setActionTarget(message);
-                    }}
+                    aria-pressed={selectedId === message.id}
+                    selectionMode={!!selectedId}
+                    onReply={() => { startReply(message); composerRef.current?.focus(); }}
+                    onActions={() => selectedId ? setSelectedId(message.id) : setActionTarget(message)}
                     className={cn(
                       'chat-message-bubble cursor-pointer text-left',
+                      selectedId === message.id && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
                       hasAttachment && message.attachmentType === 'IMAGE' ? 'p-1' : 'px-3 py-2',
                     )}
                   >
@@ -530,7 +539,7 @@ export function ChatView({
                       // Media controls (lightbox, play, download) must not open
                       // the message action sheet.
                       <span className="block" onClick={(e) => e.stopPropagation()}>
-                        <MessageAttachment message={message} mine={mine} />
+                        <MessageAttachment message={message} mine={mine} onOpenImage={() => setImageId(message.id)} />
                       </span>
                     )}
                     {message.content ? (
@@ -544,7 +553,7 @@ export function ChatView({
                         {metadata}
                       </span>
                     ) : metadata}
-                  </div>
+                  </TouchMessageBubble>
                 </div>
               )}
             </div>
@@ -706,12 +715,23 @@ export function ChatView({
         </div>
       </div>
 
+      {selectedMessage && <div role="toolbar" aria-label="Tanlangan xabar" className="flex shrink-0 items-center gap-2 border-t border-border bg-card px-3 py-2 pb-[calc(var(--app-content-safe-bottom,0px)+0.5rem)]">
+        <span className="min-w-0 flex-1 truncate text-xs">1 ta xabar tanlandi</span>
+        {selectedMessage.content.trim() && <Button variant="ghost" onClick={() => handleCopyMessage(selectedMessage)}>Nusxa olish</Button>}
+        {selectedMessage.senderId === viewerId && <Button variant="ghost" disabled={isUpdating} onClick={() => handleDeleteMessage(selectedMessage)}>O&apos;chirish</Button>}
+        <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Tanlashni bekor qilish" onClick={() => setSelectedId(null)}><X /></Button>
+      </div>}
+      {image && <MediaLightbox src={listingMediaUrl(image.attachmentFileId!)!} alt={image.attachmentName ?? 'Rasm'}
+        onClose={() => setImageId(null)} currentIndex={imageIndex} totalCount={images.length}
+        hasPrev={imageIndex > 0} hasNext={imageIndex < images.length - 1}
+        onPrev={() => setImageId(images[imageIndex - 1].id)} onNext={() => setImageId(images[imageIndex + 1].id)} />}
       {actionTarget && (
         <MessageActionSheet
           message={actionTarget}
           mine={actionTarget.senderId === viewerId}
           onReply={() => startReply(actionTarget)}
           onCopy={() => handleCopyMessage(actionTarget)}
+          onSelect={() => { setSelectedId(actionTarget.id); setActionTarget(null); }}
           onEdit={() => startEdit(actionTarget)}
           onDelete={() => handleDeleteMessage(actionTarget)}
           onClose={() => setActionTarget(null)}

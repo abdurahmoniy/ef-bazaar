@@ -23,6 +23,8 @@ public record NotificationPushEvent(UUID recipientUserId, Map<String, String> da
             case TRADE_MAILBOX_RETURNED -> "Savdo yakunlanmadi — email profilingizga biriktirildi";
             case TRADE_PROPOSAL_CREATED -> "Sizga yangi savdo taklifi yuborildi";
             case TRADE_STARTED -> "Savdo boshlandi";
+            case TRADE_EMAIL_CHANGE_CODE -> "Konami emailini o‘zgartirish kodi: " + n.getVerificationCode();
+            case TRADE_LOGIN_CODE -> "Konami kirish kodi: " + n.getVerificationCode();
             case TRADE_EMAIL_CHANGED -> "Sotuvchi Konami emailini o‘zgartirdi";
             case TRADE_PASSWORD_SENT -> "Konami paroli yuborildi — tekshirib tasdiqlang";
             case TRADE_SUCCESS -> "Savdo muvaffaqiyatli yakunlandi";

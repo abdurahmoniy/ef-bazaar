@@ -52,6 +52,8 @@ public final class TradeEvents {
         TRADE_STARTED,
         EMAIL_CHANGED,
         PASSWORD_SENT,
+        EMAIL_CHANGE_CODE_RECEIVED,
+        LOGIN_CODE_RECEIVED,
         YOUR_TURN,
         TRADE_SUCCESS,
         TRADE_REJECTED,

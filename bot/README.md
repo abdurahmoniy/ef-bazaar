@@ -54,6 +54,12 @@ kanal formatida yuboriladi: muqova katta link preview, kanal matni va "🛒 E'lo
 | Kanallar | `marketplace.channel-post-requested`, `-edit-requested`, `-delete-requested`, `-refresh-requested`, `official-post-requested` |
 | Boshqa | `auth.user-photo-needed`, `auth.user-registered` (profil rasmi), `marketplace.bot-settings-updated` (/start keshi) |
 
+`notifications.trade-action` dagi `EMAIL_CHANGE_CODE_RECEIVED` va `LOGIN_CODE_RECEIVED`
+xabarlari Konami emailini almashtirish / akkountga kirib tekshirish kodini `<code>` shaklida,
+savdo chatini ochish tugmasi bilan yuboradi. `details` faqat 4–8 ASCII raqamdan iborat
+bo'lishi kerak; `occurredAt` kod aniqlangan vaqt. Vaqti yo'q, noto'g'ri yoki 5 daqiqadan
+eski yoki kelajak vaqtli kodlar DM sifatida yuborilmaydi. Kod logga yozilmaydi.
+
 Chiqaradi: `bot.user-photo-set`, `bot.support-message-bound`, `bot.support-reply-received`, `bot.media-uploaded`.
 Batafsil: [docs/kafka-topics.md](../docs/kafka-topics.md).
 

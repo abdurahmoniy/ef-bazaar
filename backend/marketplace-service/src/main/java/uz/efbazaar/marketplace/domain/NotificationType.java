@@ -31,6 +31,8 @@ public enum NotificationType {
     TRADE_STARTED,
     /** Seller changed the Konami account email. */
     TRADE_EMAIL_CHANGED,
+    TRADE_EMAIL_CHANGE_CODE,
+    TRADE_LOGIN_CODE,
     /** Konami password was sent. */
     TRADE_PASSWORD_SENT,
     /** Trade completed successfully. */

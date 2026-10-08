@@ -230,6 +230,74 @@ describe('conversation messages', () => {
     expect(findButton('Tahrirni saqlash')).toBeDefined();
   });
 
+  it('swipes right to reply without opening actions and ignores vertical scrolling', async () => {
+    await render('buyer', false, [message('touch')]);
+    const bubble = container.querySelector<HTMLElement>('[data-message-id="touch"] .chat-message-bubble')!;
+    await touch(bubble, 'touchstart', [[50, 100]]);
+    await touch(bubble, 'touchmove', [[130, 104]]);
+    expect(bubble.style.transform).toContain('translateX');
+    await touch(bubble, 'touchend', [[130, 104]]);
+    await act(async () => bubble.click());
+    expect(container.textContent).toContain('ga javob');
+    expect(document.querySelector('[aria-label="Xabar amallari"]')).toBeNull();
+    await click(findButton('Bekor qilish'));
+    await touch(bubble, 'touchstart', [[50, 100]]);
+    await touch(bubble, 'touchmove', [[55, 180]]);
+    await touch(bubble, 'touchend', [[55, 180]]);
+    expect(container.textContent).not.toContain('ga javob');
+  });
+
+  it('long presses a photo for permitted actions without opening the image', async () => {
+    await render('buyer', false, [message('touch', { attachmentType: 'IMAGE', attachmentFileId: 'photo' })]);
+    vi.useFakeTimers();
+    try {
+      const photo = findButton('Rasmni kattalashtirish');
+      await touch(photo, 'touchstart', [[50, 100]]);
+      await act(async () => vi.advanceTimersByTime(550));
+      expect(document.querySelector('[aria-label="Xabar amallari"]')).not.toBeNull();
+      expect(findButton('Tahrirlash')).toBeUndefined();
+      expect(findButton("O'chirish")).toBeUndefined();
+      expect(findButton('Tanlash')).toBeDefined();
+      await touch(photo, 'touchend', [[50, 100]]);
+      await act(async () => photo.click());
+      expect(document.querySelector('[data-testid="zoomable-lightbox"]')).toBeNull();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('opens the chat image sequence, swipes between images and down to close', async () => {
+    await render('buyer', false, [message('one', { attachmentType: 'IMAGE', attachmentFileId: 'first' }), message('two', { attachmentType: 'IMAGE', attachmentFileId: 'second' })]);
+    await click(findButton('Rasmni kattalashtirish'));
+    const viewer = document.querySelector('[data-testid="zoomable-lightbox"]')!;
+    expect(viewer.textContent).toContain('1 / 2');
+    const area = viewer.querySelector('img')!.parentElement!;
+    await touch(area, 'touchstart', [[200, 100]]);
+    await touch(area, 'touchend', [[60, 104]]);
+    expect(viewer.textContent).toContain('2 / 2');
+    expect(viewer.querySelector('img')?.src).toContain('second');
+    await touch(area, 'touchstart', [[100, 100]]);
+    await touch(area, 'touchend', [[103, 230]]);
+    expect(document.querySelector('[data-testid="zoomable-lightbox"]')).toBeNull();
+  });
+
+  it('selects a message and keeps copy/delete permissions when choosing another message', async () => {
+    await render('buyer', false, [message('theirs'), message('mine', { senderId: 'buyer' })]);
+    const theirs = container.querySelector<HTMLElement>('[data-message-id="theirs"] .chat-message-bubble')!;
+    await act(async () => theirs.click());
+    await click(findButton('Tanlash'));
+    expect(theirs.getAttribute('aria-pressed')).toBe('true');
+    const toolbar = container.querySelector('[aria-label="Tanlangan xabar"]')!;
+    expect(findButton('Nusxa olish', toolbar)).toBeDefined();
+    expect(findButton("O'chirish", toolbar)).toBeUndefined();
+    const mine = container.querySelector<HTMLElement>('[data-message-id="mine"] .chat-message-bubble')!;
+    await touch(mine, 'touchstart', [[50, 100]]);
+    await touch(mine, 'touchend', [[50, 100]]);
+    expect(mine.getAttribute('aria-pressed')).toBe('true');
+    expect(findButton("O'chirish", toolbar)).toBeDefined();
+    expect(document.querySelector('[aria-label="Xabar amallari"]')).toBeNull();
+    await click(findButton('Tanlashni bekor qilish'));
+    expect(container.querySelector('[aria-label="Tanlangan xabar"]')).toBeNull();
+  });
+
   it('opens a photo without also opening its message actions', async () => {
     await render('buyer', false, [message('photo', {
       content: '', attachmentType: 'IMAGE', attachmentFileId: 'photo-id',
@@ -754,3 +822,11 @@ it('announces incoming messages while a failed outbox message remains and the re
   await act(async () => queryClient.setQueryData(chatKeys.messages('buyer', chat.id), [message('old'), message('new', { createdAt: '2026-09-19T10:02:00Z' })]));
   await vi.waitFor(() => expect(findButton('Yangi xabarlar')).toBeTruthy());
 });
+
+async function touch(target: Element, type: string, points: number[][]) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  const touches = points.map(([clientX, clientY]) => ({ clientX, clientY }));
+  Object.defineProperty(event, 'touches', { value: type === 'touchend' || type === 'touchcancel' ? [] : touches });
+  Object.defineProperty(event, 'changedTouches', { value: touches });
+  await act(async () => { target.dispatchEvent(event); });
+}

@@ -1,6 +1,7 @@
 package uz.efbazaar.trade.kafka;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -37,6 +38,9 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class Imap2faCodeRoutingTest {
 
+    @Mock uz.efbazaar.trade.trade.repository.TradeRepository trades;
+    @Mock TradeEventPublisher events;
+    @Mock ChatChangePublisher changes;
     @Mock TradeChatRepository chats;
     @Mock TradeMessageRepository messages;
     @Mock TradeBroadcaster broadcaster;
@@ -45,6 +49,14 @@ class Imap2faCodeRoutingTest {
     @InjectMocks Imap2faCodeConsumer consumer;
 
     private final UUID tradeId = UUID.randomUUID();
+
+    @BeforeEach void liveSale() {
+        when(trades.findById(tradeId)).thenReturn(Optional.of(uz.efbazaar.trade.trade.domain.Trade.builder()
+                .id(tradeId).kind(uz.efbazaar.trade.trade.domain.TradeKind.SALE)
+                .state(uz.efbazaar.trade.trade.domain.TradeState.WAITING_BUYER_VERIFY).build()));
+        when(sides.recordLoginCode(eq(tradeId), any(), any(), any())).thenReturn(1);
+    }
+
 
     private static TradeSide side(UUID tradeId, ParticipantRole role, UUID mailboxId) {
         return TradeSide.builder().id(new TradeSideId(tradeId, role)).mailboxId(mailboxId).build();

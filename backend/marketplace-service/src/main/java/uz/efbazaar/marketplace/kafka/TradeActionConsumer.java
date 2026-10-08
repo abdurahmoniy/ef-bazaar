@@ -42,7 +42,16 @@ public class TradeActionConsumer {
             return;
         }
 
-        notifications.tradeAction(e.recipientUserId(), e.tradeId(), e.chatId(), type);
+        if (type == NotificationType.TRADE_EMAIL_CHANGE_CODE || type == NotificationType.TRADE_LOGIN_CODE) {
+            if (e.tradeId() == null || e.occurredAt() == null || e.details() == null
+                    || !e.details().matches("[0-9]{4,8}")
+                    || e.occurredAt().isBefore(java.time.Instant.now().minusSeconds(300))
+                    || e.occurredAt().isAfter(java.time.Instant.now())) return;
+            notifications.tradeVerificationCode(e.recipientUserId(), e.tradeId(), e.chatId(),
+                    type, e.details(), e.occurredAt());
+        } else {
+            notifications.tradeAction(e.recipientUserId(), e.tradeId(), e.chatId(), type);
+        }
         log.info("Saved in-app trade action notification for user={} type={}",
                 e.recipientUserId(), type);
     }
@@ -52,6 +61,8 @@ public class TradeActionConsumer {
         return switch (actionType) {
             case "PROPOSAL_CREATED" -> NotificationType.TRADE_PROPOSAL_CREATED;
             case "TRADE_STARTED" -> NotificationType.TRADE_STARTED;
+            case "EMAIL_CHANGE_CODE_RECEIVED" -> NotificationType.TRADE_EMAIL_CHANGE_CODE;
+            case "LOGIN_CODE_RECEIVED" -> NotificationType.TRADE_LOGIN_CODE;
             case "EMAIL_CHANGED" -> NotificationType.TRADE_EMAIL_CHANGED;
             case "PASSWORD_SENT" -> NotificationType.TRADE_PASSWORD_SENT;
             case "TRADE_SUCCESS" -> NotificationType.TRADE_SUCCESS;

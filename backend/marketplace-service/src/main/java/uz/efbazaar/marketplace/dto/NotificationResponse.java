@@ -19,13 +19,14 @@ public record NotificationResponse(
         /** WALLET_CREDITED: how much reached the wallet. */
         Long amountTiyin,
         String actorDisplayName,
+        String verificationCode,
         Instant readAt,
         Instant createdAt
 ) {
     public static NotificationResponse from(Notification n) {
         return new NotificationResponse(n.getId(), n.getType(), n.getChatId(),
                 n.getListingId(), n.getTradeId(), n.getWithdrawalId(),
-                n.getAmountTiyin(), n.getActorDisplayName(),
+                n.getAmountTiyin(), n.getActorDisplayName(), n.getVerificationCode(),
                 n.getReadAt(), n.getCreatedAt());
     }
 }

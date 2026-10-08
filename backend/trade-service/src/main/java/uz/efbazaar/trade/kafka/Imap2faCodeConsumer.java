@@ -32,6 +32,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class Imap2faCodeConsumer {
 
+    private final uz.efbazaar.trade.trade.repository.TradeRepository trades;
+    private final TradeEventPublisher events;
+    private final ChatChangePublisher changes;
     private final TradeChatRepository chats;
     private final TradeMessageRepository messages;
     private final TradeBroadcaster broadcaster;
@@ -41,21 +44,34 @@ public class Imap2faCodeConsumer {
     @KafkaListener(
             topics = TradeEvents.TOPIC_IMAP_2FA,
             groupId = "trade-service-imap-2fa",
-            properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$Imap2faCode"}
+            properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$Imap2faCode",
+                    "spring.json.use.type.headers=false"}
     )
     // Tranzaksiya SHART: kodni yozish @Modifying so'rovi orqali ketadi va
     // tranzaksiyasiz u "No EntityManager with actual transaction" bilan
     // yiqiladi — kod esa hech qachon tarafga yetib bormaydi.
     @org.springframework.transaction.annotation.Transactional
     public void onCode(TradeEvents.Imap2faCode e) {
+        if (!KonamiOtpCode.isFresh(e.code(), e.receivedAt())) return;
+        var trade = trades.findById(e.tradeId()).orElse(null);
+        if (trade == null || trade.getState().isTerminal()) return;
+        // An addressless legacy event is safe only for a sale's single mailbox.
+        if ((e.mailboxEmail() == null || e.mailboxEmail().isBlank()) && trade.getKind().isSwap()) return;
         ParticipantRole recipient = recipientOf(e);
+        if (recipient == null) return;
         var chat = chats.findByTradeIdAndParticipant(e.tradeId(), recipient);
         if (chat.isEmpty()) {
             log.warn("imap-2fa for trade {} with no {} chat", e.tradeId(), recipient);
             return;
         }
-        sides.recordLoginCode(e.tradeId(), recipient, e.code(),
-                e.receivedAt() != null ? e.receivedAt() : java.time.Instant.now());
+        if (sides.recordLoginCode(e.tradeId(), recipient, e.code(), e.receivedAt()) == 0) return;
+        changes.publishForTrade(e.tradeId());
+        if (trade.getState() == uz.efbazaar.trade.trade.domain.TradeState.WAITING_BUYER_VERIFY) {
+            events.tradeAction(trade.getId(), trade.getChatId(),
+                    recipient == ParticipantRole.SELLER ? trade.getSellerId() : trade.getBuyerId(),
+                    TradeEvents.TradeActionType.LOGIN_CODE_RECEIVED, trade.getPriceUzs(),
+                    e.code(), trade.getKind(), e.receivedAt());
+        }
 
         TradeMessage msg = TradeMessage.builder()
                 .id(UUID.randomUUID())
@@ -88,6 +104,6 @@ public class Imap2faCodeConsumer {
                         .findFirst())
                 .map(side -> side.role() == ParticipantRole.SELLER
                         ? ParticipantRole.BUYER : ParticipantRole.SELLER)
-                .orElse(ParticipantRole.BUYER);
+                .orElse(null);
     }
 }

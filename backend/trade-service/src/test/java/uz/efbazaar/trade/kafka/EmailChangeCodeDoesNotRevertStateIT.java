@@ -69,6 +69,27 @@ class EmailChangeCodeDoesNotRevertStateIT extends AbstractIntegrationIT {
         assertThat(after.getEmailChangeVerificationCode()).isEqualTo("123456");
     }
 
+    @Autowired uz.efbazaar.trade.trade.repository.TradeSideRepository sideRepo;
+
+    @Test
+    void replayAndOlderCodesCannotReplaceTheLatestCode() {
+        UUID id = trades.openTrade(UUID.randomUUID(), UUID.randomUUID(), 500_000L, null, null, null).id();
+        Instant newer = Instant.now();
+        tx.executeWithoutResult(status -> {
+            assertThat(tradeRepo.recordEmailChangeCode(id, "001234", newer)).isEqualTo(1);
+            assertThat(tradeRepo.recordEmailChangeCode(id, "001234", newer)).isZero();
+            assertThat(tradeRepo.recordEmailChangeCode(id, "999999", newer.minusSeconds(1))).isZero();
+            assertThat(sideRepo.recordEmailChangeCode(id, uz.efbazaar.trade.trade.domain.ParticipantRole.SELLER, "001234", newer)).isEqualTo(1);
+            assertThat(sideRepo.recordEmailChangeCode(id, uz.efbazaar.trade.trade.domain.ParticipantRole.SELLER, "001234", newer)).isZero();
+            assertThat(sideRepo.recordEmailChangeCode(id, uz.efbazaar.trade.trade.domain.ParticipantRole.SELLER, "999999", newer.minusSeconds(1))).isZero();
+            assertThat(sideRepo.recordLoginCode(id, uz.efbazaar.trade.trade.domain.ParticipantRole.BUYER, "002345", newer)).isEqualTo(1);
+            assertThat(sideRepo.recordLoginCode(id, uz.efbazaar.trade.trade.domain.ParticipantRole.BUYER, "002345", newer)).isZero();
+            assertThat(sideRepo.recordLoginCode(id, uz.efbazaar.trade.trade.domain.ParticipantRole.BUYER, "999999", newer.minusSeconds(1))).isZero();
+        });
+        assertThat(tradeRepo.findById(id).orElseThrow().getEmailChangeVerificationCode()).isEqualTo("001234");
+        assertThat(sideRepo.find(id, uz.efbazaar.trade.trade.domain.ParticipantRole.BUYER).orElseThrow().getLoginCode()).isEqualTo("002345");
+    }
+
     /**
      * The failure the targeted update exists to prevent, made explicit.
      *

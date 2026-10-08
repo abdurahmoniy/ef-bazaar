@@ -19,6 +19,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   notificationHref,
+  notificationLabel,
 } from '@/lib/notifications-client';
 import { formatListingDate } from '@/lib/marketplace-format';
 import type { NotificationResponse } from '@/lib/marketplace-types';
@@ -87,6 +88,9 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
           icon: <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />,
           bg: 'bg-emerald-500/10 dark:bg-emerald-400/10',
         };
+      case 'TRADE_EMAIL_CHANGE_CODE':
+      case 'TRADE_LOGIN_CODE':
+        return { action: notificationLabel(n), icon: <ShieldCheck className="h-5 w-5 text-primary" />, bg: 'bg-primary/10' };
       case 'TRADE_ADMIN_INVITED':
         return {
           action: 'Xavfsiz bitim moderatsiyasiga taklif',

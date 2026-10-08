@@ -152,6 +152,49 @@ class TradeActionNotificationConsumerTest {
         assertThat(call.chatId()).isEqualTo("11223344");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "EMAIL_CHANGE_CODE_RECEIVED,Emailni almashtirish kodi",
+        "LOGIN_CODE_RECEIVED,Akkountni tekshirish kodi"
+    })
+    void sendsPurposeAndCopyableOtpToRecipient(String action, String purpose) {
+        UUID chat = UUID.randomUUID();
+        consumer.onTradeAction(otp(action, "001234", Instant.now(), chat));
+        assertThat(telegram.calls).hasSize(1);
+        var call = telegram.calls.getFirst();
+        assertThat(call.text()).contains(purpose, "<code>001234</code>");
+        assertThat(call.chatId()).isEqualTo("11223344");
+        assertThat(call.button().url()).isEqualTo("https://efbazaar.uz/chats/" + chat);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"123", "123456789", "<b>1234</b>", "12ab34", " 1234", "１２３４"})
+    void rejectsMalformedOtp(String code) {
+        for (String action : List.of("EMAIL_CHANGE_CODE_RECEIVED", "LOGIN_CODE_RECEIVED")) {
+            consumer.onTradeAction(otp(action, code, Instant.now(), UUID.randomUUID()));
+        }
+        assertThat(telegram.calls).isEmpty();
+    }
+
+    @Test
+    void dropsExpiredOrUndatedCodesButKeepsRecentAndOrdinaryEvents() {
+        for (String action : List.of("EMAIL_CHANGE_CODE_RECEIVED", "LOGIN_CODE_RECEIVED")) {
+            consumer.onTradeAction(otp(action, "1234", Instant.now().minusSeconds(301), UUID.randomUUID()));
+            consumer.onTradeAction(otp(action, "1234", null, UUID.randomUUID()));
+            consumer.onTradeAction(otp(action, "1234", Instant.now().plusSeconds(60), UUID.randomUUID()));
+        }
+        assertThat(telegram.calls).isEmpty();
+        consumer.onTradeAction(otp("LOGIN_CODE_RECEIVED", "12345678", Instant.now().minusSeconds(299), UUID.randomUUID()));
+        consumer.onTradeAction(otp("TRADE_SUCCESS", null, Instant.now().minusSeconds(600), UUID.randomUUID()));
+        assertThat(telegram.calls).hasSize(2);
+    }
+
+    private TradeActionNotificationDto otp(String action, String code, Instant occurredAt, UUID chat) {
+        return new TradeActionNotificationDto(UUID.randomUUID(), chat, UUID.randomUUID(),
+                11223344L, "Ali", action, 0L, code, "SWAP", occurredAt);
+    }
+
     @Test
     void dropsWhenNoTelegramId() {
         TradeActionNotificationDto dto = new TradeActionNotificationDto(

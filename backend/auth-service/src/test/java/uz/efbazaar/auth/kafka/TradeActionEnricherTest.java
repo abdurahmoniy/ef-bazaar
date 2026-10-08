@@ -93,6 +93,28 @@ class TradeActionEnricherTest {
         assertThat(capture.getValue().chatId()).isEqualTo(chatId);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"EMAIL_CHANGE_CODE_RECEIVED", "LOGIN_CODE_RECEIVED"})
+    void preservesOtpPurposeCodeDetectionTimeAndRecipient(String action) {
+        UUID userId = UUID.randomUUID(), chatId = UUID.randomUUID(), tradeId = UUID.randomUUID();
+        Instant detectedAt = Instant.parse("2026-10-07T12:00:00Z");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(User.builder()
+                .id(userId).telegramId(987654321L).build()));
+        enricher.onTradeAction(new TradeActionNotificationDto(tradeId, chatId, userId,
+                action, 0L, "001234", "SWAP", detectedAt));
+        var capture = ArgumentCaptor.forClass(TradeActionNotificationEvent.class);
+        verify(kafka).send(eq("efbazaar.notifications.trade-action"), eq(userId.toString()), capture.capture());
+        var event = capture.getValue();
+        assertThat(event.actionType()).isEqualTo(action);
+        assertThat(event.details()).isEqualTo("001234");
+        assertThat(event.occurredAt()).isEqualTo(detectedAt);
+        assertThat(event.recipientUserId()).isEqualTo(userId);
+        assertThat(event.recipientTelegramId()).isEqualTo(987654321L);
+        assertThat(event.chatId()).isEqualTo(chatId);
+        assertThat(event.tradeId()).isEqualTo(tradeId);
+        assertThat(event.kind()).isEqualTo("SWAP");
+    }
+
     @Test
     void dropsWhenUserNotFound() {
         UUID userId = UUID.randomUUID();

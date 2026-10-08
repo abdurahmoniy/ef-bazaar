@@ -66,6 +66,8 @@ public class AdminSmartTradeService {
     private final TradeAuditService audit;
     private final TradeChatService chat;
     private final AuthSummaryClient users;
+    private final uz.efbazaar.trade.kafka.TradeEventPublisher events;
+    private final uz.efbazaar.trade.kafka.ChatChangePublisher changes;
 
     /**
      * Live SMART trades, the ones waiting for a hand first.
@@ -111,8 +113,14 @@ public class AdminSmartTradeService {
         requireMailbox(t, role);
 
         Instant now = Instant.now();
-        sideRepo.recordEmailChangeCode(tradeId, role, code, now);
+        int updated = sideRepo.recordEmailChangeCode(tradeId, role, code, now);
         trades.recordEmailChangeCode(tradeId, code, now);
+        if (updated > 0) {
+            events.tradeAction(tradeId, t.getChatId(), role == ParticipantRole.SELLER ? t.getSellerId() : t.getBuyerId(),
+                    uz.efbazaar.trade.kafka.TradeEvents.TradeActionType.EMAIL_CHANGE_CODE_RECEIVED,
+                    t.getPriceUzs(), code, t.getKind(), now);
+            changes.publishForTrade(tradeId);
+        }
 
         audit.record(tradeId, ActorType.ADMIN, adminId, "ADMIN_EMAIL_CHANGE_CODE",
                 Map.of("role", role.name(), "code", code));
@@ -139,7 +147,13 @@ public class AdminSmartTradeService {
         requireState(t, TradeState.WAITING_BUYER_VERIFY);
         requireReceiving(t, role);
 
-        sideRepo.recordLoginCode(tradeId, role, code, Instant.now());
+        Instant now = Instant.now();
+        if (sideRepo.recordLoginCode(tradeId, role, code, now) > 0) {
+            events.tradeAction(tradeId, t.getChatId(), role == ParticipantRole.SELLER ? t.getSellerId() : t.getBuyerId(),
+                    uz.efbazaar.trade.kafka.TradeEvents.TradeActionType.LOGIN_CODE_RECEIVED,
+                    t.getPriceUzs(), code, t.getKind(), now);
+            changes.publishForTrade(tradeId);
+        }
 
         audit.record(tradeId, ActorType.ADMIN, adminId, "ADMIN_LOGIN_CODE",
                 Map.of("role", role.name(), "code", code));

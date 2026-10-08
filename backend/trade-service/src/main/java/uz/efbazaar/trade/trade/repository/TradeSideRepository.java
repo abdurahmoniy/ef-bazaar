@@ -31,6 +31,7 @@ public interface TradeSideRepository extends JpaRepository<TradeSide, TradeSideI
                SET s.emailChangeCode = :code,
                    s.emailChangeCodeAt = :receivedAt
              WHERE s.id.tradeId = :tradeId AND s.id.role = :role
+               AND (s.emailChangeCodeAt IS NULL OR s.emailChangeCodeAt < :receivedAt)
             """)
     int recordEmailChangeCode(@Param("tradeId") UUID tradeId,
                               @Param("role") ParticipantRole role,
@@ -48,6 +49,7 @@ public interface TradeSideRepository extends JpaRepository<TradeSide, TradeSideI
                SET s.loginCode = :code,
                    s.loginCodeAt = :receivedAt
              WHERE s.id.tradeId = :tradeId AND s.id.role = :role
+               AND (s.loginCodeAt IS NULL OR s.loginCodeAt < :receivedAt)
             """)
     int recordLoginCode(@Param("tradeId") UUID tradeId,
                         @Param("role") ParticipantRole role,
