@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, type CSSProperties, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { SessionCacheBoundary } from '@/components/providers/client-query-provider';
@@ -9,6 +9,7 @@ import { chatInboxOptions, chatKeys } from '@/lib/chat-cache';
 
 import { ChatsListPane } from '@/components/chat/chats-list-pane';
 import { MobileBottomNav } from '@/components/navigation/mobile-bottom-nav';
+import { useChatBottomInset } from '@/hooks/use-chat-bottom-inset';
 import { useChatViewport } from '@/hooks/use-chat-viewport';
 import type { ChatResponse } from '@/lib/marketplace-types';
 import type { User } from '@/lib/types';
@@ -49,14 +50,16 @@ export function MessengerShell({ chats: initialChats, initialFetchedAt, user, ch
   const openChatId = pathname?.startsWith('/chats/') ? pathname.slice('/chats/'.length) : null;
   const isChatOpen = Boolean(openChatId);
   const viewport = useChatViewport();
+  const bottomInset = useChatBottomInset(viewport);
 
   return (
     <div
       className="fixed inset-x-0 top-0 flex h-[var(--tg-viewport-height,100dvh)] bg-background pl-[var(--app-content-safe-left)] pr-[var(--app-content-safe-right)] md:grid md:grid-cols-[340px,1fr] lg:grid-cols-[360px,1fr]"
       style={viewport ? {
+        ...(bottomInset !== null ? { '--chat-safe-bottom': `${bottomInset}px` } : {}),
         top: viewport.offsetTop,
         height: `min(${viewport.height}px, var(--tg-viewport-height, 100dvh))`,
-      } : undefined}
+      } as CSSProperties : undefined}
     >
       <SessionCacheBoundary accountId={user.id} />
       <aside
