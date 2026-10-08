@@ -226,7 +226,7 @@ describe('conversation messages', () => {
     await click(findButton('Bekor qilish'));
     await act(async () => bubble.click());
     await click(findButton('Tahrirlash'));
-    expect(container.querySelector('textarea')?.value).toBe('Akkount bormi?');
+    expect(messageEditor().textContent).toBe('Akkount bormi?');
     expect(findButton('Tahrirni saqlash')).toBeDefined();
   });
 
@@ -336,7 +336,7 @@ describe('first-contact chat', () => {
     expect(container.textContent).not.toContain('Chat qoidalari');
     expect(container.textContent).not.toContain('24 soat');
     expect(container.textContent).not.toContain('Kafolat');
-    expect(container.querySelector('textarea[aria-label="Xabar"]')).not.toBeNull();
+    expect(container.querySelector('[contenteditable="true"][aria-label="Xabar"]')).not.toBeNull();
     expect(dialogs()).toHaveLength(0);
 
     await click(findButton('So‘ralgan akkount tafsilotlari'));
@@ -356,14 +356,44 @@ describe('first-contact chat', () => {
     expect(dialogs()[0].querySelector('a[href="/help#safety"]')?.textContent).toContain('Xavfsiz savdo qoidalari');
   });
 
+  it('uses one inline message editor and replaces the mobile keyboard with an emoji dock', async () => {
+    const width = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+    try {
+      await render();
+      const editor = container.querySelector<HTMLElement>('[contenteditable="true"][aria-label="Xabar"]');
+      expect(editor).not.toBeNull();
+      expect(container.querySelector('textarea')).toBeNull();
+      await act(async () => editor!.focus());
+      await click(findButton('Emoji tanlash'));
+      expect(document.activeElement).not.toBe(editor);
+      const panel = container.querySelector('[aria-label="Emoji tanlash paneli"]')!;
+      expect(panel).not.toBeNull();
+      expect(panel.querySelector('input')).toBeNull();
+      expect(editor!.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(findButton('Belgini o‘chirish')).toBeDefined();
+      await click(findButton('Klaviaturani ochish'));
+      expect(container.querySelector('[aria-label="Emoji tanlash paneli"]')).toBeNull();
+      expect(document.activeElement).toBe(editor);
+      await click(findButton('Emoji tanlash'));
+      await act(async () => editor!.focus());
+      expect(container.querySelector('[aria-label="Emoji tanlash paneli"]')).toBeNull();
+    } finally { Object.defineProperty(window, 'innerWidth', { configurable: true, value: width }); }
+  });
+
   it('inserts a picked emoji at the cursor without sending the draft', async () => {
     await render();
-    const input = container.querySelector('textarea')!;
+    const input = messageEditor();
     await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(input, 'Salom dunyo');
+      input.textContent = 'Salom dunyo';
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    input.setSelectionRange(6, 6);
+    await act(async () => {
+      input.focus();
+      const range = document.createRange(); range.setStart(input.firstChild!, 6); range.collapse(true);
+      window.getSelection()!.removeAllRanges(); window.getSelection()!.addRange(range);
+      document.dispatchEvent(new Event('selectionchange'));
+    });
     expect(findButton('Emoji tanlash')).toBeDefined();
     await click(findButton('Emoji tanlash'));
     const custom = container.querySelector<HTMLButtonElement>('button[data-emoji-id="123"]');
@@ -377,7 +407,7 @@ describe('first-contact chat', () => {
     expect(editor.querySelectorAll('img[data-emoji-id="123"]')).toHaveLength(2);
     expect(sessionStorage.getItem('chat-draft:buyer:chat')).toBe('Salom <tg-emoji emoji-id="123">😊</tg-emoji><tg-emoji emoji-id="123">😊</tg-emoji>dunyo');
     expect(container.querySelector('[aria-label="Emoji tanlash paneli"]')).not.toBeNull();
-    await click(findButton('Emoji tanlash'));
+    await click(findButton('Klaviaturani ochish'));
     expect(container.querySelector('[aria-label="Emoji tanlash paneli"]')).toBeNull();
     expect(editor.querySelector('img[data-emoji-id="123"]')).not.toBeNull();
   });
@@ -395,7 +425,7 @@ describe('first-contact chat', () => {
     Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
     try {
       await render();
-      const input = container.querySelector('textarea')!;
+      const input = messageEditor();
       await act(async () => input.focus());
       const composer = input.parentElement!.parentElement!.parentElement!.parentElement!;
       const css = await postcss([tailwindcss({ content: [{ raw: composer.outerHTML, extension: 'html' }], corePlugins: { preflight: false } })])
@@ -404,7 +434,7 @@ describe('first-contact chat', () => {
       style.textContent = css.css;
       document.head.appendChild(style);
       try {
-        expect(window.getComputedStyle(composer).paddingBottom).toContain('--app-content-safe-bottom');
+        expect(window.getComputedStyle(composer).paddingBottom).toContain('--chat-safe-bottom');
       } finally { style.remove(); }
     } finally {
       Object.defineProperty(window, 'innerWidth', { value: previousWidth, configurable: true });
@@ -537,10 +567,14 @@ describe('partial server message snapshots', () => {
   });
 });
 
+function messageEditor() {
+  return container.querySelector<HTMLElement>('[role="textbox"][aria-label="Xabar"]')!;
+}
+
 async function typeDraft(value: string) {
-  const input = container.querySelector('textarea')!;
+  const input = messageEditor();
   await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(input, value);
+    input.textContent = value;
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
@@ -551,9 +585,9 @@ describe('draft recovery', () => {
     await typeDraft('My unsent draft');
     await act(async () => (container.querySelector('[aria-label="Xabarlar"] [role="button"]') as HTMLElement).click());
     await click(findButton('Tahrirlash'));
-    expect(container.querySelector('textarea')?.value).toBe('Original message');
+    expect(messageEditor().textContent).toBe('Original message');
     await click(findButton('Bekor qilish'));
-    expect(container.querySelector('textarea')?.value).toBe('My unsent draft');
+    expect(messageEditor().textContent).toBe('My unsent draft');
   });
   it('retains a failed message in the outbox after navigation', async () => {
     await render(); await typeDraft('Do not lose this');
@@ -561,10 +595,10 @@ describe('draft recovery', () => {
     vi.mocked(fetch).mockImplementation(async (input, init) => init?.method === 'POST' && String(input).endsWith('/messages')
       ? new Response(null, { status: 503 }) : originalFetch(input, init));
     await click(findButton('Xabarni yuborish'));
-    expect(container.querySelector('textarea')?.value).toBe('');
+    expect(messageEditor().textContent).toBe('');
     await vi.waitFor(() => expect(container.querySelector('[data-outbox-id]')?.textContent).toContain('Do not lose this'));
     await act(async () => root.render(null)); await render();
-    expect(container.querySelector('textarea')?.value).toBe('');
+    expect(messageEditor().textContent).toBe('');
     await vi.waitFor(() => expect(container.querySelector('[data-outbox-id]')?.textContent).toContain('Do not lose this'));
   });
 });
@@ -602,9 +636,9 @@ it('clears a sent draft so it cannot return after navigation', async () => {
   vi.mocked(fetch).mockImplementation(async (input, init) => init?.method === 'POST' && String(input).endsWith('/messages')
     ? Response.json(message('sent', { senderId: 'buyer', content: 'Sent text' })) : originalFetch(input, init));
   await render(); await typeDraft('Sent text'); await click(findButton('Xabarni yuborish'));
-  expect(container.querySelector('textarea')?.value).toBe('');
+  expect(messageEditor().textContent).toBe('');
   await act(async () => root.render(null)); await render();
-  expect(container.querySelector('textarea')?.value).toBe('');
+  expect(messageEditor().textContent).toBe('');
 });
 
 it.each([503, 429, 408, 'network'])('allows retrying message failure %s without interval polling', async status => {
@@ -663,7 +697,7 @@ it('does not let an old send completion erase a newer draft written after return
   await typeDraft('New unsent message');
   await act(async () => { finishSend(Response.json(message('sent', { senderId: 'buyer', content: 'First message' }))); });
   await act(async () => root.render(null)); await render();
-  expect(container.querySelector('textarea')?.value).toBe('New unsent message');
+  expect(messageEditor().textContent).toBe('New unsent message');
 });
 
 
@@ -785,7 +819,7 @@ it('shows an optimistic message and retries a failed send with its original clie
     return originalFetch(input, init);
   });
   await render(); await typeDraft('Optimistic hello'); await click(findButton('Xabarni yuborish'));
-  expect(container.querySelector('textarea')?.value).toBe('');
+  expect(messageEditor().textContent).toBe('');
   expect(container.querySelector('[aria-label="Xabarlar"]')?.textContent).toContain('Optimistic hello');
   expect(container.textContent).toContain('Yuborilmoqda');
   await act(async () => fail(new Error('Disconnected')));

@@ -239,3 +239,28 @@
   vertical-align: -0.3em;
   object-fit: contain;
 }
+
+.chat-composer-editor:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}
+
+.chat-emoji-panel {
+  height: var(--chat-emoji-height, 280px);
+  /* Leave the composer and conversation visible during keyboard transitions. */
+  max-height: min(360px, 42dvh, calc(var(--chat-visible-height, 100dvh) * 0.42));
+}
+.chat-emoji-panel[data-searching='true'] {
+  max-height: min(360px, 56dvh, calc(var(--chat-visible-height, 100dvh) * 0.56));
+  padding-bottom: var(--chat-safe-bottom, var(--app-content-safe-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .chat-emoji-panel {
+    position: absolute;
+    right: 16px;
+    bottom: calc(100% + 8px);
+    width: 380px;
+    height: 320px;
+  }
+}

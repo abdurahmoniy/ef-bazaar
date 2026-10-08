@@ -104,3 +104,59 @@ vi.mock('@/lib/chat-socket', async importOriginal => ({
   getChatSocket: () => socketFixture,
   closeOtherChatSockets: () => {},
 }));
+
+it.each([
+  { name: 'Samsung overlay', height: 800, telegramBottom: 24, contentBottom: 0, browserBottom: 0, expected: 24 },
+  { name: 'native iOS already safe', height: 800, telegramBottom: 0, contentBottom: 0, browserBottom: 34, expected: 0 },
+  { name: 'viewport already excludes the home indicator', height: 766, telegramBottom: 34, contentBottom: 0, browserBottom: 34, expected: 0 },
+  { name: 'partly excluded navigation bar', height: 788, telegramBottom: 24, contentBottom: 0, browserBottom: 0, expected: 12 },
+  { name: 'Telegram content controls', height: 800, telegramBottom: 0, contentBottom: 20, browserBottom: 34, expected: 20 },
+  { name: 'ordinary Safari', height: 800, telegramBottom: undefined, contentBottom: undefined, browserBottom: 34, expected: 34 },
+])('pads only the uncovered bottom inset: $name', async ({ height, telegramBottom, contentBottom, browserBottom, expected }) => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  vi.stubGlobal('innerWidth', 390);
+  vi.stubGlobal('innerHeight', 800);
+  const viewport = Object.assign(new EventTarget(), { height, offsetTop: 0, scale: 1 });
+  vi.stubGlobal('visualViewport', viewport);
+  const callbacks = new Map<string, () => void>();
+  const webApp = { initData: telegramBottom === undefined ? '' : 'signed', safeAreaInset: { bottom: telegramBottom }, contentSafeAreaInset: { bottom: contentBottom }, onEvent: (event: string, callback: () => void) => callbacks.set(event, callback), offEvent: vi.fn() };
+  vi.stubGlobal('Telegram', { WebApp: webApp });
+  const actualStyle = window.getComputedStyle;
+  vi.spyOn(window, 'getComputedStyle').mockImplementation(element => element.getAttribute('data-chat-safe-area-probe') !== null ? { paddingBottom: `${browserBottom}px` } as CSSStyleDeclaration : actualStyle(element));
+  const props = { chats: [], initialFetchedAt: Date.now(), user, children: createElement('textarea') };
+  const previousTelegramHeight = document.documentElement.style.getPropertyValue('--tg-viewport-height');
+  const container = document.createElement('div'); document.body.append(container);
+  const root = createRoot(container);
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  try {
+    await act(async () => root.render(createElement(QueryClientProvider, { client: queryClient }, createElement(MessengerShell, props))));
+    const shell = container.firstElementChild as HTMLElement;
+    expect(shell.style.getPropertyValue('--chat-safe-bottom')).toBe(`${expected}px`);
+    // Opening/closing the keyboard must follow geometry, even if focus remains.
+    await act(async () => { container.querySelector('textarea')!.focus(); viewport.height = 430; viewport.dispatchEvent(new Event('resize')); });
+    expect(shell.style.getPropertyValue('--chat-safe-bottom')).toBe('0px');
+    await act(async () => { viewport.height = height; viewport.dispatchEvent(new Event('resize')); });
+    expect(document.activeElement).toBe(container.querySelector('textarea'));
+    expect(shell.style.getPropertyValue('--chat-safe-bottom')).toBe(`${expected}px`);
+    if (telegramBottom !== undefined) {
+      await act(async () => { webApp.safeAreaInset.bottom = 30; callbacks.get('safeAreaChanged')?.(); });
+      expect(shell.style.getPropertyValue('--chat-safe-bottom')).toBe(`${Math.max(0, 30 - (800 - height))}px`);
+    } else {
+      // The SDK can finish loading after the shell mounted.
+      await act(async () => {
+        webApp.initData = 'signed'; webApp.safeAreaInset.bottom = 0;
+        document.documentElement.style.setProperty('--tg-viewport-height', '800px');
+      });
+      expect(shell.style.getPropertyValue('--chat-safe-bottom')).toBe('0px');
+    }
+    // React to host viewport changes even without a browser resize.
+    await act(async () => document.documentElement.style.setProperty('--tg-viewport-height', '750px'));
+    expect(shell.style.getPropertyValue('--chat-safe-bottom')).toBe('0px');
+  } finally {
+    await act(async () => root.unmount()); queryClient.clear(); container.remove();
+    expect(document.querySelector('[data-chat-safe-area-probe]')).toBeNull();
+    if (previousTelegramHeight) document.documentElement.style.setProperty('--tg-viewport-height', previousTelegramHeight);
+    else document.documentElement.style.removeProperty('--tg-viewport-height');
+    vi.restoreAllMocks(); vi.unstubAllGlobals();
+  }
+});

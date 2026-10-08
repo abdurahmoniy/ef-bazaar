@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useLayoutEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import {
   AlertTriangle,
   ArrowDown,
   Check,
   ChevronLeft,
   LoaderCircle,
+  Keyboard,
   MessageCircle,
   Paperclip,
   Pencil,
@@ -25,13 +26,14 @@ import { ChatSearch } from '@/components/chat/chat-search';
 import { ChatOutbox } from '@/components/chat/chat-outbox';
 import { useChatOutbox } from '@/hooks/use-chat-outbox';
 import { useChatMessageNavigation } from '@/hooks/use-chat-message-navigation';
-import { ChatComposerInput } from '@/components/chat/chat-composer-input';
 import { ChatEmojiPicker } from '@/components/chat/chat-emoji-picker';
-import { ChatRichComposer } from './chat-rich-composer';
+import { ChatRichComposer, type ChatRichComposerHandle } from './chat-rich-composer';
+import { useChatKeyboardHeight } from '@/hooks/use-chat-keyboard-height';
+import { useChatViewport } from '@/hooks/use-chat-viewport';
 import { ChatMessageContent } from './chat-message-content';
 import { useEmojiPacks } from '@/lib/use-emoji-packs';
 import type { EmojiItem } from '@/lib/emoji-packs';
-import { customEmojiToken, chatTextParts, chatPlainText } from '@/lib/chat-custom-emoji';
+import { chatPlainText } from '@/lib/chat-custom-emoji';
 import { ChatActivityStatus, MessageReadReceipt } from '@/components/chat/chat-activity-status';
 import { useChatConnection } from '@/hooks/use-chat-connection';
 import { getChatSocket } from '@/lib/chat-socket';
@@ -163,30 +165,22 @@ export function ChatView({
   const { listRef, onScroll, scrollToBottom, hasNewMessages, followNextMessage, stopFollowing } = useChatScroll(`${messages.at(-1)?.id ?? ''}:${outbox.entries.at(-1)?.clientMessageId ?? ''}`);
   const { jumpToMessage, highlightedMessageId } = useChatMessageNavigation(listRef, stopFollowing);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const composerRef = useRef<HTMLTextAreaElement>(null);
-  const emojiCaret = useRef<number | null>(null);
+  const composerRef = useRef<ChatRichComposerHandle>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
-  const [richMode, setRichMode] = useState(false);
   const emojiCatalog = useEmojiPacks('chat');
-  const richInsert = useRef<((item: EmojiItem) => void) | null>(null);
-  const richDraft = richMode || chatTextParts(draft).some(part => part.emojiId);
-  useLayoutEffect(() => {
-    if (emojiCaret.current === null || !composerRef.current) return;
-    composerRef.current.focus({ preventScroll: true });
-    composerRef.current.setSelectionRange(emojiCaret.current, emojiCaret.current);
-    emojiCaret.current = null;
-  }, [draft]);
+  const emojiHeight = useChatKeyboardHeight();
+  const viewport = useChatViewport();
 
   function insertEmoji(item: EmojiItem) {
     if (isSending) return;
-    if (richDraft && richInsert.current) { richInsert.current(item); return; }
-    const emoji = customEmojiToken(item);
-    setRichMode(true);
-    const start = composerRef.current?.selectionStart ?? draft.length;
-    const end = composerRef.current?.selectionEnd ?? start;
-    emojiCaret.current = start + 1;
-    setDraft(draft.slice(0, start) + emoji + draft.slice(end));
+    composerRef.current?.insertEmoji(item);
     setTyping(!editing);
+  }
+
+  function showKeyboard() {
+    // Focus synchronously in the tap gesture: iOS rejects delayed keyboard focus.
+    composerRef.current?.focus();
+    setEmojiOpen(false);
   }
 
   function handleComposerPaste(e: React.ClipboardEvent<HTMLElement>) {
@@ -250,7 +244,6 @@ export function ChatView({
     if (isSending) return;
     const content = draft.trim();
     if (!content && !pendingFile) return;
-    setRichMode(false);
     setTyping(false);
     setError(null);
     if (!editing) {
@@ -397,7 +390,8 @@ export function ChatView({
       listing={listing}
       initialPendingProposal={initialPendingProposal}
     >
-      <div className="chat-conversation flex h-full min-h-0 w-full min-w-0 flex-col">
+      <div className="chat-conversation flex h-full min-h-0 w-full min-w-0 flex-col"
+        style={viewport ? { '--chat-visible-height': `${viewport.height}px` } as React.CSSProperties : undefined}>
         <header className="relative z-10 flex shrink-0 items-center gap-2.5 border-b border-border/60 bg-card px-3 py-2 pt-[calc(var(--app-content-safe-top,0px)+0.5rem)] md:px-5 md:py-3">
           <Button asChild variant="ghost" size="sm" className="-ml-1 h-11 w-11 shrink-0 p-0 md:hidden">
             <Link href="/chats" aria-label="Chatlar ro'yxatiga qaytish">
@@ -575,8 +569,9 @@ export function ChatView({
         </div>
       )}
 
-      <div className="shrink-0 px-3 pb-[calc(var(--app-content-safe-bottom,0px)+0.5rem)] pt-1 md:px-8 md:pb-4">
-        <div className="mx-auto max-w-3xl">
+      <div className={cn('px-3 pt-1 md:px-8 md:pb-4',
+        emojiOpen ? 'flex min-h-0 shrink flex-col pb-0' : 'shrink-0 pb-[calc(var(--chat-safe-bottom,var(--app-content-safe-bottom,0px))+0.5rem)]')}>
+        <div className="relative mx-auto flex min-h-0 w-full max-w-3xl flex-col">
           {(replyTo || editing) && (
             <div className="mb-2 flex items-center gap-2 rounded-2xl bg-card px-3 py-2 shadow-sm">
               {editing ? (
@@ -637,11 +632,11 @@ export function ChatView({
               </Button>
             </div>
           )}
-          {emojiOpen && !isRecording && <ChatEmojiPicker {...emojiCatalog} onPick={insertEmoji} onClose={() => setEmojiOpen(false)} />}
-          <div className="flex items-end gap-2">
+          <div className="flex shrink-0 items-end gap-2">
             <input
               ref={fileInputRef}
               type="file"
+              tabIndex={-1}
               className="hidden"
               onChange={(e) => {
                 handlePickFile(e.target.files?.[0] ?? null);
@@ -664,25 +659,20 @@ export function ChatView({
                     <Paperclip className="h-5 w-5" />
                   </Button>
                 )}
-                {richDraft ? <ChatRichComposer value={draft} packs={emojiCatalog.packs} readOnly={isSending} caret={emojiCaret} pickerOpen={emojiOpen}
-                  registerInsert={(insert) => { richInsert.current = insert; }}
+                <ChatRichComposer ref={composerRef} value={draft} packs={emojiCatalog.packs} readOnly={isSending} pickerOpen={emojiOpen}
                   onChange={(value) => { setDraft(value); setTyping(!editing && Boolean(value.trim())); }}
                   onSend={handleSend} onBlur={() => setTyping(false)}
-                  onPaste={handleComposerPaste}
-                /> : <ChatComposerInput
-                  textareaRef={composerRef}
-                  value={draft}
-                  onChange={(e) => { setDraft(e.target.value); setTyping(!editing && Boolean(e.target.value.trim())); }}
-                  onBlur={() => setTyping(false)}
-                  onSend={handleSend}
-                  onPaste={handleComposerPaste}
+                  onFocus={() => setEmojiOpen(false)} onPaste={handleComposerPaste}
                   placeholder={pendingFile ? 'Izoh (ixtiyoriy)…' : 'Xabar yozing…'}
-                  readOnly={isSending}
-                />}
+                />
                 <Button type="button" variant="ghost" className="h-11 w-11 shrink-0 rounded-full p-0 text-muted-foreground hover:text-foreground"
-                  aria-label="Emoji tanlash" aria-expanded={emojiOpen} disabled={isSending}
-                  onClick={() => setEmojiOpen((open) => !open)}>
-                  <Smile className="h-5 w-5" />
+                  aria-label={emojiOpen ? 'Klaviaturani ochish' : 'Emoji tanlash'} aria-expanded={emojiOpen} disabled={isSending}
+                  onPointerDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    if (emojiOpen) showKeyboard();
+                    else { composerRef.current?.blur(); setEmojiOpen(true); }
+                  }}>
+                  {emojiOpen ? <Keyboard className="h-5 w-5" /> : <Smile className="h-5 w-5" />}
                 </Button>
               </div>
             )}
@@ -692,7 +682,7 @@ export function ChatView({
                 onSend={handleSendVoice}
                 onError={setError}
                 recording={isRecording}
-                onRecordingChange={setIsRecording}
+                onRecordingChange={(recording) => { setIsRecording(recording); if (recording) setEmojiOpen(false); }}
               />
             ) : (
               <Button
@@ -709,13 +699,15 @@ export function ChatView({
               </Button>
             )}
           </div>
+          {emojiOpen && !isRecording && <ChatEmojiPicker {...emojiCatalog} height={emojiHeight} disabled={isSending}
+            onPick={insertEmoji} onClose={() => setEmojiOpen(false)} onBackspace={() => composerRef.current?.deleteBackward()} />}
           <p className="mt-1.5 hidden px-3 text-[10px] text-muted-foreground md:block">
             Enter — yuborish · Shift+Enter — yangi qator
           </p>
         </div>
       </div>
 
-      {selectedMessage && <div role="toolbar" aria-label="Tanlangan xabar" className="flex shrink-0 items-center gap-2 border-t border-border bg-card px-3 py-2 pb-[calc(var(--app-content-safe-bottom,0px)+0.5rem)]">
+      {selectedMessage && <div role="toolbar" aria-label="Tanlangan xabar" className="flex shrink-0 items-center gap-2 border-t border-border bg-card px-3 py-2 pb-[calc(var(--chat-safe-bottom,var(--app-content-safe-bottom,0px))+0.5rem)]">
         <span className="min-w-0 flex-1 truncate text-xs">1 ta xabar tanlandi</span>
         {selectedMessage.content.trim() && <Button variant="ghost" onClick={() => handleCopyMessage(selectedMessage)}>Nusxa olish</Button>}
         {selectedMessage.senderId === viewerId && <Button variant="ghost" disabled={isUpdating} onClick={() => handleDeleteMessage(selectedMessage)}>O&apos;chirish</Button>}
