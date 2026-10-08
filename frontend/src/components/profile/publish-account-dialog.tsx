@@ -103,7 +103,7 @@ export function PublishAccountDialog({
 
   return (
     <div
-      className={inline ? undefined : "fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4"}
+      className={inline ? undefined : "fixed inset-0 !m-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4"}
       onClick={inline ? undefined : () => !pending && onClose()}
       role={inline ? undefined : 'presentation'}
     >

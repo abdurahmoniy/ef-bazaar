@@ -15,6 +15,16 @@ import java.util.UUID;
 
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
+    @Modifying
+    @Query(value = """
+            INSERT INTO notifications (id, user_id, trade_id, chat_id, type, verification_code, created_at)
+            VALUES (:id, :userId, :tradeId, :chatId, :type, :code, :occurredAt)
+            ON CONFLICT DO NOTHING
+            """, nativeQuery = true)
+    int insertVerificationCode(@Param("id") UUID id, @Param("userId") UUID userId,
+            @Param("tradeId") UUID tradeId, @Param("chatId") UUID chatId,
+            @Param("type") String type, @Param("code") String code, @Param("occurredAt") Instant occurredAt);
+
     Page<Notification> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
 
     long countByUserIdAndReadAtIsNull(UUID userId);

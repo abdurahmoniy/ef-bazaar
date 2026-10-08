@@ -63,6 +63,9 @@ public class Notification {
     @Column(name = "payment_ref")
     private UUID paymentRef;
 
+    @Column(name = "verification_code", length = 8)
+    private String verificationCode;
+
     @Column(name = "read_at")
     private Instant readAt;
 

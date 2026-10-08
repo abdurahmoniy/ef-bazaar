@@ -6,9 +6,15 @@ interface MediaLightboxProps {
   src: string;
   alt: string;
   onClose: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
+  currentIndex?: number;
+  totalCount?: number;
 }
 
 /** Fullscreen image viewer with touch zoom support. */
-export function MediaLightbox({ src, alt, onClose }: MediaLightboxProps) {
-  return <ZoomableLightbox src={src} alt={alt} onClose={onClose} />;
+export function MediaLightbox(props: MediaLightboxProps) {
+  return <ZoomableLightbox {...props} swipeDownToClose />;
 }

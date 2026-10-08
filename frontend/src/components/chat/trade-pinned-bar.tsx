@@ -63,7 +63,7 @@ export function TradePinnedBar() {
     const isHuman = isHumanProposal(proposal);
     return (
       <div className="shrink-0 border-b border-primary/20 bg-primary/10 px-3 py-2 backdrop-blur-md transition-all">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
+        <div className="trade-pinned-proposal mx-auto max-w-3xl gap-1.5">
           <button
             type="button"
             aria-label="Savdo taklifi tafsilotlari"
@@ -75,7 +75,7 @@ export function TradePinnedBar() {
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                <span className="truncate text-xs font-bold text-foreground">
+                <span className="min-w-0 break-words text-xs font-bold text-foreground">
                   {isSwap(proposal.kind)
                     ? `Almashish (${TRADE_KIND_LABEL_UZ[proposal.kind ?? 'SWAP']})`
                     : 'Savdo taklifi'}
@@ -91,7 +91,7 @@ export function TradePinnedBar() {
                   </Badge>
                 )}
               </div>
-              <p className="truncate text-[10.5px] text-muted-foreground">
+              <p className="text-[10.5px] leading-4 text-muted-foreground">
                 {proposal.proposerUserId === viewerId
                   ? 'Javob kutilmoqda'
                   : requiresAdminHandoff ? 'Kelishuvdan so‘ng adminga murojaat qiling' : 'Sizga taklif yuborildi — qabul qiling'}
@@ -105,20 +105,20 @@ export function TradePinnedBar() {
             </div>
           </button>
 
-          <div className="flex max-w-[65%] shrink-0 flex-wrap items-center justify-end gap-1.5">
+          <div className="trade-pinned-actions flex min-w-0 items-center justify-end gap-1.5">
             <TradeProposalRejectButton />
             {canAcceptTradeProposal(proposal, viewerId) && (
               <Button
                 type="button"
                 size="sm"
-                className="min-h-11 px-2.5 text-xs font-semibold shadow-sm"
+                className="h-9 min-h-9 px-2.5 text-xs font-semibold shadow-sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (requiresAdminHandoff) setIsDrawerOpen(true);
                   else setShowAcceptModal(true);
                 }}
               >
-                <Sparkles className="mr-1 h-3.5 w-3.5" />
+                <Sparkles className="hidden h-3.5 w-3.5 sm:block" />
                 {requiresAdminHandoff ? 'Adminga murojaat' : 'Qabul qilish'}
               </Button>
             )}
@@ -126,7 +126,7 @@ export function TradePinnedBar() {
               type="button"
               variant="outline"
               size="sm"
-              className="min-h-11 min-w-11 px-2 text-xs"
+              className="h-9 min-h-9 w-9 shrink-0 px-0 text-xs sm:w-auto sm:px-2"
               onClick={() => setIsDrawerOpen(true)}
               aria-label="Savdo tafsilotlari"
             >
@@ -174,10 +174,11 @@ export function TradePinnedBar() {
               )}
             </span>
             <div className="min-w-0 flex-1">
-              <span className="truncate text-xs font-semibold text-foreground">
-                Oxirgi savdo: {TRADE_STATE_LABEL_UZ[lastFinished.state]}
+              <span className="block text-[10.5px] leading-4 text-muted-foreground">Oxirgi savdo: </span>
+              <span className="block break-words text-xs font-semibold leading-4 text-foreground">
+                {TRADE_STATE_LABEL_UZ[lastFinished.state]}
               </span>
-              <span className="ml-1.5 hidden text-[11px] text-muted-foreground sm:inline">
+              <span className="hidden text-[11px] text-muted-foreground sm:block">
                 ({tradeAmountLabel(lastFinished.kind, lastFinished.priceUzs)})
               </span>
             </div>
@@ -187,7 +188,7 @@ export function TradePinnedBar() {
               type="button"
               variant="outline"
               size="sm"
-              className="min-h-11 px-2 text-[11px]"
+              className="h-9 min-h-9 px-2 text-[11px]"
               onClick={() => { setStartingNew(true); setIsDrawerOpen(true); }}
             >
               Yangi savdo
@@ -196,7 +197,7 @@ export function TradePinnedBar() {
               type="button"
               variant="ghost"
               size="sm"
-              className="min-h-11 min-w-11 px-1.5 text-[11px]"
+              className="h-9 min-h-9 w-9 px-0 text-[11px] sm:w-auto sm:px-1.5"
               onClick={() => setIsDrawerOpen(true)}
             >
               <span className="sr-only sm:not-sr-only">Ko'rish</span>

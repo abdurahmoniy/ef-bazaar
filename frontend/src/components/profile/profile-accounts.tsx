@@ -136,8 +136,8 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
           </div>
           <div role="group" aria-label="Akkount holati" className="flex flex-wrap gap-2">
             {FILTERS.filter((item) => item.id !== 'archived' || accounts.some((account) => account.status === 'ARCHIVED')).map((item) => (
-              <Button key={item.id} type="button" variant={filter === item.id ? 'default' : 'outline'}
-                className="min-h-11 rounded-full px-3" aria-pressed={filter === item.id} onClick={() => changeView(query, item.id)}>
+              <Button key={item.id} type="button" variant="ghost"
+                className={`min-h-11 rounded-lg px-3 text-xs ${filter === item.id ? 'bg-muted' : ''}`} aria-pressed={filter === item.id} onClick={() => changeView(query, item.id)}>
                 {item.label}<span className="text-xs opacity-75">{accounts.filter((account) => matchesFilter(account, item.id)).length}</span>
               </Button>
             ))}
@@ -146,7 +146,7 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
         </div>
       )}
       {storageNotice && <p role="status" className="text-sm text-muted-foreground">{storageNotice}</p>}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {visibleAccounts.map((account) => (
           <div key={account.id} ref={account.id === savedAccountId ? savedCard : undefined} tabIndex={account.id === savedAccountId ? -1 : undefined}
             aria-label={account.id === savedAccountId ? 'Saqlangan akkount' : undefined}

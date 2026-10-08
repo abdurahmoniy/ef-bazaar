@@ -6,9 +6,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const { config, vapidKey } = getPushConfig();
-  if (!config) return NextResponse.json({ config: null, vapidKey: '', userId: null }, { headers: { 'Cache-Control': 'no-store' } });
   try {
     const user = await getMe();
+    if (!config) return NextResponse.json({ config: null, vapidKey: '', userId: user?.id ?? null }, { headers: { 'Cache-Control': 'no-store' } });
     const status = user ? await apiFetch<{ enabled: boolean }>('/marketplace/v1/notifications/push-status') : { enabled: false };
     return NextResponse.json({ config: status.enabled ? config : null, vapidKey, userId: user?.id ?? null }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {

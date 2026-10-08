@@ -57,18 +57,32 @@ async function render(over: Partial<UserAccountResponse> = {}, extras: Partial<P
 }
 
 const button = (label: string) =>
-  Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes(label));
+  Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes(label) || b.getAttribute('aria-label')?.includes(label));
 
 describe('AccountCard', () => {
   it('keeps the email masked until it is revealed', async () => {
     await render();
     expect(container.textContent).not.toContain('a7f2@efbazaar.uz');
 
-    await act(async () => button("Ko'rsatish")!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Emailni ko‘rsatish"]')!.click());
 
     expect(container.textContent).toContain('a7f2@efbazaar.uz');
-    await act(async () => button('Yashirish')!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Emailni yashirish"]')!.click());
     expect(container.textContent).not.toContain('a7f2@efbazaar.uz');
+  });
+
+  it('offers labelled compact email controls beside a private email', async () => {
+    await render({}, { display: { mailboxHref: '/mail/owned-1' } });
+    const reveal = container.querySelector<HTMLButtonElement>('[aria-label="Emailni ko‘rsatish"]');
+    const copy = container.querySelector<HTMLButtonElement>('[aria-label="Emailni nusxalash"]');
+    expect(reveal).not.toBeNull();
+    expect(copy).not.toBeNull();
+    expect(reveal!.textContent).toBe('');
+    await act(async () => reveal!.click());
+    expect(container.textContent).toContain('a7f2@efbazaar.uz');
+    expect(container.querySelector('[aria-label="Emailni yashirish"]')).not.toBeNull();
+    const mailbox = container.querySelector('a[href="/mail/owned-1"]');
+    expect(mailbox?.parentElement).toBe(button('Bozorga chiqarish')?.parentElement);
   });
 
   it('shows the Bozorda badge and hides delete while published', async () => {
@@ -105,14 +119,14 @@ describe('AccountCard', () => {
   it('says so when no email is attached', async () => {
     await render({ email: null, emailSource: null });
     expect(container.textContent).toContain('Email biriktirilmagan');
-    expect(button("Ko'rsatish")).toBeUndefined();
+    expect(container.querySelector<HTMLButtonElement>('[aria-label="Emailni ko‘rsatish"]')).toBeNull();
   });
 
   it('copies without revealing the email and reports clipboard failures', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
     await render();
-    await act(async () => button('Nusxalash')!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Emailni nusxalash"]')!.click());
     expect(writeText).toHaveBeenCalledWith('a7f2@efbazaar.uz');
     expect(container.textContent).not.toContain('a7f2@efbazaar.uz');
     expect(container.textContent).toContain('Nusxalandi');

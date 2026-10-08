@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 
 interface ZoomableLightboxProps {
+  swipeDownToClose?: boolean;
   src: string;
   alt: string;
   title?: string;
@@ -43,6 +44,7 @@ function clamp(value: number, min: number, max: number) {
 export function ZoomableLightbox({
   src,
   alt,
+  swipeDownToClose = false,
   title,
   onClose,
   onPrev,
@@ -67,6 +69,7 @@ export function ZoomableLightbox({
   const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
   const isPinchingRef = useRef(false);
   const hasDraggedRef = useRef(false);
+  const touchClickUntil = useRef(0);
 
   // Reset zoom whenever src changes
   const resetZoom = useCallback(() => {
@@ -201,6 +204,7 @@ export function ZoomableLightbox({
   // Touch handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     hasDraggedRef.current = false;
+    touchClickUntil.current = Date.now() + 1000;
 
     if (e.touches.length === 2) {
       // Pinch start
@@ -265,10 +269,14 @@ export function ZoomableLightbox({
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    touchClickUntil.current = Date.now() + 1000;
     if (isPinchingRef.current) {
       if (e.touches.length < 2) {
         isPinchingRef.current = false;
         pinchStartDistRef.current = null;
+        dragStartRef.current = null;
+        swipeStartRef.current = null;
+        lastTapRef.current = null;
         // Snap back to 1x if pinch scale ended < 1
         if (scale < 1.05) {
           resetZoom();
@@ -290,6 +298,24 @@ export function ZoomableLightbox({
       const now = Date.now();
       const lastTap = lastTapRef.current;
 
+      const swipe = swipeStartRef.current;
+      const dx = swipe ? touch.clientX - swipe.x : 0;
+      const dy = swipe ? touch.clientY - swipe.y : 0;
+      if (Math.hypot(dx, dy) > 10) {
+        lastTapRef.current = null;
+        hasDraggedRef.current = true;
+        if (scale <= 1.05 && swipe) {
+          if (swipeDownToClose && dy > 80 && dy > Math.abs(dx) * 1.5) onClose();
+          else if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            if (dx < 0 && hasNext) onNext?.();
+            else if (dx > 0 && hasPrev) onPrev?.();
+          }
+        }
+        dragStartRef.current = null;
+        swipeStartRef.current = null;
+        return;
+      }
+
       // Check for double tap
       if (
         lastTap &&
@@ -306,25 +332,6 @@ export function ZoomableLightbox({
       }
 
       lastTapRef.current = { time: now, x: touch.clientX, y: touch.clientY };
-
-      // Check for swipe navigation when scale === 1
-      if (scale <= 1.05 && swipeStartRef.current && !hasDraggedRef.current) {
-        const deltaX = touch.clientX - swipeStartRef.current.x;
-        const deltaY = touch.clientY - swipeStartRef.current.y;
-        const elapsed = now - swipeStartRef.current.time;
-
-        if (
-          elapsed < 400 &&
-          Math.abs(deltaX) > 40 &&
-          Math.abs(deltaX) > Math.abs(deltaY) * 1.5
-        ) {
-          if (deltaX < 0 && hasNext && onNext) {
-            onNext();
-          } else if (deltaX > 0 && hasPrev && onPrev) {
-            onPrev();
-          }
-        }
-      }
 
       dragStartRef.current = null;
       swipeStartRef.current = null;
@@ -411,6 +418,14 @@ export function ZoomableLightbox({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => {
+          dragStartRef.current = null;
+          swipeStartRef.current = null;
+          pinchStartDistRef.current = null;
+          isPinchingRef.current = false;
+          lastTapRef.current = null;
+          hasDraggedRef.current = true;
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -434,7 +449,7 @@ export function ZoomableLightbox({
           )}
           onClick={(e) => {
             e.stopPropagation();
-            if (hasDraggedRef.current) return;
+            if (hasDraggedRef.current || Date.now() < touchClickUntil.current) return;
             // On desktop click: toggle double-tap zoom
             if (scale > 1.05) {
               resetZoom();

@@ -1,12 +1,11 @@
-/**
- * Bozor tartiblari. "Yangi/Eski e'lonlar" ataylab yo'q (2026-10-02 qaror):
- * eng so'nggi qo'yilgan e'lon tepaga chiqmasin — default qiymat bali.
- */
+/** Marketplace ordering; value score remains the public default. */
 export const LISTING_SORT_OPTIONS = [
   { id: 'value', label: "Qiymat bo'yicha", param: 'valueScore,desc' },
   { id: 'price-asc', label: 'Arzon narx', param: 'price,asc' },
   { id: 'price-desc', label: 'Qimmat narx', param: 'price,desc' },
   { id: 'popular', label: "Ko'p yoqtirilgan", param: 'likeCount,desc' },
+  { id: 'newest', label: 'Eng yangi', param: 'createdAt,desc' },
+  { id: 'oldest', label: 'Eng eski', param: 'createdAt,asc' },
 ] as const;
 
 export const DEFAULT_LISTING_SORT = LISTING_SORT_OPTIONS[0].param;

@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Ellipsis, ShieldCheck, Star, StarOff, Trash2, X } from 'lucide-react';
+import { Ellipsis, Moon, ShieldCheck, Star, StarOff, Sun, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useTheme } from '@/components/theme/use-theme';
 
 interface ChatOptionsProps {
   important: boolean;
@@ -15,6 +16,7 @@ interface ChatOptionsProps {
 
 export function ChatOptions({ important, disabled, onToggleImportant, onDelete }: ChatOptionsProps) {
   const [open, setOpen] = useState(false);
+  const { isDark, toggle } = useTheme();
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
@@ -34,6 +36,10 @@ export function ChatOptions({ important, disabled, onToggleImportant, onDelete }
           <button type="button" disabled={disabled} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-muted disabled:opacity-50" onClick={() => { setOpen(false); onToggleImportant(); }}>
             {important ? <StarOff className="h-5 w-5" /> : <Star className="h-5 w-5" />}
             {important ? 'Muhimni olib tashlash' : 'Muhim deb belgilash'}
+          </button>
+          <button type="button" onClick={toggle} aria-pressed={isDark} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-muted">
+            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            {isDark ? 'Yorug‘ rejim' : 'Qorong‘i rejim'}
           </button>
           <Link href="/help#safety" onClick={() => setOpen(false)} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-3 text-sm hover:bg-muted">
             <ShieldCheck className="h-5 w-5" />Xavfsiz savdo qoidalari

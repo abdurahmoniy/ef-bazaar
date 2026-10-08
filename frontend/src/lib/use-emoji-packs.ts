@@ -10,6 +10,8 @@ interface LoadedEmojiPacks {
   thumbnailUrls: ReadonlyMap<string, string>;
   /** Preview uchun: id → asl fayl, harakatlanib ko'rinadigani. */
   fileUrls: ReadonlyMap<string, string>;
+  loading: boolean;
+  error: string | null;
 }
 
 /**
@@ -19,27 +21,28 @@ interface LoadedEmojiPacks {
  * (matn ichida o'nlab emoji bo'lishi mumkin), preview'da esa asl fayl —
  * admin xabar qanday chiqishini haqiqiy holicha ko'rishi kerak.
  *
- * <p>Xato jimgina yutiladi: emoji to'plami yuklanmagani xabar yozishga
- * to'sqinlik qilmasligi kerak. Panel shunchaki ochilmaydi.
+ * Loading failures are exposed to the picker without blocking message text.
  */
-export function useEmojiPacks(): LoadedEmojiPacks {
+export function useEmojiPacks(scope: 'admin' | 'chat' = 'admin'): LoadedEmojiPacks {
   const [packs, setPacks] = useState<EmojiPackDetail[]>([]);
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const summaries = await listEmojiPacks();
-        const details = await Promise.all(summaries.map((s) => getEmojiPack(s.id)));
+        const summaries = await listEmojiPacks(scope);
+        const details = await Promise.all(summaries.map((s) => getEmojiPack(s.id, scope)));
         if (!cancelled) setPacks(details);
       } catch {
-        // Panel bo'sh qoladi — xabar yozish davom etadi.
-      }
+        if (!cancelled) setError('Emoji to‘plamlarini yuklab bo‘lmadi.');
+      } finally { if (!cancelled) setLoading(false); }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [scope]);
 
   return useMemo(() => {
     const thumbnailUrls = new Map<string, string>();
@@ -50,6 +53,6 @@ export function useEmojiPacks(): LoadedEmojiPacks {
         fileUrls.set(item.customEmojiId, item.fileUrl);
       }
     }
-    return { packs, thumbnailUrls, fileUrls };
-  }, [packs]);
+    return { packs, thumbnailUrls, fileUrls, loading, error };
+  }, [packs, loading, error]);
 }

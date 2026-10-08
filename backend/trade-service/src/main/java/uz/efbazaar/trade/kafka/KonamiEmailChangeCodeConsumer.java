@@ -6,6 +6,8 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.trade.trade.domain.Trade;
+import uz.efbazaar.trade.trade.domain.ParticipantRole;
+import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
 import uz.efbazaar.trade.trade.repository.TradeSideRepository;
 import uz.efbazaar.trade.trade.service.TradeSideService;
@@ -25,8 +27,7 @@ import uz.efbazaar.trade.trade.service.TradeSideService;
  * load {@code smart_admin_worker.kafka.events.KonamiEmailChangeCodeReceived}
  * on our classpath and fail.
  *
- * <p>Idempotent: last-write-wins. Konami's server-side TTL is 5 minutes so
- * newer values are always preferable to older ones, and replays are safe.
+ * <p>Only fresh codes are accepted; atomic timestamp guards drop stale reports and replays.
  */
 @Slf4j
 @Component
@@ -37,6 +38,7 @@ public class KonamiEmailChangeCodeConsumer {
     private final TradeSideRepository sideRepo;
     private final TradeSideService sides;
     private final ChatChangePublisher changes;
+    private final TradeEventPublisher events;
 
     @KafkaListener(
             topics = TradeEvents.TOPIC_KONAMI_EMAIL_CHANGE_CODE,
@@ -48,27 +50,29 @@ public class KonamiEmailChangeCodeConsumer {
     )
     @Transactional
     public void onCode(TradeEvents.KonamiEmailChangeCodeReceived e) {
-        // Route it to the party whose mailbox it landed in. A swap has two,
-        // each with its own code, and the other party's is useless to you —
-        // Konami issued it for a different account.
+        if (!KonamiOtpCode.isFresh(e.verificationCode(), e.receivedAt())) return;
+        Trade trade = trades.findById(e.tradeId()).orElse(null);
+        if (trade == null || trade.getState().isTerminal()) return;
         var side = sides.byMailboxEmail(e.tradeId(), e.mailboxEmail());
+        ParticipantRole owner;
         if (side.isPresent()) {
-            sideRepo.recordEmailChangeCode(
-                    e.tradeId(), side.get().role(), e.verificationCode(), e.receivedAt());
-        } else if (e.mailboxEmail() != null) {
-            log.warn("konami-email-change-code for trade {} names a mailbox with no side",
-                    e.tradeId());
-        }
-
-        // The trade-level column stays written for the sale path and for
-        // anything still reading it.
-        int updated = trades.recordEmailChangeCode(
-                e.tradeId(), e.verificationCode(), e.receivedAt());
-        if (updated == 0) {
-            log.warn("konami-email-change-code for unknown trade {}", e.tradeId());
+            owner = side.get().role();
+            if (sideRepo.recordEmailChangeCode(e.tradeId(), owner, e.verificationCode(), e.receivedAt()) == 0) return;
+            trades.recordEmailChangeCode(e.tradeId(), e.verificationCode(), e.receivedAt());
+        } else if ((e.mailboxEmail() == null || e.mailboxEmail().isBlank()) && !trade.getKind().isSwap()) {
+            owner = ParticipantRole.SELLER;
+            if (trades.recordEmailChangeCode(e.tradeId(), e.verificationCode(), e.receivedAt()) == 0) return;
+        } else {
+            log.warn("Konami code mailbox does not belong to trade {}", e.tradeId());
             return;
         }
         changes.publishForTrade(e.tradeId());
-        log.info("Recorded Konami email-change verification code for trade {}", e.tradeId());
+        if (trade.getState() == TradeState.WAITING_EMAIL_CHANGE) {
+            events.tradeAction(trade.getId(), trade.getChatId(),
+                    owner == ParticipantRole.SELLER ? trade.getSellerId() : trade.getBuyerId(),
+                    TradeEvents.TradeActionType.EMAIL_CHANGE_CODE_RECEIVED, trade.getPriceUzs(),
+                    e.verificationCode(), trade.getKind(), e.receivedAt());
+        }
+        log.info("Recorded Konami email-change code for trade {}", e.tradeId());
     }
 }

@@ -63,14 +63,30 @@ describe('chat composer input', () => {
     expect(onSend).toHaveBeenCalledOnce();
   });
 
-  it('keeps mobile Return as a newline and never sends an IME composition', async () => {
+  it('sends with Enter on mobile and keeps Shift+Enter as a newline', async () => {
     mobile = true;
     const input = await render('Salom');
     const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
     await act(async () => { input.dispatchEvent(enter); });
-    expect(enter.defaultPrevented).toBe(false);
-    mobile = false;
+    expect(enter.defaultPrevented).toBe(true);
+    expect(onSend).toHaveBeenCalledOnce();
+    const newline = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true, cancelable: true });
+    await act(async () => { input.dispatchEvent(newline); });
+    expect(newline.defaultPrevented).toBe(false);
+    expect(onSend).toHaveBeenCalledOnce();
+  });
+
+  it('never sends an IME composition', async () => {
+    const input = await render('Salom');
     await act(async () => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true })); });
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it.each(['readOnly', 'disabled'] as const)('never sends when %s', async (state) => {
+    await act(async () => root.render(createElement(ChatComposerInput, {
+      value: 'Salom', onChange: vi.fn(), onSend, [state]: true,
+    })));
+    await act(async () => { container.querySelector('textarea')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
     expect(onSend).not.toHaveBeenCalled();
   });
 });

@@ -18,18 +18,12 @@ interface TopBackButtonProps {
 /**
  * Chevron-style back button placed inside the marketplace shell header.
  *
- * Behaves adaptively:
- *  - In a Telegram Mini App: activates the native {@code BackButton} in
- *    Telegram's own chrome and renders nothing itself (the top-bar arrow
- *    would be redundant).
- *  - In a normal browser: renders a tappable chevron with an accessible
- *    label — the primary way for the user to leave a drill-down page.
+ * Always renders an accessible in-app chevron. Also registers Telegram's
+ * native back handler, whose activation does not guarantee visible chrome.
  */
 export function TopBackButton({ href, label = 'Orqaga', className }: TopBackButtonProps) {
   const goBack = useMarketplaceBackNavigation(href);
-  const isTelegram = useTelegramBackButton(goBack);
-
-  if (isTelegram) return null;
+  useTelegramBackButton(goBack);
 
   return (
     <Link

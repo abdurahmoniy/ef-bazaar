@@ -14,16 +14,12 @@ interface BackLinkProps {
 }
 
 /**
- * Back navigation that adapts to context: inside a Telegram Mini App it
- * activates the native BackButton and renders nothing itself (Telegram's own
- * chrome already shows the arrow); in a plain browser — which otherwise has
- * no way back on these drill-down pages — it renders a normal link.
+ * Visible back navigation in browsers and Telegram Mini Apps. Registers the
+ * native handler too, without relying on Telegram to display its back arrow.
  */
 export function BackLink({ href, label = 'Orqaga', className }: BackLinkProps) {
   const goBack = useMarketplaceBackNavigation(href);
-  const isTelegram = useTelegramBackButton(goBack);
-
-  if (isTelegram) return null;
+  useTelegramBackButton(goBack);
 
   return (
     <Link

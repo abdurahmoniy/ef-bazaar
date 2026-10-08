@@ -1,7 +1,8 @@
 'use client';
+import { chatPlainText } from '@/lib/chat-custom-emoji';
 
-import { useEffect } from 'react';
-import { Copy, Pencil, Reply, Trash2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { CheckSquare, Copy, Pencil, Reply, Trash2 } from 'lucide-react';
 
 import type { MessageResponse } from '@/lib/marketplace-types';
 import { cn } from '@/lib/utils';
@@ -11,6 +12,7 @@ interface MessageActionSheetProps {
   mine: boolean;
   onReply: () => void;
   onCopy: () => void;
+  onSelect?: () => void;
   onEdit: () => void;
   onDelete: () => void;
   onClose: () => void;
@@ -26,10 +28,13 @@ export function MessageActionSheet({
   mine,
   onReply,
   onCopy,
+  onSelect,
   onEdit,
   onDelete,
   onClose,
 }: MessageActionSheetProps) {
+  const pressStarted = useRef(false);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -44,6 +49,17 @@ export function MessageActionSheet({
   return (
     <div
       className="fixed inset-0 z-[90] flex items-end justify-center bg-black/40 md:items-center"
+      onPointerDownCapture={() => { pressStarted.current = true; }}
+      onClickCapture={(event) => {
+        // The sheet can appear beneath a finger already held on a message.
+        // Only a new press (or keyboard activation) may choose an action.
+        const freshPress = pressStarted.current;
+        pressStarted.current = false;
+        if (event.detail > 0 && !freshPress) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -54,9 +70,10 @@ export function MessageActionSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <p className="truncate px-3 py-2 text-[11px] text-muted-foreground">
-          {message.content.trim() || message.attachmentName || 'Xabar'}
+          {chatPlainText(message.content).trim() || message.attachmentName || 'Xabar'}
         </p>
         <SheetButton icon={<Reply className="h-4.5 w-4.5" />} label="Javob berish" onClick={onReply} />
+        {onSelect && <SheetButton icon={<CheckSquare className="h-4.5 w-4.5" />} label="Tanlash" onClick={onSelect} />}
         {canCopy && (
           <SheetButton icon={<Copy className="h-4.5 w-4.5" />} label="Nusxa olish" onClick={onCopy} />
         )}

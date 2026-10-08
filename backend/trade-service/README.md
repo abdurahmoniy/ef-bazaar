@@ -86,3 +86,15 @@ har o'zgarish `trade_audit_log` ga yoziladi (`TradeAuditService` — yagona yozu
 ## Test
 
 `mvn -B -ntp clean verify` — 47 unit, 48 integratsion (`*IT`).
+
+### Konami verification-code notifications
+
+Fresh email-change and login OTP reports (4–8 ASCII digits, five-minute lifetime) emit
+`trade.action-notification` actions `EMAIL_CHANGE_CODE_RECEIVED` and `LOGIN_CODE_RECEIVED`.
+`details` carries the code and `occurredAt` keeps the email detection time. Email-change
+codes go to the mailbox's transferring party; login codes go to the receiving party.
+Unknown mailboxes and addressless swap reports are dropped. Atomic timestamp guards
+prevent worker replays and older reports from replacing or announcing newer codes.
+Admin-supplied codes use the same notification pipeline. Chat-change events refresh
+the authorized participant's trade panel; auth enriches bot identity and marketplace
+creates code-bearing notifications/push messages.

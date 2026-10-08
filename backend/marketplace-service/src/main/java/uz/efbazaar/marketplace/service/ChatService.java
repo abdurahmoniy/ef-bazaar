@@ -306,7 +306,8 @@ public class ChatService {
     }
 
     public static String previewOf(ChatMessage m) {
-        String content = m.getContent() == null ? "" : m.getContent().trim();
+        String content = m.getContent() == null ? "" : m.getContent().trim()
+                .replaceAll("<tg-emoji emoji-id=\"[0-9]{1,32}\">([^<>]*)</tg-emoji>", "$1");
         // Savdo taklifi xabarining matni — summaning o'zi. Obmenda u nol
         // bo'ladi va chat ro'yxatida oxirgi xabar "0" bo'lib ko'rinardi.
         // Summa bu yerda baribir keraksiz: taklif kartochkasi chatning

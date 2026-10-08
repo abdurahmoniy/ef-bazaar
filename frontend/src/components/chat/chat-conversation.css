@@ -118,21 +118,21 @@
   padding: 6px 8px 4px;
 }
 
-/* Reserve exactly the label/checks' width on the last text line. The visible
-   metadata sits at its right edge, including when the reservation wraps. */
+/* The spacer matches the metadata's real flex layout, including edited status
+   and receipts, so the last line reserves enough room before positioning it. */
 .chat-message-meta-space {
-  display: inline-block;
+  display: inline-flex;
+  gap: 3px;
   padding-left: 8px;
   visibility: hidden;
   user-select: none;
-  vertical-align: bottom;
   white-space: nowrap;
+  vertical-align: bottom;
   font-size: 11px;
   line-height: 14px;
   font-variant-numeric: tabular-nums;
 }
-.chat-message-meta-space::before { content: attr(data-label); }
-.chat-message-meta-space[data-mine='true'] { padding-right: 17px; }
+.chat-message-receipt-space { width: 14px; }
 .chat-message-text > .chat-message-meta {
   position: absolute;
   right: 0;
@@ -221,4 +221,21 @@
     hsl(var(--chat-accent) / 0.07) 85%,
     transparent
   );
+}
+.trade-pinned-proposal {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+}
+.trade-pinned-actions { flex-wrap: nowrap; }
+.trade-pinned-actions > button { min-height: 36px; height: 36px; font-size: 12px; padding-inline: 10px; }
+@media (min-width: 640px) {
+  .trade-pinned-proposal { grid-template-columns: minmax(0, 1fr) auto; }
+}
+.chat-custom-emoji {
+  display: inline-block;
+  width: 1.5em;
+  height: 1.5em;
+  vertical-align: -0.3em;
+  object-fit: contain;
 }

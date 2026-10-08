@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronUp, Search, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { MessageResponse } from '@/lib/marketplace-types';
+import { chatPlainText } from '@/lib/chat-custom-emoji';
 
 export interface ChatSearchProps {
   messages: MessageResponse[];
@@ -17,7 +18,7 @@ export function ChatSearch({ messages, onJump, onClose, loading = false, error }
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const normalizedQuery = query.trim().toLocaleLowerCase('uz');
   const matches = useMemo(() => normalizedQuery ? messages.filter((message) =>
-    message.content.toLocaleLowerCase('uz').includes(normalizedQuery)
+    chatPlainText(message.content).toLocaleLowerCase('uz').includes(normalizedQuery)
     || message.attachmentName?.toLocaleLowerCase('uz').includes(normalizedQuery)) : [],
   [messages, normalizedQuery]);
   const selectedIndex = Math.max(0, matches.findIndex((message) => message.id === selectedId));
@@ -53,7 +54,7 @@ export function ChatSearch({ messages, onJump, onClose, loading = false, error }
     <div className="flex min-w-0 items-center gap-2">
       <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       <input autoFocus type="search" aria-label="Xabarlarni qidirish" placeholder="Xabarlarni qidirish…"
-        className="chat-search-input min-w-0 flex-1 bg-transparent py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="chat-search-input min-w-0 flex-1 rounded-lg bg-transparent px-3 py-2 text-sm outline-none focus-visible:bg-muted"
         value={query} onChange={(event) => { setQuery(event.target.value); setSelectedId(null); }} />
       <div className="chat-search-controls flex shrink-0 items-center">
         <button type="button" aria-label="Oldingi natija" title="Oldingi natija (Shift+Enter)" disabled={!matches.length}

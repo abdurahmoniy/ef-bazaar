@@ -35,9 +35,9 @@ Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
 
 - **Qiziqishlarim** (saralash menyusida birinchi, login qilganlarga default) — `recommendation-service` `/feed` tartibi,
   filtr va sahifalash marketplace `POST /listings/ranked` da. Snapshot hash `feed=` URL parametrida.
-- **Katta bozor** — shu menyudagi Qiymat / Arzon / Qimmat / Ko'p yoqtirilgan tartiblaridan biri
+- **Katta bozor** — shu menyudagi Qiymat / Arzon / Qimmat / Ko'p yoqtirilgan / Eng yangi / Eng eski tartiblaridan biri
   tanlanganda (`sort=` yoki eski `tab=market` havolasi). Mehmonlar uchun default:
-  `GET /listings?sort=valueScore,desc`. Alohida bo'lim tablari va "eng yangi" tartibi yo'q.
+  `GET /listings?sort=valueScore,desc`. Eng yangi — `createdAt,desc`, Eng eski — `createdAt,asc`. Alohida bo'lim tablari yo'q.
 - Qiziqishlarimga qaytish `sort`, `tab`, `page`, `feed` parametrlarini tozalaydi; boshqa filtrlar saqlanadi.
 - Player filtri har ikki rejimda: rec `/match` → `ranked` → rec `/match/details`. Bu rejimda saralash
   menyusi yashiriladi, chunki tartibni moslik belgilaydi. rec xatosi → xato holati.
@@ -92,3 +92,16 @@ npm run typecheck && npm run lint && npm test && npm run build   # CI bilan bir 
 - Mavjud marketplace-servisdagi `/api/v1/popups/**` va admin endpointlar ishlatiladi. Alohida worker, deploy sozlamasi yoki boshlang‘ich faol kampaniya yo‘q. Lokal preview yubormaydi va statistikani o‘zgartirmaydi.
 
 Marketplace filters use a plain desktop sidebar and a full-height mobile overview with selection summaries. Groups expand inline; collapsed controls retain drafts and invalid groups stay visible. Result counts remain debounced and cancellable.
+
+Chat custom emoji uses the authenticated read-only `/api/marketplace/v1/emoji-packs` catalog. The existing admin catalog remains used for management. Drafts and chat message text preserve `<tg-emoji emoji-id="ID">fallback</tg-emoji>` tokens; only numeric IDs are recognized, all other content stays plain text. WebM emoji animate inline; static WebP items render as images; TGS items currently use their static thumbnails.
+
+## Savdo tasdiqlash kodlari
+
+`TRADE_EMAIL_CHANGE_CODE` va `TRADE_LOGIN_CODE` bildirishnomalaridagi `verificationCode`
+Konami emailini o‘zgartirish yoki akkountga kirish uchun ko‘rsatiladi. Global dialog
+joriy autentifikatsiyalangan foydalanuvchining o‘qilmagan, aniqlanganiga 5 daqiqadan
+oshmagan kodlarini 10 soniyada, oynaga qaytganda va bildirishnoma voqeasida tekshiradi.
+Telegram Mini App va brauzerda push ruxsatisiz ham ishlaydi. Bir savdo va maqsad uchun
+eng yangi kod ko‘rsatiladi; yopilgan kod brauzer sessiyasida qayta ochilmaydi.
+Dialog kodni nusxalash va savdo chatini ochish imkonini beradi. Sessiya identifikatori
+`/api/push/config` dan Firebase konfiguratsiyasi bo‘lmasa ham olinadi.

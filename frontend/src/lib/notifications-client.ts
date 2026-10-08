@@ -86,6 +86,10 @@ export function notificationLabel(n: NotificationResponse): string {
       return 'Sizga yangi savdo taklifi yuborildi';
     case 'TRADE_STARTED':
       return 'Savdo boshlandi';
+    case 'TRADE_EMAIL_CHANGE_CODE':
+      return `Konami emailini o‘zgartirish kodi${n.verificationCode ? `: ${n.verificationCode}` : ''}`;
+    case 'TRADE_LOGIN_CODE':
+      return `Konami kirish kodi${n.verificationCode ? `: ${n.verificationCode}` : ''}`;
     case 'TRADE_EMAIL_CHANGED':
       return 'Sotuvchi Konami emailini o‘zgartirdi';
     case 'TRADE_PASSWORD_SENT':

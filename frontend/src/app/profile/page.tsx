@@ -83,10 +83,10 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               href="/profile/accounts/new"
               title="Yangi akkount qo'shish"
               aria-label="Yangi akkount qo'shish"
-              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-4 sm:text-sm"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-4 sm:text-sm"
             >
               <Plus className="h-5 w-5" />
-              Akkount qo&apos;shish
+              Qo&apos;shish
             </Link>
           ),
         };

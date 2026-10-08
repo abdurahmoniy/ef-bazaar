@@ -39,6 +39,8 @@ class TradeDirectChangeTest {
     @Test
     void workerCodeArrivalInvalidatesWithoutAStateTransition() {
         UUID trade = UUID.randomUUID();
+        when(trades.findById(trade)).thenReturn(Optional.of(Trade.builder().id(trade)
+                .kind(TradeKind.SALE).mode(TradeMode.SMART).state(TradeState.WAITING_EMAIL_CHANGE).build()));
         when(trades.recordEmailChangeCode(eq(trade), anyString(), any())).thenReturn(1);
         codes.onCode(new TradeEvents.KonamiEmailChangeCodeReceived(trade, "123456", Instant.now(), null, null));
         verify(changes).publishForTrade(trade);

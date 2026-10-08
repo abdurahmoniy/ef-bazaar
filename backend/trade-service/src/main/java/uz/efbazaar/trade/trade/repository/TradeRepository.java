@@ -235,6 +235,7 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
                SET t.emailChangeVerificationCode = :code,
                    t.emailChangeVerificationCodeAt = :receivedAt
              WHERE t.id = :tradeId
+               AND (t.emailChangeVerificationCodeAt IS NULL OR t.emailChangeVerificationCodeAt < :receivedAt)
             """)
     int recordEmailChangeCode(@Param("tradeId") UUID tradeId,
                               @Param("code") String code,

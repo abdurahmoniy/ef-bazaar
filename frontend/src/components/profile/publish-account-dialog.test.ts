@@ -3,6 +3,8 @@
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import postcss from 'postcss';
+import tailwindcss from 'tailwindcss';
 
 import { PublishAccountDialog } from './publish-account-dialog';
 import type { UserAccountResponse } from '@/lib/accounts-types';
@@ -54,6 +56,26 @@ const submit = () =>
   Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes("Sotuvga qo'yish"))!;
 
 describe('PublishAccountDialog', () => {
+  it('keeps the backdrop flush with the viewport inside a spaced account list', async () => {
+    await act(async () => root.render(createElement('div', { className: 'space-y-4' },
+      createElement('div', null, 'Accounts'),
+      createElement(PublishAccountDialog, { account, onClose: vi.fn() }),
+    )));
+    const css = await postcss([tailwindcss({
+      content: [{ raw: container.innerHTML, extension: 'html' }],
+      corePlugins: { preflight: false },
+    })]).process('@tailwind utilities;', { from: undefined });
+    const style = document.createElement('style');
+    style.textContent = css.css;
+    document.head.appendChild(style);
+    try {
+      const backdrop = container.querySelector<HTMLElement>('[role="presentation"]')!;
+      expect(window.getComputedStyle(backdrop).marginTop).toBe('0px');
+    } finally {
+      style.remove();
+    }
+  });
+
   it('blocks publishing an existing account without images', async () => {
     mocks.publishAccount.mockResolvedValue({ ok: true, data: { id: 'listing-1' } });
     await act(async () => root.render(createElement(PublishAccountDialog, { account: { ...account, mediaMessageIds: [] }, onClose: vi.fn() })));
