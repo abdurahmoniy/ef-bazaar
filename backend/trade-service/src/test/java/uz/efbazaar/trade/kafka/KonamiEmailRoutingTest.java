@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
@@ -38,6 +39,7 @@ class KonamiEmailRoutingTest {
 
     @Mock TradeService trades;
     @Mock TradeSideService sides;
+    @Mock ChatChangePublisher changes;
     @InjectMocks KonamiEmailReceivedConsumer consumer;
 
     private final UUID tradeId = UUID.randomUUID();
@@ -48,7 +50,7 @@ class KonamiEmailRoutingTest {
 
     private TradeEvents.KonamiEmailReceived event(String mailbox) {
         return new TradeEvents.KonamiEmailReceived(
-                tradeId, true, "konami-info@konami.net", Instant.now(), mailbox);
+                tradeId, true, "konami-info@konami.net", Instant.now(), mailbox, false);
     }
 
     @Test
@@ -78,10 +80,44 @@ class KonamiEmailRoutingTest {
     @Test
     void anEmailWithoutAResetLinkChangesNothing() {
         consumer.onKonamiEmail(new TradeEvents.KonamiEmailReceived(
-                tradeId, false, "konami-info@konami.net", Instant.now(), "trade-a@efbazaar.uz"));
+                tradeId, false, "konami-info@konami.net", Instant.now(), "trade-a@efbazaar.uz", false));
 
         verify(trades, org.mockito.Mockito.never())
                 .transition(eq(tradeId), eq(TradeEvent.KONAMI_EMAIL_RECEIVED),
                         eq(ActorType.WORKER), isNull(), org.mockito.ArgumentMatchers.any());
+    }
+
+    /**
+     * Konami pochta Konami ID ga ulanmagan bo'lsa ham "Reissue Password"
+     * sarlavhasi bilan javob beradi. Savdo shu qadamda qoladi, lekin aynan
+     * shu qutining egasi emailni o'tkazmaganini panelda ko'rishi kerak —
+     * aks holda deadline tugaguncha nega hech narsa bo'lmayotganini bilmaydi.
+     */
+    @Test
+    void aNotRegisteredReplyWarnsTheSideItLandedInAndKeepsTheStep() {
+        when(sides.byMailboxEmail(tradeId, "trade-b@efbazaar.uz"))
+                .thenReturn(Optional.of(side(tradeId, ParticipantRole.BUYER)));
+        when(sides.markKonamiNotRegistered(tradeId, ParticipantRole.BUYER)).thenReturn(true);
+
+        consumer.onKonamiEmail(new TradeEvents.KonamiEmailReceived(
+                tradeId, false, "konami-info@konami.net", Instant.now(), "trade-b@efbazaar.uz", true));
+
+        verify(sides).markKonamiNotRegistered(tradeId, ParticipantRole.BUYER);
+        verify(changes).publishForTrade(tradeId);
+        verify(trades, org.mockito.Mockito.never())
+                .transition(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void aNotRegisteredReplyForAnUnknownMailboxIsDropped() {
+        // Qaysi tarafga yozishni bilmasak, ogohlantirishni noto'g'ri odamga
+        // ko'rsatgandan ko'ra tashlab yuborgan ma'qul.
+        when(sides.byMailboxEmail(tradeId, "gone@efbazaar.uz")).thenReturn(Optional.empty());
+
+        consumer.onKonamiEmail(new TradeEvents.KonamiEmailReceived(
+                tradeId, false, "konami-info@konami.net", Instant.now(), "gone@efbazaar.uz", true));
+
+        verify(sides, org.mockito.Mockito.never()).markKonamiNotRegistered(any(), any());
+        verify(changes, org.mockito.Mockito.never()).publishForTrade(any());
     }
 }

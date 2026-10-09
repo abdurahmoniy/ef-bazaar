@@ -137,13 +137,17 @@ public final class TradeEvents {
      *                     o'tkazadi — manzilsiz javob boshqa tarafga
      *                     yozilib qolardi. Eski hodisalarda null bo'lishi
      *                     mumkin.
+     * @param emailNotRegistered Konami "bu pochta Konami ID ga ulanmagan" deb
+     *                     javob berdi — akkount emaili o'tkazilmagan. Eski
+     *                     hodisalarda maydon yo'q, ya'ni false.
      */
     public record KonamiEmailReceived(
             UUID tradeId,
             boolean resetLinkPresent,
             String sender,
             Instant receivedAt,
-            String mailboxEmail) {}
+            String mailboxEmail,
+            boolean emailNotRegistered) {}
 
     /**
      * Konami kirish kodi pochtaga keldi.

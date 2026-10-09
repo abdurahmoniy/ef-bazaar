@@ -116,6 +116,9 @@ class KonamiEmailReceived:
     # trade-service uni "hali bajarmagan birinchi tarafga" yozardi, ya'ni
     # tanga tashlardi.
     mailbox_email: str | None = None
+    # Konami pochta Konami ID ga ulanmaganini aytdi: trade-service sotuvchiga
+    # emailni o'tkazishni aytadi, savdo esa shu qadamda kutib turadi.
+    email_not_registered: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,6 +180,7 @@ class WorkerStarted:
 
 _SNAKE_TO_CAMEL_OVERRIDES: dict[str, str] = {
     "reset_link_present": "resetLinkPresent",
+    "email_not_registered": "emailNotRegistered",
     "encrypted_password": "encryptedPassword",
     "estimated_wait_seconds": "estimatedWaitSeconds",
     "trade_id": "tradeId",

@@ -100,6 +100,12 @@ so'rov topiclarini tinglaydi.
 | `efbazaar.trade.mailbox-rotate-request` | `efbazaar.trade.mailbox-rotated` |
 | `efbazaar.trade.mailbox-delete-request` | — |
 
+`konami-email-received`: `resetLinkPresent` faqat haqiqiy tiklash havolasi bo'lsa `true`
+(yo'lida `password`/`reset`/`reminder` bor konami havolasi). `emailNotRegistered` (bool, eski
+hodisalarda yo'q = `false`) — Konami "bu pochta Konami ID ga ulanmagan" deb javob berdi: savdo
+shu qadamda qoladi, trade o'sha tarafning panelida emailni o'tkazishni so'raydi, worker esa
+haqiqiy havolani kuzatishda davom etadi.
+
 ## payment
 
 | Topic | Producer | Consumer(lar) |

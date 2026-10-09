@@ -123,6 +123,28 @@ public class TradeSideService {
     }
 
     /**
+     * Records that Konami refused this party's reset: their mailbox is not on
+     * any Konami ID, so the account email was never moved to it.
+     *
+     * <p>Not a step — the trade stays where it is and waits for the real link.
+     * A late refusal for a side whose link already arrived is ignored, so a
+     * redelivered record cannot raise a stale warning.
+     *
+     * @return whether the warning was recorded
+     */
+    @Transactional
+    public boolean markKonamiNotRegistered(UUID tradeId, ParticipantRole role) {
+        return sides.find(tradeId, role)
+                .filter(side -> side.getKonamiVerifiedAt() == null)
+                .map(side -> {
+                    side.setKonamiNotRegisteredAt(Instant.now());
+                    sides.save(side);
+                    return true;
+                })
+                .orElse(false);
+    }
+
+    /**
      * Records a step reported by the worker, which does not say which mailbox
      * it is about.
      *

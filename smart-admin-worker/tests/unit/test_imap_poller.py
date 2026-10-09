@@ -318,6 +318,38 @@ async def test_reset_link_message_is_marked_seen_after_delivery(redis_lock):
     assert mailbox.marked == [["7"]]
 
 
+async def test_not_registered_reply_keeps_the_poller_watching_for_the_real_link(redis_lock):
+    """Pochta Konami ID ga ulanmagan bo'lsa Konami xuddi shu sarlavha bilan
+    rad javobini yuboradi. Sotuvchi emailni o'tkazib, tiklashni qayta
+    so'raganda keladigan haqiqiy havola ham ushlanishi kerak — avval poller
+    birinchi xatdan keyin jim turib qolardi."""
+    refused = BoxMsg("7", "[KONAMI ID] Reissue Password",
+                     "This email address is not registered to a KONAMI ID.\n"
+                     "https://my.konami.net/",
+                     datetime(2026, 10, 2, tzinfo=UTC))
+    mailbox = SeenAwareMailbox([refused])
+    hits = []
+
+    async def on_reset(hit):
+        hits.append(hit)
+
+    poller = _poller(mailbox, redis_lock, on_reset=on_reset)
+
+    def deliver_real_link_after_refusal():
+        if mailbox.marked == [["7"]] and len(mailbox.msgs) == 1:
+            mailbox.msgs.append(BoxMsg(
+                "8", "[KONAMI ID] Reissue Password",
+                "https://my.konami.net/en/password-reminder/register-password?put=x",
+                datetime(2026, 10, 2, 0, 5, tzinfo=UTC)))
+        return len(hits) == 2
+
+    await _run_until(poller, PollPurpose.VERIFY_LINK, deliver_real_link_after_refusal)
+
+    assert [(h.reset_link_present, h.email_not_registered) for h in hits] == [
+        (False, True), (True, False)]
+    assert mailbox.marked == [["7"], ["8"]]
+
+
 def test_imap_conn_mark_seen_sets_seen_flag_by_uid():
     from unittest.mock import Mock
 

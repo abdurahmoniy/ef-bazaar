@@ -58,6 +58,7 @@ class ImapPollHandler:
                     received_at=hit.received_at,
                     # Qaysi qutini kuzatgan bo'lsak, javob ham o'shaniki.
                     mailbox_email=event.mailbox_email,
+                    email_not_registered=hit.email_not_registered,
                 ),
             )
 

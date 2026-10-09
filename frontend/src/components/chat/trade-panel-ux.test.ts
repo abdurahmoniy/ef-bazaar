@@ -647,3 +647,28 @@ describe('trade details', () => {
     expect(document.activeElement).toBe(confirm);
   });
 });
+
+describe('Konami reset refused because the email was not moved', () => {
+  const progress = (konamiNotRegisteredAt: string | null) => ({
+    role: 'SELLER', emailChanged: true, konamiVerified: false, passwordSent: false,
+    confirmed: false, rejected: false, lastStepAt: null, konamiNotRegisteredAt,
+  });
+
+  it('tells the seller to move the account email before asking again', async () => {
+    Object.assign(context.activeTrade!, {
+      state: 'VERIFYING_KONAMI_LINK', sides: [progress('2026-10-06T18:34:00Z')],
+    });
+    await render();
+    const alert = dialog().querySelector('[role="alert"]');
+    expect(alert?.textContent).toContain('Konami ID ga ulanmagan');
+    expect(alert?.textContent).toContain(email);
+  });
+
+  it('shows nothing while Konami has not refused', async () => {
+    Object.assign(context.activeTrade!, {
+      state: 'VERIFYING_KONAMI_LINK', sides: [progress(null)],
+    });
+    await render();
+    expect(dialog().textContent).not.toContain('Konami ID ga ulanmagan');
+  });
+});
