@@ -35,8 +35,10 @@ class InlineListingServiceTest {
     static final UUID SELLER = UUID.randomUUID();
     final ListingRepository listings = mock(ListingRepository.class);
     final AuthSummaryClient auth = mock(AuthSummaryClient.class);
+    final uz.efbazaar.marketplace.account.UserAccountRepository accounts =
+            mock(uz.efbazaar.marketplace.account.UserAccountRepository.class);
     final ListingDeepLink deepLink = new ListingDeepLink("https://efbazaar.uz", "https://t.me/EfBazaarBot/app");
-    final InlineListingService service = new InlineListingService(listings, auth, deepLink);
+    final InlineListingService service = new InlineListingService(listings, auth, deepLink, accounts);
 
     static Listing listing(String price, Map<String, Object> attrs, List<String> media) {
         return Listing.builder().id(UUID.randomUUID()).sellerId(SELLER).description("Zo'r akkount")
@@ -101,11 +103,30 @@ class InlineListingServiceTest {
         var item = service.find(42L, "", 0).items().get(0);
 
         assertThat(item.listingId()).isEqualTo(l.getId());
-        assertThat(item.title()).isEqualTo("2 500 000 so'm · Division 1");
+        // Division sarlavhada ustuvor ma'lumot emas — nom bo'lmasa faqat narx.
+        assertThat(item.title()).isEqualTo("2 500 000 so'm");
         assertThat(item.description()).isEqualTo("iOS 1200 · Android 800 · Kuch 3245\nMessi, Neymar, Mbappé");
         assertThat(item.captionHtml()).isEqualTo(ChannelPostCaption.of(l, deepLink.webUrl(l.getId(), null)));
         assertThat(item.coverFileId()).isEqualTo("FILE_COVER");
         assertThat(item.buttonUrl()).isEqualTo(deepLink.buttonUrl(l.getId(), null));
+    }
+
+    @Test
+    void theTitleLeadsWithTheNameTheSellerGaveTheAccount() {
+        linked();
+        Listing named = listing("150000", attrs(), List.of());
+        Listing unnamed = listing("500000", attrs(), List.of());
+        active(List.of(named, unnamed));
+        when(accounts.findByCurrentListingIdIn(List.of(named.getId(), unnamed.getId()))).thenReturn(List.of(
+                uz.efbazaar.marketplace.account.UserAccount.builder().id(UUID.randomUUID()).ownerId(SELLER)
+                        .title("  Asosiy akkount ").currentListingId(named.getId()).build(),
+                uz.efbazaar.marketplace.account.UserAccount.builder().id(UUID.randomUUID()).ownerId(SELLER)
+                        .title(" ").currentListingId(unnamed.getId()).build()));
+
+        var items = service.find(42L, "", 0).items();
+
+        assertThat(items.get(0).title()).isEqualTo("Asosiy akkount · 150 000 so'm");
+        assertThat(items.get(1).title()).isEqualTo("500 000 so'm");
     }
 
     @Test

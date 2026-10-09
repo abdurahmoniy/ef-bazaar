@@ -3,6 +3,8 @@ package uz.efbazaar.marketplace.inline;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import uz.efbazaar.marketplace.account.UserAccount;
+import uz.efbazaar.marketplace.account.UserAccountRepository;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.domain.ListingStatus;
 import uz.efbazaar.marketplace.partner.ads.ChannelPostCaption;
@@ -14,6 +16,7 @@ import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,6 +40,7 @@ public class InlineListingService {
     private final ListingRepository listings;
     private final AuthSummaryClient auth;
     private final ListingDeepLink deepLink;
+    private final UserAccountRepository accounts;
 
     public record InlineListingItem(UUID listingId, String title, String description,
                                     String captionHtml, String coverFileId, String buttonUrl) {}
@@ -57,7 +61,9 @@ public class InlineListingService {
         int from = Math.max(0, offset);
         if (from >= matching.size()) return new InlinePage(true, List.of(), null);
         int to = Math.min(matching.size(), from + PAGE);
-        List<InlineListingItem> items = matching.subList(from, to).stream().map(this::item).toList();
+        List<Listing> page = matching.subList(from, to);
+        Map<UUID, String> names = names(page);
+        List<InlineListingItem> items = page.stream().map(l -> item(l, names.get(l.getId()))).toList();
         return new InlinePage(true, items, to < matching.size() ? to : null);
     }
 
@@ -67,24 +73,36 @@ public class InlineListingService {
                 || (l.getDescription() != null && l.getDescription().toLowerCase(Locale.ROOT).contains(q));
     }
 
-    private InlineListingItem item(Listing l) {
+    /** Sotuvchi akkountiga bergan nom, e'lon bo'yicha — bitta so'rovda. */
+    private Map<UUID, String> names(List<Listing> page) {
+        Map<UUID, String> names = new HashMap<>();
+        for (UserAccount a : accounts.findByCurrentListingIdIn(page.stream().map(Listing::getId).toList())) {
+            if (a.getTitle() != null && !a.getTitle().isBlank()) {
+                names.put(a.getCurrentListingId(), a.getTitle().trim());
+            }
+        }
+        return names;
+    }
+
+    private InlineListingItem item(Listing l, String name) {
         Map<String, Object> a = l.getAttributes() == null ? Map.of() : l.getAttributes();
         List<String> media = l.getMediaMessageIds();
         return new InlineListingItem(
                 l.getId(),
-                title(l.getPrice(), a.get("highest_division_level")),
+                title(name, l.getPrice()),
                 description(a),
                 ChannelPostCaption.of(l, deepLink.webUrl(l.getId(), null)),
                 media == null || media.isEmpty() ? null : media.get(0),
                 deepLink.buttonUrl(l.getId(), null));
     }
 
-    static String title(BigDecimal price, Object division) {
+    /** Nom va narx; nom bo'lmasa faqat narx. Division ustuvor ma'lumot emas. */
+    static String title(String name, BigDecimal price) {
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.ROOT);
         symbols.setGroupingSeparator(' ');
         String money = new DecimalFormat("#,##0", symbols)
                 .format(price == null ? BigDecimal.ZERO : price) + " so'm";
-        return division == null ? money : money + " · Division " + division;
+        return name == null ? money : name + " · " + money;
     }
 
     static String description(Map<String, Object> a) {
