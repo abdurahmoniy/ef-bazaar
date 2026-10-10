@@ -112,7 +112,12 @@ public class UserAccountPublisher {
     }
 
     private UserAccount owned(UUID accountId, UUID ownerId) {
-        return accounts.findByIdAndOwnerId(accountId, ownerId)
+        UserAccount account = accounts.findByIdAndOwnerId(accountId, ownerId)
                 .orElseThrow(MarketplaceException::accountNotFound);
+        // Sotilgan akkount tarixda faqat o'qish uchun — bozorga qaytmaydi.
+        if (account.getStatus() == UserAccountStatus.ARCHIVED) {
+            throw MarketplaceException.accountArchived();
+        }
+        return account;
     }
 }

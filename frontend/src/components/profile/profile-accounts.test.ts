@@ -77,3 +77,12 @@ it('offers editing instead of publishing an incomplete saved account', async () 
   expect(container.querySelector('a[href="/profile/accounts/acc-4"]')?.textContent).toBe('Ma’lumotlarni to‘ldirish');
   expect(container.querySelector('[role="dialog"]')).toBeNull();
 });
+it('collects sold accounts under their own filter and keeps them out of the idle ones', async () => {
+  const rows = [...accounts, { ...accounts[5], id: 'sold', title: 'Eski', status: 'ARCHIVED', archivedReason: 'SOLD_ELSEWHERE', onMarket: false }];
+  await render('viewer', rows as typeof accounts);
+  await act(async () => button('Sotilgan').click());
+  expect(container.querySelectorAll('article')).toHaveLength(1);
+  expect(container.textContent).toContain('Eski');
+  await act(async () => button('Bozorda emas').click());
+  expect(container.textContent).not.toContain('Eski');
+});

@@ -104,3 +104,8 @@ it('does not fetch wallet data when the wallet feature is disabled', async () =>
   expect(mocks.getWallet).not.toHaveBeenCalled();
   expect(propsOf(page, ProfileAccount)?.availableTiyin).toBeNull();
 });
+
+it('counts only the accounts the owner still has, not the sold history', async () => {
+  mocks.getAccounts.mockResolvedValue([...accounts, { id: 'sold', title: 'Eski', onMarket: false, status: 'ARCHIVED' }]);
+  expect(propsOf(await open(), ProfileAccount)?.listingsCount).toBe(1);
+});

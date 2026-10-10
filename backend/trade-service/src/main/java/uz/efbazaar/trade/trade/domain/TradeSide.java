@@ -40,6 +40,10 @@ public class TradeSide {
     @Column(name = "konami_verified_at")
     private Instant konamiVerifiedAt;
 
+    /** Konami last replied that this side's mailbox is not on any Konami ID. */
+    @Column(name = "konami_not_registered_at")
+    private Instant konamiNotRegisteredAt;
+
     @Column(name = "password_sent_at")
     private Instant passwordSentAt;
 

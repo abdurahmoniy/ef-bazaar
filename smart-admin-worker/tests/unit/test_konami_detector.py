@@ -74,6 +74,77 @@ def test_reset_hit_but_no_link_marks_link_false(detector):
     assert hit.reset_link_present is False
 
 
+# Konami pochta Konami ID ga ulanmagan bo'lsa ham AYNAN SHU sarlavha bilan
+# javob qaytaradi. Footerdagi havolalar avval "tiklash havolasi" deb olinib,
+# savdo email o'tkazilmagan bo'lsa ham keyingi qadamga o'tib ketardi.
+NOT_REGISTERED_BODY = """Thank you for using a KONAMI ID.
+
+This email address is not registered to a KONAMI ID.
+On the following page, please try again using the email address registered to your KONAMI ID.
+https://my.konami.net/
+
+This email has been automatically sent from the KONAMI ID Portal site.
+This is an automated email response and cannot be replied to.
+
+Inquiries: Konami Digital Entertainment Co., Ltd.
+3-4-8, Ariake, Koto-ku, Tokyo 135-0063, Japan
+https://www.konami.com/games/inquiry/form/konami_id/en/
+"""
+
+
+def test_not_registered_reply_is_not_a_reset_link(detector):
+    msgs = [
+        _msg(
+            from_="konami-info@konami.net",
+            subject="[KONAMI ID] Reissue Password",
+            text=NOT_REGISTERED_BODY,
+        )
+    ]
+    hit = detector.check_reset(msgs)
+    assert hit is not None
+    assert hit.reset_link_present is False
+    # Sotuvchiga "email o'tkazilmagan" deb aytish uchun alohida belgi.
+    assert hit.email_not_registered is True
+
+
+def test_real_reset_mail_is_not_flagged_not_registered(detector):
+    msgs = [
+        _msg(
+            from_="konami-info@konami.net",
+            subject="【KONAMI ID】パスワードの再発行",
+            text=JA_RESET_BODY,
+        )
+    ]
+    assert detector.check_reset(msgs).email_not_registered is False
+
+
+def test_konami_links_without_reset_path_are_not_a_reset_link(detector):
+    """Tanada faqat bosh sahifa yoki murojaat formasi bo'lsa — bu tiklash
+    havolasi emas, hatto rad etuvchi jumla boshqacha yozilgan bo'lsa ham."""
+    msgs = [
+        _msg(
+            from_="konami-info@konami.net",
+            subject="[KONAMI ID] Reissue Password",
+            text="See https://my.konami.net/ or "
+                 "https://www.konami.com/games/inquiry/form/konami_id/en/",
+        )
+    ]
+    assert detector.check_reset(msgs).reset_link_present is False
+
+
+def test_english_reset_link_on_my_konami_is_accepted(detector):
+    msgs = [
+        _msg(
+            from_="konami-info@konami.net",
+            subject="[KONAMI ID] Reissue Password",
+            text="https://my.konami.net/en/password-reminder/register-password"
+                 "?put=LlGYLKNt2CnmsoCE8rbBicV0yT0qxRI8\n"
+                 "https://www.konami.com/games/inquiry/form/konami_id/en/",
+        )
+    ]
+    assert detector.check_reset(msgs).reset_link_present is True
+
+
 def test_reset_not_hit_when_sender_not_in_allowlist(detector):
     msgs = [
         _msg(

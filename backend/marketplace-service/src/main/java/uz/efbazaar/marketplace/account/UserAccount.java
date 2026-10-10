@@ -95,6 +95,14 @@ public class UserAccount {
     @Column(name = "archived_reason", length = 24)
     private ArchivedReason archivedReason;
 
+    /** Qachon sotilgan / obmen qilingan — tarix uchun. */
+    @Column(name = "archived_at")
+    private Instant archivedAt;
+
+    /** E'lon narxi sotilgan paytda; obmenda va eski yozuvlarda null. */
+    @Column(name = "sold_price", precision = 19, scale = 2)
+    private java.math.BigDecimal soldPrice;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

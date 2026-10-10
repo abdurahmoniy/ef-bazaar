@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.marketplace.domain.Listing;
 import uz.efbazaar.marketplace.repository.ListingRepository;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -113,6 +114,8 @@ public class ListingAccountLink {
         accounts.findByCurrentListingId(listingId).ifPresent(sellerAccount -> {
             sellerAccount.setStatus(UserAccountStatus.ARCHIVED);
             sellerAccount.setArchivedReason(ArchivedReason.SOLD_ON_PLATFORM);
+            sellerAccount.setArchivedAt(Instant.now());
+            sellerAccount.setSoldPrice(listings.findById(listingId).map(Listing::getPrice).orElse(null));
             // Pochta xaridorga o'tdi: sotuvchining ro'yxatida turishi chalg'itardi.
             sellerAccount.setEmail(null);
             sellerAccount.setEmailSource(null);
@@ -187,6 +190,7 @@ public class ListingAccountLink {
 
         given.setStatus(UserAccountStatus.ARCHIVED);
         given.setArchivedReason(ArchivedReason.SWAPPED_ON_PLATFORM);
+        given.setArchivedAt(Instant.now());
         given.setEmail(null);
         given.setEmailSource(null);
         given.setMailboxId(null);
@@ -320,6 +324,8 @@ public class ListingAccountLink {
         accounts.findByCurrentListingId(listingId).ifPresent(account -> {
             account.setStatus(UserAccountStatus.ARCHIVED);
             account.setArchivedReason(ArchivedReason.SOLD_ELSEWHERE);
+            account.setArchivedAt(Instant.now());
+            account.setSoldPrice(listings.findById(listingId).map(Listing::getPrice).orElse(null));
             account.setEmail(null);
             account.setEmailSource(null);
             account.setMailboxId(null);

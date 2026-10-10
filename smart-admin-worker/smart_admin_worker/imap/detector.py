@@ -38,7 +38,19 @@ from typing import Protocol
 
 log = logging.getLogger(__name__)
 
-_RESET_URL_RE = re.compile(r"https?://[^\s]*konami[^\s]*", re.IGNORECASE)
+# Tiklash havolasi — faqat yo'lida password/reset/reminder bo'lgan konami
+# havolasi (haqiqiysi: `my.konami.net/<til>/password-reminder/register-password?put=...`).
+# Istalgan konami havolasi yetmaydi: Konami pochta Konami ID ga ulanmagan
+# bo'lsa ham aynan shu sarlavha bilan "not registered" deb javob beradi,
+# va uning tanasida bosh sahifa hamda murojaat formasi havolalari bor.
+_RESET_URL_RE = re.compile(
+    r"https?://[^\s/]*konami[^\s/]*/[^\s]*(?:password|reset|reminder)[^\s]*",
+    re.IGNORECASE,
+)
+# "Bu pochta Konami ID ga ulanmagan" javobi. Havola tekshiruvidan tashqari
+# ikkinchi himoya: rad javobiga keyinchalik parol sahifasi havolasi qo'shilsa
+# ham savdo keyingi qadamga o'tib ketmasin.
+_NOT_REGISTERED_RE = re.compile(r"not\s+registered\s+to\s+a\s+konami\s+id", re.IGNORECASE)
 
 # Qadamga bog'langan sarlavhalar — normallashtirilgan ko'rinishda.
 #
@@ -125,6 +137,9 @@ class ResetHit:
     sender: str
     received_at: datetime
     reset_link_present: bool
+    # Konami "bu pochta Konami ID ga ulanmagan" deb javob berdi — sotuvchi
+    # akkount emailini o'tkazmagan.
+    email_not_registered: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,11 +195,14 @@ class KonamiEmailDetector:
             if not _subject_in(m.subject, SUBJECTS_RESET):
                 self._note_unknown(m.subject)
                 continue
-            has_url = bool(_RESET_URL_RE.search(m.text or ""))
+            body = m.text or ""
+            not_registered = bool(_NOT_REGISTERED_RE.search(body))
+            has_url = bool(_RESET_URL_RE.search(body)) and not not_registered
             return ResetHit(
                 sender=m.from_.lower(),
                 received_at=m.date,
                 reset_link_present=has_url,
+                email_not_registered=not_registered,
             )
         return None
 

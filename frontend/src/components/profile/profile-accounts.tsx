@@ -17,7 +17,7 @@ const FILTERS: { id: AccountFilter; label: string }[] = [
   { id: 'all', label: 'Barchasi' },
   { id: 'market', label: 'Bozorda' },
   { id: 'unlisted', label: 'Bozorda emas' },
-  { id: 'archived', label: 'Arxivda' },
+  { id: 'archived', label: 'Sotilgan' },
 ];
 
 function matchesFilter(account: UserAccountResponse, filter: AccountFilter) {

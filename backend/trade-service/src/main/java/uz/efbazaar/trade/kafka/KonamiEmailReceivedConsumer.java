@@ -18,6 +18,7 @@ public class KonamiEmailReceivedConsumer {
 
     private final TradeService trades;
     private final uz.efbazaar.trade.trade.service.TradeSideService sides;
+    private final ChatChangePublisher changes;
 
     @KafkaListener(
             topics = TradeEvents.TOPIC_KONAMI_EMAIL,
@@ -25,6 +26,10 @@ public class KonamiEmailReceivedConsumer {
             properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$KonamiEmailReceived"}
     )
     public void onKonamiEmail(TradeEvents.KonamiEmailReceived e) {
+        if (e.emailNotRegistered()) {
+            warnNotRegistered(e);
+            return;
+        }
         if (!e.resetLinkPresent()) {
             log.info("konami-email-received (no reset link) for trade {}, keeping state 4",
                     e.tradeId());
@@ -48,6 +53,29 @@ public class KonamiEmailReceivedConsumer {
             // failure worth crash-looping the listener over.
             log.warn("konami-email-received for trade {} arrived after state moved on: {}",
                     e.tradeId(), ex.getMessage());
+        }
+    }
+
+    /**
+     * Konami answered the reset with "this email address is not registered to
+     * a KONAMI ID": the party has not moved their account email to our box.
+     * The trade stays on this step; the panel tells that party to move it and
+     * ask for the reset again. The worker keeps watching for the real link.
+     */
+    private void warnNotRegistered(TradeEvents.KonamiEmailReceived e) {
+        // Faqat aniq taraf: ogohlantirishni boshqa odamga ko'rsatish uni
+        // chalg'itadi, u esa hech narsani noto'g'ri qilmagan.
+        var side = sides.byMailboxEmail(e.tradeId(), e.mailboxEmail());
+        if (side.isEmpty()) {
+            log.warn("konami-email-received (not registered) for trade {}: mailbox {} matches no side, dropped",
+                    e.tradeId(), e.mailboxEmail());
+            return;
+        }
+        ParticipantRole role = side.get().role();
+        if (sides.markKonamiNotRegistered(e.tradeId(), role)) {
+            log.info("konami-email-received (not registered) for trade {} {}, keeping state 4",
+                    e.tradeId(), role);
+            changes.publishForTrade(e.tradeId());
         }
     }
 }

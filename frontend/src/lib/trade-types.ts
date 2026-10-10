@@ -68,6 +68,12 @@ export interface TradeSideProgress {
   confirmed: boolean;
   rejected: boolean;
   lastStepAt: string | null;
+  /**
+   * When Konami last answered the reset with "this email address is not
+   * registered to a KONAMI ID" — the account email was not moved to the
+   * platform mailbox. Absent from older backends.
+   */
+  konamiNotRegisteredAt?: string | null;
 }
 
 /** Mirrors uz.efbazaar.trade.trade.domain.GiveAccountSnapshot. */

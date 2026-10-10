@@ -19,7 +19,10 @@ public record TradeSideResponse(
         boolean passwordSent,
         boolean confirmed,
         boolean rejected,
-        Instant lastStepAt
+        Instant lastStepAt,
+        // Konami last said this side's mailbox is on no Konami ID — the
+        // account email was not moved. Null when it never did.
+        Instant konamiNotRegisteredAt
 ) {
     public static TradeSideResponse of(TradeSide s) {
         Instant last = s.getPasswordSentAt() != null ? s.getPasswordSentAt()
@@ -32,6 +35,7 @@ public record TradeSideResponse(
                 s.getPasswordSentAt() != null,
                 s.getConfirmedAt() != null,
                 s.getRejectedAt() != null,
-                last);
+                last,
+                s.getKonamiNotRegisteredAt());
     }
 }

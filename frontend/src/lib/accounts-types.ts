@@ -25,6 +25,10 @@ export interface UserAccountResponse {
   emailSource: AccountEmailSource | null;
   status: UserAccountStatus;
   archivedReason?: AccountArchivedReason | null;
+  /** Qachon sotilgan / obmen qilingan. Faqat ARCHIVED da. */
+  archivedAt?: string | null;
+  /** Sotilgan paytdagi e'lon narxi; obmenda va eski yozuvlarda yo'q. */
+  soldPrice?: number | string | null;
   onMarket: boolean;
   currentListingId: string | null;
   createdAt: string;

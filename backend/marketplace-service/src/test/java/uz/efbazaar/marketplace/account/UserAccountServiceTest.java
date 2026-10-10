@@ -146,4 +146,46 @@ class UserAccountServiceTest {
         assertThat(existing.getEmail()).isNull();
         assertThat(existing.getEmailSource()).isNull();
     }
+
+    private UserAccount sold(ArchivedReason reason, java.time.Instant at) {
+        return UserAccount.builder().id(UUID.randomUUID()).ownerId(ownerId)
+                .status(UserAccountStatus.ARCHIVED).archivedReason(reason).archivedAt(at)
+                .attributes(new HashMap<>()).build();
+    }
+
+    @Test
+    void list_keepsSoldAndSwappedAccountsAsHistoryAfterTheActiveOnes() {
+        UserAccount active = account();
+        UserAccount sold = sold(ArchivedReason.SOLD_ON_PLATFORM, java.time.Instant.now());
+        when(accounts.findByOwnerIdAndStatusOrderByCreatedAtDesc(ownerId, UserAccountStatus.ACTIVE))
+                .thenReturn(List.of(active));
+        when(accounts.findByOwnerIdAndStatusAndArchivedReasonInOrderByArchivedAtDescCreatedAtDesc(
+                ownerId, UserAccountStatus.ARCHIVED, UserAccountService.HISTORY_REASONS))
+                .thenReturn(List.of(sold));
+
+        assertThat(service.list(ownerId)).containsExactly(active, sold);
+        assertThat(UserAccountService.HISTORY_REASONS).containsExactlyInAnyOrder(
+                ArchivedReason.SOLD_ON_PLATFORM, ArchivedReason.SOLD_ELSEWHERE,
+                ArchivedReason.SWAPPED_ON_PLATFORM);
+    }
+
+    @Test
+    void aSoldAccountIsReadOnly() {
+        UserAccount sold = sold(ArchivedReason.SOLD_ELSEWHERE, java.time.Instant.now());
+        when(accounts.findByIdAndOwnerId(sold.getId(), ownerId)).thenReturn(Optional.of(sold));
+
+        // O'qish mumkin, o'zgartirish emas.
+        assertThat(service.get(sold.getId(), ownerId)).isSameAs(sold);
+        for (org.junit.jupiter.api.function.Executable change : List.<org.junit.jupiter.api.function.Executable>of(
+                () -> service.update(sold.getId(), ownerId, new UserAccountUpdateRequest("x", null, Map.of(), List.of())),
+                () -> service.setEmail(sold.getId(), ownerId, "a@efbazaar.uz"),
+                () -> service.replaceMedia(sold.getId(), ownerId, List.of()),
+                () -> service.delete(sold.getId(), ownerId))) {
+            assertThatThrownBy(change::execute)
+                    .isInstanceOf(MarketplaceException.class)
+                    .extracting("code").isEqualTo("account_archived");
+        }
+        verify(accounts, never()).saveAndFlush(any());
+        verify(accounts, never()).delete(any());
+    }
 }

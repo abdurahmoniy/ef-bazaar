@@ -48,7 +48,20 @@ def test_konami_email_received_names_the_mailbox_it_landed_in():
         "sender": "noreply@konami.com",
         "receivedAt": "2026-07-15T10:30:00Z",
         "mailboxEmail": "trade-05a64118@efbazaar.uz",
+        "emailNotRegistered": False,
     }
+
+
+def test_konami_email_received_carries_the_not_registered_flag():
+    ev = e.KonamiEmailReceived(
+        trade_id=UUID("11111111-1111-1111-1111-111111111111"),
+        reset_link_present=False,
+        sender="konami-info@konami.net",
+        received_at=datetime(2026, 10, 6, 18, 34, tzinfo=UTC),
+        mailbox_email="trade-bc55c054@efbazaar.uz",
+        email_not_registered=True,
+    )
+    assert json.loads(to_json(ev))["emailNotRegistered"] is True
 
 
 def test_worker_queued_serialization():

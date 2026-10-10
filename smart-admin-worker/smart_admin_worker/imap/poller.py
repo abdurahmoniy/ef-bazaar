@@ -76,6 +76,7 @@ class ImapPoller:
     async def run(self, mailbox_email: str, password: str, purpose: PollPurpose) -> None:
         lock_key = f"smartadmin:imap-poll:{mailbox_email}"
         detected = False
+        delivered_resets: set[ResetHit] = set()
         delivered_2fa: set[TwoFaHit] = set()
         latest_2fa: TwoFaHit | None = None
         delivered_email_codes: set[EmailChangeCodeHit] = set()
@@ -121,10 +122,16 @@ class ImapPoller:
             if hit is None:
                 continue
             if isinstance(hit, ResetHit) and self.on_reset is not None:
-                if not await self._deliver(self.on_reset, hit, mailbox_email):
-                    retry = True
-                    continue
-                detected = True
+                if hit not in delivered_resets:
+                    if not await self._deliver(self.on_reset, hit, mailbox_email):
+                        retry = True
+                        continue
+                    delivered_resets.add(hit)
+                # Havolasiz javob (masalan "pochta Konami ID ga ulanmagan")
+                # qadamni yopmaydi: sotuvchi emailni o'tkazib tiklashni qayta
+                # so'raydi va haqiqiy havola shu kuzatuvga tushishi kerak.
+                # Xat pastda SEEN bo'ladi, ya'ni qayta yuborilmaydi.
+                detected = hit.reset_link_present
             elif isinstance(hit, TwoFaHit) and self.on_2fa is not None:
                 fresh = hit not in delivered_2fa and (
                     latest_2fa is None or hit.received_at >= latest_2fa.received_at

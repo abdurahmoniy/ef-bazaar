@@ -178,4 +178,34 @@ class TradeSideGateTest {
                 .as("accounts go back where they came from")
                 .isFalse();
     }
+
+    @Test
+    void aNotRegisteredReplyIsRecordedOnTheSideStillWaitingForItsLink() {
+        when(sides.find(tradeId, ParticipantRole.SELLER)).thenReturn(Optional.of(sellerSide));
+
+        assertThat(service.markKonamiNotRegistered(tradeId, ParticipantRole.SELLER)).isTrue();
+
+        assertThat(sellerSide.getKonamiNotRegisteredAt()).isNotNull();
+        org.mockito.Mockito.verify(sides).save(sellerSide);
+    }
+
+    @Test
+    void aLateNotRegisteredReplyDoesNotWarnASideThatAlreadyGotItsLink() {
+        // Kafka at-least-once: rad javobi haqiqiy havoladan keyin kelishi
+        // mumkin. Qadam allaqachon o'tgan — eskirgan ogohlantirish chiqmasin.
+        sellerSide.setKonamiVerifiedAt(Instant.now());
+        when(sides.find(tradeId, ParticipantRole.SELLER)).thenReturn(Optional.of(sellerSide));
+
+        assertThat(service.markKonamiNotRegistered(tradeId, ParticipantRole.SELLER)).isFalse();
+
+        assertThat(sellerSide.getKonamiNotRegisteredAt()).isNull();
+    }
+
+    @Test
+    void theWarningReachesThePanel() {
+        sellerSide.setKonamiNotRegisteredAt(Instant.parse("2026-10-06T18:34:00Z"));
+
+        assertThat(uz.efbazaar.trade.trade.dto.TradeSideResponse.of(sellerSide).konamiNotRegisteredAt())
+                .isEqualTo(Instant.parse("2026-10-06T18:34:00Z"));
+    }
 }

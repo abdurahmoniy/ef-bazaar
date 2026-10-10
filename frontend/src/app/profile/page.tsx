@@ -70,13 +70,18 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
   const accountDisplay = activeTab === 'accounts' ? await getAccountDisplayData(accounts, user.id) : {};
 
+  // Sotilgan / obmen qilinganlar tarix: ular endi egasida emas.
+  const ownedAccounts = accounts.filter((a) => a.status !== 'ARCHIVED');
+  const soldCount = accounts.length - ownedAccounts.length;
+
   const getSubpageHeader = () => {
     switch (activeTab) {
       case 'accounts':
         return {
           title: 'Akkountlarim',
           subtitle: accounts.length > 0
-            ? `${accounts.length} ta akkount · ${accounts.filter((a) => a.onMarket).length} tasi bozorda`
+            ? `${ownedAccounts.length} ta akkount · ${ownedAccounts.filter((a) => a.onMarket).length} tasi bozorda`
+              + (soldCount > 0 ? ` · ${soldCount} tasi sotilgan` : '')
             : "Hozircha akkount yo'q",
           rightAction: (
             <Link
@@ -161,7 +166,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               googleClientId={googleClientId}
               botUsername={botUsername}
               tradeAdminApplication={tradeAdminApplication}
-              listingsCount={accounts.length}
+              listingsCount={ownedAccounts.length}
               favoritesCount={favorites.length}
               ratingSummary={sellerRatingSummary}
               availableTiyin={wallet?.availableTiyin ?? null}

@@ -113,6 +113,8 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
     }
   }
 
+  if (archived) return <SoldAccountCard account={account} photo={photo} title={title} />;
+
   return (
     <article className="flex h-full flex-col gap-3 rounded-xl border border-border/70 bg-card p-3 sm:p-4">
       <div className="flex items-start gap-3">
@@ -160,7 +162,7 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
         <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
           account.onMarket ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-muted text-muted-foreground')}>
           {account.onMarket && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
-          {account.onMarket ? 'Bozorda' : archived ? 'Arxivda' : 'Bozorda emas'}
+          {account.onMarket ? 'Bozorda' : 'Bozorda emas'}
         </span>
         {account.onMarket && display?.price != null && <span className="text-sm font-bold tabular-nums">{formatPriceUZS(display.price)}</span>}
       </div>
@@ -208,7 +210,7 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
             <Button asChild variant="ghost" className="min-h-11 flex-1 bg-muted px-2 text-xs hover:bg-muted/80">
               <Link href={`/marketplace/${account.currentListingId}`}>E&apos;lonni ko&apos;rish<ArrowUpRight aria-hidden className="h-4 w-4" /></Link>
             </Button>
-          ) : !archived && (accountDetailsIncomplete(account) ? (
+          ) : (accountDetailsIncomplete(account) ? (
             <Button asChild variant="ghost" className="min-h-11 flex-1 bg-muted px-2 text-xs hover:bg-muted/80"><Link href={`/profile/accounts/${encodeURIComponent(account.id)}`}><Pencil aria-hidden className="h-4 w-4" />Ma’lumotlarni to‘ldirish</Link></Button>
           ) : (
             <Button type="button" variant="ghost" className="min-h-11 flex-1 bg-muted px-2 text-xs hover:bg-muted/80" onClick={() => onPublish?.(account)}>
@@ -219,6 +221,50 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
       )}
     </article>
   );
+}
+
+/**
+ * Sotilgan yoki obmen qilingan akkount — "Akkountlarim" tarixi.
+ *
+ * <p>Faqat o'qish uchun: menyu, tahrir, email va bozorga chiqarish yo'q.
+ * Ma'lumot endi xaridorniki, egasida esa eski holati xotira sifatida qoladi.
+ */
+function SoldAccountCard({ account, photo, title }: { account: UserAccountResponse; photo: string | null; title: string }) {
+  const swapped = account.archivedReason === 'SWAPPED_ON_PLATFORM';
+  const date = soldDate(account.archivedAt);
+  return (
+    <article data-state="sold" className="flex h-full flex-col gap-3 rounded-xl border border-dashed border-border/70 bg-muted/30 p-3 opacity-75 sm:p-4">
+      <div className="flex items-start gap-3 grayscale">
+        <AccountPhoto photo={photo} title={title} />
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-sm font-semibold leading-5 text-foreground">{title}</h2>
+          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{summary(account.attributes)}</p>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Users aria-hidden className="h-3.5 w-3.5" />{squadCount(account.attributes)} o&apos;yinchi
+          </p>
+        </div>
+      </div>
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+          {swapped ? 'Almashtirilgan' : 'Sotilgan'}{date && <span className="font-normal tabular-nums">· {date}</span>}
+        </span>
+        {!swapped && account.soldPrice != null && (
+          <span className="text-sm font-bold tabular-nums text-muted-foreground">{formatPriceUZS(account.soldPrice)}</span>
+        )}
+      </div>
+    </article>
+  );
+}
+
+/** `06.10.2026` — Toshkent vaqti bilan, qurilma sozlamasidan qat'i nazar. */
+function soldDate(iso: string | null | undefined) {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Tashkent', day: '2-digit', month: '2-digit', year: 'numeric' })
+    .formatToParts(date);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${part('day')}.${part('month')}.${part('year')}`;
 }
 
 function AccountPhoto({ photo, title }: { photo: string | null; title: string }) {

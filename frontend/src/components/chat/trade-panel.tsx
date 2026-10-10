@@ -62,6 +62,7 @@ import {
   isSwap,
   hasClearedCurrentStep,
   hasTradeAmount,
+  sideOf,
   tradeAmountLabel,
   isWaitingForCounterpart,
   TRADE_KIND_HINT_UZ,
@@ -981,6 +982,7 @@ function VerifyingKonamiSellerPanel({
   const konamiTabRef = useRef<Window | null>(null);
 
   const mailboxEmail = trade.mailboxEmail ?? '';
+  const notRegistered = trade.role ? Boolean(sideOf(trade, trade.role)?.konamiNotRegisteredAt) : false;
   const konamiHref = mailboxEmail
     ? `${KONAMI_FORGOT_URL}?email=${encodeURIComponent(mailboxEmail)}`
     : KONAMI_FORGOT_URL;
@@ -1035,6 +1037,17 @@ function VerifyingKonamiSellerPanel({
           <li>Xat kelishini avtomatik tekshiramiz. Kelgach savdo keyingi bosqichga o‘tadi.</li>
         </ol>
       </div>
+
+      {notRegistered && (
+        <div role="alert" className="flex gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-xs leading-relaxed text-destructive">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            Konami javob berdi: bu pochta hech qaysi Konami ID ga ulanmagan. Akkount emailini{' '}
+            {mailboxEmail ? <span className="break-all font-medium">{mailboxEmail}</span> : 'platforma pochtasi'}{' '}
+            ga o‘tkazing, so‘ng parol tiklashni qayta so‘rang.
+          </span>
+        </div>
+      )}
 
       {mailboxEmail && (
         <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 py-1 pl-3 pr-1">

@@ -9,7 +9,7 @@ u trade-service'da. Pul esa payment-service'da.
 |---|---|
 | Port | 8082 |
 | Public yo'l | `/api/marketplace/**` → `/api/**` (anonim ham o'tadi); WebSocket `/ws/chat` |
-| DB | `MARKETPLACE_DB_NAME` (Flyway, `V1`–`V75` + `R__`); ikkinchi datasource — `efbazaar` karta katalogi |
+| DB | `MARKETPLACE_DB_NAME` (Flyway, `V1`–`V77` + `R__`); ikkinchi datasource — `efbazaar` karta katalogi |
 | Redis | card interest sanagichlari, chat presence/typing va WebSocket signallari |
 | Anonim | Token bo'lmasa nginx identity headerlarni tozalab uzatadi — `X-User-Id` ga ishonishdan oldin null tekshiring |
 
@@ -44,7 +44,7 @@ To'liq ro'yxat — controllerlarda. Asosiy guruhlar (`/api/v1/...`):
 | Qidiruv va match | `GET /listings?matchCard=...&matchStrictness=...` — kartalar bo'yicha ball bilan saralash |
 | Katta bozor | `GET /listings?sort=valueScore,desc` (yoki `asc`) — `value_score NULLS LAST`, keyin `id ASC`; `includeSold` bo'lsa avval `status`; `valueScore` bor bo'lsa boshqa sort xossalari e'tiborsiz |
 | Ranked | `POST /listings/ranked` (anonim ham) — body `{ ids (≤1000, null emas UUID), minPrice, maxPrice, priceNegotiable, search, attributes, page (0..1000), size (1..100) }`; chaqiruvchi tartibini saqlaydi, faqat `ACTIVE`, takrorlarni olib tashlaydi, `PageResponse<ListingResponse>` qaytaradi |
-| Akkountlar | `GET/POST /accounts`, `GET/PATCH/DELETE /accounts/{id}`, `/publish`, `/unpublish`, `/media`, `/email` |
+| Akkountlar | `GET/POST /accounts`, `GET/PATCH/DELETE /accounts/{id}`, `/publish`, `/unpublish`, `/media`, `/email`. `GET /accounts` — avval `ACTIVE`, keyin tarix: sotilgan va obmen qilingan (`ARCHIVED`, sabab `SOLD_ON_PLATFORM` / `SOLD_ELSEWHERE` / `SWAPPED_ON_PLATFORM`) `archivedAt` va `soldPrice` bilan (`V77`; obmenda va eski yozuvlarda narx yo'q). Arxivlangan akkountni o'zgartiruvchi har so'rov — `409 account_archived` |
 | Kartalar | `GET /cards`, `/cards/search`; `POST /card-interest/apply`; `/dream-teams` (CRUD, `PUT /me`) |
 | Chat | `/chats`, `/chats/{id}`, `/messages`, `/account-request`, `/important`, `/hide`, `/read`, `/typing`, `/presence`, `/unread-total` |
 | Kontekstli xabarlar | `GET /popups/next?trigger=...`, `POST /popups/{id}/claim`, `POST /popups/deliveries/{id}/events`; faqat autentifikatsiyalangan foydalanuvchi |

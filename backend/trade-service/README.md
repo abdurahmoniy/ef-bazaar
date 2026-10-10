@@ -9,7 +9,7 @@ martalik uzatish, escrow pochta qutilari, trade-admin'lar va reytinglar shu yerd
 |---|---|
 | Port | 8085 |
 | Public yo'l | `/api/trade/**` → `/api/**` (token shart, aks holda 401); STOMP WebSocket `/ws/trade` |
-| DB | `TRADE_DB_NAME` (Flyway `V1`–`V28`) |
+| DB | `TRADE_DB_NAME` (Flyway `V1`–`V29`) |
 | Redis | takliflar (10 daqiqa TTL), bir martalik parol, presence, recheck rate limit, deadline uzaytirish |
 | Shifrlash | `MASTER_KEY_FILE` + HKDF (`crypto/`) — chat xabarlari va maxfiy maydonlar |
 
