@@ -74,6 +74,9 @@ class SwapAccountHandoverTest {
         assertThat(toClose).isNull();
         assertThat(given.getStatus()).isEqualTo(UserAccountStatus.ARCHIVED);
         assertThat(given.getArchivedReason()).isEqualTo(ArchivedReason.SWAPPED_ON_PLATFORM);
+        // Obmenda pul yo'q — sana qoladi, narx emas.
+        assertThat(given.getArchivedAt()).isNotNull();
+        assertThat(given.getSoldPrice()).isNull();
         assertThat(given.getEmail()).isNull();
         assertThat(given.getMailboxId()).isNull();
 

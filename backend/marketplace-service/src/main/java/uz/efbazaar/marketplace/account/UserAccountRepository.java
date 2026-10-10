@@ -18,6 +18,9 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
      */
     Optional<UserAccount> findByIdAndOwnerId(UUID id, UUID ownerId);
 
+    List<UserAccount> findByOwnerIdAndStatusAndArchivedReasonInOrderByArchivedAtDescCreatedAtDesc(
+            UUID ownerId, UserAccountStatus status, Collection<ArchivedReason> reasons);
+
     Optional<UserAccount> findByCurrentListingId(UUID listingId);
 
     List<UserAccount> findByCurrentListingIdIn(Collection<UUID> listingIds);

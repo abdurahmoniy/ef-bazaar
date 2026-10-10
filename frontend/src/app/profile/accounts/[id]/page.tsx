@@ -26,6 +26,8 @@ export default async function EditAccountPage({ params }: EditAccountPageProps) 
 
   const account = await getAccountServer(id);
   if (!account) notFound();
+  // Sotilgan akkount tarixda faqat o'qish uchun — tahrir sahifasi yo'q.
+  if (account.status === 'ARCHIVED') redirect('/profile?tab=accounts');
 
   const definitions = await getAttributeDefinitions();
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';

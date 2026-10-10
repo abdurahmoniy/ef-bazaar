@@ -36,3 +36,9 @@ it('keeps signed-out create and edit return destinations', async () => {
   expect(mocks.getAccount).not.toHaveBeenCalled();
   expect(mocks.getDefinitions).not.toHaveBeenCalled();
 });
+
+it('does not open the editor for a sold account', async () => {
+  mocks.getAccount.mockResolvedValue({ id: 'account', title: 'Sotilgan', status: 'ARCHIVED' });
+  await expect(EditAccountPage({ params: Promise.resolve({ id: 'account' }) }))
+    .rejects.toThrow('redirect:/profile?tab=accounts');
+});

@@ -32,6 +32,7 @@ class ListingAccountLinkTest {
 
     @Mock UserAccountRepository accounts;
     @Mock UserAccountCardInventory inventory;
+    @Mock uz.efbazaar.marketplace.repository.ListingRepository listings;
     @InjectMocks ListingAccountLink link;
 
     private Listing listing(UUID sellerId) {
@@ -89,9 +90,15 @@ class ListingAccountLinkTest {
                 .mailboxId(UUID.randomUUID()).status(UserAccountStatus.ACTIVE)
                 .build();
         when(accounts.findByCurrentListingId(listingId)).thenReturn(Optional.of(account));
+        uz.efbazaar.marketplace.domain.Listing listing = new uz.efbazaar.marketplace.domain.Listing();
+        listing.setId(listingId);
+        listing.setPrice(new java.math.BigDecimal("500000"));
+        when(listings.findById(listingId)).thenReturn(Optional.of(listing));
 
         link.onListingSoldByOwner(listingId);
 
+        assertThat(account.getArchivedAt()).isNotNull();
+        assertThat(account.getSoldPrice()).isEqualByComparingTo("500000");
         assertThat(account.getStatus()).isEqualTo(UserAccountStatus.ARCHIVED);
         assertThat(account.getArchivedReason()).isEqualTo(ArchivedReason.SOLD_ELSEWHERE);
         assertThat(account.getEmail()).isNull();

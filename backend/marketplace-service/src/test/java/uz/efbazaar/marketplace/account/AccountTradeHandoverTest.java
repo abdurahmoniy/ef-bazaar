@@ -48,6 +48,7 @@ class AccountTradeHandoverTest {
         listing.setId(listingId);
         listing.setSellerId(sellerId);
         listing.setDescription("tavsif");
+        listing.setPrice(new java.math.BigDecimal("150000"));
         listing.setAttributes(new HashMap<>(Map.of("platform", "MOBILE", "exchange_mode", "BOTH")));
         listing.setMediaMessageIds(new ArrayList<>(List.of("msg-1")));
         return listing;
@@ -81,6 +82,9 @@ class AccountTradeHandoverTest {
         assertThat(seller.getEmail()).isNull();
         assertThat(seller.getMailboxId()).isNull();
         assertThat(seller.getCurrentListingId()).isNull();
+        // Tarix uchun: qachon va qanchaga sotilgani akkountning o'zida qoladi.
+        assertThat(seller.getArchivedAt()).isNotNull();
+        assertThat(seller.getSoldPrice()).isEqualByComparingTo("150000");
 
         ArgumentCaptor<UserAccount> saved = ArgumentCaptor.forClass(UserAccount.class);
         verify(accounts, org.mockito.Mockito.atLeastOnce()).saveAndFlush(saved.capture());

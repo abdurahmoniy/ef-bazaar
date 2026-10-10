@@ -144,4 +144,20 @@ class UserAccountPublisherTest {
 
         verifyNoInteractions(listings);
     }
+
+    @Test
+    void aSoldAccountCannotGoBackOnTheMarketOrBeUnpublished() {
+        UserAccount sold = account();
+        sold.setStatus(UserAccountStatus.ARCHIVED);
+        sold.setArchivedReason(ArchivedReason.SOLD_ON_PLATFORM);
+        when(accounts.findByIdAndOwnerId(accountId, ownerId)).thenReturn(Optional.of(sold));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> publisher.publish(accountId, ownerId,
+                        new uz.efbazaar.marketplace.account.dto.PublishAccountRequest(
+                                new java.math.BigDecimal("100000"), false, null, null)))
+                .extracting("code").isEqualTo("account_archived");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> publisher.unpublish(accountId, ownerId))
+                .extracting("code").isEqualTo("account_archived");
+        verifyNoInteractions(listings);
+    }
 }

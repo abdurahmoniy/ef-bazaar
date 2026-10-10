@@ -94,6 +94,34 @@ describe('AccountCard', () => {
     expect(button('Bozordan olish')).toBeDefined();
   });
 
+  it('shows a sold account as read-only history with its date and price', async () => {
+    await render({
+      status: 'ARCHIVED', archivedReason: 'SOLD_ON_PLATFORM', email: null, emailSource: null,
+      archivedAt: '2026-10-06T18:34:00Z', soldPrice: 150000,
+    }, { onPublish: vi.fn(), onTogglePin: vi.fn() });
+
+    expect(container.textContent).toContain('Sotilgan');
+    expect(container.textContent).toContain('06.10.2026');
+    expect(container.textContent).toContain("150 000 so'm");
+    expect(container.querySelector('article')?.dataset.state).toBe('sold');
+    // Hech qanday amal yo'q: menyu, tahrir, bozorga chiqarish, email.
+    expect(container.querySelector('[aria-label="Akkount amallari"]')).toBeNull();
+    expect(container.querySelector('a')).toBeNull();
+    expect(container.querySelectorAll('button')).toHaveLength(0);
+    expect(container.textContent).not.toContain('Email biriktirilmagan');
+  });
+
+  it('labels a swapped account and leaves out a price it never had', async () => {
+    await render({
+      status: 'ARCHIVED', archivedReason: 'SWAPPED_ON_PLATFORM', email: null,
+      archivedAt: '2026-10-01T09:00:00Z', soldPrice: null,
+    });
+
+    expect(container.textContent).toContain('Almashtirilgan');
+    expect(container.textContent).toContain('01.10.2026');
+    expect(container.textContent).not.toContain("so'm");
+  });
+
   it('offers publishing when the account is idle', async () => {
     await render();
     expect(button('Bozorga chiqarish')).toBeDefined();

@@ -13,12 +13,18 @@ import uz.efbazaar.marketplace.service.MediaService;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserAccountService {
+
+    /** "Akkountlarim" tarixida qoladigan arxiv sabablari. */
+    static final Set<ArchivedReason> HISTORY_REASONS = Set.of(
+            ArchivedReason.SOLD_ON_PLATFORM, ArchivedReason.SOLD_ELSEWHERE,
+            ArchivedReason.SWAPPED_ON_PLATFORM);
 
     /** Atributlar ichidagi o'yinchilar ro'yxatining kaliti — e'lon bilan bir xil. */
     private static final String SQUAD_KEY = "valuable_players";
@@ -31,13 +37,31 @@ public class UserAccountService {
 
     @Transactional(readOnly = true)
     public List<UserAccount> list(UUID ownerId) {
-        return accounts.findByOwnerIdAndStatusOrderByCreatedAtDesc(ownerId, UserAccountStatus.ACTIVE);
+        // Faollar oldin, keyin tarix — sotilgan va obmen qilinganlar, eng yangisi tepada.
+        List<UserAccount> all = new ArrayList<>(
+                accounts.findByOwnerIdAndStatusOrderByCreatedAtDesc(ownerId, UserAccountStatus.ACTIVE));
+        all.addAll(accounts.findByOwnerIdAndStatusAndArchivedReasonInOrderByArchivedAtDescCreatedAtDesc(
+                ownerId, UserAccountStatus.ARCHIVED, HISTORY_REASONS));
+        return all;
     }
 
     @Transactional(readOnly = true)
     public UserAccount get(UUID id, UUID ownerId) {
         return accounts.findByIdAndOwnerId(id, ownerId)
                 .orElseThrow(MarketplaceException::accountNotFound);
+    }
+
+    /**
+     * O'zgartirish uchun: sotilgan akkount egasining tarixida faqat o'qish
+     * uchun turadi. Uning ma'lumoti endi xaridorniki — tahrir, email yoki
+     * o'chirish tarixni buzardi.
+     */
+    private UserAccount editable(UUID id, UUID ownerId) {
+        UserAccount account = get(id, ownerId);
+        if (account.getStatus() == UserAccountStatus.ARCHIVED) {
+            throw MarketplaceException.accountArchived();
+        }
+        return account;
     }
 
     @Transactional
@@ -62,7 +86,7 @@ public class UserAccountService {
 
     @Transactional
     public UserAccount update(UUID id, UUID ownerId, UserAccountUpdateRequest request) {
-        UserAccount account = get(id, ownerId);
+        UserAccount account = editable(id, ownerId);
         if (request.title() != null) {
             account.setTitle(request.title());
         }
@@ -91,7 +115,7 @@ public class UserAccountService {
      * ({@code ListingService.create} bilan bir xil qoida).
      */
     public UserAccount replaceMedia(UUID id, UUID ownerId, List<MultipartFile> files) {
-        UserAccount account = get(id, ownerId);
+        UserAccount account = editable(id, ownerId);
         media.validate(files);
         // E'lon bilan bir xil izoh: division, team strength, kartalar,
         // coinlar, tavsif. Ilgari bu yerga faqat akkount nomi ketardi va
@@ -116,7 +140,7 @@ public class UserAccountService {
 
     @Transactional
     public UserAccount setEmail(UUID id, UUID ownerId, String email) {
-        UserAccount account = get(id, ownerId);
+        UserAccount account = editable(id, ownerId);
         String trimmed = email == null || email.isBlank() ? null : email.trim();
         account.setEmail(trimmed);
         // Qo'lda kiritilgan manzil platforma pochtasining o'rnini bosadi: eski
@@ -128,7 +152,7 @@ public class UserAccountService {
 
     @Transactional
     public void delete(UUID id, UUID ownerId) {
-        UserAccount account = get(id, ownerId);
+        UserAccount account = editable(id, ownerId);
         if (account.isOnMarket()) {
             throw MarketplaceException.accountOnMarket();
         }

@@ -37,6 +37,11 @@ public class MarketplaceException extends RuntimeException {
                 "Bu chatda savdo davom etmoqda — tugagach o'chirsa bo'ladi");
     }
 
+    public static MarketplaceException accountArchived() {
+        return new MarketplaceException(HttpStatus.CONFLICT, "account_archived",
+                "Bu akkount sotilgan — uni o'zgartirib bo'lmaydi");
+    }
+
     public static MarketplaceException accountOnMarket() {
         return new MarketplaceException(HttpStatus.CONFLICT, "account_on_market",
                 "Akkount bozorda turibdi. Avval uni bozordan oling");
