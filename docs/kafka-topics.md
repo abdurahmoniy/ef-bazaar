@@ -19,7 +19,7 @@ kelajak uchun yoki tashqi loyiha uchun).
 | `efbazaar.auth.google-linked` | auth | bot |
 | `efbazaar.auth.user-logged-in` | auth | — |
 | `efbazaar.auth.user-photo-needed` | auth | bot (rasmni media topikka yuklaydi) |
-| `efbazaar.auth.user-role-changed` | auth | trade (rol olinsa trade-admin profili o'chadi) |
+| `efbazaar.auth.user-role-changed` | auth | trade (rol olinsa trade-admin profili o'chadi), payment (`group payment-service-user-role-changed`: `ADMIN` bo'lsa yashirin `STAFF` tarifiga o'tkazadi, `ADMIN` olinsa — faqat `source=ROLE` bo'lgan `STAFF`ni `STANDARD`ga qaytaradi) |
 | `efbazaar.auth.user-deleted` | auth | marketplace |
 
 ## notifications (auth boyitadi → bot yuboradi)
@@ -124,7 +124,11 @@ haqiqiy havolani kuzatishda davom etadi.
 `plans/entitlements` ni saqlaganda faqat o'zgargan plan uchun commit'dan keyin darhol chiqadi;
 payment-service ishga tushganda barcha planlar qayta chiqadi.
 `subscription-changed` esa DB commit'dan keyin chiqadi — xarid (`plans/purchase`) va admin
-`plans/assign` uchun. Commit'dan oldin tushgan rollback'li o'zgarish hech qachon chiqmaydi.
+`plans/assign` va rol bo'yicha `STAFF` o'tkazish uchun. Commit'dan oldin tushgan rollback'li o'zgarish hech qachon chiqmaydi.
+`STAFF` — ADMIN roli uchun yashirin tarif (`active=false`, narxsiz, ommaviy katalogda yo'q): barcha
+huquqi `null` (cheksiz), panelda tahrirlanmaydi. `plan-entitlements` snapshot'i uni ham chiqaradi.
+payment `user-role-changed` yozuvini `spring.json.use.type.headers=false` bilan o'qiydi (auth
+`__TypeId__` ni o'z klassi bilan yozadi); o'qib bo'lmagan yozuv `.DLT` ga tushadi.
 
 `card-credit-observed` va `card-debit-observed` payload'larida ixtiyoriy `userbotTelegramId` (Long) —
 kuzatgan Telegram akkountining id'si. Idempotency kaliti `(userbotTelegramId, telegramMessageId)`:

@@ -40,6 +40,7 @@ public class PlanEntitlementAdminService {
     public List<PlanEntitlementRow> all() {
         return entitlements.findAll().stream()
                 .filter(e -> ADMIN_KEYS.contains(e.key()))
+                .filter(e -> !PlanService.STAFF_PLAN.equals(e.planCode()))
                 .sorted(Comparator.comparing(PlanEntitlement::planCode).thenComparing(PlanEntitlement::key))
                 .map(PlanEntitlementRow::of)
                 .toList();
@@ -52,6 +53,10 @@ public class PlanEntitlementAdminService {
         for (var item : items) {
             if (!plans.existsById(item.planCode())) {
                 throw new IllegalArgumentException("Unknown plan " + item.planCode());
+            }
+            // Always unlimited: a number here would cap every admin.
+            if (PlanService.STAFF_PLAN.equals(item.planCode())) {
+                throw new IllegalArgumentException("STAFF is always unlimited");
             }
             var id = new PlanEntitlementId(item.planCode(), item.key());
             PlanEntitlement row = entitlements.findById(id)

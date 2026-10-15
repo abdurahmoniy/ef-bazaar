@@ -36,6 +36,15 @@ public class PlanService {
     /** What a user is on when nobody has decided otherwise. */
     public static final String DEFAULT_PLAN = "STANDARD";
 
+    /**
+     * What an ADMIN is on: every entitlement unlimited, never for sale, never
+     * edited from the panel. Granted by role (source {@link #ROLE_SOURCE}), not bought.
+     */
+    public static final String STAFF_PLAN = "STAFF";
+
+    /** Subscription source for a plan that follows the user's auth role. */
+    public static final String ROLE_SOURCE = "ROLE";
+
     private final PlanRepository plans;
     private final PlanEntitlementRepository entitlements;
     private final UserSubscriptionRepository subscriptions;

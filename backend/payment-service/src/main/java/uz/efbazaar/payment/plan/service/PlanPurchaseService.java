@@ -48,6 +48,12 @@ public class PlanPurchaseService {
             return mine(userId);
         }
 
+        // Before price and balance: an admin has nothing to buy, whatever they ask for.
+        if (PlanService.STAFF_PLAN.equals(planService.planFor(userId))) {
+            throw new PlanPurchaseException(HttpStatus.CONFLICT, "staff_unlimited",
+                    "Admin sifatida barcha imkoniyatlar cheklovsiz");
+        }
+
         Plan target = plans.findById(req.planCode()).filter(Plan::isActive)
                 .filter(p -> !PlanService.DEFAULT_PLAN.equals(p.getCode()))
                 .orElseThrow(() -> new PlanPurchaseException(HttpStatus.BAD_REQUEST,

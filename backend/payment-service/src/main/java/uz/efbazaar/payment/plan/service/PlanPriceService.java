@@ -52,11 +52,14 @@ public class PlanPriceService {
     /**
      * Applies all rows or none. STANDARD is refused: pricing the free plan would
      * make it purchasable, which is not a price change but a product change.
+     * STAFF is refused for the same reason: it is the admins' plan, not a product.
      */
     @Transactional
     public List<PlanPriceRow> update(UUID adminId, List<UpdatePlanPricesRequest.Item> items) {
         for (var item : items) {
-            if (!plans.existsById(item.planCode()) || PlanService.DEFAULT_PLAN.equals(item.planCode())) {
+            if (!plans.existsById(item.planCode())
+                    || PlanService.DEFAULT_PLAN.equals(item.planCode())
+                    || PlanService.STAFF_PLAN.equals(item.planCode())) {
                 throw new IllegalArgumentException("Not a purchasable plan: " + item.planCode());
             }
             var id = new PlanPriceId(item.planCode(), item.period());

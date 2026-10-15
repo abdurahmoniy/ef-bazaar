@@ -23,6 +23,9 @@ public final class PaymentTopics {
      */
     public static final String PLAN_ENTITLEMENTS    = "efbazaar.payment.plan-entitlements";
 
+    /** Consumed, not produced here: auth-service announces a user's role change. */
+    public static final String USER_ROLE_CHANGED    = "efbazaar.auth.user-role-changed";
+
     /**
      * Where a record this service cannot process is parked. Spring Kafka's own
      * convention, kept here so the consumer, the recoverer and any operator
