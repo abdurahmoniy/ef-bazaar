@@ -213,6 +213,7 @@ Android ilovada tarif sotib olinmaydi (Play Billing qarori) — bu spec faqat `f
     (6a: swap — qaysi ochiq qutini qulflashni tanlash oynasi).
   - Blur ostidagi "xatlar" — **soxta skeleton qatorlar**, haqiqiy mazmun emas (backend 403
     qaytaradi, mazmun brauzerga kelmaydi).
+  - **Tasdiqlangan dizayn (2026-10-15):** https://claude.ai/artifact/GEAGjfrsZBkJU8UMebdEHq
   - **Vizual dizayn Claude Design'da** (Design artifact) implementatsiyadan oldin tayyorlanadi va
     tasdiqlanadi: qulflangan quti kartasi, blur'li xatlar paneli + upgrade CTA, swap oynasi,
     `/plans` kartalari. Implementatsiya o'sha dizaynga mos keladi. Sifat talabi yuqori — bu
