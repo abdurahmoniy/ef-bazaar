@@ -68,4 +68,4 @@ Hozirgi publisher broker ishlamasa xabarni log qilib tashlab yuboradi (outbox yo
 
 ## Test
 
-`mvn -B -ntp clean verify` — 10 unit, 32 integratsion (`*IT`).
+`mvn -B -ntp clean verify` — 87 unit, 229 integratsion (`*IT`).

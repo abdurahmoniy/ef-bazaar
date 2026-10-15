@@ -85,7 +85,7 @@ har o'zgarish `trade_audit_log` ga yoziladi (`TradeAuditService` — yagona yozu
 
 ## Test
 
-`mvn -B -ntp clean verify` — 47 unit, 48 integratsion (`*IT`).
+`mvn -B -ntp clean verify` — 306 unit, 296 integratsion (`*IT`).
 
 ### Konami verification-code notifications
 

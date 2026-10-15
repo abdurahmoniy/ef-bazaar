@@ -119,6 +119,13 @@ haqiqiy havolani kuzatishda davom etadi.
 | `efbazaar.payment.plan-entitlements` | payment | trade (`plan_entitlement_view` projection) |
 | `efbazaar.payment.subscription-changed` | payment | trade (`user_plan_view` projection) |
 
+`plan-entitlements` payload: plan snapshot — `planCode` (kalit) va `entitlements` ichida
+`mailbox.slots` hamda `mailbox.custom_slots` (`null` = cheksiz, aks holda butun son >= 0). Admin
+`plans/entitlements` ni saqlaganda faqat o'zgargan plan uchun commit'dan keyin darhol chiqadi;
+payment-service ishga tushganda barcha planlar qayta chiqadi.
+`subscription-changed` esa DB commit'dan keyin chiqadi — xarid (`plans/purchase`) va admin
+`plans/assign` uchun. Commit'dan oldin tushgan rollback'li o'zgarish hech qachon chiqmaydi.
+
 `card-credit-observed` va `card-debit-observed` payload'larida ixtiyoriy `userbotTelegramId` (Long) —
 kuzatgan Telegram akkountining id'si. Idempotency kaliti `(userbotTelegramId, telegramMessageId)`:
 xabar id'lari faqat bitta akkount ichida noyob. Maydonsiz xabar eski userbotdan, `NULL` sifatida saqlanadi.
