@@ -36,7 +36,7 @@ har o'zgarish `trade_audit_log` ga yoziladi (`TradeAuditService` — yagona yozu
 | `mailbox`, `mail` | Escrow pochta qutilari (Mailcow), foydalanuvchi uchun read-only IMAP (mail.efbazaar.uz frontendi shu API'ni ishlatadi) |
 | `admin` | Trade-admin: profil, katalog, taklif qilish (invite → accept/decline), ish navbati, eskalatsiya, SMART savdoga qo'lda aralashish |
 | `seller` | Sotuvchi reytingi (xaridordan 1–5) |
-| `plan` | payment-service tariflarining lokal projection'i; `MailboxSlotService` — nechta quti ochish mumkin; `MailboxAccessService` — limitdan oshgan qutilar qulflanadi (`mailboxes.access_priority`, hisoblanadi, saqlanmaydi; jonli savdodagi quti hech qachon qulflanmaydi; egasi savdo tomoni bo'lmagan jonli quti — human savdoda adminga berilgan escrow quti — ham ochiq, lekin egasining limitiga sanalmaydi) |
+| `plan` | payment-service tariflarining lokal projection'i; `MailboxSlotService` — nechta quti ochish mumkin (egasi savdo tomoni bo'lmagan jonli savdodagi quti — adminga berilgan human escrow quti — egasining hisobiga kirmaydi); `MailboxAccessService` — limitdan oshgan qutilar qulflanadi (`mailboxes.access_priority`, hisoblanadi, saqlanmaydi; jonli savdodagi quti hech qachon qulflanmaydi; egasi savdo tomoni bo'lmagan jonli quti — human savdoda adminga berilgan escrow quti — ham ochiq, lekin egasining limitiga sanalmaydi) |
 | `payment` | `EscrowClient` — payment-service `/internal/trades/{id}/escrow/*` (trade so'mda, payment tiyinda hisoblaydi) |
 | `marketplace`, `partner`, `security` | marketplace (e'lon shartlari, akkount), hamkor attributsiyasi, auth (ismlar) HTTP klientlari |
 | `card` | Foydalanuvchining bank kartalari (PAN shifrlangan, Luhn tekshiruvi). Hozir faqat o'z CRUD'i bor — boshqa kod ishlatmaydi |

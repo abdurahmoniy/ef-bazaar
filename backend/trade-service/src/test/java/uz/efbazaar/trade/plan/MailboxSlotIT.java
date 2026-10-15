@@ -37,6 +37,8 @@ class MailboxSlotIT extends AbstractIntegrationIT {
     @Autowired PlanProjection projection;
     @Autowired uz.efbazaar.trade.plan.repository.PlanEntitlementViewRepository entitlementRows;
     @Autowired uz.efbazaar.trade.plan.repository.UserPlanViewRepository userPlanRows;
+    @Autowired uz.efbazaar.trade.mailbox.repository.MailboxRepository mailboxes;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     /**
      * Leaves the projection as it was found: empty.
@@ -159,5 +161,59 @@ class MailboxSlotIT extends AbstractIntegrationIT {
         projection.userMoved(seller, "PLAN_WE_HAVE_NOT_HEARD_OF", null);
 
         assertThatCode(() -> slots.assertCanAllocate(seller)).doesNotThrowAnyException();
+    }
+
+    /** A mailbox owned by {@code owner}, wired into a live trade between two other people when {@code tradeId} is set. */
+    private UUID ownedBox(UUID owner, UUID tradeId) {
+        UUID id = UUID.randomUUID();
+        mailboxes.saveAndFlush(uz.efbazaar.trade.mailbox.domain.Mailbox.builder().id(id)
+                .email("acc-" + id + "@efbazaar.uz").ownerUserId(owner)
+                .encryptedPassword(new byte[]{1}).passwordIv(new byte[12]).passwordTag(new byte[16])
+                .createdAt(java.time.Instant.now()).provisionedAt(java.time.Instant.now())
+                .accessPriority(System.nanoTime()).build());
+        if (tradeId != null) {
+            jdbc.update("UPDATE trades SET mailbox_id = ? WHERE id = ?", id, tradeId);
+        }
+        return id;
+    }
+
+    @Test
+    void anAdminsLentEscrowBoxesDoNotEatTheirOwnAllocation() {
+        // A human trade-admin is handed the escrow box of every trade they run.
+        // Those are the job's tools, not the admin's own mailboxes: counting
+        // them would stop the admin opening a trade of their own.
+        planGrants("STANDARD", "3");
+        UUID admin = UUID.randomUUID();
+        for (int i = 0; i < 5; i++) {
+            UUID trade = openSaleFor(UUID.randomUUID(), UUID.randomUUID());
+            ownedBox(admin, trade);
+        }
+
+        assertThat(slots.used(admin)).isZero();
+        assertThat(slots.statusFor(admin).full()).isFalse();
+        assertThatCode(() -> slots.assertCanAllocate(admin)).doesNotThrowAnyException();
+        assertThatCode(() -> openSaleFor(admin, UUID.randomUUID())).doesNotThrowAnyException();
+    }
+
+    @Test
+    void aPartysOwnLiveBoxStillCounts() {
+        planGrants("STANDARD", "3");
+        UUID seller = UUID.randomUUID();
+        UUID trade = openSaleFor(seller, UUID.randomUUID());
+        long before = slots.used(seller);
+
+        ownedBox(seller, trade);
+
+        assertThat(slots.used(seller)).isEqualTo(before + 1);
+    }
+
+    @Test
+    void aBoxOwnedOutsideAnyLiveTradeStillCounts() {
+        planGrants("STANDARD", "3");
+        UUID user = UUID.randomUUID();
+        ownedBox(user, null);
+        ownedBox(user, null);
+
+        assertThat(slots.used(user)).isEqualTo(2);
     }
 }

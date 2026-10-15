@@ -32,13 +32,29 @@ public interface MailboxRepository
      * away from them: each one creates a real mailbox on the mail server, and
      * none of them would ever be owned by anybody.
      *
+     * <p>An owned box in a live trade the owner is NOT a party to — the escrow
+     * box of a human trade, lent to the assigned admin — is the admin's tool
+     * for the job, not their own allowance, so it is left out (same rule as
+     * {@code MailboxAccessService}).
+     *
      * <p>Terminal states come in as a parameter rather than being spelled out
      * here, so the SQL cannot fall out of step with {@code TradeState}.
      */
     @Query(value = """
             SELECT COUNT(DISTINCT m.id) FROM mailboxes m
              WHERE m.deleted_at IS NULL
-               AND (m.owner_user_id = :userId
+               AND ((m.owner_user_id = :userId
+                     AND (NOT EXISTS (SELECT 1 FROM trades t
+                                       WHERE t.state NOT IN (:terminalStates)
+                                         AND (t.mailbox_id = m.id
+                                              OR EXISTS (SELECT 1 FROM trade_sides s
+                                                          WHERE s.trade_id = t.id AND s.mailbox_id = m.id)))
+                          OR EXISTS (SELECT 1 FROM trades t
+                                      WHERE t.state NOT IN (:terminalStates)
+                                        AND (t.seller_id = :userId OR t.buyer_id = :userId)
+                                        AND (t.mailbox_id = m.id
+                                             OR EXISTS (SELECT 1 FROM trade_sides s
+                                                         WHERE s.trade_id = t.id AND s.mailbox_id = m.id)))))
                     OR m.id IN (
                         SELECT s.mailbox_id
                           FROM trade_sides s
