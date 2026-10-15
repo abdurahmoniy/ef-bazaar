@@ -18,9 +18,11 @@ export function UpgradeCta({
   const upgrade = plan === undefined || showUpgrade(plan);
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-foreground">
-        {upgrade ? message : 'Pochta qutilari joyi tugadi. Keraksiz qutini o‘zingizdan uzing'}
-      </p>
+      {message !== '' && (
+        <p className="text-sm text-foreground">
+          {upgrade ? message : 'Pochta qutilari joyi tugadi. Keraksiz qutini o‘zingizdan uzing'}
+        </p>
+      )}
       <Button asChild size="sm" className="min-h-11 sm:min-h-9">
         {upgrade ? (
           <Link href="/plans"><Sparkles className="mr-1.5 h-4 w-4" aria-hidden />Tarifni oshirish</Link>

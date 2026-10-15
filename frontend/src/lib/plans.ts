@@ -117,3 +117,12 @@ export function planEndDate(
   else end.setUTCMonth(end.getUTCMonth() + 1);
   return end;
 }
+
+/** Profile plan row; null (plan lookup failed) is neutral, never "Jaydari". */
+export function planLabel(mine: MyPlan | null): string {
+  if (!mine) return '—';
+  if (mine.code === 'STANDARD') return PLAN_NAMES.STANDARD;
+  return mine.expiresAt
+    ? `${PLAN_NAMES[mine.code]} · ${formatPlanDate(mine.expiresAt)} gacha`
+    : PLAN_NAMES[mine.code];
+}

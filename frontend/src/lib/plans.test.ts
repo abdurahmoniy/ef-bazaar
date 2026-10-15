@@ -66,3 +66,12 @@ describe('plans', () => {
     expect(formatPlanDate(planEndDate('choose', free, 'YEAR', now))).toBe('01.05.2027');
   });
 });
+
+describe('planLabel', () => {
+  it('is neutral when the plan is unknown', async () => {
+    const { planLabel } = await import('./plans');
+    expect(planLabel(null)).toBe('—');
+    expect(planLabel({ code: 'STANDARD', expiresAt: null, entitlements: {} })).toBe('Jaydari');
+    expect(planLabel({ code: 'PRO', expiresAt: '2030-01-10T00:00:00Z', entitlements: {} })).toBe('Boyvachcha · 10.01.2030 gacha');
+  });
+});

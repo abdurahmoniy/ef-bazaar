@@ -54,6 +54,11 @@ export function MailboxSlotsWarning() {
     setWantedId(mailboxIdFromSearch(window.location.search));
   }, []);
 
+  const wantedLocked = !!wantedId && !!mailboxes?.some((m) => m.locked && m.id === wantedId);
+  useEffect(() => {
+    if (wantedLocked) document.getElementById('mailboxes')?.scrollIntoView?.({ block: 'start' });
+  }, [wantedLocked]);
+
   const pressure = slotPressure(status);
   const warning = slotWarning(status);
   const lockedCount = status?.lockedCount ?? 0;
@@ -148,7 +153,7 @@ export function MailboxSlotsWarning() {
           aria-label="Band qutilar"
           aria-valuemin={0}
           aria-valuemax={limit + lockedCount}
-          aria-valuenow={(status?.used ?? 0) + lockedCount}
+          aria-valuenow={Math.min(status?.used ?? 0, limit) + lockedCount}
           className="flex gap-1.5"
         >
           {Array.from({ length: limit + lockedCount }, (_, i) => (
@@ -156,7 +161,7 @@ export function MailboxSlotsWarning() {
               key={i}
               className={
                 i < limit
-                  ? i < (status?.used ?? 0) ? 'h-2 flex-1 rounded-full bg-primary' : 'h-2 flex-1 rounded-full bg-muted-foreground/30'
+                  ? i < Math.min(status?.used ?? 0, limit) ? 'h-2 flex-1 rounded-full bg-primary' : 'h-2 flex-1 rounded-full bg-muted-foreground/30'
                   : 'h-2 flex-1 rounded-full bg-amber-500/70'
               }
             />

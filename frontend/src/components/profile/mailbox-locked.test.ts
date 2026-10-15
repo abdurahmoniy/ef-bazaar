@@ -137,4 +137,21 @@ describe('locked mailboxes', () => {
     await render();
     expect(dialog()).toBeNull();
   });
+
+  it('meter never exceeds its max when used > limit', async () => {
+    vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 5, limit: 3, full: true, plan: 'STANDARD', lockedCount: 1 });
+    await act(async () => root.render(createElement(MailboxSlotsWarning)));
+    const m = container.querySelector('[role="meter"]')!;
+    expect(Number(m.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(Number(m.getAttribute('aria-valuemax')));
+    expect(m.children).toHaveLength(4);
+  });
+
+  it('reason text of a disabled candidate is not dimmed by opacity', async () => {
+    await render();
+    await act(async () => {
+      [...container.querySelectorAll('button')].find((b) => b.textContent === 'Shuni ochish')!.click();
+    });
+    const label = dialog()!.querySelectorAll('label')[1];
+    expect(label.className).not.toMatch(/opacity/);
+  });
 });

@@ -50,7 +50,7 @@ import { cn } from '@/lib/utils';
 import type { TradeAdminApplicationResponse } from '@/lib/trade-admin-applications';
 import type { SellerRatingSummaryResponse } from '@/lib/trade-types';
 import type { User } from '@/lib/types';
-import { PLAN_NAMES, formatPlanDate, type MyPlan } from '@/lib/plans';
+import { planLabel, type MyPlan } from '@/lib/plans';
 import { logoutAction } from '@/app/auth/actions';
 
 interface ProfileAccountProps {
@@ -356,11 +356,7 @@ export function ProfileAccount({
       >
         <span className="font-semibold">Tarif</span>
         <span className="text-muted-foreground">
-          {plan && plan.code !== 'STANDARD' && plan.expiresAt
-            ? `${PLAN_NAMES[plan.code]} · ${formatPlanDate(plan.expiresAt)} gacha`
-            : plan && plan.code !== 'STANDARD'
-              ? PLAN_NAMES[plan.code]
-              : PLAN_NAMES.STANDARD}
+          {planLabel(plan)}
         </span>
       </Link>
 

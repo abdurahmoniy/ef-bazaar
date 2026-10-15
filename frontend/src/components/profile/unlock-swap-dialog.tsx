@@ -75,7 +75,7 @@ export function UnlockSwapDialog({ mailbox, plan, candidates, limit, onClose, on
                   className={cn(
                     'flex min-h-14 items-center gap-3 rounded-xl border px-3.5 py-2.5',
                     selected ? 'border-2 border-primary bg-accent' : 'border-border bg-card',
-                    disabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer',
+                    disabled ? 'cursor-not-allowed' : 'cursor-pointer',
                   )}
                 >
                   <input
@@ -85,10 +85,10 @@ export function UnlockSwapDialog({ mailbox, plan, candidates, limit, onClose, on
                     checked={selected}
                     disabled={disabled}
                     onChange={() => setPicked(c.id)}
-                    className="size-[18px] shrink-0 accent-primary"
+                    className="size-[18px] shrink-0 accent-primary disabled:opacity-50"
                   />
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="break-all text-sm font-bold">{c.email}</span>
+                    <span className={cn('break-all text-sm font-bold', disabled && 'text-muted-foreground')}>{c.email}</span>
                     {c.disabledReason && (
                       <span className="text-xs text-muted-foreground">{c.disabledReason} — qulflab bo‘lmaydi</span>
                     )}
