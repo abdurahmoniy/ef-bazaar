@@ -119,6 +119,37 @@ class PlanPurchaseIT extends AbstractPostgresIT {
     }
 
     @Test
+    void twoConcurrentRequestsWithTheSameKeyChargeOnceAndBothSucceed() throws Exception {
+        UUID user = fundedUser(5_000_000);
+        String key = UUID.randomUUID().toString();
+        var pool = Executors.newFixedThreadPool(2);
+        var start = new CountDownLatch(1);
+        Callable<Object> attempt = () -> {
+            start.await();
+            try {
+                return purchases.purchase(user, null, new PurchasePlanRequest(
+                        "PRO", PlanPeriod.MONTH, 1_000_000L, key));
+            } catch (RuntimeException e) {
+                return e;
+            }
+        };
+        var a = pool.submit(attempt);
+        var b = pool.submit(attempt);
+        start.countDown();
+        Object ra = a.get(30, TimeUnit.SECONDS);
+        Object rb = b.get(30, TimeUnit.SECONDS);
+        pool.shutdown();
+
+        assertThat(ra).isNotInstanceOf(Exception.class);
+        assertThat(rb).isNotInstanceOf(Exception.class);
+        assertThat(ledger.balanceOf(user).getAvailableTiyin()).isEqualTo(4_000_000);
+        var rows = purchaseRows.findAll().stream().filter(p -> key.equals(p.getIdempotencyKey())).toList();
+        assertThat(rows).hasSize(1);
+        assertThat(plans.expiryFor(user)).isCloseTo(rows.get(0).getExpiresAt(),
+                org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS));
+    }
+
+    @Test
     void anAnonymousPurchaseIsRejected() throws Exception {
         var req = new PurchasePlanRequest("PRO", PlanPeriod.MONTH, 1_000_000L, UUID.randomUUID().toString());
         mvc.perform(post("/api/v1/payments/plans/purchase")

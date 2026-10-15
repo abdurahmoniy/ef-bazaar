@@ -6,6 +6,8 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import uz.efbazaar.payment.plan.domain.Plan;
 import uz.efbazaar.payment.plan.domain.UserSubscription;
 import uz.efbazaar.payment.plan.dto.PlanEntitlementsSnapshot;
@@ -96,7 +98,19 @@ public class PlanService {
         sub.setSource(source == null ? "ADMIN" : source);
         subscriptions.save(sub);
 
-        events.subscriptionChanged(userId, planCode, expiresAt);
+        // Only once the row is durable: a rollback after this point must not
+        // leave readers believing in a plan the database never recorded.
+        Runnable announce = () -> events.subscriptionChanged(userId, planCode, expiresAt);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    announce.run();
+                }
+            });
+        } else {
+            announce.run();
+        }
         log.info("User {} is now on plan {} (expires {})", userId, planCode, expiresAt);
         return sub;
     }

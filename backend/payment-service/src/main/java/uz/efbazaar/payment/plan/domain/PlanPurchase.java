@@ -1,4 +1,3 @@
-// plan/domain/PlanPurchase.java
 package uz.efbazaar.payment.plan.domain;
 
 import jakarta.persistence.*;

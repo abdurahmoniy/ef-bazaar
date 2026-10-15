@@ -1,4 +1,3 @@
-// plan/dto/PurchasePlanRequest.java
 package uz.efbazaar.payment.plan.dto;
 
 import jakarta.validation.constraints.*;

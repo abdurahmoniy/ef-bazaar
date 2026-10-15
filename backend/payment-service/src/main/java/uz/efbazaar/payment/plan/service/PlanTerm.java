@@ -1,4 +1,3 @@
-// plan/service/PlanTerm.java
 package uz.efbazaar.payment.plan.service;
 
 import org.springframework.http.HttpStatus;

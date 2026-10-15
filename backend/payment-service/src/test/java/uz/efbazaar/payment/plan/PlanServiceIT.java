@@ -3,6 +3,9 @@ package uz.efbazaar.payment.plan;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.transaction.support.TransactionTemplate;
+import uz.efbazaar.payment.plan.service.PlanEventPublisher;
 import uz.efbazaar.payment.plan.repository.UserSubscriptionRepository;
 import uz.efbazaar.payment.plan.service.PlanService;
 import uz.efbazaar.payment.testsupport.AbstractPostgresIT;
@@ -27,6 +30,30 @@ class PlanServiceIT extends AbstractPostgresIT {
 
     @Autowired PlanService plans;
     @Autowired UserSubscriptionRepository subscriptions;
+    @Autowired TransactionTemplate tx;
+    @SpyBean PlanEventPublisher events;
+
+    @Test
+    void anAssignThatRollsBackAnnouncesNothing() {
+        UUID user = UUID.randomUUID();
+        tx.executeWithoutResult(st -> {
+            plans.assign(user, "PRO", Instant.now().plus(30, ChronoUnit.DAYS), "ADMIN");
+            st.setRollbackOnly();
+        });
+        org.mockito.Mockito.verify(events, org.mockito.Mockito.never())
+                .subscriptionChanged(org.mockito.ArgumentMatchers.eq(user),
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void anAssignThatCommitsAnnouncesOnce() {
+        UUID user = UUID.randomUUID();
+        tx.executeWithoutResult(st ->
+                plans.assign(user, "PRO", Instant.now().plus(30, ChronoUnit.DAYS), "ADMIN"));
+        org.mockito.Mockito.verify(events, org.mockito.Mockito.times(1))
+                .subscriptionChanged(org.mockito.ArgumentMatchers.eq(user),
+                        org.mockito.ArgumentMatchers.eq("PRO"), org.mockito.ArgumentMatchers.any());
+    }
 
     @Test
     void everyoneStartsOnTheFreePlanWithoutARowToSaySo() {

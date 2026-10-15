@@ -1,4 +1,3 @@
-// plan/service/PlanPurchaseService.java
 package uz.efbazaar.payment.plan.service;
 
 import lombok.RequiredArgsConstructor;
@@ -45,8 +44,7 @@ public class PlanPurchaseService {
 
     @Transactional
     public MyPlanResponse purchase(UUID userId, Long telegramId, PurchasePlanRequest req) {
-        var replay = purchases.findByIdempotencyKey(req.idempotencyKey());
-        if (replay.isPresent()) {
+        if (isReplay(userId, req.idempotencyKey())) {
             return mine(userId);
         }
 
@@ -64,6 +62,10 @@ public class PlanPurchaseService {
 
         subscriptions.ensureRow(userId);
         var sub = subscriptions.lockByUserId(userId).orElseThrow();
+        // A twin of this request may have committed while we waited for the lock.
+        if (isReplay(userId, req.idempotencyKey())) {
+            return mine(userId);
+        }
         Instant now = clock.instant();
         boolean live = sub.isLiveAt(now) && !"SYSTEM".equals(sub.getSource());
         String curCode = live ? sub.getPlanCode() : PlanService.DEFAULT_PLAN;
@@ -83,7 +85,7 @@ public class PlanPurchaseService {
                 List.of(new Posting(LedgerAccount.USER_AVAILABLE, userId, price),
                         new Posting(LedgerAccount.PLATFORM_REVENUE, null, -price)));
 
-        purchases.save(PlanPurchase.builder()
+        purchases.saveAndFlush(PlanPurchase.builder()
                 .id(UUID.randomUUID()).userId(userId).planCode(target.getCode()).period(req.period())
                 .priceTiyin(price).startsAt(window.startsAt()).expiresAt(window.expiresAt())
                 .ledgerTxId(tx).idempotencyKey(req.idempotencyKey()).telegramId(telegramId)
@@ -92,6 +94,11 @@ public class PlanPurchaseService {
         log.info("User {} bought {} {} for {} tiyin, until {}", userId, target.getCode(),
                 req.period(), price, window.expiresAt());
         return mine(userId);
+    }
+
+    /** A key already used by this user. Another user's key is not a replay; the UNIQUE constraint refuses it. */
+    private boolean isReplay(UUID userId, String key) {
+        return purchases.findByIdempotencyKey(key).filter(p -> p.getUserId().equals(userId)).isPresent();
     }
 
     private MyPlanResponse mine(UUID userId) {

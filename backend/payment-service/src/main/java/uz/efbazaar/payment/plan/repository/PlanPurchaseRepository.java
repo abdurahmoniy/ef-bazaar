@@ -1,4 +1,3 @@
-// plan/repository/PlanPurchaseRepository.java
 package uz.efbazaar.payment.plan.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -1,4 +1,3 @@
-// plan/exception/PlanPurchaseException.java
 package uz.efbazaar.payment.plan.exception;
 
 import lombok.Getter;
