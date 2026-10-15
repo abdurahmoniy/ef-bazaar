@@ -77,16 +77,15 @@ public class MailboxService {
             throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
                     "Bitta qutining o'zi bilan almashtirib bo'lmaydi");
         }
-        // Lock rows in id order so two concurrent swaps cannot deadlock.
-        boolean lockedFirst = lockedId.compareTo(lockInsteadId) < 0;
-        UUID firstId = lockedFirst ? lockedId : lockInsteadId;
-        UUID secondId = lockedFirst ? lockInsteadId : lockedId;
-        Mailbox first = mailboxes.lockOwned(firstId, ownerUserId).orElseThrow(
-                () -> new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException("Quti topilmadi"));
-        Mailbox second = mailboxes.lockOwned(secondId, ownerUserId).orElseThrow(
-                () -> new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException("Quti topilmadi"));
-        Mailbox toOpen = lockedFirst ? first : second;
-        Mailbox toLock = lockedFirst ? second : first;
+        // Every row of the owner is locked, in id order, before anything is
+        // read: concurrent swaps cannot deadlock, and no one can insert between
+        // the validation and the rewrite.
+        List<Mailbox> all = mailboxes.lockAllOwned(ownerUserId);
+        java.util.Set<UUID> ids = new java.util.HashSet<>();
+        all.forEach(m -> ids.add(m.getId()));
+        if (!ids.contains(lockedId) || !ids.contains(lockInsteadId)) {
+            throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException("Quti topilmadi");
+        }
         Set<UUID> locked = access.lockedIds(ownerUserId);
         if (!locked.contains(lockedId) || locked.contains(lockInsteadId)) {
             throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
@@ -96,13 +95,18 @@ public class MailboxService {
             throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
                     "Davom etayotgan savdodagi qutini qulflab bo'lmaydi");
         }
-        long openPriority = toOpen.getAccessPriority();
-        long lockPriority = toLock.getAccessPriority();
-        if (openPriority == lockPriority) {
-            mailboxes.setAccessPriority(lockedId, lockPriority + 1);
-        } else {
-            mailboxes.setAccessPriority(lockedId, lockPriority);
-            mailboxes.setAccessPriority(lockInsteadId, openPriority);
+        // Exchange the two positions in the current order, then renumber everyone
+        // with distinct values so ties can never decide the outcome.
+        List<Mailbox> order = new java.util.ArrayList<>(mailboxes.findAccessOrderOwnedBy(ownerUserId));
+        int i = -1, j = -1;
+        for (int k = 0; k < order.size(); k++) {
+            if (order.get(k).getId().equals(lockedId)) i = k;
+            if (order.get(k).getId().equals(lockInsteadId)) j = k;
+        }
+        java.util.Collections.swap(order, i, j);
+        long base = order.stream().mapToLong(Mailbox::getAccessPriority).max().orElse(0L) + order.size();
+        for (int k = 0; k < order.size(); k++) {
+            mailboxes.setAccessPriority(order.get(k).getId(), base - k);
         }
         log.info("User {} opened mailbox {} by locking {}", ownerUserId, lockedId, lockInsteadId);
     }

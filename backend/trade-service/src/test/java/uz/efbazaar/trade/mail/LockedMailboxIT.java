@@ -38,19 +38,25 @@ class LockedMailboxIT extends AbstractIntegrationIT {
     @Autowired MailboxRepository mailboxes;
     @Autowired PlanProjection projection;
     @Autowired MailboxAccessService access;
+    @Autowired uz.efbazaar.trade.trade.service.TradeService trades;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired uz.efbazaar.trade.plan.repository.PlanEntitlementViewRepository entitlementRows;
     @MockBean ImapConnectionPool pool;
-
-    @Autowired org.springframework.transaction.PlatformTransactionManager tx;
 
     @AfterEach
     void forget() { entitlementRows.deleteAll(); }
 
+    private static final Instant SAME_MOMENT = Instant.parse("2026-01-01T00:00:00Z");
+
     private UUID owned(UUID owner, long priority) {
-        UUID id = UUID.randomUUID();
+        return owned(owner, priority, UUID.randomUUID());
+    }
+
+    /** All rows share created_at, so only priority and then id decide the order. */
+    private UUID owned(UUID owner, long priority, UUID id) {
         mailboxes.saveAndFlush(Mailbox.builder().id(id).email("lk-" + id + "@efbazaar.uz")
                 .ownerUserId(owner).encryptedPassword(new byte[]{1}).passwordIv(new byte[12])
-                .passwordTag(new byte[16]).createdAt(Instant.now()).provisionedAt(Instant.now())
+                .passwordTag(new byte[16]).createdAt(SAME_MOMENT).provisionedAt(Instant.now())
                 .accessPriority(priority).build());
         return id;
     }
@@ -89,6 +95,7 @@ class LockedMailboxIT extends AbstractIntegrationIT {
 
         mvc.perform(get("/api/v1/mailboxes").with(asUser(u)))
                 .andExpect(jsonPath("$[?(@.id=='" + locked + "')].locked").value(true));
+        verifyNoInteractions(pool);
     }
 
     @Test
@@ -161,5 +168,66 @@ class LockedMailboxIT extends AbstractIntegrationIT {
             // fine
         }
         verify(pool).acquire(any());
+    }
+
+    private void unlock(UUID u, UUID locked, UUID instead) throws Exception {
+        mvc.perform(post("/api/v1/mailboxes/{id}/unlock", locked).with(asUser(u))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lockInsteadId\":\"" + instead + "\"}"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void aSwapAmongThreeTiedMailboxesMovesOnlyTheChosenPair() throws Exception {
+        Map<String, String> m = new HashMap<>();
+        m.put("mailbox.slots", "2");
+        projection.replacePlan("STANDARD", m);
+        UUID u = UUID.randomUUID();
+        long base = new java.util.Random().nextLong() & 0x7fffffffffffffffL;
+        UUID hi = owned(u, 5, new UUID(base, 3)), mid = owned(u, 5, new UUID(base, 2)),
+                lo = owned(u, 5, new UUID(base, 1));
+        assertThat(access.lockedIds(u)).containsExactly(lo);
+        UUID lockedNow = lo, chosenOpen = hi, otherOpen = mid;
+
+        unlock(u, lockedNow, chosenOpen);
+
+        assertThat(access.lockedIds(u)).containsExactly(chosenOpen);
+        assertThat(access.isLocked(u, otherOpen)).isFalse();
+    }
+
+    @Test
+    void aSwapWithAThirdBoxTiedAtTheBoundaryOpensTheChosenOne() throws Exception {
+        limitOne();
+        UUID u = UUID.randomUUID();
+        long base = new java.util.Random().nextLong() & 0x7fffffffffffffffL;
+        UUID x = owned(u, 5, new UUID(base, 3)), a = owned(u, 5, new UUID(base, 2)),
+                y = owned(u, 3, new UUID(base, 1));
+        UUID open = x, tiedLocked = a;
+        assertThat(access.lockedIds(u)).containsExactlyInAnyOrder(a, y);
+
+        unlock(u, y, open);
+
+        assertThat(access.isLocked(u, y)).isFalse();
+        assertThat(access.lockedIds(u)).containsExactlyInAnyOrder(open, tiedLocked);
+    }
+
+    @Test
+    void aMailboxInALiveTradeCannotBeLockedInstead() throws Exception {
+        limitOne();
+        UUID u = UUID.randomUUID();
+        var trade = trades.openTrade(UUID.randomUUID(), u, UUID.randomUUID(), 500_000L, null, null,
+                UUID.randomUUID(), null, uz.efbazaar.trade.trade.domain.TradeMode.SMART, null, null,
+                uz.efbazaar.trade.trade.domain.TradeKind.SALE, 500_000L);
+        UUID tradeBox = owned(u, 1);
+        jdbc.update("UPDATE mailboxes SET trade_id = ? WHERE id = ?", trade.id(), tradeBox);
+        jdbc.update("UPDATE trade_sides SET mailbox_id = ? WHERE trade_id = ? AND role = 'SELLER'", tradeBox, trade.id());
+        UUID other = owned(u, 2);
+
+        mvc.perform(post("/api/v1/mailboxes/{id}/unlock", other).with(asUser(u))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"lockInsteadId\":\"" + tradeBox + "\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("invalid_unlock_swap"));
+        assertThat(access.lockedIds(u)).containsExactly(other);
     }
 }

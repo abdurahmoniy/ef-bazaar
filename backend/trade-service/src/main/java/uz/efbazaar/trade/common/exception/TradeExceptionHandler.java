@@ -38,13 +38,6 @@ public class TradeExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body(HttpStatus.BAD_REQUEST, "card_invalid"));
     }
 
-    /**
-     * Out of mailbox slots.
-     *
-     * <p>Answered with the numbers, not just a sentence: there are two ways out
-     * — free one up, or move up a tier — and the screen has to offer both
-     * without reading prose to work out which.
-     */
     @ExceptionHandler(uz.efbazaar.trade.mailbox.exception.MailboxLockedException.class)
     ResponseEntity<Map<String, Object>> onMailboxLocked(uz.efbazaar.trade.mailbox.exception.MailboxLockedException e) {
         Map<String, Object> body = new java.util.LinkedHashMap<>(body(HttpStatus.FORBIDDEN, "mailbox_locked"));
@@ -59,6 +52,13 @@ public class TradeExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
+    /**
+     * Out of mailbox slots.
+     *
+     * <p>Answered with the numbers, not just a sentence: there are two ways out
+     * — free one up, or move up a tier — and the screen has to offer both
+     * without reading prose to work out which.
+     */
     @ExceptionHandler(uz.efbazaar.trade.plan.exception.MailboxSlotsExhaustedException.class)
     ResponseEntity<Map<String, Object>> onSlotsExhausted(
             uz.efbazaar.trade.plan.exception.MailboxSlotsExhaustedException e) {

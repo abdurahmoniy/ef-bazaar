@@ -175,4 +175,9 @@ public interface MailboxRepository
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Mailbox m set m.accessPriority = :p where m.id = :id")
     int setAccessPriority(@Param("id") UUID id, @Param("p") long priority);
+
+    /** Every live mailbox of the owner, locked in id order — see MailboxService#swapAccess. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null order by m.id")
+    List<Mailbox> lockAllOwned(@Param("owner") UUID owner);
 }
