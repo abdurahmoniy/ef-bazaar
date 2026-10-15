@@ -37,20 +37,12 @@ class PlanServiceIT extends AbstractPostgresIT {
 
     @Test
     void theShippedPlansGrantWhatTheyAdvertise() {
-        assertThat(plans.entitlementsOf("STANDARD")).containsEntry("mailbox.slots", "3");
-        assertThat(plans.entitlementsOf("PRO")).containsEntry("mailbox.slots", "10");
-    }
-
-    @Test
-    void unlimitedIsAKeyWithNoValue() {
-        Map<String, String> max = plans.entitlementsOf("MAX");
-
-        assertThat(max)
-                .as("the key is granted, which is what tells a reader the plan has this at all")
-                .containsKey("mailbox.slots");
-        assertThat(max.get("mailbox.slots"))
-                .as("null, not -1: a sentinel is read as zero by every comparison that forgets it")
-                .isNull();
+        assertThat(plans.entitlementsOf("STANDARD"))
+                .containsEntry("mailbox.slots", "3").containsEntry("mailbox.custom_slots", "0");
+        assertThat(plans.entitlementsOf("PRO"))
+                .containsEntry("mailbox.slots", "5").containsEntry("mailbox.custom_slots", "1");
+        assertThat(plans.entitlementsOf("MAX"))
+                .containsEntry("mailbox.slots", "10").containsEntry("mailbox.custom_slots", "3");
     }
 
     @Test
