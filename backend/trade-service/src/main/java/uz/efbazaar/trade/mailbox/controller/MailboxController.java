@@ -7,6 +7,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uz.efbazaar.trade.mailbox.dto.MailboxResponse;
 import uz.efbazaar.trade.mailbox.dto.RenameMailboxRequest;
+import uz.efbazaar.trade.mailbox.dto.UnlockMailboxRequest;
 import uz.efbazaar.trade.mailbox.mapper.MailboxMapper;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.plan.service.MailboxAccessService;
@@ -53,6 +54,14 @@ public class MailboxController {
             @PathVariable UUID id) {
         return mapper.toResponse(service.getOwned(me.userId(), id))
                 .withLocked(access.isLocked(me.userId(), id));
+    }
+
+    /** Opens a locked mailbox by locking one of the open ones in its place. */
+    @PostMapping("/{id}/unlock")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unlock(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable UUID id,
+                       @Valid @RequestBody UnlockMailboxRequest request) {
+        service.swapAccess(me.userId(), id, request.lockInsteadId());
     }
 
     @PatchMapping("/{id}/name")

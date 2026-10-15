@@ -28,7 +28,7 @@ class MailHistoryVisibilityTest {
 
     @BeforeEach void setup() throws Exception {
         Store store = mock(Store.class);
-        when(boxes.getOwned(owner, box.getId())).thenReturn(box);
+        when(boxes.getReadable(owner, box.getId())).thenReturn(box);
         when(boxes.listOwnedBy(owner)).thenReturn(List.of(box));
         when(pool.acquire(box)).thenReturn(store);
         when(store.getFolder("INBOX")).thenReturn(inbox);

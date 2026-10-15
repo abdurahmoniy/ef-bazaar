@@ -131,7 +131,7 @@ public class MailService {
     // ---------- inbox listing ----------
 
     public InboxPage listInbox(UUID userId, UUID mailboxId, int limit, int offset) {
-        Mailbox mb = mailboxes.getOwned(userId, mailboxId);
+        Mailbox mb = mailboxes.getReadable(userId, mailboxId);
         return listInbox(mb, limit, offset, ownerVisibleFrom(mb));
     }
 
@@ -220,7 +220,7 @@ public class MailService {
     // ---------- message detail ----------
 
     public MessageDetail getMessage(UUID userId, UUID mailboxId, String messageId) {
-        Mailbox mb = mailboxes.getOwned(userId, mailboxId);
+        Mailbox mb = mailboxes.getReadable(userId, mailboxId);
         return getMessage(mb, messageId, ownerVisibleFrom(mb));
     }
 
@@ -293,7 +293,7 @@ public class MailService {
      * Idempotent: marking an already-seen message is a no-op.
      */
     public void markSeen(UUID userId, UUID mailboxId, String messageId) {
-        Mailbox mb = mailboxes.getOwned(userId, mailboxId);
+        Mailbox mb = mailboxes.getReadable(userId, mailboxId);
         Instant visibleFrom = ownerVisibleFrom(mb);
         long uid = parseUid(messageId);
         try {
@@ -321,7 +321,7 @@ public class MailService {
 
     public AttachmentPayload getAttachment(UUID userId, UUID mailboxId, String messageId,
                                            String attachmentId) {
-        Mailbox mb = mailboxes.getOwned(userId, mailboxId);
+        Mailbox mb = mailboxes.getReadable(userId, mailboxId);
         return getAttachment(mb, messageId, attachmentId, ownerVisibleFrom(mb));
     }
 

@@ -24,6 +24,7 @@ import uz.efbazaar.trade.trade.repository.TradeRepository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -35,6 +36,7 @@ public class MailboxService {
     private final TradeRepository trades;
     private final TradeCrypto crypto;
     private final uz.efbazaar.trade.kafka.TradeEventPublisher events;
+    private final uz.efbazaar.trade.plan.service.MailboxAccessService access;
 
     @Transactional
     public Mailbox create(String email, UUID ownerUserId, UUID tradeId, byte[] initialPassword) {
@@ -51,6 +53,58 @@ public class MailboxService {
                 .passwordTag(enc.tag())
                 .build();
         return mailboxes.save(mbox);
+    }
+
+    /** Owned AND within the plan limit. The only way the user-facing mail API resolves a mailbox. */
+    @Transactional(readOnly = true)
+    public Mailbox getReadable(UUID ownerUserId, UUID mailboxId) {
+        Mailbox m = getOwned(ownerUserId, mailboxId);
+        if (access.isLocked(ownerUserId, mailboxId)) {
+            throw new uz.efbazaar.trade.mailbox.exception.MailboxLockedException();
+        }
+        return m;
+    }
+
+    /**
+     * Opens a locked mailbox by locking an open one in its place: the user's own
+     * choice of which N to keep. Exchanges the two priorities; nothing else moves.
+     * Equal priorities (backfilled rows) cannot be exchanged, so the opened one
+     * is put one above.
+     */
+    @Transactional
+    public void swapAccess(UUID ownerUserId, UUID lockedId, UUID lockInsteadId) {
+        if (lockedId.equals(lockInsteadId)) {
+            throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
+                    "Bitta qutining o'zi bilan almashtirib bo'lmaydi");
+        }
+        // Lock rows in id order so two concurrent swaps cannot deadlock.
+        boolean lockedFirst = lockedId.compareTo(lockInsteadId) < 0;
+        UUID firstId = lockedFirst ? lockedId : lockInsteadId;
+        UUID secondId = lockedFirst ? lockInsteadId : lockedId;
+        Mailbox first = mailboxes.lockOwned(firstId, ownerUserId).orElseThrow(
+                () -> new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException("Quti topilmadi"));
+        Mailbox second = mailboxes.lockOwned(secondId, ownerUserId).orElseThrow(
+                () -> new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException("Quti topilmadi"));
+        Mailbox toOpen = lockedFirst ? first : second;
+        Mailbox toLock = lockedFirst ? second : first;
+        Set<UUID> locked = access.lockedIds(ownerUserId);
+        if (!locked.contains(lockedId) || locked.contains(lockInsteadId)) {
+            throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
+                    "Faqat qulflangan qutini ochiq quti bilan almashtirish mumkin");
+        }
+        if (trades.existsLiveWithMailbox(lockInsteadId, TradeState.nonTerminal())) {
+            throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
+                    "Davom etayotgan savdodagi qutini qulflab bo'lmaydi");
+        }
+        long openPriority = toOpen.getAccessPriority();
+        long lockPriority = toLock.getAccessPriority();
+        if (openPriority == lockPriority) {
+            mailboxes.setAccessPriority(lockedId, lockPriority + 1);
+        } else {
+            mailboxes.setAccessPriority(lockedId, lockPriority);
+            mailboxes.setAccessPriority(lockInsteadId, openPriority);
+        }
+        log.info("User {} opened mailbox {} by locking {}", ownerUserId, lockedId, lockInsteadId);
     }
 
     @Transactional(readOnly = true)

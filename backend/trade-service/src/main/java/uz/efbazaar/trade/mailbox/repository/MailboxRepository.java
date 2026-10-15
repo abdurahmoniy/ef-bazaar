@@ -164,6 +164,15 @@ public interface MailboxRepository
 
     /** Owned, not deleted, highest priority first — the order the plan limit cuts. */
     @Query("select m from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null "
-            + "order by m.accessPriority desc, m.createdAt desc")
+            + "order by m.accessPriority desc, m.createdAt desc, m.id desc")
     List<Mailbox> findAccessOrderOwnedBy(@Param("owner") UUID owner);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from Mailbox m where m.id = :id and m.ownerUserId = :owner and m.deletedAt is null")
+    Optional<Mailbox> lockOwned(@Param("id") UUID id, @Param("owner") UUID owner);
+
+    /** Column-only write, for the same reason as the credential update above: never save the whole row. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Mailbox m set m.accessPriority = :p where m.id = :id")
+    int setAccessPriority(@Param("id") UUID id, @Param("p") long priority);
 }

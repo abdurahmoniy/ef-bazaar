@@ -44,7 +44,8 @@ class MailboxAdminServiceTest {
         repo = mock(MailboxRepository.class);
         events = mock(uz.efbazaar.trade.kafka.TradeEventPublisher.class);
         trades = mock(TradeRepository.class);
-        svc = new MailboxService(repo, trades, mock(TradeCrypto.class), events);
+        svc = new MailboxService(repo, trades, mock(TradeCrypto.class), events,
+                mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class));
     }
 
     @Test

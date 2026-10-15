@@ -45,6 +45,20 @@ public class TradeExceptionHandler {
      * — free one up, or move up a tier — and the screen has to offer both
      * without reading prose to work out which.
      */
+    @ExceptionHandler(uz.efbazaar.trade.mailbox.exception.MailboxLockedException.class)
+    ResponseEntity<Map<String, Object>> onMailboxLocked(uz.efbazaar.trade.mailbox.exception.MailboxLockedException e) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>(body(HttpStatus.FORBIDDEN, "mailbox_locked"));
+        body.put("message", e.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    @ExceptionHandler(uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException.class)
+    ResponseEntity<Map<String, Object>> onInvalidSwap(uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException e) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>(body(HttpStatus.CONFLICT, "invalid_unlock_swap"));
+        body.put("message", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @ExceptionHandler(uz.efbazaar.trade.plan.exception.MailboxSlotsExhaustedException.class)
     ResponseEntity<Map<String, Object>> onSlotsExhausted(
             uz.efbazaar.trade.plan.exception.MailboxSlotsExhaustedException e) {
