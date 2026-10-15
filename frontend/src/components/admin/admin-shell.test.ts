@@ -133,7 +133,13 @@ describe('AdminShell & Navigation', () => {
     // ularni chiqaradi yoki chiqarmaydi.
     const featureFlagged = new Set(['/admin/human-trades', '/admin/trade-admin-applications']);
 
-    const orphaned = routes.filter((r) => !navHrefs.has(r) && !featureFlagged.has(r));
+    // Menyudagi sahifaning ichki bo'limi (masalan `/admin/plans/prices`) o'sha
+    // sahifaning o'z tab satri orqali ochiladi.
+    const underNavParent = (r: string) => [...navHrefs].some((h) => h !== '/admin' && r.startsWith(`${h}/`));
+
+    const orphaned = routes.filter(
+      (r) => !navHrefs.has(r) && !featureFlagged.has(r) && !underNavParent(r),
+    );
     expect(orphaned).toEqual([]);
   });
 });
