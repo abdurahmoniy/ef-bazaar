@@ -52,7 +52,8 @@ function isLive(mine: MyPlan, now: Date): boolean {
   return mine.expiresAt === null || new Date(mine.expiresAt).getTime() > now.getTime();
 }
 
-export type PlanAction = 'choose' | 'extend' | 'upgrade' | 'unavailable' | 'current-free';
+export type PlanAction =
+  | 'choose' | 'extend' | 'upgrade' | 'unavailable' | 'current-free' | 'unlimited-current';
 
 export function planAction(
   target: PlanCatalogItem,
@@ -63,7 +64,8 @@ export function planAction(
   const live = isLive(mine, now);
   if (target.code === 'STANDARD') return live ? 'unavailable' : 'current-free';
   if (!live) return 'choose';
-  if (target.code === mine.code) return 'extend';
+  // An admin-granted plan has no end to push back; buying would only burn money.
+  if (target.code === mine.code) return mine.expiresAt === null ? 'unlimited-current' : 'extend';
   const currentOrder = catalog.find((p) => p.code === mine.code)?.sortOrder ?? 0;
   return target.sortOrder > currentOrder ? 'upgrade' : 'unavailable';
 }

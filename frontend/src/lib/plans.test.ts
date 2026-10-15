@@ -39,6 +39,12 @@ describe('plans', () => {
     expect(planAction(pro, onMax, catalog, now)).toBe('unavailable');
   });
 
+  it('does not offer to extend an unlimited granted plan', () => {
+    const unlimitedPro: MyPlan = { code: 'PRO', expiresAt: null, entitlements: {} };
+    expect(planAction(pro, unlimitedPro, catalog, now)).toBe('unlimited-current');
+    expect(planAction(max, unlimitedPro, catalog, now)).toBe('upgrade');
+  });
+
   it('treats an expired plan as free', () => {
     const expired: MyPlan = { code: 'MAX', expiresAt: '2026-04-01T00:00:00Z', entitlements: {} };
     expect(planAction(pro, expired, catalog, now)).toBe('choose');

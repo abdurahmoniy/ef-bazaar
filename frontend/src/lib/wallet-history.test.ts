@@ -38,6 +38,15 @@ describe('formatSignedTiyin', () => {
   });
 });
 
+describe('plan purchase', () => {
+  it('reads as money the user paid for a plan', () => {
+    const [row] = walletHistoryRows([entry({ kind: 'PLAN_PURCHASE', amountTiyin: 1_000_000 })]);
+    expect(row.label).toBe('Tarif xaridi');
+    expect(row.movement).toBe('out');
+    expect(row.amount).toBe(`-10${NBSP}000`);
+  });
+});
+
 describe('walletHistoryRows', () => {
   it('flips the ledger sign so a deposit reads as money arriving', () => {
     const [row] = walletHistoryRows([entry()]);

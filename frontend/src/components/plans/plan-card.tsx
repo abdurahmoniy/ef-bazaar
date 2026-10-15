@@ -33,6 +33,7 @@ const CTA: Record<CardAction, string> = {
   upgrade: 'Oshirish',
   unavailable: 'Joriy tarif tugagach',
   'current-free': 'Joriy tarif',
+  'unlimited-current': 'Muddatsiz faol',
 };
 
 interface PlanCardProps {
@@ -56,7 +57,7 @@ export function PlanCard({
   const monthly = period === 'YEAR' && item.prices.YEAR ? Math.round(item.prices.YEAR / 12) : null;
   const slots = slotCount(item.entitlements, SLOTS_KEY);
   const custom = slotCount(item.entitlements, CUSTOM_SLOTS_KEY);
-  const disabled = busy || action === 'unavailable' || action === 'current-free' || action === 'unknown';
+  const disabled = busy || action === 'unavailable' || action === 'current-free' || action === 'unlimited-current' || action === 'unknown';
 
   const features = [
     slots === null ? 'Cheksiz pochta qutisi' : `${slots} ta pochta qutisi`,

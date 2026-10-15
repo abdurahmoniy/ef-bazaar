@@ -35,6 +35,7 @@ const PLATFORM_KIND_LABELS: Partial<Record<TransactionKind, string>> = {
   PARTNER_POST_SETTLE: 'Kanal postlari',
   PARTNER_TRADE_SHARE: 'Hamkor ulushi (savdodan)',
   PARTNER_MONTHLY: 'Hamkorga oylik',
+  PLAN_PURCHASE: 'Tarif sotuvi',
   ADJUSTMENT: 'Admin tuzatishi',
 };
 

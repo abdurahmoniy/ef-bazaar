@@ -105,6 +105,7 @@ function MailboxRow({ mailbox, active }: { mailbox: MailboxSummary; active: bool
       {locked && (
         <span
           className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground"
+          role="img"
           aria-label="Qulflangan"
         >
           <Lock className="h-3.5 w-3.5" aria-hidden />

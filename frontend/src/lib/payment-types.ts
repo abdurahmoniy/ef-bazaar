@@ -60,6 +60,7 @@ export type TransactionKind =
   | 'PARTNER_POST_REFUND'
   | 'PARTNER_TRADE_SHARE'
   | 'PARTNER_MONTHLY'
+  | 'PLAN_PURCHASE'
   | 'ADJUSTMENT';
 
 export type LedgerAccount =

@@ -132,6 +132,22 @@ describe('PlansView', () => {
     expect(text).not.toContain('kuyadi');
   });
 
+  it('upgrading from an unlimited granted plan warns it is replaced by a timed one', async () => {
+    const unlimitedPro: MyPlan = { code: 'PRO', expiresAt: null, entitlements: {} };
+    await mount(unlimitedPro);
+    await click('Oshirish');
+    const text = document.body.querySelector('[role="dialog"]')?.textContent ?? '';
+    expect(text).toContain('Muddatsiz Boyvachcha tarifingiz o‘rniga muddatli tarif boshlanadi');
+    expect(text).not.toContain('kuni kuyadi');
+  });
+
+  it('an unlimited granted plan offers no extend button on its own card', async () => {
+    const unlimitedPro: MyPlan = { code: 'PRO', expiresAt: null, entitlements: {} };
+    await mount(unlimitedPro);
+    expect(button('Uzaytirish')).toBeUndefined();
+    expect(button('Muddatsiz faol')?.hasAttribute('disabled')).toBe(true);
+  });
+
   it('upgrade shows the burn warning with the days left', async () => {
     const onPro: MyPlan = { code: 'PRO', expiresAt: inDays(12), entitlements: {} };
     await mount(onPro);

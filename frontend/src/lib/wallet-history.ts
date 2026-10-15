@@ -18,6 +18,7 @@ export const WALLET_KIND_LABELS: Record<TransactionKind, string> = {
   PARTNER_POST_REFUND: 'Kanal posti chiqmadi — qaytdi',
   PARTNER_TRADE_SHARE: 'Hamkorlik (savdodan)',
   PARTNER_MONTHLY: 'Hamkorlik (oylik)',
+  PLAN_PURCHASE: 'Tarif xaridi',
   ADJUSTMENT: 'Admin tuzatishi',
 };
 

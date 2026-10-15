@@ -256,6 +256,7 @@ function UpgradeConfirm({
   const name = PLAN_NAMES[item.code];
   const left = daysLeft(mine.expiresAt, now);
   const burns = action === 'upgrade' && left !== null && left > 0;
+  const replacesUnlimited = action === 'upgrade' && mine.code !== 'STANDARD' && mine.expiresAt === null;
   const periodLabel = period === 'YEAR' ? '1 yil' : '1 oy';
   const title =
     action === 'upgrade' ? `${name}’ga o‘tasizmi?`
@@ -308,6 +309,14 @@ function UpgradeConfirm({
               <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
               <span>
                 Joriy {PLAN_NAMES[mine.code]} tarifining qolgan {left} kuni kuyadi. Yangi tarif bugundan boshlanadi.
+              </span>
+            </p>
+          )}
+          {replacesUnlimited && (
+            <p className="flex items-start gap-2.5 text-sm text-foreground">
+              <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
+              <span>
+                Muddatsiz {PLAN_NAMES[mine.code]} tarifingiz o‘rniga muddatli tarif boshlanadi.
               </span>
             </p>
           )}
