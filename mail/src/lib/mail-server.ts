@@ -22,11 +22,21 @@ import type {
  */
 const MAIL_PREFIX = '/trade/v1/mail';
 
+/** 403 `mailbox_locked`: the mailbox became locked between the list and this call. */
+export class MailboxLockedError extends Error {
+  constructor() {
+    super('mailbox_locked');
+  }
+}
+
 async function safeGet<T>(path: string): Promise<T | null> {
   try {
     return await apiFetch<T>(path);
   } catch (error) {
     if (error instanceof ApiException) {
+      if (error.status === 403 && error.code === 'mailbox_locked') {
+        throw new MailboxLockedError();
+      }
       if (error.status === 401 || error.status === 403 || error.status === 404) {
         return null;
       }

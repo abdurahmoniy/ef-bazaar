@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 
 import { MarkReadBeacon } from '@/components/mail/mark-read-beacon';
 import { MessageView, type MessageNav } from '@/components/mail/message-view';
-import { getInbox, getMessage } from '@/lib/mail-server';
+import { LockedMailbox } from '@/components/mail/locked-mailbox';
+import { getInbox, getMessage, getMyMailboxes, MailboxLockedError } from '@/lib/mail-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,14 +22,26 @@ interface MessagePageProps {
 export default async function MessagePage({ params }: MessagePageProps) {
   const { mailboxId, messageId } = await params;
 
+  // Memoized with the layout's fetch. Locked: no content calls at all.
+  const active = (await getMyMailboxes()).find((m) => m.id === mailboxId);
+  if (!active) notFound();
+  if (active.locked) return <LockedMailbox mailbox={active} />;
+
   // Session, shell and mailbox-ownership checks live in ../layout.tsx; the
   // backend re-verifies ownership on every call anyway (403 → null → 404).
-  const [message, inbox] = await Promise.all([
-    getMessage(mailboxId, messageId),
-    // Best-effort neighbour lookup for prev/next navigation — a null inbox
-    // (IMAP hiccup) just means the arrows don't render.
-    getInbox(mailboxId, { limit: NEIGHBOR_SCAN, offset: 0 }),
-  ]);
+  let message: Awaited<ReturnType<typeof getMessage>>;
+  let inbox: Awaited<ReturnType<typeof getInbox>>;
+  try {
+    [message, inbox] = await Promise.all([
+      getMessage(mailboxId, messageId),
+      // Best-effort neighbour lookup for prev/next navigation — a null inbox
+      // (IMAP hiccup) just means the arrows don't render.
+      getInbox(mailboxId, { limit: NEIGHBOR_SCAN, offset: 0 }),
+    ]);
+  } catch (error) {
+    if (error instanceof MailboxLockedError) return <LockedMailbox mailbox={active} />;
+    throw error;
+  }
   if (!message) notFound();
 
   let nav: MessageNav | undefined;

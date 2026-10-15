@@ -6,7 +6,7 @@ import type { MailboxSummary } from '@/lib/mail-types';
 
 const mailbox: MailboxSummary = {
   id: 'mailbox-1', email: 'account@efbazaar.uz', unreadCount: 2,
-  lastActivityAt: null, ownedSince: '2026-09-19T00:00:00Z',
+  lastActivityAt: null, ownedSince: '2026-09-19T00:00:00Z', locked: false,
 };
 
 describe('mailbox names in the sidebar', () => {
