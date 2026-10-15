@@ -33,7 +33,9 @@ function baselineOf(rows: PlanEntitlementRow[]): Record<string, string | null> {
   return out;
 }
 
-function draftsOf(base: Record<string, string | null>): Record<string, SlotDraft> {
+type Draft = SlotDraft & { lastFinite?: string };
+
+function draftsOf(base: Record<string, string | null>): Record<string, Draft> {
   return Object.fromEntries(Object.entries(base).map(([k, v]) => [k, fromEntitlementValue(v)]));
 }
 
@@ -43,8 +45,20 @@ export function AdminPlanMailboxes({ initial }: { initial: PlanEntitlementRow[] 
   const [saving, setSaving] = useState(false);
   const [pending, setPending] = useState<Items | null>(null);
 
-  function patch(id: string, next: Partial<SlotDraft>) {
+  function patch(id: string, next: Partial<Draft>) {
     setDrafts((d) => ({ ...d, [id]: { ...d[id], ...next } }));
+  }
+
+  /** Unticking "Cheksiz" brings back the last finite value (typed or saved), else 0. */
+  function toggleUnlimited(id: string, unlimited: boolean) {
+    setDrafts((d) => {
+      const cur = d[id];
+      if (unlimited) {
+        const lastFinite = cur.count !== '' ? cur.count : cur.lastFinite;
+        return { ...d, [id]: { unlimited: true, count: '', lastFinite } };
+      }
+      return { ...d, [id]: { unlimited: false, count: cur.lastFinite ?? base[id] ?? '0' } };
+    });
   }
 
   async function commit(items: Items) {
@@ -117,7 +131,7 @@ export function AdminPlanMailboxes({ initial }: { initial: PlanEntitlementRow[] 
                       className="size-[18px] accent-primary"
                       checked={d.unlimited}
                       disabled={saving}
-                      onChange={(e) => patch(id, { unlimited: e.target.checked })}
+                      onChange={(e) => toggleUnlimited(id, e.target.checked)}
                       aria-label={`${PLAN_NAMES[code]} ${col.aria} cheksiz`}
                     />
                     Cheksiz

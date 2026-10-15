@@ -135,7 +135,7 @@ describe('AdminShell & Navigation', () => {
 
     // Menyudagi sahifaning ichki bo'limi (masalan `/admin/plans/prices`) o'sha
     // sahifaning o'z tab satri orqali ochiladi.
-    const underNavParent = (r: string) => [...navHrefs].some((h) => h !== '/admin' && r.startsWith(`${h}/`));
+    const underNavParent = (r: string) => r.startsWith('/admin/plans/');
 
     const orphaned = routes.filter(
       (r) => !navHrefs.has(r) && !featureFlagged.has(r) && !underNavParent(r),

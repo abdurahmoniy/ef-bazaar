@@ -65,4 +65,21 @@ describe('AdminPlanMailboxes', () => {
     await act(async () => { ok.click(); });
     expect(mocks.update).toHaveBeenCalledTimes(1);
   });
+
+  it('restores the last finite value when Cheksiz is unticked', () => {
+    const box = byLabel('Aristokrat tasodifiy qutilar cheksiz');
+    act(() => { box.click(); });
+    expect(byLabel('Aristokrat tasodifiy qutilar').value).toBe('');
+    act(() => { box.click(); });
+    expect(byLabel('Aristokrat tasodifiy qutilar').value).toBe('10');
+  });
+
+  it('falls back to 0 when the saved value was already unlimited', () => {
+    act(() => root.render(createElement(AdminPlanMailboxes, {
+      key: 'unlimited',
+      initial: ROWS.map((r) => (r.planCode === 'MAX' && r.key === 'mailbox.slots' ? { ...r, value: null } : r)),
+    })));
+    act(() => { byLabel('Aristokrat tasodifiy qutilar cheksiz').click(); });
+    expect(byLabel('Aristokrat tasodifiy qutilar').value).toBe('0');
+  });
 });

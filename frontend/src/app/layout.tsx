@@ -12,6 +12,7 @@ import { PushProvider } from '@/components/notifications/push-provider';
 import { StoreProvider } from '@/store/provider';
 import { RouteMotion } from '@/components/navigation/route-motion';
 import { NavigationCacheGuard } from '@/components/navigation/navigation-cache-guard';
+import { AppToaster } from '@/components/providers/app-toaster';
 import { ClientQueryProvider } from '@/components/providers/client-query-provider';
 
 const YANDEX_METRIKA_ID = 110535295;
@@ -127,6 +128,7 @@ export default function RootLayout({
                 <RouteMotion />
                 <NavigationCacheGuard />
                 {children}
+                <AppToaster />
               </PushProvider>
             </StoreProvider>
           </ClientQueryProvider>

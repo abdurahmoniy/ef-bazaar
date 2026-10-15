@@ -71,7 +71,7 @@ export function AdminPlanPrices({ initial }: { initial: PlanPriceRow[] }) {
       <form onSubmit={save} className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
           {PAID.map((code) => {
-            const saving_ = yearlySavingsPercent({
+            const savingsPct = yearlySavingsPercent({
               MONTH: rows.find((r) => r.planCode === code && r.period === 'MONTH')?.priceTiyin,
               YEAR: rows.find((r) => r.planCode === code && r.period === 'YEAR')?.priceTiyin,
             });
@@ -82,9 +82,9 @@ export function AdminPlanPrices({ initial }: { initial: PlanPriceRow[] }) {
                   <h2 className="text-lg font-extrabold">
                     {PLAN_NAMES[code]} <span className="text-xs font-semibold text-muted-foreground">{code}</span>
                   </h2>
-                  {saving_ !== null && (
+                  {savingsPct !== null && (
                     <span className="rounded-full bg-secondary/25 px-2.5 py-1 text-xs font-bold text-secondary-foreground dark:text-secondary">
-                      Yillikda −{saving_}%
+                      Yillikda −{savingsPct}%
                     </span>
                   )}
                 </div>

@@ -1,5 +1,3 @@
-import { Toaster } from 'sonner';
-
 import { AdminPlanTabs } from '@/components/admin/admin-plan-tabs';
 
 /** The admin gate and shell come from `src/app/admin/layout.tsx`. */
@@ -12,7 +10,6 @@ export default function AdminPlansLayout({ children }: { children: React.ReactNo
       </div>
       <AdminPlanTabs />
       {children}
-      <Toaster richColors closeButton />
     </div>
   );
 }
