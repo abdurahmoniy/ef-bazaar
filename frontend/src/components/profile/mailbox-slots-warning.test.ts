@@ -24,10 +24,10 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
-  vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 2, limit: 3, full: false, plan: 'STANDARD' });
+  vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 2, limit: 3, full: false, plan: 'STANDARD', lockedCount: 0 });
   vi.mocked(fetchOwnedMailboxes).mockResolvedValue([
-    { id: 'm1', email: 'bound@efbazaar.uz', tradeId: null, createdAt: '2026-09-01T00:00:00Z', handedOffAt: null },
-    { id: 'm2', email: 'free@efbazaar.uz', tradeId: null, createdAt: '2026-09-02T00:00:00Z', handedOffAt: null },
+    { id: 'm1', email: 'bound@efbazaar.uz', tradeId: null, createdAt: '2026-09-01T00:00:00Z', handedOffAt: null, locked: false },
+    { id: 'm2', email: 'free@efbazaar.uz', tradeId: null, createdAt: '2026-09-02T00:00:00Z', handedOffAt: null, locked: false },
   ]);
   vi.mocked(getMyAccounts).mockResolvedValue({
     ok: true,
@@ -77,7 +77,7 @@ describe('MailboxSlotsWarning', () => {
   });
 
   it('joy yetarli bo‘lsa umuman chizilmaydi', async () => {
-    vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 1, limit: 3, full: false, plan: 'STANDARD' });
+    vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 1, limit: 3, full: false, plan: 'STANDARD', lockedCount: 0 });
     await render();
     expect(container.textContent).toBe('');
   });

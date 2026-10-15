@@ -17,6 +17,7 @@ let status: InvoiceStatus;
 let walletFails: boolean;
 let invoiceFails: boolean;
 let acceptError: string | null;
+let acceptBody: Record<string, unknown> | null;
 const button = (label: string) => Array.from(document.querySelectorAll('button')).find(b => b.textContent?.includes(label));
 const text = () => document.body.textContent!.replace(/\s/g, ' ');
 const calls = (suffix: string, method = 'POST') => vi.mocked(fetch).mock.calls.filter(([url, init]) => String(url).endsWith(suffix) && (init?.method ?? 'GET') === method);
@@ -29,7 +30,7 @@ function makeInvoice(amount = 15000): InvoiceResponse {
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   vi.useFakeTimers();
-  available = 1000000; invoice = null; status = 'PENDING'; walletFails = false; invoiceFails = false; acceptError = null;
+  available = 1000000; invoice = null; status = 'PENDING'; walletFails = false; invoiceFails = false; acceptError = null; acceptBody = null;
   context = {
     chat: { id: 'chat' }, viewerId: 'buyer', trades: [], activeTrade: null, isDrawerOpen: false,
     proposal: { id: 'offer', sellerId: 'seller', buyerId: 'buyer', proposerUserId: 'seller', listingId: 'listing',
@@ -50,7 +51,7 @@ beforeEach(() => {
     if (url.endsWith('/status')) return Response.json({ id: 'invoice', status, creditedTiyin: 1500000 });
     // Obmenda qabul oynasi xaridor akkountlarini so'raydi — bu yerda akkounti yo'q xaridor.
     if (url.endsWith('/v1/accounts') || url.endsWith('/busy-accounts')) return Response.json([]);
-    if (url.endsWith('/accept')) return acceptError ? Response.json({ detail: acceptError }, { status: 409 }) : Response.json({ id: 'trade' });
+    if (url.endsWith('/accept')) return acceptBody ? Response.json(acceptBody, { status: 409 }) : acceptError ? Response.json({ detail: acceptError }, { status: 409 }) : Response.json({ id: 'trade' });
     throw new Error('Unexpected request: ' + url);
   }));
   container = document.createElement('div'); document.body.append(container); root = createRoot(container);
@@ -108,6 +109,20 @@ it('blocks payment while wallet is unavailable and supports retry', async () => 
 it('displays invoice creation errors inside the dialog', async () => {
   invoiceFails = true; await render(); await click('to‘ldirish');
   expect(text()).toContain('To‘ldirish vaqtincha ishlamayapti'); expect(calls('/accept')).toHaveLength(0);
+});
+it('offers the upgrade path when mailbox slots are exhausted', async () => {
+  available = 2500000; await render();
+  acceptBody = { code: 'mailbox_slots_exhausted', message: 'Pochta qutilari to‘ldi', plan: 'PRO', used: 5, limit: 5 };
+  await click('to‘lash va boshlash');
+  expect(text()).toContain('Pochta qutilari to‘ldi');
+  expect(document.querySelector('a[href="/plans"]')?.textContent).toContain('Tarifni oshirish');
+});
+it('offers only detaching on the top plan', async () => {
+  available = 2500000; await render();
+  acceptBody = { code: 'mailbox_slots_exhausted', message: 'Pochta qutilari to‘ldi', plan: 'MAX' };
+  await click('to‘lash va boshlash');
+  expect(document.querySelector('a[href="/plans"]')).toBeNull();
+  expect(document.querySelector('a[href="/profile#mailboxes"]')).not.toBeNull();
 });
 it('refreshes a stale balance after insufficient-funds rejection without creating an invoice', async () => {
   available = 2500000; await render(); available = 1000000; acceptError = 'Mablag‘ yetarli emas';

@@ -3,8 +3,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Link2Off, Loader2, Mail } from 'lucide-react';
 
+import { LockedMailboxCard } from '@/components/profile/locked-mailbox-card';
+import { UpgradeCta } from '@/components/plans/upgrade-cta';
 import { Button } from '@/components/ui/button';
 import { getMyAccounts } from '@/lib/accounts-client';
+import { mailboxIdFromSearch, showUpgrade, swapCandidates } from '@/lib/mailbox-lock';
+import { PLAN_NAMES, type PlanCode } from '@/lib/plans';
 import {
   accountEmailSet,
   detachMailbox,
@@ -37,15 +41,31 @@ export function MailboxSlotsWarning() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [wantedId, setWantedId] = useState<string | null>(null);
+
   const reload = useCallback(() => {
     fetchSlotStatus().then(setStatus);
   }, []);
 
   useEffect(reload, [reload]);
 
+  // Webmail "qulflangan" sahifasi `/profile?mailbox=<id>` ga yuboradi.
+  useEffect(() => {
+    setWantedId(mailboxIdFromSearch(window.location.search));
+  }, []);
+
   const pressure = slotPressure(status);
   const warning = slotWarning(status);
-  if (!warning) return null;
+  const lockedCount = status?.lockedCount ?? 0;
+
+  // Qulflangan qutilar bo'lsa ro'yxat tugma bosilmasdan yuklanadi:
+  // odam ularni ko'rishi va ochishi kerak.
+  useEffect(() => {
+    if (lockedCount > 0 && mailboxes === null) void openList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockedCount]);
+
+  if (!warning && lockedCount === 0) return null;
 
   async function openList() {
     setError(null);
@@ -82,6 +102,8 @@ export function MailboxSlotsWarning() {
       await detachMailbox(mailbox.id);
       setMailboxes((current) => (current ?? []).filter((m) => m.id !== mailbox.id));
       reload();
+      // Slot bo'shadi — qulflangan qutilar avtomatik ochilgan bo'lishi mumkin.
+      if (lockedCount > 0) await openList();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Uzib bo'lmadi");
     } finally {
@@ -89,19 +111,60 @@ export function MailboxSlotsWarning() {
     }
   }
 
+  async function changed() {
+    setWantedId(null);
+    reload();
+    await openList();
+  }
+
+  const plan = status?.plan ?? 'STANDARD';
+  const planName = PLAN_NAMES[plan as PlanCode] ?? plan;
+  const limit = status?.limit ?? null;
+  const candidates = swapCandidates(mailboxes ?? []);
+  const openBoxes = (mailboxes ?? []).filter((m) => !m.locked);
+  const lockedBoxes = (mailboxes ?? []).filter((m) => m.locked);
+  const title = lockedCount > 0
+    ? 'Pochta qutilari'
+    : pressure === 'full' ? "Pochta qutilari to'ldi" : "Pochta qutilari to'lay deb qoldi";
+  const summary = lockedCount > 0
+    ? `${planName} tarifi · ${limit === null ? 'cheksiz' : `${limit} ta`} ochiq joy · ${lockedCount} ta quti qulflangan`
+    : warning;
+
   return (
-    <section className="space-y-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+    <section id="mailboxes" className="scroll-mt-20 space-y-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
       <div className="flex items-start gap-3">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
         <div className="space-y-1">
           <h2 className="text-sm font-semibold">
-            {pressure === 'full'
-              ? "Pochta qutilari to'ldi"
-              : "Pochta qutilari to'lay deb qoldi"}
+            {title}
           </h2>
-          <p className="text-xs text-muted-foreground">{warning}</p>
+          <p className="text-xs text-muted-foreground">{summary}</p>
         </div>
       </div>
+
+      {limit !== null && lockedCount > 0 && (
+        <div
+          role="meter"
+          aria-label="Band qutilar"
+          aria-valuemin={0}
+          aria-valuemax={limit + lockedCount}
+          aria-valuenow={(status?.used ?? 0) + lockedCount}
+          className="flex gap-1.5"
+        >
+          {Array.from({ length: limit + lockedCount }, (_, i) => (
+            <span
+              key={i}
+              className={
+                i < limit
+                  ? i < (status?.used ?? 0) ? 'h-2 flex-1 rounded-full bg-primary' : 'h-2 flex-1 rounded-full bg-muted-foreground/30'
+                  : 'h-2 flex-1 rounded-full bg-amber-500/70'
+              }
+            />
+          ))}
+        </div>
+      )}
+
+      {pressure === 'full' && showUpgrade(plan) && <UpgradeCta plan={plan} />}
 
       {mailboxes === null ? (
         <Button type="button" variant="outline" size="sm" onClick={openList}>
@@ -110,7 +173,7 @@ export function MailboxSlotsWarning() {
         </Button>
       ) : (
         <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {mailboxes.map((mailbox) => (
+          {openBoxes.map((mailbox) => (
             <li key={mailbox.id} className="flex items-center gap-3 p-3">
               <div className="min-w-0 flex-1">
                 <p className="break-all text-sm font-medium">{mailbox.email}</p>
@@ -139,10 +202,32 @@ export function MailboxSlotsWarning() {
               )}
             </li>
           ))}
-          {mailboxes.length === 0 && (
+          {openBoxes.length === 0 && lockedBoxes.length === 0 && (
             <li className="p-3 text-sm text-muted-foreground">Pochta qutisi yo‘q.</li>
           )}
         </ul>
+      )}
+
+      {lockedBoxes.length > 0 && (
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {lockedBoxes.map((mailbox) => (
+              <LockedMailboxCard
+                key={mailbox.id}
+                mailbox={mailbox}
+                plan={plan}
+                limit={limit}
+                candidates={candidates}
+                onChanged={changed}
+                autoOpen={mailbox.id === wantedId}
+              />
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Qulflangan qutilar o‘chirilmaydi: ichidagi xatlar saqlanadi.
+            {showUpgrade(plan) ? ' Tarifni oshirsangiz yoki ochiq qutini uzsangiz' : ' Ochiq qutini uzsangiz'}, ular avtomatik ochiladi.
+          </p>
+        </div>
       )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
