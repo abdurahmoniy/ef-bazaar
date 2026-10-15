@@ -64,6 +64,14 @@ public class Mailbox {
     @Column(name = "handed_off_at")
     private Instant handedOffAt;
 
+    /**
+     * Order within the owner's plan limit: the top N by this stay readable.
+     * Defaults to creation time (newest open); a user swap exchanges two values.
+     */
+    @Column(name = "access_priority", nullable = false)
+    @Builder.Default
+    private long accessPriority = System.currentTimeMillis();
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 

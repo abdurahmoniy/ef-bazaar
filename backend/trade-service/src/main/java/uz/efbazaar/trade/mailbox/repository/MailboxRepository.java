@@ -161,4 +161,9 @@ public interface MailboxRepository
 
     /** No owner attached — either an in-flight trade or a leftover. */
     long countByOwnerUserIdIsNull();
+
+    /** Owned, not deleted, highest priority first — the order the plan limit cuts. */
+    @Query("select m from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null "
+            + "order by m.accessPriority desc, m.createdAt desc")
+    List<Mailbox> findAccessOrderOwnedBy(@Param("owner") UUID owner);
 }

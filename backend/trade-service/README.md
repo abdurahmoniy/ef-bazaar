@@ -36,7 +36,7 @@ har o'zgarish `trade_audit_log` ga yoziladi (`TradeAuditService` — yagona yozu
 | `mailbox`, `mail` | Escrow pochta qutilari (Mailcow), foydalanuvchi uchun read-only IMAP (mail.efbazaar.uz frontendi shu API'ni ishlatadi) |
 | `admin` | Trade-admin: profil, katalog, taklif qilish (invite → accept/decline), ish navbati, eskalatsiya, SMART savdoga qo'lda aralashish |
 | `seller` | Sotuvchi reytingi (xaridordan 1–5) |
-| `plan` | payment-service tariflarining lokal projection'i; `MailboxSlotService` — nechta quti ochish mumkin |
+| `plan` | payment-service tariflarining lokal projection'i; `MailboxSlotService` — nechta quti ochish mumkin; `MailboxAccessService` — limitdan oshgan qutilar qulflanadi (`mailboxes.access_priority`, hisoblanadi, saqlanmaydi; jonli savdodagi quti hech qachon qulflanmaydi) |
 | `payment` | `EscrowClient` — payment-service `/internal/trades/{id}/escrow/*` (trade so'mda, payment tiyinda hisoblaydi) |
 | `marketplace`, `partner`, `security` | marketplace (e'lon shartlari, akkount), hamkor attributsiyasi, auth (ismlar) HTTP klientlari |
 | `card` | Foydalanuvchining bank kartalari (PAN shifrlangan, Luhn tekshiruvi). Hozir faqat o'z CRUD'i bor — boshqa kod ishlatmaydi |
@@ -53,7 +53,7 @@ har o'zgarish `trade_audit_log` ga yoziladi (`TradeAuditService` — yagona yozu
 | Xabarlar | `GET/POST /trades/{id}/messages`, `POST .../messages/password`, `POST .../messages/{msgId}/reveal` |
 | Trade-admin | `/trade-admins`, `/trade-admins/me`, `/me/invitations`, `/me/trades`; `/trades/{id}/actions/admin-accept|admin-decline|admin-cancel|admin-close`; `/trades/{id}/steps` |
 | Reytinglar | `POST /trades/{id}/rating`, `/trades/{id}/seller-rating`, `/sellers/{id}/ratings`, `/rating-summary`, `POST /sellers/rating-summaries/batch` |
-| Pochta | `/mailboxes`, `/mailboxes/slots`, `/mailboxes/{id}/detach`, `/name`; `/mail/mailboxes`, `/mail/{mailboxId}/inbox`, `/messages/{id}`, attachments |
+| Pochta | `/mailboxes`, `/mailboxes/slots`, `/mailboxes/{id}/detach`, `/name`; `/mail/mailboxes`, `/mail/{mailboxId}/inbox`, `/messages/{id}`, attachments. Ro'yxat/summary qatorida `locked` (qulflangan qutida `unreadCount`/`lastActivityAt` null, IMAP ochilmaydi), `/mailboxes/slots` da `lockedCount` |
 | Admin | `/admin/mailboxes/**`, `/admin/smart-trades/**`, `/admin/trades/escalated`, `/admin/trades/{id}/cancel`, `/reassign`, reytingni yashirish |
 | Ichki | `GET /internal/trades/live` (marketplace) |
 

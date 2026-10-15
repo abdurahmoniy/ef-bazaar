@@ -23,6 +23,7 @@ import uz.efbazaar.trade.mail.dto.MailboxSummary;
 import uz.efbazaar.trade.mail.dto.MessageDetail;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
+import uz.efbazaar.trade.plan.service.MailboxAccessService;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -57,6 +58,7 @@ public class MailService {
     private final MailboxService mailboxes;
     private final ImapConnectionPool pool;
     private final HtmlSanitizer sanitizer;
+    private final MailboxAccessService access;
 
     private static final int SNIPPET_LENGTH = 200;
     /** Cap on per-request page size so a malicious limit=1000000 can't OOM us. */
@@ -65,7 +67,7 @@ public class MailService {
     // ---------- sidebar / mailbox switcher ----------
 
     public List<MailboxSummary> listMyMailboxes(UUID userId) {
-        return summarize(mailboxes.listOwnedBy(userId), true);
+        return summarize(mailboxes.listOwnedBy(userId), true, access.lockedIds(userId));
     }
 
     /**
@@ -74,15 +76,17 @@ public class MailService {
      * ownership filter.
      */
     public List<MailboxSummary> summarize(List<Mailbox> owned) {
-        return summarize(owned, false);
+        return summarize(owned, false, java.util.Set.of());
     }
 
-    private List<MailboxSummary> summarize(List<Mailbox> owned, boolean ownerView) {
+    private List<MailboxSummary> summarize(List<Mailbox> owned, boolean ownerView,
+                                           java.util.Set<UUID> lockedIds) {
         List<MailboxSummary> out = new ArrayList<>(owned.size());
         for (Mailbox mb : owned) {
             Integer unread = null;
             Instant lastActivity = null;
-            try {
+            boolean locked = ownerView && lockedIds.contains(mb.getId());
+            if (!locked) try {
                 Store store = pool.acquire(mb);
                 Folder inbox = store.getFolder("INBOX");
                 inbox.open(Folder.READ_ONLY);
@@ -118,7 +122,8 @@ public class MailService {
                     mb.getDisplayName(),
                     unread,
                     lastActivity,
-                    mb.getHandedOffAt() != null ? mb.getHandedOffAt() : mb.getCreatedAt()));
+                    mb.getHandedOffAt() != null ? mb.getHandedOffAt() : mb.getCreatedAt(),
+                    locked));
         }
         return out;
     }

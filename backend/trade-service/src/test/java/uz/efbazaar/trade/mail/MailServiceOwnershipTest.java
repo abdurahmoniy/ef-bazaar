@@ -38,7 +38,7 @@ class MailServiceOwnershipTest {
         mailboxes = mock(MailboxService.class);
         pool = mock(ImapConnectionPool.class);
         sanitizer = mock(HtmlSanitizer.class);
-        svc = new MailService(mailboxes, pool, sanitizer);
+        svc = new MailService(mailboxes, pool, sanitizer, mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class));
     }
 
     @Test
@@ -52,6 +52,23 @@ class MailServiceOwnershipTest {
         assertThat(summary.displayName()).isEqualTo("Main account");
         assertThat(summary.email()).isEqualTo("box@efbazaar.uz");
         assertThat(summary.unreadCount()).isNull();
+    }
+
+    @Test
+    void lockedMailboxSummaryHasNoActivityAndNeverOpensImap() throws Exception {
+        UUID owner = UUID.randomUUID();
+        var box = Mailbox.builder().id(UUID.randomUUID()).email("locked@efbazaar.uz").build();
+        var access = mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class);
+        when(access.lockedIds(owner)).thenReturn(java.util.Set.of(box.getId()));
+        when(mailboxes.listOwnedBy(owner)).thenReturn(List.of(box));
+        var local = new MailService(mailboxes, pool, sanitizer, access);
+
+        var summary = local.listMyMailboxes(owner).getFirst();
+
+        assertThat(summary.locked()).isTrue();
+        assertThat(summary.unreadCount()).isNull();
+        assertThat(summary.lastActivityAt()).isNull();
+        org.mockito.Mockito.verifyNoInteractions(pool);
     }
 
     @Test

@@ -8,6 +8,10 @@ public record MailboxResponse(
         String email,
         UUID tradeId,
         Instant createdAt,
-        Instant handedOffAt
+        Instant handedOffAt,
+        boolean locked
 ) {
+    public MailboxResponse withLocked(boolean value) {
+        return new MailboxResponse(id, email, tradeId, createdAt, handedOffAt, value);
+    }
 }

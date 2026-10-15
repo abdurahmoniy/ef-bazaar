@@ -9,10 +9,12 @@ import uz.efbazaar.trade.mailbox.dto.MailboxResponse;
 import uz.efbazaar.trade.mailbox.dto.RenameMailboxRequest;
 import uz.efbazaar.trade.mailbox.mapper.MailboxMapper;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
+import uz.efbazaar.trade.plan.service.MailboxAccessService;
 import uz.efbazaar.trade.plan.service.MailboxSlotService;
 import uz.efbazaar.trade.security.AuthenticatedUser;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @RestController
@@ -23,11 +25,13 @@ public class MailboxController {
     private final MailboxService service;
     private final MailboxMapper mapper;
     private final MailboxSlotService slotService;
+    private final MailboxAccessService access;
 
     @GetMapping
     public List<MailboxResponse> listOwnedBy(@AuthenticationPrincipal AuthenticatedUser me) {
+        Set<UUID> locked = access.lockedIds(me.userId());
         return service.listOwnedBy(me.userId()).stream()
-                .map(mapper::toResponse)
+                .map(m -> mapper.toResponse(m).withLocked(locked.contains(m.getId())))
                 .toList();
     }
 
@@ -47,7 +51,8 @@ public class MailboxController {
     public MailboxResponse getOne(
             @AuthenticationPrincipal AuthenticatedUser me,
             @PathVariable UUID id) {
-        return mapper.toResponse(service.getOwned(me.userId(), id));
+        return mapper.toResponse(service.getOwned(me.userId(), id))
+                .withLocked(access.isLocked(me.userId(), id));
     }
 
     @PatchMapping("/{id}/name")
