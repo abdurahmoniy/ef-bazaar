@@ -19,6 +19,7 @@ describe('mailbox lock', () => {
     expect(showUpgrade('STANDARD')).toBe(true);
     expect(showUpgrade('PRO')).toBe(true);
     expect(showUpgrade('MAX')).toBe(false);
+    expect(showUpgrade('STAFF')).toBe(false);
   });
 });
 

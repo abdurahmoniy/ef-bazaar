@@ -15,6 +15,7 @@ import {
   formatPlanDate,
   PLAN_NAMES,
   planAction,
+  STAFF_UNLIMITED_MESSAGE,
   planEndDate,
   type PlanAction,
   yearlySavingsPercent,
@@ -181,6 +182,12 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
           ))}
         </div>
       </div>
+
+      {signedIn && !planUnknown && me.code === 'STAFF' && (
+        <div role="status" className="mx-auto mt-6 max-w-xl rounded-xl border border-border bg-muted p-4 text-center text-sm font-semibold text-foreground">
+          {STAFF_UNLIMITED_MESSAGE}
+        </div>
+      )}
 
       {planUnknown && (
         <div role="alert" className="mx-auto mt-6 flex max-w-xl flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted p-4 text-sm">

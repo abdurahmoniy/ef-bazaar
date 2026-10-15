@@ -45,6 +45,11 @@ describe('plans', () => {
     expect(planAction(max, unlimitedPro, catalog, now)).toBe('upgrade');
   });
 
+  it('offers nothing to buy to an admin on STAFF', () => {
+    const staff: MyPlan = { code: 'STAFF', expiresAt: null, entitlements: {} };
+    for (const target of catalog) expect(planAction(target, staff, catalog, now)).toBe('staff');
+  });
+
   it('treats an expired plan as free', () => {
     const expired: MyPlan = { code: 'MAX', expiresAt: '2026-04-01T00:00:00Z', entitlements: {} };
     expect(planAction(pro, expired, catalog, now)).toBe('choose');
@@ -63,6 +68,8 @@ describe('plans', () => {
       .toEqual({ kind: 'price_changed', currentPriceTiyin: 1_500_000 });
     expect(purchaseErrorFrom(409, { code: 'downgrade_not_allowed', detail: 'Pastroq…' }))
       .toEqual({ kind: 'other', message: 'Pastroq…' });
+    expect(purchaseErrorFrom(409, { code: 'staff_unlimited' }))
+      .toEqual({ kind: 'other', message: 'Admin sifatida barcha imkoniyatlar cheklovsiz' });
     expect(purchaseErrorFrom(502, {})).toEqual({ kind: 'other', message: "So'rov bajarilmadi (502)" });
   });
 
@@ -78,6 +85,7 @@ describe('planLabel', () => {
     const { planLabel } = await import('./plans');
     expect(planLabel(null)).toBe('—');
     expect(planLabel({ code: 'STANDARD', expiresAt: null, entitlements: {} })).toBe('Jaydari');
+    expect(planLabel({ code: 'STAFF', expiresAt: null, entitlements: {} })).toBe('Admin');
     expect(planLabel({ code: 'PRO', expiresAt: '2030-01-10T00:00:00Z', entitlements: {} })).toBe('Boyvachcha · 10.01.2030 gacha');
   });
 });

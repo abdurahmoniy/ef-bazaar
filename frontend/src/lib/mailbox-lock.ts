@@ -23,9 +23,9 @@ export function swapCandidates(boxes: OwnedMailbox[]): SwapCandidate[] {
     }));
 }
 
-/** The top plan has nowhere to go: offer detaching instead. */
+/** The top plans (MAX, and the admins' STAFF) have nowhere to go: offer detaching instead. */
 export function showUpgrade(plan: string): boolean {
-  return plan !== 'MAX';
+  return plan !== 'MAX' && plan !== 'STAFF';
 }
 
 /** `?mailbox=<id>` from the webmail's "locked" page; null when absent. */

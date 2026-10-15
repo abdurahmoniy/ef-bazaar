@@ -166,6 +166,23 @@ describe('PlansView', () => {
     expect(link?.getAttribute('href')).toContain('toldirish=10000');
   });
 
+  it('shows an admin the unlimited banner and disables every card', async () => {
+    const staff: MyPlan = { code: 'STAFF', expiresAt: null, entitlements: {} };
+    await mount(staff);
+    expect(document.body.textContent).toContain('Admin sifatida barcha imkoniyatlar cheklovsiz');
+    expect(document.body.textContent).toContain('Hozir: Admin');
+    expect(button('Tanlash')).toBeUndefined();
+    const ctas = [...document.body.querySelectorAll('article button')];
+    expect(ctas).toHaveLength(3);
+    expect(ctas.every((b) => b.hasAttribute('disabled'))).toBe(true);
+    expect(mocks.purchasePlan).not.toHaveBeenCalled();
+  });
+
+  it('shows no unlimited banner to an ordinary user', async () => {
+    await mount(free);
+    expect(document.body.textContent).not.toContain('barcha imkoniyatlar cheklovsiz');
+  });
+
   it('does not offer purchase when the signed-in user\'s plan is unknown', async () => {
     await mount(null, true);
     expect(button('Tanlash')).toBeUndefined();

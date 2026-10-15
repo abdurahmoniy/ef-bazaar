@@ -1,6 +1,6 @@
 import { isInsufficientFunds } from './wallet-shortfall';
 
-export type PlanCode = 'STANDARD' | 'PRO' | 'MAX';
+export type PlanCode = 'STANDARD' | 'PRO' | 'MAX' | 'STAFF';
 export type PlanPeriod = 'MONTH' | 'YEAR';
 
 export interface PlanCatalogItem {
@@ -23,7 +23,11 @@ export const PLAN_NAMES: Record<PlanCode, string> = {
   STANDARD: 'Jaydari',
   PRO: 'Boyvachcha',
   MAX: 'Aristokrat',
+  STAFF: 'Admin',
 };
+
+/** Shown instead of a price list when the user is an admin. */
+export const STAFF_UNLIMITED_MESSAGE = 'Admin sifatida barcha imkoniyatlar cheklovsiz';
 
 export const SLOTS_KEY = 'mailbox.slots';
 export const CUSTOM_SLOTS_KEY = 'mailbox.custom_slots';
@@ -53,7 +57,7 @@ function isLive(mine: MyPlan, now: Date): boolean {
 }
 
 export type PlanAction =
-  | 'choose' | 'extend' | 'upgrade' | 'unavailable' | 'current-free' | 'unlimited-current';
+  | 'choose' | 'extend' | 'upgrade' | 'unavailable' | 'current-free' | 'unlimited-current' | 'staff';
 
 export function planAction(
   target: PlanCatalogItem,
@@ -61,6 +65,8 @@ export function planAction(
   catalog: PlanCatalogItem[],
   now: Date,
 ): PlanAction {
+  // An admin has everything already; nothing on the page is for them to buy.
+  if (mine.code === 'STAFF') return 'staff';
   const live = isLive(mine, now);
   if (target.code === 'STANDARD') return live ? 'unavailable' : 'current-free';
   if (!live) return 'choose';
@@ -87,6 +93,7 @@ export function purchaseErrorFrom(status: number, body: unknown): PurchaseError 
   if (b.code === 'price_changed' && typeof b.currentPriceTiyin === 'number') {
     return { kind: 'price_changed', currentPriceTiyin: b.currentPriceTiyin };
   }
+  if (b.code === 'staff_unlimited') return { kind: 'other', message: STAFF_UNLIMITED_MESSAGE };
   if (isInsufficientFunds(message)) return { kind: 'insufficient', message };
   return { kind: 'other', message };
 }
@@ -123,7 +130,7 @@ export function planEndDate(
 /** Profile plan row; null (plan lookup failed) is neutral, never "Jaydari". */
 export function planLabel(mine: MyPlan | null): string {
   if (!mine) return '—';
-  if (mine.code === 'STANDARD') return PLAN_NAMES.STANDARD;
+  if (mine.code === 'STANDARD' || mine.code === 'STAFF') return PLAN_NAMES[mine.code];
   return mine.expiresAt
     ? `${PLAN_NAMES[mine.code]} · ${formatPlanDate(mine.expiresAt)} gacha`
     : PLAN_NAMES[mine.code];

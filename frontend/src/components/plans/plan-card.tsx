@@ -21,6 +21,7 @@ const TAGLINES: Record<PlanCatalogItem['code'], string> = {
   STANDARD: 'Boshlash uchun yetarli',
   PRO: 'Faol sotuvchilar uchun',
   MAX: 'Katta savdo, keng imkoniyat',
+  STAFF: 'Admin uchun',
 };
 
 export type CardAction = PlanAction | 'free-anon' | 'unknown';
@@ -34,6 +35,7 @@ const CTA: Record<CardAction, string> = {
   unavailable: 'Joriy tarif tugagach',
   'current-free': 'Joriy tarif',
   'unlimited-current': 'Muddatsiz faol',
+  staff: 'Admin: cheklovsiz',
 };
 
 interface PlanCardProps {
@@ -57,7 +59,7 @@ export function PlanCard({
   const monthly = period === 'YEAR' && item.prices.YEAR ? Math.round(item.prices.YEAR / 12) : null;
   const slots = slotCount(item.entitlements, SLOTS_KEY);
   const custom = slotCount(item.entitlements, CUSTOM_SLOTS_KEY);
-  const disabled = busy || action === 'unavailable' || action === 'current-free' || action === 'unlimited-current' || action === 'unknown';
+  const disabled = busy || action === 'unavailable' || action === 'current-free' || action === 'unlimited-current' || action === 'unknown' || action === 'staff';
 
   const features = [
     slots === null ? 'Cheksiz pochta qutisi' : `${slots} ta pochta qutisi`,
