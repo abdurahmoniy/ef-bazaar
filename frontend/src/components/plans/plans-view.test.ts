@@ -56,6 +56,18 @@ async function click(label: string) {
   });
 }
 
+const dialogButton = (label: string) =>
+  [...(document.body.querySelector('[role="dialog"]')?.querySelectorAll('button') ?? [])].find((b) =>
+    b.textContent?.includes(label),
+  );
+async function clickInDialog(label: string) {
+  const b = dialogButton(label);
+  if (!b) throw new Error(`no dialog button ${label}`);
+  await act(async () => {
+    b.click();
+  });
+}
+
 beforeEach(() => {
   host = document.createElement('div');
   document.body.appendChild(host);
@@ -89,8 +101,23 @@ describe('PlansView', () => {
     const dialog = document.body.querySelector('[role="dialog"]');
     expect(dialog?.textContent).toContain('Narx o‘zgardi: 15 000 so‘m');
     expect(dialog?.textContent).not.toContain('kuni kuyadi');
-    await click('Tanlash');
+    await clickInDialog('Tanlash');
+    expect(mocks.purchasePlan).toHaveBeenCalledTimes(2);
     expect(mocks.purchasePlan.mock.calls[1][0].expectedPriceTiyin).toBe(1_500_000);
+  });
+
+  it('charges once when the dialog confirm is clicked twice while in flight', async () => {
+    const onPro: MyPlan = { code: 'PRO', expiresAt: inDays(12), entitlements: {} };
+    let finish!: (p: MyPlan) => void;
+    mocks.purchasePlan.mockReturnValue(new Promise<MyPlan>((r) => { finish = r; }));
+    await mount(onPro);
+    await click('Oshirish');
+    await clickInDialog('Oshirish');
+    expect(dialogButton('Kuting')?.hasAttribute('disabled')).toBe(true);
+    await clickInDialog('Kuting');
+    await clickInDialog('Kuting');
+    expect(mocks.purchasePlan).toHaveBeenCalledTimes(1);
+    await act(async () => finish(onPro));
   });
 
   it('extend never warns about burning days', async () => {
