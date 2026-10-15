@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uz.efbazaar.payment.plan.dto.MyPlanResponse;
 import uz.efbazaar.payment.plan.dto.PlanResponse;
+import uz.efbazaar.payment.plan.service.PlanPriceService;
 import uz.efbazaar.payment.plan.service.PlanService;
 import uz.efbazaar.payment.security.AuthenticatedUser;
 
@@ -24,11 +25,12 @@ import java.util.List;
 public class PlanController {
 
     private final PlanService plans;
+    private final PlanPriceService prices;
 
     @GetMapping
     public List<PlanResponse> catalogue() {
         return plans.activePlans().stream()
-                .map(p -> PlanResponse.of(p, plans.entitlementsOf(p.getCode())))
+                .map(p -> PlanResponse.of(p, plans.entitlementsOf(p.getCode()), prices.pricesOf(p.getCode())))
                 .toList();
     }
 

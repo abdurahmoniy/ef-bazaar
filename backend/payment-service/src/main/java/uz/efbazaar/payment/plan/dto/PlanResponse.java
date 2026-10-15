@@ -1,6 +1,7 @@
 package uz.efbazaar.payment.plan.dto;
 
 import uz.efbazaar.payment.plan.domain.Plan;
+import uz.efbazaar.payment.plan.domain.PlanPeriod;
 
 import java.util.Map;
 
@@ -14,9 +15,12 @@ import java.util.Map;
 public record PlanResponse(
         String code,
         int sortOrder,
-        Map<String, String> entitlements) {
+        Map<String, String> entitlements,
+        /** Empty for a plan that is not for sale (STANDARD). */
+        Map<PlanPeriod, Long> prices) {
 
-    public static PlanResponse of(Plan plan, Map<String, String> entitlements) {
-        return new PlanResponse(plan.getCode(), plan.getSortOrder(), entitlements);
+    public static PlanResponse of(Plan plan, Map<String, String> entitlements,
+                                  Map<PlanPeriod, Long> prices) {
+        return new PlanResponse(plan.getCode(), plan.getSortOrder(), entitlements, prices);
     }
 }
