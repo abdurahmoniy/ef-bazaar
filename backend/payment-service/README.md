@@ -32,7 +32,7 @@ Userbot'dan `userbot-heartbeat` kelmay qolsa yangi to'ldirishlar qabul qilinmayd
 | `wallet` | `LedgerService` — `ledger_entries` ning **yagona yozuvchisi** va `wallet_accounts` ning yagona o'zgartiruvchisi. Har pul harakati `post` orqali. `TradeEscrowService` — hold/release/settle, idempotent |
 | `invoice`, `observation`, `card`, `debit`, `history` | Karta rail: invoice, kuzatuvlarni moslash, platforma kartalari, kartadan chiqim, harakatlar tarixi |
 | `withdrawal` | Pul yechish — qo'lda to'lanadigan ticketlar navbati (reserve → paid yoki reject) |
-| `plan` | Tariflar va kim qaysi tarifda; `plan_prices` (narx, tiyin), `plan_purchases` (xaridlar), `plan_entitlements` (slot sonlari — admin boshqaradi, R__ ularga tegmaydi); `plan-entitlements` / `subscription-changed` ni chiqaradi |
+| `plan` | Tariflar va kim qaysi tarifda; `plan_prices` (narx, tiyin), `plan_purchases` (xaridlar), `plan_entitlements` (slot sonlari — admin boshqaradi, R__ ularga tegmaydi); `plan-entitlements` / `subscription-changed` ni chiqaradi; `PlanReminderJob` har soatda xaridorning Telegramiga tugashiga 3 kun qolganda va tugaganda bir martadan eslatma yuboradi (keyinroq uzaytirilgan xarid haqida yozmaydi; `payment.scheduler.plan-reminder-interval-ms`) |
 | `partner`, `partnerads`, `referral` | Hamkorlik to'lovi, kanal reklamasi (hold → har post yetkazilganda settle), referal mukofoti |
 | `analytics` | Egasi uchun raqamlar: kartadagi pulning qancha qismi bizniki, komissiya va h.k. |
 | `notify` | `BotClient` — admin Telegram xabarlari bot orqali (tokenni bu servis bilmaydi) |

@@ -132,6 +132,25 @@ public class AdminTelegramNotifier {
         }
     }
 
+    /** UI names live in the frontend; the bot message needs them too, so they are mirrored here. */
+    private static final java.util.Map<String, String> PLAN_NAMES =
+            java.util.Map.of("PRO", "Boyvachcha", "MAX", "Aristokrat", "STANDARD", "Jaydari");
+
+    public void planReminderToOwner(Long chatId, String planCode, boolean expired) {
+        if (!enabled || chatId == null) return;
+        String name = PLAN_NAMES.getOrDefault(planCode, planCode);
+        String html = expired
+                ? "⏳ <b>" + name + "</b> tarifingiz tugadi. Ortiqcha pochta qutilari qulflandi.\n"
+                  + "Uzaytirish: https://efbazaar.uz/plans"
+                : "⏰ <b>" + name + "</b> tarifingiz 3 kundan keyin tugaydi.\n"
+                  + "Uzaytirish: https://efbazaar.uz/plans";
+        try {
+            bot.sendDirectMessage(chatId, html);
+        } catch (Exception e) {
+            log.warn("Could not remind {} about plan {}: {}", chatId, planCode, e.toString());
+        }
+    }
+
     /** Deletes an announcement with no replacement — an expiry is not news. */
     public void invoiceExpired(Long messageId) {
         if (!enabled || messageId == null) return;
