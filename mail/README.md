@@ -21,6 +21,15 @@ Ma'lumot trade-service'ning mail API'sidan keladi (`/api/v1/mail/**`, IMAP orqal
 | `src/lib/api.ts`, `mail-server.ts` | Server tomoni so'rovlari — `INTERNAL_API_BASE_URL` orqali |
 | `src/proxy.ts` | Sessiya yo'q bo'lsa asosiy sayt login'iga yo'naltiradi (API so'rovlariga 401) |
 
+## Qulflangan qutilar
+
+Tarif limitidan oshgan quti `locked: true` bilan keladi (`unreadCount`/`lastActivityAt` null).
+trade-service bunday quti uchun barcha endpointlarda 403 `mailbox_locked` qaytaradi. UI qulf
+ekranini ko'rsatadi (`components/mail/locked-mailbox.tsx`): mazmun yo'q, xiralashtirilgan qatorlar
+soxta. Sahifalar qulflangan qutida `getInbox`/`getMessage`ni chaqirmaydi; 403 `mailbox_locked`
+kelsa ham shu ekran chiqadi. "Tarifni oshirish" -> asosiy sayt `/plans`; "Boshqa qutini qulflab,
+shuni ochish" -> `/profile?mailbox=<id>#mailboxes`.
+
 ## Auth
 
 Login faqat asosiy saytda (efbazaar.uz). Cookie `AUTH_COOKIE_DOMAIN` (`.efbazaar.uz`) orqali

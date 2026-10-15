@@ -32,6 +32,7 @@ public class MailboxSlotService {
 
     private final MailboxRepository mailboxes;
     private final EntitlementService entitlements;
+    private final MailboxAccessService access;
 
     /**
      * How many mailboxes an unlimited plan may hold before we look into it.
@@ -68,10 +69,11 @@ public class MailboxSlotService {
         return new SlotStatus(used,
                 limit.isPresent() ? limit.getAsLong() : null,
                 limit.isPresent() && used >= limit.getAsLong(),
-                entitlements.planFor(userId));
+                entitlements.planFor(userId),
+                access.lockedIds(userId).size());
     }
 
-    public record SlotStatus(long used, Long limit, boolean full, String plan) {}
+    public record SlotStatus(long used, Long limit, boolean full, String plan, long lockedCount) {}
 
     /** The ceiling, or empty when this user has none. */
     @Transactional(readOnly = true)

@@ -22,5 +22,7 @@ public enum TransactionKind {
     PARTNER_TRADE_SHARE,
     /** Fiks rejimdagi hamkorga oylik to'lov. */
     PARTNER_MONTHLY,
-    ADJUSTMENT
+    ADJUSTMENT,
+    /** User buys a plan period from their wallet. */
+    PLAN_PURCHASE
 }

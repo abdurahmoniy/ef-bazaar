@@ -126,6 +126,38 @@ public interface TradeRepository extends JpaRepository<Trade, UUID> {
     boolean existsLiveWithMailbox(@Param("mailboxId") UUID mailboxId,
                                   @Param("states") java.util.Collection<TradeState> states);
 
+    /** Of the given mailboxes, those used by any live trade — one query instead of one per box. */
+    @Query("""
+            SELECT DISTINCT m.id FROM Trade t, uz.efbazaar.trade.mailbox.domain.Mailbox m
+             WHERE t.state IN :states
+               AND m.id IN :mailboxIds
+               AND (t.mailboxId = m.id
+                 OR EXISTS (SELECT s FROM TradeSide s
+                             WHERE s.id.tradeId = t.id AND s.mailboxId = m.id))
+            """)
+    java.util.List<UUID> liveMailboxIds(@Param("mailboxIds") java.util.Collection<UUID> mailboxIds,
+                                        @Param("states") java.util.Collection<TradeState> states);
+
+    /**
+     * Of the given mailboxes, those used by a live trade in which {@code owner}
+     * is the seller or the buyer. A box in a live trade owned by someone who is
+     * NOT a party — the human trade-admin the escrow box was lent to — is left
+     * out: it is the admin's tool for the job, not something the trade cannot
+     * lose.
+     */
+    @Query("""
+            SELECT DISTINCT m.id FROM Trade t, uz.efbazaar.trade.mailbox.domain.Mailbox m
+             WHERE t.state IN :states
+               AND m.id IN :mailboxIds
+               AND (t.sellerId = :owner OR t.buyerId = :owner)
+               AND (t.mailboxId = m.id
+                 OR EXISTS (SELECT s FROM TradeSide s
+                             WHERE s.id.tradeId = t.id AND s.mailboxId = m.id))
+            """)
+    java.util.List<UUID> liveMailboxIdsOfParty(@Param("owner") UUID owner,
+                                               @Param("mailboxIds") java.util.Collection<UUID> mailboxIds,
+                                               @Param("states") java.util.Collection<TradeState> states);
+
     /**
      * Live SMART trades for the admin's "Faol savdolar" queue, most recently
      * moved first. HUMAN trades have their own admin surface and a person

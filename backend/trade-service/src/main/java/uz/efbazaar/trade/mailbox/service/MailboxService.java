@@ -24,6 +24,7 @@ import uz.efbazaar.trade.trade.repository.TradeRepository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -35,6 +36,7 @@ public class MailboxService {
     private final TradeRepository trades;
     private final TradeCrypto crypto;
     private final uz.efbazaar.trade.kafka.TradeEventPublisher events;
+    private final uz.efbazaar.trade.plan.service.MailboxAccessService access;
 
     @Transactional
     public Mailbox create(String email, UUID ownerUserId, UUID tradeId, byte[] initialPassword) {
@@ -51,6 +53,69 @@ public class MailboxService {
                 .passwordTag(enc.tag())
                 .build();
         return mailboxes.save(mbox);
+    }
+
+    /** Owned AND within the plan limit. The only way the user-facing mail API resolves a mailbox. */
+    @Transactional(readOnly = true)
+    public Mailbox getReadable(UUID ownerUserId, UUID mailboxId) {
+        Mailbox m = getOwned(ownerUserId, mailboxId);
+        if (access.isLocked(ownerUserId, mailboxId)) {
+            throw new uz.efbazaar.trade.mailbox.exception.MailboxLockedException();
+        }
+        return m;
+    }
+
+    /**
+     * Opens a locked mailbox by locking an open one in its place: the user's own
+     * choice of which N to keep.
+     *
+     * <p>Locks all of the owner's rows in id order, exchanges the two boxes'
+     * positions in the current access order, then renumbers every row with
+     * distinct, descending priorities. Renumbering all rows (rather than
+     * swapping two values) means equal priorities (backfilled rows) can never
+     * decide the outcome.
+     */
+    @Transactional
+    public void swapAccess(UUID ownerUserId, UUID lockedId, UUID lockInsteadId) {
+        if (lockedId.equals(lockInsteadId)) {
+            throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
+                    "Bitta qutining o'zi bilan almashtirib bo'lmaydi");
+        }
+        // Every row of the owner is locked, in id order, before anything is
+        // read: concurrent swaps cannot deadlock or interleave. Row locks do not
+        // stop an INSERT, but a mailbox created in between is harmless: the
+        // renumbering below only touches the rows read here, and a new row
+        // arrives with the newest priority, so it opens first and cannot change
+        // which of the two validated boxes ends up locked or open.
+        List<Mailbox> all = mailboxes.lockAllOwned(ownerUserId);
+        java.util.Set<UUID> ids = new java.util.HashSet<>();
+        all.forEach(m -> ids.add(m.getId()));
+        if (!ids.contains(lockedId) || !ids.contains(lockInsteadId)) {
+            throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException("Quti topilmadi");
+        }
+        Set<UUID> locked = access.lockedIds(ownerUserId);
+        if (!locked.contains(lockedId) || locked.contains(lockInsteadId)) {
+            throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
+                    "Faqat qulflangan qutini ochiq quti bilan almashtirish mumkin");
+        }
+        if (trades.existsLiveWithMailbox(lockInsteadId, TradeState.nonTerminal())) {
+            throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
+                    "Davom etayotgan savdodagi qutini qulflab bo'lmaydi");
+        }
+        // Exchange the two positions in the current order, then renumber everyone
+        // with distinct values so ties can never decide the outcome.
+        List<Mailbox> order = new java.util.ArrayList<>(mailboxes.findAccessOrderOwnedBy(ownerUserId));
+        int i = -1, j = -1;
+        for (int k = 0; k < order.size(); k++) {
+            if (order.get(k).getId().equals(lockedId)) i = k;
+            if (order.get(k).getId().equals(lockInsteadId)) j = k;
+        }
+        java.util.Collections.swap(order, i, j);
+        long base = order.stream().mapToLong(Mailbox::getAccessPriority).max().orElse(0L) + order.size();
+        for (int k = 0; k < order.size(); k++) {
+            mailboxes.setAccessPriority(order.get(k).getId(), base - k);
+        }
+        log.info("User {} opened mailbox {} by locking {}", ownerUserId, lockedId, lockInsteadId);
     }
 
     @Transactional(readOnly = true)
@@ -443,6 +508,9 @@ public class MailboxService {
         m.setTradeId(null);
         m.setHandedOffAt(Instant.now());
         Mailbox saved = mailboxes.save(m);
+        // A box just handed to a user is the newest to them: it opens first.
+        // Column-only write — never put the whole row back.
+        mailboxes.setAccessPriority(mailboxId, System.currentTimeMillis());
         rotateIfProvisioned(m);
         log.info("Admin {} moved mailbox {} from user {} to user {}", adminId, mailboxId, previous, newOwnerId);
         return saved;

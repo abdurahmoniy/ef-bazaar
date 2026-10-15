@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
+import { UpgradeCta } from '@/components/plans/upgrade-cta';
 import { Button } from '@/components/ui/button';
 import { InvoicePanel } from '@/components/payment/invoice-panel';
 import { useInvoiceWatch } from '@/hooks/use-invoice-watch';
@@ -19,7 +20,7 @@ interface TradeAcceptPaymentProps {
   proposal: PendingProposal;
   viewerId: string;
   unavailable?: boolean;
-  onAccept: () => Promise<{ ok: true } | { ok: false; error: string }>;
+  onAccept: () => Promise<{ ok: true } | { ok: false; error: string; code?: string; plan?: string }>;
   onAccepted: () => void;
   onClose: () => void;
   onBusyChange: (busy: boolean) => void;
@@ -31,6 +32,7 @@ export function TradeAcceptPayment({ proposal, viewerId, unavailable = false, on
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [slotsPlan, setSlotsPlan] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<InvoiceResponse | null>(null);
   const [credited, setCredited] = useState(false);
   const deadline = Date.parse(proposal.expiresAt);
@@ -113,6 +115,7 @@ export function TradeAcceptPayment({ proposal, viewerId, unavailable = false, on
     setBusy(true);
     onBusyChange(true);
     setError(null);
+    setSlotsPlan(null);
     try {
       if (missing && missing > 0) {
         // Recheck after the click: a deposit may have arrived while the dialog was open.
@@ -132,6 +135,7 @@ export function TradeAcceptPayment({ proposal, viewerId, unavailable = false, on
         const result = await onAccept();
         if (!result.ok) {
           setError(result.error);
+          if (result.code === 'mailbox_slots_exhausted') setSlotsPlan(result.plan ?? 'STANDARD');
           if (isInsufficientFunds(result.error)) await refreshWallet();
           return;
         }
@@ -191,6 +195,7 @@ export function TradeAcceptPayment({ proposal, viewerId, unavailable = false, on
         Eng kam to‘ldirish: {formatPriceUZS(MIN_TOP_UP_UZS)}. Ortiqcha mablag‘ hamyoningizda qoladi.
       </p>}
       {error && <p role="alert" className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+      {slotsPlan && <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3"><UpgradeCta plan={slotsPlan} message="" /></div>}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Yopish</Button>
         {balance === null && !loading && <Button type="button" variant="outline" onClick={() => { setError(null); void refreshWallet(); }}>Qayta urinish</Button>}

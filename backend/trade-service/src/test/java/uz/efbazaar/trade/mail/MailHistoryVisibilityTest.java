@@ -23,12 +23,12 @@ class MailHistoryVisibilityTest {
     private final MailboxService boxes = mock(MailboxService.class);
     private final ImapConnectionPool pool = mock(ImapConnectionPool.class);
     private final IMAPFolder inbox = mock(IMAPFolder.class);
-    private final MailService service = new MailService(boxes, pool, new HtmlSanitizer());
+    private final MailService service = new MailService(boxes, pool, new HtmlSanitizer(), mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class));
     private MimeMessage old, current, latest, undated;
 
     @BeforeEach void setup() throws Exception {
         Store store = mock(Store.class);
-        when(boxes.getOwned(owner, box.getId())).thenReturn(box);
+        when(boxes.getReadable(owner, box.getId())).thenReturn(box);
         when(boxes.listOwnedBy(owner)).thenReturn(List.of(box));
         when(pool.acquire(box)).thenReturn(store);
         when(store.getFolder("INBOX")).thenReturn(inbox);

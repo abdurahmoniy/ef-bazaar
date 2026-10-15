@@ -39,4 +39,12 @@ public class PaymentExceptionHandler {
     public ProblemDetail conflict(DataIntegrityViolationException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "Bir vaqtda o'zgardi");
     }
+
+    @ExceptionHandler(uz.efbazaar.payment.plan.exception.PlanPurchaseException.class)
+    public ProblemDetail planPurchase(uz.efbazaar.payment.plan.exception.PlanPurchaseException e) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(e.getStatus(), e.getMessage());
+        pd.setProperty("code", e.getCode());
+        e.getExtra().forEach(pd::setProperty);
+        return pd;
+    }
 }

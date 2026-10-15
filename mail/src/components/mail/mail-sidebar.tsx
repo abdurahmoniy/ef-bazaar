@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Inbox } from 'lucide-react';
+import { Inbox, Lock } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { fullDateUz, mailAvatarColor, mailAvatarInitial, relativeUz } from '@/lib/mail-format';
@@ -52,8 +52,9 @@ export function MailSidebar({ mailboxes, activeMailboxId, hideHeader }: MailSide
 }
 
 function MailboxRow({ mailbox, active }: { mailbox: MailboxSummary; active: boolean }) {
+  const locked = mailbox.locked;
   const unread = mailbox.unreadCount;
-  const hasUnread = typeof unread === 'number' && unread > 0;
+  const hasUnread = !locked && typeof unread === 'number' && unread > 0;
 
   return (
     <Link
@@ -98,9 +99,18 @@ function MailboxRow({ mailbox, active }: { mailbox: MailboxSummary; active: bool
           )}
           title={fullDateUz(mailbox.lastActivityAt)}
         >
-          {relativeUz(mailbox.lastActivityAt)}
+          {locked ? 'Qulflangan' : relativeUz(mailbox.lastActivityAt)}
         </span>
       </span>
+      {locked && (
+        <span
+          className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground"
+          role="img"
+          aria-label="Qulflangan"
+        >
+          <Lock className="h-3.5 w-3.5" aria-hidden />
+        </span>
+      )}
       {hasUnread && (
         <span
           className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-black tabular-nums text-primary-foreground"

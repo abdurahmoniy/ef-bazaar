@@ -32,13 +32,29 @@ public interface MailboxRepository
      * away from them: each one creates a real mailbox on the mail server, and
      * none of them would ever be owned by anybody.
      *
+     * <p>An owned box in a live trade the owner is NOT a party to — the escrow
+     * box of a human trade, lent to the assigned admin — is the admin's tool
+     * for the job, not their own allowance, so it is left out (same rule as
+     * {@code MailboxAccessService}).
+     *
      * <p>Terminal states come in as a parameter rather than being spelled out
      * here, so the SQL cannot fall out of step with {@code TradeState}.
      */
     @Query(value = """
             SELECT COUNT(DISTINCT m.id) FROM mailboxes m
              WHERE m.deleted_at IS NULL
-               AND (m.owner_user_id = :userId
+               AND ((m.owner_user_id = :userId
+                     AND (NOT EXISTS (SELECT 1 FROM trades t
+                                       WHERE t.state NOT IN (:terminalStates)
+                                         AND (t.mailbox_id = m.id
+                                              OR EXISTS (SELECT 1 FROM trade_sides s
+                                                          WHERE s.trade_id = t.id AND s.mailbox_id = m.id)))
+                          OR EXISTS (SELECT 1 FROM trades t
+                                      WHERE t.state NOT IN (:terminalStates)
+                                        AND (t.seller_id = :userId OR t.buyer_id = :userId)
+                                        AND (t.mailbox_id = m.id
+                                             OR EXISTS (SELECT 1 FROM trade_sides s
+                                                         WHERE s.trade_id = t.id AND s.mailbox_id = m.id)))))
                     OR m.id IN (
                         SELECT s.mailbox_id
                           FROM trade_sides s
@@ -161,4 +177,23 @@ public interface MailboxRepository
 
     /** No owner attached — either an in-flight trade or a leftover. */
     long countByOwnerUserIdIsNull();
+
+    /** Owned, not deleted, highest priority first — the order the plan limit cuts. */
+    @Query("select m from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null "
+            + "order by m.accessPriority desc, m.createdAt desc, m.id desc")
+    List<Mailbox> findAccessOrderOwnedBy(@Param("owner") UUID owner);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from Mailbox m where m.id = :id and m.ownerUserId = :owner and m.deletedAt is null")
+    Optional<Mailbox> lockOwned(@Param("id") UUID id, @Param("owner") UUID owner);
+
+    /** Column-only write, for the same reason as the credential update above: never save the whole row. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Mailbox m set m.accessPriority = :p where m.id = :id")
+    int setAccessPriority(@Param("id") UUID id, @Param("p") long priority);
+
+    /** Every live mailbox of the owner, locked in id order — see MailboxService#swapAccess. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null order by m.id")
+    List<Mailbox> lockAllOwned(@Param("owner") UUID owner);
 }

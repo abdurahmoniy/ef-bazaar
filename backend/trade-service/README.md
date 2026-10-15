@@ -36,7 +36,7 @@ har o'zgarish `trade_audit_log` ga yoziladi (`TradeAuditService` — yagona yozu
 | `mailbox`, `mail` | Escrow pochta qutilari (Mailcow), foydalanuvchi uchun read-only IMAP (mail.efbazaar.uz frontendi shu API'ni ishlatadi) |
 | `admin` | Trade-admin: profil, katalog, taklif qilish (invite → accept/decline), ish navbati, eskalatsiya, SMART savdoga qo'lda aralashish |
 | `seller` | Sotuvchi reytingi (xaridordan 1–5) |
-| `plan` | payment-service tariflarining lokal projection'i; `MailboxSlotService` — nechta quti ochish mumkin |
+| `plan` | payment-service tariflarining lokal projection'i; `MailboxSlotService` — nechta quti ochish mumkin (egasi savdo tomoni bo'lmagan jonli savdodagi quti — adminga berilgan human escrow quti — egasining hisobiga kirmaydi); `MailboxAccessService` — limitdan oshgan qutilar qulflanadi (`mailboxes.access_priority`, hisoblanadi, saqlanmaydi; jonli savdodagi quti hech qachon qulflanmaydi; egasi savdo tomoni bo'lmagan jonli quti — human savdoda adminga berilgan escrow quti — ham ochiq, lekin egasining limitiga sanalmaydi) |
 | `payment` | `EscrowClient` — payment-service `/internal/trades/{id}/escrow/*` (trade so'mda, payment tiyinda hisoblaydi) |
 | `marketplace`, `partner`, `security` | marketplace (e'lon shartlari, akkount), hamkor attributsiyasi, auth (ismlar) HTTP klientlari |
 | `card` | Foydalanuvchining bank kartalari (PAN shifrlangan, Luhn tekshiruvi). Hozir faqat o'z CRUD'i bor — boshqa kod ishlatmaydi |
@@ -53,7 +53,7 @@ har o'zgarish `trade_audit_log` ga yoziladi (`TradeAuditService` — yagona yozu
 | Xabarlar | `GET/POST /trades/{id}/messages`, `POST .../messages/password`, `POST .../messages/{msgId}/reveal` |
 | Trade-admin | `/trade-admins`, `/trade-admins/me`, `/me/invitations`, `/me/trades`; `/trades/{id}/actions/admin-accept|admin-decline|admin-cancel|admin-close`; `/trades/{id}/steps` |
 | Reytinglar | `POST /trades/{id}/rating`, `/trades/{id}/seller-rating`, `/sellers/{id}/ratings`, `/rating-summary`, `POST /sellers/rating-summaries/batch` |
-| Pochta | `/mailboxes`, `/mailboxes/slots`, `/mailboxes/{id}/detach`, `/name`; `/mail/mailboxes`, `/mail/{mailboxId}/inbox`, `/messages/{id}`, attachments |
+| Pochta | `/mailboxes`, `/mailboxes/slots`, `/mailboxes/{id}/detach`, `/name`, `POST /mailboxes/{id}/unlock` (body `{lockInsteadId}` → 204; qulflangan qutini ochiq quti bilan almashtiradi, aks holda 409 `invalid_unlock_swap`); `/mail/mailboxes`, `/mail/{mailboxId}/inbox`, `/messages/{id}`, attachments. Ro'yxat/summary qatorida `locked` (qulflangan qutida `unreadCount`/`lastActivityAt` null, IMAP ochilmaydi), `/mailboxes/slots` da `lockedCount`. Foydalanuvchi mail API'si (inbox, xat, o'qilgan, attachment) qulflangan qutiga 403 `{code:"mailbox_locked", message}` qaytaradi va IMAP'ga tegmaydi; admin endpointlar va smart-admin-worker IMAP'i qulfdan mustasno |
 | Admin | `/admin/mailboxes/**`, `/admin/smart-trades/**`, `/admin/trades/escalated`, `/admin/trades/{id}/cancel`, `/reassign`, reytingni yashirish |
 | Ichki | `GET /internal/trades/live` (marketplace) |
 
@@ -85,7 +85,7 @@ har o'zgarish `trade_audit_log` ga yoziladi (`TradeAuditService` — yagona yozu
 
 ## Test
 
-`mvn -B -ntp clean verify` — 47 unit, 48 integratsion (`*IT`).
+`mvn -B -ntp clean verify` — 306 unit, 296 integratsion (`*IT`).
 
 ### Konami verification-code notifications
 

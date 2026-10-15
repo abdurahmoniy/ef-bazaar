@@ -2537,7 +2537,7 @@ async function fetchWalletBalance(): Promise<{ availableTiyin: number } | null> 
   }
 }
 
-type MutationResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
+type MutationResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number; code?: string; plan?: string };
 
 async function postProposal(
   payload: ProposalCreateRequest,
@@ -2565,7 +2565,14 @@ async function postProposalAccept(
       body: JSON.stringify(payload),
     },
   );
-  if (!response.ok) return { ok: false, error: await readErrorMessage(response) };
+  if (!response.ok) {
+    const slots = await response.clone().json().catch(() => null) as { code?: string; plan?: string } | null;
+    return {
+      ok: false,
+      error: await readErrorMessage(response),
+      ...(slots?.code === 'mailbox_slots_exhausted' ? { code: slots.code, plan: slots.plan } : {}),
+    };
+  }
   return { ok: true, data: (await response.json()) as TradeResponse };
 }
 

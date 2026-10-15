@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.longThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -44,7 +45,8 @@ class MailboxAdminServiceTest {
         repo = mock(MailboxRepository.class);
         events = mock(uz.efbazaar.trade.kafka.TradeEventPublisher.class);
         trades = mock(TradeRepository.class);
-        svc = new MailboxService(repo, trades, mock(TradeCrypto.class), events);
+        svc = new MailboxService(repo, trades, mock(TradeCrypto.class), events,
+                mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class));
     }
 
     @Test
@@ -202,6 +204,16 @@ class MailboxAdminServiceTest {
         assertThat(m.getOwnerUserId()).isEqualTo(next);
         assertThat(m.getHandedOffAt()).isNotNull();
         verify(events).mailboxRotateRequest(m.getId(), "box@efbazaar.uz");
+    }
+
+    @Test
+    void aReassignedBoxBecomesTheNewestToItsNewOwner() {
+        Mailbox m = ownedBox(UUID.randomUUID(), true);
+        long before = System.currentTimeMillis();
+
+        svc.reassignOwner(UUID.randomUUID(), m.getId(), UUID.randomUUID());
+
+        verify(repo).setAccessPriority(eq(m.getId()), longThat(p -> p >= before));
     }
 
     /** Mailcow has not created it yet — there is no password to rotate, and asking would fail. */

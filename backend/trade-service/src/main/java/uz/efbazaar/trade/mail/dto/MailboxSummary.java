@@ -11,7 +11,8 @@ import java.util.UUID;
  *
  * <p>{@code unreadCount} / {@code lastActivityAt} can be null when IMAP is
  * transiently unreachable — the frontend should render "—" in that case
- * rather than lying about zero unread.
+ * rather than lying about zero unread. Both are also null for a {@code locked}
+ * mailbox (over the plan limit): its activity must not leak through the sidebar.
  */
 public record MailboxSummary(
         UUID id,
@@ -19,5 +20,6 @@ public record MailboxSummary(
         String displayName,
         Integer unreadCount,
         Instant lastActivityAt,
-        Instant ownedSince
+        Instant ownedSince,
+        boolean locked
 ) {}

@@ -19,6 +19,7 @@ import {
   RotateCcw,
   ShieldAlert,
   Snowflake,
+  Sparkles,
   Wallet as WalletIcon,
   XCircle,
 } from 'lucide-react';
@@ -118,6 +119,10 @@ const KIND_ICONS: Partial<Record<TransactionKind, TxIcon>> = {
   PARTNER_POST_REFUND: {
     icon: <RotateCcw className={cn(ICON_CLASS, 'text-blue-600 dark:text-blue-400')} />,
     bg: 'bg-blue-500/10 dark:bg-blue-400/10',
+  },
+  PLAN_PURCHASE: {
+    icon: <Sparkles className={cn(ICON_CLASS, 'text-secondary-foreground dark:text-secondary')} />,
+    bg: 'bg-secondary/20',
   },
   ADJUSTMENT: {
     icon: <ShieldAlert className={cn(ICON_CLASS, 'text-primary')} />,

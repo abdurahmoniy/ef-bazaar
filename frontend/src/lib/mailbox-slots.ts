@@ -4,6 +4,8 @@ export interface MailboxSlotStatus {
   limit: number | null;
   full: boolean;
   plan: string;
+  /** Qulflangan qutilar soni (tarif pasaygandan keyin). */
+  lockedCount: number;
 }
 
 export interface OwnedMailbox {
@@ -12,6 +14,8 @@ export interface OwnedMailbox {
   tradeId: string | null;
   createdAt: string;
   handedOffAt: string | null;
+  /** Qulflangan: pochtasi o'qilmaydi, lekin quti o'chirilmaydi. */
+  locked: boolean;
 }
 
 /**
@@ -60,6 +64,25 @@ export async function detachMailbox(id: string): Promise<void> {
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
     throw new Error(payload?.message ?? "Pochta qutisini uzib bo'lmadi");
+  }
+}
+
+/**
+ * Qulflangan qutini ochadi, o'rniga ochiq qutini qulflaydi.
+ *
+ * <p>409 `invalid_unlock_swap` xabari (o'zbekcha) backenddan keladi va
+ * o'sha holicha ko'rsatiladi.
+ */
+export async function unlockMailbox(lockedId: string, lockInsteadId: string): Promise<void> {
+  const response = await fetch(`/api/trade/v1/mailboxes/${encodeURIComponent(lockedId)}/unlock`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lockInsteadId }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body?.message || 'Qutini ochib bo‘lmadi');
   }
 }
 

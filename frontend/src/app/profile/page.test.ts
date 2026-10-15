@@ -20,6 +20,7 @@ vi.mock('@/lib/accounts-server', () => ({ getMyAccountsServer: mocks.getAccounts
 vi.mock('@/lib/marketplace-server', () => ({ getMyFavorites: mocks.getFavorites }));
 vi.mock('@/lib/trade-server', () => ({ getMyCards: mocks.getCards, getMyTrades: mocks.getTrades, getSellerRatingSummary: mocks.getRating }));
 vi.mock('@/lib/trade-admin-applications-server', () => ({ getMyTradeAdminApplication: mocks.getApplication }));
+vi.mock('@/lib/plans-server', () => ({ getMyPlanSSR: vi.fn().mockResolvedValue(null) }));
 vi.mock('@/lib/payment-server', () => ({ getWallet: mocks.getWallet }));
 vi.mock('@/lib/account-display-server', () => ({ getAccountDisplayData: mocks.getDisplay }));
 vi.mock('next/navigation', () => ({ redirect: mocks.redirect }));

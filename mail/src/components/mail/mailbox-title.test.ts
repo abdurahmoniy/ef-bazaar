@@ -11,7 +11,7 @@ vi.mock('@/lib/mailbox-name', () => ({ MAILBOX_NAME_MAX_LENGTH: 60, saveMailboxN
 
 const mailbox: MailboxSummary = {
   id: 'mailbox-1', email: 'account@efbazaar.uz', displayName: 'Main account',
-  unreadCount: 2, lastActivityAt: null, ownedSince: '2026-09-19T00:00:00Z',
+  unreadCount: 2, lastActivityAt: null, ownedSince: '2026-09-19T00:00:00Z', locked: false,
 };
 let container: HTMLDivElement;
 let root: Root;

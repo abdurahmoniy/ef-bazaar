@@ -50,6 +50,7 @@ import { cn } from '@/lib/utils';
 import type { TradeAdminApplicationResponse } from '@/lib/trade-admin-applications';
 import type { SellerRatingSummaryResponse } from '@/lib/trade-types';
 import type { User } from '@/lib/types';
+import { planLabel, type MyPlan } from '@/lib/plans';
 import { logoutAction } from '@/app/auth/actions';
 
 interface ProfileAccountProps {
@@ -61,6 +62,7 @@ interface ProfileAccountProps {
   favoritesCount?: number;
   ratingSummary?: SellerRatingSummaryResponse | null;
   availableTiyin?: number | null;
+  plan?: MyPlan | null;
 }
 
 export function ProfileAccount({
@@ -72,6 +74,7 @@ export function ProfileAccount({
   favoritesCount = 0,
   ratingSummary,
   availableTiyin = null,
+  plan = null,
 }: ProfileAccountProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -346,6 +349,16 @@ export function ProfileAccount({
           </div>
         </button>
       </div>
+
+      <Link
+        href="/plans"
+        className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+      >
+        <span className="font-semibold">Tarif</span>
+        <span className="text-muted-foreground">
+          {planLabel(plan)}
+        </span>
+      </Link>
 
       <MailboxSlotsWarning />
 

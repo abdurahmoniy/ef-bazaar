@@ -16,6 +16,7 @@ import { getMyFavorites } from '@/lib/marketplace-server';
 import { getMyCards, getMyTrades, getSellerRatingSummary } from '@/lib/trade-server';
 import { getMyTradeAdminApplication } from '@/lib/trade-admin-applications-server';
 import { getWallet } from '@/lib/payment-server';
+import { getMyPlanSSR } from '@/lib/plans-server';
 import { FEATURES } from '@/lib/feature-flags';
 import { getAccountDisplayData } from '@/lib/account-display-server';
 
@@ -58,7 +59,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
 
   // Fetch tab data server-side.
-  const [accounts, favorites, cards, tradePage, tradeAdminApplication, sellerRatingSummary, wallet] = await Promise.all([
+  const [accounts, favorites, cards, tradePage, tradeAdminApplication, sellerRatingSummary, wallet, myPlan] = await Promise.all([
     getMyAccountsServer(),
     activeTab === 'favorites' || activeTab === 'account' ? getMyFavorites() : Promise.resolve([]),
     activeTab === 'kartalar' ? getMyCards() : Promise.resolve([]),
@@ -66,6 +67,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     activeTab === 'account' ? getMyTradeAdminApplication() : Promise.resolve(null),
     activeTab === 'account' ? getSellerRatingSummary(user.id) : Promise.resolve(null),
     activeTab === 'account' && FEATURES.wallet ? getWallet() : Promise.resolve(null),
+    activeTab === 'account' ? getMyPlanSSR() : Promise.resolve(null),
   ]);
 
   const accountDisplay = activeTab === 'accounts' ? await getAccountDisplayData(accounts, user.id) : {};
@@ -170,6 +172,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               favoritesCount={favorites.length}
               ratingSummary={sellerRatingSummary}
               availableTiyin={wallet?.availableTiyin ?? null}
+              plan={myPlan}
             />
           )}
         </section>

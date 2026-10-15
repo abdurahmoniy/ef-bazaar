@@ -2,6 +2,7 @@ import 'server-only';
 
 import { apiFetch, ApiException } from './api';
 import type { WithdrawalTicket } from './withdrawal';
+import type { PlanEntitlementRow, PlanPriceRow } from './plans-admin';
 import type {
   CardMovement,
   ObservationResponse,
@@ -106,6 +107,24 @@ export async function getTradeCommissionConfigSSR(): Promise<TradeCommissionConf
   const path = `${PREFIX}/commission`;
   try {
     return await apiFetch<TradeCommissionConfig>(path);
+  } catch (error) {
+    return report(path, error);
+  }
+}
+
+export async function getPlanPricesSSR(): Promise<PlanPriceRow[] | null> {
+  const path = '/payment/v1/admin/plans/prices';
+  try {
+    return await apiFetch<PlanPriceRow[]>(path);
+  } catch (error) {
+    return report(path, error);
+  }
+}
+
+export async function getPlanEntitlementsSSR(): Promise<PlanEntitlementRow[] | null> {
+  const path = '/payment/v1/admin/plans/entitlements';
+  try {
+    return await apiFetch<PlanEntitlementRow[]>(path);
   } catch (error) {
     return report(path, error);
   }

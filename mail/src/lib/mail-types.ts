@@ -14,6 +14,8 @@ export interface MailboxSummary {
   lastActivityAt: string | null;
   /** When this mailbox became visible to the current owner (handoff or create). */
   ownedSince: string;
+  /** Over the plan limit: no content is served; unreadCount and lastActivityAt are null. */
+  locked: boolean;
 }
 
 export interface InboxMessage {

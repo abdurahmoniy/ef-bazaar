@@ -8,7 +8,8 @@ import { MailboxTitle } from '@/components/mail/mailbox-title';
 import { InboxView } from '@/components/mail/inbox-view';
 import { RefreshControls } from '@/components/mail/refresh-controls';
 import { mailAvatarColor, mailAvatarInitial } from '@/lib/mail-format';
-import { getInbox, getMyMailboxes } from '@/lib/mail-server';
+import { LockedMailbox } from '@/components/mail/locked-mailbox';
+import { getInbox, getMyMailboxes, MailboxLockedError } from '@/lib/mail-server';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,16 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
   const active = mailboxes.find((m) => m.id === mailboxId);
   if (!active) notFound();
 
-  const page = await getInbox(mailboxId, { limit: PAGE_SIZE, offset });
+  // Locked: never ask the backend for content (it would refuse anyway).
+  if (active.locked) return <LockedMailbox mailbox={active} />;
+
+  let page: Awaited<ReturnType<typeof getInbox>>;
+  try {
+    page = await getInbox(mailboxId, { limit: PAGE_SIZE, offset });
+  } catch (error) {
+    if (error instanceof MailboxLockedError) return <LockedMailbox mailbox={active} />;
+    throw error;
+  }
 
   const unread = active.unreadCount;
   const summary = page

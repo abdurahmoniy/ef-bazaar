@@ -38,6 +38,20 @@ public class TradeExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body(HttpStatus.BAD_REQUEST, "card_invalid"));
     }
 
+    @ExceptionHandler(uz.efbazaar.trade.mailbox.exception.MailboxLockedException.class)
+    ResponseEntity<Map<String, Object>> onMailboxLocked(uz.efbazaar.trade.mailbox.exception.MailboxLockedException e) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>(body(HttpStatus.FORBIDDEN, "mailbox_locked"));
+        body.put("message", e.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    @ExceptionHandler(uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException.class)
+    ResponseEntity<Map<String, Object>> onInvalidSwap(uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException e) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>(body(HttpStatus.CONFLICT, "invalid_unlock_swap"));
+        body.put("message", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     /**
      * Out of mailbox slots.
      *

@@ -161,6 +161,10 @@ describe('platformKindLabel', () => {
   it('names a referral reward as spending, not as a bonus', () => {
     expect(platformKindLabel('REFERRAL_REWARD')).toBe('Referal mukofoti');
   });
+
+  it('names plan sales as revenue', () => {
+    expect(platformKindLabel('PLAN_PURCHASE')).toBe('Tarif sotuvi');
+  });
 });
 
 describe('referralPer100', () => {
