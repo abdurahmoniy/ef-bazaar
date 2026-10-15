@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.UUID;
 
 /**
  * One thing a plan grants, as a named value.
@@ -29,6 +30,9 @@ public class PlanEntitlement {
 
     @Column(length = 64)
     private String value;
+
+    @Column(name = "updated_by")
+    private UUID updatedBy;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;

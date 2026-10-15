@@ -43,7 +43,7 @@ Userbot'dan `userbot-heartbeat` kelmay qolsa yangi to'ldirishlar qabul qilinmayd
 | Guruh | Endpointlar |
 |---|---|
 | Foydalanuvchi (`/api/v1/payments/...`) | `wallet`, `wallet/transactions`, `invoices` (POST), `invoices/active`, `invoices/{id}/status`, `withdrawals`, `plans` (har plan `prices` bilan: `{"MONTH": 1000000, "YEAR": 10000000}`, sotuvda bo'lmagan plan uchun `{}`), `plans/me`, `commission` |
-| Admin (`/api/v1/admin/...`) | `payments/cards/**` (qo'shish, faollashtirish, tartib), `payments/observations/**`, `payments/analytics/overview`, `payments/commission`, `payments/userbot`, `withdrawals/**`, `plans/assign`, `plans/prices` (GET ro'yxat; PUT `{prices:[{planCode,period,priceTiyin}]}` — faqat PRO/MAX, `priceTiyin > 0`, hammasi yoki hech narsa) |
+| Admin (`/api/v1/admin/...`) | `payments/cards/**` (qo'shish, faollashtirish, tartib), `payments/observations/**`, `payments/analytics/overview`, `payments/commission`, `payments/userbot`, `withdrawals/**`, `plans/assign`, `plans/prices` (GET ro'yxat; PUT `{prices:[{planCode,period,priceTiyin}]}` — faqat PRO/MAX, `priceTiyin > 0`, hammasi yoki hech narsa), `plans/entitlements` (GET ro'yxat; PUT `{entitlements:[{planCode,key,value}]}` — faqat `mailbox.slots`/`mailbox.custom_slots`, `value` null = cheksiz, aks holda butun son >= 0, hammasi yoki hech narsa; commit'dan keyin plan snapshot Kafka'ga darhol chiqadi) |
 | Ichki (`X-Internal-Secret`) | `/internal/trades/{tradeId}/escrow/quote|hold|release|settle` (trade), `/internal/partners/charge`, `/internal/referrals/reward`, `/internal/partner-ads/*` (marketplace) |
 
 ## Kafka

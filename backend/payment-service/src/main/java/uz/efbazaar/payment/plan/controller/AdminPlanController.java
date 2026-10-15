@@ -11,8 +11,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import uz.efbazaar.payment.plan.dto.AssignPlanRequest;
 import uz.efbazaar.payment.plan.dto.MyPlanResponse;
+import uz.efbazaar.payment.plan.dto.PlanEntitlementRow;
 import uz.efbazaar.payment.plan.dto.PlanPriceRow;
+import uz.efbazaar.payment.plan.dto.UpdatePlanEntitlementsRequest;
 import uz.efbazaar.payment.plan.dto.UpdatePlanPricesRequest;
+import uz.efbazaar.payment.plan.service.PlanEntitlementAdminService;
 import uz.efbazaar.payment.plan.service.PlanPriceService;
 import uz.efbazaar.payment.plan.service.PlanService;
 import uz.efbazaar.payment.security.AuthenticatedUser;
@@ -33,6 +36,7 @@ public class AdminPlanController {
 
     private final PlanService plans;
     private final PlanPriceService prices;
+    private final PlanEntitlementAdminService entitlementAdmin;
 
     @PostMapping("/assign")
     public MyPlanResponse assign(@Valid @RequestBody AssignPlanRequest req) {
@@ -50,5 +54,16 @@ public class AdminPlanController {
     public List<PlanPriceRow> updatePrices(@AuthenticationPrincipal AuthenticatedUser me,
                                            @Valid @RequestBody UpdatePlanPricesRequest req) {
         return prices.update(me.userId(), req.prices());
+    }
+
+    @GetMapping("/entitlements")
+    public List<PlanEntitlementRow> entitlements() {
+        return entitlementAdmin.all();
+    }
+
+    @PutMapping("/entitlements")
+    public List<PlanEntitlementRow> updateEntitlements(@AuthenticationPrincipal AuthenticatedUser me,
+                                                       @Valid @RequestBody UpdatePlanEntitlementsRequest req) {
+        return entitlementAdmin.update(me.userId(), req.entitlements());
     }
 }
