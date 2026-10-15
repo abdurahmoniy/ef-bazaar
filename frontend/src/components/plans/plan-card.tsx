@@ -9,6 +9,7 @@ import {
   PLAN_NAMES,
   SLOTS_KEY,
   slotCount,
+  formatPlanDate,
   yearlySavingsPercent,
   type PlanAction,
   type PlanCatalogItem,
@@ -22,7 +23,11 @@ const TAGLINES: Record<PlanCatalogItem['code'], string> = {
   MAX: 'Katta savdo, keng imkoniyat',
 };
 
-const CTA: Record<PlanAction, string> = {
+export type CardAction = PlanAction | 'free-anon' | 'unknown';
+
+const CTA: Record<CardAction, string> = {
+  'free-anon': 'Bepul',
+  unknown: 'Tarif aniqlanmadi',
   choose: 'Tanlash',
   extend: 'Uzaytirish',
   upgrade: 'Oshirish',
@@ -33,7 +38,7 @@ const CTA: Record<PlanAction, string> = {
 interface PlanCardProps {
   item: PlanCatalogItem;
   period: PlanPeriod;
-  action: PlanAction;
+  action: CardAction;
   isCurrent: boolean;
   expiresAt: string | null;
   busy: boolean;
@@ -51,7 +56,7 @@ export function PlanCard({
   const monthly = period === 'YEAR' && item.prices.YEAR ? Math.round(item.prices.YEAR / 12) : null;
   const slots = slotCount(item.entitlements, SLOTS_KEY);
   const custom = slotCount(item.entitlements, CUSTOM_SLOTS_KEY);
-  const disabled = busy || action === 'unavailable' || action === 'current-free';
+  const disabled = busy || action === 'unavailable' || action === 'current-free' || action === 'unknown';
 
   const features = [
     slots === null ? 'Cheksiz pochta qutisi' : `${slots} ta pochta qutisi`,
@@ -64,7 +69,7 @@ export function PlanCard({
   ];
 
   const note = isCurrent && !free && expiresAt
-    ? `${new Date(expiresAt).toLocaleDateString('uz-UZ')} gacha`
+    ? `${formatPlanDate(expiresAt)} gacha`
     : free ? 'Muddatsiz · bepul' : 'Hamyondan yechiladi';
 
   return (
@@ -135,6 +140,7 @@ export function PlanCard({
       </ul>
 
       <div className="mt-auto flex flex-col gap-2">
+        {action !== 'free-anon' && (
         <Button
           type="button"
           size="lg"
@@ -145,6 +151,7 @@ export function PlanCard({
         >
           {busy ? 'Kuting…' : CTA[action]}
         </Button>
+        )}
         <span className={cn('min-h-[1.125rem] text-center text-xs', featured ? 'text-white/75' : 'text-muted-foreground')}>
           {note}
         </span>

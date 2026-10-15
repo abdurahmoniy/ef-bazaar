@@ -1,7 +1,7 @@
 // frontend/src/lib/plans.test.ts
 import { describe, expect, it } from 'vitest';
 import {
-  daysLeft, planAction, purchaseErrorFrom, slotCount, yearlySavingsPercent,
+  daysLeft, formatPlanDate, planAction, planEndDate, purchaseErrorFrom, slotCount, yearlySavingsPercent,
   type MyPlan, type PlanCatalogItem,
 } from './plans';
 
@@ -58,5 +58,11 @@ describe('plans', () => {
     expect(purchaseErrorFrom(409, { code: 'downgrade_not_allowed', detail: 'Pastroq…' }))
       .toEqual({ kind: 'other', message: 'Pastroq…' });
     expect(purchaseErrorFrom(502, {})).toEqual({ kind: 'other', message: "So'rov bajarilmadi (502)" });
+  });
+
+  it('formats dates in Tashkent time and projects the end date', () => {
+    expect(formatPlanDate('2026-05-31T20:00:00Z')).toBe('01.06.2026');
+    expect(formatPlanDate(planEndDate('extend', onPro, 'MONTH', now))).toBe('11.06.2026');
+    expect(formatPlanDate(planEndDate('choose', free, 'YEAR', now))).toBe('01.05.2027');
   });
 });

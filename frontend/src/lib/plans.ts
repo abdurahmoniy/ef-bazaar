@@ -88,3 +88,32 @@ export function purchaseErrorFrom(status: number, body: unknown): PurchaseError 
   if (isInsufficientFunds(message)) return { kind: 'insufficient', message };
   return { kind: 'other', message };
 }
+
+const TASHKENT_OFFSET_MS = 5 * 3_600_000;
+
+/** dd.MM.yyyy in Tashkent time — fixed so server and browser render identically. */
+export function formatPlanDate(iso: string | Date): string {
+  const t = new Date((typeof iso === 'string' ? new Date(iso) : iso).getTime() + TASHKENT_OFFSET_MS);
+  const dd = String(t.getUTCDate()).padStart(2, '0');
+  const mm = String(t.getUTCMonth() + 1).padStart(2, '0');
+  return `${dd}.${mm}.${t.getUTCFullYear()}`;
+}
+
+/**
+ * When the plan would end if bought now: an extension counts from the current
+ * expiry, anything else from now (the backend rule), plus one month/year.
+ * Approximate — the server decides the exact instant.
+ */
+export function planEndDate(
+  action: PlanAction,
+  mine: MyPlan,
+  period: PlanPeriod,
+  now: Date,
+): Date {
+  const expiry = mine.expiresAt ? new Date(mine.expiresAt) : null;
+  const base = action === 'extend' && expiry && expiry.getTime() > now.getTime() ? expiry : now;
+  const end = new Date(base.getTime());
+  if (period === 'YEAR') end.setUTCFullYear(end.getUTCFullYear() + 1);
+  else end.setUTCMonth(end.getUTCMonth() + 1);
+  return end;
+}

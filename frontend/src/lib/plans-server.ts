@@ -1,4 +1,3 @@
-// frontend/src/lib/plans-server.ts
 import 'server-only';
 
 import { apiFetch } from './api';

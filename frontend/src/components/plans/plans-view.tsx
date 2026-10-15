@@ -1,5 +1,6 @@
 'use client';
 
+import * as Dialog from '@radix-ui/react-dialog';
 import { ArrowUp, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -11,8 +12,11 @@ import { formatTiyin } from '@/lib/money';
 import { getWallet } from '@/lib/payment-client';
 import {
   daysLeft,
+  formatPlanDate,
   PLAN_NAMES,
   planAction,
+  planEndDate,
+  type PlanAction,
   yearlySavingsPercent,
   type MyPlan,
   type PlanCatalogItem,
@@ -22,7 +26,7 @@ import {
 import { PlanPurchaseError, purchasePlan } from '@/lib/plans-client';
 import { shortfallTiyin, topUpHref } from '@/lib/wallet-shortfall';
 
-import { PlanCard } from './plan-card';
+import { PlanCard, type CardAction } from './plan-card';
 
 interface PlansViewProps {
   catalog: PlanCatalogItem[];
@@ -34,6 +38,7 @@ interface PlansViewProps {
 interface Confirm {
   item: PlanCatalogItem;
   period: PlanPeriod;
+  action: PlanAction;
   /** Set when the server quoted a different price than the card showed. */
   priceChanged: boolean;
 }
@@ -55,6 +60,9 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
   const plans = [...catalog]
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((p) => ({ ...p, prices: prices[p.code] ?? p.prices }));
+  // Signed in but the lookup failed: never guess FREE, or an active
+  // subscriber is offered "Tanlash" and a paid-for plan is bought twice.
+  const planUnknown = signedIn && mine === null;
   const me = mine ?? FREE;
   const now = new Date();
   const maxSaving = Math.max(0, ...plans.map((p) => yearlySavingsPercent(p.prices) ?? 0));
@@ -62,7 +70,7 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
   const featuredCode = plans.filter((p) => Object.keys(p.prices).length > 0)[1]?.code ?? middlePaid?.code;
   const currentName = PLAN_NAMES[me.code];
 
-  async function run(item: PlanCatalogItem, per: PlanPeriod) {
+  async function run(item: PlanCatalogItem, per: PlanPeriod, action: PlanAction) {
     const price = item.prices[per];
     if (price === undefined) return;
     const sig = `${item.code}:${per}:${price}`;
@@ -89,7 +97,12 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
           ...prev,
           [item.code]: { ...item.prices, [per]: detail.currentPriceTiyin },
         }));
-        setConfirm({ item: { ...item, prices: { ...item.prices, [per]: detail.currentPriceTiyin } }, period: per, priceChanged: true });
+        setConfirm({
+          item: { ...item, prices: { ...item.prices, [per]: detail.currentPriceTiyin } },
+          period: per,
+          action,
+          priceChanged: true,
+        });
       } else if (detail?.kind === 'insufficient') {
         setConfirm(null);
         let message = detail.message;
@@ -107,7 +120,11 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
         setTopUp({ href, message });
       } else {
         setConfirm(null);
-        toast.error(e instanceof Error ? e.message : 'So‘rov bajarilmadi');
+        toast.error(
+          e instanceof PlanPurchaseError
+            ? e.message
+            : 'So‘rov bajarilmadi. Qayta urinib ko‘ring',
+        );
       }
     } finally {
       setBusy(null);
@@ -120,8 +137,8 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
       return;
     }
     const action = planAction(item, me, plans, now);
-    if (action === 'upgrade') setConfirm({ item, period, priceChanged: false });
-    else if (action === 'choose' || action === 'extend') void run(item, period);
+    if (action === 'upgrade') setConfirm({ item, period, action, priceChanged: false });
+    else if (action === 'choose' || action === 'extend') void run(item, period, action);
   }
 
   return (
@@ -165,6 +182,15 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
         </div>
       </div>
 
+      {planUnknown && (
+        <div role="alert" className="mx-auto mt-6 flex max-w-xl flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted p-4 text-sm">
+          <span>Joriy tarifingizni aniqlab bo‘lmadi.</span>
+          <Button type="button" size="sm" onClick={() => router.refresh()}>
+            Qayta urinish
+          </Button>
+        </div>
+      )}
+
       {topUp && (
         <div role="alert" className="mx-auto mt-6 flex max-w-xl flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
           <span>{topUp.message}</span>
@@ -177,13 +203,15 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
       <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {plans.map((item) => {
           const action = planAction(item, me, plans, now);
+          const cardAction = (it: PlanCatalogItem, a: PlanAction): CardAction =>
+            planUnknown ? 'unknown' : !signedIn ? (it.code === 'STANDARD' ? 'free-anon' : 'choose') : a;
           return (
             <PlanCard
               key={item.code}
               item={item}
               period={period}
-              action={signedIn ? action : item.code === 'STANDARD' ? 'current-free' : 'choose'}
-              isCurrent={signedIn && me.code === item.code}
+              action={cardAction(item, action)}
+              isCurrent={signedIn && !planUnknown && me.code === item.code}
               expiresAt={me.code === item.code ? me.expiresAt : null}
               busy={busy === item.code}
               featured={item.code === featuredCode}
@@ -203,8 +231,10 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
           mine={me}
           busy={busy !== null}
           now={now}
-          onCancel={() => setConfirm(null)}
-          onConfirm={() => void run(confirm.item, confirm.period)}
+          onCancel={() => {
+            if (busy === null) setConfirm(null);
+          }}
+          onConfirm={() => void run(confirm.item, confirm.period, confirm.action)}
         />
       )}
     </div>
@@ -221,58 +251,76 @@ function UpgradeConfirm({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const { item, period, priceChanged } = confirm;
+  const { item, period, action, priceChanged } = confirm;
   const price = item.prices[period] ?? 0;
+  const name = PLAN_NAMES[item.code];
   const left = daysLeft(mine.expiresAt, now);
+  const burns = action === 'upgrade' && left !== null && left > 0;
+  const periodLabel = period === 'YEAR' ? '1 yil' : '1 oy';
+  const title =
+    action === 'upgrade' ? `${name}’ga o‘tasizmi?`
+    : action === 'extend' ? `${name} tarifini uzaytirasizmi?`
+    : `${name} tarifini tanlaysizmi?`;
+  const cta = action === 'upgrade' ? 'Oshirish' : action === 'extend' ? 'Uzaytirish' : 'Tanlash';
+  const ends = formatPlanDate(planEndDate(action, mine, period, now));
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/45 p-4" onClick={onCancel}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="up-title"
-        className="flex w-full max-w-md flex-col gap-4 rounded-2xl bg-card p-6 text-card-foreground shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-xl bg-secondary/25 text-secondary-foreground dark:text-secondary">
-            <ArrowUp className="size-5" aria-hidden />
-          </span>
-          <h2 id="up-title" className="text-lg font-extrabold">
-            {PLAN_NAMES[item.code]}’ga o‘tasizmi?
-          </h2>
-        </div>
-        {priceChanged && (
-          <p role="status" className="text-sm font-semibold">
-            Narx o‘zgardi: {formatTiyin(price)} so‘m. Davom etasizmi?
-          </p>
-        )}
-        <dl className="flex flex-col gap-2.5 rounded-xl border border-border bg-muted/50 p-4 text-sm">
-          <div className="flex justify-between gap-3">
-            <dt className="text-muted-foreground">Yangi tarif</dt>
-            <dd className="font-bold">{PLAN_NAMES[item.code]} · {period === 'YEAR' ? '1 yil' : '1 oy'}</dd>
-          </div>
-          <div className="flex justify-between gap-3">
-            <dt className="text-muted-foreground">Hamyondan yechiladi</dt>
-            <dd className="font-bold">{formatTiyin(price)} so‘m</dd>
-          </div>
-        </dl>
-        {left !== null && (
-          <p className="flex items-start gap-2.5 text-sm text-destructive">
-            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-            <span>
-              Joriy {PLAN_NAMES[mine.code]} tarifining qolgan {left} kuni kuyadi. Yangi tarif bugundan boshlanadi.
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onCancel(); }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-foreground/45" />
+        <Dialog.Content
+          onEscapeKeyDown={(e) => { if (busy) e.preventDefault(); }}
+          onPointerDownOutside={(e) => { if (busy) e.preventDefault(); }}
+          onInteractOutside={(e) => { if (busy) e.preventDefault(); }}
+          className="fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-2xl bg-card p-6 text-card-foreground shadow-xl"
+        >
+          <div className="flex items-center gap-3">
+            <span className="grid size-11 place-items-center rounded-xl bg-secondary/25 text-secondary-foreground dark:text-secondary">
+              <ArrowUp className="size-5" aria-hidden />
             </span>
-          </p>
-        )}
-        <div className="grid grid-cols-2 gap-2.5">
-          <Button type="button" variant="outline" size="lg" onClick={onCancel} disabled={busy}>
-            Bekor qilish
-          </Button>
-          <Button type="button" size="lg" onClick={onConfirm} disabled={busy}>
-            {busy ? 'Kuting…' : 'Oshirish'}
-          </Button>
-        </div>
-      </div>
-    </div>
+            <Dialog.Title className="text-lg font-extrabold">{title}</Dialog.Title>
+          </div>
+          <Dialog.Description className={priceChanged ? 'text-sm font-semibold' : 'sr-only'}>
+            {priceChanged
+              ? `Narx o‘zgardi: ${formatTiyin(price)} so‘m. Davom etasizmi?`
+              : 'Tarif tafsilotlari va tasdiqlash'}
+          </Dialog.Description>
+          <dl className="flex flex-col gap-2.5 rounded-xl border border-border bg-muted/50 p-4 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Yangi tarif</dt>
+              <dd className="font-bold">{name} · {periodLabel}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Hamyondan yechiladi</dt>
+              <dd className="font-bold">{formatTiyin(price)} so‘m</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Amal qiladi (taxminan)</dt>
+              <dd className="font-bold">{ends} gacha</dd>
+            </div>
+          </dl>
+          {action === 'extend' && mine.expiresAt && (
+            <p className="text-sm text-muted-foreground">
+              Muddat {formatPlanDate(mine.expiresAt)} dan yana {periodLabel} uzayadi.
+            </p>
+          )}
+          {burns && (
+            <p className="flex items-start gap-2.5 text-sm text-foreground">
+              <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
+              <span>
+                Joriy {PLAN_NAMES[mine.code]} tarifining qolgan {left} kuni kuyadi. Yangi tarif bugundan boshlanadi.
+              </span>
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-2.5">
+            <Button type="button" variant="outline" size="lg" onClick={onCancel} disabled={busy}>
+              Bekor qilish
+            </Button>
+            <Button type="button" size="lg" onClick={onConfirm} disabled={busy}>
+              {busy ? 'Kuting…' : cta}
+            </Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

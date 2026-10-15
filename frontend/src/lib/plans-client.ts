@@ -1,4 +1,3 @@
-// frontend/src/lib/plans-client.ts
 'use client';
 
 import { purchaseErrorFrom, type MyPlan, type PlanCode, type PlanPeriod, type PurchaseError } from './plans';
