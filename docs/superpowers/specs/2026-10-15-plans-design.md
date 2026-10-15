@@ -37,8 +37,9 @@ Slot sonlari endi admin panelda tahrirlanadi, shuning uchun `R__plan_entitlement
 - `R__plan_entitlements.sql` dan `mailbox.slots` qatorlari olib tashlanadi; fayl izoh bilan
   qoladi va kelajakda admin boshqarmaydigan kalitlar uchun ishlatiladi. (R__ dan qator olib
   tashlash bazadagi qatorni o'chirmaydi — fayl izohida aytilgan; aynan shu kerak.)
-- V15 (bir martalik): `mailbox.slots` → 3 / 5 / 10 ga `UPDATE`, `mailbox.custom_slots` → 0 / 1 / 3
-  `INSERT ... ON CONFLICT DO NOTHING`. Bu "mahsulot qarorining" bir martalik o'tkazilishi;
+- V15 (bir martalik): `mailbox.slots` → 3 / 5 / 10 **upsert** (`INSERT ... ON CONFLICT (plan_code, key)
+  DO UPDATE`: R__ dan olib tashlangan qator eski bazada bor, yangisida yo'q — oddiy `UPDATE` yetmaydi);
+  `mailbox.custom_slots` → 0 / 1 / 3 `INSERT ... ON CONFLICT DO NOTHING`. Bu "mahsulot qarorining" bir martalik o'tkazilishi;
   keyingi o'zgarishlar faqat admin panel orqali.
 - `plan_entitlements` ga `updated_by UUID` ustuni (V15) — kim o'zgartirgani.
 
@@ -94,7 +95,9 @@ Yangi `TransactionKind.PLAN_PURCHASE`. Posting: `USER_AVAILABLE(user) +price`,
   Javob: `MyPlanResponse` (yangi `planCode`, `expiresAt`, entitlements).
   Xatolar (409, `PaymentExceptionHandler` orqali):
   - `price_changed` — server narxi `expectedPriceTiyin` ga teng emas; javobda joriy narx.
-  - `insufficient_balance` — javobda `shortfallTiyin`.
+  - Hamyonda mablag' yetarli emas — **qabul qilingan chetlanish:** alohida `insufficient_balance` kodi
+    va `shortfallTiyin` o'rniga mavjud xabar shakli ishlatiladi: `Hamyonda mablag' yetarli emas — N so'm
+    yetishmayapti`. Frontend uni `wallet-shortfall` orqali taniydi.
   - `downgrade_not_allowed` — faol yuqoriroq tarif ustiga pastrog'i.
   - `plan_not_purchasable` — STANDARD yoki noma'lum/faol bo'lmagan plan (400).
 
@@ -155,6 +158,10 @@ Quti mavjud bo'lib qoladi, lekin user uning ichiga kira olmaydi (xatlarni o'qiy 
 kamayish tartibida saralanadi. N = plan `mailbox.slots` (`null` = cheksiz → hammasi ochiq).
 - **Faol savdoga biriktirilgan quti har doim ochiq** va N ning bir qismi sifatida sanaladi
   (pasaytirishdan keyin vaqtincha N dan oshib ketishi mumkin).
+- **Human trade-admin istisnosi:** faol savdodagi qutining egasi savdo tomoni (sotuvchi/xaridor)
+  bo'lmasa — ya'ni human savdoda escrow quti biriktirilgan adminga berilgan bo'lsa — quti har doim
+  ochiq, lekin egasining N siga **sanalmaydi**. Aks holda 3 ta savdo yuritayotgan admin
+  shaxsiy qutilaridan ayrilardi.
 - Qolgan o'rinlar ustuvorligi eng yuqori qutilarga; qolganlari `locked`.
 - Lock **saqlanmaydi**, har o'qishda hisoblanadi (`MailboxAccessService`): plan o'zgarishi,
   muddat tugashi, upgrade, detach — hammasi avtomatik aks etadi, job kerak emas.
@@ -176,8 +183,9 @@ o'qiydigan endpointlar: xatlar ro'yxati, xat mazmuni, biriktirma) qulflangan qut
 **403 `mailbox_locked`** qaytaradi va mazmunni umuman yubormaydi. Admin endpointlari va
 smart-admin-worker'ning IMAP o'qishi lockdan mustasno (nizo tekshiruvi va savdo jarayoni).
 
-**API javoblari:** `GET /api/v1/mailboxes` va `/slots` har quti uchun `locked: boolean`,
-`lockReason: "PLAN_LIMIT" | null`; `/slots` ga `lockedCount`.
+**API javoblari:** `GET /api/v1/mailboxes` va `/slots` har quti uchun `locked: boolean`;
+`/slots` ga `lockedCount`. **Qabul qilingan chetlanish:** `lockReason` maydoni qo'shilmadi — yagona
+sabab `PLAN_LIMIT`, alohida maydon ma'lumot qo'shmaydi.
 
 **Custom qutilar** bu bosqichda yo'q — lock faqat tasodifiy qutilarga.
 
