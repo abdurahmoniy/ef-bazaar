@@ -112,4 +112,36 @@ class MailboxAccessIT extends AbstractIntegrationIT {
         Set<UUID> locked = access.lockedIds(seller);
         assertThat(locked).doesNotContain(tradeBox).contains(a, b);
     }
+
+    private UUID liveTradeBoxOwnedBy(UUID owner, UUID seller, UUID buyer) {
+        var trade = trades.openTrade(buyer, seller, UUID.randomUUID(), 500_000L, null, null,
+                UUID.randomUUID(), null, TradeMode.SMART, null, null, TradeKind.SALE, 500_000L);
+        UUID box = owned(owner, 1);
+        jdbc.update("UPDATE trades SET mailbox_id = ? WHERE id = ?", box, trade.id());
+        return box;
+    }
+
+    @Test
+    void anAdminsEscrowBoxesDoNotEatTheirPersonalLimit() {
+        standardGrants("3");
+        UUID admin = UUID.randomUUID();
+        UUID p1 = owned(admin, 100), p2 = owned(admin, 200), p3 = owned(admin, 300);
+        for (int i = 0; i < 3; i++) {
+            liveTradeBoxOwnedBy(admin, UUID.randomUUID(), UUID.randomUUID());
+        }
+
+        assertThat(access.lockedIds(admin)).isEmpty();
+        assertThat(access.isLocked(admin, p1)).isFalse();
+    }
+
+    @Test
+    void aPartysLiveBoxStillCountsTowardTheLimit() {
+        standardGrants("2");
+        UUID user = UUID.randomUUID();
+        UUID tradeBox = liveTradeBoxOwnedBy(user, user, UUID.randomUUID());
+        UUID older = owned(user, 100), newer = owned(user, 200);
+
+        // live box takes one of the two places: only the newest of the rest stays open
+        assertThat(access.lockedIds(user)).containsExactly(older).doesNotContain(tradeBox, newer);
+    }
 }

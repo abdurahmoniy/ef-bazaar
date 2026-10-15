@@ -67,9 +67,13 @@ public class MailboxService {
 
     /**
      * Opens a locked mailbox by locking an open one in its place: the user's own
-     * choice of which N to keep. Exchanges the two priorities; nothing else moves.
-     * Equal priorities (backfilled rows) cannot be exchanged, so the opened one
-     * is put one above.
+     * choice of which N to keep.
+     *
+     * <p>Locks all of the owner's rows in id order, exchanges the two boxes'
+     * positions in the current access order, then renumbers every row with
+     * distinct, descending priorities. Renumbering all rows (rather than
+     * swapping two values) means equal priorities (backfilled rows) can never
+     * decide the outcome.
      */
     @Transactional
     public void swapAccess(UUID ownerUserId, UUID lockedId, UUID lockInsteadId) {
@@ -78,8 +82,11 @@ public class MailboxService {
                     "Bitta qutining o'zi bilan almashtirib bo'lmaydi");
         }
         // Every row of the owner is locked, in id order, before anything is
-        // read: concurrent swaps cannot deadlock, and no one can insert between
-        // the validation and the rewrite.
+        // read: concurrent swaps cannot deadlock or interleave. Row locks do not
+        // stop an INSERT, but a mailbox created in between is harmless: the
+        // renumbering below only touches the rows read here, and a new row
+        // arrives with the newest priority, so it opens first and cannot change
+        // which of the two validated boxes ends up locked or open.
         List<Mailbox> all = mailboxes.lockAllOwned(ownerUserId);
         java.util.Set<UUID> ids = new java.util.HashSet<>();
         all.forEach(m -> ids.add(m.getId()));
@@ -501,6 +508,9 @@ public class MailboxService {
         m.setTradeId(null);
         m.setHandedOffAt(Instant.now());
         Mailbox saved = mailboxes.save(m);
+        // A box just handed to a user is the newest to them: it opens first.
+        // Column-only write — never put the whole row back.
+        mailboxes.setAccessPriority(mailboxId, System.currentTimeMillis());
         rotateIfProvisioned(m);
         log.info("Admin {} moved mailbox {} from user {} to user {}", adminId, mailboxId, previous, newOwnerId);
         return saved;
