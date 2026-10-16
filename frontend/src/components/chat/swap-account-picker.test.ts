@@ -16,7 +16,7 @@ let picked: string | null;
 
 function account(id: string, title: string | null, extra: Partial<UserAccountResponse> = {}): UserAccountResponse {
   return { id, title, description: 'Kuchli akkount\nbatafsil', attributes: {}, mediaMessageIds: ['m-' + id], email: null,
-    emailSource: null, status: 'ACTIVE', onMarket: false, currentListingId: null, createdAt: '', updatedAt: '', ...extra };
+    emailSource: null, emailVerified: false, status: 'ACTIVE', onMarket: false, currentListingId: null, createdAt: '', updatedAt: '', ...extra };
 }
 
 function Harness() {

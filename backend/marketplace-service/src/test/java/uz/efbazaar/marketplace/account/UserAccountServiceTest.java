@@ -32,6 +32,7 @@ class UserAccountServiceTest {
     @Mock UserAccountPublisher publisher;
     @Mock uz.efbazaar.marketplace.service.MediaService media;
     @Mock uz.efbazaar.marketplace.service.ListingCaptionBuilder captions;
+    @Mock AccountEmailUnlinks unlinks;
     @InjectMocks UserAccountService service;
 
     private final UUID ownerId = UUID.randomUUID();
@@ -131,6 +132,26 @@ class UserAccountServiceTest {
         assertThat(existing.getEmail()).isEqualTo("men@example.com");
         assertThat(existing.getEmailSource()).isEqualTo(EmailSource.MANUAL);
         assertThat(existing.getMailboxId()).isNull();
+    }
+
+    @Test
+    void setEmail_dropsTheVerifiedMark() {
+        // A typed address has not been proven to be on the Konami account.
+        UserAccount existing = account();
+        existing.setEmail("alibek1@efbazaar.uz");
+        existing.setEmailSource(EmailSource.CUSTOM);
+        existing.setEmailVerified(true);
+        when(accounts.findByIdAndOwnerId(accountId, ownerId)).thenReturn(Optional.of(existing));
+        when(accounts.saveAndFlush(existing)).thenReturn(existing);
+
+        UUID box = UUID.randomUUID();
+        existing.setMailboxId(box);
+
+        service.setEmail(accountId, ownerId, "men@example.com");
+
+        assertThat(existing.isEmailVerified()).isFalse();
+        verify(unlinks).report(new AccountEmailUnlinks.Linked(accountId, ownerId, box, EmailSource.CUSTOM),
+                AccountEmailUnlinks.Reason.EDITED);
     }
 
     @Test

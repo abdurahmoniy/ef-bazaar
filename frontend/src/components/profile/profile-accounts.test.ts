@@ -11,7 +11,7 @@ vi.mock('./account-card', () => ({
     createElement('article', { 'data-id': account.id }, account.title, createElement('button', { onClick: onTogglePin }, pinned ? 'Unpin' : 'Pin')),
 }));
 const accounts = Array.from({ length: 6 }, (_, index) => ({
-  mediaMessageIds: ['msg-1'], email: null, emailSource: null, currentListingId: null, createdAt: '', updatedAt: '',
+  mediaMessageIds: ['msg-1'], email: null, emailSource: null, emailVerified: false, currentListingId: null, createdAt: '', updatedAt: '',
   description: 'Akkount tavsifi', attributes: { platform: 'MOBILE', highest_division_level: 3, team_strength: 3150, device_transfer_limit: 5 },
   id: `acc-${index}`, title: `Team ${index}`, status: 'ACTIVE', onMarket: index < 2,
 })) as UserAccountResponse[];

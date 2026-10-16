@@ -73,6 +73,8 @@ export interface MessageDetail {
 export interface CreateMailboxInput {
   localPart: string;
   ownerUserId: string;
+  /** One of trade-service's MAILBOX_DOMAINS; omitted = its default. */
+  domain?: string;
 }
 
 /** Counters behind the filter chips. */

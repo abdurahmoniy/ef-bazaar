@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
+import uz.efbazaar.trade.mailbox.domain.MailboxKind;
 import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
 import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
@@ -36,13 +37,21 @@ public class MailboxAccessService {
     private final MailboxRepository mailboxes;
     private final TradeRepository trades;
     private final EntitlementService entitlements;
+    private final CustomSlotService customSlots;
 
+    /** Random boxes past {@code mailbox.slots} plus custom boxes past {@code mailbox.custom_slots}. */
     @Transactional(readOnly = true)
     public Set<UUID> lockedIds(UUID userId) {
+        Set<UUID> locked = new LinkedHashSet<>(lockedRandomIds(userId));
+        locked.addAll(customSlots.lockedIds(userId));
+        return locked;
+    }
+
+    private Set<UUID> lockedRandomIds(UUID userId) {
         OptionalLong limit = entitlements.limit(userId, MailboxSlotService.KEY);
         if (limit.isEmpty()) return Set.of();
 
-        List<Mailbox> owned = mailboxes.findAccessOrderOwnedBy(userId);
+        List<Mailbox> owned = mailboxes.findAccessOrderOwnedBy(userId, MailboxKind.RANDOM);
         List<UUID> ids = owned.stream().map(Mailbox::getId).toList();
         // Two queries for the lot. Only a live box whose owner is a party to the
         // trade is held open and spends the limit; the escrow box a human

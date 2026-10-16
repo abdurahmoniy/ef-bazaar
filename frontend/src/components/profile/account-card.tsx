@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
-import { ArrowUpRight, Check, Copy, Eye, EyeOff, Loader2, Mail, MoreHorizontal, Pencil, Pin, PinOff, Store, Trash2, Users } from 'lucide-react';
+import { ArrowUpRight, Check, Copy, Eye, EyeOff, Loader2, Mail, MoreHorizontal, Pencil, Pin, PinOff, Sparkles, Store, Trash2, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { deleteAccount, unpublishAccount } from '@/lib/accounts-client';
@@ -11,6 +11,8 @@ import type { UserAccountResponse, AccountDisplayData } from '@/lib/accounts-typ
 import { formatPriceUZS } from '@/lib/marketplace-format';
 import { listingMediaUrl } from '@/lib/marketplace-media';
 import { accountDetailsIncomplete } from '@/lib/account-completeness';
+import { emailBadges } from '@/lib/account-email-badges';
+import { VerifiedEmailMark } from '@/components/profile/verified-email-mark';
 import { cn } from '@/lib/utils';
 
 export function AccountCard({ account, onPublish, display, pinned = false, onTogglePin }: {
@@ -114,9 +116,13 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
   }
 
   if (archived) return <SoldAccountCard account={account} photo={photo} title={title} />;
+  const badges = emailBadges(account, display);
 
   return (
-    <article className="flex h-full flex-col gap-3 rounded-xl border border-border/70 bg-card p-3 sm:p-4">
+    <article className={cn(
+      'flex h-full flex-col gap-3 rounded-xl border bg-card p-3 sm:p-4',
+      badges.custom ? 'gold-ring border-2' : 'border-border/70',
+    )}>
       <div className="flex items-start gap-3">
         <AccountPhoto photo={photo} title={title} />
         <div className="min-w-0 flex-1">
@@ -172,6 +178,7 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
         <span className="min-w-0 flex-1 break-all text-xs leading-5 text-muted-foreground select-text">
           {account.email ? emailShown ? account.email : '•••••••••@•••' : 'Email biriktirilmagan'}
         </span>
+        {badges.verified && <VerifiedEmailMark />}
         {account.email && <div className="flex shrink-0 items-center">
           <Button type="button" variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground"
             aria-label={emailShown ? 'Emailni yashirish' : 'Emailni ko‘rsatish'} aria-pressed={emailShown} onClick={() => setEmailShown(!emailShown)}>
@@ -183,6 +190,18 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
           <span role="status" className="sr-only">{copied ? 'Nusxalandi' : 'Nusxalash'}</span>
         </div>}
       </div>
+
+      {badges.offerHref && (
+        <Link href={badges.offerHref} className="-mt-1 flex min-h-11 items-center gap-2 rounded-lg bg-muted px-3 text-xs font-bold text-primary transition hover:bg-muted/70 dark:text-foreground">
+          <Sparkles aria-hidden className="h-4 w-4 text-gold-foreground" />
+          O‘zingiz tanlagan email biriktiring
+        </Link>
+      )}
+      {badges.verifyHref && (
+        <Link href={badges.verifyHref} className="-mt-1 inline-flex min-h-11 items-center gap-2 self-start rounded-lg border border-border px-3 text-xs font-bold text-primary transition hover:bg-muted dark:text-foreground">
+          Tasdiqlash
+        </Link>
+      )}
 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}

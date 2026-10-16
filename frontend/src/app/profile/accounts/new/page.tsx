@@ -14,9 +14,18 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function NewAccountPage() {
+/** Only our own linking pages may be returned to — never an arbitrary URL. */
+const RETURN_TO = /^\/mailboxes\/custom\/[0-9a-f-]{36}\/link$/;
+
+export default async function NewAccountPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ returnTo?: string }>;
+} = {}) {
   const user = await getMe();
   if (!user) redirect('/auth/login?from=/profile/accounts/new');
+  const { returnTo } = (await searchParams) ?? {};
+  const safeReturnTo = returnTo && RETURN_TO.test(returnTo) ? returnTo : undefined;
 
   const remoteDefinitions = await getAttributeDefinitions();
   const definitions = remoteDefinitions.length > 0 ? remoteDefinitions : SEEDED_LISTING_ATTRIBUTE_DEFINITIONS;
@@ -31,7 +40,7 @@ export default async function NewAccountPage() {
             Akkount ma’lumotlarini kiriting. Keyin saqlang yoki sotuvga qo‘ying.
           </p>
         </header>
-        <AccountForm attributeDefinitions={definitions} botUsername={botUsername} />
+        <AccountForm attributeDefinitions={definitions} botUsername={botUsername} returnTo={safeReturnTo} />
       </section>
     </MarketplaceShell>
   );

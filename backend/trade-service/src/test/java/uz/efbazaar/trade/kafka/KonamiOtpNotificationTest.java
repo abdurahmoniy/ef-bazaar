@@ -20,6 +20,8 @@ import static org.mockito.ArgumentMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
 class KonamiOtpNotificationTest {
+    /** No link session watches these boxes; answers go down the trade path. */
+    @Mock uz.efbazaar.trade.mailbox.link.LinkSessionService linkSessions;
     @Mock TradeRepository trades;
     @Mock TradeSideRepository sideRepo;
     @Mock TradeSideService sides;

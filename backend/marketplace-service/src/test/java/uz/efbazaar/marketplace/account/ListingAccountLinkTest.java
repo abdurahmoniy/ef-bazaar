@@ -33,6 +33,7 @@ class ListingAccountLinkTest {
     @Mock UserAccountRepository accounts;
     @Mock UserAccountCardInventory inventory;
     @Mock uz.efbazaar.marketplace.repository.ListingRepository listings;
+    @Mock AccountEmailUnlinks unlinks;
     @InjectMocks ListingAccountLink link;
 
     private Listing listing(UUID sellerId) {

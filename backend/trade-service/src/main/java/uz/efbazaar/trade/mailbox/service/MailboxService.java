@@ -37,6 +37,7 @@ public class MailboxService {
     private final TradeCrypto crypto;
     private final uz.efbazaar.trade.kafka.TradeEventPublisher events;
     private final uz.efbazaar.trade.plan.service.MailboxAccessService access;
+    private final uz.efbazaar.trade.mailbox.link.LinkSessionService linkSessions;
 
     @Transactional
     public Mailbox create(String email, UUID ownerUserId, UUID tradeId, byte[] initialPassword) {
@@ -102,9 +103,19 @@ public class MailboxService {
             throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
                     "Davom etayotgan savdodagi qutini qulflab bo'lmaydi");
         }
+        // Each kind has its own limit: opening a custom box by locking a random
+        // one (or the reverse) would leave one allowance over and the other under.
+        uz.efbazaar.trade.mailbox.domain.MailboxKind kind = all.stream()
+                .filter(m -> m.getId().equals(lockedId)).findFirst().orElseThrow().getKind();
+        boolean sameKind = all.stream()
+                .anyMatch(m -> m.getId().equals(lockInsteadId) && m.getKind() == kind);
+        if (!sameKind) {
+            throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
+                    "Faqat bir xil turdagi qutilarni almashtirish mumkin");
+        }
         // Exchange the two positions in the current order, then renumber everyone
         // with distinct values so ties can never decide the outcome.
-        List<Mailbox> order = new java.util.ArrayList<>(mailboxes.findAccessOrderOwnedBy(ownerUserId));
+        List<Mailbox> order = new java.util.ArrayList<>(mailboxes.findAccessOrderOwnedBy(ownerUserId, kind));
         int i = -1, j = -1;
         for (int k = 0; k < order.size(); k++) {
             if (order.get(k).getId().equals(lockedId)) i = k;
@@ -146,6 +157,12 @@ public class MailboxService {
         if (m.getDeletedAt() != null) {
             throw new EntityNotFoundException("Mailbox " + mailboxId);
         }
+        if (m.getKind() == uz.efbazaar.trade.mailbox.domain.MailboxKind.CUSTOM) {
+            // A custom name is given once and never given again; releasing it
+            // would burn the name and strand any Konami account behind it.
+            throw new uz.efbazaar.trade.common.exception.ApiCodeException(HttpStatus.CONFLICT,
+                    "custom_mailbox_permanent", "Custom qutini bo‘shatib bo‘lmaydi");
+        }
         if (trades.existsLiveWithMailbox(mailboxId, TradeState.nonTerminal())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Bu pochta qutisi davom etayotgan savdoda ishlatilmoqda — savdo tugagach o'zgartiring");
@@ -153,6 +170,7 @@ public class MailboxService {
         if (mailboxes.detachOwnedBy(mailboxId, ownerUserId) == 0) {
             throw new EntityNotFoundException("Mailbox " + mailboxId);
         }
+        linkSessions.endForMailbox(mailboxId);
         rotateIfProvisioned(m);
         log.info("User {} detached their mailbox {}", ownerUserId, mailboxId);
     }
@@ -487,6 +505,7 @@ public class MailboxService {
         }
         m.setOwnerUserId(null);
         mailboxes.save(m);
+        linkSessions.endForMailbox(mailboxId);
         rotateIfProvisioned(m);
         log.info("Admin {} detached mailbox {} from user {}", adminId, mailboxId, previous);
     }
@@ -511,6 +530,7 @@ public class MailboxService {
         // A box just handed to a user is the newest to them: it opens first.
         // Column-only write — never put the whole row back.
         mailboxes.setAccessPriority(mailboxId, System.currentTimeMillis());
+        linkSessions.endForMailbox(mailboxId);
         rotateIfProvisioned(m);
         log.info("Admin {} moved mailbox {} from user {} to user {}", adminId, mailboxId, previous, newOwnerId);
         return saved;

@@ -104,4 +104,35 @@ public class MailboxPasswordResolver {
                     lastFailure);
         }
     }
+
+    /**
+     * The HKDF context this row's password opens with, or empty when none of
+     * the known ones does. Same candidates, same order as
+     * {@link #decryptPassword}; lets a poll request carry the sealed password
+     * without ever sending the plaintext.
+     */
+    public Optional<String> contextFor(Mailbox mbox) {
+        EncryptedField field = new EncryptedField(
+                mbox.getPasswordIv(), mbox.getPasswordTag(), mbox.getEncryptedPassword());
+        UUID tradeId = mbox.getTradeId();
+        if (tradeId == null) {
+            tradeId = trades.findByMailboxId(mbox.getId()).map(Trade::getId).orElse(null);
+        }
+        List<String> candidates = new ArrayList<>(4);
+        candidates.add("mbox-" + mbox.getId());
+        if (tradeId != null) {
+            candidates.add("mbox-" + tradeId);
+            candidates.add("mbox-mock-" + tradeId);
+        }
+        candidates.add("mbox-mock-rotate-" + mbox.getId());
+        for (String ctx : candidates) {
+            try {
+                crypto.decrypt(ctx, field);
+                return Optional.of(ctx);
+            } catch (RuntimeException ignored) {
+                // next candidate
+            }
+        }
+        return Optional.empty();
+    }
 }

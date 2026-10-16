@@ -73,7 +73,7 @@ public class MockWorker {
             properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$MailboxProvisionRequest"}
     )
     public void onMailboxProvisionRequest(TradeEvents.MailboxProvisionRequest req) {
-        String email = req.localPart() + "@" + mailboxDomain;
+        String email = req.localPart() + "@" + (req.domain() == null ? mailboxDomain : req.domain());
         String pw = randomPassword();
         // Admin-created rows have no trade, so the mailbox-id context is the
         // only one MailboxPasswordResolver can try — use it verbatim (no

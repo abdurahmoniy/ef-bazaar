@@ -21,6 +21,7 @@ public record NotificationPushEvent(UUID recipientUserId, Map<String, String> da
             case WITHDRAWAL_REJECTED -> "Pul yechish so‘rovingiz rad etildi";
             case TRADE_MAILBOX_RECEIVED -> "Savdo yakunlandi — akkount emaili profilingizga qo‘shildi";
             case TRADE_MAILBOX_RETURNED -> "Savdo yakunlanmadi — email profilingizga biriktirildi";
+            case CUSTOM_MAILBOX_FREED -> "Custom emailingiz bo‘shadi — boshqa akkountingizga ulang";
             case TRADE_PROPOSAL_CREATED -> "Sizga yangi savdo taklifi yuborildi";
             case TRADE_STARTED -> "Savdo boshlandi";
             case TRADE_EMAIL_CHANGE_CODE -> "Konami emailini o‘zgartirish kodi: " + n.getVerificationCode();
@@ -44,6 +45,7 @@ public record NotificationPushEvent(UUID recipientUserId, Map<String, String> da
             case WITHDRAWAL_REQUESTED -> "/admin/payments/withdrawals?ticket=" + (n.getWithdrawalId() == null ? "" : n.getWithdrawalId());
             case WALLET_CREDITED, WITHDRAWAL_PAID, WITHDRAWAL_REJECTED -> "/hamyon";
             case PARTNER_APPROVED -> "/partner";
+            case CUSTOM_MAILBOX_FREED -> "/mailboxes/custom";
             case PARTNER_REJECTED, PARTNER_CANCELLED -> "/partnership";
             // Keep external mail and feature-gated moderation links in the notification center.
             case TRADE_MAILBOX_RECEIVED, TRADE_MAILBOX_RETURNED, TRADE_ADMIN_INVITED -> "/notifications";

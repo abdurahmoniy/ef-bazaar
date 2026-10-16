@@ -25,6 +25,8 @@ public enum NotificationType {
     TRADE_MAILBOX_RECEIVED,
     /** A trade ended without completing; the inbox I was given is mine to keep. */
     TRADE_MAILBOX_RETURNED,
+    /** Custom qutiga ulangan akkount sotildi — quti bo'sh, boshqa akkountga ulash taklifi. */
+    CUSTOM_MAILBOX_FREED,
     /** A proposal was sent in chat. */
     TRADE_PROPOSAL_CREATED,
     /** A trade has been accepted and started. */

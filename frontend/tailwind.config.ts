@@ -48,6 +48,12 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        gold: {
+          DEFAULT: 'hsl(var(--gold))',
+          soft: 'hsl(var(--gold-soft))',
+          foreground: 'hsl(var(--gold-foreground))',
+          border: 'hsl(var(--gold-border))',
+        },
         price: {
           DEFAULT: 'hsl(var(--price))',
           foreground: 'hsl(var(--price-foreground))',

@@ -36,6 +36,7 @@ class AccountTradeHandoverTest {
     @Mock UserAccountCardInventory inventory;
     @Mock ListingRepository listings;
     @Mock PendingAccountEmailRepository pendingEmails;
+    @Mock AccountEmailUnlinks unlinks;
     @InjectMocks ListingAccountLink link;
 
     private final UUID tradeId = UUID.randomUUID();
@@ -75,9 +76,12 @@ class AccountTradeHandoverTest {
         when(pendingEmails.findByTradeIdAndUserId(tradeId, sellerId)).thenReturn(Optional.empty());
         when(accounts.saveAndFlush(any(UserAccount.class))).thenAnswer(i -> i.getArgument(0));
 
+        UUID sellerBox = seller.getMailboxId();
         link.onTradeSucceeded(tradeId, listingId, buyerId, sellerId, null);
 
         assertThat(seller.getStatus()).isEqualTo(UserAccountStatus.ARCHIVED);
+        verify(unlinks).report(new AccountEmailUnlinks.Linked(seller.getId(), sellerId, sellerBox, EmailSource.PLATFORM),
+                AccountEmailUnlinks.Reason.SOLD);
         assertThat(seller.getArchivedReason()).isEqualTo(ArchivedReason.SOLD_ON_PLATFORM);
         assertThat(seller.getEmail()).isNull();
         assertThat(seller.getMailboxId()).isNull();

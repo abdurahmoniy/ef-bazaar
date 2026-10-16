@@ -19,6 +19,7 @@ import {
   slotPressure,
   slotWarning,
   sortForCleanup,
+  cleanupCandidates,
   type MailboxSlotStatus,
   type OwnedMailbox,
 } from '@/lib/mailbox-slots';
@@ -83,7 +84,7 @@ export function MailboxSlotsWarning() {
         ? accountEmailSet(accounts.data)
         : new Set<string>(boxes.map((box) => box.email.trim().toLowerCase()));
       setAccountEmails(emails);
-      setMailboxes(sortForCleanup(boxes, emails));
+      setMailboxes(sortForCleanup(cleanupCandidates(boxes), emails));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Yuklanmadi');
     }

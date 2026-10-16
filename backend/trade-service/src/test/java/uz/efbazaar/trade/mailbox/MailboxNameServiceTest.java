@@ -26,7 +26,8 @@ class MailboxNameServiceTest {
     void setUp() {
         repo = mock(MailboxRepository.class);
         service = new MailboxService(repo, mock(TradeRepository.class), mock(TradeCrypto.class),
-                mock(TradeEventPublisher.class), mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class));
+                mock(TradeEventPublisher.class), mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class),
+                mock(uz.efbazaar.trade.mailbox.link.LinkSessionService.class));
     }
 
     @Test

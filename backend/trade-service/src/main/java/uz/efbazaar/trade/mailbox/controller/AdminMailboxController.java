@@ -60,8 +60,7 @@ public class AdminMailboxController {
     private final TradeEventPublisher events;
     private final uz.efbazaar.trade.mail.service.MailboxPasswordResolver passwords;
 
-    @Value("${trade.mailbox.domain:efbazaar.uz}")
-    private String mailboxDomain;
+    private final uz.efbazaar.trade.mailbox.config.MailboxDomains domains;
 
     /**
      * Clears out a mailbox nobody holds.
@@ -216,9 +215,22 @@ public class AdminMailboxController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public AdminMailboxResponse create(@AuthenticationPrincipal AuthenticatedUser admin,
                                        @Valid @RequestBody CreateMailboxRequest request) {
-        String email = request.localPart() + "@" + mailboxDomain;
+        String domain = request.domain() == null || request.domain().isBlank()
+                ? domains.defaultDomain()
+                : request.domain().trim().toLowerCase(java.util.Locale.ROOT);
+        if (!domains.allowed(domain)) {
+            throw new uz.efbazaar.trade.common.exception.ApiCodeException(
+                    HttpStatus.BAD_REQUEST, "domain_not_allowed", "Bu domen ruxsat etilmagan");
+        }
+        String email = request.localPart() + "@" + domain;
         Mailbox created = service.createPendingForAdmin(email, request.ownerUserId(), admin.userId());
-        events.mailboxProvisionRequest(created.getId(), request.localPart());
+        events.mailboxProvisionRequest(created.getId(), request.localPart(), domain);
         return mapper.toAdminResponse(created);
+    }
+
+    /** Domains the create form may offer, default first. */
+    @GetMapping("/domains")
+    public java.util.List<String> domains() {
+        return domains.all();
     }
 }

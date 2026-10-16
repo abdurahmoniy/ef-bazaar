@@ -39,6 +39,11 @@
     --price: 240 100% 30%;
     --price-foreground: 45 95% 55%;
     --surface-alt: 240 30% 98%;
+    /* Custom mailbox / premium accents. Text on --gold-soft uses --gold-foreground (≥4.5:1). */
+    --gold: 45 100% 60%;
+    --gold-soft: 47 100% 90%;
+    --gold-foreground: 43 100% 24%;
+    --gold-border: 45 60% 57%;
 
     --radius: 0.875rem;
 
@@ -93,6 +98,10 @@
     --price: 45 90% 60%;
     --price-foreground: 240 60% 12%;
     --surface-alt: 240 45% 6%;
+    --gold: 48 100% 60%;
+    --gold-soft: 49 46% 12%;
+    --gold-foreground: 48 100% 60%;
+    --gold-border: 46 56% 27%;
 
     --app-header-color: #090910;
     --app-background-color: #090910;
@@ -154,6 +163,23 @@
 }
 
 @layer components {
+  /* Animated gold border for accounts on a custom mailbox. Needs border-transparent
+     and sets its own background, so put content colours on children. */
+  .gold-ring {
+    border-color: transparent;
+    background:
+      linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+      linear-gradient(90deg, #b8860b, #ffd633, #fff1a8, #ffd633, #b8860b) border-box;
+    background-size: 100% 100%, 200% 100%;
+    animation: gold-shift 4s linear infinite;
+  }
+  @keyframes gold-shift {
+    0% { background-position: 0 0, 0% 50%; }
+    100% { background-position: 0 0, 200% 50%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .gold-ring { animation: none; }
+  }
   .container-page {
     @apply mx-auto w-full max-w-6xl px-4;
   }

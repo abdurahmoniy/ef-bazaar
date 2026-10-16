@@ -40,9 +40,30 @@ class ForgotPasswordRequest:
 
 @dataclass(frozen=True, slots=True)
 class ImapPollRequest:
+    """Start (or, with ``restart``, re-start) watching a mailbox.
+
+    ``trade_id`` is whatever trade-service keys the answer on: a trade, or a
+    custom-mailbox link session. The credential fields are optional so older
+    requests still decode; when present they let a poller start after a worker
+    restart emptied the in-memory password cache. ``password_context`` is the
+    HKDF context the password was sealed with.
+    """
+
     trade_id: UUID
     mailbox_email: str
-    purpose: str  # VERIFY_LINK | WAIT_2FA_CODE
+    purpose: str  # VERIFY_LINK | WAIT_2FA_CODE | WAIT_EMAIL_CHANGE_CODE
+    password_context: str | None = None
+    encrypted_password: bytes | None = None
+    iv: bytes | None = None
+    tag: bytes | None = None
+    restart: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ImapPollStopRequest:
+    """Stop every poller of a mailbox — a link session ended."""
+
+    mailbox_email: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +77,10 @@ class MailboxProvisionRequest:
 
     mailbox_id: UUID
     local_part: str
+    # Mailcow domain; older trade-services did not send it (= the default).
+    domain: str | None = None
+    # A user-chosen (custom) name: an existing Mailcow box with it is not ours.
+    custom: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,6 +215,7 @@ _SNAKE_TO_CAMEL_OVERRIDES: dict[str, str] = {
     "received_at": "receivedAt",
     "verification_code": "verificationCode",
     "local_part": "localPart",
+    "password_context": "passwordContext",
 }
 
 
@@ -226,6 +252,7 @@ _TOPIC_TO_TYPE: dict[str, type] = {
     topics.TOPIC_MAILBOX_ROTATE_REQ: MailboxRotateRequest,
     topics.TOPIC_MAILBOX_DELETE_REQ: MailboxDeleteRequest,
     topics.TOPIC_MAILBOX_PROVISION_REQ: MailboxProvisionRequest,
+    topics.TOPIC_IMAP_POLL_STOP_REQ: ImapPollStopRequest,
 }
 
 
@@ -251,11 +278,17 @@ def from_json(topic: str, data: bytes) -> Any:
     return cls(**kwargs)
 
 
+_BYTES_REQUEST_FIELDS = frozenset({"encrypted_password", "iv", "tag"})
+
+
 def _decode_field(name: str, raw: Any) -> Any:
     if raw is None:
         return None
     if name in ("trade_id", "mailbox_id"):
         return UUID(raw)
+    if name in _BYTES_REQUEST_FIELDS:
+        # Jackson writes byte[] as base64, the same way to_json() does.
+        return base64.b64decode(raw)
     return raw
 
 

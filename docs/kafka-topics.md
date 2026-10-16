@@ -60,6 +60,7 @@ topiclarni tinglaydi — unda DB yo'q.
 | `efbazaar.marketplace.channel-refresh-requested` | marketplace | bot (obunachi soni, nom, avatar) |
 | `efbazaar.marketplace.official-post-requested` | marketplace | bot (efBazaar rasmiy kanali) |
 | `efbazaar.marketplace.support-message-created` | marketplace | bot (support topigiga) |
+| `efbazaar.marketplace.account-email-unlinked` | marketplace — `{ accountId, ownerId, mailboxId, reason, at }` (`reason`: `SOLD`, `SWAPPED`, `SOLD_ELSEWHERE`, `EDITED`, `RELINKED`, `DELETED`, `IGNORED` — marketplace `account-email-verified` ni qabul qilmadi: akkount yo'q, boshqa egada yoki arxivda); kalit `accountId`; commit'dan keyin | trade (`mailboxes.linked_account_id` ni tozalaydi — faqat hali o'sha akkountga ulangan bo'lsa) |
 
 ## bot
 
@@ -83,6 +84,7 @@ topiclarni tinglaydi — unda DB yo'q.
 | `efbazaar.trade.mailbox-handed-over` | trade | marketplace, auth (enricher → bot) |
 | `efbazaar.trade.trade-opened` | trade | — |
 | `efbazaar.trade.trade-closed` | trade | — |
+| `efbazaar.trade.account-email-verified` | trade — `{ sessionId, accountId, ownerId, mailboxId, email, custom, verifiedAt }`; kalit `accountId`; quti ulash sessiyasi `VERIFIED` bo'lganda va `republish` da | marketplace (akkountga email, `email_verified`, `custom` bo'lsa `CUSTOM` manba; `sessionId` bo'yicha idempotent) |
 | `chat.changed.v1` | trade (`ChatChangePublisher`) | marketplace (chat WebSocket'ini yangilaydi) |
 
 ### trade ↔ smart-admin-worker
@@ -94,9 +96,10 @@ so'rov topiclarini tinglaydi.
 | So'rov (trade → worker) | Natija (worker → trade) |
 |---|---|
 | `efbazaar.trade.email-provision-request` | `efbazaar.trade.email-provisioned`, `efbazaar.trade.email-provision-failed` |
-| `efbazaar.trade.mailbox-provision-request` (admin, savdosiz quti) | `efbazaar.trade.mailbox-provisioned` |
+| `efbazaar.trade.mailbox-provision-request` (admin yoki custom, savdosiz quti) — `{ mailboxId, localPart, domain, custom }`; `domain` bo'lmasa `efbazaar.uz`; `custom: true` (user tanlagan nom) — Mailcow'da bunday quti allaqachon bo'lsa worker uni o'ziniki deb hisoblamaydi: `mailbox-provisioned` yubormaydi, adminlarga xabar beradi | `efbazaar.trade.mailbox-provisioned` |
 | `efbazaar.trade.forgot-password-request` | `efbazaar.trade.worker-queued`, `efbazaar.trade.worker-started` (backpressure; tiklash xati IMAP poll orqali keladi) |
-| `efbazaar.trade.imap-poll-request` | `efbazaar.trade.konami-email-received`, `efbazaar.trade.imap-2fa-code`, `efbazaar.trade.konami-email-change-code-received` |
+| `efbazaar.trade.imap-poll-request` — `{ tradeId, mailboxEmail, purpose, passwordContext?, encryptedPassword?, iv?, tag?, restart? }`; `tradeId` savdo yoki custom quti ulash sessiyasi id'si | `efbazaar.trade.konami-email-received`, `efbazaar.trade.imap-2fa-code`, `efbazaar.trade.konami-email-change-code-received` |
+| `efbazaar.trade.imap-poll-stop-request` — `{ mailboxEmail }` | — |
 | `efbazaar.trade.mailbox-rotate-request` | `efbazaar.trade.mailbox-rotated` |
 | `efbazaar.trade.mailbox-delete-request` | — |
 
