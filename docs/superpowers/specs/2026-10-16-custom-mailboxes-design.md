@@ -209,3 +209,27 @@ o'zbekcha.
 - Custom qutini savdoda ishlatish.
 - Bir qutiga bir nechta akkount.
 - Tarif upsell yo'nalishlari (Telegram Premium uslubi) — alohida ish.
+
+## Plan-time deviations (2026-10-16, kodni o'rganib chiqqandan keyin)
+
+- `mailboxes.domain` ustuni qo'shilmaydi — domen manzildan olinadi (ortiqcha nusxa).
+  Buning o'rniga `mailboxes.source` ga `USER` qiymati qo'shiladi (user o'zi olgan quti).
+- `efbazaar.marketplace.account-archived` o'rniga kengroq
+  `efbazaar.marketplace.account-email-unlinked { accountId, ownerId, mailboxId, reason }`:
+  quti nafaqat sotuv/obmenda, balki email qo'lda o'zgartirilganda, akkount o'chirilganda
+  yoki boshqa qutiga ko'chirilganda ham bo'shaydi. "Quti bo'shadi" bildirishnomasini
+  marketplace o'zi yaratadi (bildirishnomalar o'sha yerda), faqat sotuv/obmen/boshqa joyda
+  sotilganda.
+- Ulash sahifasi WSS o'rniga har 3 soniyada so'rov yuboradi (polling) — sahifa qisqa
+  muddatli, WSS kanalini session uchun kengaytirish arzimaydi.
+- Worker'ning parol keshi xotirada va restartda yo'qoladi; custom qutilar uzoq yashaydi.
+  Shuning uchun `imap-poll-request` ixtiyoriy `mailboxId, encryptedPassword, iv, tag`
+  maydonlarini oladi (worker keshdan topmasa shifrni ochadi) va `restart` bayrog'i
+  (eski poller'ni to'xtatib qayta boshlaydi). Session tugaganda yangi
+  `efbazaar.trade.imap-poll-stop-request { mailboxEmail }` poller'larni to'xtatadi.
+- `mailbox.custom_slots` qatori projection'da bo'lmasa — 0 (fail closed), `mailbox.slots`
+  dagi kabi "cheklamaslik" emas: custom manzil doimiy beriladi.
+- `efootball.uz` ruxsati tarif nomlari bilan konfiguratsiyada:
+  `MAILBOX_PREMIUM_DOMAIN_PLANS=MAX,STAFF`.
+- Qo'lda yozilgan emailni tasdiqlash uchun alohida `GET /mailboxes/mine?email=` kerak emas —
+  mavjud `GET /mailboxes` ro'yxati `kind` va `linkedAccountId` bilan kengaytiriladi.
