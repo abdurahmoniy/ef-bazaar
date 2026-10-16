@@ -166,12 +166,14 @@ public final class TradeEvents {
      * Trade-less mailbox provisioning, issued by the admin panel. Distinct from
      * {@link EmailProvisionRequest} because there is no trade to key the
      * response on and the admin picks the local part instead of it being
-     * derived from a trade id. The worker MUST echo {@code mailboxId} back —
+     * derived from a trade id (custom boxes come this way too). The worker MUST echo {@code mailboxId} back —
      * it is both the row id and the encryption context (`mbox-{mailboxId}`).
      */
     public record MailboxProvisionRequest(
             UUID mailboxId,
-            String localPart) {}
+            String localPart,
+            /** Mailcow domain to create the box on; older workers assume efbazaar.uz. */
+            String domain) {}
 
     public record MailboxProvisioned(
             UUID mailboxId,

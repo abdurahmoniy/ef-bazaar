@@ -94,7 +94,7 @@ so'rov topiclarini tinglaydi.
 | So'rov (trade → worker) | Natija (worker → trade) |
 |---|---|
 | `efbazaar.trade.email-provision-request` | `efbazaar.trade.email-provisioned`, `efbazaar.trade.email-provision-failed` |
-| `efbazaar.trade.mailbox-provision-request` (admin, savdosiz quti) | `efbazaar.trade.mailbox-provisioned` |
+| `efbazaar.trade.mailbox-provision-request` (admin yoki custom, savdosiz quti) — `{ mailboxId, localPart, domain }`; `domain` bo'lmasa `efbazaar.uz` | `efbazaar.trade.mailbox-provisioned` |
 | `efbazaar.trade.forgot-password-request` | `efbazaar.trade.worker-queued`, `efbazaar.trade.worker-started` (backpressure; tiklash xati IMAP poll orqali keladi) |
 | `efbazaar.trade.imap-poll-request` | `efbazaar.trade.konami-email-received`, `efbazaar.trade.imap-2fa-code`, `efbazaar.trade.konami-email-change-code-received` |
 | `efbazaar.trade.mailbox-rotate-request` | `efbazaar.trade.mailbox-rotated` |

@@ -138,6 +138,11 @@ trade:
     # mailbox. Must match smart-admin-worker's MAILCOW_DOMAIN or the row and
     # the actual Mailcow box would disagree on the address.
     domain: ${MAILBOX_DOMAIN:efbazaar.uz}
+    # Every domain mailboxes may be opened on (admin panel, custom boxes),
+    # comma-separated, default first. Each must exist in Mailcow.
+    domains: ${MAILBOX_DOMAINS:efbazaar.uz}
+    # Plans that may claim a custom box on a non-default domain.
+    premium-domain-plans: ${MAILBOX_PREMIUM_DOMAIN_PLANS:MAX,STAFF}
   mail:
     imap:
       # Mailcow'ning dovecot cert'i faqat MAILCOW_HOSTNAME (mail.efbazaar.uz)

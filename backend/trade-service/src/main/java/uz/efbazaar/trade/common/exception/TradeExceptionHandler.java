@@ -38,6 +38,13 @@ public class TradeExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body(HttpStatus.BAD_REQUEST, "card_invalid"));
     }
 
+    @ExceptionHandler(ApiCodeException.class)
+    ResponseEntity<Map<String, Object>> onApiCode(ApiCodeException e) {
+        Map<String, Object> body = new java.util.LinkedHashMap<>(body(e.getStatus(), e.getCode()));
+        body.put("message", e.getMessage());
+        return ResponseEntity.status(e.getStatus()).body(body);
+    }
+
     @ExceptionHandler(uz.efbazaar.trade.mailbox.exception.MailboxLockedException.class)
     ResponseEntity<Map<String, Object>> onMailboxLocked(uz.efbazaar.trade.mailbox.exception.MailboxLockedException e) {
         Map<String, Object> body = new java.util.LinkedHashMap<>(body(HttpStatus.FORBIDDEN, "mailbox_locked"));

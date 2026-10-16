@@ -54,7 +54,7 @@ har o'zgarish `trade_audit_log` ga yoziladi (`TradeAuditService` — yagona yozu
 | Trade-admin | `/trade-admins`, `/trade-admins/me`, `/me/invitations`, `/me/trades`; `/trades/{id}/actions/admin-accept|admin-decline|admin-cancel|admin-close`; `/trades/{id}/steps` |
 | Reytinglar | `POST /trades/{id}/rating`, `/trades/{id}/seller-rating`, `/sellers/{id}/ratings`, `/rating-summary`, `POST /sellers/rating-summaries/batch` |
 | Pochta | `/mailboxes`, `/mailboxes/slots`, `/mailboxes/{id}/detach`, `/name`, `POST /mailboxes/{id}/unlock` (body `{lockInsteadId}` → 204; qulflangan qutini ochiq quti bilan almashtiradi, aks holda 409 `invalid_unlock_swap`); `/mail/mailboxes`, `/mail/{mailboxId}/inbox`, `/messages/{id}`, attachments. Ro'yxat/summary qatorida `locked` (qulflangan qutida `unreadCount`/`lastActivityAt` null, IMAP ochilmaydi), `/mailboxes/slots` da `lockedCount`. Foydalanuvchi mail API'si (inbox, xat, o'qilgan, attachment) qulflangan qutiga 403 `{code:"mailbox_locked", message}` qaytaradi va IMAP'ga tegmaydi; admin endpointlar va smart-admin-worker IMAP'i qulfdan mustasno |
-| Admin | `/admin/mailboxes/**`, `/admin/smart-trades/**`, `/admin/trades/escalated`, `/admin/trades/{id}/cancel`, `/reassign`, reytingni yashirish |
+| Admin | `/admin/mailboxes/**` (`POST /admin/mailboxes` body `{localPart, ownerUserId, domain?}` — `domain` `MAILBOX_DOMAINS` ro'yxatidan, bo'lmasa birinchisi, aks holda 400 `domain_not_allowed`; `GET /admin/mailboxes/domains`), `/admin/smart-trades/**`, `/admin/trades/escalated`, `/admin/trades/{id}/cancel`, `/reassign`, reytingni yashirish |
 | Ichki | `GET /internal/trades/live` (marketplace) |
 
 ## Kafka

@@ -58,10 +58,10 @@ public class TradeEventPublisher {
                 new TradeEvents.ImapPollRequest(tradeId, mailboxEmail, purpose));
     }
 
-    /** Admin-panel mailbox creation — no trade involved. */
-    public void mailboxProvisionRequest(UUID mailboxId, String localPart) {
+    /** Trade-less mailbox creation (admin panel, custom boxes) on {@code domain}. */
+    public void mailboxProvisionRequest(UUID mailboxId, String localPart, String domain) {
         send(TradeEvents.TOPIC_MAILBOX_PROVISION_REQ, mailboxId.toString(),
-                new TradeEvents.MailboxProvisionRequest(mailboxId, localPart));
+                new TradeEvents.MailboxProvisionRequest(mailboxId, localPart, domain));
     }
 
     public void mailboxRotateRequest(UUID mailboxId, String mailboxEmail) {
