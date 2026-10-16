@@ -15,7 +15,7 @@ import { NewListingEntry } from './new-listing-entry';
 
 const saved: UserAccountResponse = {
   id: 'saved-account', title: 'Asosiy', description: 'Test uchun yetarli tavsif', attributes: { platform: 'MOBILE', highest_division_level: 3, team_strength: 3150, device_transfer_limit: 5 }, mediaMessageIds: [],
-  email: null, emailSource: null, status: 'ACTIVE', onMarket: false, currentListingId: null, createdAt: '', updatedAt: '',
+  email: null, emailSource: null, emailVerified: false, status: 'ACTIVE', onMarket: false, currentListingId: null, createdAt: '', updatedAt: '',
 };
 let host: HTMLDivElement;
 let root: Root;

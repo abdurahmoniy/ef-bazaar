@@ -6,7 +6,8 @@
  */
 
 export type UserAccountStatus = 'ACTIVE' | 'ARCHIVED';
-export type AccountEmailSource = 'MANUAL' | 'PLATFORM';
+/** CUSTOM — user o'zi olgan nomli quti (Konami ulanishi tasdiqlangan). */
+export type AccountEmailSource = 'MANUAL' | 'PLATFORM' | 'CUSTOM';
 export type AccountArchivedReason = 'SOLD_ON_PLATFORM' | 'SOLD_ELSEWHERE' | 'BY_OWNER' | 'SWAPPED_ON_PLATFORM';
 
 /** Optional display data resolved from the current listing and owned mailboxes. */
@@ -23,6 +24,8 @@ export interface UserAccountResponse {
   mediaMessageIds: string[];
   email: string | null;
   emailSource: AccountEmailSource | null;
+  /** Platforma Konami akkount shu pochtaga ulanganini tasdiqlagan. */
+  emailVerified: boolean;
   status: UserAccountStatus;
   archivedReason?: AccountArchivedReason | null;
   /** Qachon sotilgan / obmen qilingan. Faqat ARCHIVED da. */

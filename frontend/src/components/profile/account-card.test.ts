@@ -26,7 +26,7 @@ const account = (over: Partial<UserAccountResponse> = {}): UserAccountResponse =
   attributes: { platform: 'MOBILE', highest_division_level: 3, team_strength: 3150, device_transfer_limit: 5 },
   mediaMessageIds: [],
   email: 'a7f2@efbazaar.uz',
-  emailSource: 'PLATFORM',
+  emailSource: 'PLATFORM', emailVerified: false,
   status: 'ACTIVE',
   onMarket: false,
   currentListingId: null,
