@@ -92,7 +92,8 @@ class ImapPollHandler:
                 ),
             )
 
-        if event.restart:
+        # getattr: callers and tests may hand in an older-shaped event.
+        if getattr(event, "restart", False):
             # A new step of a link session: the old poller may already have
             # gone idle on its first hit and would never see the next mail.
             await self._registry.cancel(event.mailbox_email, purpose)
@@ -113,13 +114,11 @@ class ImapPollHandler:
 
     def _decrypt_from_request(self, event: e.ImapPollRequest) -> str:
         """The password trade-service sent along, or "" when it sent none."""
-        if (
-            self._decryptor is None
-            or not event.password_context
-            or event.encrypted_password is None
-            or event.iv is None
-            or event.tag is None
-        ):
+        context = getattr(event, "password_context", None)
+        ciphertext = getattr(event, "encrypted_password", None)
+        iv = getattr(event, "iv", None)
+        tag = getattr(event, "tag", None)
+        if self._decryptor is None or not context or None in (ciphertext, iv, tag):
             return ""
-        field = EncryptedField(iv=event.iv, tag=event.tag, ciphertext=event.encrypted_password)
-        return self._decryptor.decrypt(event.password_context, field).decode("utf-8")
+        field = EncryptedField(iv=iv, tag=tag, ciphertext=ciphertext)
+        return self._decryptor.decrypt(context, field).decode("utf-8")

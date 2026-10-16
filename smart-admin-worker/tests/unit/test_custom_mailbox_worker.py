@@ -222,3 +222,20 @@ def test_provision_request_decodes_custom_flag():
         json.dumps({"mailboxId": str(BOX_ID), "localPart": "alibek1", "custom": True}).encode(),
     )
     assert ev.custom is True
+
+
+async def test_poll_accepts_an_older_shaped_event():
+    """Callers (and the end-to-end test) may pass an event without the new fields."""
+    from types import SimpleNamespace
+
+    registry = AsyncMock()
+    handler = ImapPollHandler(
+        registry=registry, producer=AsyncMock(), password_provider=AsyncMock(return_value="pw")
+    )
+
+    await handler.handle(
+        SimpleNamespace(trade_id=SESSION, mailbox_email=BOX, purpose="VERIFY_LINK")
+    )
+
+    registry.cancel.assert_not_awaited()
+    registry.start.assert_called_once()

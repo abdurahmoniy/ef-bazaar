@@ -52,6 +52,11 @@ beforeEach(() => {
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   vi.useFakeTimers();
   vi.clearAllMocks();
+  // Every client call answers with a promise unless a test says otherwise.
+  mocks.getSession.mockResolvedValue(session('WAIT_RESET'));
+  mocks.cancelSession.mockResolvedValue(undefined);
+  mocks.republishSession.mockResolvedValue(undefined);
+  mocks.getMyAccounts.mockResolvedValue({ ok: true, data: [] });
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
