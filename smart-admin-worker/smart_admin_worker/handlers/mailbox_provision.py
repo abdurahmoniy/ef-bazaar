@@ -58,17 +58,18 @@ class MailboxProvisionHandler:
 
     async def handle(self, event: e.MailboxProvisionRequest) -> None:
         password = secrets.token_urlsafe(16)
+        domain = event.domain or self._domain
 
         fresh_create = True
         try:
             mb = await self._mailcow.create_mailbox(
                 local_part=event.local_part,
-                domain=self._domain,
+                domain=domain,
                 password=password,
                 quota_mb=100,
             )
         except MailboxAlreadyExists:
-            mb = Mailbox(email=f"{event.local_part}@{self._domain}")
+            mb = Mailbox(email=f"{event.local_part}@{domain}")
             fresh_create = False
 
         field = self._encryptor.encrypt(
