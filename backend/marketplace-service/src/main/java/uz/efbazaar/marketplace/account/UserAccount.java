@@ -71,6 +71,14 @@ public class UserAccount {
     @Column(name = "mailbox_id")
     private UUID mailboxId;
 
+    /**
+     * Platforma Konami akkount shu pochtaga ulanganini tasdiqlagan: savdodan
+     * kelgan yoki quti ulash sessiyasi o'tgan. Qo'lda yozilgan manzil — yo'q.
+     */
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private boolean emailVerified = false;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     @Builder.Default
