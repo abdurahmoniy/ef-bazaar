@@ -143,6 +143,9 @@ trade:
     domains: ${MAILBOX_DOMAINS:efbazaar.uz}
     # Plans that may claim a custom box on a non-default domain.
     premium-domain-plans: ${MAILBOX_PREMIUM_DOMAIN_PLANS:MAX,STAFF}
+    # Each step of linking a Konami account to a box (email change, reset mail).
+    link-step-minutes: ${MAILBOX_LINK_STEP_MINUTES:15}
+    link-sweep-ms: 30000
   mail:
     imap:
       # Mailcow'ning dovecot cert'i faqat MAILCOW_HOSTNAME (mail.efbazaar.uz)

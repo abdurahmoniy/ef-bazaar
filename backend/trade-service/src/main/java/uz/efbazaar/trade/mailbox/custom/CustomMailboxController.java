@@ -30,6 +30,7 @@ public class CustomMailboxController {
 
     private final CustomMailboxService service;
     private final MailboxAccessService access;
+    private final uz.efbazaar.trade.mailbox.link.MailboxLinkSessionRepository sessions;
 
     @GetMapping("/availability")
     public AvailabilityResponse availability(@AuthenticationPrincipal AuthenticatedUser me,
@@ -43,17 +44,23 @@ public class CustomMailboxController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public CustomMailboxResponse claim(@AuthenticationPrincipal AuthenticatedUser me,
                                        @Valid @RequestBody ClaimCustomMailboxRequest request) {
-        return toResponse(service.claim(me.userId(), request.localPart(), request.domain()), Set.of());
+        return toResponse(service.claim(me.userId(), request.localPart(), request.domain()), Set.of(), java.util.Map.of());
     }
 
     @GetMapping
     public List<CustomMailboxResponse> list(@AuthenticationPrincipal AuthenticatedUser me) {
         Set<UUID> locked = access.lockedIds(me.userId());
-        return service.listOwned(me.userId()).stream().map(m -> toResponse(m, locked)).toList();
+        List<Mailbox> boxes = service.listOwned(me.userId());
+        java.util.Map<UUID, UUID> live = new java.util.HashMap<>();
+        if (!boxes.isEmpty()) {
+            sessions.findLiveByMailboxIds(boxes.stream().map(Mailbox::getId).toList())
+                    .forEach(s -> live.put(s.getMailboxId(), s.getId()));
+        }
+        return boxes.stream().map(m -> toResponse(m, locked, live)).toList();
     }
 
-    private static CustomMailboxResponse toResponse(Mailbox m, Set<UUID> locked) {
+    private static CustomMailboxResponse toResponse(Mailbox m, Set<UUID> locked, java.util.Map<UUID, UUID> live) {
         return new CustomMailboxResponse(m.getId(), m.getEmail(), m.getProvisionedAt() != null,
-                locked.contains(m.getId()), m.getLinkedAccountId(), null, m.getCreatedAt());
+                locked.contains(m.getId()), m.getLinkedAccountId(), live.get(m.getId()), m.getCreatedAt());
     }
 }

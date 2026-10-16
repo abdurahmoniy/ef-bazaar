@@ -26,6 +26,7 @@ public final class TradeEvents {
             "efbazaar.trade.email-provision-failed";
     public static final String TOPIC_FORGOT_PW_REQ        = "efbazaar.trade.forgot-password-request";
     public static final String TOPIC_IMAP_POLL_REQ        = "efbazaar.trade.imap-poll-request";
+    public static final String TOPIC_IMAP_POLL_STOP_REQ   = "efbazaar.trade.imap-poll-stop-request";
     public static final String TOPIC_KONAMI_EMAIL         = "efbazaar.trade.konami-email-received";
     public static final String TOPIC_IMAP_2FA             = "efbazaar.trade.imap-2fa-code";
     public static final String TOPIC_MAILBOX_PROVISION_REQ = "efbazaar.trade.mailbox-provision-request";
@@ -126,10 +127,29 @@ public final class TradeEvents {
             String mailboxEmail,
             String konamiId) {}
 
+    /**
+     * Start (or, with {@code restart}, re-start) watching a mailbox.
+     *
+     * <p>{@code tradeId} is whatever the answer is keyed on: a trade or a
+     * custom-mailbox link session. The credential fields let the worker log in
+     * after a restart emptied its password cache; null for trade polls, which
+     * the cache still covers.
+     */
     public record ImapPollRequest(
             UUID tradeId,
             String mailboxEmail,
-            ImapPurpose purpose) {}
+            ImapPurpose purpose,
+            String passwordContext,
+            byte[] encryptedPassword,
+            byte[] iv,
+            byte[] tag,
+            boolean restart) {}
+
+    /** The sealed mailbox password and the HKDF context it opens with. */
+    public record PollCredentials(String passwordContext, byte[] encryptedPassword, byte[] iv, byte[] tag) {}
+
+    /** Stop every poller of a mailbox — a link session ended. */
+    public record ImapPollStopRequest(String mailboxEmail) {}
 
     /**
      * @param mailboxEmail xat qaysi qutiga kelgani. Obmenda ikkita quti bor

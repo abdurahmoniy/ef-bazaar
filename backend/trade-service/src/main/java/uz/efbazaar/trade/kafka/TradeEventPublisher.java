@@ -55,7 +55,29 @@ public class TradeEventPublisher {
     public void imapPollRequest(UUID tradeId, String mailboxEmail,
                                 TradeEvents.ImapPurpose purpose) {
         send(TradeEvents.TOPIC_IMAP_POLL_REQ, tradeId.toString(),
-                new TradeEvents.ImapPollRequest(tradeId, mailboxEmail, purpose));
+                new TradeEvents.ImapPollRequest(tradeId, mailboxEmail, purpose, null, null, null, null, false));
+    }
+
+    /**
+     * Poll for a link session. Carries the sealed password because a custom
+     * box outlives the worker's in-memory cache; {@code credentials} may be
+     * null when no known context opens the row (the worker then tries its cache).
+     */
+    public void imapPollRequest(UUID key, String mailboxEmail, TradeEvents.ImapPurpose purpose,
+                                boolean restart, TradeEvents.PollCredentials credentials) {
+        var c = credentials;
+        send(TradeEvents.TOPIC_IMAP_POLL_REQ, key.toString(),
+                new TradeEvents.ImapPollRequest(key, mailboxEmail, purpose,
+                        c == null ? null : c.passwordContext(),
+                        c == null ? null : c.encryptedPassword(),
+                        c == null ? null : c.iv(),
+                        c == null ? null : c.tag(),
+                        restart));
+    }
+
+    public void imapPollStopRequest(String mailboxEmail) {
+        send(TradeEvents.TOPIC_IMAP_POLL_STOP_REQ, mailboxEmail,
+                new TradeEvents.ImapPollStopRequest(mailboxEmail));
     }
 
     /** Trade-less mailbox creation (admin panel, custom boxes) on {@code domain}. */

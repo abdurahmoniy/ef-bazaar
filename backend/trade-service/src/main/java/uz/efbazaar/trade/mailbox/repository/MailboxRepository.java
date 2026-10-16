@@ -207,4 +207,14 @@ public interface MailboxRepository
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null order by m.id")
     List<Mailbox> lockAllOwned(@Param("owner") UUID owner);
+
+    /** Column-only write: the box is now verified for this account. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Mailbox m set m.linkedAccountId = :accountId where m.id = :id")
+    int setLinkedAccount(@Param("id") UUID id, @Param("accountId") UUID accountId);
+
+    /** Frees the box only if it is still linked to that account — a newer link wins. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Mailbox m set m.linkedAccountId = null where m.id = :id and m.linkedAccountId = :accountId")
+    int clearLinkedAccount(@Param("id") UUID id, @Param("accountId") UUID accountId);
 }
