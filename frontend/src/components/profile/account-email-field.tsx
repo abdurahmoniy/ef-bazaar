@@ -83,7 +83,7 @@ export function AccountEmailField({ account }: { account: UserAccountResponse })
           className="inline-flex min-h-9 items-center gap-1.5 text-xs font-semibold text-gold-foreground hover:underline"
         >
           <Sparkles aria-hidden className="h-3.5 w-3.5" />
-          Akkountingiz uchun o‘z nomingizdagi email oling
+          O‘zingiz istagan nom bilan email oling
         </Link>
       )}
       <p className="text-[11px] text-muted-foreground">

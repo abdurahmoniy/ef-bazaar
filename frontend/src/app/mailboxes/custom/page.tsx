@@ -28,7 +28,7 @@ export default async function CustomMailboxPage({
           <span className="hidden items-center gap-2 rounded-full bg-gold-soft px-3.5 py-1.5 text-xs font-extrabold uppercase tracking-wider text-gold-foreground sm:inline-flex">
             Custom email
           </span>
-          <h1 className="text-xl font-extrabold tracking-tight sm:text-5xl">O‘z nomingizdagi pochta</h1>
+          <h1 className="text-xl font-extrabold tracking-tight sm:text-5xl">O‘zingiz istagan nom bilan email oling</h1>
           <p className="hidden max-w-xl text-lg leading-relaxed text-muted-foreground sm:block">
             Konami akkountingiz uchun esda qoladigan manzil. Nomni bir marta tanlaysiz — u faqat sizniki bo‘lib qoladi.
           </p>

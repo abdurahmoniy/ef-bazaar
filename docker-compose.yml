@@ -441,7 +441,7 @@ services:
       # verification muvaffaqiyatli bo'lishi uchun mail.efbazaar.uz kerak.
       IMAP_HOST: mail.efbazaar.uz
       # Qutilar ochiladigan domenlar, birinchisi — savdo qutilari uchun standart.
-      MAILBOX_DOMAINS: ${MAILBOX_DOMAINS:-efbazaar.uz}
+      MAILBOX_DOMAINS: ${MAILBOX_DOMAINS:-efbazaar.uz,efootball.uz}
       MASTER_KEY_FILE: /run/secrets/master_key
     secrets:
       - master_key

@@ -129,6 +129,18 @@ describe('LinkWizard', () => {
     expect(button('Qayta sinxronlash')).toBeUndefined();
   });
 
+  it('opens Konami’s forgot-password page with the address filled in', async () => {
+    mocks.getSession.mockResolvedValue(session('WAIT_RESET'));
+    await render({ initialSessionId: 's1' });
+    await tick(0);
+
+    const konami = Array.from(container.querySelectorAll('a')).find((a) => a.textContent?.includes('Forgot password sahifasini ochish'));
+    expect(konami?.getAttribute('href')).toBe(
+      'https://my.konami.net/en_US/password-reminder/input-email-address?email=alibek1%40efbazaar.uz');
+    expect(konami?.getAttribute('target')).toBe('_blank');
+    expect(konami?.getAttribute('rel')).toContain('noopener');
+  });
+
   it('offers a resync when the account did not get the email', async () => {
     mocks.getSession.mockResolvedValue(session('VERIFIED'));
     mocks.getMyAccounts.mockResolvedValue({ ok: true, data: [account('a1')] });
