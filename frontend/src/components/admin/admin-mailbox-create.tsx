@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { AlertCircle, CheckCircle2, Loader2, MailPlus, X } from 'lucide-react';
 
-import { createMailboxAction } from '@/app/admin/mailboxes/actions';
+import { createMailboxAction, type MailboxUserOption } from '@/app/admin/mailboxes/actions';
+import { MailboxOwnerPicker } from '@/components/admin/mailbox-owner-picker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { avatarTone, partnerInitial } from '@/lib/chat-format';
@@ -37,6 +38,8 @@ export function AdminMailboxCreate({
   const [open, setOpen] = useState(false);
   const [localPart, setLocalPart] = useState('');
   const [ownerUserId, setOwnerUserId] = useState(lockedOwnerId ?? '');
+  // A user found by search is not in `users`; remember who was picked.
+  const [pickedOwner, setPickedOwner] = useState<MailboxUserOption | null>(null);
   const [domain, setDomain] = useState(domains[0]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -56,7 +59,10 @@ export function AdminMailboxCreate({
     };
   }, [open, isPending]);
 
-  const owner = lockedOwner ?? users.find((u) => u.id === ownerUserId) ?? null;
+  const owner = lockedOwner
+    ?? (pickedOwner?.id === ownerUserId ? pickedOwner : null)
+    ?? users.find((u) => u.id === ownerUserId)
+    ?? null;
   const normalized = localPart.trim().toLowerCase();
   const canSubmit = normalized.length >= 3 && Boolean(ownerUserId) && !isPending;
 
@@ -177,32 +183,21 @@ export function AdminMailboxCreate({
                   <span className="truncate text-sm font-bold">{lockedOwner.displayName}</span>
                 </div>
               ) : (
-                <>
-                  <select
-                    value={ownerUserId}
-                    onChange={(event) => setOwnerUserId(event.target.value)}
-                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-semibold outline-none transition focus:border-primary"
-                  >
-                    <option value="">Foydalanuvchini tanlang…</option>
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.displayName}
-                        {user.email ? ` · ${user.email}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="block text-xs text-muted-foreground">
-                    Ro&apos;yxatda yo&apos;q bo&apos;lsa — Foydalanuvchilar bo&apos;limida
-                    &quot;Pochtalari&quot; tugmasini bosing.
-                  </span>
-                </>
+                <MailboxOwnerPicker
+                  initialUsers={users}
+                  value={ownerUserId}
+                  onChange={(id, user) => {
+                    setOwnerUserId(id);
+                    setPickedOwner(user);
+                  }}
+                />
               )}
             </div>
 
             {normalized.length >= 3 && owner && (
               <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-semibold">
                 <span className="font-mono">
-                  {normalized}@{mailDomain}
+                  {normalized}@{domain}
                 </span>{' '}
                 → {owner.displayName}
               </p>

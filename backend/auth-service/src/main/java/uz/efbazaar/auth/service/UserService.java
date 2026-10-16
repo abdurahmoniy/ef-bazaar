@@ -82,6 +82,9 @@ public class UserService {
                     : userRepository.findAll(pageable);
         }
         String query = search.trim();
+        // "@ali_v" is how a Telegram username is usually written.
+        if (query.startsWith("@")) query = query.substring(1).trim();
+        if (query.isEmpty()) return Page.empty(pageable);
 
         Optional<User> exact = findByIdentifier(query);
         if (exact.isPresent()) {
@@ -92,9 +95,47 @@ public class UserService {
             return new PageImpl<>(List.of(user), pageable, 1);
         }
 
+        String[] words = query.toLowerCase(java.util.Locale.ROOT).split("\\s+");
+        if (words.length > 1) {
+            return searchAllWords(words, telegramOnly, pageable);
+        }
         return telegramOnly
                 ? userRepository.searchWithTelegram(query, pageable)
                 : userRepository.search(query, pageable);
+    }
+
+    /** How many candidates a multi-word search looks through. */
+    private static final int MULTI_WORD_CANDIDATES = 200;
+
+    /**
+     * "Ali Valiyev": every word must appear somewhere in the person's names,
+     * username or email, in any order. The database is asked for the most
+     * selective word (the longest); the rest are matched here.
+     */
+    private Page<User> searchAllWords(String[] words, boolean telegramOnly, Pageable pageable) {
+        String longest = java.util.Arrays.stream(words)
+                .max(java.util.Comparator.comparingInt(String::length)).orElseThrow();
+        Pageable candidates = org.springframework.data.domain.PageRequest.of(0, MULTI_WORD_CANDIDATES, pageable.getSort());
+        List<User> pool = (telegramOnly
+                ? userRepository.searchWithTelegram(longest, candidates)
+                : userRepository.search(longest, candidates)).getContent();
+        List<User> matching = pool.stream()
+                .filter(u -> {
+                    String haystack = searchableText(u);
+                    return java.util.Arrays.stream(words).allMatch(haystack::contains);
+                })
+                .toList();
+        int from = (int) Math.min(pageable.getOffset(), matching.size());
+        int to = Math.min(from + pageable.getPageSize(), matching.size());
+        return new PageImpl<>(matching.subList(from, to), pageable, matching.size());
+    }
+
+    private static String searchableText(User u) {
+        return java.util.stream.Stream.of(u.getTelegramFirstName(), u.getTelegramLastName(),
+                        u.getTelegramUsername(), u.getGoogleGivenName(), u.getEmail())
+                .filter(java.util.Objects::nonNull)
+                .map(v -> v.toLowerCase(java.util.Locale.ROOT))
+                .collect(java.util.stream.Collectors.joining(" "));
     }
 
     /** Butun son — Telegram chat id, UUID — platforma id si. Boshqasi: bo'sh. */
