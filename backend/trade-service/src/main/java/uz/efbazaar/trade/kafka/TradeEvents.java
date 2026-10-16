@@ -26,6 +26,9 @@ public final class TradeEvents {
             "efbazaar.trade.email-provision-failed";
     public static final String TOPIC_FORGOT_PW_REQ        = "efbazaar.trade.forgot-password-request";
     public static final String TOPIC_IMAP_POLL_REQ        = "efbazaar.trade.imap-poll-request";
+    public static final String TOPIC_IMAP_POLL_STOP_REQ   = "efbazaar.trade.imap-poll-stop-request";
+    public static final String TOPIC_ACCOUNT_EMAIL_VERIFIED = "efbazaar.trade.account-email-verified";
+    public static final String TOPIC_ACCOUNT_EMAIL_UNLINKED = "efbazaar.marketplace.account-email-unlinked";
     public static final String TOPIC_KONAMI_EMAIL         = "efbazaar.trade.konami-email-received";
     public static final String TOPIC_IMAP_2FA             = "efbazaar.trade.imap-2fa-code";
     public static final String TOPIC_MAILBOX_PROVISION_REQ = "efbazaar.trade.mailbox-provision-request";
@@ -126,10 +129,53 @@ public final class TradeEvents {
             String mailboxEmail,
             String konamiId) {}
 
+    /**
+     * Start (or, with {@code restart}, re-start) watching a mailbox.
+     *
+     * <p>{@code tradeId} is whatever the answer is keyed on: a trade or a
+     * custom-mailbox link session. The credential fields let the worker log in
+     * after a restart emptied its password cache; null for trade polls, which
+     * the cache still covers.
+     */
     public record ImapPollRequest(
             UUID tradeId,
             String mailboxEmail,
-            ImapPurpose purpose) {}
+            ImapPurpose purpose,
+            String passwordContext,
+            byte[] encryptedPassword,
+            byte[] iv,
+            byte[] tag,
+            boolean restart) {}
+
+    /** The sealed mailbox password and the HKDF context it opens with. */
+    public record PollCredentials(String passwordContext, byte[] encryptedPassword, byte[] iv, byte[] tag) {}
+
+    /** Stop every poller of a mailbox — a link session ended. */
+    public record ImapPollStopRequest(String mailboxEmail) {}
+
+    /**
+     * A link session proved the Konami account is on this box; marketplace
+     * writes the address onto the account and marks it verified. Idempotent
+     * by {@code sessionId}.
+     *
+     * @param custom the box is a custom one — the account gets the gold border
+     */
+    public record AccountEmailVerified(
+            UUID sessionId,
+            UUID accountId,
+            UUID ownerId,
+            UUID mailboxId,
+            String email,
+            boolean custom,
+            Instant verifiedAt) {}
+
+    /** Marketplace: the account no longer uses that box (sold, swapped, edited, relinked, deleted). */
+    public record AccountEmailUnlinked(
+            UUID accountId,
+            UUID ownerId,
+            UUID mailboxId,
+            String reason,
+            Instant at) {}
 
     /**
      * @param mailboxEmail xat qaysi qutiga kelgani. Obmenda ikkita quti bor
@@ -166,12 +212,16 @@ public final class TradeEvents {
      * Trade-less mailbox provisioning, issued by the admin panel. Distinct from
      * {@link EmailProvisionRequest} because there is no trade to key the
      * response on and the admin picks the local part instead of it being
-     * derived from a trade id. The worker MUST echo {@code mailboxId} back —
+     * derived from a trade id (custom boxes come this way too). The worker MUST echo {@code mailboxId} back —
      * it is both the row id and the encryption context (`mbox-{mailboxId}`).
      */
     public record MailboxProvisionRequest(
             UUID mailboxId,
-            String localPart) {}
+            String localPart,
+            /** Mailcow domain to create the box on; older workers assume efbazaar.uz. */
+            String domain,
+            /** User-chosen name: an existing Mailcow box with it is somebody else's, not a replay. */
+            boolean custom) {}
 
     public record MailboxProvisioned(
             UUID mailboxId,

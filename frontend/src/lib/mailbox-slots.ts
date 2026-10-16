@@ -16,6 +16,8 @@ export interface OwnedMailbox {
   handedOffAt: string | null;
   /** Qulflangan: pochtasi o'qilmaydi, lekin quti o'chirilmaydi. */
   locked: boolean;
+  /** CUSTOM — user o'zi olgan nomli quti; random slotga kirmaydi va bo'shatilmaydi. */
+  kind?: 'RANDOM' | 'CUSTOM';
 }
 
 /**
@@ -129,7 +131,15 @@ export function slotWarning(status: MailboxSlotStatus | null): string | null {
  * bosilib, keyin rad etilgan tugma foydalanuvchini chalg'itadi.
  */
 export function isDeletable(mailbox: OwnedMailbox): boolean {
-  return mailbox.tradeId === null;
+  return mailbox.tradeId === null && mailbox.kind !== 'CUSTOM';
+}
+
+/**
+ * The boxes the slot warning may offer to release. Custom boxes spend their
+ * own allowance and their name is given once, so they never appear here.
+ */
+export function cleanupCandidates(mailboxes: OwnedMailbox[]): OwnedMailbox[] {
+  return mailboxes.filter((m) => m.kind !== 'CUSTOM');
 }
 
 /** Akkountlarga biriktirilgan manzillar — solishtiruv uchun kichik registrda. */

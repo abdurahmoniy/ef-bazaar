@@ -14,7 +14,7 @@ vi.mock('@/components/marketplace/listing-form', () => ({
   },
 }));
 import { NewListingEntry } from './new-listing-entry';
-const account: UserAccountResponse = { id: 'acc', title: 'Asosiy', description: '', attributes: {}, mediaMessageIds: [], email: null, emailSource: null, status: 'ACTIVE', onMarket: false, currentListingId: null, createdAt: '', updatedAt: '' };
+const account: UserAccountResponse = { id: 'acc', title: 'Asosiy', description: '', attributes: {}, mediaMessageIds: [], email: null, emailSource: null, emailVerified: false, status: 'ACTIVE', onMarket: false, currentListingId: null, createdAt: '', updatedAt: '' };
 let host: HTMLDivElement;
 let root: Root;
 beforeEach(() => {

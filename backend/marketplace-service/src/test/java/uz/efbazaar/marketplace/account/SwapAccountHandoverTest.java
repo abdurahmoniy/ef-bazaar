@@ -27,6 +27,7 @@ class SwapAccountHandoverTest {
     @Mock UserAccountCardInventory inventory;
     @Mock ListingRepository listings;
     @Mock PendingAccountEmailRepository pendingEmails;
+    @Mock AccountEmailUnlinks unlinks;
     @InjectMocks ListingAccountLink link;
 
     private final UUID tradeId = UUID.randomUUID();

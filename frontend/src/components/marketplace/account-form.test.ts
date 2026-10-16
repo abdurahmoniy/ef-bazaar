@@ -13,7 +13,7 @@ vi.mock('@/components/marketplace/listing-form', () => ({ ListingForm: () => nul
 
 const account = (over: Partial<UserAccountResponse> = {}): UserAccountResponse => ({
   id: 'acc-1', title: 'Asosiy', description: 'tavsif', attributes: {}, mediaMessageIds: [],
-  email: null, emailSource: null, status: 'ACTIVE', onMarket: false, currentListingId: null,
+  email: null, emailSource: null, emailVerified: false, status: 'ACTIVE', onMarket: false, currentListingId: null,
   createdAt: '2026-09-18T00:00:00Z', updatedAt: '2026-09-18T00:00:00Z',
   ...over,
 });

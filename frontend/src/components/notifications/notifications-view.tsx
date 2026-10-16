@@ -109,6 +109,12 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
           icon: <Mail className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
           bg: 'bg-amber-500/10 dark:bg-amber-400/10',
         };
+      case 'CUSTOM_MAILBOX_FREED':
+        return {
+          action: 'Custom emailingiz bo\u2018shadi \u2014 boshqa akkountingizga ulang',
+          icon: <Mail className="h-5 w-5 text-gold-foreground" />,
+          bg: 'bg-gold-soft',
+        };
       case 'CHAT_MESSAGE':
       default:
         return {

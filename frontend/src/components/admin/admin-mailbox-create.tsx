@@ -21,6 +21,8 @@ interface AdminMailboxCreateProps {
   lockedOwner?: User | null;
   lockedOwnerId?: string;
   mailDomain: string;
+  /** Every domain the admin may pick, default first; one entry hides the picker. */
+  mailDomains?: string[];
 }
 
 export function AdminMailboxCreate({
@@ -28,11 +30,14 @@ export function AdminMailboxCreate({
   lockedOwner,
   lockedOwnerId,
   mailDomain,
+  mailDomains,
 }: AdminMailboxCreateProps) {
+  const domains = mailDomains && mailDomains.length > 0 ? mailDomains : [mailDomain];
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [localPart, setLocalPart] = useState('');
   const [ownerUserId, setOwnerUserId] = useState(lockedOwnerId ?? '');
+  const [domain, setDomain] = useState(domains[0]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -59,7 +64,7 @@ export function AdminMailboxCreate({
     setError(null);
     setNotice(null);
     startTransition(async () => {
-      const result = await createMailboxAction({ localPart, ownerUserId });
+      const result = await createMailboxAction({ localPart, ownerUserId, domain });
       if (!result.ok) {
         setError(result.error ?? 'Pochta yaratilmadi');
         return;
@@ -131,9 +136,24 @@ export function AdminMailboxCreate({
                   autoComplete="off"
                   autoFocus
                 />
-                <span className="flex h-10 items-center rounded-r-lg border border-l-0 border-border bg-muted px-3 font-mono text-sm font-semibold text-muted-foreground">
-                  @{mailDomain}
-                </span>
+                {domains.length > 1 ? (
+                  <select
+                    aria-label="Domen"
+                    value={domain}
+                    onChange={(event) => setDomain(event.target.value)}
+                    className="h-10 rounded-r-lg border border-l-0 border-border bg-muted px-2 font-mono text-sm font-semibold text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {domains.map((d) => (
+                      <option key={d} value={d}>
+                        @{d}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="flex h-10 items-center rounded-r-lg border border-l-0 border-border bg-muted px-3 font-mono text-sm font-semibold text-muted-foreground">
+                    @{domain}
+                  </span>
+                )}
               </span>
               <span className="block text-xs text-muted-foreground">
                 Kichik harf, raqam, nuqta, tire — kamida 3 ta belgi.

@@ -24,6 +24,8 @@ interface AdminMailboxesProps {
   /** Owner dropdown source for the create form. */
   selectableUsers: User[];
   mailDomain: string;
+  /** Domains the create form offers, default first. */
+  mailDomains?: string[];
 }
 
 const FILTERS: Array<{ key: MailboxFilter; label: string; count: (s: MailboxStats) => number }> = [
@@ -45,6 +47,7 @@ export function AdminMailboxes({
   totalElements,
   selectableUsers,
   mailDomain,
+  mailDomains,
 }: AdminMailboxesProps) {
   const buildFilterHref = (key: MailboxFilter) => {
     const query = new URLSearchParams();
@@ -69,6 +72,7 @@ export function AdminMailboxes({
           lockedOwner={ownerUser}
           lockedOwnerId={ownerUserId}
           mailDomain={mailDomain}
+          mailDomains={mailDomains}
         />
       </header>
 

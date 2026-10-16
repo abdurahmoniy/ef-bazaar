@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   accountEmailSet,
+  cleanupCandidates,
   isAttachedTo,
   isDeletable,
   slotPressure,
@@ -117,5 +118,17 @@ describe('bo‘sh qutilar', () => {
       emails,
     );
     expect(sorted.map((m) => m.id)).toEqual(['m2', 'm1', 'm3']);
+  });
+});
+
+describe('custom mailboxes in the cleanup list', () => {
+  const base = { tradeId: null, createdAt: '', handedOffAt: null, locked: false };
+  it('are never offered for release: the name is given once', () => {
+    const boxes: OwnedMailbox[] = [
+      { ...base, id: 'c', email: 'alibek1@efbazaar.uz', kind: 'CUSTOM' },
+      { ...base, id: 'r', email: 'trade-1@efbazaar.uz', kind: 'RANDOM' },
+    ];
+    expect(isDeletable(boxes[0])).toBe(false);
+    expect(cleanupCandidates(boxes).map((b) => b.id)).toEqual(['r']);
   });
 });

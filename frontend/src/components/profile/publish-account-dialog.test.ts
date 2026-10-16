@@ -16,7 +16,7 @@ vi.mock('@/lib/accounts-client', () => ({ publishAccount: mocks.publishAccount }
 
 const account: UserAccountResponse = {
   id: 'acc-1', title: 'Asosiy', description: 'Akkount tavsifi', attributes: { platform: 'MOBILE', highest_division_level: 3, team_strength: 3150, device_transfer_limit: 5 }, mediaMessageIds: ['msg-1'],
-  email: null, emailSource: null, status: 'ACTIVE', onMarket: false, currentListingId: null,
+  email: null, emailSource: null, emailVerified: false, status: 'ACTIVE', onMarket: false, currentListingId: null,
   createdAt: '2026-09-18T00:00:00Z', updatedAt: '2026-09-18T00:00:00Z',
 };
 

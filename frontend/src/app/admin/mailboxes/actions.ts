@@ -40,12 +40,15 @@ export async function createMailboxAction(
   try {
     const mailbox = await apiFetch<AdminMailbox>('/trade/v1/admin/mailboxes', {
       method: 'POST',
-      body: { localPart, ownerUserId: input.ownerUserId },
+      body: { localPart, ownerUserId: input.ownerUserId, ...(input.domain ? { domain: input.domain } : {}) },
     });
     revalidatePath('/admin/mailboxes');
     return { ok: true, mailbox };
   } catch (error) {
     if (error instanceof ApiException) {
+      if (error.code === 'domain_not_allowed') {
+        return { ok: false, error: 'Bu domen ruxsat etilmagan', code: error.code };
+      }
       if (error.status === 409) {
         return { ok: false, error: 'Bu manzil band', code: error.code };
       }

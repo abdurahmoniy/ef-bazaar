@@ -1,6 +1,10 @@
 package uz.efbazaar.marketplace.account;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
@@ -28,4 +32,8 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
     boolean existsBySourceListingId(UUID listingId);
 
     Optional<UserAccount> findByOwnerIdAndSourceTradeId(UUID ownerId, UUID tradeId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from UserAccount a where a.id = :id")
+    Optional<UserAccount> findByIdForUpdate(@Param("id") UUID id);
 }

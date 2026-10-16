@@ -22,5 +22,9 @@ public record CreateMailboxRequest(
         String localPart,
 
         @NotNull
-        UUID ownerUserId
+        UUID ownerUserId,
+
+        /** One of {@code trade.mailbox.domains}; null means the default. */
+        @Size(max = 64)
+        String domain
 ) {}

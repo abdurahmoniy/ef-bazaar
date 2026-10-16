@@ -96,6 +96,8 @@ interface ListingFormProps {
 	mode?: ListingFormMode;
 	/** Akkount rejimida tahrirlanayotgan akkount. */
 	initialAccount?: UserAccountResponse;
+	/** Akkount rejimida saqlangach shu yerga qaytadi, `?accountId=` bilan (custom quti ulash). */
+	returnTo?: string;
 }
 
 
@@ -178,6 +180,7 @@ export function ListingForm({
 	botUsername = '',
 	mode = 'listing',
 	initialAccount,
+	returnTo,
 }: ListingFormProps) {
 	const router = useRouter();
 	const [telegramRequired, setTelegramRequired] = useState(false);
@@ -422,9 +425,11 @@ export function ListingForm({
 			onAccountPublish(savedAccountRef.current);
 			return;
 		}
-		router.push(`/profile?tab=accounts&saved=${encodeURIComponent(savedAccountRef.current.id)}`);
+		router.push(returnTo
+			? `${returnTo}?accountId=${encodeURIComponent(savedAccountRef.current.id)}`
+			: `/profile?tab=accounts&saved=${encodeURIComponent(savedAccountRef.current.id)}`);
 		router.refresh();
-	}, [state, definitions, photos, editMode, router, onAccountPublish]);
+	}, [state, definitions, photos, editMode, router, onAccountPublish, returnTo]);
 
 	const handleSubmit = useCallback(async (intent: 'save' | 'publish' = 'save') => {
 		if (pending || Date.now() - submittedAt.current < 800) return;

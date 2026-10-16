@@ -85,6 +85,16 @@ public class Mailbox {
     @Column(name = "created_by_admin_id")
     private UUID createdByAdminId;
 
+    /** Which allowance the box spends — see {@link MailboxKind}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kind", nullable = false, length = 16)
+    @Builder.Default
+    private MailboxKind kind = MailboxKind.RANDOM;
+
+    /** Marketplace account this box is verified for; null = free. */
+    @Column(name = "linked_account_id")
+    private UUID linkedAccountId;
+
     /** Set when the worker confirms Mailcow created the box. Null = still pending. */
     @Column(name = "provisioned_at")
     private Instant provisionedAt;

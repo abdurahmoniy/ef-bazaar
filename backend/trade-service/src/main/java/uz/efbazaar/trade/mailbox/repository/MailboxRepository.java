@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
+import uz.efbazaar.trade.mailbox.domain.MailboxKind;
 import uz.efbazaar.trade.mailbox.domain.MailboxSource;
 
 import java.util.Collection;
@@ -39,10 +40,14 @@ public interface MailboxRepository
      *
      * <p>Terminal states come in as a parameter rather than being spelled out
      * here, so the SQL cannot fall out of step with {@code TradeState}.
+     *
+     * <p>Only RANDOM boxes: a custom box spends {@code mailbox.custom_slots}
+     * instead and is never part of a trade.
      */
     @Query(value = """
             SELECT COUNT(DISTINCT m.id) FROM mailboxes m
              WHERE m.deleted_at IS NULL
+               AND m.kind = 'RANDOM'
                AND ((m.owner_user_id = :userId
                      AND (NOT EXISTS (SELECT 1 FROM trades t
                                        WHERE t.state NOT IN (:terminalStates)
@@ -178,10 +183,16 @@ public interface MailboxRepository
     /** No owner attached — either an in-flight trade or a leftover. */
     long countByOwnerUserIdIsNull();
 
-    /** Owned, not deleted, highest priority first — the order the plan limit cuts. */
-    @Query("select m from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null "
+    /**
+     * Owned boxes of one kind, not deleted, highest priority first — the order
+     * the plan limit cuts. Each kind has its own limit, so they are never mixed.
+     */
+    @Query("select m from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null and m.kind = :kind "
             + "order by m.accessPriority desc, m.createdAt desc, m.id desc")
-    List<Mailbox> findAccessOrderOwnedBy(@Param("owner") UUID owner);
+    List<Mailbox> findAccessOrderOwnedBy(@Param("owner") UUID owner, @Param("kind") MailboxKind kind);
+
+    @Query("select count(m) from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null and m.kind = :kind")
+    long countLiveByOwnerAndKind(@Param("owner") UUID owner, @Param("kind") MailboxKind kind);
 
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from Mailbox m where m.id = :id and m.ownerUserId = :owner and m.deletedAt is null")
@@ -196,4 +207,14 @@ public interface MailboxRepository
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null order by m.id")
     List<Mailbox> lockAllOwned(@Param("owner") UUID owner);
+
+    /** Column-only write: the box is now verified for this account. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Mailbox m set m.linkedAccountId = :accountId where m.id = :id")
+    int setLinkedAccount(@Param("id") UUID id, @Param("accountId") UUID accountId);
+
+    /** Frees the box only if it is still linked to that account — a newer link wins. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Mailbox m set m.linkedAccountId = null where m.id = :id and m.linkedAccountId = :accountId")
+    int clearLinkedAccount(@Param("id") UUID id, @Param("accountId") UUID accountId);
 }

@@ -3,6 +3,7 @@ import { ApiErrorPanel } from '@/components/marketplace/api-error-panel';
 import { ListingsPagination } from '@/components/marketplace/listings-pagination';
 import {
   getAdminMailboxStats,
+  getAdminMailboxDomains,
   getAdminMailboxes,
   getUsersByIds,
 } from '@/lib/mailbox-admin-server';
@@ -37,13 +38,14 @@ export default async function AdminMailboxesPage({ searchParams }: AdminMailboxe
   const filter = (FILTERS.find((f) => f === params.filter) ?? 'all') as MailboxFilter;
   const page = Math.max(0, Number.parseInt(params.page ?? '0', 10) || 0);
 
-  const [result, stats, usersResult] = await Promise.all([
+  const [result, stats, usersResult, mailDomains] = await Promise.all([
     getAdminMailboxes({ search, ownerUserId, filter, page }),
     getAdminMailboxStats(),
     // Owner dropdown for the create form. Newest 50 users covers the common
     // case; for anyone older the admin goes through the Foydalanuvchilar tab,
     // which links here with ownerUserId already set.
     getAdminUsers(undefined, 0, 50),
+    getAdminMailboxDomains(MAIL_DOMAIN),
   ]);
 
   if (!result.ok) {
@@ -79,6 +81,7 @@ export default async function AdminMailboxesPage({ searchParams }: AdminMailboxe
         totalElements={result.data.totalElements}
         selectableUsers={selectableUsers}
         mailDomain={MAIL_DOMAIN}
+        mailDomains={mailDomains}
       />
       <ListingsPagination
         page={result.data.page}

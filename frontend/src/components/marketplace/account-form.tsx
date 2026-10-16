@@ -18,11 +18,14 @@ export function AccountForm({
   account,
   botUsername,
   onBack,
+  returnTo,
 }: {
   attributeDefinitions?: readonly ListingAttributeDefinition[];
   account?: UserAccountResponse;
   botUsername?: string;
   onBack?: () => void;
+  /** After saving a new account, go back here (custom mailbox linking) instead of the account list. */
+  returnTo?: string;
 }) {
   const [publishing, setPublishing] = useState<UserAccountResponse | null>(null);
   const [showPricing, setShowPricing] = useState(false);
@@ -51,6 +54,7 @@ export function AccountForm({
           initialAccount={account}
           botUsername={botUsername}
           onBack={onBack}
+          returnTo={returnTo}
           onAccountPublish={account?.onMarket || account?.status === 'ARCHIVED' ? undefined : (saved) => {
             setPublishing(saved);
             setShowPricing(true);

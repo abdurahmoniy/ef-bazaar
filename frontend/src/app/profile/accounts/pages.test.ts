@@ -29,6 +29,14 @@ it('keeps Accounts selected while creating or editing an account', async () => {
   expect((await EditAccountPage({ params: Promise.resolve({ id: 'account' }) })).props.activeTab).toBe('accounts');
 });
 
+it('returns to a custom-mailbox link page after saving, and nowhere else', async () => {
+  const back = '/mailboxes/custom/0b7c1d5e-2f3a-4b6c-9d8e-112233445566/link';
+  const form = (page: Awaited<ReturnType<typeof NewAccountPage>>) =>
+    JSON.stringify(page.props.children, (_k, v) => (typeof v === 'function' ? undefined : v));
+  expect(form(await NewAccountPage({ searchParams: Promise.resolve({ returnTo: back }) }))).toContain(back);
+  expect(form(await NewAccountPage({ searchParams: Promise.resolve({ returnTo: 'https://evil.example/x' }) }))).not.toContain('evil');
+});
+
 it('keeps signed-out create and edit return destinations', async () => {
   mocks.getMe.mockResolvedValue(null);
   await expect(NewAccountPage()).rejects.toThrow('redirect:/auth/login?from=/profile/accounts/new');

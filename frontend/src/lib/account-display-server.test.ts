@@ -17,9 +17,18 @@ it('links only matching owned mailboxes and prices only the current published li
   mocks.apiFetch.mockResolvedValue([{ id: 'mail-1', email: 'owned@efbazaar.uz' }]);
   mocks.getListing.mockResolvedValue({ ok: true, data: { id: 'listing-1', sellerId: 'viewer', price: 0 } });
   expect(await getAccountDisplayData(accounts, 'viewer')).toEqual({
-    one: { mailboxHref: '/mail/mail-1', price: 0 }, two: {},
+    // Not verified yet and the box is the viewer's own: it can be verified.
+    one: { mailboxHref: '/mail/mail-1', verifyMailboxId: 'mail-1', price: 0 }, two: {},
   });
   expect(mocks.getListing).toHaveBeenCalledExactlyOnceWith('listing-1');
+});
+
+it('offers no verification for an address already verified', async () => {
+  mocks.apiFetch.mockResolvedValue([{ id: 'mail-1', email: 'owned@efbazaar.uz' }]);
+  mocks.getListing.mockResolvedValue({ ok: true, data: { id: 'listing-1', sellerId: 'viewer', price: 0 } });
+  const verified = accounts.map((a) => ({ ...a, emailVerified: true }));
+  const display = await getAccountDisplayData(verified, 'viewer');
+  expect(display.one).not.toHaveProperty('verifyMailboxId');
 });
 
 it('keeps accounts usable when optional services are unavailable', async () => {

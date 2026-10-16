@@ -12,7 +12,7 @@ efbazaar.uz asosiy sayti va Telegram Mini App — bitta Next.js ilova.
 
 | Papka | Nima |
 |---|---|
-| `src/app/` | Sahifalar (App Router). Asosiylari: `/marketplace`, `/marketplace/[id]`, `/marketplace/new`, `/chats`, `/profile`, `/profile/accounts/*`, `/dream-team`, `/favorites`, `/hamyon` (hamyon, savdolar), `/plans` (tariflar — tanlash, uzaytirish, oshirish), `/partner`, `/partnership`, `/trade-admin(s)`, `/tournaments`, `/support`, `/admin/**` (shu jumladan `/admin/plans/prices` — tarif narxlari, `/admin/plans/mailboxes` — tarif pochta qutilari/slotlari) |
+| `src/app/` | Sahifalar (App Router). Asosiylari: `/marketplace`, `/marketplace/[id]`, `/marketplace/new`, `/chats`, `/profile`, `/profile/accounts/*`, `/dream-team`, `/favorites`, `/hamyon` (hamyon, savdolar), `/plans` (tariflar — tanlash, uzaytirish, oshirish), `/mailboxes/custom` (custom pochta nomini tekshirish va olish, olingan qutilar), `/mailboxes/custom/[id]/link` (Konami akkountni qutiga ulash bosqichlari), `/partner`, `/partnership`, `/trade-admin(s)`, `/tournaments`, `/support`, `/admin/**` (shu jumladan `/admin/plans/prices` — tarif narxlari, `/admin/plans/mailboxes` — tarif pochta qutilari/slotlari) |
 | `src/app/api/` | Route handler'lar: `session`, `telegram-webapp`, `push`, `video`, `healthz` va servis proxy'lari (`marketplace`, `trade`, `payment`, `access`, `userbot`, `tournaments`) |
 | `src/components/<domen>/` | UI komponentlar domen bo'yicha (`marketplace`, `chat`, `payment`, `admin`, `partners`, `trade-admin`, ...); `ui/` — shadcn primitivlari |
 | `src/lib/` | API klientlar, tiplar, formatlash. Nomlash: `*-server.ts` — faqat serverda (SSR, Server Actions), `*-client.ts` — brauzerda, `*-types.ts` — tiplar |

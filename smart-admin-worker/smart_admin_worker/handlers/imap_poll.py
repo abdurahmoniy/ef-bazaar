@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
+from smart_admin_worker.crypto.field_encryptor import EncryptedField, FieldEncryptor
 from smart_admin_worker.imap.poller import PollPurpose
 from smart_admin_worker.imap.registry import ImapPollerRegistry
 from smart_admin_worker.kafka import events as e
@@ -27,14 +28,18 @@ class ImapPollHandler:
         registry: ImapPollerRegistry,
         producer: KafkaProducerClient,
         password_provider: PasswordProvider,
+        decryptor: FieldEncryptor | None = None,
     ) -> None:
         self._registry = registry
         self._producer = producer
         self._password_provider = password_provider
+        self._decryptor = decryptor
 
     async def handle(self, event: e.ImapPollRequest) -> None:
         purpose = PollPurpose(event.purpose)
         password = await self._password_provider(event.mailbox_email)
+        if not password:
+            password = self._decrypt_from_request(event)
         if not password:
             # Cache miss — the worker restarted since this mailbox was
             # provisioned (see the MVP note in main.py). Starting a poller on
@@ -87,6 +92,11 @@ class ImapPollHandler:
                 ),
             )
 
+        # getattr: callers and tests may hand in an older-shaped event.
+        if getattr(event, "restart", False):
+            # A new step of a link session: the old poller may already have
+            # gone idle on its first hit and would never see the next mail.
+            await self._registry.cancel(event.mailbox_email, purpose)
         try:
             self._registry.start(
                 event.mailbox_email, password, purpose,
@@ -101,3 +111,14 @@ class ImapPollHandler:
         except ValueError:
             # Already polling — this is a re-fire, no-op.
             pass
+
+    def _decrypt_from_request(self, event: e.ImapPollRequest) -> str:
+        """The password trade-service sent along, or "" when it sent none."""
+        context = getattr(event, "password_context", None)
+        ciphertext = getattr(event, "encrypted_password", None)
+        iv = getattr(event, "iv", None)
+        tag = getattr(event, "tag", None)
+        if self._decryptor is None or not context or None in (ciphertext, iv, tag):
+            return ""
+        field = EncryptedField(iv=iv, tag=tag, ciphertext=ciphertext)
+        return self._decryptor.decrypt(context, field).decode("utf-8")

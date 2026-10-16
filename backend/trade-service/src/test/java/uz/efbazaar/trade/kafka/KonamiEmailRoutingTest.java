@@ -37,6 +37,10 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class KonamiEmailRoutingTest {
 
+    /** No link session watches these boxes; answers go down the trade path. */
+
+    @Mock uz.efbazaar.trade.mailbox.link.LinkSessionService linkSessions;
+
     @Mock TradeService trades;
     @Mock TradeSideService sides;
     @Mock ChatChangePublisher changes;

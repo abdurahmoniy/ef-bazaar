@@ -27,7 +27,7 @@ const account = (over: Partial<UserAccountResponse> = {}): UserAccountResponse =
   attributes: { platform: 'MOBILE', highest_division_level: 3, team_strength: 3150, device_transfer_limit: 5 },
   mediaMessageIds: [],
   email: 'a7f2@efbazaar.uz',
-  emailSource: 'PLATFORM',
+  emailSource: 'PLATFORM', emailVerified: false,
   status: 'ACTIVE',
   onMarket: false,
   currentListingId: null,
@@ -451,5 +451,46 @@ describe('AccountCard', () => {
     expect(disclosure()!.disabled).toBe(true);
     await act(async () => finish({ ok: true }));
     expect(document.activeElement).toBe(trigger);
+  });
+});
+
+describe('email badges', () => {
+  const link = (label: string) =>
+    Array.from(container.querySelectorAll('a')).find((a) => a.textContent?.includes(label));
+
+  it('shows the verified mark and the gold border for a custom address', async () => {
+    await render({ email: 'alibek1@efbazaar.uz', emailSource: 'CUSTOM', emailVerified: true });
+
+    expect(container.querySelector('[aria-label="Tasdiqlangan email"]')).toBeTruthy();
+    expect(container.querySelector('article')?.className).toContain('gold-ring');
+  });
+
+  it('keeps the custom border visible when collapsed and the verification mark in the desktop popup', async () => {
+    desktop = true;
+    await render({ email: 'alibek1@efbazaar.uz', emailSource: 'CUSTOM', emailVerified: true }, {}, false);
+    expect(container.querySelector('article')?.className).toContain('gold-ring');
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    await act(async () => disclosure()!.click());
+    expect(document.querySelector('[role="dialog"] [aria-label="Tasdiqlangan email"]')).not.toBeNull();
+  });
+
+  it('marks a trade address verified without the gold border', async () => {
+    await render({ email: 'trade-1@efbazaar.uz', emailSource: 'PLATFORM', emailVerified: true });
+
+    expect(container.querySelector('[aria-label="Tasdiqlangan email"]')).toBeTruthy();
+    expect(container.querySelector('article')?.className).not.toContain('gold-ring');
+  });
+
+  it('offers a custom address when the account has none', async () => {
+    await render({ email: null, emailSource: null });
+
+    expect(link('O‘zingiz tanlagan email biriktiring')?.getAttribute('href')).toBe('/mailboxes/custom?accountId=acc-1');
+  });
+
+  it('offers verification for the user’s own box', async () => {
+    await render({ email: 'sardor10@efbazaar.uz', emailSource: 'MANUAL' }, { display: { verifyMailboxId: 'box-9' } });
+
+    expect(link('Tasdiqlash')?.getAttribute('href')).toBe('/mailboxes/custom/box-9/link?verify=1&accountId=acc-1');
+    expect(container.querySelector('[aria-label="Tasdiqlangan email"]')).toBeNull();
   });
 });
