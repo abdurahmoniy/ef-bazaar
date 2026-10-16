@@ -11,3 +11,22 @@ export async function getMyCustomMailboxesSSR(): Promise<CustomMailbox[] | null>
     return null;
   }
 }
+
+export type OwnedMailboxSSR = { id: string; email: string; kind: 'RANDOM' | 'CUSTOM'; activeSessionId?: string | null };
+
+/**
+ * Every box the caller owns, with the live session of custom ones merged in.
+ * Null when trade-service could not be reached.
+ */
+export async function getMyOwnedMailboxesSSR(): Promise<OwnedMailboxSSR[] | null> {
+  try {
+    const [owned, custom] = await Promise.all([
+      apiFetch<OwnedMailboxSSR[]>('/trade/v1/mailboxes'),
+      apiFetch<CustomMailbox[]>('/trade/v1/mailboxes/custom'),
+    ]);
+    const live = new Map(custom.map((c) => [c.id, c.activeSessionId]));
+    return owned.map((o) => ({ ...o, activeSessionId: live.get(o.id) ?? null }));
+  } catch {
+    return null;
+  }
+}
