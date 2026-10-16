@@ -60,6 +60,7 @@ topiclarni tinglaydi — unda DB yo'q.
 | `efbazaar.marketplace.channel-refresh-requested` | marketplace | bot (obunachi soni, nom, avatar) |
 | `efbazaar.marketplace.official-post-requested` | marketplace | bot (efBazaar rasmiy kanali) |
 | `efbazaar.marketplace.support-message-created` | marketplace | bot (support topigiga) |
+| `efbazaar.marketplace.account-email-unlinked` | marketplace — `{ accountId, ownerId, mailboxId, reason, at }` (`reason`: `SOLD`, `SWAPPED`, `SOLD_ELSEWHERE`, `EDITED`, `RELINKED`, `DELETED`); kalit `accountId`; commit'dan keyin | trade (`mailboxes.linked_account_id` ni tozalaydi — faqat hali o'sha akkountga ulangan bo'lsa) |
 
 ## bot
 
@@ -83,6 +84,7 @@ topiclarni tinglaydi — unda DB yo'q.
 | `efbazaar.trade.mailbox-handed-over` | trade | marketplace, auth (enricher → bot) |
 | `efbazaar.trade.trade-opened` | trade | — |
 | `efbazaar.trade.trade-closed` | trade | — |
+| `efbazaar.trade.account-email-verified` | trade — `{ sessionId, accountId, ownerId, mailboxId, email, custom, verifiedAt }`; kalit `accountId`; quti ulash sessiyasi `VERIFIED` bo'lganda va `republish` da | marketplace (akkountga email, `email_verified`, `custom` bo'lsa `CUSTOM` manba; `sessionId` bo'yicha idempotent) |
 | `chat.changed.v1` | trade (`ChatChangePublisher`) | marketplace (chat WebSocket'ini yangilaydi) |
 
 ### trade ↔ smart-admin-worker

@@ -42,19 +42,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUser;
 
 /** Checking and claiming a self-named mailbox. */
-@SpringBootTest
-@AutoConfigureMockMvc
-@TestPropertySource(properties = {
-        "trade.mailbox.domains=efbazaar.uz,efootball.uz",
-        "trade.mailbox.premium-domain-plans=MAX,STAFF"})
-class CustomMailboxIT extends AbstractIntegrationIT {
+class CustomMailboxIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeatureIT {
 
     @Autowired MockMvc mvc;
     @Autowired MailboxRepository mailboxes;
     @Autowired PlanProjection projection;
     @Autowired PlanEntitlementViewRepository entitlementRows;
     @Autowired UserPlanViewRepository userPlanRows;
-    @MockBean TradeEventPublisher events;
 
     @AfterEach
     void forget() {

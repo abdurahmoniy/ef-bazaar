@@ -51,10 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUser;
 
 /** Linking a Konami account to a mailbox: email change, then forgot-password as proof. */
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(StubEscrowConfig.class)
-class LinkSessionIT extends AbstractIntegrationIT {
+class LinkSessionIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeatureIT {
 
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
@@ -66,7 +63,6 @@ class LinkSessionIT extends AbstractIntegrationIT {
     @Autowired PlanProjection projection;
     @Autowired PlanEntitlementViewRepository entitlementRows;
     @Autowired UserPlanViewRepository userPlanRows;
-    @MockBean TradeEventPublisher events;
 
     /** Custom boxes fail closed without an entitlement; give everyone room unless a test says otherwise. */
     @org.junit.jupiter.api.BeforeEach

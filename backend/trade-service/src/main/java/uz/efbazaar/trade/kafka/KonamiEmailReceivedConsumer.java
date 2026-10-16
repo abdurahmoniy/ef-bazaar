@@ -19,6 +19,7 @@ public class KonamiEmailReceivedConsumer {
     private final TradeService trades;
     private final uz.efbazaar.trade.trade.service.TradeSideService sides;
     private final ChatChangePublisher changes;
+    private final uz.efbazaar.trade.mailbox.link.LinkSessionService linkSessions;
 
     @KafkaListener(
             topics = TradeEvents.TOPIC_KONAMI_EMAIL,
@@ -26,6 +27,16 @@ public class KonamiEmailReceivedConsumer {
             properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$KonamiEmailReceived"}
     )
     public void onKonamiEmail(TradeEvents.KonamiEmailReceived e) {
+        // A box with a live link session is not in a trade: the answer is the
+        // session's. Looked up by address, never by e.tradeId(), so a stale
+        // event keyed by an old session cannot drive a new one.
+        var session = linkSessions.liveSessionFor(e.mailboxEmail());
+        if (session.isPresent()) {
+            if (e.resetLinkPresent() || e.emailNotRegistered()) {
+                linkSessions.onResetMail(session.get(), e.emailNotRegistered() && !e.resetLinkPresent());
+            }
+            return;
+        }
         if (e.emailNotRegistered()) {
             warnNotRegistered(e);
             return;

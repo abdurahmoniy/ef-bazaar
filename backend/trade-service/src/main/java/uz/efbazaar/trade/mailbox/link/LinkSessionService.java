@@ -148,6 +148,7 @@ public class LinkSessionService {
         s.setNotRegistered(false);
         mailboxes.setLinkedAccount(s.getMailboxId(), s.getAccountId());
         stopWatching(s);
+        announce(s);
         log.info("Link session {} verified: mailbox {} is account {}'s", sid, s.getMailboxId(), s.getAccountId());
     }
 
@@ -174,6 +175,14 @@ public class LinkSessionService {
             n++;
         }
         return n;
+    }
+
+    /** Sends the verified event again — marketplace missed it; it is idempotent there. */
+    @Transactional(readOnly = true)
+    public void republish(UUID owner, UUID sid) {
+        MailboxLinkSession s = get(owner, sid);
+        if (s.getState() != LinkSessionState.VERIFIED) throw invalidState();
+        announce(s);
     }
 
     /** The live session watching this address, if any — routes worker answers here instead of to a trade. */
@@ -215,6 +224,13 @@ public class LinkSessionService {
             log.warn("No known context opens mailbox {}; the worker will rely on its cache", mb.getId());
         }
         events.imapPollRequest(s.getId(), mb.getEmail(), purpose, true, creds);
+    }
+
+    private void announce(MailboxLinkSession s) {
+        Mailbox mb = mailboxes.findById(s.getMailboxId()).orElseThrow();
+        events.accountEmailVerified(new TradeEvents.AccountEmailVerified(s.getId(), s.getAccountId(),
+                s.getOwnerId(), mb.getId(), mb.getEmail(), mb.getKind() == MailboxKind.CUSTOM,
+                s.getUpdatedAt() == null ? Instant.now() : s.getUpdatedAt()));
     }
 
     private void stopWatching(MailboxLinkSession s) {

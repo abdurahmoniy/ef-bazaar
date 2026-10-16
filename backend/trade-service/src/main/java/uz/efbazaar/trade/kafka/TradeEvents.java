@@ -27,6 +27,8 @@ public final class TradeEvents {
     public static final String TOPIC_FORGOT_PW_REQ        = "efbazaar.trade.forgot-password-request";
     public static final String TOPIC_IMAP_POLL_REQ        = "efbazaar.trade.imap-poll-request";
     public static final String TOPIC_IMAP_POLL_STOP_REQ   = "efbazaar.trade.imap-poll-stop-request";
+    public static final String TOPIC_ACCOUNT_EMAIL_VERIFIED = "efbazaar.trade.account-email-verified";
+    public static final String TOPIC_ACCOUNT_EMAIL_UNLINKED = "efbazaar.marketplace.account-email-unlinked";
     public static final String TOPIC_KONAMI_EMAIL         = "efbazaar.trade.konami-email-received";
     public static final String TOPIC_IMAP_2FA             = "efbazaar.trade.imap-2fa-code";
     public static final String TOPIC_MAILBOX_PROVISION_REQ = "efbazaar.trade.mailbox-provision-request";
@@ -150,6 +152,30 @@ public final class TradeEvents {
 
     /** Stop every poller of a mailbox — a link session ended. */
     public record ImapPollStopRequest(String mailboxEmail) {}
+
+    /**
+     * A link session proved the Konami account is on this box; marketplace
+     * writes the address onto the account and marks it verified. Idempotent
+     * by {@code sessionId}.
+     *
+     * @param custom the box is a custom one — the account gets the gold border
+     */
+    public record AccountEmailVerified(
+            UUID sessionId,
+            UUID accountId,
+            UUID ownerId,
+            UUID mailboxId,
+            String email,
+            boolean custom,
+            Instant verifiedAt) {}
+
+    /** Marketplace: the account no longer uses that box (sold, swapped, edited, relinked, deleted). */
+    public record AccountEmailUnlinked(
+            UUID accountId,
+            UUID ownerId,
+            UUID mailboxId,
+            String reason,
+            Instant at) {}
 
     /**
      * @param mailboxEmail xat qaysi qutiga kelgani. Obmenda ikkita quti bor

@@ -1,4 +1,11 @@
 spring:
+  # Every cached test context keeps its own pool. At the default (8 idle per
+  # context) the shared Postgres container runs out of clients once the suite
+  # has enough distinct contexts; idle ones should hold one connection.
+  datasource:
+    hikari:
+      minimum-idle: 1
+      idle-timeout: 10000
   jpa:
     hibernate:
       ddl-auto: validate
@@ -18,6 +25,10 @@ spring:
         heartbeat.interval.ms: 2000
 
 trade:
+  mailbox:
+    # Both domains, so custom-mailbox and admin ITs share one context.
+    domains: efbazaar.uz,efootball.uz
+    premium-domain-plans: MAX,STAFF
   crypto:
     master-key-file: ${MASTER_KEY_FILE:target/test-master-key}
   timeouts:

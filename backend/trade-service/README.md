@@ -63,9 +63,12 @@ har o'zgarish `trade_audit_log` ga yoziladi (`TradeAuditService` — yagona yozu
 
 - Chiqaradi: `trade.proposal-*`, `trade.action-notification`, `trade.admin-invited`,
   `trade.listing-sold`, `trade.trade-succeeded`, `trade.mailbox-handed-over`,
-  `trade.trade-opened` / `trade-closed`, `chat.changed.v1` va worker'ga so'rovlar.
+  `trade.trade-opened` / `trade-closed`, `trade.account-email-verified`, `chat.changed.v1` va worker'ga
+  so'rovlar (`imap-poll-stop-request` ham).
 - Tinglaydi: worker natijalari, `payment.plan-entitlements`, `payment.subscription-changed`,
-  `auth.user-role-changed`.
+  `auth.user-role-changed`, `marketplace.account-email-unlinked`. Quti ulash sessiyasi bor quti uchun
+  worker javoblari (`konami-email-received`, `konami-email-change-code-received`) savdoga emas, sessiyaga
+  boradi (manzil bo'yicha).
 - Worker bilan so'rov/natija juftlari: [docs/kafka-topics.md](../../docs/kafka-topics.md#trade--smart-admin-worker).
 
 ## Rejali job'lar

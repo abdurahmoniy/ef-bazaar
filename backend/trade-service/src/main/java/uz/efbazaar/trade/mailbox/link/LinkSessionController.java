@@ -48,6 +48,13 @@ public class LinkSessionController {
         return toResponse(service.retry(me.userId(), sid));
     }
 
+    /** "Qayta sinxronlash": the account did not get the email; send the verified event again. */
+    @PostMapping("/link-sessions/{sid}/republish")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void republish(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable UUID sid) {
+        service.republish(me.userId(), sid);
+    }
+
     @DeleteMapping("/link-sessions/{sid}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void cancel(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable UUID sid) {

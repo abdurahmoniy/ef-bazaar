@@ -23,13 +23,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asAdmin;
 
 /** Admins open mailboxes on any configured domain; the worker is told which one. */
-@SpringBootTest
-@AutoConfigureMockMvc
-@TestPropertySource(properties = "trade.mailbox.domains=efbazaar.uz,efootball.uz")
-class AdminMailboxDomainIT extends AbstractIntegrationIT {
+class AdminMailboxDomainIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeatureIT {
 
     @Autowired MockMvc mvc;
-    @MockBean TradeEventPublisher events;
 
     private String body(String localPart, String domain) {
         String d = domain == null ? "" : ",\"domain\":\"" + domain + "\"";

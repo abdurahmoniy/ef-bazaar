@@ -39,6 +39,7 @@ public class KonamiEmailChangeCodeConsumer {
     private final TradeSideService sides;
     private final ChatChangePublisher changes;
     private final TradeEventPublisher events;
+    private final uz.efbazaar.trade.mailbox.link.LinkSessionService linkSessions;
 
     @KafkaListener(
             topics = TradeEvents.TOPIC_KONAMI_EMAIL_CHANGE_CODE,
@@ -51,6 +52,11 @@ public class KonamiEmailChangeCodeConsumer {
     @Transactional
     public void onCode(TradeEvents.KonamiEmailChangeCodeReceived e) {
         if (!KonamiOtpCode.isFresh(e.verificationCode(), e.receivedAt())) return;
+        var session = linkSessions.liveSessionFor(e.mailboxEmail());
+        if (session.isPresent()) {
+            linkSessions.onEmailChangeCode(session.get(), e.verificationCode(), e.receivedAt());
+            return;
+        }
         Trade trade = trades.findById(e.tradeId()).orElse(null);
         if (trade == null || trade.getState().isTerminal()) return;
         var side = sides.byMailboxEmail(e.tradeId(), e.mailboxEmail());

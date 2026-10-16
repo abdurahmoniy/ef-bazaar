@@ -75,6 +75,10 @@ public class TradeEventPublisher {
                         restart));
     }
 
+    public void accountEmailVerified(TradeEvents.AccountEmailVerified e) {
+        send(TradeEvents.TOPIC_ACCOUNT_EMAIL_VERIFIED, e.accountId().toString(), e);
+    }
+
     public void imapPollStopRequest(String mailboxEmail) {
         send(TradeEvents.TOPIC_IMAP_POLL_STOP_REQ, mailboxEmail,
                 new TradeEvents.ImapPollStopRequest(mailboxEmail));
