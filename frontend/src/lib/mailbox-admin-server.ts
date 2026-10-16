@@ -70,6 +70,16 @@ export async function getAdminMailboxes(
   return safeFetch<PageResponse<AdminMailbox>>(`${ADMIN_MAILBOX_PREFIX}?${params.toString()}`);
 }
 
+/**
+ * Domains the create form offers, default first. Falls back to the one
+ * domain the page already knew, so a trade-service hiccup still lets an
+ * admin open a box on it.
+ */
+export async function getAdminMailboxDomains(fallback: string): Promise<string[]> {
+  const result = await safeFetch<string[]>(`${ADMIN_MAILBOX_PREFIX}/domains`);
+  return result.ok && result.data.length > 0 ? result.data : [fallback];
+}
+
 /** Chip counters. Failure degrades to no chips rather than an error page. */
 export async function getAdminMailboxStats(): Promise<MailboxStats | null> {
   const result = await safeFetch<MailboxStats>(`${ADMIN_MAILBOX_PREFIX}/stats`);
