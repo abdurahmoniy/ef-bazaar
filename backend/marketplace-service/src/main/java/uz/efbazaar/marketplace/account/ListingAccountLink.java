@@ -36,6 +36,7 @@ public class ListingAccountLink {
     private final UserAccountCardInventory inventory;
     private final ListingRepository listings;
     private final PendingAccountEmailRepository pendingEmails;
+    private final AccountEmailUnlinks unlinks;
 
     @Transactional
     public void onListingCreated(Listing listing) {
@@ -117,8 +118,10 @@ public class ListingAccountLink {
             sellerAccount.setArchivedAt(Instant.now());
             sellerAccount.setSoldPrice(listings.findById(listingId).map(Listing::getPrice).orElse(null));
             // Pochta xaridorga o'tdi: sotuvchining ro'yxatida turishi chalg'itardi.
+            unlinks.report(AccountEmailUnlinks.Linked.of(sellerAccount), AccountEmailUnlinks.Reason.SOLD);
             sellerAccount.setEmail(null);
             sellerAccount.setEmailSource(null);
+            sellerAccount.setEmailVerified(false);
             sellerAccount.setMailboxId(null);
             sellerAccount.setCurrentListingId(null);
             accounts.saveAndFlush(sellerAccount);
@@ -153,6 +156,7 @@ public class ListingAccountLink {
         pendingEmails.findByTradeIdAndUserId(tradeId, buyerId).ifPresent(pending -> {
             buyerAccount.setEmail(pending.getEmail());
             buyerAccount.setEmailSource(EmailSource.PLATFORM);
+            buyerAccount.setEmailVerified(true);
             pendingEmails.delete(pending);
         });
 
@@ -191,8 +195,10 @@ public class ListingAccountLink {
         given.setStatus(UserAccountStatus.ARCHIVED);
         given.setArchivedReason(ArchivedReason.SWAPPED_ON_PLATFORM);
         given.setArchivedAt(Instant.now());
+        unlinks.report(AccountEmailUnlinks.Linked.of(given), AccountEmailUnlinks.Reason.SWAPPED);
         given.setEmail(null);
         given.setEmailSource(null);
+        given.setEmailVerified(false);
         given.setMailboxId(null);
         given.setCurrentListingId(null);
         accounts.saveAndFlush(given);
@@ -211,6 +217,7 @@ public class ListingAccountLink {
         pendingEmails.findByTradeIdAndUserId(tradeId, sellerId).ifPresent(pending -> {
             received.setEmail(pending.getEmail());
             received.setEmailSource(EmailSource.PLATFORM);
+            received.setEmailVerified(true);
             pendingEmails.delete(pending);
         });
         UserAccount saved = accounts.saveAndFlush(received);
@@ -249,6 +256,7 @@ public class ListingAccountLink {
         pending.ifPresent(email -> {
             account.setEmail(email.getEmail());
             account.setEmailSource(EmailSource.PLATFORM);
+            account.setEmailVerified(true);
         });
         UserAccount saved = accounts.saveAndFlush(account);
         pending.ifPresent(pendingEmails::delete);
@@ -271,6 +279,7 @@ public class ListingAccountLink {
         accounts.findByOwnerIdAndSourceTradeId(userId, tradeId).ifPresentOrElse(account -> {
             account.setEmail(email);
             account.setEmailSource(EmailSource.PLATFORM);
+            account.setEmailVerified(true);
             accounts.saveAndFlush(account);
             log.info("Mailbox attached to account: accountId={} tradeId={}", account.getId(), tradeId);
         }, () -> {
@@ -305,6 +314,7 @@ public class ListingAccountLink {
                     if (account.getEmail() == null || account.getEmail().isBlank()) {
                         account.setEmail(pending.getEmail());
                         account.setEmailSource(EmailSource.PLATFORM);
+                        account.setEmailVerified(true);
                         accounts.saveAndFlush(account);
                         log.info("Mailbox attached after the race: accountId={} tradeId={}",
                                 account.getId(), tradeId);
@@ -326,13 +336,50 @@ public class ListingAccountLink {
             account.setArchivedReason(ArchivedReason.SOLD_ELSEWHERE);
             account.setArchivedAt(Instant.now());
             account.setSoldPrice(listings.findById(listingId).map(Listing::getPrice).orElse(null));
+            unlinks.report(AccountEmailUnlinks.Linked.of(account), AccountEmailUnlinks.Reason.SOLD_ELSEWHERE);
             account.setEmail(null);
             account.setEmailSource(null);
+            account.setEmailVerified(false);
             account.setMailboxId(null);
             account.setCurrentListingId(null);
             accounts.saveAndFlush(account);
             log.info("Account archived after manual sale: accountId={} listingId={}",
                     account.getId(), listingId);
         });
+    }
+
+    /**
+     * trade-service quti ulash sessiyasi orqali Konami akkount shu qutiga
+     * ulanganini isbotladi — manzil akkountga yoziladi va tasdiqlanadi.
+     *
+     * <p>Faqat egasining faol akkountiga; boshqa holatda e'tiborsiz (akkount
+     * sessiya davomida sotilgan yoki o'chirilgan bo'lishi mumkin). Takroriy
+     * xabar o'sha qiymatlarni qayta yozadi — idempotent.
+     *
+     * @return akkount shu paytgacha boshqa custom qutiga ulangan bo'lsa, o'sha
+     *         qutining id'si — u endi bo'sh (marketplace buni e'lon qiladi)
+     */
+    @Transactional
+    public java.util.Optional<UUID> applyVerifiedEmail(uz.efbazaar.marketplace.kafka.AccountEmailVerifiedDto e) {
+        UserAccount account = accounts.findByIdForUpdate(e.accountId()).orElse(null);
+        if (account == null || !account.getOwnerId().equals(e.ownerId())
+                || account.getStatus() != UserAccountStatus.ACTIVE) {
+            log.warn("account-email-verified ignored: accountId={} ownerId={} (missing, foreign or archived)",
+                    e.accountId(), e.ownerId());
+            return java.util.Optional.empty();
+        }
+        UUID previous = account.getEmailSource() == EmailSource.CUSTOM
+                && account.getMailboxId() != null && !account.getMailboxId().equals(e.mailboxId())
+                ? account.getMailboxId() : null;
+        if (previous != null) {
+            unlinks.report(AccountEmailUnlinks.Linked.of(account), AccountEmailUnlinks.Reason.RELINKED);
+        }
+        account.setEmail(e.email());
+        account.setEmailSource(e.custom() ? EmailSource.CUSTOM : EmailSource.PLATFORM);
+        account.setMailboxId(e.mailboxId());
+        account.setEmailVerified(true);
+        accounts.saveAndFlush(account);
+        log.info("Verified email attached: accountId={} mailboxId={} custom={}", account.getId(), e.mailboxId(), e.custom());
+        return java.util.Optional.ofNullable(previous);
     }
 }

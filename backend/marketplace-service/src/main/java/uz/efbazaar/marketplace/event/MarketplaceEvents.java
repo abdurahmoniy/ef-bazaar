@@ -53,4 +53,10 @@ public final class MarketplaceEvents {
 
     /** Bot /start xabari yangilandi — signal, matnni o'zi emas. */
     public record BotSettingsUpdated(UUID updatedBy, Instant occurredAt) {}
+
+    public static final String TOPIC_ACCOUNT_EMAIL_UNLINKED = "efbazaar.marketplace.account-email-unlinked";
+
+    /** The account no longer uses that box; trade-service frees it. */
+    public record AccountEmailUnlinked(UUID accountId, UUID ownerId, UUID mailboxId, String reason,
+                                       Instant at) {}
 }

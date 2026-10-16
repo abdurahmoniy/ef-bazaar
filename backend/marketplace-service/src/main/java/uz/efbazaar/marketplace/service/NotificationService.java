@@ -137,6 +137,15 @@ public class NotificationService {
                 .build());
     }
 
+    /** A custom box's account was sold away: offer to link it to another account. */
+    @Transactional
+    public void customMailboxFreed(UUID userId) {
+        saveAndNotify(Notification.builder()
+                .userId(userId)
+                .type(NotificationType.CUSTOM_MAILBOX_FREED)
+                .build());
+    }
+
     /**
      * Tells every admin a payout is waiting.
      *

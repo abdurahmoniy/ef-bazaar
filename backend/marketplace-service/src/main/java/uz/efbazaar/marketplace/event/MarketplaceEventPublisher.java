@@ -67,6 +67,12 @@ public class MarketplaceEventPublisher {
                 new MarketplaceEvents.BotSettingsUpdated(adminId, Instant.now()));
     }
 
+    /** Called after commit by {@code AccountEmailUnlinks}. */
+    public void accountEmailUnlinked(UUID accountId, UUID ownerId, UUID mailboxId, String reason) {
+        send(MarketplaceEvents.TOPIC_ACCOUNT_EMAIL_UNLINKED, accountId.toString(),
+                new MarketplaceEvents.AccountEmailUnlinked(accountId, ownerId, mailboxId, reason, Instant.now()));
+    }
+
     private void send(String topic, String key, Object event) {
         kafkaTemplate.send(topic, key, event)
                 .whenComplete((r, ex) -> {

@@ -68,7 +68,7 @@ class AccountTradeOriginTest {
                 "valuable_players", List.of(Map.of("efhub_id", 7))));
         listing.setMediaMessageIds(List.of("photo-1"));
         when(listings.findById(listingId)).thenReturn(Optional.of(listing));
-        ListingAccountLink link = new ListingAccountLink(accounts, inventory, listings, pendingEmails);
+        ListingAccountLink link = new ListingAccountLink(accounts, inventory, listings, pendingEmails, mock(AccountEmailUnlinks.class));
         TradeSucceededConsumer consumer = new TradeSucceededConsumer(mock(ReferralService.class), link,
                 mock(uz.efbazaar.marketplace.service.ListingService.class));
         // Parse the producer's wire payload, including an absent kind on old events.

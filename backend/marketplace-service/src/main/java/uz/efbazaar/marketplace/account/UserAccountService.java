@@ -30,6 +30,7 @@ public class UserAccountService {
     private static final String SQUAD_KEY = "valuable_players";
 
     private final UserAccountRepository accounts;
+    private final AccountEmailUnlinks unlinks;
     private final UserAccountCardInventory inventory;
     private final UserAccountPublisher publisher;
     private final MediaService media;
@@ -142,11 +143,14 @@ public class UserAccountService {
     public UserAccount setEmail(UUID id, UUID ownerId, String email) {
         UserAccount account = editable(id, ownerId);
         String trimmed = email == null || email.isBlank() ? null : email.trim();
+        unlinks.report(AccountEmailUnlinks.Linked.of(account), AccountEmailUnlinks.Reason.EDITED);
         account.setEmail(trimmed);
         // Qo'lda kiritilgan manzil platforma pochtasining o'rnini bosadi: eski
         // mailbox havolasi qolsa, u endi boshqa qutini ko'rsatib turardi.
         account.setEmailSource(trimmed == null ? null : EmailSource.MANUAL);
         account.setMailboxId(null);
+        // Yozilgan manzil Konami akkountda ekani isbotlanmagan.
+        account.setEmailVerified(false);
         return accounts.saveAndFlush(account);
     }
 
@@ -156,6 +160,7 @@ public class UserAccountService {
         if (account.isOnMarket()) {
             throw MarketplaceException.accountOnMarket();
         }
+        unlinks.report(AccountEmailUnlinks.Linked.of(account), AccountEmailUnlinks.Reason.DELETED);
         accounts.delete(account);
         log.info("Account deleted: id={} ownerId={}", id, ownerId);
     }
