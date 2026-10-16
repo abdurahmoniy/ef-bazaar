@@ -28,3 +28,6 @@ yarn-error.log*
 
 # local Telegram forwarding tool
 /tools/telegram-forwarder/
+
+# local Reel production scripts and media
+/output/playwright/efbazaar-reel/

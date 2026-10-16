@@ -30,6 +30,23 @@ soxta. Sahifalar qulflangan qutida `getInbox`/`getMessage`ni chaqirmaydi; 403 `m
 kelsa ham shu ekran chiqadi. "Tarifni oshirish" -> asosiy sayt `/plans`; "Boshqa qutini qulflab,
 shuni ochish" -> `/profile?mailbox=<id>#mailboxes`.
 
+## Xatlarni ko'rsatish
+
+HTML mavjud bo'lsa, trade-service Jsoup orqali tozalagan HTML ko'rsatiladi; aks holda
+oddiy matn HTML sifatida talqin qilinmaydi va bo'shliqlar/qatorlar saqlanadi.
+Ikkala formatdagi matn ichidagi HTTP(S) URL, domen va email manzillari Linkify orqali
+bosiladigan havolaga aylanadi (protokolsiz domenlar uchun HTTPS). HTML ichidagi mavjud
+havolalar, ro'yxatlar va jadvallar saqlanadi; `pre`/`code` ichiga yangi havola qo'shilmaydi.
+Yangi havolalar `target="_blank"`, `rel="noopener noreferrer"` bilan ochiladi.
+Mobil ekranda (768px dan kichik) uzun havolalar bir qatorda `…` bilan qisqartirib
+ko'rsatiladi. Havolaning to'liq manzili va screen reader matni saqlanadi. Desktopda
+uzun URL matni keyingi qatorga o'tadi.
+
+HTML `html-react-parser` bilan React elementlariga o'tkaziladi, Linkify esa matnga havola
+qo'shadi. Entity va URL parametrlari buzilmasligi uchun matn/havola atributlarini React
+escape qiladi. Bu kutubxonalar HTML sanayzeri emas: faqat API tozalagan `bodyHtml` parse qilinadi.
+Script, iframe, rasm va yuboruvchining CSS uslublarini bloklash siyosati backendda qoladi.
+
 ## Auth
 
 Login faqat asosiy saytda (efbazaar.uz). Cookie `AUTH_COOKIE_DOMAIN` (`.efbazaar.uz`) orqali
