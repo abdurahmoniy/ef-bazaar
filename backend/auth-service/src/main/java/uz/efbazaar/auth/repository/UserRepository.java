@@ -74,6 +74,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
              WHERE lower(u.telegramUsername) LIKE lower(concat('%', :q, '%'))
                 OR lower(u.telegramFirstName) LIKE lower(concat('%', :q, '%'))
                 OR lower(u.telegramLastName) LIKE lower(concat('%', :q, '%'))
+                OR lower(u.googleGivenName) LIKE lower(concat('%', :q, '%'))
                 OR lower(u.email) LIKE lower(concat('%', :q, '%'))
             """)
     Page<User> search(@Param("q") String q, Pageable pageable);
@@ -91,6 +92,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
                AND (lower(u.telegramUsername) LIKE lower(concat('%', :q, '%'))
                 OR lower(u.telegramFirstName) LIKE lower(concat('%', :q, '%'))
                 OR lower(u.telegramLastName) LIKE lower(concat('%', :q, '%'))
+                OR lower(u.googleGivenName) LIKE lower(concat('%', :q, '%'))
                 OR lower(u.email) LIKE lower(concat('%', :q, '%')))
             """)
     Page<User> searchWithTelegram(@Param("q") String q, Pageable pageable);
