@@ -68,7 +68,22 @@ class MailboxProvisionHandler:
                 password=password,
                 quota_mb=100,
             )
-        except MailboxAlreadyExists:
+        except MailboxAlreadyExists as exc:
+            if event.custom:
+                # A user-chosen name colliding with a box we never made (staff,
+                # legacy, anything already on the domain). Claiming it would
+                # store a password Mailcow never got. The row stays pending and
+                # the admins sort it out.
+                log.error(
+                    "custom mailbox %s@%s already exists in Mailcow; not provisioning",
+                    event.local_part, domain,
+                )
+                if self._notifier is not None and self._notifier.enabled:
+                    await self._notifier.notify_error(
+                        context="mailbox_provision.custom_exists", error=exc,
+                        trade_id=event.mailbox_id,
+                    )
+                return
             mb = Mailbox(email=f"{event.local_part}@{domain}")
             fresh_create = False
 

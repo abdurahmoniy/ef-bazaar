@@ -21,7 +21,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AccountEmailUnlinks {
 
-    public enum Reason { SOLD, SWAPPED, SOLD_ELSEWHERE, EDITED, RELINKED, DELETED }
+    /** IGNORED — trade-service linked a box to an account this service could not take it on. */
+    public enum Reason { SOLD, SWAPPED, SOLD_ELSEWHERE, EDITED, RELINKED, DELETED, IGNORED }
 
     /** The account's email link as it was before the change; capture it before clearing. */
     public record Linked(UUID accountId, UUID ownerId, UUID mailboxId, EmailSource source) {

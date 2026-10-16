@@ -106,10 +106,14 @@ class AccountEmailVerifiedTest {
         a.setOwnerId(UUID.randomUUID());
         found(a);
 
-        link.applyVerifiedEmail(event(a, true));
+        var e = event(a, true);
+        link.applyVerifiedEmail(e);
 
         assertThat(a.getEmail()).isNull();
         verify(accounts, never()).saveAndFlush(any());
+        // trade-service already linked the box: tell it to let go.
+        verify(unlinks).report(new AccountEmailUnlinks.Linked(a.getId(), owner, mailbox, EmailSource.CUSTOM),
+                AccountEmailUnlinks.Reason.IGNORED);
     }
 
     @Test
@@ -122,6 +126,21 @@ class AccountEmailVerifiedTest {
 
         assertThat(a.isEmailVerified()).isFalse();
         verify(accounts, never()).saveAndFlush(any());
+        verify(unlinks).report(new AccountEmailUnlinks.Linked(a.getId(), owner, mailbox, EmailSource.CUSTOM),
+                AccountEmailUnlinks.Reason.IGNORED);
+    }
+
+    @Test
+    void freesTheTradeBoxItReplaced() {
+        UUID tradeBox = UUID.randomUUID();
+        UserAccount a = account("trade-1@efbazaar.uz", EmailSource.PLATFORM, tradeBox);
+        a.setEmailVerified(true);
+        found(a);
+
+        link.applyVerifiedEmail(event(a, true));
+
+        verify(unlinks).report(new AccountEmailUnlinks.Linked(a.getId(), owner, tradeBox, EmailSource.PLATFORM),
+                AccountEmailUnlinks.Reason.RELINKED);
     }
 
     @Test

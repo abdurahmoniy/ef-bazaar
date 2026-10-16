@@ -37,6 +37,7 @@ public class MailboxService {
     private final TradeCrypto crypto;
     private final uz.efbazaar.trade.kafka.TradeEventPublisher events;
     private final uz.efbazaar.trade.plan.service.MailboxAccessService access;
+    private final uz.efbazaar.trade.mailbox.link.LinkSessionService linkSessions;
 
     @Transactional
     public Mailbox create(String email, UUID ownerUserId, UUID tradeId, byte[] initialPassword) {
@@ -156,6 +157,12 @@ public class MailboxService {
         if (m.getDeletedAt() != null) {
             throw new EntityNotFoundException("Mailbox " + mailboxId);
         }
+        if (m.getKind() == uz.efbazaar.trade.mailbox.domain.MailboxKind.CUSTOM) {
+            // A custom name is given once and never given again; releasing it
+            // would burn the name and strand any Konami account behind it.
+            throw new uz.efbazaar.trade.common.exception.ApiCodeException(HttpStatus.CONFLICT,
+                    "custom_mailbox_permanent", "Custom qutini bo‘shatib bo‘lmaydi");
+        }
         if (trades.existsLiveWithMailbox(mailboxId, TradeState.nonTerminal())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Bu pochta qutisi davom etayotgan savdoda ishlatilmoqda — savdo tugagach o'zgartiring");
@@ -163,6 +170,7 @@ public class MailboxService {
         if (mailboxes.detachOwnedBy(mailboxId, ownerUserId) == 0) {
             throw new EntityNotFoundException("Mailbox " + mailboxId);
         }
+        linkSessions.endForMailbox(mailboxId);
         rotateIfProvisioned(m);
         log.info("User {} detached their mailbox {}", ownerUserId, mailboxId);
     }
@@ -497,6 +505,7 @@ public class MailboxService {
         }
         m.setOwnerUserId(null);
         mailboxes.save(m);
+        linkSessions.endForMailbox(mailboxId);
         rotateIfProvisioned(m);
         log.info("Admin {} detached mailbox {} from user {}", adminId, mailboxId, previous);
     }
@@ -521,6 +530,7 @@ public class MailboxService {
         // A box just handed to a user is the newest to them: it opens first.
         // Column-only write — never put the whole row back.
         mailboxes.setAccessPriority(mailboxId, System.currentTimeMillis());
+        linkSessions.endForMailbox(mailboxId);
         rotateIfProvisioned(m);
         log.info("Admin {} moved mailbox {} from user {} to user {}", adminId, mailboxId, previous, newOwnerId);
         return saved;

@@ -20,7 +20,7 @@ is only the health check on `WORKER_HEALTHCHECK_PORT` (8086).
 | Request (from trade-service) | Handler | Answers with |
 |---|---|---|
 | `efbazaar.trade.email-provision-request` | `handlers/email_provision.py` | `email-provisioned`; after retries are exhausted `main.py` emits `email-provision-failed` |
-| `efbazaar.trade.mailbox-provision-request` | `handlers/mailbox_provision.py` — quti `domain` (eventdan; yo'q bo'lsa `efbazaar.uz`) da ochiladi: admin va custom qutilar | `mailbox-provisioned` |
+| `efbazaar.trade.mailbox-provision-request` | `handlers/mailbox_provision.py` — quti `domain` (eventdan; yo'q bo'lsa `efbazaar.uz`) da ochiladi: admin va custom qutilar; `custom: true` da Mailcow'da shu nomli quti allaqachon bo'lsa `mailbox-provisioned` yuborilmaydi va adminlarga xabar ketadi | `mailbox-provisioned` |
 | `efbazaar.trade.forgot-password-request` | `handlers/forgot_password.py` | `worker-queued` / `worker-started` (the reset email itself arrives through IMAP polling) |
 | `efbazaar.trade.imap-poll-request` | `handlers/imap_poll.py` — parol keshda bo'lmasa so'rovdagi `passwordContext` + `encryptedPassword/iv/tag` ni ochadi (worker restart'dan keyin custom qutilar uchun); `restart: true` eski poller'ni to'xtatib qayta boshlaydi | `konami-email-received`, `imap-2fa-code`, `konami-email-change-code-received` |
 | `efbazaar.trade.imap-poll-stop-request` | `handlers/imap_poll_stop.py` — qutining barcha poller'larini to'xtatadi (custom quti ulash sessiyasi tugadi) | — |

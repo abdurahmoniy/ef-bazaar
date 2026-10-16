@@ -219,7 +219,9 @@ public final class TradeEvents {
             UUID mailboxId,
             String localPart,
             /** Mailcow domain to create the box on; older workers assume efbazaar.uz. */
-            String domain) {}
+            String domain,
+            /** User-chosen name: an existing Mailcow box with it is somebody else's, not a replay. */
+            boolean custom) {}
 
     public record MailboxProvisioned(
             UUID mailboxId,

@@ -366,10 +366,15 @@ public class ListingAccountLink {
                 || account.getStatus() != UserAccountStatus.ACTIVE) {
             log.warn("account-email-verified ignored: accountId={} ownerId={} (missing, foreign or archived)",
                     e.accountId(), e.ownerId());
+            // trade-service has already linked the box to this account; without
+            // an answer the box would stay "linked" to nothing for good.
+            unlinks.report(new AccountEmailUnlinks.Linked(e.accountId(), e.ownerId(), e.mailboxId(),
+                    e.custom() ? EmailSource.CUSTOM : EmailSource.PLATFORM), AccountEmailUnlinks.Reason.IGNORED);
             return java.util.Optional.empty();
         }
-        UUID previous = account.getEmailSource() == EmailSource.CUSTOM
-                && account.getMailboxId() != null && !account.getMailboxId().equals(e.mailboxId())
+        // Any box this account was verified on before — custom or a trade box —
+        // is free once it moves to the new one.
+        UUID previous = account.getMailboxId() != null && !account.getMailboxId().equals(e.mailboxId())
                 ? account.getMailboxId() : null;
         if (previous != null) {
             unlinks.report(AccountEmailUnlinks.Linked.of(account), AccountEmailUnlinks.Reason.RELINKED);

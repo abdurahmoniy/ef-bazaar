@@ -33,7 +33,8 @@ public class KonamiEmailReceivedConsumer {
         var session = linkSessions.liveSessionFor(e.mailboxEmail());
         if (session.isPresent()) {
             if (e.resetLinkPresent() || e.emailNotRegistered()) {
-                linkSessions.onResetMail(session.get(), e.emailNotRegistered() && !e.resetLinkPresent());
+                linkSessions.onResetMail(session.get(), e.emailNotRegistered() && !e.resetLinkPresent(),
+                        e.receivedAt());
             }
             return;
         }

@@ -124,7 +124,7 @@ class CustomMailboxIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeatu
         assertThat(row.getSource()).isEqualTo(MailboxSource.USER);
         assertThat(row.getOwnerUserId()).isEqualTo(u);
         assertThat(row.getProvisionedAt()).isNull();
-        verify(events).mailboxProvisionRequest(eq(row.getId()), eq(name), eq("efbazaar.uz"));
+        verify(events).mailboxProvisionRequest(eq(row.getId()), eq(name), eq("efbazaar.uz"), eq(true));
 
         mvc.perform(post("/api/v1/mailboxes/custom").with(asUser(u))
                         .contentType(MediaType.APPLICATION_JSON).content(claimBody(unique(), "efbazaar.uz")))

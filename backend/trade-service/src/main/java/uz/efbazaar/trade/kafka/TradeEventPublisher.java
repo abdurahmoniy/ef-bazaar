@@ -86,8 +86,12 @@ public class TradeEventPublisher {
 
     /** Trade-less mailbox creation (admin panel, custom boxes) on {@code domain}. */
     public void mailboxProvisionRequest(UUID mailboxId, String localPart, String domain) {
+        mailboxProvisionRequest(mailboxId, localPart, domain, false);
+    }
+
+    public void mailboxProvisionRequest(UUID mailboxId, String localPart, String domain, boolean custom) {
         send(TradeEvents.TOPIC_MAILBOX_PROVISION_REQ, mailboxId.toString(),
-                new TradeEvents.MailboxProvisionRequest(mailboxId, localPart, domain));
+                new TradeEvents.MailboxProvisionRequest(mailboxId, localPart, domain, custom));
     }
 
     public void mailboxRotateRequest(UUID mailboxId, String mailboxEmail) {

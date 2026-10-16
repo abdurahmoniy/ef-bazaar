@@ -34,4 +34,10 @@ public interface MailboxLinkSessionRepository extends JpaRepository<MailboxLinkS
             + "and s.state in (uz.efbazaar.trade.mailbox.link.LinkSessionState.WAIT_EMAIL_CHANGE, "
             + "uz.efbazaar.trade.mailbox.link.LinkSessionState.WAIT_RESET)")
     List<UUID> findDueIds(@Param("now") Instant now);
+
+    /** An expired attempt on a box that changed hands must not be retried. */
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update MailboxLinkSession s set s.state = uz.efbazaar.trade.mailbox.link.LinkSessionState.CANCELLED "
+            + "where s.mailboxId = :mailboxId and s.state = uz.efbazaar.trade.mailbox.link.LinkSessionState.EXPIRED")
+    int cancelExpiredForMailbox(@Param("mailboxId") UUID mailboxId);
 }

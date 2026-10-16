@@ -187,3 +187,38 @@ def test_stop_request_decodes():
         "efbazaar.trade.imap-poll-stop-request", json.dumps({"mailboxEmail": BOX}).encode()
     )
     assert ev == e.ImapPollStopRequest(mailbox_email=BOX)
+
+
+async def test_custom_name_already_in_mailcow_is_not_reported_as_ours(encryptor):
+    """A user-chosen name can collide with a box we never made (staff, legacy).
+
+    Reporting it provisioned would store a password Mailcow never got: IMAP
+    and webmail would fail for good. Nothing is published, the admins are told.
+    """
+    from smart_admin_worker.mailcow.errors import MailboxAlreadyExists
+
+    mailcow = AsyncMock()
+    mailcow.create_mailbox.side_effect = MailboxAlreadyExists(409, "exists")
+    producer = AsyncMock()
+    notifier = AsyncMock()
+    notifier.enabled = True
+    handler = MailboxProvisionHandler(
+        mailcow=mailcow, encryptor=encryptor, producer=producer, notifier=notifier
+    )
+
+    await handler.handle(
+        e.MailboxProvisionRequest(
+            mailbox_id=BOX_ID, local_part="alibek1", domain="efbazaar.uz", custom=True
+        )
+    )
+
+    producer.publish.assert_not_awaited()
+    notifier.notify_error.assert_awaited_once()
+
+
+def test_provision_request_decodes_custom_flag():
+    ev = from_json(
+        "efbazaar.trade.mailbox-provision-request",
+        json.dumps({"mailboxId": str(BOX_ID), "localPart": "alibek1", "custom": True}).encode(),
+    )
+    assert ev.custom is True

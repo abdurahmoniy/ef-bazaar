@@ -79,6 +79,8 @@ class MailboxProvisionRequest:
     local_part: str
     # Mailcow domain; older trade-services did not send it (= the default).
     domain: str | None = None
+    # A user-chosen (custom) name: an existing Mailcow box with it is not ours.
+    custom: bool = False
 
 
 @dataclass(frozen=True, slots=True)

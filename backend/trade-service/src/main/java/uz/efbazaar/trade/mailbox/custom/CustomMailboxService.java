@@ -94,7 +94,7 @@ public class CustomMailboxService {
             throw new ApiCodeException(HttpStatus.CONFLICT, "taken", "Bu nom band");
         }
         // Deferred to after commit by the publisher.
-        events.mailboxProvisionRequest(row.getId(), local, domain);
+        events.mailboxProvisionRequest(row.getId(), local, domain, true);
         log.info("User {} claimed custom mailbox {}", userId, email);
         return row;
     }
