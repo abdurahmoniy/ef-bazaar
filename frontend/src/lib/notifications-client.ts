@@ -82,6 +82,8 @@ export function notificationLabel(n: NotificationResponse): string {
       return 'Savdo yakunlandi \u2014 akkount emaili profilingizga qo\u2019shildi';
     case 'TRADE_MAILBOX_RETURNED':
       return 'Savdo yakunlanmadi \u2014 sizga berilgan email profilingizga biriktirildi';
+    case 'CUSTOM_MAILBOX_FREED':
+      return 'Custom emailingiz bo‘shadi — boshqa akkountingizga ulang';
     case 'TRADE_PROPOSAL_CREATED':
       return 'Sizga yangi savdo taklifi yuborildi';
     case 'TRADE_STARTED':
@@ -123,6 +125,7 @@ export function notificationHref(n: NotificationResponse): string | null {
   // hozir nolda turibdi. Qolgan ikkisida panel yopiq, ariza sahifasi
   // esa nima bo'lganini va sababini ko'rsatadi.
   if (n.type === 'PARTNER_APPROVED') return '/partner';
+  if (n.type === 'CUSTOM_MAILBOX_FREED') return '/mailboxes/custom';
   if (n.type === 'PARTNER_REJECTED' || n.type === 'PARTNER_CANCELLED') return '/partnership';
   // The inbox itself, not the trade: the trade is over, and what the reader
   // needs is the mail — Konami's codes arrive there if they want to move the

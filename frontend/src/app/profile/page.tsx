@@ -19,6 +19,8 @@ import { getWallet } from '@/lib/payment-server';
 import { getMyPlanSSR } from '@/lib/plans-server';
 import { FEATURES } from '@/lib/feature-flags';
 import { getAccountDisplayData } from '@/lib/account-display-server';
+import { getMyCustomMailboxesSSR } from '@/lib/custom-mailbox-server';
+import { FreeCustomMailboxBanner } from '@/components/profile/free-custom-mailbox-banner';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,7 +72,10 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     activeTab === 'account' ? getMyPlanSSR() : Promise.resolve(null),
   ]);
 
-  const accountDisplay = activeTab === 'accounts' ? await getAccountDisplayData(accounts, user.id) : {};
+  const [accountDisplay, customBoxes] = await Promise.all([
+    activeTab === 'accounts' ? getAccountDisplayData(accounts, user.id) : Promise.resolve({}),
+    activeTab === 'accounts' || activeTab === 'account' ? getMyCustomMailboxesSSR() : Promise.resolve(null),
+  ]);
 
   // Sotilgan / obmen qilinganlar tarix: ular endi egasida emas.
   const ownedAccounts = accounts.filter((a) => a.status !== 'ARCHIVED');
@@ -155,6 +160,8 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           va odam na sababni, na yechimni bilardi. Slot bo'shashi bilan
           bu blok o'zi yo'qoladi.
         */}
+
+        {customBoxes && <FreeCustomMailboxBanner boxes={customBoxes} />}
 
         {/* Tab content view */}
         <section key={activeTab} className="animate-panel-in">

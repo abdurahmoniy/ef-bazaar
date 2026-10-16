@@ -200,3 +200,35 @@ describe('AccountCard', () => {
     expect(document.activeElement).toBe(trigger);
   });
 });
+
+describe('email badges', () => {
+  const link = (label: string) =>
+    Array.from(container.querySelectorAll('a')).find((a) => a.textContent?.includes(label));
+
+  it('shows the verified mark and the gold border for a custom address', async () => {
+    await render({ email: 'alibek1@efbazaar.uz', emailSource: 'CUSTOM', emailVerified: true });
+
+    expect(container.querySelector('[aria-label="Tasdiqlangan email"]')).toBeTruthy();
+    expect(container.querySelector('article')?.className).toContain('gold-ring');
+  });
+
+  it('marks a trade address verified without the gold border', async () => {
+    await render({ email: 'trade-1@efbazaar.uz', emailSource: 'PLATFORM', emailVerified: true });
+
+    expect(container.querySelector('[aria-label="Tasdiqlangan email"]')).toBeTruthy();
+    expect(container.querySelector('article')?.className).not.toContain('gold-ring');
+  });
+
+  it('offers a custom address when the account has none', async () => {
+    await render({ email: null, emailSource: null });
+
+    expect(link('O‘zingiz tanlagan email biriktiring')?.getAttribute('href')).toBe('/mailboxes/custom?accountId=acc-1');
+  });
+
+  it('offers verification for the user’s own box', async () => {
+    await render({ email: 'sardor10@efbazaar.uz', emailSource: 'MANUAL' }, { display: { verifyMailboxId: 'box-9' } });
+
+    expect(link('Tasdiqlash')?.getAttribute('href')).toBe('/mailboxes/custom/box-9/link?verify=1&accountId=acc-1');
+    expect(container.querySelector('[aria-label="Tasdiqlangan email"]')).toBeNull();
+  });
+});

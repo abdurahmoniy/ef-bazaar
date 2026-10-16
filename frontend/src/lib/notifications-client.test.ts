@@ -133,6 +133,13 @@ describe('notification client helpers', () => {
     expect(notificationHref(returned)).not.toContain('/trade-admin');
   });
 
+  it('sends a freed custom box to the claim page with an offer to relink', () => {
+    const freed = { id: 'n6', type: 'CUSTOM_MAILBOX_FREED', createdAt: '2026-10-16T00:00:00Z' } satisfies NotificationResponse;
+
+    expect(notificationHref(freed)).toBe('/mailboxes/custom');
+    expect(notificationLabel(freed)).toBe('Custom emailingiz bo‘shadi — boshqa akkountingizga ulang');
+  });
+
   it('tells a failed trade apart from a completed one', () => {
     const base = { id: 'n5', createdAt: '2026-08-21T00:00:00Z' };
 

@@ -14,6 +14,8 @@ export type AccountArchivedReason = 'SOLD_ON_PLATFORM' | 'SOLD_ELSEWHERE' | 'BY_
 export interface AccountDisplayData {
   price?: number | string;
   mailboxHref?: string;
+  /** The user's own box at this account's address — lets an unverified address be verified. */
+  verifyMailboxId?: string;
 }
 
 export interface UserAccountResponse {

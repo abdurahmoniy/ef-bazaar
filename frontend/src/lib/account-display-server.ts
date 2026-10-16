@@ -26,6 +26,7 @@ export async function getAccountDisplayData(
     const display: AccountDisplayData = {};
     const mailboxId = account.email ? mailboxByEmail.get(account.email.trim().toLowerCase()) : undefined;
     if (mailboxId) display.mailboxHref = `/mail/${encodeURIComponent(mailboxId)}`;
+    if (mailboxId && !account.emailVerified) display.verifyMailboxId = mailboxId;
     if (listings[index]) display.price = listings[index].price;
     return [account.id, display];
   }));
