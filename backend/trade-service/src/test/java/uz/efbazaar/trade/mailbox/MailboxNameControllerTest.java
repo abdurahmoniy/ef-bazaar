@@ -35,7 +35,8 @@ class MailboxNameControllerTest {
     void setUp() {
         service = mock(MailboxService.class);
         mvc = standaloneSetup(new MailboxController(service, mock(MailboxMapper.class),
-                mock(MailboxSlotService.class), mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class)))
+                mock(MailboxSlotService.class), mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class),
+                mock(uz.efbazaar.trade.mailbox.link.MailboxLinkSessionRepository.class)))
                 .setControllerAdvice(new TradeExceptionHandler())
                 .setCustomArgumentResolvers(new HandlerMethodArgumentResolver() {
                     public boolean supportsParameter(MethodParameter parameter) {

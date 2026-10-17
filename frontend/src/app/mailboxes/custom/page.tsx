@@ -5,7 +5,9 @@ import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { CustomClaim } from '@/components/mailboxes/custom-claim';
 import { CustomMailboxList } from '@/components/mailboxes/custom-mailbox-list';
 import { getMe } from '@/lib/auth';
-import { getMyCustomMailboxesSSR } from '@/lib/custom-mailbox-server';
+import { getMyCustomMailboxesSSR, getMyMailboxesSSR } from '@/lib/custom-mailbox-server';
+import { getMyAccountsServer } from '@/lib/accounts-server';
+import { FreeTradeMailboxList } from '@/components/mailboxes/free-trade-mailbox-list';
 import { getMyPlanSSR } from '@/lib/plans-server';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +21,10 @@ export default async function CustomMailboxPage({
   const user = await getMe();
   if (!user) redirect('/auth/login?from=/mailboxes/custom');
   const { accountId } = await searchParams;
-  const [mine, boxes] = await Promise.all([getMyPlanSSR(), getMyCustomMailboxesSSR()]);
+  const [mine, boxes, owned, accounts] = await Promise.all([
+    getMyPlanSSR(), getMyCustomMailboxesSSR(), getMyMailboxesSSR(), getMyAccountsServer(),
+  ]);
+  const accountEmails = accounts.filter((a) => a.status === 'ACTIVE' && a.email).map((a) => a.email as string);
 
   return (
     <MarketplaceShell user={user} activeTab="profile" hideSearch hideHeader backHref="/profile?tab=accounts">
@@ -39,6 +44,7 @@ export default async function CustomMailboxPage({
         ) : (
           <CustomMailboxList boxes={boxes} />
         )}
+        {owned && <FreeTradeMailboxList boxes={owned} accountEmails={accountEmails} />}
       </div>
     </MarketplaceShell>
   );

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { emailBadges, freeCustomMailboxes } from './account-email-badges';
+import { emailBadges, freeCustomMailboxes, freeMailboxes } from './account-email-badges';
+import type { OwnedMailbox } from './mailbox-slots';
 import type { UserAccountResponse } from './accounts-types';
 import type { CustomMailbox } from './custom-mailbox';
 
@@ -59,5 +60,36 @@ describe('freeCustomMailboxes', () => {
       box({ id: 'linking', activeSessionId: 's' }),
     ];
     expect(freeCustomMailboxes(boxes).map((b) => b.id)).toEqual(['free']);
+  });
+});
+
+describe('freeMailboxes', () => {
+  const box = (over: Partial<OwnedMailbox>): OwnedMailbox => ({
+    id: 'b', email: 'x@efbazaar.uz', tradeId: null, createdAt: '', handedOffAt: null, locked: false,
+    kind: 'RANDOM', linkedAccountId: null, activeSessionId: null, provisionedAt: '2026-10-01T00:00:00Z', ...over,
+  });
+
+  it('offers trade boxes left behind after a sale, alongside custom ones', () => {
+    const boxes = [
+      box({ id: 'sold', email: 'trade-1@efbazaar.uz' }),
+      box({ id: 'custom', email: 'alibek1@efbazaar.uz', kind: 'CUSTOM' }),
+    ];
+    expect(freeMailboxes(boxes, new Set()).map((b) => b.id)).toEqual(['custom', 'sold']);
+  });
+
+  it('skips boxes an account still uses, even when not linked in trade-service', () => {
+    const boxes = [box({ id: 'used', email: 'Trade-2@efbazaar.uz' })];
+    expect(freeMailboxes(boxes, new Set(['trade-2@efbazaar.uz']))).toEqual([]);
+  });
+
+  it('skips linked, locked, unprovisioned, in-trade and being-linked boxes', () => {
+    const boxes = [
+      box({ id: 'linked', linkedAccountId: 'a' }),
+      box({ id: 'locked', locked: true }),
+      box({ id: 'pending', provisionedAt: null }),
+      box({ id: 'trade', tradeId: 't' }),
+      box({ id: 'linking', activeSessionId: 's' }),
+    ];
+    expect(freeMailboxes(boxes, new Set())).toEqual([]);
   });
 });

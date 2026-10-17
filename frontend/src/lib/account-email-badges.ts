@@ -1,5 +1,6 @@
 import type { AccountDisplayData, UserAccountResponse } from './accounts-types';
 import type { CustomMailbox } from './custom-mailbox';
+import type { OwnedMailbox } from './mailbox-slots';
 
 const OUR_DOMAINS = /@(efbazaar\.uz|efootball\.uz)$/i;
 
@@ -34,4 +35,17 @@ export function emailBadges(account: UserAccountResponse, display?: AccountDispl
 /** Custom boxes sitting empty — ready, open, linked to nothing and not being linked. */
 export function freeCustomMailboxes(boxes: CustomMailbox[]): CustomMailbox[] {
   return boxes.filter((b) => b.provisioned && !b.locked && !b.linkedAccountId && !b.activeSessionId);
+}
+
+/**
+ * Every box the user owns that no account uses: custom ones and trade boxes
+ * left behind after the account was sold. A box counts as used when an account
+ * is verified on it or still carries its address (trade-service does not know
+ * about trade handovers). Custom boxes first.
+ */
+export function freeMailboxes(boxes: OwnedMailbox[], accountEmails: ReadonlySet<string>): OwnedMailbox[] {
+  return boxes
+    .filter((b) => !b.locked && !b.tradeId && !b.linkedAccountId && !b.activeSessionId && Boolean(b.provisionedAt))
+    .filter((b) => !accountEmails.has(b.email.trim().toLowerCase()))
+    .sort((a, b) => Number(a.kind !== 'CUSTOM') - Number(b.kind !== 'CUSTOM'));
 }
