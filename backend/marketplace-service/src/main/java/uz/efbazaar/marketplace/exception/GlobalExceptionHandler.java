@@ -114,6 +114,16 @@ public class GlobalExceptionHandler {
         return build(status, status.name().toLowerCase(java.util.Locale.ROOT), message, null);
     }
 
+    /**
+     * The client went away (closed the page, cancelled the request, lost the
+     * network) before the response was written. Nothing failed on our side and
+     * there is nobody left to answer, so it is not worth an error alert.
+     */
+    @ExceptionHandler(org.springframework.web.context.request.async.AsyncRequestNotUsableException.class)
+    void onClientGone(org.springframework.web.context.request.async.AsyncRequestNotUsableException ex) {
+        log.debug("Client went away before the response was written: {}", ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> onUnknown(Exception ex) {
         // Root cause on the first line: the Telegram log forwarder truncates
