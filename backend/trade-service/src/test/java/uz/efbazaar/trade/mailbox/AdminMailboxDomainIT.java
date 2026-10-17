@@ -13,6 +13,7 @@ import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
 
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -26,6 +27,7 @@ import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asAdm
 class AdminMailboxDomainIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeatureIT {
 
     @Autowired MockMvc mvc;
+    @Autowired uz.efbazaar.trade.mailbox.repository.MailboxRepository mailboxes;
 
     private String body(String localPart, String domain) {
         String d = domain == null ? "" : ",\"domain\":\"" + domain + "\"";
@@ -40,6 +42,9 @@ class AdminMailboxDomainIT extends uz.efbazaar.trade.testsupport.AbstractMailbox
                 .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.email").value(local + "@efootball.uz"));
         verify(events).mailboxProvisionRequest(any(), eq(local), eq("efootball.uz"));
+        // A box an admin hands to someone is that person's own address, not a trade box.
+        assertThat(mailboxes.findByEmail(local + "@efootball.uz").orElseThrow().getKind())
+                .isEqualTo(uz.efbazaar.trade.mailbox.domain.MailboxKind.CUSTOM);
     }
 
     @Test

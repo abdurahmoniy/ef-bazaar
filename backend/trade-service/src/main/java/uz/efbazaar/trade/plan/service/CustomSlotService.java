@@ -15,7 +15,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Self-named mailboxes a plan allows.
+ * Self-named mailboxes a plan allows. Boxes an admin registered for a user are
+ * custom too, but they are gifts: they spend no slot and never lock.
  *
  * <p>Unlike {@link MailboxSlotService} this fails closed: an unknown
  * entitlement means 0. A custom box is a permanent address handed out for
@@ -49,7 +50,7 @@ public class CustomSlotService {
 
     @Transactional(readOnly = true)
     public long used(UUID userId) {
-        return mailboxes.countLiveByOwnerAndKind(userId, MailboxKind.CUSTOM);
+        return mailboxes.countClaimedCustomOwnedBy(userId);
     }
 
     @Transactional(readOnly = true)
@@ -63,7 +64,10 @@ public class CustomSlotService {
     public Set<UUID> lockedIds(UUID userId) {
         OptionalLong limit = limitFor(userId);
         if (limit.isEmpty()) return Set.of();
-        List<Mailbox> owned = mailboxes.findAccessOrderOwnedBy(userId, MailboxKind.CUSTOM);
+        // Admin gifts are always open and do not take a claimed box's place.
+        List<Mailbox> owned = mailboxes.findAccessOrderOwnedBy(userId, MailboxKind.CUSTOM).stream()
+                .filter(m -> m.getSource() != uz.efbazaar.trade.mailbox.domain.MailboxSource.ADMIN)
+                .toList();
         Set<UUID> locked = new LinkedHashSet<>();
         for (int i = (int) Math.min(limit.getAsLong(), owned.size()); i < owned.size(); i++) {
             locked.add(owned.get(i).getId());

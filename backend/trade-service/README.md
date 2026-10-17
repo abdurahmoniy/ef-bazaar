@@ -9,7 +9,7 @@ martalik uzatish, escrow pochta qutilari, trade-admin'lar va reytinglar shu yerd
 |---|---|
 | Port | 8085 |
 | Public yo'l | `/api/trade/**` → `/api/**` (token shart, aks holda 401); STOMP WebSocket `/ws/trade` |
-| DB | `TRADE_DB_NAME` (Flyway `V1`–`V31`) |
+| DB | `TRADE_DB_NAME` (Flyway `V1`–`V32`) |
 | Redis | takliflar (10 daqiqa TTL), bir martalik parol, presence, recheck rate limit, deadline uzaytirish |
 | Shifrlash | `MASTER_KEY_FILE` + HKDF (`crypto/`) — chat xabarlari va maxfiy maydonlar |
 
@@ -36,7 +36,7 @@ har o'zgarish `trade_audit_log` ga yoziladi (`TradeAuditService` — yagona yozu
 | `mailbox`, `mail` | Escrow pochta qutilari (Mailcow), foydalanuvchi uchun read-only IMAP (mail.efbazaar.uz frontendi shu API'ni ishlatadi) |
 | `admin` | Trade-admin: profil, katalog, taklif qilish (invite → accept/decline), ish navbati, eskalatsiya, SMART savdoga qo'lda aralashish |
 | `seller` | Sotuvchi reytingi (xaridordan 1–5) |
-| `plan` | payment-service tariflarining lokal projection'i; qutilar ikki turda (`mailboxes.kind`): `RANDOM` (savdo va admin qutilari, `mailbox.slots`) va `CUSTOM` (user o'zi olgan nomli quti, `mailbox.custom_slots`, savdoda ishlatilmaydi) — har tur o'z limiti bo'yicha alohida qulflanadi va almashtiriladi; `CustomSlotService` — custom limit (projection'da qator bo'lmasa 0, `null` — cheksiz); `MailboxSlotService` — nechta random quti ochish mumkin (egasi savdo tomoni bo'lmagan jonli savdodagi quti — adminga berilgan human escrow quti — egasining hisobiga kirmaydi); `MailboxAccessService` — limitdan oshgan qutilar qulflanadi (`mailboxes.access_priority`, hisoblanadi, saqlanmaydi; jonli savdodagi quti hech qachon qulflanmaydi; egasi savdo tomoni bo'lmagan jonli quti — human savdoda adminga berilgan escrow quti — ham ochiq, lekin egasining limitiga sanalmaydi) |
+| `plan` | payment-service tariflarining lokal projection'i; qutilar ikki turda (`mailboxes.kind`): `RANDOM` (savdo va admin qutilari, `mailbox.slots`) va `CUSTOM` (user o'zi olgan nomli quti, `mailbox.custom_slots`, savdoda ishlatilmaydi) — har tur o'z limiti bo'yicha alohida qulflanadi va almashtiriladi; `CustomSlotService` — custom limit (projection'da qator bo'lmasa 0, `null` — cheksiz); admin paneldan yaratilgan qutilar ham `CUSTOM` (`source=ADMIN`, V32 eskilarini o'tkazdi), lekin ular sovg'a — slot band qilmaydi va hech qachon qulflanmaydi; `MailboxSlotService` — nechta random quti ochish mumkin (egasi savdo tomoni bo'lmagan jonli savdodagi quti — adminga berilgan human escrow quti — egasining hisobiga kirmaydi); `MailboxAccessService` — limitdan oshgan qutilar qulflanadi (`mailboxes.access_priority`, hisoblanadi, saqlanmaydi; jonli savdodagi quti hech qachon qulflanmaydi; egasi savdo tomoni bo'lmagan jonli quti — human savdoda adminga berilgan escrow quti — ham ochiq, lekin egasining limitiga sanalmaydi) |
 | `payment` | `EscrowClient` — payment-service `/internal/trades/{id}/escrow/*` (trade so'mda, payment tiyinda hisoblaydi) |
 | `marketplace`, `partner`, `security` | marketplace (e'lon shartlari, akkount), hamkor attributsiyasi, auth (ismlar) HTTP klientlari |
 | `card` | Foydalanuvchining bank kartalari (PAN shifrlangan, Luhn tekshiruvi). Hozir faqat o'z CRUD'i bor — boshqa kod ishlatmaydi |

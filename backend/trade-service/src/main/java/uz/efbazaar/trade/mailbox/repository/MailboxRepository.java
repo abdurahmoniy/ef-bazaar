@@ -194,6 +194,12 @@ public interface MailboxRepository
     @Query("select count(m) from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null and m.kind = :kind")
     long countLiveByOwnerAndKind(@Param("owner") UUID owner, @Param("kind") MailboxKind kind);
 
+    /** Custom boxes the user claimed themselves — admin gifts spend no slot. */
+    @Query("select count(m) from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null "
+            + "and m.kind = uz.efbazaar.trade.mailbox.domain.MailboxKind.CUSTOM "
+            + "and m.source <> uz.efbazaar.trade.mailbox.domain.MailboxSource.ADMIN")
+    long countClaimedCustomOwnedBy(@Param("owner") UUID owner);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from Mailbox m where m.id = :id and m.ownerUserId = :owner and m.deletedAt is null")
     Optional<Mailbox> lockOwned(@Param("id") UUID id, @Param("owner") UUID owner);
