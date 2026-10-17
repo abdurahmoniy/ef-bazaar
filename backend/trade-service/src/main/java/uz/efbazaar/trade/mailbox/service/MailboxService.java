@@ -400,6 +400,9 @@ public class MailboxService {
                 .email(email)
                 .ownerUserId(ownerUserId)
                 .source(MailboxSource.ADMIN)
+                // The owner's own address, not a trade box: it can be linked to
+                // an account like any custom box. Admin gifts spend no slot.
+                .kind(uz.efbazaar.trade.mailbox.domain.MailboxKind.CUSTOM)
                 .createdByAdminId(adminId)
                 .encryptedPassword(new byte[]{0})
                 .passwordIv(new byte[12])

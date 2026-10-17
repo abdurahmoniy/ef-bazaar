@@ -9,6 +9,7 @@ import uz.efbazaar.trade.mailbox.dto.MailboxResponse;
 @Mapper(componentModel = "spring")
 public interface MailboxMapper {
     @Mapping(target = "locked", ignore = true)
+    @Mapping(target = "activeSessionId", ignore = true)
     MailboxResponse toResponse(Mailbox mailbox);
 
     AdminMailboxResponse toAdminResponse(Mailbox mailbox);

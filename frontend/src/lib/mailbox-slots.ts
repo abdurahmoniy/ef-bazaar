@@ -18,6 +18,12 @@ export interface OwnedMailbox {
   locked: boolean;
   /** CUSTOM — user o'zi olgan nomli quti; random slotga kirmaydi va bo'shatilmaydi. */
   kind?: 'RANDOM' | 'CUSTOM';
+  /** Akkount tasdiqlangan quti (trade-service). */
+  linkedAccountId?: string | null;
+  /** Hozir ulanayotgan bo'lsa — ulash sessiyasi. */
+  activeSessionId?: string | null;
+  /** Null — Mailcow hali tasdiqlamagan. */
+  provisionedAt?: string | null;
 }
 
 /**

@@ -64,6 +64,36 @@ class CustomSlotIT extends AbstractIntegrationIT {
         return id;
     }
 
+    private UUID adminGift(UUID owner, long priority) {
+        UUID id = box(owner, MailboxKind.CUSTOM, priority);
+        mailboxes.findById(id).ifPresent(m -> {
+            m.setSource(uz.efbazaar.trade.mailbox.domain.MailboxSource.ADMIN);
+            mailboxes.saveAndFlush(m);
+        });
+        return id;
+    }
+
+    @Test
+    void anAdminGivenCustomBoxNeitherSpendsASlotNorLocks() {
+        standardGrants(Map.of("mailbox.slots", "3", "mailbox.custom_slots", "0"));
+        UUID u = UUID.randomUUID();
+        UUID gift = adminGift(u, 1);
+
+        assertThat(custom.used(u)).isZero();
+        assertThat(access.lockedIds(u)).doesNotContain(gift);
+    }
+
+    @Test
+    void adminGiftsDoNotPushUserClaimedBoxesIntoTheLock() {
+        standardGrants(Map.of("mailbox.slots", "3", "mailbox.custom_slots", "1"));
+        UUID u = UUID.randomUUID();
+        adminGift(u, 9);
+        UUID claimed = box(u, MailboxKind.CUSTOM, 1);
+
+        assertThat(custom.canAllocate(u)).isFalse();
+        assertThat(access.lockedIds(u)).doesNotContain(claimed);
+    }
+
     @Test
     void customBoxesDoNotSpendRandomSlots() {
         standardGrants(Map.of("mailbox.slots", "1", "mailbox.custom_slots", "0"));
