@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { TradeFeeTerms } from './trade-fee-terms';
 import { proposalHoldTiyin, splitAdminFee } from '@/lib/trade-fee';
+import { konamiForgotPasswordUrl } from '@/lib/konami-links';
 import { formatTiyin } from '@/lib/money';
 import type { AdminFeePayer } from '@/lib/trade-types';
 import { TradeProposalRejectButton } from './trade-proposal-reject-button';
@@ -966,8 +967,6 @@ function WaitingEmailChangeSellerPanel({
   );
 }
 
-const KONAMI_FORGOT_URL = 'https://my.konami.net/en_US/password-reminder/input-email-address';
-
 function VerifyingKonamiSellerPanel({
   trade,
   onActionError,
@@ -983,9 +982,7 @@ function VerifyingKonamiSellerPanel({
 
   const mailboxEmail = trade.mailboxEmail ?? '';
   const notRegistered = trade.role ? Boolean(sideOf(trade, trade.role)?.konamiNotRegisteredAt) : false;
-  const konamiHref = mailboxEmail
-    ? `${KONAMI_FORGOT_URL}?email=${encodeURIComponent(mailboxEmail)}`
-    : KONAMI_FORGOT_URL;
+  const konamiHref = konamiForgotPasswordUrl(mailboxEmail);
 
   useEffect(() => {
     return () => {

@@ -19,7 +19,7 @@ import { getWallet } from '@/lib/payment-server';
 import { getMyPlanSSR } from '@/lib/plans-server';
 import { FEATURES } from '@/lib/feature-flags';
 import { getAccountDisplayData } from '@/lib/account-display-server';
-import { getMyCustomMailboxesSSR } from '@/lib/custom-mailbox-server';
+import { getMyMailboxesSSR } from '@/lib/custom-mailbox-server';
 import { FreeCustomMailboxBanner } from '@/components/profile/free-custom-mailbox-banner';
 
 export const dynamic = 'force-dynamic';
@@ -74,7 +74,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
   const [accountDisplay, customBoxes] = await Promise.all([
     activeTab === 'accounts' ? getAccountDisplayData(accounts, user.id) : Promise.resolve({}),
-    activeTab === 'accounts' || activeTab === 'account' ? getMyCustomMailboxesSSR() : Promise.resolve(null),
+    activeTab === 'accounts' || activeTab === 'account' ? getMyMailboxesSSR() : Promise.resolve(null),
   ]);
 
   // Sotilgan / obmen qilinganlar tarix: ular endi egasida emas.
@@ -161,7 +161,12 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           bu blok o'zi yo'qoladi.
         */}
 
-        {customBoxes && <FreeCustomMailboxBanner boxes={customBoxes} />}
+        {customBoxes && (
+          <FreeCustomMailboxBanner
+            boxes={customBoxes}
+            accountEmails={accounts.filter((a) => a.status === 'ACTIVE' && a.email).map((a) => a.email as string)}
+          />
+        )}
 
         {/* Tab content view */}
         <section key={activeTab} className="animate-panel-in">

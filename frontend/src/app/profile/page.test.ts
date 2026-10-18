@@ -23,7 +23,7 @@ vi.mock('@/lib/trade-admin-applications-server', () => ({ getMyTradeAdminApplica
 vi.mock('@/lib/plans-server', () => ({ getMyPlanSSR: vi.fn().mockResolvedValue(null) }));
 vi.mock('@/lib/payment-server', () => ({ getWallet: mocks.getWallet }));
 vi.mock('@/lib/account-display-server', () => ({ getAccountDisplayData: mocks.getDisplay }));
-vi.mock('@/lib/custom-mailbox-server', () => ({ getMyCustomMailboxesSSR: vi.fn().mockResolvedValue(null) }));
+vi.mock('@/lib/custom-mailbox-server', () => ({ getMyMailboxesSSR: vi.fn().mockResolvedValue(null) }));
 vi.mock('next/navigation', () => ({ redirect: mocks.redirect }));
 vi.mock('@/components/marketplace/marketplace-shell', () => ({ MarketplaceShell: () => null }));
 vi.mock('@/components/profile/profile-account', () => ({ ProfileAccount: () => null }));

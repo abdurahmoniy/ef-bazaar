@@ -30,3 +30,12 @@ export async function getMyOwnedMailboxesSSR(): Promise<OwnedMailboxSSR[] | null
     return null;
   }
 }
+
+/** Every box the caller owns (custom and trade), for the free-box banner; null on failure. */
+export async function getMyMailboxesSSR(): Promise<import('./mailbox-slots').OwnedMailbox[] | null> {
+  try {
+    return await apiFetch<import('./mailbox-slots').OwnedMailbox[]>('/trade/v1/mailboxes');
+  } catch {
+    return null;
+  }
+}

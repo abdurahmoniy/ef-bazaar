@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Copy, Loader2, Plus } from 'lucide-react';
+import { AlertTriangle, Check, Copy, ExternalLink, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { getMyAccounts } from '@/lib/accounts-client';
@@ -16,6 +16,7 @@ import {
   retrySession,
   MailboxApiError,
 } from '@/lib/custom-mailbox-client';
+import { konamiForgotPasswordUrl } from '@/lib/konami-links';
 import { pollIntervalMs, sessionView, type LinkSession } from '@/lib/link-session';
 import { cn } from '@/lib/utils';
 
@@ -268,9 +269,18 @@ export function LinkWizard({ mailboxId, email, accounts, initialAccountId, initi
         {session?.state === 'WAIT_RESET' && view && (
           <>
             <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed sm:text-base">
-              <li>KONAMI ID kirish oynasida <strong>Forgot password</strong> ni bosing</li>
-              <li>Email sifatida <strong>{email}</strong> ni yozing va yuboring</li>
+              <li>Pastdagi tugma Konami’ning Forgot password sahifasini ochadi — manzil o‘zi yozilgan bo‘ladi</li>
+              <li><strong>{email}</strong> ekanini tekshirib, yuboring</li>
             </ol>
+            <a
+              href={konamiForgotPasswordUrl(email)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-12 items-center justify-center gap-2 self-start rounded-xl bg-primary px-6 text-base font-extrabold text-white transition hover:opacity-90"
+            >
+              Forgot password sahifasini ochish
+              <ExternalLink className="h-4 w-4" aria-hidden />
+            </a>
             <p className="rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-300">
               {view.body}
             </p>

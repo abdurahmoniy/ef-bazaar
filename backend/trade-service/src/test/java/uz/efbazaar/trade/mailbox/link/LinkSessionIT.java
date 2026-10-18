@@ -287,6 +287,17 @@ class LinkSessionIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeature
     }
 
     @Test
+    void ownedListShowsTheLiveSessionOnATradeBox() throws Exception {
+        UUID owner = UUID.randomUUID();
+        Mailbox mb = box(owner, MailboxKind.RANDOM, true);
+        UUID sid = openOk(owner, mb.getId(), UUID.randomUUID(), false);
+
+        mvc.perform(get("/api/v1/mailboxes").with(asUser(owner)))
+                .andExpect(jsonPath("$[0].activeSessionId").value(sid.toString()))
+                .andExpect(jsonPath("$[0].provisionedAt").exists());
+    }
+
+    @Test
     void customListShowsTheLiveSession() throws Exception {
         UUID owner = UUID.randomUUID();
         Mailbox mb = box(owner, MailboxKind.CUSTOM, true);

@@ -27,12 +27,21 @@ public class MailboxController {
     private final MailboxMapper mapper;
     private final MailboxSlotService slotService;
     private final MailboxAccessService access;
+    private final uz.efbazaar.trade.mailbox.link.MailboxLinkSessionRepository sessions;
 
     @GetMapping
     public List<MailboxResponse> listOwnedBy(@AuthenticationPrincipal AuthenticatedUser me) {
         Set<UUID> locked = access.lockedIds(me.userId());
-        return service.listOwnedBy(me.userId()).stream()
-                .map(m -> mapper.toResponse(m).withLocked(locked.contains(m.getId())))
+        List<uz.efbazaar.trade.mailbox.domain.Mailbox> owned = service.listOwnedBy(me.userId());
+        // Which boxes are being linked right now — the free-box list hides them.
+        java.util.Map<UUID, UUID> live = new java.util.HashMap<>();
+        if (!owned.isEmpty()) {
+            sessions.findLiveByMailboxIds(owned.stream().map(uz.efbazaar.trade.mailbox.domain.Mailbox::getId).toList())
+                    .forEach(s -> live.put(s.getMailboxId(), s.getId()));
+        }
+        return owned.stream()
+                .map(m -> mapper.toResponse(m).withLocked(locked.contains(m.getId()))
+                        .withActiveSession(live.get(m.getId())))
                 .toList();
     }
 
