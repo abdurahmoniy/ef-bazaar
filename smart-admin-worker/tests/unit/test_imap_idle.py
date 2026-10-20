@@ -324,4 +324,6 @@ async def test_ten_mailbox_fixture_fanout_with_five_idle_slots_reports_bounded_l
         )
     finally:
         await registry.cancel_all()
+    # stop() signals watcher threads; observe their asynchronous connection cleanup.
+    await _until(lambda: all(server.active_idle(box) == 0 for box in boxes))
     assert all(server.active_idle(box) == 0 for box in boxes)

@@ -474,6 +474,12 @@ Max1 va ACK’dan keyin latch bilan ushlangan cleanup regressiyasi avval RED (2 
 
 Mustaqil sifat ko‘rigi PASS; barcha 5 IMAP testi va keyingi Java21 `mvn -B -ntp clean verify` PASS: **346 unit + 444 IT**, failure/error/skipped 0, dump yo‘q. Dalillar `/private/tmp/ef-af-imap-ci-{red,green}.log`, `ef-af-ci-fix-trade-full.log` va `ef-af-imap-ci-fix-evidence.json`da. Trade yaratgan crypto fixture oldingi baytlarga qaytarildi. Follow-up commit uchun remote CI qayta tekshiriladi; yakuniy natija PR’ning aynan oxirgi head SHA checklaridan olinadi. Merge/deploy bajarilmaydi.
 
+#### PR #394: worker shutdown kuzatish tuzatishi (2026-10-20)
+
+Keyingi `ee64cbd8` CI runida worker fanout testi `cancel_all()`dan keyin watcher thread ulanishni yopishini darhol talab qilgani uchun yiqildi. Registry faqat stop signalini beradi; `__exit__` dedicated threadda asinxron tugaydi. Mavjud cancellation testidagi kabi bir soniyalik `_until` bilan barcha `active_idle == 0` bo‘lishi kuzatiladi; yakuniy nol-ulanish asserti, 5 IDLE chegarasi va 10 ta kod yetkazilishi tekshiruvi saqlandi. Command retry, skip va production o‘zgarishi yo‘q.
+
+Remote failing test RED dalili: `/private/tmp/ef-af-ci-final-worker-failed.log`. Tuzatishdan keyin Python 3.12 muhitida fokuslangan 10 IMAP testi PASS, `ruff check smart_admin_worker/ tests/` PASS va to‘liq `python -m pytest -q` 271/271 PASS (`/private/tmp/ef-af-ci-worker-full.log`); mustaqil lifecycle/coverage ko‘rigi PASS. Follow-up commit push qilingach oxirgi SHA remote CI bilan tekshiriladi. Deploy qilinmaydi.
+
 ## 5. Bog‘liqlik va chiqarish tartibi
 
 1. A backend katalogi va ishonchli hodisalar → B umumiy mailbox pool → C pochta davomiyligi va resurs hisobi. UI o‘zgarishi mavjud imkoniyatlar bilan birga yoqiladi.
