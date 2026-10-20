@@ -65,6 +65,15 @@ describe('approved partner navigation', () => {
 it('provides tools navigation in the real own profile header separately from verification',async()=>{
  const fetcher=vi.fn<(url:string)=>Promise<Response>>(async()=>Response.json({pro:true,coverFileId:'own-cover',validUntil:new Date(Date.now()+10000).toISOString(),capability:'AVAILABLE'}));vi.stubGlobal('fetch',fetcher);
  await act(async()=>root.render(createElement(ProfileAccount,{user,googleClientId:'',botUsername:'test',tradeAdminApplication:null})));
- expect(container.querySelector('a[href="/seller-tools"]')?.textContent).toContain('Sotuvchi vositalari');expect(container.textContent).toContain('Pro a’zolik');expect(container.textContent).toContain('Tasdiqlangan');
+ expect(container.querySelector('a[href="/seller-tools"]')?.textContent).toContain('Sotuvchi vositalari');expect(container.textContent).toContain('Profil bezagi');expect(container.querySelector('img[alt="Profil muqovasi"]')).not.toBeNull();expect(container.textContent).toContain('Tasdiqlangan');
  expect(fetcher.mock.calls.some(([url])=>String(url).endsWith('/profiles/me/appearance'))).toBe(true);
+});
+
+it.each(['MAX', 'STAFF'] as const)('keeps a %s owner cover separate from the purchased membership label', async code => {
+ vi.stubGlobal('fetch', vi.fn(async () => Response.json({pro:true,coverFileId:'own-cover',validUntil:new Date(Date.now()+10000).toISOString(),capability:'AVAILABLE'})));
+ await act(async()=>root.render(createElement(ProfileAccount,{user,googleClientId:'',botUsername:'test',tradeAdminApplication:null,plan:{code,expiresAt:code==='MAX'?'2099-01-01T00:00:00Z':null,entitlements:{}}})));
+ expect(container.querySelector('img[alt="Profil muqovasi"]')).not.toBeNull();
+ expect(container.textContent).not.toContain('Pro a’zolik');
+ expect(container.textContent).toContain(code==='MAX'?'MAX (arxiv)':'Admin · cheklovsiz');
+ expect(container.textContent).toContain('Tasdiqlangan');
 });

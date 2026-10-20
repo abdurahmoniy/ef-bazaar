@@ -18,8 +18,8 @@ const QUESTIONS = [
     answer: 'To‘lov hamyon balansidan yechiladi. Avtomatik pul yechilmaydi — tarifni o‘zingiz uzaytirasiz. Shu tarifni oldindan uzaytirsangiz, yangi muddat joriy muddatning oxiriga qo‘shiladi.',
   },
   {
-    title: 'Keyinroq yuqori tarifga o‘tsam bo‘ladimi?',
-    answer: 'Ha. Yuqori tarif xarid qilingan kundan boshlanadi. Avvalgi tarifning qolgan muddati yangi tarifga qo‘shilmaydi — xariddan oldin bu haqda ogohlantirish ko‘rsatiladi. Pastroq tarifni joriy tarif tugagach tanlashingiz mumkin.',
+    title: 'Pro nimani o‘zgartiradi?',
+    answer: 'Katalogda ko‘rsatilgan Pro huquqlari pochta, kuzatuvlar, hisobot, sotuvchi vositalari va profil muqovasini kengaytiradi. Xarid qabul qilingach xizmatlar yangilanishi biroz vaqt olishi mumkin. Pro a’zoligi tasdiqlanganlik yoki sotuvchi ishonchliligi belgisi emas.',
   },
 ];
 
@@ -35,7 +35,7 @@ export function PlansFaq({ catalog }: { catalog: PlanCatalogItem[] }) {
     <section className={styles.faq} aria-labelledby="plans-faq-title">
       <div className={styles.faqIntro}>
         <span className={styles.eyebrow}>HAMMASI TUSHUNARLI</span>
-        <h2 id="plans-faq-title">Kichik savollarga<br /><em>aniq javoblar.</em></h2>
+        <h2 id="plans-faq-title">Ko‘p beriladigan savollar</h2>
         <p>Tanlashdan oldin bilishingiz kerak bo‘lgan eng muhim narsalar.</p>
         <Link href="/support" className={styles.supportLink}>Yana savolingiz bormi? <ArrowUpRight size={15} aria-hidden /></Link>
       </div>

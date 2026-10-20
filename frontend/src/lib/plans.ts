@@ -144,8 +144,61 @@ export function planEndDate(
 /** Profile plan row; null (plan lookup failed) is neutral, never "Free". */
 export function planLabel(mine: MyPlan | null): string {
   if (!mine) return '—';
+  const state = membershipState(mine);
+  if (state === 'expired' || state === 'grace' || state === 'recovery') return `Free · ${expiredPlanName(mine)} muddati tugagan`;
+  if (state === 'unknown') return '—';
   if (mine.code === 'STANDARD' || mine.code === 'STAFF') return PLAN_NAMES[mine.code];
   return mine.expiresAt
     ? `${PLAN_NAMES[mine.code]} · ${formatPlanDate(mine.expiresAt)} gacha`
     : PLAN_NAMES[mine.code];
+}
+
+export type MembershipState = 'unknown' | 'free' | 'active' | 'unlimited' | 'staff' | 'grace' | 'expired' | 'recovery';
+
+/** Payment membership only. Individual services still decide feature readiness. */
+export function membershipState(mine: MyPlan | null, now = new Date()): MembershipState {
+  if (!mine) return 'unknown';
+  if (mine.code === 'STAFF') return 'staff';
+  if (mine.code !== 'STANDARD') {
+    if (mine.expiresAt === null) return 'unlimited';
+    const end = Date.parse(mine.expiresAt);
+    if (!Number.isFinite(end)) return 'unknown';
+    if (end > now.getTime()) return 'active';
+    if (mine.graceEndsAt && Number.isFinite(Date.parse(mine.graceEndsAt))) {
+      return Date.parse(mine.graceEndsAt) > now.getTime() ? 'grace' : 'recovery';
+    }
+    return 'expired';
+  }
+  if (mine.graceEndsAt && Date.parse(mine.graceEndsAt) > now.getTime()) return 'grace';
+  return mine.lastPaidExpiresAt ? 'recovery' : 'free';
+}
+
+/** Missing or malformed product grants are unknown, not disabled or unlimited. */
+export function numericGrant(item: PlanCatalogItem, key: string): number | null | undefined {
+  if (!Object.prototype.hasOwnProperty.call(item.entitlements, key)) return undefined;
+  const value = item.entitlements[key];
+  if (value === null) return null;
+  return /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) ? Number(value) : undefined;
+}
+
+export function planBenefits(item: PlanCatalogItem): string[] {
+  const features: string[] = [];
+  const searches = numericGrant(item, 'watch.search_limit');
+  const watches = numericGrant(item, 'watch.price_limit');
+  const history = numericGrant(item, 'analytics.history_days');
+  if (searches === null || (searches !== undefined && searches > 0)) features.push(`${searches === null ? 'Cheksiz' : `${searches} ta`} saqlangan qidiruv`);
+  if (watches === null || (watches !== undefined && watches > 0)) features.push(`${watches === null ? 'Cheksiz' : `${watches} ta`} narx kuzatuvi`);
+  if (item.entitlements['watch.immediate'] === 'true') features.push('Mos yangilik topilganda xabar');
+  else if (item.entitlements['watch.immediate'] === 'false') features.push('Kuzatuvlardan kunlik jamlanma');
+  if (history === null || (history !== undefined && history > 0)) features.push(history === null ? 'Mavjud sotuvlar tarixi' : `${history} kungacha mavjud tarix`);
+  if (item.entitlements['analytics.export'] === 'true') features.push('Sotuvchi hisoboti va CSV eksport');
+  if (item.entitlements['seller.tools'] === 'true') features.push('Shaxsiy qaydlar va javob shablonlari');
+  if (item.entitlements['seller.bulk'] === 'true') features.push('Narx va bozordan olishni guruhlab boshqarish');
+  if (item.entitlements['profile.decoration'] === 'true') features.push('Profil uchun shaxsiy muqova');
+  return features;
+}
+
+/** Historical payment records do not always retain the last paid plan code. */
+export function expiredPlanName(mine: MyPlan): string {
+  return mine.code === 'PRO' ? 'Pro' : mine.code === 'MAX' ? 'MAX' : 'Pullik tarif';
 }

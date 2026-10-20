@@ -95,3 +95,26 @@ describe('planLabel', () => {
    const { SLOTS_KEY } = await import('./plans');
    expect(slotCount({ 'mailbox.slots': '5', 'mailbox.custom_slots': '1' }, SLOTS_KEY)).toBe(0);
  });
+
+
+it('does not label an expired paid subscription as active in the profile', async () => {
+  const { planLabel } = await import('./plans');
+  expect(planLabel({ code: 'PRO', expiresAt: '2000-01-01T00:00:00Z', entitlements: {} })).toBe('Free · Pro muddati tugagan');
+});
+
+
+it('derives product benefits only from valid published grants', async () => {
+  const { planBenefits, numericGrant } = await import('./plans');
+  const item: PlanCatalogItem = { code: 'PRO', sortOrder: 1, prices: {}, entitlements: {
+    'watch.search_limit': '7', 'watch.price_limit': '21', 'watch.immediate': 'true',
+    'analytics.history_days': '30', 'analytics.export': 'true', 'seller.tools': 'true',
+    'profile.decoration': 'false',
+  } };
+  expect(planBenefits(item)).toContain('7 ta saqlangan qidiruv');
+  expect(planBenefits(item)).toContain('21 ta narx kuzatuvi');
+  expect(planBenefits(item)).toContain('30 kungacha mavjud tarix');
+  expect(planBenefits(item)).not.toContain('Profil uchun shaxsiy muqova');
+  expect(numericGrant(item, 'missing')).toBeUndefined();
+  expect(numericGrant({ ...item, entitlements: { x: '2more' } }, 'x')).toBeUndefined();
+  expect(numericGrant({ ...item, entitlements: { x: null } }, 'x')).toBeNull();
+});

@@ -31,6 +31,13 @@ Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
 - Sessiya: access cookie 15 daqiqa, refresh 30 kun. Access tugagan bo'lsa `proxy.ts` refresh
   qiladi va **ketayotgan so'rovning Cookie headerini ham** yangilaydi (aks holda birinchi so'rov 401 oladi).
 
+### A’zolik UI
+
+- `/plans` efBazaar ko‘k/sariq mavzusida Free/Pro taklifi, katalogdagi huquqlar taqqoslashi va FAQ beradi. Narx va limitlar API’dan; eski artwork va demo ma’lumot ishlatilmaydi.
+- Yangi xarid va uzaytirish har doim alohida to‘lov xulosasi va tasdiqlashdan o‘tadi. `/plans?intent=pro#pro` faqat taklifga olib boradi, o‘zi pul yechmaydi; anonim xaridor shu manzilga login orqali qaytadi.
+- Profil tepasidagi a’zolik bloki payment holati/expiry bilan ishlaydi. Noto‘g‘ri yoki noma’lum holatda xarid bloklanadi; expiry/Grace chegaralari va tabga qaytishda holat yangilanadi. Muddatsiz/STAFF va sotuvdan olingan MAX uchun uzaytirish va’dasi berilmaydi.
+- Public appearance va profil muqovasining capability/validUntil tekshiruvi alohida qoladi. To‘langan a’zolik feature tayyorligi yoki verification belgisi emas.
+
 ### Free/Pro katalogi va umumiy pochta sig‘imi (A–C bosqichlar)
 
 - `/plans` faqat `STANDARD` → **Free** va `PRO` → **Pro** kartalarini ko‘rsatadi.

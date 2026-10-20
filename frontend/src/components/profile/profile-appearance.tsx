@@ -111,7 +111,7 @@ export function ProfileAppearance({
   own?: boolean;
 }) {
   const { data, live } = useAppearance(userId, own);
-  if (!live || !data) return null;
+  if (!live || !data || (own && !data.coverFileId)) return null;
   const url = data.coverFileId ? listingMediaUrl(data.coverFileId) : null;
   return (
     <div className="mb-4 space-y-2">
@@ -125,13 +125,13 @@ export function ProfileAppearance({
           className="h-32 w-full rounded-xl object-cover sm:h-44"
         />
       )}
-      <p className="text-xs text-muted-foreground">
-        <span className="mr-2 inline-flex rounded-full bg-violet-500/10 px-3 py-1 font-semibold text-violet-700 dark:text-violet-300">
+      {own ? <p className="text-xs text-muted-foreground">Profil bezagi</p> : <p className="text-xs text-muted-foreground">
+        <span className="mr-2 inline-flex rounded-full bg-gold-soft px-3 py-1 font-semibold text-gold-foreground">
           Pro a’zolik
         </span>
         Tarif a’zoligi; tasdiqlanganlik, ishonchlilik yoki xaridor bahosi
         belgisi emas.
-      </p>
+      </p>}
     </div>
   );
 }

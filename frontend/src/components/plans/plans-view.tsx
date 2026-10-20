@@ -1,17 +1,20 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import { ArrowUp, ArrowUpRight, Sparkles, TriangleAlert } from 'lucide-react';
+import { ArrowRight, ArrowUp, ArrowUpRight, RefreshCw, Sparkles, TriangleAlert, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { usePlanNow } from '@/hooks/use-plan-now';
 import { Button } from '@/components/ui/button';
 import { formatTiyin } from '@/lib/money';
 import { getWallet } from '@/lib/payment-client';
 import {
   daysLeft,
+  membershipState,
+  expiredPlanName,
   mailboxCapacity,
   formatPlanDate,
   PLAN_NAMES,
@@ -28,6 +31,8 @@ import { PlanPurchaseError, purchasePlan } from '@/lib/plans-client';
 import { shortfallTiyin, topUpHref } from '@/lib/wallet-shortfall';
 
 import { PlanCard, type CardAction } from './plan-card';
+import { MembershipPass } from './membership-pass';
+import { PlanComparison } from './plan-comparison';
 import { PlansFaq } from './plans-faq';
 import styles from './plans.module.css';
 
@@ -67,16 +72,26 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
     .map((p) => ({ ...p, prices: prices[p.code] ?? p.prices }));
   // Signed in but the lookup failed: never guess FREE, or an active
   // subscriber is offered "Tanlash" and a paid-for plan is bought twice.
-  const planUnknown = signedIn && mine === null;
+  const now = usePlanNow(mine);
+  const state = membershipState(mine, now);
+  const planUnknown = signedIn && state === 'unknown';
   const me = mine ?? FREE;
-  const now = new Date();
-  const currentName = PLAN_NAMES[me.code];
+
+  const currentName = ['expired', 'grace', 'recovery'].includes(state) ? `Free · ${expiredPlanName(me)} muddati tugagan` : PLAN_NAMES[me.code];
+  const proPrice = plans.find(item => item.code === 'PRO')?.prices.MONTH;
+  const currentLive = state === 'active' || state === 'unlimited' || state === 'staff' || state === 'free';
 
   async function run(item: PlanCatalogItem, per: PlanPeriod, action: PlanAction) {
     const current = plans.find((p) => p.code === item.code);
     if (!current || !mailboxCapacity(current.entitlements) || !mailboxCapacity(item.entitlements)) {
       setConfirm(null);
       toast.error('Pochta limiti aniqlanmadi');
+      return;
+    }
+    const currentAction = planAction(current, me, plans, new Date());
+    if (!signedIn || planUnknown || currentAction !== action || !['choose', 'extend', 'upgrade'].includes(currentAction)) {
+      setConfirm(null);
+      toast.error('Tarif holati o‘zgardi. Qayta tekshiring.');
       return;
     }
     const price = item.prices[per];
@@ -145,28 +160,37 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
   function select(item: PlanCatalogItem) {
     if (!mailboxCapacity(item.entitlements)) return;
     if (!signedIn) {
-      router.push('/auth/login?from=/plans');
+      router.push('/auth/login?from=' + encodeURIComponent('/plans?intent=pro#pro'));
       return;
     }
     if (planUnknown || accepted || inFlight.current) return;
     const action = planAction(item, me, plans, now);
-    if (action === 'upgrade') setConfirm({ item, period, action, priceChanged: false });
-    else if (action === 'choose' || action === 'extend') void run(item, period, action);
+    if (action === 'upgrade' || action === 'choose' || action === 'extend') {
+      setConfirm({ item, period, action, priceChanged: false });
+    }
   }
 
   return (
     <div className={styles.page}>
       <div className={styles.pageTopline}>
-        <span className={styles.eyebrow}><Sparkles size={13} aria-hidden />EFBAZAAR TARIFLARI</span>
+        <Link href="/profile" className={styles.discoverLink}>Profil <ArrowUpRight size={14} aria-hidden /></Link>
         {signedIn && !planUnknown && <span className={styles.myPlan}><span />Hozir: {currentName}</span>}
-        <Link href="/mailboxes/custom" className={styles.discoverLink}>Shaxsiy email <ArrowUpRight size={13} aria-hidden /></Link>
       </div>
-      <div className={styles.hero}>
-        <span className={styles.heroEyebrow}>KATTA IMKONIYATLAR KICHIK QADAMDAN</span>
-        <h1>Savdoingizga mos.<br /><em>O‘zingizga xos.</em></h1>
-        <p>Ko‘proq savdo qutisi, o‘z nomingizdagi email.<br className="hidden sm:block" /> O‘zingizga mos darajani tanlang.</p>
-        <p>Pro uchun oylik to‘lov</p>
-      </div>
+      <header className={styles.hero}>
+        <div className={styles.heroCopy}>
+          <span className={styles.eyebrow}><Sparkles size={14} aria-hidden /> EFBAZAAR A’ZOLIGI</span>
+          <h1>Free bilan boshlang.<br /><span>Pro bilan kengaying.</span></h1>
+          <p>Kerakli akkountni topishdan savdoni boshqarishgacha. Kundalik foydalanish uchun Free, ko‘proq imkoniyat uchun Pro.</p>
+          {proPrice !== undefined && <p className={styles.heroPrice}>Pro <strong>{formatTiyin(proPrice)}</strong> so‘m / oy</p>}
+          <div className={styles.heroActions}>
+            {plans.some(p => p.code === 'PRO') && <a href="#pro" className={styles.heroPrimary}>Pro taklifini ko‘rish <ArrowRight size={17} aria-hidden /></a>}
+            <a href="#compare" className={styles.heroLink}>Solishtirish</a>
+          </div>
+        </div>
+        <div className={styles.heroPass}><MembershipPass /></div>
+      </header>
+
+      {plans.length === 0 && <PlansUnavailable empty />}
 
       {signedIn && !planUnknown && me.code === 'STAFF' && (
         <div role="status" className="mx-auto mt-6 max-w-xl rounded-xl border border-border bg-muted p-4 text-center text-sm font-semibold text-foreground">
@@ -209,7 +233,7 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
               item={item}
               period={period}
               action={cardAction(item, action)}
-              isCurrent={signedIn && !planUnknown && me.code === item.code}
+              isCurrent={signedIn && !planUnknown && me.code === item.code && currentLive}
               expiresAt={me.code === item.code ? me.expiresAt : null}
               busy={busy === item.code}
               featured={item.code === 'PRO'}
@@ -219,6 +243,7 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
         })}
       </div>
 
+      {plans.length > 0 && <PlanComparison catalog={plans} />}
       <p className={styles.purchaseNote}>Bir marta to‘lang, tanlangan muddat davomida foydalaning.<br />Avtomatik pul yechilmaydi.</p>
       <PlansFaq catalog={plans} />
 
@@ -259,19 +284,20 @@ function UpgradeConfirm({
     action === 'upgrade' ? `${name}’ga o‘tasizmi?`
     : action === 'extend' ? `${name} tarifini uzaytirasizmi?`
     : `${name} tarifini tanlaysizmi?`;
-  const cta = action === 'upgrade' ? 'Oshirish' : action === 'extend' ? 'Uzaytirish' : 'Tanlash';
+  const cta = 'Tasdiqlash';
   const ends = formatPlanDate(planEndDate(action, mine, period, now));
   return (
     <Dialog.Root open onOpenChange={(open) => { if (!open) onCancel(); }}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-foreground/45" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
         <Dialog.Content
           onEscapeKeyDown={(e) => { if (busy) e.preventDefault(); }}
           onPointerDownOutside={(e) => { if (busy) e.preventDefault(); }}
           onInteractOutside={(e) => { if (busy) e.preventDefault(); }}
-          className="fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-2xl bg-card p-6 text-card-foreground shadow-xl"
+          className={styles.confirmDialog}
         >
-          <div className="flex items-center gap-3">
+          <Dialog.Close aria-label="Yopish" disabled={busy} className={styles.closeDialog}><X size={18} aria-hidden /></Dialog.Close>
+          <div className="flex items-center gap-3 pr-9">
             <span className="grid size-11 place-items-center rounded-xl bg-secondary/25 text-secondary-foreground dark:text-secondary">
               <ArrowUp className="size-5" aria-hidden />
             </span>
@@ -317,6 +343,7 @@ function UpgradeConfirm({
               </span>
             </p>
           )}
+          <p className="text-xs leading-relaxed text-muted-foreground">Avtomatik pul yechilmaydi. Keyingi oyda tarifni o‘zingiz uzaytirasiz. Xariddan so‘ng imkoniyatlar faollashtiriladi.</p>
           <div className="grid grid-cols-2 gap-2.5">
             <Button type="button" variant="outline" size="lg" onClick={onCancel} disabled={busy}>
               Bekor qilish
@@ -329,4 +356,15 @@ function UpgradeConfirm({
       </Dialog.Portal>
     </Dialog.Root>
   );
+}
+
+
+export function PlansUnavailable({ empty = false }: { empty?: boolean }) {
+  const router = useRouter();
+  return <section role="alert" className={styles.unavailable}>
+    <span className={styles.statusIcon}><RefreshCw size={22} aria-hidden /></span>
+    <h2>{empty ? 'Tariflar hozircha mavjud emas' : 'Tariflarni yuklab bo‘lmadi'}</h2>
+    <p>Narx va imkoniyatlarni hozir tekshira olmadik. Qayta urinib ko‘ring yoki yordam xizmatiga yozing.</p>
+    <div><Button onClick={() => router.refresh()}>Qayta urinish</Button><Button variant="outline" asChild><Link href="/support">Yordam olish</Link></Button></div>
+  </section>;
 }

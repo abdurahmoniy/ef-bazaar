@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
-import { PlansView } from '@/components/plans/plans-view';
+import { PlansUnavailable, PlansView } from '@/components/plans/plans-view';
 import { getMe } from '@/lib/auth';
 import { getMyPlanSSR, getPlanCatalogSSR } from '@/lib/plans-server';
 
@@ -21,9 +21,7 @@ export default async function PlansPage() {
       {catalog ? (
         <PlansView key={user?.id ?? 'anonymous'} catalog={catalog} mine={mine} signedIn={user !== null} />
       ) : (
-        <p className="p-6 text-sm text-muted-foreground">
-          Tariflarni yuklab bo‘lmadi. Keyinroq urinib ko‘ring.
-        </p>
+        <PlansUnavailable />
       )}
     </MarketplaceShell>
   );
