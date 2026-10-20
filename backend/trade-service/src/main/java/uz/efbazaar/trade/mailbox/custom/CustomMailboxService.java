@@ -35,6 +35,8 @@ public class CustomMailboxService {
     private final MailboxRepository mailboxes;
     private final MailboxDomains domains;
     private final CustomSlotService customSlots;
+    private final uz.efbazaar.trade.plan.service.MailboxSlotService slots;
+    private final uz.efbazaar.trade.plan.service.MailboxQuotaLock quotaLock;
     private final EntitlementService entitlements;
     private final TradeEventPublisher events;
 
@@ -65,13 +67,14 @@ public class CustomMailboxService {
                         "5–24 belgi, faqat lotin harf va raqam");
             };
         }
+        quotaLock.lock(userId);
         String block = claimBlock(userId, domain);
         if ("PLAN_DOMAIN".equals(block)) {
             throw new ApiCodeException(HttpStatus.FORBIDDEN, "plan_domain",
-                    "Bu domen faqat Aristokrat tarifida");
+                    "Bu domen faqat Pro tarifida");
         }
         if ("NO_SLOT".equals(block)) {
-            throw new ApiCodeException(HttpStatus.FORBIDDEN, "no_slot", "Barcha custom slotlar band");
+            throw new ApiCodeException(HttpStatus.FORBIDDEN, "no_slot", "Pochta qutilari uchun bo‘sh joy qolmadi");
         }
         Instant now = Instant.now();
         Mailbox row = Mailbox.builder()
@@ -119,10 +122,14 @@ public class CustomMailboxService {
     }
 
     private String claimBlock(UUID userId, String domain) {
-        if (domains.premium(domain) && !domains.premiumPlans().contains(entitlements.planFor(userId))) {
+        var policy = entitlements.mailboxAllocationPolicy(userId);
+        if (domains.premium(domain) && !domains.premiumPlans().contains(policy.planCode())) {
             return "PLAN_DOMAIN";
         }
-        if (!customSlots.canAllocate(userId)) return "NO_SLOT";
+        if (policy.customLimit().isPresent() && customSlots.used(userId) >= policy.customLimit().getAsLong())
+            return "NO_SLOT";
+        var totalLimit = policy.totalLimit();
+        if (totalLimit.isPresent() && slots.used(userId) >= totalLimit.getAsLong()) return "NO_SLOT";
         return null;
     }
 }

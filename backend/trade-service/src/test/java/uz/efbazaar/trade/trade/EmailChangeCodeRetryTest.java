@@ -19,7 +19,7 @@ class EmailChangeCodeRetryTest {
     private final MailboxService mailboxes = mock(MailboxService.class);
     private final TradeEventPublisher events = mock(TradeEventPublisher.class);
     private final TradeService service = new TradeService(null, null, null, null, null,
-            sides, null, mailboxes, null, null, events, null);
+            sides, null, mailboxes, null, null, events, null, mock(uz.efbazaar.trade.plan.service.MailboxQuotaLock.class), mock(uz.efbazaar.trade.mailbox.provision.ProvisioningClaimService.class));
     private final Trade trade = Trade.builder().id(UUID.randomUUID()).kind(TradeKind.SWAP)
             .mode(TradeMode.SMART).state(TradeState.WAITING_EMAIL_CHANGE).build();
 

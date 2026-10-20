@@ -16,6 +16,10 @@ export interface MailboxSummary {
   ownedSince: string;
   /** Over the plan limit: no content is served; unreadCount and lastActivityAt are null. */
   locked: boolean;
+  accessState?: 'ACTIVE' | 'GRACE' | 'RECOVERY';
+  paidExpiresAt?: string | null;
+  graceEndsAt?: string | null;
+  selectedForFree?: boolean;
 }
 
 export interface InboxMessage {
@@ -28,6 +32,7 @@ export interface InboxMessage {
   snippet: string;
   seen: boolean;
   hasAttachments: boolean;
+  criticalRecovery?: boolean;
 }
 
 export interface InboxPage {
@@ -45,6 +50,7 @@ export interface AttachmentMeta {
 }
 
 export interface MessageDetail {
+  criticalRecovery?: boolean;
   messageId: string;
   subject: string;
   fromName: string;
@@ -57,4 +63,39 @@ export interface MessageDetail {
   bodyPlain: string | null;
   attachments: AttachmentMeta[];
   seen: boolean;
+}
+
+/** Allocation quota from /trade/v1/mailboxes/slots; custom is a subset of total. */
+export interface MailboxSlotStatus {
+  used: number;
+  limit: number | null;
+  totalUsed: number;
+  /** null only for an explicitly unlimited plan. */
+  totalLimit: number | null;
+  customUsed: number;
+  customLimit: number | null;
+  exemptUsed?: number;
+  resourceUsed?: number;
+  full: boolean;
+  plan: string;
+  lockedCount: number;
+}
+
+/** Keep random-only or incomplete rollout responses out of the quota display. */
+export function isMailboxSlotStatus(value: unknown): value is MailboxSlotStatus {
+  if (!value || typeof value !== 'object') return false;
+  const status = value as Record<string, unknown>;
+  const count = (v: unknown) => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
+  const limit = (v: unknown) => v === null || count(v);
+  return count(status.totalUsed) && limit(status.totalLimit)
+    && count(status.customUsed) && limit(status.customLimit)
+    && count(status.lockedCount) && typeof status.full === 'boolean'
+    && typeof status.plan === 'string'
+    && (status.exemptUsed === undefined || count(status.exemptUsed))
+    && (status.resourceUsed === undefined || count(status.resourceUsed));
+}
+
+/** Legacy locks still block content; explicit Recovery uses the filtered backend API. */
+export function legacyMailboxLocked(box: Pick<MailboxSummary, 'locked' | 'accessState'>): boolean {
+  return !box.accessState && box.locked;
 }

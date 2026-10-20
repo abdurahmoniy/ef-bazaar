@@ -31,6 +31,7 @@ class PlanServiceIT extends AbstractPostgresIT {
     @Autowired PlanService plans;
     @Autowired UserSubscriptionRepository subscriptions;
     @Autowired TransactionTemplate tx;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @SpyBean PlanEventPublisher events;
 
     @Test
@@ -40,19 +41,19 @@ class PlanServiceIT extends AbstractPostgresIT {
             plans.assign(user, "PRO", Instant.now().plus(30, ChronoUnit.DAYS), "ADMIN");
             st.setRollbackOnly();
         });
-        org.mockito.Mockito.verify(events, org.mockito.Mockito.never())
-                .subscriptionChanged(org.mockito.ArgumentMatchers.eq(user),
-                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox_events WHERE message_key=?",
+                Long.class, user.toString())).isZero();
     }
 
     @Test
     void anAssignThatCommitsAnnouncesOnce() {
         UUID user = UUID.randomUUID();
-        tx.executeWithoutResult(st ->
-                plans.assign(user, "PRO", Instant.now().plus(30, ChronoUnit.DAYS), "ADMIN"));
+        Instant paidEnd = Instant.now().plus(30, ChronoUnit.DAYS);
+        tx.executeWithoutResult(st -> plans.assign(user, "PRO", paidEnd, "ADMIN"));
         org.mockito.Mockito.verify(events, org.mockito.Mockito.times(1))
                 .subscriptionChanged(org.mockito.ArgumentMatchers.eq(user),
-                        org.mockito.ArgumentMatchers.eq("PRO"), org.mockito.ArgumentMatchers.any());
+                        org.mockito.ArgumentMatchers.eq("PRO"), org.mockito.ArgumentMatchers.eq(paidEnd),
+                        org.mockito.ArgumentMatchers.eq(paidEnd));
     }
 
     @Test
@@ -65,11 +66,11 @@ class PlanServiceIT extends AbstractPostgresIT {
     @Test
     void theShippedPlansGrantWhatTheyAdvertise() {
         assertThat(plans.entitlementsOf("STANDARD"))
-                .containsEntry("mailbox.slots", "3").containsEntry("mailbox.custom_slots", "0");
+                .containsEntry("mailbox.total_slots", "3").containsEntry("mailbox.slots", "3").containsEntry("mailbox.custom_slots", "0");
         assertThat(plans.entitlementsOf("PRO"))
-                .containsEntry("mailbox.slots", "5").containsEntry("mailbox.custom_slots", "1");
+                .containsEntry("mailbox.total_slots", "10").containsEntry("mailbox.slots", "5").containsEntry("mailbox.custom_slots", "2");
         assertThat(plans.entitlementsOf("MAX"))
-                .containsEntry("mailbox.slots", "10").containsEntry("mailbox.custom_slots", "3");
+                .containsEntry("mailbox.total_slots", "13").containsEntry("mailbox.slots", "10").containsEntry("mailbox.custom_slots", "3");
     }
 
     @Test

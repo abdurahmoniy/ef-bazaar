@@ -30,7 +30,7 @@ export function fromEntitlementValue(v: string | null): SlotDraft {
   return v === null ? { unlimited: true, count: '' } : { unlimited: false, count: v };
 }
 
-/** Saving a smaller limit locks the mailboxes above it; unlimited -> number counts too. */
+/** Detects a lower ceiling, including unlimited → finite; the entitlement key decides its effect. */
 export function isReduction(before: string | null, after: string | null): boolean {
   if (after === null) return false;
   if (before === null) return true;

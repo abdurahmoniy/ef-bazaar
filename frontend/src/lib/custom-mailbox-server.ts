@@ -2,6 +2,7 @@ import 'server-only';
 
 import { apiFetch } from './api';
 import type { CustomMailbox } from './custom-mailbox';
+import { isMailboxSlotStatus } from './mailbox-slots';
 
 /** The caller's custom boxes; null when trade-service could not be reached. */
 export async function getMyCustomMailboxesSSR(): Promise<CustomMailbox[] | null> {
@@ -35,6 +36,16 @@ export async function getMyOwnedMailboxesSSR(): Promise<OwnedMailboxSSR[] | null
 export async function getMyMailboxesSSR(): Promise<import('./mailbox-slots').OwnedMailbox[] | null> {
   try {
     return await apiFetch<import('./mailbox-slots').OwnedMailbox[]>('/trade/v1/mailboxes');
+  } catch {
+    return null;
+  }
+}
+
+/** Shared total/custom allocation counters; never infer totals from mailbox lists. */
+export async function getMailboxSlotsSSR(): Promise<import('./mailbox-slots').MailboxSlotStatus | null> {
+  try {
+    const status = await apiFetch<unknown>('/trade/v1/mailboxes/slots');
+    return isMailboxSlotStatus(status) ? status : null;
   } catch {
     return null;
   }

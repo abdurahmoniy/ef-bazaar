@@ -11,7 +11,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import uz.efbazaar.trade.testsupport.AbstractPostgresIT;
+import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
-class CardControllerIT extends AbstractPostgresIT {
+class CardControllerIT extends AbstractIntegrationIT {
 
     private static Path masterKeyFile;
 

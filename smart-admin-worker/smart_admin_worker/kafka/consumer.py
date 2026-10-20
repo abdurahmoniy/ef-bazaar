@@ -1,8 +1,8 @@
 """aiokafka consumer runner with per-topic async handler dispatch.
 
 Retries a handler up to 3 times with exponential backoff (tenacity), then
-commits the offset and moves on. Never blocks the consumer indefinitely on a
-poison-pill message.
+commits ordinary failed messages. Required-result publication failure stops
+the consumer without committing, preserving the request for recovery.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from tenacity import (
 )
 
 from smart_admin_worker.kafka.events import from_json
+from smart_admin_worker.kafka.producer import ResultPublicationError
 
 log = logging.getLogger(__name__)
 
@@ -104,6 +105,7 @@ class KafkaConsumerRunner:
             await self._consumer.commit()
             return
 
+        commit = True
         try:
             async for attempt in AsyncRetrying(
                 stop=stop_after_attempt(3),
@@ -118,6 +120,11 @@ class KafkaConsumerRunner:
             # last attempt, not a RetryError, so this is the only branch that's
             # ever reachable here.
             log.error("handler for %s exhausted retries: %s", msg.topic, e)
+            if isinstance(e, ResultPublicationError):
+                # Stop the consumer without committing this request. Health
+                # becomes error; restart/recovery safely redelivers it.
+                commit = False
+                raise
             if self._on_exhausted is not None:
                 try:
                     await self._on_exhausted(msg.topic, event, e)
@@ -127,4 +134,5 @@ class KafkaConsumerRunner:
                     # to'xtatib qo'yardi.
                     log.exception("on_exhausted callback failed for %s", msg.topic)
         finally:
-            await self._consumer.commit()
+            if commit:
+                await self._consumer.commit()

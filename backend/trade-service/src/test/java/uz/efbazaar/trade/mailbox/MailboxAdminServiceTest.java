@@ -37,6 +37,7 @@ class MailboxAdminServiceTest {
     private uz.efbazaar.trade.kafka.TradeEventPublisher events;
     private TradeRepository trades;
     private MailboxService svc;
+    private uz.efbazaar.trade.mailbox.release.MailboxDeletionService deletions;
 
     private final Pageable page = PageRequest.of(0, 20);
 
@@ -45,7 +46,9 @@ class MailboxAdminServiceTest {
         repo = mock(MailboxRepository.class);
         events = mock(uz.efbazaar.trade.kafka.TradeEventPublisher.class);
         trades = mock(TradeRepository.class);
-        svc = new MailboxService(repo, trades, mock(TradeCrypto.class), events,
+        deletions = mock(uz.efbazaar.trade.mailbox.release.MailboxDeletionService.class);
+        svc = new MailboxService(repo, deletions, mock(uz.efbazaar.trade.plan.service.MailboxQuotaLock.class),
+                mock(uz.efbazaar.trade.plan.service.MailboxSlotService.class), trades, mock(TradeCrypto.class), events,
                 mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class),
                 mock(uz.efbazaar.trade.mailbox.link.LinkSessionService.class));
     }
@@ -151,9 +154,8 @@ class MailboxAdminServiceTest {
 
         org.mockito.Mockito.verify(events, org.mockito.Mockito.never())
                 .mailboxDeleteRequest(any(), any());
-        org.assertj.core.api.Assertions.assertThat(box.getDeletedAt())
-                .as("still marked deleted on our side")
-                .isNotNull();
+        verify(deletions).requestUnheld(box.getId(),box.getEmail(),box.getProvisionedAt());
+        verify(repo, never()).save(any());
     }
 
     @Test
@@ -163,7 +165,8 @@ class MailboxAdminServiceTest {
 
         svc.deleteUnheld(box.getId());
 
-        org.mockito.Mockito.verify(events).mailboxDeleteRequest(box.getId(), "box@efbazaar.uz");
+        verify(deletions).requestUnheld(box.getId(),box.getEmail(),box.getProvisionedAt());
+        verify(events, never()).mailboxDeleteRequest(any(),any());
     }
 
     // ---------- detach / reassign ----------
@@ -180,6 +183,8 @@ class MailboxAdminServiceTest {
                 .build();
         when(repo.findById(m.getId())).thenReturn(Optional.of(m));
         when(repo.save(any(Mailbox.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(repo.detachIfUnchanged(eq(m.getId()), any(), any())).thenReturn(1);
+        when(repo.reassignIfUnchanged(eq(m.getId()), any(), any(), any(), any())).thenReturn(1);
         when(trades.existsLiveWithMailbox(eq(m.getId()), any())).thenReturn(false);
         return m;
     }

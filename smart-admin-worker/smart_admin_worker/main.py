@@ -27,11 +27,12 @@ from smart_admin_worker.handlers.forgot_password import ForgotPasswordHandler
 from smart_admin_worker.handlers.imap_poll import ImapPollHandler
 from smart_admin_worker.handlers.imap_poll_stop import ImapPollStopHandler
 from smart_admin_worker.handlers.mailbox_delete import MailboxDeleteHandler
+from smart_admin_worker.handlers.mailbox_inventory import MailboxInventoryHandler
 from smart_admin_worker.handlers.mailbox_provision import MailboxProvisionHandler
 from smart_admin_worker.handlers.mailbox_rotate import MailboxRotateHandler
 from smart_admin_worker.http import health
 from smart_admin_worker.imap.detector import KonamiEmailDetector
-from smart_admin_worker.imap.factory import ImapToolsConnectionFactory
+from smart_admin_worker.imap.factory import ImapToolsConnectionFactory, verify_credentials
 from smart_admin_worker.imap.registry import ImapPollerRegistry
 from smart_admin_worker.kafka.consumer import KafkaConsumerRunner
 from smart_admin_worker.kafka.events import EmailProvisionFailed
@@ -44,6 +45,7 @@ from smart_admin_worker.kafka.topics import (
     TOPIC_IMAP_POLL_REQ,
     TOPIC_IMAP_POLL_STOP_REQ,
     TOPIC_MAILBOX_DELETE_REQ,
+    TOPIC_MAILBOX_INVENTORY_REQ,
     TOPIC_MAILBOX_PROVISION_REQ,
     TOPIC_MAILBOX_ROTATE_REQ,
 )
@@ -53,6 +55,7 @@ from smart_admin_worker.mailcow.client import MailcowClient
 from smart_admin_worker.observability.kafka_log_forwarder import KafkaLogForwarder
 from smart_admin_worker.redis.lock import RedisLockManager
 from smart_admin_worker.telegram.notifier import TelegramNotifier
+from smart_admin_worker.trade.client import ProvisionClaimClient
 
 
 def _load_master_key(path: Path) -> bytes:
@@ -75,6 +78,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     encryptor = FieldEncryptor(master_key)
     mailcow = MailcowClient(settings.mailcow_api_url, mailcow_api_key)
+    provision_claims = ProvisionClaimClient(
+        settings.trade_internal_base_url, settings.internal_api_secret.get_secret_value(),
+    )
     producer = KafkaProducerClient(settings.kafka_bootstrap_servers)
     konami = KonamiClient(max_concurrent=settings.max_concurrent_rotate)
 
@@ -144,18 +150,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     log.info("telegram_notifier_init", enabled=notifier.enabled)
 
+    async def credential_verifier(email: str, password: str) -> bool:
+        return await asyncio.to_thread(
+            verify_credentials, settings.imap_host, settings.imap_port, email, password,
+        )
+
     email_provision_handler = EmailProvisionHandler(
         mailcow=mailcow, encryptor=encryptor, producer=producer, mailcow_domain="efbazaar.uz",
         password_cache=app.state.password_cache,
         mailbox_id_to_email=app.state.mailbox_id_to_email,
-        notifier=notifier,
+        notifier=notifier, claims=provision_claims, credential_verifier=credential_verifier,
     )
 
     mailbox_provision_handler = MailboxProvisionHandler(
         mailcow=mailcow, encryptor=encryptor, producer=producer, mailcow_domain="efbazaar.uz",
         password_cache=app.state.password_cache,
         mailbox_id_to_email=app.state.mailbox_id_to_email,
-        notifier=notifier,
+        notifier=notifier, claims=provision_claims, credential_verifier=credential_verifier,
     )
 
     raw_handlers: dict[str, Callable[[object], Awaitable[None]]] = {
@@ -172,8 +183,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             email_provider=email_provider, registry=poller_registry,
         ).handle,
         TOPIC_MAILBOX_DELETE_REQ: MailboxDeleteHandler(
-            mailcow=mailcow, registry=poller_registry,
+            mailcow=mailcow, registry=poller_registry, producer=producer,
         ).handle,
+        TOPIC_MAILBOX_INVENTORY_REQ: MailboxInventoryHandler(mailcow, producer).handle,
     }
 
     # Wrap each handler so any exception fires a Telegram error notification
@@ -186,6 +198,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         TOPIC_IMAP_POLL_REQ: "imap_poll",
         TOPIC_MAILBOX_ROTATE_REQ: "mailbox_rotate",
         TOPIC_MAILBOX_DELETE_REQ: "mailbox_delete",
+        TOPIC_MAILBOX_INVENTORY_REQ: "mailbox_inventory",
         TOPIC_IMAP_POLL_STOP_REQ: "imap_poll_stop",
     }
 
@@ -290,6 +303,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await notifier_http_client.aclose()
             log.info("shutdown")
     finally:
+        await provision_claims.aclose()
         await producer.stop()
 
 

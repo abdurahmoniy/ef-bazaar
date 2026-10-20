@@ -6,8 +6,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.scheduling.annotation.Scheduled;
 import uz.efbazaar.payment.plan.domain.Plan;
 import uz.efbazaar.payment.plan.domain.UserSubscription;
 import uz.efbazaar.payment.plan.dto.PlanEntitlementsSnapshot;
@@ -49,6 +48,7 @@ public class PlanService {
     private final PlanEntitlementRepository entitlements;
     private final UserSubscriptionRepository subscriptions;
     private final PlanEventPublisher events;
+    private final java.time.Clock clock;
 
     @Transactional(readOnly = true)
     public List<Plan> activePlans() {
@@ -65,7 +65,7 @@ public class PlanService {
     @Transactional(readOnly = true)
     public String planFor(UUID userId) {
         return subscriptions.findById(userId)
-                .filter(s -> s.isLiveAt(Instant.now()))
+                .filter(s -> s.isLiveAt(clock.instant()))
                 .map(UserSubscription::getPlanCode)
                 .orElse(DEFAULT_PLAN);
     }
@@ -74,9 +74,19 @@ public class PlanService {
     @Transactional(readOnly = true)
     public Instant expiryFor(UUID userId) {
         return subscriptions.findById(userId)
-                .filter(s -> s.isLiveAt(Instant.now()))
+                .filter(s -> s.isLiveAt(clock.instant()))
                 .map(UserSubscription::getExpiresAt)
                 .orElse(null);
+    }
+
+    @Transactional
+    public uz.efbazaar.payment.plan.dto.MyPlanResponse mine(UUID userId) {
+        var sub = initializeIdentity(userId);
+        String code = sub != null && sub.isLiveAt(clock.instant()) ? sub.getPlanCode() : DEFAULT_PLAN;
+        Instant end = sub == null ? null : sub.getLastPaidExpiresAt();
+        return new uz.efbazaar.payment.plan.dto.MyPlanResponse(code,
+                sub != null && sub.isLiveAt(clock.instant()) ? sub.getExpiresAt() : null,
+                entitlementsOf(code), end, end == null ? null : end.plus(java.time.Duration.ofDays(30)));
     }
 
     @Transactional(readOnly = true)
@@ -86,6 +96,21 @@ public class PlanService {
             out.put(e.key(), e.getValue());
         }
         return out;
+    }
+
+    /**
+     * A never-paid authenticated identity still needs an authoritative Free
+     * snapshot. INSERT-on-conflict and the same purchase row lock preserve an
+     * existing paid/STAFF subscription, even if registration is replayed late.
+     */
+    @Transactional
+    public UserSubscription initializeIdentity(UUID userId) {
+        int created = subscriptions.ensureRow(userId);
+        UserSubscription sub = subscriptions.lockByUserId(userId).orElseThrow();
+        if (created == 1) {
+            events.subscriptionChanged(userId, sub.getPlanCode(), sub.getExpiresAt(), sub.getLastPaidExpiresAt());
+        }
+        return sub;
     }
 
     /**
@@ -100,44 +125,37 @@ public class PlanService {
         if (!plans.existsById(planCode)) {
             throw new IllegalArgumentException("Unknown plan " + planCode);
         }
-        UserSubscription sub = subscriptions.findById(userId)
-                .orElseGet(() -> UserSubscription.builder().userId(userId).build());
+        subscriptions.ensureRow(userId);
+        UserSubscription sub = subscriptions.lockByUserId(userId).orElseThrow();
+        if (("PRO".equals(planCode) || "MAX".equals(planCode)) && expiresAt != null) {
+            sub.setLastPaidExpiresAt(expiresAt);
+        }
         sub.setPlanCode(planCode);
         sub.setExpiresAt(expiresAt);
         sub.setSource(source == null ? "ADMIN" : source);
         subscriptions.save(sub);
 
-        // Only once the row is durable: a rollback after this point must not
-        // leave readers believing in a plan the database never recorded.
-        Runnable announce = () -> events.subscriptionChanged(userId, planCode, expiresAt);
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    announce.run();
-                }
-            });
-        } else {
-            announce.run();
-        }
+        events.subscriptionChanged(userId, planCode, expiresAt, sub.getLastPaidExpiresAt());
         log.info("User {} is now on plan {} (expires {})", userId, planCode, expiresAt);
         return sub;
     }
 
-    /**
-     * Republishes what every plan grants.
-     *
-     * <p>Run on startup as well as on change. A reader that came up after the
-     * last change, or lost its copy, has no way to ask for one — this is how it
-     * gets back in step without an operator being involved.
-     */
+    /** Startup and hourly recovery include subscriptions, even expired/free tombstones. */
     @EventListener(ApplicationReadyEvent.class)
-    @Transactional(readOnly = true)
+    @Scheduled(fixedDelayString = "${payment.scheduler.plan-replay-interval-ms:3600000}",
+            initialDelayString = "${payment.scheduler.plan-replay-interval-ms:3600000}")
+    @Transactional
     public void publishAllEntitlements() {
-        for (Plan plan : plans.findAll()) {
+        for (Plan plan : plans.findAll().stream().sorted(java.util.Comparator.comparing(Plan::getCode)).toList()) {
+            plans.lockByCode(plan.getCode()).orElseThrow();
             events.planEntitlements(new PlanEntitlementsSnapshot(
                     plan.getCode(), entitlementsOf(plan.getCode()), Instant.now()));
         }
-        log.info("Published entitlements for all plans");
+        // Fetch ids only: do not cache entities before taking their locks.
+        for (UUID userId : subscriptions.findAllUserIds()) {
+            subscriptions.lockByUserId(userId).ifPresent(sub ->
+                    events.subscriptionChanged(userId, sub.getPlanCode(), sub.getExpiresAt(), sub.getLastPaidExpiresAt()));
+        }
+        log.info("Queued plan and subscription recovery snapshots");
     }
 }

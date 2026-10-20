@@ -36,6 +36,10 @@ public class UserSubscription {
     @Column(name = "expires_at")
     private Instant expiresAt;
 
+    /** Historical paid end survives Free/STAFF transitions; never grants paid capabilities. */
+    @Column(name = "last_paid_expires_at")
+    private Instant lastPaidExpiresAt;
+
     @Column(length = 32, nullable = false)
     private String source;
 

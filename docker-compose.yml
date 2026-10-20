@@ -550,6 +550,7 @@ services:
       # marketplace bilan BIR XIL qiymat — card interest dedupe va 30 kunlik tarix umumiy.
       CARD_INTEREST_HMAC_SECRET: ${CARD_INTEREST_HMAC_SECRET}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
       APP_DEBUG_ERRORS: ${APP_DEBUG_ERRORS:-false}
     depends_on:
       postgres:
@@ -594,6 +595,8 @@ services:
       MAILCOW_API_URL: https://mailcow.efbazaar.uz/api/v1
       MAILCOW_API_KEY_FILE: /run/secrets/mailcow_api_key
       MASTER_KEY_FILE: /run/secrets/master_key
+      TRADE_INTERNAL_BASE_URL: http://trade-service:8085
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
       # See trade-service block: mail.efbazaar.uz is required for IMAPS TLS
       # SAN validation, not mailcow.efbazaar.uz.
       IMAP_HOST: mail.efbazaar.uz

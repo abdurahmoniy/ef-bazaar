@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { ChatTemplatePicker } from '@/components/chat/chat-template-picker';
 import { ChatSearch } from '@/components/chat/chat-search';
 import { ChatOutbox } from '@/components/chat/chat-outbox';
 import { useChatOutbox } from '@/hooks/use-chat-outbox';
@@ -632,6 +633,10 @@ export function ChatView({
               </Button>
             </div>
           )}
+          <div className="flex flex-wrap items-center gap-2 pb-2">
+            <ChatTemplatePicker draft={savedDraft} disabled={Boolean(editing)||isRecording||isSending} onInsert={value=>{setSavedDraft(value);setTyping(Boolean(value.trim()));}} />
+            <Link href={`/seller-tools?chatId=${encodeURIComponent(chat.id)}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-xs font-semibold text-muted-foreground hover:text-foreground">Shaxsiy qaydlar</Link>
+          </div>
           <div className="flex shrink-0 items-end gap-2">
             <input
               ref={fileInputRef}

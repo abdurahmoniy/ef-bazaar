@@ -36,6 +36,7 @@ class PlanReminderJobIT extends AbstractPostgresIT {
     @Autowired PlanPurchaseRepository purchases;
     @Autowired PlanService plans;
     @Autowired MutableClock clock;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @MockBean BotClient bot;
 
     static final Instant NOW = Instant.parse("2026-05-01T12:00:00Z");
@@ -67,7 +68,7 @@ class PlanReminderJobIT extends AbstractPostgresIT {
         job.run();
         job.run();
 
-        verify(bot, times(1)).sendDirectMessage(eq(111L), contains("3 kundan keyin"));
+        verify(bot, times(1)).sendDirectMessage(eq(111L), contains("3 kun ichida"));
         verify(bot, times(1)).sendDirectMessage(eq(222L), contains("tugadi"));
         verify(bot, never()).sendDirectMessage(eq(333L), anyString());
     }
@@ -84,6 +85,16 @@ class PlanReminderJobIT extends AbstractPostgresIT {
         job.run();
 
         verify(bot, never()).sendDirectMessage(eq(444L), anyString());
+    }
+
+    @Test
+    void ambiguousTelegramFailureIsVisibleAndNeverAutomaticallyDuplicated() {
+        bought(NOW.plus(Duration.ofDays(1)), 555L);
+        when(bot.sendDirectMessage(eq(555L), anyString())).thenThrow(new RuntimeException("timeout"));
+        job.run(); job.run();
+        verify(bot, times(1)).sendDirectMessage(eq(555L), anyString());
+        org.junit.jupiter.api.Assertions.assertEquals(1, jdbc.queryForObject(
+                "SELECT count(*) FROM plan_notices WHERE telegram_id=555 AND telegram_status='UNCONFIRMED'", Integer.class));
     }
 
     @Test

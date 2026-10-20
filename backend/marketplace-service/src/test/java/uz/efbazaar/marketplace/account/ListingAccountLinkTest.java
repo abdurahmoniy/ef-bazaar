@@ -52,6 +52,7 @@ class ListingAccountLinkTest {
     void onListingCreated_buildsAnAccountBehindTheListing() {
         UUID sellerId = UUID.randomUUID();
         Listing listing = listing(sellerId);
+        when(listings.findByIdForUpdate(listing.getId())).thenReturn(Optional.of(listing));
         when(accounts.existsBySourceListingId(listing.getId())).thenReturn(false);
         when(accounts.saveAndFlush(any(UserAccount.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -74,6 +75,7 @@ class ListingAccountLinkTest {
     @Test
     void onListingCreated_isIdempotent() {
         Listing listing = listing(UUID.randomUUID());
+        when(listings.findByIdForUpdate(listing.getId())).thenReturn(Optional.of(listing));
         when(accounts.existsBySourceListingId(listing.getId())).thenReturn(true);
 
         link.onListingCreated(listing);

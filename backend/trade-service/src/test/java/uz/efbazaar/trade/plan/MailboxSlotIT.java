@@ -40,14 +40,7 @@ class MailboxSlotIT extends AbstractIntegrationIT {
     @Autowired uz.efbazaar.trade.mailbox.repository.MailboxRepository mailboxes;
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
-    /**
-     * Leaves the projection as it was found: empty.
-     *
-     * <p>Every other test in this suite opens trades freely, and they can only
-     * do that because nothing is known about any plan. A leftover
-     * "STANDARD grants 1" from here would start refusing them, in whichever
-     * class happened to run next.
-     */
+    /** Remove test-owned grants and subscriptions so other tests use the bounded Free fallback. */
     @org.junit.jupiter.api.AfterEach
     void forgetWhatThisTestTaught() {
         entitlementRows.deleteAll();
@@ -56,8 +49,8 @@ class MailboxSlotIT extends AbstractIntegrationIT {
 
     private void planGrants(String plan, String value) {
         Map<String, String> granted = new HashMap<>();
-        granted.put("mailbox.slots", value);
-        projection.replacePlan(plan, granted);
+        granted.put("mailbox.total_slots", value);
+        projection.replacePlan(plan, granted, System.nanoTime(), "fixture-" + UUID.randomUUID(), java.time.Instant.now());
     }
 
     private UUID openSaleFor(UUID seller, UUID buyer) {
@@ -138,7 +131,7 @@ class MailboxSlotIT extends AbstractIntegrationIT {
     void anUnlimitedPlanIsNeverRefused() {
         planGrants("MAX", null);
         UUID seller = UUID.randomUUID();
-        projection.userMoved(seller, "MAX", null);
+        projection.userMoved(seller, "MAX", null, System.nanoTime(), "fixture-" + UUID.randomUUID(), java.time.Instant.now());
 
         for (int i = 0; i < 6; i++) {
             openSaleFor(seller, UUID.randomUUID());
@@ -148,19 +141,15 @@ class MailboxSlotIT extends AbstractIntegrationIT {
         assertThat(slots.limitFor(seller)).isEmpty();
     }
 
-    /**
-     * A projection that has not been fed yet must not stop the marketplace.
-     *
-     * <p>It is empty for a few seconds after every deploy, until the publisher's
-     * startup snapshot lands. Refusing trades in that window would be a worse
-     * failure than a user briefly getting more than they paid for.
-     */
+    /** Unknown paid plans must not bypass allocation limits. */
     @Test
-    void anUnknownPlanIsNotEnforced() {
+    void anUnknownPlanCannotAllocate() {
         UUID seller = UUID.randomUUID();
-        projection.userMoved(seller, "PLAN_WE_HAVE_NOT_HEARD_OF", null);
+        projection.userMoved(seller, "PLAN_WE_HAVE_NOT_HEARD_OF", null, System.nanoTime(), "fixture-" + UUID.randomUUID(), java.time.Instant.now());
 
-        assertThatCode(() -> slots.assertCanAllocate(seller)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> slots.assertCanAllocate(seller))
+                .isInstanceOfSatisfying(uz.efbazaar.trade.common.exception.ApiCodeException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("plan_projection_unavailable"));
     }
 
     /** A mailbox owned by {@code owner}, wired into a live trade between two other people when {@code tradeId} is set. */
@@ -190,6 +179,8 @@ class MailboxSlotIT extends AbstractIntegrationIT {
         }
 
         assertThat(slots.used(admin)).isZero();
+        assertThat(slots.statusFor(admin).resourceUsed()).isEqualTo(5);
+        assertThat(slots.statusFor(admin).exemptUsed()).isEqualTo(5);
         assertThat(slots.statusFor(admin).full()).isFalse();
         assertThatCode(() -> slots.assertCanAllocate(admin)).doesNotThrowAnyException();
         assertThatCode(() -> openSaleFor(admin, UUID.randomUUID())).doesNotThrowAnyException();

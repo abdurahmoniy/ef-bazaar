@@ -58,6 +58,10 @@ export async function markAllNotificationsRead(): Promise<void> {
 export function notificationLabel(n: NotificationResponse): string {
   const actor = n.actorDisplayName?.trim() || 'Foydalanuvchi';
   switch (n.type) {
+    case 'WATCH_MATCH':
+      return 'Kuzatuvingizga mos yangilik';
+    case 'WATCH_DIGEST':
+      return `Kuzatuvlar bo‘yicha kunlik jamlanma${n.watchPayload ? ` · ${n.watchPayload.totalCount} ta e’lon` : ''}`;
     case 'CHAT_CREATED':
       return `${actor} e'loningiz uchun bog'landi`;
     case 'CHAT_MESSAGE':
@@ -114,6 +118,11 @@ export function notificationLabel(n: NotificationResponse): string {
 }
 
 export function notificationHref(n: NotificationResponse): string | null {
+  if (n.type === 'WATCH_MATCH' || n.type === 'WATCH_DIGEST') {
+    const payload = n.watchPayload;
+    if (!payload || payload.remainingCount > 0 || payload.items.length !== 1) return '/watches';
+    return `/marketplace/${encodeURIComponent(payload.items[0].listingId)}`;
+  }
   // Withdrawals split by audience: an admin is being sent to the queue to pay
   // somebody, the owner to their own wallet to see it landed.
   if (n.type === 'WITHDRAWAL_REQUESTED') {

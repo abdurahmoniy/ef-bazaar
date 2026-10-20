@@ -15,4 +15,15 @@ public record SubscriptionChanged(
         UUID userId,
         String planCode,
         Instant expiresAt,
-        Instant occurredAt) {}
+        Instant occurredAt,
+        long version,
+        String idempotencyKey,
+        Instant lastPaidExpiresAt) {
+    public SubscriptionChanged(UUID userId, String planCode, Instant expiresAt, Instant occurredAt,
+                               long version, String idempotencyKey) {
+        this(userId, planCode, expiresAt, occurredAt, version, idempotencyKey, null);
+    }
+    public SubscriptionChanged(UUID userId, String planCode, Instant expiresAt, Instant occurredAt) {
+        this(userId, planCode, expiresAt, occurredAt, 0, null);
+    }
+}

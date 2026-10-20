@@ -60,6 +60,7 @@ server:
   forward-headers-strategy: framework
 
 app:
+  internal-api-secret: ${INTERNAL_API_SECRET:}
   debug-errors: ${APP_DEBUG_ERRORS:false}
   logging:
     kafka-forward:

@@ -4,9 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Lock } from 'lucide-react';
 
+import { siteConfig } from '@/lib/site';
 import { Button } from '@/components/ui/button';
 import { UnlockSwapDialog } from '@/components/profile/unlock-swap-dialog';
 import { showUpgrade, type SwapCandidate } from '@/lib/mailbox-lock';
+import { accessDescription, mailboxAccess } from '@/lib/mailbox-access';
 import type { OwnedMailbox } from '@/lib/mailbox-slots';
 
 interface Props {
@@ -30,9 +32,9 @@ export function LockedMailboxCard({ mailbox, plan, limit, candidates, onChanged,
   return (
     <article
       aria-label={`Qulflangan quti ${mailbox.email}`}
-      className="relative min-h-36 overflow-hidden rounded-2xl border border-dashed border-amber-500/60 bg-card"
+      className="relative grid min-h-36 overflow-hidden rounded-2xl border border-dashed border-amber-500/60 bg-card"
     >
-      <div aria-hidden className="flex flex-col gap-3.5 p-4 opacity-70 blur-[5px]">
+      <div aria-hidden className="col-start-1 row-start-1 flex flex-col gap-3.5 p-4 opacity-70 blur-[5px]">
         <div className="flex items-center gap-3">
           <span className="size-10 rounded-full bg-muted-foreground/40" />
           <div className="flex flex-col gap-1.5">
@@ -46,19 +48,21 @@ export function LockedMailboxCard({ mailbox, plan, limit, candidates, onChanged,
         </div>
       </div>
 
-      <div className="absolute inset-0 flex flex-wrap items-center justify-between gap-3 bg-card/75 p-4 backdrop-blur-[2px]">
+      <div className="relative col-start-1 row-start-1 flex flex-wrap items-center justify-between gap-3 bg-card/75 p-4 backdrop-blur-[2px]">
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-500/15 text-amber-800 dark:text-amber-300">
             <Lock className="size-5" aria-hidden />
           </span>
           <div className="flex min-w-0 flex-col gap-0.5">
             <span className="text-xs font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300">
-              Qulflangan
+              {mailboxAccess(mailbox) === 'RECOVERY' ? 'Recovery' : 'Qulflangan'}
             </span>
             <span className="break-all text-sm font-bold text-foreground">{mailbox.email}</span>
+            {mailbox.accessState && <span className="max-w-xs text-xs">{accessDescription(mailbox)}</span>}
           </div>
         </div>
         <div className="flex shrink-0 flex-col gap-1.5">
+          {mailbox.accessState === 'RECOVERY' && <a className="inline-flex min-h-11 items-center text-sm font-semibold underline" href={`${siteConfig.mailUrl}/${encodeURIComponent(mailbox.id)}`}>Konami xatlarini o‘qish</a>}
           {showUpgrade(plan) && (
             <Button asChild size="sm" className="min-h-11">
               <Link href="/plans">Tarifni oshirish</Link>

@@ -41,14 +41,15 @@ public interface MailboxRepository
      * <p>Terminal states come in as a parameter rather than being spelled out
      * here, so the SQL cannot fall out of step with {@code TradeState}.
      *
-     * <p>Only RANDOM boxes: a custom box spends {@code mailbox.custom_slots}
-     * instead and is never part of a trade.
+     * <p>Random and custom share one pool. Detached resources retain responsibility.
+     * Sale mailboxes reserve both the source and final recipient; swaps reserve
+     * each party's own side until the crossed handoff commits atomically.
      */
     @Query(value = """
             SELECT COUNT(DISTINCT m.id) FROM mailboxes m
              WHERE m.deleted_at IS NULL
-               AND m.kind = 'RANDOM'
-               AND ((m.owner_user_id = :userId
+               AND m.source <> 'ADMIN'
+               AND (m.retained_user_id = :userId OR (m.owner_user_id = :userId
                      AND (NOT EXISTS (SELECT 1 FROM trades t
                                        WHERE t.state NOT IN (:terminalStates)
                                          AND (t.mailbox_id = m.id
@@ -67,10 +68,43 @@ public interface MailboxRepository
                          WHERE s.mailbox_id IS NOT NULL
                            AND t.state NOT IN (:terminalStates)
                            AND ((s.role = 'SELLER' AND t.seller_id = :userId)
-                             OR (s.role = 'BUYER'  AND t.buyer_id  = :userId))))
+                             OR (s.role = 'BUYER'  AND t.buyer_id  = :userId)))
+                    OR (m.id IN (SELECT t.mailbox_id FROM trades t
+                                  WHERE t.state NOT IN (:terminalStates)
+                                    AND t.kind = 'SALE'
+                                    AND (t.seller_id = :userId OR t.buyer_id = :userId))))
             """, nativeQuery = true)
     long countHeldBy(@Param("userId") UUID userId,
                      @Param("terminalStates") Collection<String> terminalStates);
+
+    /** Provisioning is write-once: a delayed replay must never roll back rotated credentials. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Mailbox m SET m.email = :email, m.encryptedPassword = :encPass,
+                m.passwordIv = :iv, m.passwordTag = :tag, m.provisionedAt = :now,
+                m.provisioningStatus = 'CONFIRMED'
+            WHERE m.id = :id AND m.provisionedAt IS NULL
+              AND m.kind = uz.efbazaar.trade.mailbox.domain.MailboxKind.RANDOM
+            """)
+    int recordInitialTradeProvisioning(@Param("id") UUID id, @Param("email") String email,
+                                       @Param("encPass") byte[] encPass, @Param("iv") byte[] iv,
+                                       @Param("tag") byte[] tag, @Param("now") java.time.Instant now);
+
+    /** Known successful provisioning can arrive after another swap side failed. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Mailbox m SET m.deletedAt = NULL, m.retainedUserId = :responsible
+            WHERE m.id = :id AND m.ownerUserId IS NULL AND m.retainedUserId IS NULL
+              AND m.provisionedAt IS NOT NULL
+              AND m.kind = uz.efbazaar.trade.mailbox.domain.MailboxKind.RANDOM
+            """)
+    int restoreFailedProvisionedResponsibility(@Param("id") UUID id, @Param("responsible") UUID responsible);
+
+    /** A real resource survives failed provisioning even though no user gains inbox access. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update Mailbox m set m.retainedUserId = :responsible where m.id = :id "
+            + "and m.deletedAt is null and m.provisionedAt is not null")
+    int retainProvisionedResponsibility(@Param("id") UUID id, @Param("responsible") UUID responsible);
 
     /**
      * Writes the credentials and nothing else.
@@ -87,7 +121,8 @@ public interface MailboxRepository
                SET m.encryptedPassword = :encPass,
                    m.passwordIv = :iv,
                    m.passwordTag = :tag,
-                   m.provisionedAt = COALESCE(m.provisionedAt, :now)
+                   m.provisionedAt = COALESCE(m.provisionedAt, :now),
+                   m.provisioningStatus = CASE WHEN m.provisioningStatus = 'NONE' THEN 'CONFIRMED' ELSE m.provisioningStatus END
              WHERE m.id = :id
             """)
     int applyCredentials(@Param("id") UUID id,
@@ -104,7 +139,8 @@ public interface MailboxRepository
                    m.encryptedPassword = :encPass,
                    m.passwordIv = :iv,
                    m.passwordTag = :tag,
-                   m.provisionedAt = COALESCE(m.provisionedAt, :now)
+                   m.provisionedAt = COALESCE(m.provisionedAt, :now),
+                   m.provisioningStatus = CASE WHEN m.provisioningStatus = 'NONE' THEN 'CONFIRMED' ELSE m.provisioningStatus END
              WHERE m.id = :id
             """)
     int applyAddressAndCredentials(@Param("id") UUID id,
@@ -118,12 +154,58 @@ public interface MailboxRepository
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             UPDATE Mailbox m
-               SET m.ownerUserId = NULL, m.displayName = NULL
+               SET m.retainedUserId = m.ownerUserId, m.ownerUserId = NULL, m.displayName = NULL
              WHERE m.id = :id
                AND m.ownerUserId = :ownerUserId
                AND m.deletedAt IS NULL
             """)
     int detachOwnedBy(@Param("id") UUID id, @Param("ownerUserId") UUID ownerUserId);
+
+    /** Current responsibility and reservations decide deletion, never a cached entity snapshot. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+            UPDATE mailboxes m SET deleted_at = :now
+            WHERE m.id = :id AND m.deleted_at IS NULL
+              AND m.owner_user_id IS NULL AND m.retained_user_id IS NULL AND m.trade_id IS NULL
+              AND m.email = :expectedEmail
+              AND m.provisioned_at IS NOT DISTINCT FROM CAST(:expectedProvisionedAt AS timestamptz)
+              AND NOT EXISTS (SELECT 1 FROM trades t
+                  WHERE t.state NOT IN (:terminalStates)
+                    AND (t.mailbox_id = m.id OR EXISTS
+                        (SELECT 1 FROM trade_sides s WHERE s.trade_id = t.id AND s.mailbox_id = m.id)))
+            """, nativeQuery = true)
+    int softDeleteUnheld(@Param("id") UUID id, @Param("expectedEmail") String expectedEmail,
+                         @Param("expectedProvisionedAt") java.time.Instant expectedProvisionedAt,
+                         @Param("now") java.time.Instant now,
+                         @Param("terminalStates") Collection<String> terminalStates);
+
+    /** Scalar query bypasses a previously cached mailbox when classifying a refused deletion. */
+    @Query(value = "SELECT EXISTS(SELECT 1 FROM mailboxes WHERE id = :id AND deleted_at IS NOT NULL)", nativeQuery = true)
+    boolean isDeleted(@Param("id") UUID id);
+
+    /** User locks precede this row lock; stale cached ownership can never be written back. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+            UPDATE mailboxes SET retained_user_id = owner_user_id,
+                owner_user_id = NULL, display_name = NULL
+            WHERE id = :id AND deleted_at IS NULL
+              AND owner_user_id IS NOT DISTINCT FROM CAST(:expectedOwner AS uuid)
+              AND retained_user_id IS NOT DISTINCT FROM CAST(:expectedRetained AS uuid)
+            """, nativeQuery = true)
+    int detachIfUnchanged(@Param("id") UUID id, @Param("expectedOwner") UUID expectedOwner,
+                          @Param("expectedRetained") UUID expectedRetained);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+            UPDATE mailboxes SET owner_user_id = :newOwner, retained_user_id = NULL,
+                display_name = NULL, trade_id = NULL, handed_off_at = :now, owner_mail_visible_from = :now
+            WHERE id = :id AND deleted_at IS NULL
+              AND owner_user_id IS NOT DISTINCT FROM CAST(:expectedOwner AS uuid)
+              AND retained_user_id IS NOT DISTINCT FROM CAST(:expectedRetained AS uuid)
+            """, nativeQuery = true)
+    int reassignIfUnchanged(@Param("id") UUID id, @Param("expectedOwner") UUID expectedOwner,
+                            @Param("expectedRetained") UUID expectedRetained,
+                            @Param("newOwner") UUID newOwner, @Param("now") java.time.Instant now);
 
     /** Check ownership in the write itself, including when a handoff is racing this request. */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -149,6 +231,7 @@ public interface MailboxRepository
                    m.ownerMailVisibleFrom = COALESCE(:visibleFrom, CASE
                        WHEN m.ownerUserId = :ownerUserId THEN COALESCE(m.ownerMailVisibleFrom, m.handedOffAt, m.createdAt)
                        ELSE :now END),
+                   m.retainedUserId = NULL,
                    m.ownerUserId = :ownerUserId,
                    m.tradeId = NULL,
                    m.handedOffAt = :now
@@ -158,6 +241,26 @@ public interface MailboxRepository
                     @Param("ownerUserId") UUID ownerUserId,
                     @Param("now") java.time.Instant now,
                     @Param("visibleFrom") java.time.Instant visibleFrom);
+
+    @Query("select m from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null "
+            + "order by m.accessPriority desc, m.createdAt desc, m.id desc")
+    List<Mailbox> findAccessOrderOwnedBy(@Param("owner") UUID owner);
+
+    /** Admin gifts and borrowed live escrow are visible resources, exempt from quota. */
+    @Query(value = """
+            SELECT count(m.id) FROM mailboxes m
+            WHERE m.deleted_at IS NULL AND
+              ((m.source = 'ADMIN' AND (m.owner_user_id = :owner OR m.retained_user_id = :owner))
+               OR (m.owner_user_id = :owner
+                   AND EXISTS (SELECT 1 FROM trades t WHERE t.state NOT IN (:terminalStates)
+                        AND (t.mailbox_id = m.id OR EXISTS
+                            (SELECT 1 FROM trade_sides s WHERE s.trade_id = t.id AND s.mailbox_id = m.id)))
+                   AND NOT EXISTS (SELECT 1 FROM trades t WHERE t.state NOT IN (:terminalStates)
+                        AND (t.seller_id = :owner OR t.buyer_id = :owner)
+                        AND (t.mailbox_id = m.id OR EXISTS
+                            (SELECT 1 FROM trade_sides s WHERE s.trade_id = t.id AND s.mailbox_id = m.id)))))
+            """, nativeQuery = true)
+    long countExemptHeldBy(@Param("owner") UUID owner, @Param("terminalStates") Collection<String> terminalStates);
 
     List<Mailbox> findByOwnerUserId(UUID ownerUserId);
 
@@ -184,8 +287,7 @@ public interface MailboxRepository
     long countByOwnerUserIdIsNull();
 
     /**
-     * Owned boxes of one kind, not deleted, highest priority first — the order
-     * the plan limit cuts. Each kind has its own limit, so they are never mixed.
+     * Kind-filtered listing for custom endpoints. Access uses the combined order above.
      */
     @Query("select m from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null and m.kind = :kind "
             + "order by m.accessPriority desc, m.createdAt desc, m.id desc")
@@ -195,7 +297,7 @@ public interface MailboxRepository
     long countLiveByOwnerAndKind(@Param("owner") UUID owner, @Param("kind") MailboxKind kind);
 
     /** Custom boxes the user claimed themselves — admin gifts spend no slot. */
-    @Query("select count(m) from Mailbox m where m.ownerUserId = :owner and m.deletedAt is null "
+    @Query("select count(m) from Mailbox m where (m.ownerUserId = :owner or m.retainedUserId = :owner) and m.deletedAt is null "
             + "and m.kind = uz.efbazaar.trade.mailbox.domain.MailboxKind.CUSTOM "
             + "and m.source <> uz.efbazaar.trade.mailbox.domain.MailboxSource.ADMIN")
     long countClaimedCustomOwnedBy(@Param("owner") UUID owner);

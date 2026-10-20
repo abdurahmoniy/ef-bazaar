@@ -32,7 +32,7 @@ import logging
 import re
 import unicodedata
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Protocol
 
@@ -140,6 +140,7 @@ class ResetHit:
     # Konami "bu pochta Konami ID ga ulanmagan" deb javob berdi — sotuvchi
     # akkount emailini o'tkazmagan.
     email_not_registered: bool = False
+    raw_message: bytes | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,6 +205,14 @@ class KonamiEmailDetector:
                 reset_link_present=has_url,
                 email_not_registered=not_registered,
             )
+        return None
+
+    def check_release(self, messages: Iterable[Msg]) -> ResetHit | None:
+        for message in messages:
+            hit = self.check_reset([message])
+            if hit is not None and hit.email_not_registered and not hit.reset_link_present:
+                raw = getattr(message, "raw_message", None)
+                return replace(hit, raw_message=raw if isinstance(raw, bytes) else None)
         return None
 
     def check_2fa(self, messages: Iterable[Msg]) -> TwoFaHit | None:

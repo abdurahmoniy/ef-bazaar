@@ -4,7 +4,7 @@ import { Inbox } from 'lucide-react';
 
 import { MailShell } from '@/components/mail/mail-shell';
 import { getMe } from '@/lib/auth';
-import { getMyMailboxes } from '@/lib/mail-server';
+import { getMailboxSlots, getMyMailboxes } from '@/lib/mail-server';
 import { mainSiteLoginUrl } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +23,7 @@ export default async function MailLandingPage() {
   const user = await getMe();
   if (!user) redirect(mainSiteLoginUrl('/'));
 
-  const mailboxes = await getMyMailboxes();
+  const [mailboxes, slots] = await Promise.all([getMyMailboxes(), getMailboxSlots()]);
   if (mailboxes.length > 0) {
     // Newest owned mailbox first — matches sidebar sort order.
     const [first] = [...mailboxes].sort(
@@ -33,7 +33,7 @@ export default async function MailLandingPage() {
   }
 
   return (
-    <MailShell mailboxes={mailboxes} activeMailboxId={null}>
+    <MailShell slots={slots} mailboxes={mailboxes} activeMailboxId={null}>
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
         <span className="grid h-16 w-16 place-items-center rounded-full bg-muted">
           <Inbox className="h-7 w-7 text-muted-foreground/70" />

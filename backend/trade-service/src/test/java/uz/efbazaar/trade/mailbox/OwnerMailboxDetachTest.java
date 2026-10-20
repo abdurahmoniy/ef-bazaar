@@ -21,7 +21,8 @@ class OwnerMailboxDetachTest {
     private final MailboxRepository repo = mock(MailboxRepository.class);
     private final TradeRepository trades = mock(TradeRepository.class);
     private final TradeEventPublisher events = mock(TradeEventPublisher.class);
-    private final MailboxService service = new MailboxService(repo, trades, mock(TradeCrypto.class), events,
+    private final MailboxService service = new MailboxService(repo, mock(uz.efbazaar.trade.mailbox.release.MailboxDeletionService.class), mock(uz.efbazaar.trade.plan.service.MailboxQuotaLock.class),
+                mock(uz.efbazaar.trade.plan.service.MailboxSlotService.class), trades, mock(TradeCrypto.class), events,
                 mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class),
                 mock(uz.efbazaar.trade.mailbox.link.LinkSessionService.class));
     private Mailbox box;

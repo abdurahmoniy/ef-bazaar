@@ -118,3 +118,30 @@ async def test_structlog_events_are_forwarded_too():
     assert len(producer.published) == 1
     assert producer.published[0][2]["level"] == "ERROR"
     assert "imap_poll_failed" in producer.published[0][2]["message"]
+
+
+def test_closed_event_loop_does_not_leak_the_unscheduled_publish_coroutine(monkeypatch):
+    import inspect
+
+    loop = asyncio.new_event_loop()
+    loop.close()
+    producer = RecordingProducer()
+    forwarder = KafkaLogForwarder(producer, "smart-admin-worker", loop)
+    scheduling = asyncio.run_coroutine_threadsafe
+    submitted = []
+
+    def capture(coroutine, target_loop):
+        submitted.append(coroutine)
+        return scheduling(coroutine, target_loop)
+
+    monkeypatch.setattr(asyncio, "run_coroutine_threadsafe", capture)
+    try:
+        # Shutdown reporting must stay harmless and release the rejected work.
+        forwarder.submit("ERROR", "caller", "thread", "shutdown", None, "shutdown")
+        assert producer.published == []
+        assert len(submitted) == 1
+        assert inspect.getcoroutinestate(submitted[0]) == inspect.CORO_CLOSED
+    finally:
+        # Keep the regression itself clean when the unfixed implementation fails.
+        for coroutine in submitted:
+            coroutine.close()

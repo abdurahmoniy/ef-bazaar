@@ -23,7 +23,8 @@ export function swapUrl(mailboxId: string): string {
   return `${MAIN_SITE_URL}/profile?mailbox=${encodeURIComponent(mailboxId)}#mailboxes`;
 }
 
-export function LockedMailbox({ mailbox }: { mailbox: MailboxSummary }) {
+export function LockedMailbox({ mailbox, plan }: { mailbox: MailboxSummary; plan?: string | null }) {
+  const upgrade = plan === 'STANDARD';
   return (
     <div className="flex min-h-full flex-col">
       <div className="flex items-center gap-3 border-b border-border px-4 py-3 sm:px-6">
@@ -53,16 +54,16 @@ export function LockedMailbox({ mailbox }: { mailbox: MailboxSummary }) {
             </span>
             <h1 className="text-xl font-extrabold text-card-foreground">Bu quti qulflangan</h1>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Bu quti tarifingiz limitidan tashqarida. Xatlarni ko‘rish uchun tarifingizni oshiring.
+              Bu quti tarifingizning umumiy o‘qish limitidan tashqarida. O‘qish uchun boshqa quti o‘rniga shuni tanlang.
               Xatlar o‘chirilmagan — saqlanib turibdi.
             </p>
-            <a
+            {upgrade && <a
               href={upgradeUrl()}
               className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-base font-bold text-primary-foreground hover:opacity-90"
             >
               <ArrowUp className="h-4 w-4" aria-hidden />
               Tarifni oshirish
-            </a>
+            </a>}
             <a href={swapUrl(mailbox.id)} className="text-sm font-semibold text-accent-foreground underline underline-offset-2 hover:opacity-80">
               Boshqa qutini qulflab, shuni ochish
             </a>

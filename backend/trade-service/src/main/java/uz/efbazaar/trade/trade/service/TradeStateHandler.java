@@ -41,6 +41,8 @@ public class TradeStateHandler {
     private final TradeAdminStats adminStats;
     private final EscrowClient escrow;
 
+    private final uz.efbazaar.trade.kafka.SellerTradeCompletionPublisher sellerCompletions;
+
     @Value("${trade.timeouts.waiting-payment-seconds}")        private long twpS;
     @Value("${trade.timeouts.waiting-email-change-seconds}")   private long twecS;
     @Value("${trade.timeouts.verifying-konami-link-seconds}")  private long tvklS;
@@ -81,30 +83,14 @@ public class TradeStateHandler {
         return boxes.isEmpty() ? List.of(trade.getMailboxId()) : boxes;
     }
 
-    /**
-     * Gives each escrow mailbox to whoever should end up with it.
-     *
-     * <p>{@code crossed} is the whole point of a swap: on success each party
-     * receives the account the OTHER one put in. Every other ending — a
-     * rejection, a silent party, a deadline — hands each account back to the
-     * person who put it up, which is also what a failed sale does.
-     */
-    /**
-     * Pochta qutisi ochilmadi — savdo hech qanday iz qoldirmay yopiladi.
-     *
-     * <p>{@code handOver} QILINMAYDI. U qutini egasiga berib parolini
-     * almashtiradi; bu yerda esa quti pochta serverida umuman
-     * ochilmagan va almashtiradigan parol yo'q. Ustiga egasi bo'lgan
-     * quti keyinchalik o'chirilmaydi ham va odamning slot kvotasini
-     * bekorga band qilib turardi.
-     */
+    /** Refund failed provisioning without granting inbox access; retain known real resources. */
     private void onProvisionFailed(Trade trade, ActorType actor, UUID actorId) {
         // Pul darhol qaytadi: savdo boshlanmagan ham.
         releaseEscrow(trade);
         trade.setTerminalReason("PROVISION_FAILED");
-        discardPlaceholders(trade);
-        audit.record(trade.getId(), actor, actorId, "TRADE_PROVISION_FAILED",
-                Map.of("actor", actor.name(), "mailboxesDiscarded", "true"));
+        Map<String, Object> outcome = finishFailedProvisioning(trade);
+        outcome.put("actor", actor.name());
+        audit.record(trade.getId(), actor, actorId, "TRADE_PROVISION_FAILED", outcome);
         if (trade.getChatId() != null) {
             events.tradeClosed(trade);
         }
@@ -114,27 +100,41 @@ public class TradeStateHandler {
                 TradeEvents.TradeActionType.TRADE_ORPHANED, trade.getPriceUzs(), null, trade.getKind());
     }
 
-    /**
-     * Ochilmagan pochta qutilarini yo'q qiladi.
-     *
-     * <p>Savdo "hech qanday iz qoldirmasdan" yopilishi kerak: bu
-     * qatorlar pochta serverida hech narsaga mos kelmaydi, lekin
-     * qolsa foydalanuvchining slot kvotasini band qilib turardi va
-     * u yangi savdo ocha olmasdi — aynan bugungi tuzoqning o'zi.
-     *
-     * <p>Bittasi haqiqatda ochilib ulgurgan bo'lsa (ikki qutili
-     * savdoda biri o'tib, ikkinchisi yiqilgan) unga TEGILMAYDI:
-     * pochta serverida real quti bor va uni jimgina yo'qotish
-     * ma'lumot yo'qotish bo'lardi.
-     */
-    private void discardPlaceholders(Trade trade) {
+    /** Discard only never-created placeholders; real partial allocations retain their source party. */
+    private Map<String, Object> finishFailedProvisioning(Trade trade) {
+        int discarded = 0, retained = 0;
+        List<TradeSide> both = sides.of(trade.getId());
         for (UUID box : mailboxesOf(trade)) {
             var mb = mailboxes.getRaw(box);
-            if (mb == null || mb.getProvisionedAt() != null) continue;
-            mailboxes.deleteUnheld(box);
+            if (mb == null) continue;
+            if ("STARTED".equals(mb.getProvisioningStatus())) {
+                // The one-shot claim already retained the source user's responsibility.
+                retained++;
+            } else if (mb.getProvisionedAt() == null) {
+                mailboxes.deleteUnheld(box);
+                discarded++;
+            } else {
+                UUID responsible = both.stream().filter(side -> box.equals(side.getMailboxId()))
+                        .findFirst().map(side -> side.role() == ParticipantRole.SELLER
+                                ? trade.getSellerId() : trade.getBuyerId()).orElse(trade.getSellerId());
+                mailboxes.retainProvisionedResponsibility(box, responsible);
+                retained++;
+            }
         }
+        Map<String, Object> outcome = new java.util.HashMap<>();
+        outcome.put("placeholdersDiscarded", discarded);
+        outcome.put("realResourcesRetained", retained);
+        return outcome;
     }
 
+    /**
+     * Gives each escrow mailbox to whoever should end up with it.
+     *
+     * <p>{@code crossed} is the whole point of a swap: on success each party
+     * receives the account the OTHER one put in. Every other ending — a
+     * rejection, a silent party, a deadline — hands each account back to the
+     * person who put it up, which is also what a failed sale does.
+     */
     private void handOver(Trade trade, boolean crossed) {
         List<TradeSide> both = sides.of(trade.getId());
         if (both.isEmpty()) {
@@ -319,6 +319,7 @@ public class TradeStateHandler {
                 // whole transition and the trade is retried still owing money,
                 // rather than closing as done with the payment lost.
                 settleEscrow(trade);
+                sellerCompletions.completed(trade);
                 trade.setTerminalReason(trade.getMode() == TradeMode.HUMAN
                         ? "ADMIN_CLOSED_CONFIRMED" : "BUYER_CONFIRMED");
                 handOver(trade, true);

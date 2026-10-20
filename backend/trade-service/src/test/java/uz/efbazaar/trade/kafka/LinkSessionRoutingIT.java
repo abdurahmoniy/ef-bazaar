@@ -60,9 +60,9 @@ class LinkSessionRoutingIT extends uz.efbazaar.trade.testsupport.AbstractMailbox
     @BeforeEach
     void roomForEveryone() {
         Map<String, String> g = new HashMap<>();
-        g.put("mailbox.slots", "10");
+        g.put("mailbox.total_slots", "10");
         g.put("mailbox.custom_slots", "10");
-        projection.replacePlan("STANDARD", g);
+        projection.replacePlan("STANDARD", g, System.nanoTime(), "fixture-" + UUID.randomUUID(), java.time.Instant.now());
     }
 
     @AfterEach

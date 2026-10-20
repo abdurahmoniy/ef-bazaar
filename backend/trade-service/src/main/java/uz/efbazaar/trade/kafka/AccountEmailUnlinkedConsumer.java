@@ -8,7 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
 
 /**
- * Marketplace dropped an account's email: the box it was verified for is free again.
+ * Marketplace dropped a local account-email link; resource responsibility stays intact.
  *
  * <p>Clears the link only while it still names that account, so a replay, or
  * an event racing a newer link, cannot free a box somebody just linked.
@@ -32,7 +32,7 @@ public class AccountEmailUnlinkedConsumer {
     public void onUnlinked(TradeEvents.AccountEmailUnlinked e) {
         if (e == null || e.mailboxId() == null || e.accountId() == null) return;
         if (mailboxes.clearLinkedAccount(e.mailboxId(), e.accountId()) > 0) {
-            log.info("Mailbox {} freed: account {} unlinked ({})", e.mailboxId(), e.accountId(), e.reason());
+            log.info("Mailbox {} link cleared: account {} unlinked ({})", e.mailboxId(), e.accountId(), e.reason());
         }
     }
 }

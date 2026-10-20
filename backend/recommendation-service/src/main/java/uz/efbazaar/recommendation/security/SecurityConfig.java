@@ -35,6 +35,7 @@ public class SecurityConfig {
                         // ERROR dispatch ochiq bo'lmasa har xato 401 ga aylanadi.
                         .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()
                         .requestMatchers("/actuator/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/internal/rec/v1/watches/authorize").permitAll()
                         // Mehmon ham bozorni ko'radi: lenta unga bo'sh, player filtri ishlaydi.
                         .requestMatchers(HttpMethod.GET, "/api/v1/feed", "/api/v1/feed/details").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/match", "/api/v1/match/**").permitAll()

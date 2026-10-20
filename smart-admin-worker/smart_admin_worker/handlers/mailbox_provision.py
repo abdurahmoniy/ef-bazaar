@@ -1,23 +1,15 @@
-"""Handler for efbazaar.trade.mailbox-provision-request.
+"""Provision an admin/custom address through the same one-shot claim authority.
 
-Admin-panel twin of :mod:`email_provision`. Differences that matter:
-
-* No trade — nothing to key the response on but the mailbox id, which
-  trade-service already reserved before publishing the request.
-* The local part comes from the admin, not from a trade UUID prefix, so the
-  address is human-readable and permanent.
-* Encryption context is always ``mbox-{mailboxId}``. Admin rows have no trade,
-  so trade-service's MailboxPasswordResolver has no other context to fall back
-  to — using anything else here would make the row undecryptable.
-
-MailboxAlreadyExists is treated as success: the row on the trade-service side
-reserved the address first, so a duplicate means a Kafka replay, not a clash
-with someone else's mailbox.
+The chosen local part and domain remain permanently reserved in trade-service.
+Password context is mbox-{mailboxId}. Replays may only prove the original sealed
+password with IMAP AUTH and emit the matching claim result. A fresh custom
+claim colliding with an existing Mailcow address is never adopted.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import secrets
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -25,11 +17,17 @@ from uuid import UUID
 import structlog
 
 from smart_admin_worker.crypto.field_encryptor import FieldEncryptor
+from smart_admin_worker.handlers.provision_claim import (
+    CredentialVerifier,
+    acquire,
+    prove_existing,
+)
 from smart_admin_worker.kafka import events as e
-from smart_admin_worker.kafka.producer import KafkaProducerClient
+from smart_admin_worker.kafka.producer import KafkaProducerClient, publish_required_result
 from smart_admin_worker.kafka.topics import TOPIC_MAILBOX_PROVISIONED
 from smart_admin_worker.mailcow.client import Mailbox, MailcowClient
 from smart_admin_worker.mailcow.errors import MailboxAlreadyExists
+from smart_admin_worker.trade.client import ProvisionClaimClient
 
 if TYPE_CHECKING:
     from smart_admin_worker.telegram.notifier import TelegramNotifier
@@ -47,6 +45,8 @@ class MailboxProvisionHandler:
         password_cache: dict[str, str] | None = None,
         mailbox_id_to_email: dict[UUID, str] | None = None,
         notifier: TelegramNotifier | None = None,
+        claims: ProvisionClaimClient | None = None,
+        credential_verifier: CredentialVerifier | None = None,
     ) -> None:
         self._mailcow = mailcow
         self._encryptor = encryptor
@@ -55,44 +55,75 @@ class MailboxProvisionHandler:
         self._password_cache = password_cache
         self._mailbox_id_to_email = mailbox_id_to_email
         self._notifier = notifier
+        self._claims = claims
+        self._credential_verifier = credential_verifier
 
     async def handle(self, event: e.MailboxProvisionRequest) -> None:
+        if type(event.address_version) is not int or event.address_version != 2:
+            logging.getLogger(__name__).error(
+                "Rejected legacy provisioning request; manual reconciliation required: "
+                "mailbox_id=%s",
+                event.mailbox_id,
+            )
+            return
         password = secrets.token_urlsafe(16)
         domain = event.domain or self._domain
 
-        fresh_create = True
-        try:
-            mb = await self._mailcow.create_mailbox(
-                local_part=event.local_part,
-                domain=domain,
-                password=password,
-                quota_mb=100,
-            )
-        except MailboxAlreadyExists as exc:
-            if event.custom:
-                # A user-chosen name colliding with a box we never made (staff,
-                # legacy, anything already on the domain). Claiming it would
-                # store a password Mailcow never got. The row stays pending and
-                # the admins sort it out.
-                log.error(
-                    "custom mailbox %s@%s already exists in Mailcow; not provisioning",
-                    event.local_part, domain,
-                )
-                if self._notifier is not None and self._notifier.enabled:
-                    await self._notifier.notify_error(
-                        context="mailbox_provision.custom_exists", error=exc,
-                        trade_id=event.mailbox_id,
-                    )
-                return
-            mb = Mailbox(email=f"{event.local_part}@{domain}")
-            fresh_create = False
-
-        field = self._encryptor.encrypt(
-            f"mbox-{event.mailbox_id}",
-            password.encode("utf-8"),
+        authorization = await acquire(
+            self._claims,
+            self._encryptor,
+            event.mailbox_id,
+            None,
+            f"{event.local_part}@{domain}",
+            password,
         )
+        if authorization is None:
+            return
+        claim, password = authorization
+        fresh_create = claim.allow_create
+        mb = Mailbox(email=claim.mailbox_email)
+        if claim.allow_create:
+            try:
+                await self._mailcow.create_mailbox(
+                    local_part=event.local_part,
+                    domain=domain,
+                    password=password,
+                    quota_mb=100,
+                )
+            except MailboxAlreadyExists as exc:
+                fresh_create = False
+                if event.custom:
+                    log.error(
+                        "custom mailbox %s@%s already exists in Mailcow; not provisioning",
+                        event.local_part,
+                        domain,
+                    )
+                    if self._notifier is not None and self._notifier.enabled:
+                        await self._notifier.notify_error(
+                            context="mailbox_provision.custom_exists",
+                            error=exc,
+                            trade_id=event.mailbox_id,
+                        )
+                    return
+                if not await prove_existing(self._credential_verifier, mb.email, password):
+                    log.error(
+                        "provision_existing_password_unproven", mailbox_id=str(event.mailbox_id)
+                    )
+                    return
+            except Exception as error:
+                log.error(
+                    "provision_unknown_manual_reconciliation",
+                    mailbox_id=str(event.mailbox_id),
+                    error_type=type(error).__name__,
+                )
+                return
+        elif not await prove_existing(self._credential_verifier, mb.email, password):
+            log.error("provision_claim_started_unknown", mailbox_id=str(event.mailbox_id))
+            return
+        field = claim.password
 
-        await self._producer.publish(
+        await publish_required_result(
+            self._producer,
             TOPIC_MAILBOX_PROVISIONED,
             str(event.mailbox_id),
             e.MailboxProvisioned(
@@ -101,6 +132,7 @@ class MailboxProvisionHandler:
                 encrypted_password=field.ciphertext,
                 iv=field.iv,
                 tag=field.tag,
+                claim_id=claim.claim_id,
             ),
         )
 
@@ -136,6 +168,4 @@ def _log_notify_task_failure(task: asyncio.Task) -> None:
         return
     exc = task.exception()
     if exc is not None:
-        log.warning(
-            "telegram_notify_task_error", error=str(exc), error_type=type(exc).__name__
-        )
+        log.warning("telegram_notify_task_error", error=str(exc), error_type=type(exc).__name__)

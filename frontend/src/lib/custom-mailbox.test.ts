@@ -34,31 +34,37 @@ describe('claimView', () => {
     expect(v.action).toEqual({ kind: 'claim' });
   });
 
-  it('shows the tick but sells Boyvachcha to Jaydari', () => {
+  it('offers Pro to Free', () => {
     const v = claimView({ localPart: 'ali12', checking: false, result: { ...ok, canClaim: false, claimBlock: 'NO_SLOT' }, plan: 'STANDARD' });
     expect(v.tone).toBe('ok');
-    expect(v.action).toEqual({ kind: 'upgrade', plan: 'PRO', label: 'Boyvachcha tarifida oling' });
+    expect(v.action).toEqual({ kind: 'upgrade', plan: 'PRO', label: 'Pro tarifini ko‘rish' });
   });
 
-  it('sells Aristokrat for efootball.uz', () => {
+  it('does not sell retired MAX for efootball.uz', () => {
     const v = claimView({
       localPart: 'ali12',
       checking: false,
       result: { ...ok, email: 'ali12@efootball.uz', canClaim: false, claimBlock: 'PLAN_DOMAIN' },
       plan: 'PRO',
     });
-    expect(v.action).toEqual({ kind: 'upgrade', plan: 'MAX', label: 'Aristokrat tarifida oling' });
+    expect(v.action).toEqual({ kind: 'none' });
   });
 
-  it('PRO with every slot used upsells Aristokrat', () => {
+  it('PRO with every slot used has no higher plan', () => {
     const v = claimView({ localPart: 'ali12', checking: false, result: { ...ok, canClaim: false, claimBlock: 'NO_SLOT' }, plan: 'PRO' });
-    expect(v.message).toBe('Barcha custom slotlar band');
-    expect(v.action).toEqual({ kind: 'upgrade', plan: 'MAX', label: 'Aristokrat tarifida oling' });
+    expect(v.message).toBe('Jami yoki custom quti limiti band');
+    expect(v.action).toEqual({ kind: 'none' });
+  });
+
+  it('does not upsell when the current plan could not be loaded', () => {
+    const v = claimView({ localPart: 'ali12', checking: false, result: { ...ok, canClaim: false, claimBlock: 'NO_SLOT' }, plan: null });
+    expect(v.action).toEqual({ kind: 'none' });
+    expect(v.message).toContain('Tarif aniqlanmadi');
   });
 
   it('MAX with every slot used has nowhere to go', () => {
     const v = claimView({ localPart: 'ali12', checking: false, result: { ...ok, canClaim: false, claimBlock: 'NO_SLOT' }, plan: 'MAX' });
-    expect(v.message).toBe('Barcha custom slotlar band');
+    expect(v.message).toBe('Jami yoki custom quti limiti band');
     expect(v.action).toEqual({ kind: 'none' });
   });
 
@@ -95,11 +101,11 @@ describe('claimView', () => {
 });
 
 describe('efootballOffer', () => {
-  it('suggests efootball.uz below Aristokrat', () => {
-    expect(efootballOffer('PRO', 'ali12')).toBe('ali12@efootball.uz ni ham olishingiz mumkin');
-    expect(efootballOffer('STANDARD', 'ali12')).toBe('ali12@efootball.uz ni ham olishingiz mumkin');
+  it('does not advertise an unavailable premium-domain upgrade', () => {
+    expect(efootballOffer('PRO', 'ali12')).toBeNull();
+    expect(efootballOffer('STANDARD', 'ali12')).toBeNull();
   });
-  it('is silent for Aristokrat, admins and bad names', () => {
+  it('is silent for historical MAX, admins and bad names', () => {
     expect(efootballOffer('MAX', 'ali12')).toBeNull();
     expect(efootballOffer('STAFF', 'ali12')).toBeNull();
     expect(efootballOffer('PRO', 'ali')).toBeNull();
@@ -107,10 +113,10 @@ describe('efootballOffer', () => {
 });
 
 describe('isPremiumDomainPlan', () => {
-  it('is MAX and STAFF', () => {
-    expect(isPremiumDomainPlan('MAX')).toBe(true);
+  it('supports the current PRO and STAFF premium policy', () => {
+    expect(isPremiumDomainPlan('MAX')).toBe(false);
     expect(isPremiumDomainPlan('STAFF')).toBe(true);
-    expect(isPremiumDomainPlan('PRO')).toBe(false);
+    expect(isPremiumDomainPlan('PRO')).toBe(true);
     expect(isPremiumDomainPlan(null)).toBe(false);
   });
 });

@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 
 import { MailShell } from '@/components/mail/mail-shell';
 import { getMe } from '@/lib/auth';
-import { getMyMailboxes } from '@/lib/mail-server';
+import { getMailboxSlots, getMyMailboxes } from '@/lib/mail-server';
 import { mainSiteLoginUrl } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
@@ -25,11 +25,11 @@ export default async function MailboxLayout({ params, children }: MailboxLayoutP
   const user = await getMe();
   if (!user) redirect(mainSiteLoginUrl(`/${mailboxId}`));
 
-  const mailboxes = await getMyMailboxes();
+  const [mailboxes, slots] = await Promise.all([getMyMailboxes(), getMailboxSlots()]);
   if (!mailboxes.some((m) => m.id === mailboxId)) notFound();
 
   return (
-    <MailShell mailboxes={mailboxes} activeMailboxId={mailboxId}>
+    <MailShell key={user.id} slots={slots} mailboxes={mailboxes} activeMailboxId={mailboxId}>
       {children}
     </MailShell>
   );

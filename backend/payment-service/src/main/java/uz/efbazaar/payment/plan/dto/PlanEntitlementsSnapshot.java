@@ -16,4 +16,10 @@ import java.util.Map;
 public record PlanEntitlementsSnapshot(
         String planCode,
         Map<String, String> entitlements,
-        Instant occurredAt) {}
+        Instant occurredAt,
+        long version,
+        String idempotencyKey) {
+    public PlanEntitlementsSnapshot(String planCode, Map<String, String> entitlements, Instant occurredAt) {
+        this(planCode, entitlements, occurredAt, 0, null);
+    }
+}

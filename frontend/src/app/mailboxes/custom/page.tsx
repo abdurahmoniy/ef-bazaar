@@ -5,7 +5,7 @@ import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { CustomClaim } from '@/components/mailboxes/custom-claim';
 import { CustomMailboxList } from '@/components/mailboxes/custom-mailbox-list';
 import { getMe } from '@/lib/auth';
-import { getMyCustomMailboxesSSR, getMyMailboxesSSR } from '@/lib/custom-mailbox-server';
+import { getMyCustomMailboxesSSR, getMyMailboxesSSR, getMailboxSlotsSSR } from '@/lib/custom-mailbox-server';
 import { getMyAccountsServer } from '@/lib/accounts-server';
 import { FreeTradeMailboxList } from '@/components/mailboxes/free-trade-mailbox-list';
 import { getMyPlanSSR } from '@/lib/plans-server';
@@ -21,8 +21,8 @@ export default async function CustomMailboxPage({
   const user = await getMe();
   if (!user) redirect('/auth/login?from=/mailboxes/custom');
   const { accountId } = await searchParams;
-  const [mine, boxes, owned, accounts] = await Promise.all([
-    getMyPlanSSR(), getMyCustomMailboxesSSR(), getMyMailboxesSSR(), getMyAccountsServer(),
+  const [mine, boxes, owned, accounts, slots] = await Promise.all([
+    getMyPlanSSR(), getMyCustomMailboxesSSR(), getMyMailboxesSSR(), getMyAccountsServer(), getMailboxSlotsSSR(),
   ]);
   const accountEmails = accounts.filter((a) => a.status === 'ACTIVE' && a.email).map((a) => a.email as string);
 
@@ -38,7 +38,7 @@ export default async function CustomMailboxPage({
             Konami akkountingiz uchun esda qoladigan manzil. Nomni bir marta tanlaysiz — u faqat sizniki bo‘lib qoladi.
           </p>
         </header>
-        <CustomClaim plan={mine?.code ?? null} accountId={accountId ?? null} />
+        <CustomClaim key={user.id} plan={mine?.code ?? null} accountId={accountId ?? null} slots={slots} />
         {boxes === null ? (
           <p className="text-sm text-muted-foreground">Qutilaringiz ro‘yxatini yuklab bo‘lmadi.</p>
         ) : (

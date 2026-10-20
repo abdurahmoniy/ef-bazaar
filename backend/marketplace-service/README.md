@@ -9,7 +9,7 @@ u trade-service'da. Pul esa payment-service'da.
 |---|---|
 | Port | 8082 |
 | Public yo'l | `/api/marketplace/**` → `/api/**` (anonim ham o'tadi); WebSocket `/ws/chat` |
-| DB | `MARKETPLACE_DB_NAME` (Flyway, `V1`–`V78` + `R__`); ikkinchi datasource — `efbazaar` karta katalogi |
+| DB | `MARKETPLACE_DB_NAME` (Flyway, `V1`–`V84` + `R__`); ikkinchi datasource — `efbazaar` karta katalogi |
 | Redis | card interest sanagichlari, chat presence/typing va WebSocket signallari |
 | Anonim | Token bo'lmasa nginx identity headerlarni tozalab uzatadi — `X-User-Id` ga ishonishdan oldin null tekshiring |
 
@@ -27,6 +27,7 @@ u trade-service'da. Pul esa payment-service'da.
 | `support` | Foydalanuvchi ↔ admin support chat; Telegram orqali javob (bot) |
 | `gamer` | Gamer Card: Chempionat-X turnir statistikasi projection'i (`gamer_stats`) |
 | `websocket` | Chat real-time (`/ws/chat`), presence/typing; `chat.changed.v1` ni tinglaydi |
+| `pricewatch` | Owner price watches, authoritative price transitions, durable common search/price intents, in-app/Telegram delivery |
 | `popup` | Kontekstli in-app xabar kampaniyalari, admin draft/publish/pause va PostgreSQL delivery limitlari |
 | `push` | Firebase push bildirishnomalar (`FIREBASE_PUSH_ENABLED`) |
 | `guide`, `emoji`, `botsettings` | Video qo'llanmalar, Telegram emoji to'plamlari, bot `/start` matni va ommaviy xabar (broadcast) |
@@ -49,6 +50,7 @@ To'liq ro'yxat — controllerlarda. Asosiy guruhlar (`/api/v1/...`):
 | Chat | `/chats`, `/chats/{id}`, `/messages`, `/account-request`, `/important`, `/hide`, `/read`, `/typing`, `/presence`, `/unread-total` |
 | Kontekstli xabarlar | `GET /popups/next?trigger=...`, `POST /popups/{id}/claim`, `POST /popups/deliveries/{id}/events`; faqat autentifikatsiyalangan foydalanuvchi |
 | Admin xabarlar | `GET/POST /admin/popups`, `PATCH /admin/popups/{id}/status`; faqat `ROLE_ADMIN` |
+| Narx kuzatuvi | `/price-watches` (GET/POST), `/{id}` (PATCH/DELETE), `/priorities`, `/preferences` (PUT); faqat owner |
 | Bildirishnoma | `/notifications`, `/read-all`, `/unread-count`, `/push-tokens`, `/push-status` |
 | Hamkorlik, referal | `/partners/**` (ariza, panel, to'lov, kanallar, click), `/referrals/claim`, `/referrals/me` |
 | Trust, support | `/complaints`, `/blacklist`, `/blacklist/check`, `/support/chats/**` |
@@ -106,7 +108,7 @@ hamda har bir tasdiq vaqti. User/campaign va user/session unique constraintlari 
 
 Chiqaradi: `efbazaar.marketplace.*` — e'lon, like, `listing-snapshot`, `card-snapshot`, chat, partner, kanal postlari, support,
 qora ro'yxat, `cards-added`, `bot-settings-updated`, `account-email-unlinked` (akkount tasdiqlangan qutidan ajraldi — sotildi, obmen, qo'lda tahrir, boshqa qutiga ko'chdi, o'chirildi; commit'dan keyin, `AccountEmailUnlinks`). Custom quti sotuv/obmen/boshqa joyda sotuvda bo'shasa egasiga `CUSTOM_MAILBOX_FREED` bildirishnomasi (`/mailboxes/custom`).
-Tinglaydi: `trade.*` (listing-sold, trade-succeeded, proposal-*, action-notification,
+Tinglaydi: `recommendation.watch-candidate` (D, durable search notification intent), `trade.*` (listing-sold, trade-succeeded, proposal-*, action-notification,
 admin-invited, mailbox-handed-over, account-email-verified — akkountga tasdiqlangan email; egasi va `ACTIVE` bo'lmasa e'tiborsiz), `payment.*` (deposit-credited, withdrawal-*),
 `auth.user-registered`, `auth.user-deleted`, `bot.support-*`, `tournament.*`, `chat.changed.v1`.
 
@@ -136,6 +138,7 @@ Batafsil: [docs/kafka-topics.md](../../docs/kafka-topics.md).
 | bot | Media yuklash (rasmlar Telegram guruhiga), emoji to'plamlari, kanal ma'lumoti |
 | payment | Hamkorlik to'lovi (`PartnerFeeClient`), referal mukofoti (`ReferralRewardClient`) |
 | trade | Faol savdolar (`TradeLiveClient`) |
+| recommendation | Faqat watch delivery oldidan yangi owner/opt-in/entitlement authorization (`/internal/rec/v1/watches/authorize`); listing projectionlar Kafka orqali |
 
 ## Rejali job'lar
 
@@ -197,3 +200,287 @@ a numeric 4–8 digit code and `occurredAt` its detection timestamp (maximum age
 minutes). The recipient comes exclusively from `recipientUserId`. Responses expose
 nullable `verificationCode`; push bodies include the code. Replays are atomically
 deduplicated by recipient, trade, type, code and detection timestamp.
+
+## Free/Pro — payment projection (A bosqich)
+
+`efbazaar.payment.subscription-changed` va `efbazaar.payment.plan-entitlements`
+Kafka topiclari servisning o‘z DB projectionini to‘ldiradi. Payloadlar avvalgi
+maydonlarga qo‘shimcha `version` (musbat, entity bo‘yicha monoton) va
+`idempotencyKey` oladi; `occurredAt` — manbada snapshot olingan vaqt.
+Eski payloadlar deserializatsiya qilinadi, ammo version bo‘lmasa huquq bermaydi;
+payment startup/soatlik replay yangi formatdagi holatni tiklaydi.
+
+`plan_projection_state` versiya va manba vaqtini, `plan_event_receipts` qabul
+qilingan kalitlarni saqlaydi. Versiya CAS/upsert va projection o‘zgarishi bitta
+DB tranzaksiyasida: parallel, duplicate yoki kechikkan event yangiroq holatni
+bosmaydi. `plan_entitlement_view` to‘liq almashtiriladi, o‘chirilgan capability
+qayta tiklanmaydi. `user_plan_view` STANDARD downgrade qatorini ham saqlaydi:
+eski PRO eventi obunani tiriltira olmaydi. Qiymat va freshness metadata bitta SQL statement/MVCC snapshotdan o‘qiladi;
+oldingi JPA cache yangiroq metadata bilan aralashmaydi. Manba vaqti 24 soatdan eski yoki
+kelajakda 60 soniyadan uzoq bo‘lsa, projection pullik ruxsat uchun tayyor emas.
+
+`plan/PlanCapabilities.capability(userId, key)` ichki lookupi `AVAILABLE`,
+`DENIED` yoki `UNAVAILABLE` qaytaradi. Yetishmagan yoki eskirgan obuna/plan
+snapshoti `UNAVAILABLE`; mavjud yangi snapshotda kalit yo‘qligi `DENIED`.
+Faqat `AVAILABLE` va aniq `null` qiymat `unlimited()` beradi. D/E/F dagi yangi
+pullik amallar shu readiness natijasini tekshirishi kerak. A bosqichida yangi
+pullik endpoint, kuzatuv, statistika yoki savdo funksiyasi ochilmaydi.
+
+B bosqich payment snapshotlari `mailbox.total_slots` va `mailbox.custom_slots`ni
+alohida grant sifatida saqlaydi; `mailbox.slots` tarixiy random-only kalit, totalga
+alias emas. Wire kontrakt regressiyasi 10 total/2 custom/5 legacy qiymatlarini
+aralashtirmasdan qabul qilish va legacy replay yangi totalni almashtirmasligini tekshiradi.
+
+
+C bosqichda subscription eventning optional `lastPaidExpiresAt` maydoni dekodlanadi.
+Bu tarixiy pochta muddati; amaldagi `expiresAt` yoki pullik imkoniyatlar o‘rniga
+ishlatilmaydi. Free/grace foydalanuvchiga yangi Pro qidiruv yoki alert grant bermaydi.
+
+## D — narx kuzatuvlari va umumiy ishonchli xabar oqimi
+
+`/api/v1/price-watches` faqat authenticated owner uchun. `GET` —
+`{ items, limit, notificationsEnabled, telegramEnabled, immediate, available }`;
+item `{ id, listingId, paused, pauseReason, priority, createdAt }`. `pauseReason` —
+`USER`, `LIMIT`, `UNAVAILABLE` yoki `null`; `priority` 0 dan boshlanadi.
+`POST {listingId}` yaratadi (duplicate o‘sha watchni qaytaradi), `PATCH /{id}
+{paused}`, `DELETE /{id}` (204), `PUT /priorities {ids}` barcha owner watchlarini
+bir martadan tartiblaydi, `PUT /preferences {notificationsEnabled,telegramEnabled}`
+umumiy qidiruv va narx xabarlarini boshqaradi. Telegram opt-in yangi auth summary
+bilan bog‘langan identity talab qiladi. Favorites watch emas va o‘zining bepul
+vazifasini saqlaydi.
+
+Fresh payment capability kalitlari `watch.price_limit` (Free 3, Pro 20),
+`watch.immediate` (`false` / `true`). `null` faqat yangi AVAILABLE unlimited grant
+bo‘lganda cheksizdir; yo‘q, eskirgan yoki noto‘g‘ri grant pullik huquq bermaydi.
+Create/resume unavailable bo‘lsa 503; owner read/delete/pause saqlanadi.
+Unavailable holati javobda ko‘rinadi, lekin saqlangan active/pause va price
+baseline’ni o‘zgartirmaydi: narx hodisalari durable candidate sifatida qoladi.
+Fresh current policy in-app/Telegram yuborishdan oldin qayta tekshiriladi;
+bitta unavailable owner shu e’lonning boshqa ownerlariga yetkazishni to‘smaydi.
+Delayed renewal uchun unknown-policy LIMIT qatorlarining candidate’lari ham
+saqlanadi; current grant va renewal source baseline tasdiqlamaguncha yuborilmaydi.
+GET/background reconciliation canonical renewal sourceTime’dan davom etadi;
+explicit priority tanlovi, user resume va delete/pause orqali bo‘shagan joyga
+promotion joriy price version’dan baseline oladi. Explicit selection unavailable
+bo‘lsa ham saqlangan LIMIT tarixini rebaseline qiladi; active candidate’lar qoladi.
+Create listing row lockini kutgandan keyin ham current policy/quota’ni tekshiradi.
+In-app yozuvi va Telegram claimidan oldin, listing locki yoki tashqi authorization/identity
+so‘rovidan keyin policy yana tekshiriladi; o‘zgarsa pending candidate keyingi sweepga qoladi.
+Create barcha saqlangan qatorlarni limitga sanaydi (USER pause yangi slot
+yaratmaydi); downgrade ortiqcha qatorlarni saqlaydi. Limit, cadence va source
+timestamp `readCapabilities` bitta SQL/MVCC snapshotidan olinadi. Resume source
+user plan/expiry va `watch.price_limit` qiymatining haqiqiy effective change vaqtlaridan
+kechrog‘idir; per-key/user `updated_at` bir xil hourly replay’da saqlanadi.
+Freshness va public appearance deadline alohida `plan_projection_state.occurred_at`
+orqali yangilanadi; to‘liq snapshotda yo‘qolgan grantlar baribir o‘chiriladi.
+`watch_preferences` owner qatori locki parallel quota qarorlarini tartiblaydi.
+Downgrade ortiqcha qatorlarni o‘chirmaydi: priority tartibida LIMIT pause;
+USER pause saqlanadi. Explicit resume qatorni priority tanloviga qaytaradi:
+limit ichida tanlansa ochiladi; past priority bo‘lsa 409 va avvalgi USER pause
+tranzaksion rollback bilan saqlanadi. UI avval targetni asosiy priorityga ko‘tara
+oladi. Resume current `price_version`dan yangi baseline oladi.
+
+`V80` listing triggeri narx har safar o‘zgarganda shu mutatsiya tranzaksiyasida
+`watch_price_events`ga `old_price`, `new_price`, `price_version`, publication
+versiyasini yozadi. O‘zgarmagan narx va rollback event yaratmaydi. INSERT ACTIVE
+va boshqa statusdan ACTIVEga o‘tish haqiqiy `published_at` va monoton
+`publication_version` beradi. Migratsiyadan oldingi listinglar `0`/null baseline;
+relay vaqti publication vaqti sifatida ishlatilmaydi. Listing snapshot qo‘shimcha
+`publishedAt`, `publicationVersion` beradi; eski constructor saqlanadi.
+
+`efbazaar.recommendation.watch-candidate` Kafka eventi
+`{idempotencyKey,intentId,userId,listingId,publicationVersion,publishedAt,
+reasons:[{watchId,label}],occurredAt}` umumiy `watch_intents`ga yoziladi. Search
+intent `(user,listing,publicationVersion)` bo‘yicha bitta; price intent alohida
+`price_version` bo‘yicha bitta. Dastlabki snapshot/replay eski listinglarni yangi
+publication deb talqin qilmaydi. Recommendation source intenti barcha matching
+search sabablarini jamlaydi. Market final deliveryda
+`POST /internal/rec/v1/watches/authorize` (`X-Internal-Secret`)
+`{intentId,userId,listingId,publicationVersion}` yuboradi;
+`{eligible,reasons:[{watchId,label}],deliveryMode:IMMEDIATE|DIGEST}` javobi current
+search opt-in, generation va entitlementni tekshiradi. Network/503 kechiktiradi.
+Rec marketplacega HTTP chaqirmaydi; authoritative listing status, seller va
+publication marketning o‘z DBsidan tekshiriladi.
+
+Job default 5 soniyada (`app.watch.poll-ms`, startup delay
+`app.watch.initial-delay-ms` 15 soniya) pending ishni qayta ko‘radi. Pro current
+grant bilan immediate; Free Asia/Samarkand 19:00 cutoff bo‘yicha bitta nonempty
+kunlik jamlanma oladi. 19:00 dan oldin Free xabari yuborilmaydi.
+O‘tkazib yuborilgan job keyingi 19:00 dan keyingi sweepda shu cutoffgacha
+ishlarni oladi. `watch_deliveries` `(user,digest_date)` unique constraint,
+notification insert va intent receipt bitta DB tranzaksiyasida. Sotilgan,
+o‘chirilgan, bloklangan yoki ownerning o‘z listingi yuborilmaydi. In-app turlar
+`WATCH_MATCH`, `WATCH_DIGEST`; `watchPayload` —
+`{items:[{listingId,reasons:[string],oldPrice?,newPrice?}],totalCount,remainingCount}`.
+Payloadda ko‘pi bilan 20 item, har itemda 5 ta 100 belgili sabab saqlanadi;
+qolganlar `/watches`ga yo‘naltiriladi.
+
+Telegram mustaqil durable channel: fresh identity auth enrichmentdan olinadi,
+boshqa servis DBsi o‘qilmaydi. Market `SENDING`ni tashqi requestdan **oldin commit**
+qiladi, keyin botning `POST /bot/internal/watches/dm` endpointiga
+`{deliveryId,chatId,text}` plain text yuboradi (`X-Internal-Secret`). Bot HTMLni
+escape qiladi; javob `{messageId}`. Natija noaniq/timeout — `UNCONFIRMED`, avtomatik
+qayta yuborilmaydi; `SENDING`da qolgan eski claimlar ham noaniq hisoblanadi.
+`V81` explicit global opt-out/opt-in chegarasini saqlaydi; undan oldingi
+kechikkan Kafka candidate xabar yaratmaydi: haqiqiy `publishedAt` ham,
+intent `occurredAt` ham ushbu chegaradan keyin bo‘lishi kerak. Opt-out pending Telegramni bekor
+qiladi; re-enable eski navbatni qaytarmaydi. `V82` `telegram_claimed_at`ni
+saqlaydi: timeout yoshi delivery yaratilgan vaqtdan emas, haqiqiy claimdan
+hisoblanadi. Eski timestampsiz SENDING natijasi UNCONFIRMED bo‘lib qoladi.
+Absolute exactly-once Telegram kafolati yo‘q. `PENDING` retry va opt-out/current
+listing tekshiruvi in-memory after-commit callbackga bog‘liq emas.
+
+Konfiguratsiya: `app.watch.recommendation-base-url` default
+`http://recommendation-service:8083`; bot uchun mavjud
+`app.bot.internal-base-url`; secret mavjud `app.internal.secret` orqali.
+Faqat yangi configurable defaultlar ishlatiladi, yangi sir saqlanmaydi.
+
+Regressiyalar: `PriceWatchMigrationIT` atomik event/publication/rollbackni;
+`PriceWatchIT` owner security, Free/Pro limit, parallel create, duplicate,
+downgrade, priority, resume baseline, current entitlement/opt-out,
+missed daily digest, rec authorization retry va durable Telegram holatini
+haqiqiy PostgreSQL/Flyway bilan tekshiradi. 100 ta unavailable old owner
+bilan queue fairness, owner lock tartibi, reconciliation batchdan tashqaridagi
+renewalning birinchi narx eventi va 20 itemli bounded digest ham qamrab olingan. To‘liq completion gate hali ham
+Java 21 `mvn -B -ntp clean verify`.
+
+
+## E — seller analytics
+
+Authenticated `X-User-Id` owns every query; anonymous requests are rejected by
+existing security. Public gateway prefix remains `/api/marketplace`.
+
+- `GET /api/v1/seller-analytics/summary`: Free basic counts `{listingCount,
+  uniqueViews,currentFavorites,inquiries,capabilities,coverage}`. Counts only own
+  ACTIVE/SOLD listings and exclude self interactions. A missing plan projection
+  does not block these basic counts. Facts belonging to an earlier seller never
+  become the new owner's views/inquiries.
+- `GET /api/v1/seller-analytics/report?days=7|30|90&listingId?&page=0&size=50`:
+  `{days,fromDate,toDate,coverage,totals,daily,listings,page,size,totalListings}`.
+  Page size 1–100 bounds listing rows; totals and daily rows cover the entire
+  selected dataset. Each metrics object has `uniqueViews,saveAdditions,inquiries,
+  completedTrades,grossSalesUzs`; daily rows add `date`, listing rows add
+  `listingId,title,status` (`title` is the listing description).
+- `GET /api/v1/seller-analytics/export?days=7|30|90&listingId?`: UTF-8 CSV
+  attachment, **all** selected listings regardless of report pagination. It uses
+  the same owner/status/time selection and mapper. CSV quotes cells, doubles
+  quotes, flattens embedded newlines and protects spreadsheet formula prefixes
+  even after leading whitespace/control characters.
+
+Money is an exact integer UZS **decimal string** in JSON, including totals;
+Postgres numeric sums avoid long overflow. It is the agreed gross amount of
+completed SALE trades, including HUMAN trades without wallet settlement. It is
+not profit or confirmed net wallet proceeds. SWAP and SWAP_SURCHARGE contribute
+one completion and zero gross sales. Current listing prices, legacy listing-sold
+payloads, sold-account prices and Kafka relay times are never money sources.
+
+History/export uses one fresh, versioned effective payment policy snapshot.
+Free has history 0/export false; PRO/MAX 90/true; only explicit STAFF null history
+is unlimited. Invalid/missing/stale snapshots return 503
+`analytics_policy_unavailable`; a known insufficient grant returns 403
+`analytics_upgrade_required`; foreign/hidden listing filters return 404
+`listing_not_found`; invalid days/page return 400. No private buyer identifiers,
+guest keys or messages are returned.
+
+V83 adds `seller_analytics_collection`, `seller_analytics_facts`,
+`seller_analytics_daily` and `seller_analytics_trade_receipts`. Source insert
+triggers and rollups share the original transaction. Stable source identity
+prevents duplicate/concurrent increments; rollback removes the fact and rollup.
+A repeat view is never a new daily view. Save **additions** use the actual like
+row ID; removing a like does not erase its addition and current favorites are a
+separate basic metric. Inquiries use the first persisted `(listing,requester)`
+ChatAccountRequest, including cancelled requests; an old pair chat's createdAt,
+chat navigation and later requests do not increment it. A genuinely earlier
+request moves its one fact and rollup to that earlier day atomically.
+
+Only existing unique-view rows and earliest persisted inquiry rows are
+backfilled. Historical likes and trades are never invented. Coverage returns
+`collectionStartedAt`, `timezone=Asia/Samarkand`, metric history descriptions and
+`historyPartial`; report partiality is relative to the selected interval's start.
+Dates are inclusive today plus N−1 Samarkand days. Future timestamps are excluded.
+A collection date or entitlement does not promise 90 days of account history.
+
+`SellerTradeCompletionConsumer` listens to
+`efbazaar.trade.seller-trade-completed`, group
+`marketplace-service-seller-completions`, with raw JSON and no Java type-header
+coupling. It requires an explicit kind/mode/integral nonnegative source amount,
+completion time and deterministic per-trade key. Receipt, fact and rollup commit
+together; duplicate/conflicting replays cannot alter the first accepted fact.
+Missing/mismatched listings remain durable and are retried every 30 seconds
+(`analytics.completions.retry-ms`); eligible receipt selection prevents unresolved
+older rows from starving later valid completions. No other service DB is read.
+
+E regressions: `SellerAnalyticsIT` (11), `SellerAnalyticsMigrationIT` (1) and
+`SellerAnalyticsCsvTest` (8 Unicode/control formula-prefix cases).
+Full service verification remains `mvn -B -ntp clean verify` on Java 21.
+
+Final local E verification: Java 21 `mvn -B -ntp clean verify` passed with
+716 unit and 175 integration tests, zero failures/errors/skips and no fork dumps.
+The final run includes all eight CSV security cases. No remote CI, push or deploy
+was performed.
+
+
+## Seller tools and profile appearance (F)
+
+Payment owns three typed product booleans: `seller.tools`, `seller.bulk`, and
+`profile.decoration`. Only the exact string `true` enables an action; `false`
+denies it, and a missing/null/malformed value or stale projection is unavailable.
+The existing versioned payment projection resolves subscription expiry before
+reading grants. No frontend plan-name check authorizes these operations.
+
+Authenticated APIs, relative to `/api/v1`:
+
+| Endpoint | Behavior |
+|---|---|
+| `GET /seller-tools/capabilities` | `{tools, bulk, profileDecoration, bulkLimit:50}`; each status is `AVAILABLE`, `DENIED`, or `UNAVAILABLE` |
+| `GET /seller-tools/templates`, `/seller-tools/notes` | `{content,page,size,totalElements}`; page 0..100000, size 1..100 (default 50). Notes accept optional `chatId` and `listingId` filters, always within owner scope |
+| `POST /seller-tools/{kind}` | Create and return row (201). Template title 1..120, body 1..4000; note title optional (max 120), body 1..8000. Plain text, never HTML |
+| `GET`, `PUT`, `DELETE /seller-tools/{kind}/{id}` | Owner-only read, full replacement, deletion (204); absent/foreign IDs return 404 when the caller has write access |
+| `GET /seller-tools/export` | Complete owner JSON attachment `seller-tools.json`, including every template and note, independent of list pagination |
+| `POST /seller-tools/listings/bulk` | `{operation,listingIds:[UUID],price?}`; 1..50 unique non-null IDs; PRICE >=5000.00, max 2 fractional digits and 17 integral digits |
+| `GET /profiles/me/appearance` | Saved `{pro,coverFileId,capability,validUntil}`, including saved cover metadata after downgrade |
+| `PUT /profiles/me/appearance/cover` | Multipart `file`, exactly one image; shared media size/type/filename/magic guards, independent of the listing minimum photo count |
+| `DELETE /profiles/me/appearance/cover` | Clear saved cover (204), paid-gated |
+
+Rows contain `id,title,body,chatId,listingId,createdAt,updatedAt`; timestamps are ISO
+UTC strings and template context fields are null. Notes require at least one
+context: a current chat participant or listing owner may attach a new context.
+Unchanged saved context survives ownership changes or deletion for retained reads,
+export, and editing. The other chat participant cannot read a note. Notes/templates
+never enter chat messages, public listing/chat DTOs, notifications, or Kafka payloads.
+
+All saved-tool reads/export remain available after downgrade; creates, changes,
+and deletion require the matching paid capability (`403 upgrade_required` for
+Free; `503 plan_unavailable` for unknown/stale/malformed access). Expiry deletes
+nothing. All these responses and the appearance response use `Cache-Control: no-store`.
+
+Bulk response: `{results:[{listingId,success,code}]}` in request order. Each item
+runs in its own transaction and rechecks capability, account ownership/link/archive
+state, listing ownership and ACTIVE status after row locks. A failed item rolls back
+without losing other successes. Codes include `ok`, `listing_not_found`,
+`listing_not_active`, `account_archived`, `account_link_changed`, `upgrade_required`,
+`plan_unavailable`, and `operation_failed`. Unpublish invokes existing account/listing
+removal, retains the account, and clears its market link. Price edits invoke the
+existing listing persistence path. Channel takedown, recommendation snapshot,
+price transition, and analytics behavior remain on the existing lifecycle/DB triggers.
+Account creation locks the persisted listing too; concurrent removal produces a
+retained off-market account instead of a link to a removed listing.
+
+Public `GET /api/v1/profiles/{userId}/appearance` returns only
+`{pro,coverFileId,validUntil}`. Stale/unknown/Free/expired access yields
+`false,null,null`, including unknown users. A live Pro decoration has an ISO
+`validUntil` equal to the earliest subscription expiry or either projection's
+24-hour freshness deadline. Clients must hide active decoration at that deadline.
+The badge represents membership, without any verification/review/trust claim.
+Uploads call the existing bot media API outside a DB transaction, then recheck
+paid access in a short transaction before replacing saved metadata. Bot failure or
+expiry during upload preserves the previous saved cover; no media reference in a
+JSON body can set a cover.
+
+`V84` adds `seller_reply_templates`, `seller_private_notes`, and
+`profile_appearances`. Context IDs deliberately have no deleting foreign-key cascade,
+so retained private data survives context removal. Existing
+`efbazaar.auth.user-deleted` is consumed independently by
+`marketplace-private-data-deleted` to purge that owner's rows on explicit account
+deletion; this is distinct from subscription expiry and is idempotent. No new event
+schema or topic, bot change, or gamer/tournament feature activation is required.

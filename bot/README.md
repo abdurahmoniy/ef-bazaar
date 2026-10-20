@@ -83,4 +83,22 @@ auth, access (`/start` da kirish shartlari — **fail-open**).
 
 ## Test
 
-`mvn -B -ntp clean verify` — 20 unit test.
+`mvn -B -ntp clean verify` — final D local run: 141 tests, zero failures/errors/skips.
+
+## D — watch notifications
+
+`POST /bot/internal/watches/dm` accepts `{deliveryId: UUID, chatId: positive long,
+text: plain string (1–3500 characters)}` and requires `X-Internal-Secret` matching
+`INTERNAL_API_SECRET`. An empty configured secret disables this route with 503;
+missing/wrong credentials receive 403. User search names are HTML-escaped before
+Telegram rendering. The response is `{messageId}` only for confirmed Telegram
+success; a null/missing ID is unconfirmed, never proof of delivery.
+
+Marketplace resolves the user's linked Telegram identity through auth's existing
+internal summary API. It commits its durable delivery claim to `SENDING` before
+calling this route. Unknown outcomes are retained as `UNCONFIRMED`/`SENDING` and
+are not automatically resent. Bot remains DB-less: `deliveryId` identifies the
+caller's claim and is not a bot-side deduplication promise. No exactly-once
+external delivery is claimed. Durable in-app delivery remains available if
+Telegram is unlinked or unavailable. This route is internal-only behind the
+existing nginx `/bot/internal/` block.

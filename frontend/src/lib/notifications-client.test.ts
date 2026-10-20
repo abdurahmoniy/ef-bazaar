@@ -211,3 +211,15 @@ describe('notification client helpers', () => {
     } satisfies NotificationResponse)).toBe('/hamyon');
   });
 });
+
+it('labels watch price changes and merged search reasons without a fake chat actor', () => {
+  const notice = { id: 'watch', type: 'WATCH_MATCH', listingId: 'l1', createdAt: '', watchPayload: { items: [{ listingId: 'l1', reasons: ['Messi qidiruvi', 'Narx pasaydi'], oldPrice: 200000, newPrice: 150000 }], totalCount: 1, remainingCount: 0 } } as NotificationResponse;
+  expect(notificationLabel(notice)).toContain('Kuzatuvingizga mos');
+  expect(notificationHref(notice)).toBe('/marketplace/l1');
+});
+it('opens the manager for a digest with omitted items or multiple results', () => {
+  const notice = { id: 'digest', type: 'WATCH_DIGEST', listingId: 'old', createdAt: '', watchPayload: { items: [{ listingId: 'l1', reasons: ['Narx o‘zgardi'] }], totalCount: 21, remainingCount: 20 } } as NotificationResponse;
+  expect(notificationLabel(notice)).toContain('21');
+  expect(notificationHref(notice)).toBe('/watches');
+  expect(notificationHref({ ...notice, watchPayload: null })).toBe('/watches');
+});

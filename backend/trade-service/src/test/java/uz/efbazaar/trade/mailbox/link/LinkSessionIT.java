@@ -68,9 +68,9 @@ class LinkSessionIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeature
     @org.junit.jupiter.api.BeforeEach
     void roomForEveryone() {
         Map<String, String> g = new HashMap<>();
-        g.put("mailbox.slots", "10");
+        g.put("mailbox.total_slots", "10");
         g.put("mailbox.custom_slots", "10");
-        projection.replacePlan("STANDARD", g);
+        projection.replacePlan("STANDARD", g, System.nanoTime(), "fixture-" + UUID.randomUUID(), java.time.Instant.now());
     }
 
     @AfterEach
@@ -80,6 +80,9 @@ class LinkSessionIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeature
     }
 
     private Mailbox box(UUID owner, MailboxKind kind, boolean provisioned) {
+        // A verified Free subscription is distinct from a missing projection.
+        if (!userPlanRows.existsById(owner)) projection.userMoved(owner, "STANDARD", null,
+                System.nanoTime(), "fixture-" + UUID.randomUUID(), Instant.now());
         UUID id = UUID.randomUUID();
         EncryptedField pw = crypto.encrypt("mbox-" + id, "s3cret".getBytes());
         return mailboxes.saveAndFlush(Mailbox.builder().id(id)
@@ -158,9 +161,9 @@ class LinkSessionIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeature
     @Test
     void lockedBoxIsRefused() throws Exception {
         Map<String, String> g = new HashMap<>();
-        g.put("mailbox.slots", "5");
+        g.put("mailbox.total_slots", "0");
         g.put("mailbox.custom_slots", "0");
-        projection.replacePlan("STANDARD", g);
+        projection.replacePlan("STANDARD", g, System.nanoTime(), "fixture-" + UUID.randomUUID(), java.time.Instant.now());
         UUID owner = UUID.randomUUID();
         Mailbox mb = box(owner, MailboxKind.CUSTOM, true);
 

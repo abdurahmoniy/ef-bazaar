@@ -34,7 +34,7 @@ class MailboxNameControllerTest {
     @BeforeEach
     void setUp() {
         service = mock(MailboxService.class);
-        mvc = standaloneSetup(new MailboxController(service, mock(MailboxMapper.class),
+        mvc = standaloneSetup(new MailboxController(service, mock(MailboxMapper.class), mock(uz.efbazaar.trade.trade.repository.TradeRepository.class),
                 mock(MailboxSlotService.class), mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class),
                 mock(uz.efbazaar.trade.mailbox.link.MailboxLinkSessionRepository.class)))
                 .setControllerAdvice(new TradeExceptionHandler())

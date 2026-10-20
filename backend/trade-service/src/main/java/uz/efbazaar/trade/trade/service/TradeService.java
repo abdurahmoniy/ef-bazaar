@@ -60,6 +60,8 @@ public class TradeService {
     private final TradeBroadcaster broadcaster;
     private final TradeEventPublisher events;
     private final uz.efbazaar.trade.plan.service.MailboxSlotService slots;
+    private final uz.efbazaar.trade.plan.service.MailboxQuotaLock quotaLock;
+    private final uz.efbazaar.trade.mailbox.provision.ProvisioningClaimService provisioningClaims;
 
     @Value("${trade.human.expires-after-hours:168}")
     private long humanExpiresAfterHours;
@@ -126,15 +128,12 @@ public class TradeService {
                     "Inson admin savdosi uchun admin tanlanishi kerak");
         }
 
-        // Checked before anything is created, and per party: a swap makes a
-        // mailbox for each of them, and charging both to whoever opened the
-        // trade would let one user spend the other's allowance. Refusing here
-        // rather than later also means a trade that cannot have its mailboxes
-        // is never written at all.
+        // Reserve capacity before creating rows. Both parties need room for
+        // the possible final mailbox; swaps each reserve their own side.
+        // Locks are shared with custom claims and held until commit.
+        quotaLock.lock(sellerId, buyerId);
         slots.assertCanAllocate(sellerId);
-        if (kind.isSwap()) {
-            slots.assertCanAllocate(buyerId);
-        }
+        slots.assertCanAllocate(buyerId);
 
         // The mailbox row is created up-front with a synthetic email; the worker
         // (Task 14) overwrites the email + password once it "provisions" Mailcow
@@ -250,6 +249,51 @@ public class TradeService {
                 .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
     }
 
+    /**
+     * Record a known worker success in the same lock order as failure transitions.
+     * This transaction ends before the consumer attempts a state transition, so
+     * an out-of-order event cannot poison an outer transaction's rollback state.
+     */
+    @Transactional
+    public boolean recordProvisionedMailbox(UUID tradeId, UUID reportedMailboxId, String email,
+                                            byte[] encryptedPassword, byte[] iv, byte[] tag) {
+        return recordProvisionedMailbox(tradeId, reportedMailboxId, email, encryptedPassword, iv, tag, null);
+    }
+
+    @Transactional
+    public boolean recordProvisionedMailbox(UUID tradeId, UUID reportedMailboxId, String email,
+                                            byte[] encryptedPassword, byte[] iv, byte[] tag, UUID claimId) {
+        Trade t = trades.findByIdForUpdate(tradeId).orElse(null);
+        if (t == null) {
+            log.warn("email-provisioned for unknown trade {}", tradeId);
+            return false;
+        }
+        quotaLock.lock(t.getSellerId(), t.getBuyerId());
+        UUID mailboxId = reportedMailboxId != null ? reportedMailboxId : t.getMailboxId();
+        var both = sideService.of(tradeId);
+        var side = both.stream().filter(s -> mailboxId.equals(s.getMailboxId())).findFirst();
+        if (!mailboxId.equals(t.getMailboxId()) && side.isEmpty()) {
+            log.warn("Ignoring email-provisioned mailbox {} outside trade {}", mailboxId, tradeId);
+            return false;
+        }
+        if (mailboxes.getRaw(mailboxId).getKind() != uz.efbazaar.trade.mailbox.domain.MailboxKind.RANDOM) {
+            log.warn("Ignoring custom mailbox {} in trade provisioning {}", mailboxId, tradeId);
+            return false;
+        }
+        var completion = provisioningClaims.complete(mailboxId, tradeId, email, encryptedPassword, iv, tag, claimId);
+        if (completion == uz.efbazaar.trade.mailbox.provision.ProvisioningClaimService.Completion.REJECTED) return false;
+        if (completion == uz.efbazaar.trade.mailbox.provision.ProvisioningClaimService.Completion.LEGACY)
+            mailboxes.recordInitialTradeProvisioning(mailboxId, email, encryptedPassword, iv, tag);
+        if (t.getState().isTerminal() && "PROVISION_FAILED".equals(t.getTerminalReason())) {
+            UUID responsible = side.map(s -> s.role() == ParticipantRole.BUYER
+                    ? t.getBuyerId() : t.getSellerId()).orElse(t.getSellerId());
+            // Only an unowned, unretained original allocation is restored.
+            // A later confirmed ownership transfer or detach keeps its own responsibility.
+            mailboxes.restoreFailedProvisionedResponsibility(mailboxId, responsible);
+        }
+        return t.getState() == TradeState.INITIATED;
+    }
+
     /** Canonical mutation. Every action goes through here. */
     @Transactional
     public Trade transition(UUID tradeId, TradeEvent event, ActorType actor, UUID actorId) {
@@ -274,6 +318,7 @@ public class TradeService {
         // re-read, so it either moves the trade forward or is refused.
         Trade t = trades.findByIdForUpdate(tradeId)
                 .orElseThrow(() -> new EntityNotFoundException("Trade " + tradeId));
+        quotaLock.lock(t.getSellerId(), t.getBuyerId());
         TradeState from = t.getState();
         Map<ParticipantRole, String> previousTurns = turnSnapshot(t);
         // MAILBOX_PROVISIONED must only be driven by the worker's

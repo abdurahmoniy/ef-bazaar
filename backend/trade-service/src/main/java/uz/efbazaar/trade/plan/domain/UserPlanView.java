@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Local copy of which plan a user is on. No row means the default. */
+/** Local subscription snapshot. Missing rows use Free allocation limits but do not prove a read-access downgrade. */
 @Entity
 @Table(name = "user_plan_view")
 @Getter
@@ -25,6 +25,9 @@ public class UserPlanView {
 
     @Column(name = "expires_at")
     private Instant expiresAt;
+
+    @Column(name = "last_paid_expires_at")
+    private Instant lastPaidExpiresAt;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;

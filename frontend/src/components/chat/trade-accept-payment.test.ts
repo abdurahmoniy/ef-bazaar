@@ -112,14 +112,15 @@ it('displays invoice creation errors inside the dialog', async () => {
 });
 it('offers the upgrade path when mailbox slots are exhausted', async () => {
   available = 2500000; await render();
-  acceptBody = { code: 'mailbox_slots_exhausted', message: 'Pochta qutilari to‘ldi', plan: 'PRO', used: 5, limit: 5 };
+  acceptBody = { code: 'mailbox_slots_exhausted', message: 'Pochta qutilari to‘ldi', plan: 'STANDARD', used: 3, limit: 3 };
   await click('to‘lash va boshlash');
   expect(text()).toContain('Pochta qutilari to‘ldi');
+  expect(text()).toContain('Shaxsiy va savdo qutilari umumiy limitga kiradi');
   expect(document.querySelector('a[href="/plans"]')?.textContent).toContain('Tarifni oshirish');
 });
-it('offers only detaching on the top plan', async () => {
+it.each(['PRO', 'MAX', 'STAFF'])('offers only management on %s', async (plan) => {
   available = 2500000; await render();
-  acceptBody = { code: 'mailbox_slots_exhausted', message: 'Pochta qutilari to‘ldi', plan: 'MAX' };
+  acceptBody = { code: 'mailbox_slots_exhausted', message: 'Pochta qutilari to‘ldi', plan };
   await click('to‘lash va boshlash');
   expect(document.querySelector('a[href="/plans"]')).toBeNull();
   expect(document.querySelector('a[href="/profile#mailboxes"]')).not.toBeNull();

@@ -53,7 +53,13 @@ class HeartbeatConsumerIT extends AbstractIntegrationIT {
      */
     @BeforeEach
     void waitForTheListenerToOwnItsPartition() {
-        for (MessageListenerContainer container : listeners.getListenerContainers()) {
+        // Other listeners may subscribe to multiple topics. Readiness here
+        // concerns only the single-partition topic this test publishes to.
+        var ownListeners = listeners.getListenerContainers().stream()
+                .filter(container -> "payment-service-userbot-heartbeat".equals(container.getGroupId()))
+                .toList();
+        assertThat(ownListeners).hasSize(1);
+        for (MessageListenerContainer container : ownListeners) {
             ContainerTestUtils.waitForAssignment(container, 1);
         }
     }

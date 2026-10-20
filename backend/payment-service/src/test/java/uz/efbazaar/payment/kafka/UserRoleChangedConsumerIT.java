@@ -73,8 +73,14 @@ class UserRoleChangedConsumerIT extends AbstractIntegrationIT {
 
         assertThat(plans.planFor(user)).isEqualTo("STAFF");
         assertThat(plans.expiryFor(user)).isNull();
-        assertThat(plans.entitlementsOf("STAFF").values()).containsOnlyNulls();
-        verify(events).subscriptionChanged(eq(user), eq("STAFF"), eq(null));
+        var staff = new java.util.HashMap<>(plans.entitlementsOf("STAFF"));
+        assertThat(staff.remove("watch.immediate")).isEqualTo("true");
+        assertThat(staff.remove("analytics.export")).isEqualTo("true");
+        assertThat(staff.remove("seller.tools")).isEqualTo("true");
+        assertThat(staff.remove("seller.bulk")).isEqualTo("true");
+        assertThat(staff.remove("profile.decoration")).isEqualTo("true");
+        assertThat(staff.values()).isNotEmpty().containsOnlyNulls();
+        verify(events).subscriptionChanged(eq(user), eq("STAFF"), eq(null), eq(null));
         assertThat(jdbc.queryForObject("SELECT source FROM user_subscriptions WHERE user_id=?",
                 String.class, user)).isEqualTo("ROLE");
     }
@@ -98,7 +104,7 @@ class UserRoleChangedConsumerIT extends AbstractIntegrationIT {
         consumer.onRoleChanged(change(user, "ADMIN", "USER"));
 
         assertThat(plans.planFor(user)).isEqualTo("STANDARD");
-        verify(events).subscriptionChanged(eq(user), eq("STANDARD"), eq(null));
+        verify(events).subscriptionChanged(eq(user), eq("STANDARD"), eq(null), eq(null));
     }
 
     @Test

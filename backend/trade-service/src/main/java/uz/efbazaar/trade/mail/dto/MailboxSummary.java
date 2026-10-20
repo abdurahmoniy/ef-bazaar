@@ -21,5 +21,14 @@ public record MailboxSummary(
         Integer unreadCount,
         Instant lastActivityAt,
         Instant ownedSince,
-        boolean locked
-) {}
+        boolean locked,
+        uz.efbazaar.trade.plan.service.MailboxAccessService.AccessState accessState,
+        Instant paidExpiresAt,
+        Instant graceEndsAt,
+        boolean selectedForFree
+) {
+    public MailboxSummary(UUID id, String email, String displayName, Integer unreadCount,
+                          Instant lastActivityAt, Instant ownedSince, boolean locked) {
+        this(id, email, displayName, unreadCount, lastActivityAt, ownedSince, locked, null, null, null, false);
+    }
+}

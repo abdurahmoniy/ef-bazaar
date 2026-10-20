@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ChevronLeft, Fingerprint, ShieldAlert, ShieldCheck, User } from 'lucide-react';
 
+import { ProfileCoverEditor } from '@/components/profile/profile-appearance';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { DeleteAccountButton } from '@/components/profile/delete-account-button';
 import { GoogleLinkButton } from '@/components/profile/google-link-button';
@@ -90,6 +91,8 @@ export default async function ProfileEditPage() {
             </p>
           </div>
         </div>
+
+        <ProfileCoverEditor key={user.id} />
 
         {/* 2. Connected Accounts / Verification */}
         <Card className="rounded-2xl border-border/80 shadow-sm overflow-hidden">

@@ -2,103 +2,99 @@ package uz.efbazaar.trade.mail.service;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import jakarta.mail.MessagingException;
-import jakarta.mail.NoSuchProviderException;
-import jakarta.mail.Session;
-import jakarta.mail.Store;
-import lombok.RequiredArgsConstructor;
+import jakarta.mail.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import uz.efbazaar.trade.mail.config.MailProperties;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
-
 import java.time.Instant;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Properties;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.locks.ReentrantLock;
 
-/**
- * TTL-cached IMAPS connection pool keyed by mailbox id.
- *
- * <p>IMAPS opens are expensive (TLS handshake + LOGIN roundtrip). The Gmail-
- * style UI polls every 30s, and the sidebar unread-count aggregates across
- * every owned mailbox — a fresh connection per request would saturate dovecot
- * within a couple of buyers.
- *
- * <p>Entries evict after the TTL from application.yml
- * ({@code trade.mail.imap.pool-ttl-seconds}, 5 min default) OR when they're
- * observed to be disconnected. A background sweeper (default 60s cadence)
- * closes and drops expired entries so we don't hold idle sockets forever.
- *
- * <p>{@link MailService} is expected to serialise access per mailbox — a
- * single {@link Store} isn't reentrant for interleaved folder operations.
- * For the current call sites (one folder-open per request) that's fine.
- */
+/** Bounded cached IMAPS stores. A lease exclusively owns one mailbox until its folder has closed. */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ImapConnectionPool {
-
     private final MailProperties props;
     private final MailboxPasswordResolver passwordResolver;
-
-    private final ConcurrentHashMap<UUID, Entry> pool = new ConcurrentHashMap<>();
+    private final int maximum;
+    private final Semaphore permits;
+    private final ReentrantLock[] locks = new ReentrantLock[64];
+    private final Map<UUID, Entry> pool = new HashMap<>();
     private ScheduledExecutorService sweeper;
 
-    @PostConstruct
-    void start() {
-        sweeper = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "imap-pool-sweeper");
-            t.setDaemon(true);
-            return t;
-        });
-        long period = Math.max(1L, props.imap().poolSweepSeconds());
-        sweeper.scheduleAtFixedRate(this::sweep, period, period, TimeUnit.SECONDS);
+    public ImapConnectionPool(MailProperties props, MailboxPasswordResolver resolver) { this(props,resolver,8); }
+    @Autowired
+    public ImapConnectionPool(MailProperties props, MailboxPasswordResolver resolver,
+                              @Value("${trade.mail.imap.max-connections:8}") int maximum) {
+        this.props=props; this.passwordResolver=resolver; this.maximum=Math.max(1,maximum);
+        this.permits=new Semaphore(this.maximum,true);
+        Arrays.setAll(locks, i -> new ReentrantLock(true));
+    }
+    @PostConstruct void start() {
+        sweeper=Executors.newSingleThreadScheduledExecutor(r->{var t=new Thread(r,"imap-pool-sweeper");t.setDaemon(true);return t;});
+        long period=Math.max(1,props.imap().poolSweepSeconds());
+        sweeper.scheduleAtFixedRate(this::sweep,period,period,TimeUnit.SECONDS);
+    }
+    @PreDestroy synchronized void stop() {
+        if(sweeper!=null)sweeper.shutdownNow();
+        pool.values().forEach(e->closeQuietly(e.store));pool.clear();
     }
 
-    @PreDestroy
-    void stop() {
-        if (sweeper != null) sweeper.shutdownNow();
-        for (Entry e : pool.values()) closeQuietly(e.store);
-        pool.clear();
+    public record Lease(Store store, Runnable release) implements AutoCloseable {
+        @Override public void close() { release.run(); }
     }
 
-    /**
-     * Acquire an open IMAPS {@link Store} for the given mailbox. Callers MUST
-     * NOT close the store — the pool owns its lifecycle. If the cached
-     * connection is dead we transparently reconnect.
-     */
-    public Store acquire(Mailbox mailbox) throws MessagingException {
-        Entry existing = pool.get(mailbox.getId());
-        if (existing != null && existing.store.isConnected() && !existing.isExpired(nowSeconds())) {
-            existing.touch();
-            return existing.store;
+    public Lease lease(Mailbox mailbox) throws MessagingException {
+        ReentrantLock lock=locks[(mailbox.getId().hashCode() & Integer.MAX_VALUE)%locks.length];
+        boolean acquired=false, locked=false;
+        try {
+            acquired=permits.tryAcquire(5,TimeUnit.SECONDS);
+            if(!acquired)throw new MessagingException("IMAP capacity busy; retry shortly");
+            locked=lock.tryLock(5,TimeUnit.SECONDS);
+            if(!locked)throw new MessagingException("Mailbox is busy; retry shortly");
+            Entry entry;
+            synchronized(this) { entry=acquireExclusive(mailbox);entry.inUse=true; }
+            var released=new java.util.concurrent.atomic.AtomicBoolean();
+            return new Lease(entry.store,()->{
+                if(!released.compareAndSet(false,true))return;
+                synchronized(this) {
+                    entry.inUse=false;entry.lastTouched=Instant.now().getEpochSecond();
+                    if(entry.invalid && pool.remove(mailbox.getId(),entry))closeQuietly(entry.store);
+                }
+                lock.unlock();permits.release();
+            });
+        } catch(InterruptedException e) {
+            if(locked)lock.unlock();if(acquired)permits.release();
+            Thread.currentThread().interrupt();throw new MessagingException("Interrupted waiting for IMAP capacity",e);
+        } catch(MessagingException | RuntimeException e) {
+            if(locked)lock.unlock();if(acquired)permits.release();throw e;
         }
-        if (existing != null) {
-            closeQuietly(existing.store);
-            pool.remove(mailbox.getId(), existing);
+    }
+
+    private Entry acquireExclusive(Mailbox mailbox) throws MessagingException {
+        Entry entry=pool.get(mailbox.getId());long now=Instant.now().getEpochSecond();
+        if(entry!=null && !entry.invalid && entry.matches(mailbox) && entry.store.isConnected()
+                && now-entry.lastTouched<Math.max(1,props.imap().poolTtlSeconds())) return entry;
+        if(entry!=null){pool.remove(mailbox.getId());closeQuietly(entry.store);}
+        if(pool.size()>=maximum) {
+            var idle=pool.entrySet().stream().filter(e->!e.getValue().inUse)
+                    .min(Comparator.comparingLong(e->e.getValue().lastTouched)).orElseThrow(()->new IllegalStateException("IMAP capacity invariant"));
+            pool.remove(idle.getKey());closeQuietly(idle.getValue().store);
         }
-        Store fresh = openStore(mailbox);
-        pool.put(mailbox.getId(), new Entry(fresh, nowSeconds(), ttlSeconds()));
-        return fresh;
+        Entry fresh=new Entry(openStore(mailbox),now,mailbox);pool.put(mailbox.getId(),fresh);return fresh;
     }
 
-    /**
-     * Drop the cached connection for a mailbox (used when a caller detects the
-     * store is unusable — e.g. FolderClosedException from an idle timeout).
-     * Future acquires will reconnect.
-     */
-    public void invalidate(UUID mailboxId) {
-        Entry e = pool.remove(mailboxId);
-        if (e != null) closeQuietly(e.store);
+    public synchronized void invalidate(UUID mailboxId) {
+        Entry entry=pool.get(mailboxId);if(entry==null)return;
+        if(entry.inUse){entry.invalid=true;return;}
+        pool.remove(mailboxId);closeQuietly(entry.store);
     }
 
-    private Store openStore(Mailbox mailbox) throws MessagingException {
+    protected Store openStore(Mailbox mailbox) throws MessagingException {
         Properties p = new Properties();
         p.put("mail.store.protocol", "imaps");
         p.put("mail.imaps.host", props.imap().host());
@@ -130,47 +126,31 @@ public class ImapConnectionPool {
         return store;
     }
 
-    private void sweep() {
-        long now = nowSeconds();
-        Iterator<Map.Entry<UUID, Entry>> it = pool.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<UUID, Entry> e = it.next();
-            Entry entry = e.getValue();
-            if (entry.isExpired(now) || !entry.store.isConnected()) {
-                closeQuietly(entry.store);
-                it.remove();
+
+    private synchronized void sweep() {
+        long now=Instant.now().getEpochSecond();
+        var iterator=pool.entrySet().iterator();
+        while(iterator.hasNext()) {
+            var e=iterator.next().getValue();
+            if(!e.inUse && (e.invalid || !e.store.isConnected() || now-e.lastTouched>=Math.max(1,props.imap().poolTtlSeconds()))) {
+                iterator.remove();closeQuietly(e.store);
             }
         }
     }
-
-    private long ttlSeconds() { return Math.max(1L, props.imap().poolTtlSeconds()); }
-    private long nowSeconds() { return Instant.now().getEpochSecond(); }
-
     private static void closeQuietly(Store store) {
-        try {
-            if (store != null && store.isConnected()) store.close();
-        } catch (MessagingException e) {
-            // Nothing sensible to do; pool is disposing this entry regardless.
-        }
+        try { if(store!=null && store.isConnected())store.close(); } catch(MessagingException ignored) { }
     }
-
     private static final class Entry {
-        final Store store;
-        long lastTouchedSeconds;
-        final long ttlSeconds;
-
-        Entry(Store store, long now, long ttlSeconds) {
-            this.store = store;
-            this.lastTouchedSeconds = now;
-            this.ttlSeconds = ttlSeconds;
+        final Store store; final String email; final byte[] password, iv, tag;
+        long lastTouched; boolean inUse; boolean invalid;
+        Entry(Store store,long at,Mailbox mailbox) {
+            this.store=store;this.lastTouched=at;this.email=mailbox.getEmail();
+            this.password=copy(mailbox.getEncryptedPassword());this.iv=copy(mailbox.getPasswordIv());this.tag=copy(mailbox.getPasswordTag());
         }
-
-        boolean isExpired(long nowSeconds) {
-            return nowSeconds - lastTouchedSeconds >= ttlSeconds;
+        boolean matches(Mailbox mailbox) {
+            return Objects.equals(email,mailbox.getEmail()) && Arrays.equals(password,mailbox.getEncryptedPassword())
+                    && Arrays.equals(iv,mailbox.getPasswordIv()) && Arrays.equals(tag,mailbox.getPasswordTag());
         }
-
-        void touch() {
-            this.lastTouchedSeconds = Instant.now().getEpochSecond();
-        }
+        private static byte[] copy(byte[] bytes) { return bytes==null?null:bytes.clone(); }
     }
 }

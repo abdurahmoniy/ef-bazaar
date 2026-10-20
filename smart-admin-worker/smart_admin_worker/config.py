@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     mailcow_api_key_file: Path = Field(
         default=Path("/run/secrets/mailcow_api_key"), alias="MAILCOW_API_KEY_FILE"
     )
+
+    # Authoritative one-shot provisioning gate; missing secret fails closed.
+    trade_internal_base_url: str = Field(
+        default="http://trade-service:8085", alias="TRADE_INTERNAL_BASE_URL"
+    )
+    internal_api_secret: SecretStr = Field(default="", alias="INTERNAL_API_SECRET")
 
     # IMAP
     imap_host: str = Field(default="mail.efbazaar.uz", alias="IMAP_HOST")

@@ -16,5 +16,6 @@ public record InboxMessage(
         Instant receivedAt,
         String snippet,
         boolean seen,
-        boolean hasAttachments
+        boolean hasAttachments,
+        boolean criticalRecovery
 ) {}

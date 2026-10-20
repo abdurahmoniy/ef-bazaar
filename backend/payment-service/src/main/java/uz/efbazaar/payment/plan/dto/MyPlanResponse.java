@@ -7,4 +7,10 @@ import java.util.Map;
 public record MyPlanResponse(
         String code,
         Instant expiresAt,
-        Map<String, String> entitlements) {}
+        Map<String, String> entitlements,
+        Instant lastPaidExpiresAt,
+        Instant graceEndsAt) {
+    public MyPlanResponse(String code, Instant expiresAt, Map<String, String> entitlements) {
+        this(code, expiresAt, entitlements, null, null);
+    }
+}

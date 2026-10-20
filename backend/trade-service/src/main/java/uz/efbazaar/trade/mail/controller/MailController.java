@@ -28,21 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Webmail endpoints. The "no reply / forward / compose" product decision
- * still holds — the only mutation is marking a message read, which the
- * webmail fires when the user opens a message. Never add another mutating
- * verb here without updating the product owner.
- *
- * <p>Endpoints:
- * <ul>
- *   <li>{@code GET /mailboxes} — sidebar list with unread + last-activity</li>
- *   <li>{@code GET /{mbox}/inbox?limit=&offset=} — paged inbox slice</li>
- *   <li>{@code GET /{mbox}/messages/{msgId}} — full message with sanitised body</li>
- *   <li>{@code POST /{mbox}/messages/{msgId}/read} — set \Seen (idempotent)</li>
- *   <li>{@code GET /{mbox}/messages/{msgId}/attachments/{attId}} — binary download</li>
- * </ul>
- */
+/** Owner mail reads, explicit ZIP portability, and bounded confirmed cleanup. */
 @RestController
 @RequestMapping("/api/v1/mail")
 @RequiredArgsConstructor
@@ -95,6 +81,28 @@ public class MailController {
         enforceRateLimit(me.userId());
         var payload = mail.getAttachment(me.userId(), mailboxId, messageId, attachmentId);
         return download(payload);
+    }
+
+    @GetMapping("/{mailboxId}/export")
+    public ResponseEntity<Resource> export(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable UUID mailboxId,
+                                          @RequestParam(defaultValue = "100") int limit,
+                                          @RequestParam(required = false) String beforeUid) {
+        enforceRateLimit(me.userId());
+        var archive = mail.exportArchive(me.userId(), mailboxId, limit, beforeUid);
+        var response = ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"mailbox-" + mailboxId + ".zip\"")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store");
+        if (archive.nextBeforeUid() != null) response.header("X-Next-Before-Uid", archive.nextBeforeUid());
+        return response.body(new ByteArrayResource(archive.bytes()));
+    }
+
+    public record CleanupRequest(List<String> messageIds, boolean confirmDelete) {}
+
+    @PostMapping("/{mailboxId}/cleanup")
+    public MailService.CleanupResult cleanup(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable UUID mailboxId,
+                                            @org.springframework.web.bind.annotation.RequestBody CleanupRequest request) {
+        enforceRateLimit(me.userId());
+        return mail.cleanup(me.userId(), mailboxId, request.messageIds(), request.confirmDelete());
     }
 
     /**

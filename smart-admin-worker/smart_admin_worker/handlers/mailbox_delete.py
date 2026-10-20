@@ -1,57 +1,66 @@
-"""Handler for efbazaar.trade.mailbox-delete-request.
-
-An admin cleared out a mailbox nobody holds. trade-service has already marked
-its own row deleted; this removes the box from Mailcow so the address stops
-existing and stops holding a licence slot.
-"""
+"""Delete one requested mailbox and await a correlated, confirmed result."""
 
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 
 import httpx
 
 from smart_admin_worker.imap.registry import ImapPollerRegistry
 from smart_admin_worker.kafka import events as e
+from smart_admin_worker.kafka.producer import KafkaProducerClient, publish_required_result
+from smart_admin_worker.kafka.topics import TOPIC_MAILBOX_DELETE_RESULT
 from smart_admin_worker.mailcow.client import MailcowClient
-from smart_admin_worker.mailcow.errors import MailcowApiError
+from smart_admin_worker.mailcow.errors import MailboxNotFound, MailcowApiError
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class MailboxDeleteHandler:
-    def __init__(self, mailcow: MailcowClient, registry: ImapPollerRegistry) -> None:
+    def __init__(
+        self, mailcow: MailcowClient, registry: ImapPollerRegistry, producer: KafkaProducerClient,
+    ) -> None:
         self._mailcow = mailcow
         self._registry = registry
+        self._producer = producer
 
     async def handle(self, event: e.MailboxDeleteRequest) -> None:
-        # The address is about to stop existing, so anything still polling it
-        # can only fail-login on a loop. Done before the call to Mailcow and
-        # outside the try: it holds whether or not Mailcow agrees to delete.
+        if event.request_id is None:
+            # An old Kafka command may predate current ownership. Decoding
+            # remains backward compatible; destructive execution requires a
+            # fresh trade-service deletion intent and correlation nonce.
+            log.warning("Rejected uncorrelated mailbox deletion: mailbox_id=%s", event.mailbox_id)
+            await publish_required_result(
+                self._producer, TOPIC_MAILBOX_DELETE_RESULT, str(event.mailbox_id),
+                e.MailboxDeleteResult(
+                    None, event.mailbox_id, event.mailbox_email, False, False,
+                    "MISSING_REQUEST_ID", datetime.now(UTC),
+                ),
+            )
+            return
         await self._registry.cancel_mailbox(event.mailbox_email)
+        success, absent, error = True, False, None
+        transport_error = None
         try:
             await self._mailcow.delete_mailbox(event.mailbox_email)
-        except MailcowApiError as refused:
-            # Mailcow answered and said no, which it will say again to an
-            # identical request for ever. Retrying only produces the same
-            # alert on a loop — three of them arrived within a minute the
-            # first time this fired, for a "pending-…" address that was never
-            # created in Mailcow at all (it answers access_denied for a
-            # mailbox that does not exist, not object_dne).
-            #
-            # Swallowed rather than re-raised because trade-service has
-            # already marked the row deleted: the worst outcome is one stray
-            # mailbox on the server, which is a cleanup, not a reason to jam
-            # the topic.
-            logger.warning(
-                "Mailcow refused to delete %s: %s. Not retrying — the row is "
-                "already marked deleted on our side.",
-                event.mailbox_email,
-                refused,
-            )
-        except (httpx.HTTPError, TimeoutError):
-            # Mailcow unreachable rather than unwilling. This one is worth
-            # another go, so it goes back to Kafka.
-            logger.warning("Mailcow unreachable while deleting %s; will retry",
-                           event.mailbox_email)
-            raise
+        except MailboxNotFound:
+            absent = True
+        except MailcowApiError:
+            # access_denied does not prove absence. No raw upstream body is
+            # put on Kafka; it can contain operational details or credentials.
+            success, error = False, "MAILCOW_REFUSED"
+        except (httpx.HTTPError, TimeoutError) as exc:
+            success, error = False, f"UNKNOWN:{type(exc).__name__}"
+            transport_error = exc
+
+        await publish_required_result(
+                self._producer,
+            TOPIC_MAILBOX_DELETE_RESULT, str(event.mailbox_id),
+            e.MailboxDeleteResult(
+                event.request_id, event.mailbox_id, event.mailbox_email,
+                success, absent, error, datetime.now(UTC),
+            ),
+        )
+        if transport_error is not None:
+            raise transport_error

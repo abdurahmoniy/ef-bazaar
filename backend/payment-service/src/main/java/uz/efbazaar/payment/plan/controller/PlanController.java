@@ -42,8 +42,7 @@ public class PlanController {
 
     @GetMapping("/me")
     public MyPlanResponse mine(@AuthenticationPrincipal AuthenticatedUser me) {
-        String code = plans.planFor(me.userId());
-        return new MyPlanResponse(code, plans.expiryFor(me.userId()), plans.entitlementsOf(code));
+        return plans.mine(me.userId());
     }
 
     @PostMapping("/purchase")

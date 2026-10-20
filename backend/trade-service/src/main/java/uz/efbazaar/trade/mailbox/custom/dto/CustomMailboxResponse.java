@@ -16,4 +16,8 @@ public record CustomMailboxResponse(
         boolean locked,
         UUID linkedAccountId,
         UUID activeSessionId,
-        Instant createdAt) {}
+        Instant createdAt,
+        uz.efbazaar.trade.plan.service.MailboxAccessService.AccessState accessState,
+        Instant paidExpiresAt,
+        Instant graceEndsAt,
+        boolean selectedForFree) {}

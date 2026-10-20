@@ -44,7 +44,7 @@ class StaffPlanIT extends AbstractPostgresIT {
     @SpyBean PlanEventPublisher events;
 
     @Test
-    void everyKeyAnyPlanGrantsIsUnlimitedOnStaff() {
+    void everyBudgetIsUnlimitedAndBooleanCapabilitiesAreEnabledOnStaff() {
         // A future entitlement key added to PRO but forgotten on STAFF would
         // quietly cap every admin. Fail here instead.
         List<String> keys = jdbc.queryForList(
@@ -53,7 +53,11 @@ class StaffPlanIT extends AbstractPostgresIT {
         Map<String, String> staff = plans.entitlementsOf("STAFF");
         for (String key : keys) {
             assertThat(staff).as("STAFF must carry %s", key).containsKey(key);
-            assertThat(staff.get(key)).as("STAFF %s must be unlimited (null)", key).isNull();
+            if (java.util.Set.of("watch.immediate", "analytics.export", "seller.tools", "seller.bulk", "profile.decoration").contains(key)) {
+                assertThat(staff.get(key)).as("STAFF boolean capability must be enabled").isEqualTo("true");
+            } else {
+                assertThat(staff.get(key)).as("STAFF %s budget must be unlimited (null)", key).isNull();
+            }
         }
     }
 
@@ -79,7 +83,7 @@ class StaffPlanIT extends AbstractPostgresIT {
         var staff = captor.getAllValues().stream().filter(s -> s.planCode().equals("STAFF")).findFirst();
         assertThat(staff).isPresent();
         assertThat(staff.get().entitlements()).containsEntry("mailbox.slots", null)
-                .containsEntry("mailbox.custom_slots", null);
+                .containsEntry("mailbox.custom_slots", null).containsEntry("mailbox.total_slots", null);
     }
 
     @Test
@@ -92,7 +96,7 @@ class StaffPlanIT extends AbstractPostgresIT {
                 .andExpect(jsonPath("$.code").value("STAFF"));
 
         assertThat(plans.planFor(user)).isEqualTo("STAFF");
-        verify(events).subscriptionChanged(eq(user), eq("STAFF"), eq(null));
+        verify(events).subscriptionChanged(eq(user), eq("STAFF"), eq(null), eq(null));
     }
 
     @Test
@@ -109,9 +113,9 @@ class StaffPlanIT extends AbstractPostgresIT {
     void staffEntitlementsCannotBeEdited() throws Exception {
         mvc.perform(put("/api/v1/admin/plans/entitlements").with(asAdmin())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"entitlements\":[{\"planCode\":\"STAFF\",\"key\":\"mailbox.slots\",\"value\":\"5\"}]}"))
+                        .content("{\"entitlements\":[{\"planCode\":\"STAFF\",\"key\":\"mailbox.total_slots\",\"value\":\"5\"}]}"))
                 .andExpect(status().isBadRequest());
-        assertThat(plans.entitlementsOf("STAFF").get("mailbox.slots")).isNull();
+        assertThat(plans.entitlementsOf("STAFF").get("mailbox.total_slots")).isNull();
     }
 
     @Test

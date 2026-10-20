@@ -31,6 +31,74 @@ Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
 - Sessiya: access cookie 15 daqiqa, refresh 30 kun. Access tugagan bo'lsa `proxy.ts` refresh
   qiladi va **ketayotgan so'rovning Cookie headerini ham** yangilaydi (aks holda birinchi so'rov 401 oladi).
 
+### Free/Pro katalogi va umumiy pochta sig‘imi (A–C bosqichlar)
+
+- `/plans` faqat `STANDARD` → **Free** va `PRO` → **Pro** kartalarini ko‘rsatadi.
+  Narxlar `GET /api/payment/v1/payments/plans` katalogidan olinadi; faqat `PRO` / `MONTH`
+  xarid qilinadi. Boshlang‘ich oylik narx 3 000 000 tiyin (30 000 so‘m).
+- `MAX` tarixiy obunalarda saqlanadi, lekin karta, upgrade taklifi va admin narx/berish
+  formasida sotuvga chiqmaydi. `YEAR` admin tahriri ham yopiq. `STAFF` ommaviy karta
+  emas; uning cheksiz huquqi va xarid bloklanishi saqlanadi.
+- Kartalar va admin tahriri `mailbox.total_slots` / `mailbox.custom_slots` bilan ishlaydi:
+  Free jami 3, Pro jami 10, shundan 2 tagacha yangi custom quti. `mailbox.slots` tarixiy
+  random limiti umumiy limit sifatida ishlatilmaydi. Custom quti alohida qo‘shimcha sig‘im emas.
+- Profil va custom yaratish sahifasi `GET /api/trade/v1/mailboxes/slots` javobidagi
+  `totalUsed`, `totalLimit`, `customUsed`, `customLimit`ni ko‘rsatadi. `exemptUsed` —
+  umumiy limitga kirmaydigan qutilar (admin sovg‘alari va vaqtincha savdoda olingan escrow); `resourceUsed` — resursdagi ajratilgan qutilar.
+  `used`/`limit` moslik aliaslari hisoblash manbasi emas. Yangi maydonlari yo‘q eski javob
+  noma’lum capacity bo‘ladi. `customUsed` saqlanayotgan nomli qutilarni, `customLimit` yangi
+  yaratish chegarasini bildiradi; Free’da mavjud 2 ta custom uchun 2/0 qonuniy holat.
+  STAFF quota ko‘rinishidan yashiriladi.
+- Free’da mavjud custom quti umumiy pool ichida o‘qish uchun tanlanadi; random/custom
+  o‘rtasida qulf almashtirish mumkin. Admin sovg‘asi va faol savdodagi qutini almashtirish
+  uchun qulflash taklif qilinmaydi (`slotExempt`/`activeTrade`). Custom nomi uzilmaydi. Oddiy qutini uzish kirishni bekor qiladi, ammo saqlangan
+  allocationni kamaytirmaydi; o‘qish uchun quti tanlash unlock swap orqali amalga oshiriladi.
+  Pro tugagach ortiqcha qutilar 30 kun `GRACE`, keyin `RECOVERY` holatiga o‘tadi; quyidagi C oqimi ishlatiladi.
+- Xaridning muvaffaqiyatli HTTP javobi “qabul qilindi, imkoniyatlar faollashtirilmoqda”
+  holatini beradi. Consumer projection tayyorligi uchun endpoint yo‘q; to‘liq
+  faollashish tasdiqlanmaydi. Shu ko‘rinishda takror xarid bloklanadi. Joriy tarifni
+  yuklash xatosi Free deb taxmin qilinmaydi, narx o‘zgarishi qayta tasdiqlanadi va
+  ayni urinish qaytarilsa idempotency kaliti saqlanadi.
+- Custom manzilni tekshirishda API 503 (projection tayyor emas) yoki boshqa xato
+  cheksiz loading bo‘lmaydi: backend xabari va aniq qayta urinish tugmasi ko‘rsatiladi.
+  Tarmoq xatosida umumiy izoh chiqadi; yangi nom yoki qayta urinish xato holatini tozalaydi.
+- Premium `efootball.uz` domeni Pro/STAFF uchun tanlanadi; tarixiy MAX qutilariga kirish saqlanadi; yopilgan
+  MAX tarifiga yangi xarid taklifi yo‘q. Custom manzillar escrow uchun avtomatik ishlatilmaydi.
+
+### Pochta saqlash va tiklash (C)
+
+- `accessState: ACTIVE|GRACE|RECOVERY`, `paidExpiresAt`, `graceEndsAt`,
+  `selectedForFree` quti holatining manbasi. Eski `locked` faqat yangi maydon yo‘q
+  javoblar uchun konservativ ishlatiladi. Grace to‘liq o‘qish beradi, yangi Pro joylarini
+  bermaydi; Recovery muhim Konami tiklash/xavfsizlik xatlarini webmail’da o‘qitadi.
+  Free uchun random/custom aralash 3 qutini amaldagi unlock swap bilan tanlash mumkin.
+  Admin sovg‘asi va faol savdo himoyalangan; Pro uzayishi mavjud qutilarga kirishni tiklaydi.
+- Profil `GET /api/trade/v1/mailboxes/resources` dagi o‘z va saqlangan resurslarni,
+  `/admin/plans/mailboxes` esa `GET /api/trade/v1/admin/mailboxes/resources` dagi barcha
+  resurslarni ko‘rsatadi, shu jumladan `id:null` server qutilari. `usageBytes/quotaBytes`
+  haqiqiy o‘lchov; `usageObservedAt`, `usageStatus: FRESH|STALE|ERROR|UNKNOWN`, `usageError`
+  ekranda saqlanadi. `FRESH` o‘lchov haqiqiy 80% ga yetganda ogohlantiriladi. Null yoki xato 0 emas;
+  Mailcow o‘lchagan `quotaBytes:0` cheksiz kvotani bildiradi va foiz taxmin qilinmaydi.
+  `mailcowPresent` va `deletionStatus: NONE|PENDING|FAILED|CONFIRMED` fizik holatni ko‘rsatadi;
+  lokal `deleted` serverdan o‘chirilgan degani emas. Yangilash tugmasi backendning davriy
+  reconciliation natijasini qayta oladi; frontend o‘zi serverda reconciliation boshlamaydi.
+  `provisioningStatus: NONE|STARTED|CONFIRMED`, `provisioningClaimId`, `provisioningError`
+  yaratilish natijasini ko‘rsatadi. `STARTED` tasdiqlanmaguncha release amallari yopiq;
+  mavjud egaga tegishli o‘qish/eksport huquqi shu sabab bilan yashirilmaydi.
+- Tashqi emailga ko‘chirish: foydalanuvchi Konami’da manzilni o‘zgartiradi va eski emailga
+  forgot-password’ni o‘z brauzerida qo‘lda yuboradi. `POST /mailboxes/{id}/release-check`
+  → `GET /mailboxes/{id}/release-check/{requestId}` tekshiruvi `VERIFIED` va muddati yangi
+  bo‘lmaguncha o‘chirish yopiq. Faol savdo/nizo/huquqiy hold ham bloklaydi. Oxirgi qaytmas
+  tasdiqdan so‘ng `POST /mailboxes/{id}/release {requestId,confirmDelete:true}` ishlatiladi.
+  Oddiy uzish isbot hisoblanmaydi; joy faqat server tasdiqlagan yo‘qlikdan keyin bo‘shaydi,
+  manzil doimiy zahirada qoladi. Uzilgan, saqlangan quti uchun o‘qish/eksport kirishi qaytmaydi;
+  resurs panelida faqat release jarayoni qoladi. Xatlarni eksport/tozalash egasining webmail’ida.
+- Profilning doimiy tarif xabarlari `GET /api/payment/v1/payments/plans/notices` dan olinadi:
+  `EXPIRING|EXPIRED|GRACE_ENDED`, haqiqiy paid/grace sanalari va `/plans` CTA.
+  Takror id bir marta chiqadi; foydalanuvchi bosgandagina `POST /notices/{id}/read` qilinadi.
+  `plans/me` dagi `lastPaidExpiresAt`/`graceEndsAt` tarixni saqlaydi; `expiresAt` joriy paid
+  muddat bo‘lib qoladi. Telegramga bog‘liqlik yo‘q.
+
 ### Bozor: saralash va recommendation
 
 - **Qiziqishlarim** (saralash menyusida birinchi, login qilganlarga default) — `recommendation-service` `/feed` tartibi,
@@ -105,3 +173,38 @@ Telegram Mini App va brauzerda push ruxsatisiz ham ishlaydi. Bir savdo va maqsad
 eng yangi kod ko‘rsatiladi; yopilgan kod brauzer sessiyasida qayta ochilmaydi.
 Dialog kodni nusxalash va savdo chatini ochish imkonini beradi. Sessiya identifikatori
 `/api/push/config` dan Firebase konfiguratsiyasi bo‘lmasa ham olinadi.
+
+## Saqlangan qidiruvlar va narx kuzatuvlari
+
+- `/watches` — login qilgan foydalanuvchining saqlangan qidiruvlari va alohida narx kuzatuvlari. Profil menyusidan, bozorning «Qidiruvni saqlash» tugmasidan va e’lon sahifasidan ochiladi.
+- Qidiruv v1 faqat `matchCard`/`matchStrictness` o‘yinchi kartalari va `minPrice`/`maxPrice` so‘mdagi narx oralig‘ini saqlaydi. Platforma, matn, saralash va dinamik filtrlar saqlanmaydi. Bo‘sh yoki noto‘g‘ri narx oralig‘i saqlanmaydi; tahrirlash kartalarni saqlab qoladi.
+- API: `/api/rec/v1/saved-searches` (`GET`, `POST`), `/{id}` (`PUT`, `PATCH`, `DELETE`), `/priorities` (`PUT {ids}`). Narxlar: `/api/marketplace/v1/price-watches` (`GET`, `POST {listingId}`), `/{id}` (`PATCH {paused}`, `DELETE`), `/priorities` (`PUT {ids}`), `/preferences` (`PUT {notificationsEnabled,telegramEnabled}`). Har ikki xizmat mavjud same-origin proxy orqali autentifikatsiyalanadi.
+- Limit, `available` va `immediate` xizmat javobidan olinadi. Yangi yaratishda pauzadagi kuzatuvlar ham saqlangan jami soniga kiradi; tahrirlash va asosiy tanlash mavjud ma’lumotlar bilan ishlaydi. Free uchun odatiy 1 qidiruv/3 narx, Pro uchun 5/20; admin o‘zgartirgan katalog ham aks etadi. Noma’lum imkoniyat cheksiz deb olinmaydi. Free jamlanmasi 19:00 Asia/Samarkand; Pro topilganda xabar. Umumiy ilova/Telegram roziligi hamda har qidiruvning alohida roziligi boshqariladi.
+- Obuna tugaganda ortiqcha kuzatuv o‘chirilmaydi: `LIMIT` pauzasi ko‘rsatiladi, asosiy kuzatuv priority tartibi bilan tanlanadi. Qo‘lda pauza, davom ettirish, tahrirlash va o‘chirish server natijasidan keyin aks etadi; xato qayta urinish bilan ko‘rinadi. Sevimlilarga qo‘shish narx kuzatuvini yaratmaydi.
+- Notification center `WATCH_MATCH`/`WATCH_DIGEST` va `watchPayload` (`items[].listingId/reasons/oldPrice/newPrice`, `totalCount`, `remainingCount`)ni ko‘rsatadi. Bitta natija e’longa, ko‘p yoki qisqartirilgan jamlanma `/watches`ga olib boradi.
+
+- Yangi Free foydalanuvchi uchun `/watches` autentifikatsiyadan keyin payment `plans/me`ni kutadi: birinchi canonical Free snapshot va durable event paymentda yaratiladi. UI grantlarni o‘zi taxmin qilmaydi; projection tayyor bo‘lmaguncha mavjud unavailable holati chiqadi. E’londagi alohida narx opt-in `watch_entitlement_unavailable` olsa, payment `plans/me`ni bir marta so‘rab, foydalanuvchiga qayta urinishni taklif qiladi; yashirin create retry yoki avtomatik grant yo‘q.
+
+
+## Sotuvchi hisoboti (E)
+
+- `/seller-analytics` — autentifikatsiyalangan sotuvchining faol va sotilgan e’lonlari statistikasi. Profil menyusi va profil sahifasidan ochiladi; `noindex, nofollow`. SSR yangi Free identifikatori uchun canonical payment `plans/me`ni kutadi, ammo barcha tarix/eksport ruxsatini marketplace javobi belgilaydi. Payment xatosida sahifa asosiy statistikani yuklashga davom etadi.
+- Same-origin API: `GET /api/marketplace/v1/seller-analytics/summary`, `/report?days=7|30|90&listingId?&page=0&size=50`, `/export?days=7|30|90&listingId?`. So‘rovlar cookies bilan, `cache: no-store`; eksport `Accept: text/csv, application/json` yuboradi va HTTP status/content-type tekshirilgach faylga aylanadi. Eksport sahifadan qat’i nazar filtrdagi barcha e’lonlarni oladi. Blob URL har doim tozalanadi.
+- Free uchun `listingCount`, `uniqueViews`, `currentFavorites`, `inquiries` asosiy kartalarda saqlanadi. `capabilities.status: AVAILABLE|DENIED|UNAVAILABLE`, `historyDays`, `exportEnabled` serverdan olinadi; `AVAILABLE` ichidagi `historyDays:null` STAFF uchun cheksiz. Eski/yo‘q/noto‘g‘ri capability grant bermaydi. Free `DENIED` Pro CTA oladi; `UNAVAILABLE` noma’lum holat va qayta urinish oladi.
+- Davr va e’lon filtri totals, kunlik jadval hamda sahifalangan e’lon jadvalini yangilaydi. Ruxsatdan katta 7/30/90 kunlik tugmalar yopiq. 403 `analytics_upgrade_required` yoki 503 `analytics_policy_unavailable` eski paid natijani tozalaydi; asosiy kartalar saqlanadi va qayta urinish capabilityni qayta o‘qiydi. Oddiy anonim 403 upgrade deb taxmin qilinmaydi. Filter o‘zgarsa kechikkan report/CSV natijasi bekor qilinadi.
+- `coverage.collectionStartedAt`, `timezone: Asia/Samarkand`, `historyPartial` yig‘ish boshlanishi va qisman tarixni ochiq ko‘rsatadi; yangi/bo‘sh sotuvchiga to‘liq 90 kunlik tarix va’da qilinmaydi. Ko‘rish — e’lon/foydalanuvchi uchun birinchi noyob ko‘rish, kundalik takrorlar emas. `saveAdditions` — yig‘ish boshlanganidan keyingi qo‘shishlar, joriy sevimlilar yoki net o‘zgarish emas. So‘rov — e’lon/so‘rovchi uchun birinchi haqiqiy akkount so‘rovi, oddiy chat ochilishi/xabari emas. Savdo — platformada yakunlangan bitim; `grossSalesUzs` sotuvda kelishilgan yalpi summa, sof foyda emas. Inson admin bilan yakunlangan summa hamyon tasdiqlagan to‘lovni anglatmaydi; obmen summaga 0 qo‘shadi.
+- `grossSalesUzs` JSON’da manfiy bo‘lmagan **butun decimal string**, so‘mda. Klient `Number`ga aylantirmaydi; `9007199254740993` ham aniq guruhlanadi. Sonlar mavjud deterministik formatter, sanalar UTC+5/date-only formatter bilan chiqadi (Node/brauzer locale farqidan hydration xatosi yo‘q).
+- Yonma-yon Vitest testlari: canonical SSR/auth, haqiqiy DOM Free/Pro/STAFF/unknown holatlari, 7/30/90, filter/sahifa/CSV, 403/503 retry, bo‘sh/qisman tarix, race/abort, exact summa va noto‘g‘ri export/report javoblari; navigation DOM testi menyudagi havolani tekshiradi. Jadval gorizontal scrolli fokuslanadi; barcha yangi amallar kamida 44px, light/dark va 390px ekranga mos.
+
+## Sotuvchi vositalari va profil bezagi (F)
+
+- `/seller-tools` — login talab qiladigan, `noindex, nofollow` boshqaruv sahifasi. Profil menyusi, haqiqiy profil sarlavhasi va akkountlar ro‘yxatidan ochiladi. SSR canonical Free identifikatorini tayyorlash uchun payment `plans/me`ni kutadi; yozish huquqini faqat marketplace `GET /api/marketplace/v1/seller-tools/capabilities` javobidagi `tools`, `bulk`, `profileDecoration` (`AVAILABLE|DENIED|UNAVAILABLE`) belgilaydi. Tarif nomi grant bermaydi. Noto‘g‘ri/yo‘q javob va yangilash xatosida yozish yopiladi; fokus, ko‘rinish va 30 soniyalik tekshiruv imkoniyatni yangilaydi.
+- Shablon va shaxsiy qaydlar: `GET /seller-tools/templates|notes?page=0&size=50`, `POST` collection, `PUT|DELETE /{id}`. `PUT` to‘liq almashtirish bo‘lib, saqlangan qaydning chat/e’lon konteksti o‘zgarmaydi. Shablon 120 belgili sarlavha va 4000 belgili matn; qayd ixtiyoriy sarlavha va 8000 belgili matn oladi. Qayd uchun joriy chat yoki o‘z e’loni kerak; egasi/kontekstni server tekshiradi. Haqiqiy chat va o‘z e’loni sahifalaridagi havolalar UUID kontekstini oldindan tanlaydi. Qaydlar faqat egasiga tegishli, suhbatdosh composeriga, xabar yoki ommaviy profilga qo‘shilmaydi. Matn oddiy matn sifatida chiqadi.
+- Free yoki noma’lum tarifda ham barcha saqlangan ma’lumotni o‘qish, sahifalash va `GET /seller-tools/export` orqali to‘liq JSON eksport qilish ochiq. Eksport ro‘yxat sahifasidan mustaqil; Blob URL tozalanadi. 403 `upgrade_required` va 503 `plan_unavailable` eski yozish huquqlarini tozalaydi, saqlangan ma’lumot va o‘qishni saqlaydi. Xato va aniq qayta urinish mavjud.
+- Chatdagi «Shablon» tanlovi faqat ochilganda shablonlarni yuklaydi. Saqlangan shablonni Free ham qoralamaga yangi qatorda qo‘sha oladi; joriy qoralama saqlanadi, xabar avtomatik yuborilmaydi. Qo‘shilgan matn 4000 belgidan oshsa tushunarli xato chiqadi. Tahrirlash, ovoz yozish va yuborish davomida tanlov yopiq. Radix dialog klaviatura fokusini boshqaradi va yopilganda so‘rovni bekor qiladi.
+- Ommaviy tanlov faqat `GET /listings/me?page=…&size=50` orqali o‘z e’lonlarini oladi. Chegara `bulkLimit`dan olinadi. `POST /seller-tools/listings/bulk {operation:'UNPUBLISH'|'PRICE',listingIds,price?}` har e’lon natijasini ko‘rsatadi. `PRICE` kamida 5000.00, ko‘pi bilan 17 butun/2 kasr raqamli decimal **string** sifatida o‘zgartirmasdan yuboriladi; floating-point aylantirish yo‘q. Qisman xatoda muvaffaqiyatli va xato natijalar e’lon sarlavhasi bilan saqlanadi, e’lonlar yangilanadi; yashirin to‘liq retry yo‘q. Oxirgi bo‘sh sahifa mavjud sahifaga qaytadi.
+- Haqiqiy o‘z profil sarlavhasi va `/users/[id]` ommaviy profili umumiy jonli bezak komponentini ishlatadi. Public `GET /profiles/{id}/appearance` faqat `{pro,coverFileId,validUntil}` oladi; o‘z `GET /profiles/me/appearance` saqlangan muqova va `capability`ni ham oladi. `validUntil` kelishi bilan belgi/ommaviy muqova yashiriladi; yangilash xatosi ham yashiradi. Fokus, visibility va 30 soniyalik so‘rov, identity almashganda eski javobni tashlash hamda timer/AbortController cleanup mavjud. «Pro a’zolik» faqat tarif belgisi; verifikatsiya va xaridor reytingi alohida qoladi.
+- `/profile/edit`dagi muqova boshqaruvi `PUT /profiles/me/appearance/cover`ga bitta `file` multipart rasm yuboradi; `Content-Type` qo‘lda qo‘yilmaydi. Olib tashlash `DELETE` bilan ishlaydi. Server mavjud Telegram media hajm/tur/magic tekshiruvlarini va pullik huquqni bajaradi; muvaffaqiyatsiz yuklash oldingi muqovani saqlaydi. Free’da egasi saqlangan muqova previewini ko‘radi, ommaga ko‘rinmasligi izohlanadi, o‘zgartirish yopiq. Muddat kelganda tahrirlash ham darhol yopiladi. Media mavjud `listingMediaUrl` → `/bot/photo` oqimidan olinadi.
+- Barcha F API so‘rovlari same-origin `/api/marketplace/v1` proxy orqali `Accept: application/json`, cookies, `cache: no-store` va AbortSignal bilan ishlaydi. Yangi tugma/havolalar kamida 44px, mobile/dark/reduced-motion va klaviatura dialog holatlari saqlanadi. Gamer yoki turnir flaglari ochilmagan.
+
+- `/seller-tools` boshqaruvi va `/profile/edit` muqova editori SSR foydalanuvchi ID bilan key qilinadi: shu sahifada hisob almashganda oldingi shaxsiy ro‘yxat/qoralama/saqlangan muqova va pullik holat tozalanadi, eski o‘qish/yuklash so‘rovlari bekor bo‘ladi. Shu foydalanuvchining oddiy SSR refreshi yozilayotgan qoralamani saqlaydi.

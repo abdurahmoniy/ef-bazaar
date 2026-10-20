@@ -1,3 +1,5 @@
+import { MailboxResources } from '@/components/profile/mailbox-resources';
+import { PlanNotices } from '@/components/profile/plan-notices';
 import { MailboxSlotsWarning } from '@/components/profile/mailbox-slots-warning';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -128,7 +130,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
   return (
     <MarketplaceShell user={user} activeTab={activeTab === 'accounts' ? 'accounts' : 'profile'} hideSearch hideHeader>
-      <div className="space-y-3 pb-24">
+      <div key={user.id} className="space-y-3 pb-24">
         {/* Subpage Mobile App Sticky Top Header */}
         {subpageHeader && (
           <div className="-mx-4 -mt-4 sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border/60 bg-background/95 px-4 py-3 backdrop-blur-md sm:mx-0 sm:mt-0 sm:rounded-2xl sm:border sm:px-5 sm:shadow-xs md:top-14">
@@ -168,6 +170,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           />
         )}
 
+        {activeTab === 'account' && <PlanNotices />}
         {/* Tab content view */}
         <section key={activeTab} className="animate-panel-in">
           {activeTab === 'accounts' && <ProfileAccounts accounts={accounts} displayById={accountDisplay} viewerId={user.id} savedAccountId={typeof params.saved === 'string' ? params.saved : undefined} />}
@@ -189,6 +192,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           )}
         </section>
         {activeTab !== 'account' && <MailboxSlotsWarning />}
+        <MailboxResources />
       </div>
     </MarketplaceShell>
   );

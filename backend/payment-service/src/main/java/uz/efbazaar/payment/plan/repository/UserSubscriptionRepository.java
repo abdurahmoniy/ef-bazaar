@@ -15,6 +15,9 @@ import java.util.UUID;
 
 public interface UserSubscriptionRepository extends JpaRepository<UserSubscription, UUID> {
 
+    @Query("select s.userId from UserSubscription s order by s.userId")
+    List<UUID> findAllUserIds();
+
     /** Subscriptions that have run out and whose owner has not been told yet. */
     List<UserSubscription> findByExpiresAtLessThanEqual(Instant at);
 
@@ -23,7 +26,7 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
     @Query(value = "INSERT INTO user_subscriptions (user_id, plan_code, started_at, expires_at, source, updated_at) "
             + "VALUES (:userId, 'STANDARD', now(), now(), 'SYSTEM', now()) ON CONFLICT (user_id) DO NOTHING",
             nativeQuery = true)
-    void ensureRow(@Param("userId") UUID userId);
+    int ensureRow(@Param("userId") UUID userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from UserSubscription s where s.userId = :userId")

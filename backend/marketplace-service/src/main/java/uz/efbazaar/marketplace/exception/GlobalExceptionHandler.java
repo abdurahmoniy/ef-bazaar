@@ -87,6 +87,16 @@ public class GlobalExceptionHandler {
                 "So'rov tanasi noto'g'ri", null);
     }
 
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> onUnsupportedMediaType(Exception ex) {
+        return build(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "unsupported_media_type", "Request Content-Type is not supported", null);
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    public ResponseEntity<Map<String, Object>> onMissingMultipartPart(Exception ex) {
+        return build(HttpStatus.BAD_REQUEST, "bad_request", "Required upload file is missing", null);
+    }
+
     /**
      * Kod ataylab qaytargan HTTP holati.
      *

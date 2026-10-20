@@ -3,7 +3,7 @@ import { Inbox, Lock } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { fullDateUz, mailAvatarColor, mailAvatarInitial, relativeUz } from '@/lib/mail-format';
-import type { MailboxSummary } from '@/lib/mail-types';
+import type { MailboxSlotStatus, MailboxSummary } from '@/lib/mail-types';
 
 interface MailSidebarProps {
   mailboxes: MailboxSummary[];
@@ -11,6 +11,7 @@ interface MailSidebarProps {
   activeMailboxId: string | null;
   /** Hides the section label when the parent (mobile drawer) has its own. */
   hideHeader?: boolean;
+  slots?: MailboxSlotStatus | null;
 }
 
 /**
@@ -19,7 +20,7 @@ interface MailSidebarProps {
  * relative last activity. Server component — every mailbox's row is a plain
  * <Link> so navigation between mailboxes triggers a fresh SSR fetch.
  */
-export function MailSidebar({ mailboxes, activeMailboxId, hideHeader }: MailSidebarProps) {
+export function MailSidebar({ mailboxes, activeMailboxId, hideHeader, slots }: MailSidebarProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {!hideHeader && (
@@ -33,6 +34,13 @@ export function MailSidebar({ mailboxes, activeMailboxId, hideHeader }: MailSide
             </span>
           )}
         </div>
+      )}
+      {slots?.plan !== 'STAFF' && (
+        <p className="px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          {slots ? `Jami: ${slots.totalUsed} / ${slots.totalLimit === null ? 'cheksiz' : slots.totalLimit} · shundan custom: ${slots.customUsed} / ${slots.customLimit === null ? 'cheksiz' : slots.customLimit}` : 'Pochta limiti aniqlanmadi'}
+          {slots?.exemptUsed !== undefined && slots.resourceUsed !== undefined && ` · Limitdan tashqari qutilar: ${slots.exemptUsed} · Resursda: ${slots.resourceUsed}`}
+          {slots && <span className="mt-1 block">Custom chegarasi yangi nomli quti yaratish uchun; mavjud qutini o‘qish umumiy limit bo‘yicha tanlanadi.</span>}
+        </p>
       )}
       {mailboxes.length === 0 ? (
         <EmptySidebar />
@@ -52,7 +60,8 @@ export function MailSidebar({ mailboxes, activeMailboxId, hideHeader }: MailSide
 }
 
 function MailboxRow({ mailbox, active }: { mailbox: MailboxSummary; active: boolean }) {
-  const locked = mailbox.locked;
+  const locked = !mailbox.accessState && mailbox.locked;
+  const stateLabel = mailbox.accessState === 'RECOVERY' ? 'Recovery · Konami xavfsizlik xatlari' : mailbox.accessState === 'GRACE' ? 'Grace · to‘liq o‘qish' : null;
   const unread = mailbox.unreadCount;
   const hasUnread = !locked && typeof unread === 'number' && unread > 0;
 
@@ -99,7 +108,7 @@ function MailboxRow({ mailbox, active }: { mailbox: MailboxSummary; active: bool
           )}
           title={fullDateUz(mailbox.lastActivityAt)}
         >
-          {locked ? 'Qulflangan' : relativeUz(mailbox.lastActivityAt)}
+          {stateLabel ?? (locked ? 'Qulflangan' : relativeUz(mailbox.lastActivityAt))}
         </span>
       </span>
       {locked && (

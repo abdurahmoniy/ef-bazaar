@@ -41,6 +41,7 @@ class KonamiEmailRoutingTest {
 
     @Mock uz.efbazaar.trade.mailbox.link.LinkSessionService linkSessions;
 
+    @Mock uz.efbazaar.trade.mailbox.release.MailboxReleaseService releases;
     @Mock TradeService trades;
     @Mock TradeSideService sides;
     @Mock ChatChangePublisher changes;

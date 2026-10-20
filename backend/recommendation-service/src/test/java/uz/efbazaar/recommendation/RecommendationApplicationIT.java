@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 @Testcontainers
+@org.springframework.test.annotation.DirtiesContext(classMode=org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @TestPropertySource(properties = {
         "spring.kafka.listener.auto-startup=false",
         "app.logging.kafka-forward.enabled=false",

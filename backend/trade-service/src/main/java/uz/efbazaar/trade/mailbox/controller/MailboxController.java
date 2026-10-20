@@ -25,13 +25,14 @@ public class MailboxController {
 
     private final MailboxService service;
     private final MailboxMapper mapper;
+    private final uz.efbazaar.trade.trade.repository.TradeRepository trades;
     private final MailboxSlotService slotService;
     private final MailboxAccessService access;
     private final uz.efbazaar.trade.mailbox.link.MailboxLinkSessionRepository sessions;
 
     @GetMapping
     public List<MailboxResponse> listOwnedBy(@AuthenticationPrincipal AuthenticatedUser me) {
-        Set<UUID> locked = access.lockedIds(me.userId());
+        var modes = access.metadataFor(me.userId());
         List<uz.efbazaar.trade.mailbox.domain.Mailbox> owned = service.listOwnedBy(me.userId());
         // Which boxes are being linked right now — the free-box list hides them.
         java.util.Map<UUID, UUID> live = new java.util.HashMap<>();
@@ -39,9 +40,12 @@ public class MailboxController {
             sessions.findLiveByMailboxIds(owned.stream().map(uz.efbazaar.trade.mailbox.domain.Mailbox::getId).toList())
                     .forEach(s -> live.put(s.getMailboxId(), s.getId()));
         }
+        Set<UUID> activeTradeIds = owned.isEmpty() ? Set.of() : Set.copyOf(trades.liveMailboxIds(
+                owned.stream().map(uz.efbazaar.trade.mailbox.domain.Mailbox::getId).toList(),
+                uz.efbazaar.trade.trade.domain.TradeState.nonTerminal()));
         return owned.stream()
-                .map(m -> mapper.toResponse(m).withLocked(locked.contains(m.getId()))
-                        .withActiveSession(live.get(m.getId())))
+                .map(m -> mapper.toResponse(m).withAccess(modes.getOrDefault(m.getId(), new MailboxAccessService.Access(MailboxAccessService.AccessState.ACTIVE, null, null, false)))
+                        .withActiveSession(live.get(m.getId())).withActiveTrade(activeTradeIds.contains(m.getId())))
                 .toList();
     }
 
@@ -62,7 +66,8 @@ public class MailboxController {
             @AuthenticationPrincipal AuthenticatedUser me,
             @PathVariable UUID id) {
         return mapper.toResponse(service.getOwned(me.userId(), id))
-                .withLocked(access.isLocked(me.userId(), id));
+                .withAccess(access.metadata(me.userId(), id))
+                .withActiveTrade(trades.existsLiveWithMailbox(id, uz.efbazaar.trade.trade.domain.TradeState.nonTerminal()));
     }
 
     /** Opens a locked mailbox by locking one of the open ones in its place. */

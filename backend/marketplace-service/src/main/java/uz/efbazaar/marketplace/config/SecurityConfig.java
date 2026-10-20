@@ -42,6 +42,8 @@ public class SecurityConfig {
                         // payment-service turned a "not enough money" 409 into
                         // a 401 exactly this way, and no trade could be accepted.
                         .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()
+                        .requestMatchers("/api/v1/profiles/me/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/profiles/*/appearance").permitAll()
                         // Public — browse listings
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/listings",

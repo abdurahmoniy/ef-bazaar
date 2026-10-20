@@ -10,6 +10,7 @@ from smart_admin_worker.handlers.email_provision import EmailProvisionHandler
 from smart_admin_worker.kafka import events as e
 from smart_admin_worker.mailcow.client import Mailbox
 from smart_admin_worker.mailcow.errors import MailboxAlreadyExists
+from tests.unit.provisioning_fixtures import AuthorizingClaims, credentials_valid
 
 
 @pytest.fixture
@@ -27,9 +28,13 @@ async def test_creates_mailbox_and_publishes_provisioned(encryptor):
         encryptor=encryptor,
         producer=producer,
         mailcow_domain="efbazaar.uz",
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
     )
     trade_id = UUID("11111111-1111-1111-1111-111111111111")
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
+    await handler.handle(
+        e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4(), address_version=2)
+    )
 
     mailcow.create_mailbox.assert_awaited_once()
     call = mailcow.create_mailbox.await_args
@@ -46,7 +51,7 @@ async def test_creates_mailbox_and_publishes_provisioned(encryptor):
     event_arg = args[2] if len(args) > 2 else kwargs["event"]
     assert isinstance(event_arg, e.EmailProvisioned)
     assert event_arg.trade_id == trade_id
-    assert event_arg.mailbox_email == "trade-abc@efbazaar.uz"
+    assert event_arg.mailbox_email == f"trade-{event_arg.mailbox_id.hex}@efbazaar.uz"
     # Worker generates the mailbox UUID; must be distinct from the trade UUID
     # (that's precisely the invariant the rotate-cache bug relied on breaking).
     assert isinstance(event_arg.mailbox_id, UUID)
@@ -57,6 +62,7 @@ async def test_creates_mailbox_and_publishes_provisioned(encryptor):
     # Context is `mbox-{mailbox_id}` (worker-supplied UUID), NOT the trade id —
     # matches the primary decrypt path in MailboxPasswordResolver.
     from smart_admin_worker.crypto.field_encryptor import EncryptedField
+
     field = EncryptedField(
         iv=event_arg.iv, tag=event_arg.tag, ciphertext=event_arg.encrypted_password
     )
@@ -80,14 +86,19 @@ async def test_populates_caches_on_fresh_create(encryptor):
         mailcow_domain="efbazaar.uz",
         password_cache=password_cache,
         mailbox_id_to_email=mailbox_id_to_email,
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
     )
     trade_id = UUID("22222222-2222-2222-2222-222222222222")
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
+    await handler.handle(
+        e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4(), address_version=2)
+    )
 
     # Password cache was populated with the generated password.
-    assert "trade-abc@efbazaar.uz" in password_cache
+    email = mailcow.create_mailbox.await_args.kwargs["local_part"] + "@efbazaar.uz"
+    assert email in password_cache
     generated_password = mailcow.create_mailbox.await_args.kwargs["password"]
-    assert password_cache["trade-abc@efbazaar.uz"] == generated_password
+    assert password_cache[email] == generated_password
 
     # Mailbox-id-to-email cache is keyed by the worker-supplied mailbox UUID
     # (the same one MailboxRotateHandler receives on rotate requests) — NOT by
@@ -96,7 +107,7 @@ async def test_populates_caches_on_fresh_create(encryptor):
     producer.publish.assert_awaited_once()
     args, kwargs = producer.publish.call_args
     event_arg = args[2] if len(args) > 2 else kwargs["event"]
-    assert mailbox_id_to_email[event_arg.mailbox_id] == "trade-abc@efbazaar.uz"
+    assert mailbox_id_to_email[event_arg.mailbox_id] == email
     # Sanity: mailbox_id must differ from trade_id or the bug still lurks.
     assert event_arg.mailbox_id != trade_id
     assert trade_id not in mailbox_id_to_email
@@ -118,9 +129,13 @@ async def test_does_not_populate_caches_on_replay(encryptor):
         mailcow_domain="efbazaar.uz",
         password_cache=password_cache,
         mailbox_id_to_email=mailbox_id_to_email,
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
     )
     trade_id = UUID("33333333-3333-3333-3333-333333333333")
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
+    await handler.handle(
+        e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4(), address_version=2)
+    )
 
     assert password_cache == {}
     assert mailbox_id_to_email == {}
@@ -143,19 +158,24 @@ async def test_notifier_called_on_fresh_create(encryptor):
         producer=producer,
         mailcow_domain="efbazaar.uz",
         notifier=notifier,
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
     )
     trade_id = UUID("44444444-4444-4444-4444-444444444444")
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
+    await handler.handle(
+        e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4(), address_version=2)
+    )
 
     # Fire-and-forget task — give the loop a tick to run it.
     import asyncio as _asyncio
+
     for _ in range(3):
         await _asyncio.sleep(0)
 
     notifier.notify_mailbox_created.assert_awaited_once()
     call_kwargs = notifier.notify_mailbox_created.await_args.kwargs
     assert call_kwargs["trade_id"] == trade_id
-    assert call_kwargs["mailbox_email"] == "trade-abc@efbazaar.uz"
+    assert call_kwargs["mailbox_email"] == producer.publish.await_args.args[2].mailbox_email
     assert call_kwargs["capacity"] == {"used": 4, "limit": 10}
 
 
@@ -172,11 +192,16 @@ async def test_notifier_not_called_on_replay(encryptor):
         producer=producer,
         mailcow_domain="efbazaar.uz",
         notifier=notifier,
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
     )
     trade_id = UUID("55555555-5555-5555-5555-555555555555")
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
+    await handler.handle(
+        e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4(), address_version=2)
+    )
 
     import asyncio as _asyncio
+
     for _ in range(3):
         await _asyncio.sleep(0)
 
@@ -198,11 +223,16 @@ async def test_notifier_skipped_when_disabled(encryptor):
         producer=producer,
         mailcow_domain="efbazaar.uz",
         notifier=notifier,
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
     )
     trade_id = UUID("66666666-6666-6666-6666-666666666666")
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
+    await handler.handle(
+        e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4(), address_version=2)
+    )
 
     import asyncio as _asyncio
+
     for _ in range(3):
         await _asyncio.sleep(0)
 
@@ -225,17 +255,61 @@ async def test_two_mailboxes_on_one_trade_get_different_addresses(encryptor):
         encryptor=encryptor,
         producer=AsyncMock(),
         mailcow_domain="efbazaar.uz",
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
     )
     trade_id = uuid4()
 
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
-    await handler.handle(e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4()))
+    await handler.handle(
+        e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4(), address_version=2)
+    )
+    await handler.handle(
+        e.EmailProvisionRequest(trade_id=trade_id, mailbox_id=uuid4(), address_version=2)
+    )
 
     locals_asked = [
-        (c.kwargs.get("local_part") or c.args[0])
-        for c in mailcow.create_mailbox.await_args_list
+        (c.kwargs.get("local_part") or c.args[0]) for c in mailcow.create_mailbox.await_args_list
     ]
     assert len(locals_asked) == 2
-    assert locals_asked[0] != locals_asked[1], (
-        "one trade, two mailboxes — the same address cannot serve both"
+    assert (
+        locals_asked[0] != locals_asked[1]
+    ), "one trade, two mailboxes — the same address cannot serve both"
+
+
+def test_v2_address_uses_the_whole_mailbox_uuid_and_cannot_reuse_a_shared_prefix():
+    retired = UUID("12345678-0000-0000-0000-000000000001")
+    new = UUID("12345678-0000-0000-0000-000000000002")
+    first = EmailProvisionHandler._local_part_for(retired)
+    second = EmailProvisionHandler._local_part_for(new)
+    assert first != second
+    assert first == "trade-" + retired.hex
+    assert second == "trade-" + new.hex
+
+
+async def test_legacy_provision_request_decodes_but_never_creates_or_claims_mailcow(
+    encryptor, caplog
+):
+    import json
+
+    trade_id, mailbox_id = uuid4(), uuid4()
+    legacy = e.from_json(
+        "efbazaar.trade.email-provision-request",
+        json.dumps(
+            {
+                "tradeId": str(trade_id),
+                "mailboxId": str(mailbox_id),
+            }
+        ).encode(),
     )
+    mailcow, producer = AsyncMock(), AsyncMock()
+    handler = EmailProvisionHandler(
+        mailcow=mailcow,
+        encryptor=encryptor,
+        producer=producer,
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
+    )
+    await handler.handle(legacy)
+    mailcow.create_mailbox.assert_not_awaited()
+    producer.publish.assert_not_awaited()
+    assert "legacy" in caplog.text

@@ -209,6 +209,7 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
       backLabel={isOwner ? 'Akkountlarim' : 'Bozor'}
       mobileActionBar={
         <ListingActions
+          key={`${viewer?.id ?? 'anonymous'}:${listing.id}`}
           variant="bar"
           listingId={listing.id}
           listingTitle={firstNonEmptyLine(listing.description) || 'eFootball akkount'}
@@ -229,6 +230,7 @@ export default async function ListingPage({ params, searchParams }: ListingPageP
         dangerouslySetInnerHTML={{ __html: jsonLd }}
       />
       <MarketplaceListingDetail
+        key={`${viewer?.id ?? 'anonymous'}:${listing.id}`}
         listing={listing}
         viewer={viewer}
         seller={seller}

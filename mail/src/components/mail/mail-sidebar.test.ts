@@ -38,3 +38,23 @@ describe('mailbox names in the sidebar', () => {
     expect(html).toContain('account@efbazaar.uz');
   });
 });
+
+ describe('shared mailbox capacity', () => {
+   it('shows authoritative total/custom allocation, with gifts counted separately', () => {
+     const html = renderToStaticMarkup(createElement(MailSidebar, { mailboxes: [mailbox], activeMailboxId: null, slots: { used: 10, limit: 10, totalUsed: 10, totalLimit: 10, customUsed: 2, customLimit: 2, exemptUsed: 1, resourceUsed: 11, full: true, plan: 'PRO', lockedCount: 0 } }));
+     expect(html).toContain('Jami: 10 / 10');
+     expect(html).toContain('shundan custom: 2 / 2');
+     expect(html).toContain('Limitdan tashqari qutilar: 1');
+     expect(html).toContain('Resursda: 11');
+     expect(html).toContain('Custom chegarasi yangi nomli quti yaratish uchun');
+   });
+   it('does not invent an unlimited or zero allowance when the request fails', () => {
+     const html = renderToStaticMarkup(createElement(MailSidebar, { mailboxes: [mailbox], activeMailboxId: null, slots: null }));
+     expect(html).toContain('Pochta limiti aniqlanmadi');
+     expect(html).not.toContain('cheksiz');
+   });
+   it('keeps staff quota hidden', () => {
+     const html = renderToStaticMarkup(createElement(MailSidebar, { mailboxes: [mailbox], activeMailboxId: null, slots: { used: 10, limit: null, totalUsed: 10, totalLimit: null, customUsed: 2, customLimit: null, exemptUsed: 0, resourceUsed: 10, full: false, plan: 'STAFF', lockedCount: 0 } }));
+     expect(html).not.toContain('Jami:');
+   });
+ });

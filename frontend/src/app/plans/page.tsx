@@ -19,7 +19,7 @@ export default async function PlansPage() {
   return (
     <MarketplaceShell user={user} activeTab="profile" hideSearch hideHeader backHref="/marketplace">
       {catalog ? (
-        <PlansView catalog={catalog} mine={mine} signedIn={user !== null} />
+        <PlansView key={user?.id ?? 'anonymous'} catalog={catalog} mine={mine} signedIn={user !== null} />
       ) : (
         <p className="p-6 text-sm text-muted-foreground">
           Tariflarni yuklab bo‘lmadi. Keyinroq urinib ko‘ring.

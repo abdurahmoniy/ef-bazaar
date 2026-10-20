@@ -36,8 +36,14 @@ describe('user menu', () => {
     ['/hamyon', 'Hamyon'],
     ['/invite', "Do'st taklif qilish"],
     ['/mail', 'Pochta'],
+    ['/watches', 'Kuzatuvlar'],
+    ['/seller-analytics', 'Sotuvchi hisoboti'],
     ['/help', 'Yordam'],
   ])('links to %s', (href) => {
     expect(source).toContain(`href="${href}"`);
   });
+});
+
+it('exposes seller analytics from the profile hub', () => {
+  expect(readFileSync(path.join(process.cwd(), 'src/components/profile/profile-account.tsx'), 'utf8')).toContain("href: '/seller-analytics'");
 });

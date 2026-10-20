@@ -121,6 +121,7 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
 
   return (
     <div className="space-y-4">
+      <Button asChild variant="outline" className="min-h-11"><Link href="/seller-tools">Sotuvchi vositalari</Link></Button>
       {savedAccount && <CompletionNotice key={savedAccount.id} title="Akkount saqlandi" description={savedAccount.onMarket ? 'O‘zgarishlar saqlandi. Akkountingiz bozorda.' : savedAccount.status === 'ARCHIVED' ? 'O‘zgarishlar saqlandi. Akkount arxivda.' : 'Hali bozorga chiqarilmagan. Tayyor bo‘lganda sotuvga qo‘yishingiz mumkin.'} queryKey="saved" focusOnMount={false} onDismiss={() => setHighlighted(false)}>
         <p className="mb-3 break-words text-sm font-semibold">{savedAccount.title?.trim() || 'Nomsiz akkount'}</p>
         {savedAccount.onMarket && savedAccount.currentListingId ? <Button asChild className="min-h-11"><Link href={`/marketplace/${savedAccount.currentListingId}`}>E’lonni ko‘rish</Link></Button>

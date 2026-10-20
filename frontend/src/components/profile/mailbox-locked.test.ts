@@ -27,7 +27,7 @@ const inDialog = (label: string) =>
   [...(dialog()?.querySelectorAll('button') ?? [])].find((b) => b.textContent?.includes(label));
 
 async function render(plan = 'STANDARD') {
-  vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 3, limit: 3, full: true, plan, lockedCount: 1 });
+  vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 3, limit: 3, totalUsed: 3, totalLimit: 3, customUsed: 0, customLimit: 0, full: true, plan, lockedCount: 1 });
   await act(async () => root.render(createElement(MailboxSlotsWarning)));
 }
 
@@ -139,7 +139,7 @@ describe('locked mailboxes', () => {
   });
 
   it('meter never exceeds its max when used > limit', async () => {
-    vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 5, limit: 3, full: true, plan: 'STANDARD', lockedCount: 1 });
+    vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 5, limit: 3, totalUsed: 5, totalLimit: 3, customUsed: 0, customLimit: 0, full: true, plan: 'STANDARD', lockedCount: 1 });
     await act(async () => root.render(createElement(MailboxSlotsWarning)));
     const m = container.querySelector('[role="meter"]')!;
     expect(Number(m.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(Number(m.getAttribute('aria-valuemax')));
@@ -154,4 +154,49 @@ describe('locked mailboxes', () => {
     const label = dialog()!.querySelectorAll('label')[1];
     expect(label.className).not.toMatch(/opacity/);
   });
+});
+
+ it('allows a Free custom inbox to replace an open random inbox and the reverse', async () => {
+   vi.mocked(fetchOwnedMailboxes).mockResolvedValue([
+     { ...box('custom-open', false), kind: 'CUSTOM' }, box('random-open', false),
+     { ...box('custom-locked', true), kind: 'CUSTOM' }, box('random-locked', true),
+   ]);
+   await render();
+   expect(container.textContent).toContain('custom-open@efbazaar.uz');
+   expect(container.querySelector('button[aria-label="custom-open@efbazaar.uz pochta qutisini o‘zimdan uzish"]')).toBeNull();
+   const customButton = container.querySelector('article[aria-label="Qulflangan quti custom-locked@efbazaar.uz"] button:last-child') as HTMLButtonElement;
+   const randomButton = container.querySelector('article[aria-label="Qulflangan quti random-locked@efbazaar.uz"] button:last-child') as HTMLButtonElement;
+   await act(async () => customButton.click());
+   await act(async () => dialog()!.querySelector<HTMLInputElement>('input[value="random-open"]')!.click());
+   await act(async () => inDialog('Almashtirish')!.click());
+   expect(unlockMailbox).toHaveBeenCalledWith('custom-locked', 'random-open');
+   await act(async () => randomButton.click());
+   await act(async () => dialog()!.querySelector<HTMLInputElement>('input[value="custom-open"]')!.click());
+   await act(async () => inDialog('Almashtirish')!.click());
+   expect(unlockMailbox).toHaveBeenCalledWith('random-locked', 'custom-open');
+ });
+
+ it('explains retained allocation and labels custom admin gifts outside the quota', async () => {
+   vi.mocked(fetchOwnedMailboxes).mockResolvedValue([
+     { ...box('gift-custom', false), kind: 'CUSTOM', slotExempt: true }, box('lock1', true),
+   ]);
+   await render();
+   expect(container.querySelector('li')?.textContent).toContain('Umumiy limitdan tashqarida');
+   expect(container.textContent).toContain('Qutini o‘zingizdan uzish jami ajratilgan joyni kamaytirmaydi');
+   expect(container.textContent).toContain('Custom chegarasi yangi nomli quti yaratish uchun');
+   expect(container.textContent).toContain('O‘qiladigan qutini tanlash uchun ochiq quti bilan almashtiring');
+   expect(container.textContent).not.toContain('ular avtomatik ochiladi');
+ });
+
+it('lets a grace inbox join the Free selection before recovery starts', async () => {
+  vi.mocked(fetchOwnedMailboxes).mockResolvedValue([
+    { ...box('selected', false), accessState: 'ACTIVE', selectedForFree: true },
+    { ...box('grace', false), accessState: 'GRACE', selectedForFree: false, paidExpiresAt: '2026-10-01T00:00:00Z', graceEndsAt: '2026-10-31T00:00:00Z' },
+  ]);
+  await render();
+  const choose = [...container.querySelectorAll('button')].find(b => b.textContent === 'Free uchun tanlash');
+  expect(choose).toBeDefined();
+  await act(async () => choose!.click());
+  expect(dialog()?.textContent).toContain('grace@efbazaar.uz');
+  expect([...dialog()!.querySelectorAll<HTMLInputElement>('input[type="radio"]')].map(r => r.value)).toEqual(['selected']);
 });

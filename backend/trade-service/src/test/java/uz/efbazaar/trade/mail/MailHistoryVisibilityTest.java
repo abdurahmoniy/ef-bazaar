@@ -23,14 +23,14 @@ class MailHistoryVisibilityTest {
     private final MailboxService boxes = mock(MailboxService.class);
     private final ImapConnectionPool pool = mock(ImapConnectionPool.class);
     private final IMAPFolder inbox = mock(IMAPFolder.class);
-    private final MailService service = new MailService(boxes, pool, new HtmlSanitizer(), mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class));
+    private final MailService service = new MailService(boxes, pool, new HtmlSanitizer(), mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class), mock(uz.efbazaar.trade.mailbox.service.MailboxPreservationService.class));
     private MimeMessage old, current, latest, undated;
 
     @BeforeEach void setup() throws Exception {
         Store store = mock(Store.class);
         when(boxes.getReadable(owner, box.getId())).thenReturn(box);
         when(boxes.listOwnedBy(owner)).thenReturn(List.of(box));
-        when(pool.acquire(box)).thenReturn(store);
+        when(pool.lease(box)).thenReturn(new ImapConnectionPool.Lease(store, () -> {}));
         when(store.getFolder("INBOX")).thenReturn(inbox);
         old = message(1, cutoff.minusSeconds(1), false);
         current = message(2, cutoff, true);
@@ -125,4 +125,12 @@ class MailHistoryVisibilityTest {
         assertThat(service.getMessage(box, "1").messageId()).isEqualTo("1");
         assertThat(service.listInbox(box, 10, 0).total()).isEqualTo(4);
     }
+    @Test void repeatedSidebarPollsReuseCountsButOwnershipCutoffInvalidatesThem() throws Exception {
+        service.listMyMailboxes(owner);service.listMyMailboxes(owner);
+        verify(inbox,times(1)).open(Folder.READ_ONLY);
+        box.setOwnerMailVisibleFrom(cutoff.plusSeconds(60));
+        assertThat(service.listMyMailboxes(owner).getFirst().unreadCount()).isZero();
+        verify(inbox,times(2)).open(Folder.READ_ONLY);
+    }
+
 }

@@ -1,6 +1,8 @@
 package uz.efbazaar.recommendation.projection;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.ObjectProvider;
+import uz.efbazaar.recommendation.watch.SavedSearchService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.recommendation.projection.Snapshots.CardRef;
@@ -24,25 +26,35 @@ public class ProjectionWriter {
 
     private final JdbcTemplate jdbc;
 
-    public ProjectionWriter(JdbcTemplate jdbc) {
+    private final ObjectProvider<SavedSearchService> watches;
+
+    public ProjectionWriter(JdbcTemplate jdbc, ObjectProvider<SavedSearchService> watches) {
         this.jdbc = jdbc;
+        this.watches = watches;
     }
 
     @Transactional
     public boolean applyListing(ListingSnapshot s) {
         if (!claim(s.idempotencyKey())) return false;
+        jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?::text,8174))", s.listingId().toString());
+        List<Long> previous = jdbc.queryForList("SELECT publication_version FROM listings_view WHERE listing_id=?", Long.class, s.listingId());
+        long previousPublication = previous.isEmpty() ? 0 : previous.getFirst();
+        long publication = s.publicationVersion() == null || s.publicationVersion() < 0 ? 0 : s.publicationVersion();
         int changed = jdbc.update("""
-                INSERT INTO listings_view (listing_id, seller_id, status, price, value_score, version, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, now())
+                INSERT INTO listings_view (listing_id, seller_id, status, price, value_score, version, updated_at, published_at, publication_version)
+                VALUES (?, ?, ?, ?, ?, ?, now(), ?, ?)
                 ON CONFLICT (listing_id) DO UPDATE
                    SET seller_id = EXCLUDED.seller_id,
                        status = EXCLUDED.status,
                        price = EXCLUDED.price,
                        value_score = EXCLUDED.value_score,
+                       published_at = CASE WHEN EXCLUDED.publication_version > listings_view.publication_version
+                           THEN EXCLUDED.published_at ELSE listings_view.published_at END,
+                       publication_version = greatest(listings_view.publication_version, EXCLUDED.publication_version),
                        version = EXCLUDED.version,
                        updated_at = now()
                  WHERE listings_view.version < EXCLUDED.version
-                """, s.listingId(), s.sellerId(), s.status(), s.price(), s.valueScore(), s.version());
+                """, s.listingId(), s.sellerId(), s.status(), s.price(), s.valueScore(), s.version(), timestamp(s.publishedAt()), publication);
         if (changed == 0) return false;
 
         jdbc.update("DELETE FROM listing_cards_view WHERE listing_id = ?", s.listingId());
@@ -58,6 +70,8 @@ public class ProjectionWriter {
         if (!rows.isEmpty()) {
             jdbc.batchUpdate("INSERT INTO listing_cards_view (listing_id, efhub_id, player_id) VALUES (?, ?, ?)", rows);
         }
+        SavedSearchService watcher = watches.getIfAvailable();
+        if (watcher != null) watcher.publication(s, previousPublication);
         return true;
     }
 

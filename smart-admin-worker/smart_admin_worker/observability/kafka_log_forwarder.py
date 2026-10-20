@@ -151,11 +151,12 @@ class KafkaLogForwarder:
             finally:
                 self._local.publishing = False
 
+        pending = publish()
         try:
-            asyncio.run_coroutine_threadsafe(publish(), self._loop)
+            asyncio.run_coroutine_threadsafe(pending, self._loop)
         except RuntimeError:
-            # Loop already closed (shutdown). Nothing useful left to do.
-            pass
+            # The closed loop rejected this coroutine before taking ownership.
+            pending.close()
 
 
 def _exception_name(record: logging.LogRecord) -> str | None:

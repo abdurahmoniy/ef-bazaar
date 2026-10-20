@@ -48,7 +48,7 @@ public final class TradeEvents {
     public static final String TOPIC_TRADE_ACTION          = "efbazaar.trade.action-notification";
 
     public enum ProposalOutcome { ACCEPTED, REJECTED, EXPIRED }
-    public enum ImapPurpose      { VERIFY_LINK, WAIT_2FA_CODE, WAIT_EMAIL_CHANGE_CODE }
+    public enum ImapPurpose      { VERIFY_LINK, VERIFY_RELEASE, WAIT_2FA_CODE, WAIT_EMAIL_CHANGE_CODE }
 
     public enum TradeActionType {
         PROPOSAL_CREATED,
@@ -103,7 +103,10 @@ public final class TradeEvents {
              * {@link EmailProvisioned} so trade-service, MailboxPasswordResolver,
              * and the worker's rotate cache all agree on a single UUID (no
              * FK-hostile swap in adoptWorkerMailboxId). */
-            UUID mailboxId) {}
+            UUID mailboxId,
+            int addressVersion) {
+        public EmailProvisionRequest(UUID tradeId, UUID mailboxId) { this(tradeId, mailboxId, 2); }
+    }
 
     /**
      * {@code mailboxId} is the UUID the worker assigned to this mailbox. It is
@@ -116,13 +119,13 @@ public final class TradeEvents {
      * null value; the consumer keeps the placeholder id in that case so a
      * mid-upgrade Kafka replay still lands somewhere sensible.
      */
-    public record EmailProvisioned(
-            UUID tradeId,
-            UUID mailboxId,
-            String mailboxEmail,
-            byte[] encryptedPassword,
-            byte[] iv,
-            byte[] tag) {}
+    public record EmailProvisioned(UUID tradeId, UUID mailboxId, String mailboxEmail,
+                                   byte[] encryptedPassword, byte[] iv, byte[] tag, UUID claimId) {
+        public EmailProvisioned(UUID tradeId, UUID mailboxId, String mailboxEmail,
+                                byte[] encryptedPassword, byte[] iv, byte[] tag) {
+            this(tradeId, mailboxId, mailboxEmail, encryptedPassword, iv, tag, null);
+        }
+    }
 
     public record ForgotPasswordRequest(
             UUID tradeId,
@@ -145,7 +148,15 @@ public final class TradeEvents {
             byte[] encryptedPassword,
             byte[] iv,
             byte[] tag,
-            boolean restart) {}
+            boolean restart,
+            Instant startedAt,
+            Instant expiresAt) {
+        public ImapPollRequest(UUID tradeId, String mailboxEmail, ImapPurpose purpose,
+                               String passwordContext, byte[] encryptedPassword, byte[] iv,
+                               byte[] tag, boolean restart) {
+            this(tradeId, mailboxEmail, purpose, passwordContext, encryptedPassword, iv, tag, restart, null, null);
+        }
+    }
 
     /** The sealed mailbox password and the HKDF context it opens with. */
     public record PollCredentials(String passwordContext, byte[] encryptedPassword, byte[] iv, byte[] tag) {}
@@ -187,13 +198,14 @@ public final class TradeEvents {
      *                     javob berdi — akkount emaili o'tkazilmagan. Eski
      *                     hodisalarda maydon yo'q, ya'ni false.
      */
-    public record KonamiEmailReceived(
-            UUID tradeId,
-            boolean resetLinkPresent,
-            String sender,
-            Instant receivedAt,
-            String mailboxEmail,
-            boolean emailNotRegistered) {}
+    public record KonamiEmailReceived(UUID tradeId, boolean resetLinkPresent, String sender,
+                                      Instant receivedAt, String mailboxEmail, boolean emailNotRegistered,
+                                      Boolean originVerified) {
+        public KonamiEmailReceived(UUID tradeId, boolean resetLinkPresent, String sender,
+                                    Instant receivedAt, String mailboxEmail, boolean emailNotRegistered) {
+            this(tradeId, resetLinkPresent, sender, receivedAt, mailboxEmail, emailNotRegistered, false);
+        }
+    }
 
     /**
      * Konami kirish kodi pochtaga keldi.
@@ -221,14 +233,20 @@ public final class TradeEvents {
             /** Mailcow domain to create the box on; older workers assume efbazaar.uz. */
             String domain,
             /** User-chosen name: an existing Mailcow box with it is somebody else's, not a replay. */
-            boolean custom) {}
+            boolean custom,
+            int addressVersion) {
+        public MailboxProvisionRequest(UUID mailboxId, String localPart, String domain, boolean custom) {
+            this(mailboxId, localPart, domain, custom, 2);
+        }
+    }
 
-    public record MailboxProvisioned(
-            UUID mailboxId,
-            String mailboxEmail,
-            byte[] encryptedPassword,
-            byte[] iv,
-            byte[] tag) {}
+    public record MailboxProvisioned(UUID mailboxId, String mailboxEmail,
+                                     byte[] encryptedPassword, byte[] iv, byte[] tag, UUID claimId) {
+        public MailboxProvisioned(UUID mailboxId, String mailboxEmail,
+                                  byte[] encryptedPassword, byte[] iv, byte[] tag) {
+            this(mailboxId, mailboxEmail, encryptedPassword, iv, tag, null);
+        }
+    }
 
     /**
      * Carries the address as well as the id: the worker used to look the
@@ -291,7 +309,9 @@ public final class TradeEvents {
      * before this goes out, so the worker has nothing left here to look the
      * address up from.
      */
-    public record MailboxDeleteRequest(UUID mailboxId, String mailboxEmail) {}
+    public record MailboxDeleteRequest(UUID mailboxId, String mailboxEmail, UUID requestId) {
+        public MailboxDeleteRequest(UUID mailboxId, String mailboxEmail) { this(mailboxId,mailboxEmail,null); }
+    }
 
     /** Why a party ended up with an escrow mailbox. */
     public enum HandoverOutcome {

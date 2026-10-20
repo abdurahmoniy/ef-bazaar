@@ -21,12 +21,13 @@ public record NotificationResponse(
         String actorDisplayName,
         String verificationCode,
         Instant readAt,
-        Instant createdAt
+        Instant createdAt,
+        java.util.Map<String, Object> watchPayload
 ) {
     public static NotificationResponse from(Notification n) {
         return new NotificationResponse(n.getId(), n.getType(), n.getChatId(),
                 n.getListingId(), n.getTradeId(), n.getWithdrawalId(),
                 n.getAmountTiyin(), n.getActorDisplayName(), n.getVerificationCode(),
-                n.getReadAt(), n.getCreatedAt());
+                n.getReadAt(), n.getCreatedAt(), n.getWatchPayload());
     }
 }

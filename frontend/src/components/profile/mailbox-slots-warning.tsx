@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Link2Off, Loader2, Mail } from 'lucide-react';
 
+import { UnlockSwapDialog } from '@/components/profile/unlock-swap-dialog';
 import { LockedMailboxCard } from '@/components/profile/locked-mailbox-card';
 import { UpgradeCta } from '@/components/plans/upgrade-cta';
 import { Button } from '@/components/ui/button';
 import { getMyAccounts } from '@/lib/accounts-client';
 import { mailboxIdFromSearch, showUpgrade, swapCandidates } from '@/lib/mailbox-lock';
+import { mailboxAccess, accessDescription } from '@/lib/mailbox-access';
 import { PLAN_NAMES, type PlanCode } from '@/lib/plans';
 import {
   accountEmailSet,
@@ -18,6 +20,7 @@ import {
   isDeletable,
   slotPressure,
   slotWarning,
+  slotUsageSummary,
   sortForCleanup,
   cleanupCandidates,
   type MailboxSlotStatus,
@@ -33,7 +36,7 @@ import {
  * doimiy turadi — muammo savdo boshlashga urinishdan ANCHA oldin
  * ko'rinishi kerak.
  *
- * <p>Slot bo'shashi bilan o'zi yo'qoladi: hech narsa yopib qo'ymaydi.
+ * <p>Jami va custom ko'rsatkichlar serverdan olinadi; uzish limitni kamaytirmaydi.
  */
 export function MailboxSlotsWarning() {
   const [status, setStatus] = useState<MailboxSlotStatus | null>(null);
@@ -55,7 +58,7 @@ export function MailboxSlotsWarning() {
     setWantedId(mailboxIdFromSearch(window.location.search));
   }, []);
 
-  const wantedLocked = !!wantedId && !!mailboxes?.some((m) => m.locked && m.id === wantedId);
+  const wantedLocked = !!wantedId && !!mailboxes?.some((m) => ['LOCKED', 'RECOVERY', 'GRACE'].includes(mailboxAccess(m)) && m.id === wantedId);
   useEffect(() => {
     if (wantedLocked) document.getElementById('mailboxes')?.scrollIntoView?.({ block: 'start' });
   }, [wantedLocked]);
@@ -67,11 +70,11 @@ export function MailboxSlotsWarning() {
   // Qulflangan qutilar bo'lsa ro'yxat tugma bosilmasdan yuklanadi:
   // odam ularni ko'rishi va ochishi kerak.
   useEffect(() => {
-    if (lockedCount > 0 && mailboxes === null) void openList();
+    if ((lockedCount > 0 || wantedId || status?.accessState === 'GRACE' || status?.accessState === 'RECOVERY') && mailboxes === null) void openList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lockedCount]);
+  }, [lockedCount, wantedId, status?.accessState]);
 
-  if (!warning && lockedCount === 0) return null;
+  if (!status || status.plan === 'STAFF') return null;
 
   async function openList() {
     setError(null);
@@ -100,7 +103,7 @@ export function MailboxSlotsWarning() {
         + "Bu akkauntning Konami parolini tiklash shu manzilga keladi — "
         + "akkaunt hali sizda bo'lsa, avval Konami'da boshqa pochtaga o'tkazing.\n\nUzilsinmi?"
       : `${mailbox.email} ro'yxatingizdan chiqadi va siz unga boshqa kira olmaysiz. `
-        + "Bu quti hech qaysi akkountingizga bog'lanmagan.\n\nUzilsinmi?";
+        + "Ro‘yxatdagi akkountlaringiz bilan bog‘lanish topilmadi. Konami’da boshqa akkount ishlatmayotganini tekshiring.\n\nUzilsinmi?";
     if (!window.confirm(message)) return;
     setError(null);
     setBusy(mailbox.id);
@@ -108,7 +111,7 @@ export function MailboxSlotsWarning() {
       await detachMailbox(mailbox.id);
       setMailboxes((current) => (current ?? []).filter((m) => m.id !== mailbox.id));
       reload();
-      // Slot bo'shadi — qulflangan qutilar avtomatik ochilgan bo'lishi mumkin.
+      // Allocation remains retained; refresh the visible access selection.
       if (lockedCount > 0) await openList();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Uzib bo'lmadi");
@@ -125,16 +128,17 @@ export function MailboxSlotsWarning() {
 
   const plan = status?.plan ?? 'STANDARD';
   const planName = PLAN_NAMES[plan as PlanCode] ?? plan;
-  const limit = status?.limit ?? null;
+  const limit = status.totalLimit;
   const candidates = swapCandidates(mailboxes ?? []);
-  const openBoxes = (mailboxes ?? []).filter((m) => !m.locked);
-  const lockedBoxes = (mailboxes ?? []).filter((m) => m.locked);
+  const openBoxes = (mailboxes ?? []).filter((m) => !['LOCKED', 'RECOVERY'].includes(mailboxAccess(m)));
+  const lockedBoxes = (mailboxes ?? []).filter((m) => ['LOCKED', 'RECOVERY'].includes(mailboxAccess(m)));
+  const graceChoice = openBoxes.find(m => m.id === wantedId && mailboxAccess(m) === 'GRACE');
   const title = lockedCount > 0
     ? 'Pochta qutilari'
-    : pressure === 'full' ? "Pochta qutilari to'ldi" : "Pochta qutilari to'lay deb qoldi";
+    : pressure === 'none' ? 'Pochta qutilari' : pressure === 'full' ? "Pochta qutilari to'ldi" : "Pochta qutilari to'lay deb qoldi";
   const summary = lockedCount > 0
     ? `${planName} tarifi · ${limit === null ? 'cheksiz' : `${limit} ta`} ochiq joy · ${lockedCount} ta quti qulflangan`
-    : warning;
+    : warning ?? slotUsageSummary(status);
 
   return (
     <section id="mailboxes" className="scroll-mt-20 space-y-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
@@ -145,6 +149,7 @@ export function MailboxSlotsWarning() {
             {title}
           </h2>
           <p className="text-xs text-muted-foreground">{summary}</p>
+          {lockedCount > 0 && <p className="text-xs text-muted-foreground">{slotUsageSummary(status)}</p>}
         </div>
       </div>
 
@@ -154,7 +159,7 @@ export function MailboxSlotsWarning() {
           aria-label="Band qutilar"
           aria-valuemin={0}
           aria-valuemax={limit + lockedCount}
-          aria-valuenow={Math.min(status?.used ?? 0, limit) + lockedCount}
+          aria-valuenow={Math.min(status.totalUsed, limit) + lockedCount}
           className="flex gap-1.5"
         >
           {Array.from({ length: limit + lockedCount }, (_, i) => (
@@ -162,13 +167,15 @@ export function MailboxSlotsWarning() {
               key={i}
               className={
                 i < limit
-                  ? i < Math.min(status?.used ?? 0, limit) ? 'h-2 flex-1 rounded-full bg-primary' : 'h-2 flex-1 rounded-full bg-muted-foreground/30'
+                  ? i < Math.min(status.totalUsed, limit) ? 'h-2 flex-1 rounded-full bg-primary' : 'h-2 flex-1 rounded-full bg-muted-foreground/30'
                   : 'h-2 flex-1 rounded-full bg-amber-500/70'
               }
             />
           ))}
         </div>
       )}
+
+      <p className="text-xs text-muted-foreground">Qutini o‘zingizdan uzish jami ajratilgan joyni kamaytirmaydi. Limit tasdiqlangan topshirish yoki bo‘shatishdan keyin qayta hisoblanadi. Custom chegarasi yangi nomli quti yaratish uchun; mavjud qutini o‘qish umumiy limit bo‘yicha tanlanadi.</p>
 
       {pressure === 'full' && showUpgrade(plan) && <UpgradeCta plan={plan} />}
 
@@ -183,14 +190,20 @@ export function MailboxSlotsWarning() {
             <li key={mailbox.id} className="flex items-center gap-3 p-3">
               <div className="min-w-0 flex-1">
                 <p className="break-all text-sm font-medium">{mailbox.email}</p>
+                <p className="text-xs text-muted-foreground">{accessDescription(mailbox)}</p>
                 <p className="text-xs text-muted-foreground">
-                  {!isDeletable(mailbox)
+                  {mailbox.slotExempt
+                    ? 'Umumiy limitdan tashqarida'
+                    : mailbox.kind === 'CUSTOM'
+                    ? 'Shaxsiy nomli quti — umumiy limitga kiradi'
+                    : !isDeletable(mailbox)
                     ? 'Savdoga biriktirilgan'
                     : isAttachedTo(mailbox, accountEmails)
-                      ? 'Akkountga bog\u2018langan — o\u2018chirilsa akkount tiklab bo\u2018lmas holga keladi'
-                      : 'Hech qaysi akkountga bog\u2018lanmagan — o\u2018chirish xavfsiz'}
+                      ? 'Akkountga bog‘langan — uzilgach pochtaga kira olmaysiz; avval Konami bog‘lanishini tekshiring'
+                      : 'Ro‘yxatdagi akkountga bog‘lanmagan — uzilgach kirish yo‘qoladi, quti saqlanadi'}
                 </p>
               </div>
+              {mailboxAccess(mailbox) === 'GRACE' && !mailbox.selectedForFree && <Button variant="outline" size="sm" onClick={() => setWantedId(mailbox.id)}>Free uchun tanlash</Button>}
               {isDeletable(mailbox) && (
                 <Button
                   type="button"
@@ -231,11 +244,12 @@ export function MailboxSlotsWarning() {
           </div>
           <p className="text-xs text-muted-foreground">
             Qulflangan qutilar o‘chirilmaydi: ichidagi xatlar saqlanadi.
-            {showUpgrade(plan) ? ' Tarifni oshirsangiz yoki ochiq qutini uzsangiz' : ' Ochiq qutini uzsangiz'}, ular avtomatik ochiladi.
+            {' '}O‘qiladigan qutini tanlash uchun ochiq quti bilan almashtiring.
           </p>
         </div>
       )}
 
+      {graceChoice && <UnlockSwapDialog mailbox={graceChoice} plan={plan} limit={limit} candidates={candidates.filter(c => c.id !== graceChoice.id)} onClose={() => setWantedId(null)} onChanged={changed} />}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </section>
   );

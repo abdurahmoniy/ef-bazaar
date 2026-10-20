@@ -1,7 +1,7 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import { ArrowUp, TriangleAlert } from 'lucide-react';
+import { ArrowUp, ArrowUpRight, Sparkles, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
@@ -12,13 +12,13 @@ import { formatTiyin } from '@/lib/money';
 import { getWallet } from '@/lib/payment-client';
 import {
   daysLeft,
+  mailboxCapacity,
   formatPlanDate,
   PLAN_NAMES,
   planAction,
   STAFF_UNLIMITED_MESSAGE,
   planEndDate,
   type PlanAction,
-  yearlySavingsPercent,
   type MyPlan,
   type PlanCatalogItem,
   type PlanCode,
@@ -28,6 +28,8 @@ import { PlanPurchaseError, purchasePlan } from '@/lib/plans-client';
 import { shortfallTiyin, topUpHref } from '@/lib/wallet-shortfall';
 
 import { PlanCard, type CardAction } from './plan-card';
+import { PlansFaq } from './plans-faq';
+import styles from './plans.module.css';
 
 interface PlansViewProps {
   catalog: PlanCatalogItem[];
@@ -48,7 +50,9 @@ const FREE: MyPlan = { code: 'STANDARD', expiresAt: null, entitlements: {} };
 
 export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
   const router = useRouter();
-  const [period, setPeriod] = useState<PlanPeriod>('MONTH');
+  const period: PlanPeriod = 'MONTH';
+  const [accepted, setAccepted] = useState(false);
+  const inFlight = useRef(false);
   const [busy, setBusy] = useState<PlanCode | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [topUp, setTopUp] = useState<{ href: string; message: string } | null>(null);
@@ -58,7 +62,7 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
   // it so the server charges once.
   const attempt = useRef<{ sig: string; key: string } | null>(null);
 
-  const plans = [...catalog]
+  const plans = catalog.filter((p) => p.code === 'STANDARD' || p.code === 'PRO')
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((p) => ({ ...p, prices: prices[p.code] ?? p.prices }));
   // Signed in but the lookup failed: never guess FREE, or an active
@@ -66,14 +70,18 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
   const planUnknown = signedIn && mine === null;
   const me = mine ?? FREE;
   const now = new Date();
-  const maxSaving = Math.max(0, ...plans.map((p) => yearlySavingsPercent(p.prices) ?? 0));
-  const middlePaid = plans.filter((p) => Object.keys(p.prices).length > 0)[0];
-  const featuredCode = plans.filter((p) => Object.keys(p.prices).length > 0)[1]?.code ?? middlePaid?.code;
   const currentName = PLAN_NAMES[me.code];
 
   async function run(item: PlanCatalogItem, per: PlanPeriod, action: PlanAction) {
+    const current = plans.find((p) => p.code === item.code);
+    if (!current || !mailboxCapacity(current.entitlements) || !mailboxCapacity(item.entitlements)) {
+      setConfirm(null);
+      toast.error('Pochta limiti aniqlanmadi');
+      return;
+    }
     const price = item.prices[per];
-    if (price === undefined) return;
+    if (price === undefined || item.code !== 'PRO' || per !== 'MONTH' || inFlight.current || accepted) return;
+    inFlight.current = true;
     const sig = `${item.code}:${per}:${price}`;
     if (attempt.current?.sig !== sig) {
       attempt.current = { sig, key: crypto.randomUUID() };
@@ -89,7 +97,8 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
       });
       attempt.current = null;
       setConfirm(null);
-      toast.success(`${PLAN_NAMES[item.code]} tarifi faollashdi`);
+      setAccepted(true);
+      toast.success('Xarid qabul qilindi. Pro imkoniyatlari faollashtirilmoqda.');
       router.refresh();
     } catch (e) {
       const detail = e instanceof PlanPurchaseError ? e.detail : null;
@@ -128,59 +137,35 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
         );
       }
     } finally {
+      inFlight.current = false;
       setBusy(null);
     }
   }
 
   function select(item: PlanCatalogItem) {
+    if (!mailboxCapacity(item.entitlements)) return;
     if (!signedIn) {
       router.push('/auth/login?from=/plans');
       return;
     }
+    if (planUnknown || accepted || inFlight.current) return;
     const action = planAction(item, me, plans, now);
     if (action === 'upgrade') setConfirm({ item, period, action, priceChanged: false });
     else if (action === 'choose' || action === 'extend') void run(item, period, action);
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-1 py-6 sm:py-10">
-      <div className="flex flex-col items-center gap-3 text-center">
-        {signedIn && (
-          <span className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary dark:text-foreground">
-            Hozir: {currentName}
-          </span>
-        )}
-        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
-          Ko‘proq pochta qutisi — ko‘proq savdo
-        </h1>
-        <p className="max-w-xl text-sm text-muted-foreground sm:text-base">
-          Har bir savdo uchun xavfsiz pochta qutisi beriladi. Tarifingiz nechta quti bir vaqtda ochiq turishini belgilaydi.
-        </p>
-        <div
-          role="group"
-          aria-label="To‘lov davri"
-          className="mt-2 inline-flex rounded-full border border-border bg-card p-1"
-        >
-          {(['MONTH', 'YEAR'] as const).map((p) => (
-            <button
-              key={p}
-              type="button"
-              aria-pressed={period === p}
-              onClick={() => setPeriod(p)}
-              className={
-                'inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold transition-colors ' +
-                (period === p ? 'bg-primary text-white' : 'text-muted-foreground')
-              }
-            >
-              {p === 'MONTH' ? 'Oylik' : 'Yillik'}
-              {p === 'YEAR' && maxSaving > 0 && (
-                <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-bold text-secondary-foreground">
-                  −{maxSaving}% gacha
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+    <div className={styles.page}>
+      <div className={styles.pageTopline}>
+        <span className={styles.eyebrow}><Sparkles size={13} aria-hidden />EFBAZAAR TARIFLARI</span>
+        {signedIn && !planUnknown && <span className={styles.myPlan}><span />Hozir: {currentName}</span>}
+        <Link href="/mailboxes/custom" className={styles.discoverLink}>Shaxsiy email <ArrowUpRight size={13} aria-hidden /></Link>
+      </div>
+      <div className={styles.hero}>
+        <span className={styles.heroEyebrow}>KATTA IMKONIYATLAR KICHIK QADAMDAN</span>
+        <h1>Savdoingizga mos.<br /><em>O‘zingizga xos.</em></h1>
+        <p>Ko‘proq savdo qutisi, o‘z nomingizdagi email.<br className="hidden sm:block" /> O‘zingizga mos darajani tanlang.</p>
+        <p>Pro uchun oylik to‘lov</p>
       </div>
 
       {signedIn && !planUnknown && me.code === 'STAFF' && (
@@ -198,6 +183,12 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
         </div>
       )}
 
+      {accepted && (
+        <div role="status" className="mx-auto mt-6 max-w-xl rounded-xl border border-border bg-muted p-4 text-sm">
+          Xarid qabul qilindi. Pro imkoniyatlari faollashtirilmoqda. Xizmatlarda yangilanish biroz vaqt olishi mumkin.
+        </div>
+      )}
+
       {topUp && (
         <div role="alert" className="mx-auto mt-6 flex max-w-xl flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
           <span>{topUp.message}</span>
@@ -207,11 +198,11 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
         </div>
       )}
 
-      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={styles.cards}>
         {plans.map((item) => {
           const action = planAction(item, me, plans, now);
           const cardAction = (it: PlanCatalogItem, a: PlanAction): CardAction =>
-            planUnknown ? 'unknown' : !signedIn ? (it.code === 'STANDARD' ? 'free-anon' : 'choose') : a;
+            accepted ? 'pending' : planUnknown ? 'unknown' : !signedIn ? (it.code === 'STANDARD' ? 'free-anon' : 'choose') : a;
           return (
             <PlanCard
               key={item.code}
@@ -221,16 +212,15 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
               isCurrent={signedIn && !planUnknown && me.code === item.code}
               expiresAt={me.code === item.code ? me.expiresAt : null}
               busy={busy === item.code}
-              featured={item.code === featuredCode}
+              featured={item.code === 'PRO'}
               onSelect={() => select(item)}
             />
           );
         })}
       </div>
 
-      <p className="mx-auto mt-9 max-w-xl text-center text-sm text-muted-foreground">
-        To‘lov hamyon balansidan yechiladi. Tarif tugasa qutilar o‘chirilmaydi — limitdan ortiqlari qulflanadi va tarifni uzaytirganingizda yana ochiladi.
-      </p>
+      <p className={styles.purchaseNote}>Bir marta to‘lang, tanlangan muddat davomida foydalaning.<br />Avtomatik pul yechilmaydi.</p>
+      <PlansFaq catalog={plans} />
 
       {confirm && (
         <UpgradeConfirm

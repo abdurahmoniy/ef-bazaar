@@ -316,4 +316,16 @@ class AdminTelegramNotifierTest {
 
         assertThat(bot.posted).isEmpty();
     }
+
+    @Test
+    void planRemindersUseCurrentNamesAndDoNotClaimProjectionAlreadyApplied() {
+        FakeBot bot = new FakeBot();
+        var notifier = notifier(bot, true);
+        notifier.planReminderToOwner(7L, "PRO", true);
+        notifier.planReminderToOwner(7L, "STANDARD", false);
+        notifier.planReminderToOwner(7L, "MAX", true);
+        assertThat(bot.dms.get(0)).contains("<b>Pro</b>").doesNotContain("qulflandi");
+        assertThat(bot.dms.get(1)).contains("<b>Free</b>");
+        assertThat(bot.dms.get(2)).contains("<b>MAX (eski tarif)</b>").doesNotContain("Uzaytirish:");
+    }
 }

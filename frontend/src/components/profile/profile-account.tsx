@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   BadgeCheck,
+  BarChart3,
   Bell,
   Check,
   ChevronRight,
@@ -26,6 +27,7 @@ import {
   Wallet,
 } from 'lucide-react';
 
+import { ProfileAppearance } from '@/components/profile/profile-appearance';
 import { MailboxSlotsWarning } from '@/components/profile/mailbox-slots-warning';
 import { ProfileBalance } from '@/components/profile/profile-balance';
 import { DeleteAccountButton } from '@/components/profile/delete-account-button';
@@ -114,6 +116,7 @@ export function ProfileAccount({
   const tradeAdmin = isTradeAdmin(user);
 
   const navMenuItems = [
+    { id: 'seller-tools', label: 'Sotuvchi vositalari', description: 'Shaxsiy qaydlar, shablonlar va e’lon amallari', href: '/seller-tools', icon: <Package className="h-5 w-5 text-violet-600 dark:text-violet-400" />, bg: 'bg-violet-500/10' },
     {
       id: 'accounts',
       label: 'Akkountlarim',
@@ -122,6 +125,14 @@ export function ProfileAccount({
       icon: <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />,
       bg: 'bg-blue-500/10 dark:bg-blue-400/10',
       badge: listingsCount > 0 ? `${listingsCount}` : undefined,
+    },
+    {
+      id: 'seller-analytics',
+      label: 'Sotuvchi hisoboti',
+      description: 'E’lonlar natijasi, tarix va CSV',
+      href: '/seller-analytics',
+      icon: <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />,
+      bg: 'bg-blue-500/10 dark:bg-blue-400/10',
     },
     {
       id: 'trades',
@@ -210,6 +221,7 @@ export function ProfileAccount({
     <div className="space-y-4 max-w-4xl mx-auto">
       {/* 1. Flush Profile Header on Mobile */}
       <div className="-mx-4 -mt-4 border-b border-border/60 bg-card px-4 pt-5 pb-4 sm:mx-0 sm:mt-0 sm:rounded-2xl sm:border sm:p-5 sm:shadow-sm">
+        <ProfileAppearance userId={user.id} own />
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
             <div className="relative shrink-0">

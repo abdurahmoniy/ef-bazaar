@@ -185,8 +185,8 @@ async def test_deleting_a_mailbox_stops_its_pollers():
     # ever.
     registry = AsyncMock()
 
-    await MailboxDeleteHandler(mailcow=AsyncMock(), registry=registry).handle(
-        e.MailboxDeleteRequest(mailbox_id=uuid4(), mailbox_email=BOX)
+    await MailboxDeleteHandler(mailcow=AsyncMock(), registry=registry, producer=AsyncMock()).handle(
+        e.MailboxDeleteRequest(mailbox_id=uuid4(), mailbox_email=BOX, request_id=uuid4())
     )
 
     registry.cancel_mailbox.assert_awaited_once_with(BOX)

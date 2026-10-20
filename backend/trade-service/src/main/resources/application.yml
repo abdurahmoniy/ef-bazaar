@@ -142,7 +142,7 @@ trade:
     # comma-separated, default first. Each must exist in Mailcow.
     domains: ${MAILBOX_DOMAINS:efbazaar.uz}
     # Plans that may claim a custom box on a non-default domain.
-    premium-domain-plans: ${MAILBOX_PREMIUM_DOMAIN_PLANS:MAX,STAFF}
+    premium-domain-plans: ${MAILBOX_PREMIUM_DOMAIN_PLANS:PRO,STAFF}
     # Each step of linking a Konami account to a box (email change, reset mail).
     link-step-minutes: ${MAILBOX_LINK_STEP_MINUTES:15}
     link-sweep-ms: 30000
@@ -157,6 +157,7 @@ trade:
       connection-timeout-ms: 10000
       read-timeout-ms: 15000
       # 5-min TTL for pooled connections; sweep every 60s.
+      max-connections: ${IMAP_MAX_CONNECTIONS:8}
       pool-ttl-seconds: 300
       pool-sweep-seconds: 60
     rate-limit:

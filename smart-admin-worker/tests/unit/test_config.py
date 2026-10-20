@@ -63,3 +63,18 @@ def test_imap_idle_refresh_is_clamped_below_rfc2177_limit(monkeypatch):
     monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
     monkeypatch.setenv("IMAP_IDLE_REFRESH_SECONDS", "7200")
     assert Settings().imap_idle_refresh_seconds == 29 * 60
+
+
+def test_provisioning_authority_configuration_reads_existing_internal_secret(monkeypatch):
+    monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+    monkeypatch.setenv("TRADE_INTERNAL_BASE_URL", "http://trade.fixture:8085")
+    monkeypatch.setenv("INTERNAL_API_SECRET", "fixture-secret")
+    settings = Settings()
+    assert settings.trade_internal_base_url == "http://trade.fixture:8085"
+    assert settings.internal_api_secret.get_secret_value() == "fixture-secret"
+
+
+def test_provision_authority_secret_is_redacted_from_settings_repr(monkeypatch):
+    monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+    monkeypatch.setenv("INTERNAL_API_SECRET", "never-print-this-fixture-secret")
+    assert "never-print-this-fixture-secret" not in repr(Settings())

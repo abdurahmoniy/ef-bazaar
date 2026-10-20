@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { showUpgrade } from '@/lib/mailbox-lock';
 
 /**
- * Tarifni oshirishga chaqiruv. Eng yuqori tarifda (`MAX`) oshirish yo'q:
- * u yerda faqat keraksiz qutini uzish yo'li ko'rsatiladi.
+ * Tarifni oshirishga chaqiruv. Pro, arxiv MAX va STAFF tariflarida oshirish yo'q:
+ * u yerda qutilarni boshqarish yo‘li ko‘rsatiladi.
  */
 export function UpgradeCta({
   message = 'Pochta qutilari joyi tugadi. Ko‘proq joy uchun tarifingizni oshiring',
@@ -20,7 +20,7 @@ export function UpgradeCta({
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       {message !== '' && (
         <p className="text-sm text-foreground">
-          {upgrade ? message : 'Pochta qutilari joyi tugadi. Keraksiz qutini o‘zingizdan uzing'}
+          {upgrade ? message : 'Pochta qutilarining umumiy joyi tugadi. Qutilaringizni ko‘rib chiqing'}
         </p>
       )}
       <Button asChild size="sm" className="min-h-11 sm:min-h-9">
