@@ -1,14 +1,25 @@
-export interface MailboxSlotStatus {
+import type { MailboxAccessFields } from './mailbox-access';
+export interface MailboxSlotStatus extends Omit<MailboxAccessFields, 'selectedForFree'> {
+  selectedForFreeCount?: number;
+  /** Compatibility aliases of totalUsed / totalLimit. */
   used: number;
   /** null = cheksiz reja. */
   limit: number | null;
+  /** Separate gifts/resources are additive during rollout. */
+  exemptUsed?: number;
+  resourceUsed?: number;
+  totalUsed: number;
+  totalLimit: number | null;
+  customUsed: number;
+  /** New custom creation sublimit, included in totalLimit. */
+  customLimit: number | null;
   full: boolean;
   plan: string;
   /** Qulflangan qutilar soni (tarif pasaygandan keyin). */
   lockedCount: number;
 }
 
-export interface OwnedMailbox {
+export interface OwnedMailbox extends MailboxAccessFields {
   id: string;
   email: string;
   tradeId: string | null;
@@ -16,8 +27,12 @@ export interface OwnedMailbox {
   handedOffAt: string | null;
   /** Qulflangan: pochtasi o'qilmaydi, lekin quti o'chirilmaydi. */
   locked: boolean;
-  /** CUSTOM — user o'zi olgan nomli quti; random slotga kirmaydi va bo'shatilmaydi. */
+  /** CUSTOM shares the total pool, but its name cannot be released. */
   kind?: 'RANDOM' | 'CUSTOM';
+  /** Admin gifts do not consume the total pool. */
+  slotExempt?: boolean;
+  /** Current trade state, unlike the historical tradeId. */
+  activeTrade?: boolean;
   /** Akkount tasdiqlangan quti (trade-service). */
   linkedAccountId?: string | null;
   /** Hozir ulanayotgan bo'lsa — ulash sessiyasi. */
@@ -29,7 +44,7 @@ export interface OwnedMailbox {
 /**
  * Slot holati.
  *
- * <p>Xato YUTILADI va "to'lmagan" deb qaytariladi: bu ogohlantirish
+ * <p>Xato YUTILADI va noma’lum (`null`) qaytariladi: bu ogohlantirish
  * profil sahifasining yon qismida turadi va uni yuklab bo'lmagani
  * uchun butun sahifani yiqitib bo'lmaydi.
  */
@@ -40,7 +55,8 @@ export async function fetchSlotStatus(): Promise<MailboxSlotStatus | null> {
       credentials: 'include',
     });
     if (!response.ok) return null;
-    return (await response.json()) as MailboxSlotStatus;
+    const status: unknown = await response.json();
+    return isMailboxSlotStatus(status) ? status : null;
   } catch {
     return null;
   }
@@ -56,7 +72,7 @@ export async function fetchOwnedMailboxes(): Promise<OwnedMailbox[]> {
 }
 
 /**
- * Qutini o'zidan uzadi — slotni bo'shatadi.
+ * Qutini o'zidan uzadi — kirishni bekor qiladi, ajratilgan resurs saqlanadi.
  *
  * <p>O'chirish EMAS: quti platformada qoladi va pochta serveridan olib
  * tashlash faqat admin panelida. Foydalanuvchida bunday yo'l yo'q va
@@ -104,10 +120,10 @@ export type SlotPressure = 'none' | 'near' | 'full';
  * keyin aytish kech — o'sha paytda savdo allaqachon rad etilgan bo'ladi.
  */
 export function slotPressure(status: MailboxSlotStatus | null): SlotPressure {
-  if (!status || status.limit === null) return 'none';
-  if (status.full || status.used >= status.limit) return 'full';
-  const near = Math.max(1, Math.ceil(status.limit * 0.2));
-  return status.limit - status.used <= near ? 'near' : 'none';
+  if (!status || status.totalLimit === null) return 'none';
+  if (status.full || status.totalUsed >= status.totalLimit) return 'full';
+  const near = Math.max(1, Math.ceil(status.totalLimit * 0.2));
+  return status.totalLimit - status.totalUsed <= near ? 'near' : 'none';
 }
 
 /**
@@ -120,14 +136,14 @@ export function slotPressure(status: MailboxSlotStatus | null): SlotPressure {
  */
 export function slotWarning(status: MailboxSlotStatus | null): string | null {
   const pressure = slotPressure(status);
-  if (pressure === 'none' || !status || status.limit === null) return null;
+  if (pressure === 'none' || !status || status.totalLimit === null) return null;
   if (pressure === 'full') {
-    return `Pochta limiti: ${status.limit} tadan ${status.used} ta joy ajratilgan. `
-      + 'Sizga tegishli va savdo uchun ajratilgan qutilar limitga kiradi. Yangi savdodan oldin qutilaringizni ko‘rib chiqing.';
+    return `Pochta limiti: ${status.totalLimit} tadan ${status.totalUsed} ta joy ajratilgan. `
+      + `${slotUsageSummary(status)}. Sizga tegishli va savdo uchun ajratilgan qutilar limitga kiradi. Yangi savdodan oldin qutilaringizni ko‘rib chiqing.`;
   }
-  const left = status.limit - status.used;
-  return `Pochta limiti: ${status.limit} tadan ${status.used} ta joy ajratilgan — `
-    + `${left} ta qoldi. Har savdo yangi quti ochadi, shuning uchun keraksizlarini hozir bo‘shating.`;
+  const left = status.totalLimit - status.totalUsed;
+  return `Pochta limiti: ${status.totalLimit} tadan ${status.totalUsed} ta joy ajratilgan — `
+    + `${left} ta qoldi. ${slotUsageSummary(status)}. Har savdo yangi quti ajratadi. Qutini o‘zingizdan uzish jami ajratilgan joyni kamaytirmaydi.`;
 }
 
 /**
@@ -141,11 +157,11 @@ export function isDeletable(mailbox: OwnedMailbox): boolean {
 }
 
 /**
- * The boxes the slot warning may offer to release. Custom boxes spend their
- * own allowance and their name is given once, so they never appear here.
+ * All owned boxes participate in read-access selection. Custom boxes remain
+ * visible for locking/swapping; isDeletable still protects their names.
  */
 export function cleanupCandidates(mailboxes: OwnedMailbox[]): OwnedMailbox[] {
-  return mailboxes.filter((m) => m.kind !== 'CUSTOM');
+  return mailboxes;
 }
 
 /** Akkountlarga biriktirilgan manzillar — solishtiruv uchun kichik registrda. */
@@ -178,4 +194,26 @@ export function sortForCleanup(
     return isAttachedTo(m, accountEmails) ? 1 : 0;
   };
   return [...mailboxes].sort((a, b) => rank(a) - rank(b));
+}
+
+/** Quota totals come from the API; a custom creation allowance is a subset. */
+export function slotUsageSummary(status: MailboxSlotStatus): string {
+  return `Jami: ${status.totalUsed} / ${status.totalLimit === null ? 'cheksiz' : status.totalLimit}`
+    + ` · shundan custom: ${status.customUsed} / ${status.customLimit === null ? 'cheksiz' : status.customLimit}`
+    + (status.exemptUsed !== undefined && status.resourceUsed !== undefined
+      ? ` · Limitdan tashqari qutilar: ${status.exemptUsed} · Resursda: ${status.resourceUsed}` : '');
+}
+
+/** Legacy random-only responses must remain unknown during a rolling deploy. */
+export function isMailboxSlotStatus(value: unknown): value is MailboxSlotStatus {
+  if (!value || typeof value !== 'object') return false;
+  const status = value as Record<string, unknown>;
+  const count = (v: unknown) => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
+  const limit = (v: unknown) => v === null || count(v);
+  return count(status.totalUsed) && limit(status.totalLimit)
+    && count(status.customUsed) && limit(status.customLimit)
+    && count(status.lockedCount) && typeof status.full === 'boolean'
+    && typeof status.plan === 'string'
+    && (status.exemptUsed === undefined || count(status.exemptUsed))
+    && (status.resourceUsed === undefined || count(status.resourceUsed));
 }

@@ -15,10 +15,10 @@ import {
   updatePlanPrices,
   type PlanPriceRow,
 } from '@/lib/plans-admin';
-import { PLAN_NAMES, yearlySavingsPercent, type PlanCode, type PlanPeriod } from '@/lib/plans';
+import { PLAN_NAMES, type PlanCode, type PlanPeriod } from '@/lib/plans';
 import type { FoundUser } from '@/lib/user-search';
 
-const PAID: PlanCode[] = ['PRO', 'MAX'];
+const PAID: PlanCode[] = ['PRO'];
 const key = (c: PlanCode, p: PlanPeriod) => `${c}:${p}`;
 
 function toDrafts(rows: PlanPriceRow[]): Record<string, string> {
@@ -43,7 +43,7 @@ export function AdminPlanPrices({ initial }: { initial: PlanPriceRow[] }) {
     let items;
     try {
       items = PAID.flatMap((code) =>
-        (['MONTH', 'YEAR'] as PlanPeriod[]).map((period) => ({
+        (['MONTH'] as PlanPeriod[]).map((period) => ({
           planCode: code,
           period,
           priceTiyin: parseSomInput(drafts[key(code, period)] ?? ''),
@@ -71,10 +71,6 @@ export function AdminPlanPrices({ initial }: { initial: PlanPriceRow[] }) {
       <form onSubmit={save} className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
           {PAID.map((code) => {
-            const savingsPct = yearlySavingsPercent({
-              MONTH: rows.find((r) => r.planCode === code && r.period === 'MONTH')?.priceTiyin,
-              YEAR: rows.find((r) => r.planCode === code && r.period === 'YEAR')?.priceTiyin,
-            });
             const changed = lastChange(rows, code);
             return (
               <section key={code} className="space-y-4 rounded-2xl border border-border bg-card p-5 text-card-foreground">
@@ -82,14 +78,10 @@ export function AdminPlanPrices({ initial }: { initial: PlanPriceRow[] }) {
                   <h2 className="text-lg font-extrabold">
                     {PLAN_NAMES[code]} <span className="text-xs font-semibold text-muted-foreground">{code}</span>
                   </h2>
-                  {savingsPct !== null && (
-                    <span className="rounded-full bg-secondary/25 px-2.5 py-1 text-xs font-bold text-secondary-foreground dark:text-secondary">
-                      Yillikda −{savingsPct}%
-                    </span>
-                  )}
+
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  {(['MONTH', 'YEAR'] as PlanPeriod[]).map((period) => {
+                  {(['MONTH'] as PlanPeriod[]).map((period) => {
                     const id = `price-${code}-${period}`;
                     return (
                       <div key={period} className="space-y-1.5">
@@ -173,7 +165,7 @@ function AssignPlanForm() {
         <div className="space-y-1.5">
           <Label htmlFor="assign-plan" className="text-xs font-semibold text-muted-foreground">Tarif</Label>
           <Select id="assign-plan" value={plan} onChange={(e) => setPlan(e.target.value as PlanCode)} className="h-11">
-            {(['PRO', 'MAX', 'STANDARD'] as PlanCode[]).map((c) => (
+            {(['PRO', 'STANDARD'] as PlanCode[]).map((c) => (
               <option key={c} value={c}>{PLAN_NAMES[c]}</option>
             ))}
           </Select>

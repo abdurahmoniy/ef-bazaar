@@ -44,7 +44,7 @@ public class TradeEventPublisher {
 
     public void emailProvisionRequest(UUID tradeId, UUID mailboxId) {
         send(TradeEvents.TOPIC_EMAIL_PROVISION_REQ, tradeId.toString(),
-                new TradeEvents.EmailProvisionRequest(tradeId, mailboxId));
+                new TradeEvents.EmailProvisionRequest(tradeId, mailboxId, 2));
     }
 
     public void forgotPasswordRequest(UUID tradeId, String mailboxEmail, String konamiId) {
@@ -65,6 +65,13 @@ public class TradeEventPublisher {
      */
     public void imapPollRequest(UUID key, String mailboxEmail, TradeEvents.ImapPurpose purpose,
                                 boolean restart, TradeEvents.PollCredentials credentials) {
+        imapPollRequest(key, mailboxEmail, purpose, restart, credentials, null, null);
+    }
+
+    /** Release verification carries its immutable freshness window to the origin verifier. */
+    public void imapPollRequest(UUID key, String mailboxEmail, TradeEvents.ImapPurpose purpose,
+                                boolean restart, TradeEvents.PollCredentials credentials,
+                                java.time.Instant startedAt, java.time.Instant expiresAt) {
         var c = credentials;
         send(TradeEvents.TOPIC_IMAP_POLL_REQ, key.toString(),
                 new TradeEvents.ImapPollRequest(key, mailboxEmail, purpose,
@@ -72,7 +79,7 @@ public class TradeEventPublisher {
                         c == null ? null : c.encryptedPassword(),
                         c == null ? null : c.iv(),
                         c == null ? null : c.tag(),
-                        restart));
+                        restart, startedAt, expiresAt));
     }
 
     public void accountEmailVerified(TradeEvents.AccountEmailVerified e) {
@@ -91,7 +98,7 @@ public class TradeEventPublisher {
 
     public void mailboxProvisionRequest(UUID mailboxId, String localPart, String domain, boolean custom) {
         send(TradeEvents.TOPIC_MAILBOX_PROVISION_REQ, mailboxId.toString(),
-                new TradeEvents.MailboxProvisionRequest(mailboxId, localPart, domain, custom));
+                new TradeEvents.MailboxProvisionRequest(mailboxId, localPart, domain, custom, 2));
     }
 
     public void mailboxRotateRequest(UUID mailboxId, String mailboxEmail) {

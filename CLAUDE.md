@@ -62,7 +62,7 @@ efBazaar/
 |--------|--------------|------------|
 | auth-service | 8081 | /api/auth/** |
 | marketplace-service | 8082 | /api/marketplace/** |
-| recommendation-service | 8083 | /api/rec/** (auth ixtiyoriy; marketplace bilan faqat Kafka) |
+| recommendation-service | 8083 | /api/rec/** (auth ixtiyoriy; listing data Kafka, D watch delivery uchun marketplace → rec ichki authorization HTTP) |
 | bot | 8084 | /bot/webhook |
 | trade-service | 8085 | /api/trade/** |
 | payment-service | 8087 | /api/payment/** |

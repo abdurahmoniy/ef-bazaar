@@ -48,6 +48,7 @@ log = logging.getLogger(__name__)
 
 class PollPurpose(str, Enum):
     VERIFY_LINK = "VERIFY_LINK"
+    VERIFY_RELEASE = "VERIFY_RELEASE"
     WAIT_2FA_CODE = "WAIT_2FA_CODE"
     # NEW: seller has started the Konami "Update Email Address" flow — the
     # 6-digit verification code lands in the escrow mailbox they can't read.
@@ -72,6 +73,7 @@ class ImapPoller:
     imap_host: str = "mail.efbazaar.uz"
     imap_port: int = 993
     snapshots: asyncio.Queue | None = None
+    on_release: Callable[[ResetHit], Awaitable[bool]] | None = None
 
     async def run(self, mailbox_email: str, password: str, purpose: PollPurpose) -> None:
         lock_key = f"smartadmin:imap-poll:{mailbox_email}"
@@ -118,6 +120,25 @@ class ImapPoller:
                     continue
                 await self.lock.release(lock_key)
             retry = False
+            if purpose is PollPurpose.VERIFY_RELEASE:
+                # Try every candidate so an unsigned/spoofed newest message
+                # cannot permanently hide a genuine older signed response.
+                for message in msgs:
+                    release_hit = self.detector.check_release([message])
+                    if release_hit is None or self.on_release is None:
+                        continue
+                    try:
+                        accepted = await self.on_release(release_hit)
+                    except Exception as error:
+                        log.warning("release proof delivery failed: %s", type(error).__name__)
+                        continue
+                    if accepted:
+                        detected = True
+                        uid = getattr(message, "uid", None)
+                        await self._mark_seen(mailbox_email, password, [uid] if uid else [])
+                        break
+                retry = not detected
+                continue
             hit, consumed_uids = self._detect(msgs, purpose)
             if hit is None:
                 continue

@@ -27,9 +27,15 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, UUID> 
 
     Optional<UserAccount> findByCurrentListingId(UUID listingId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM UserAccount a WHERE a.currentListingId = :listingId OR a.sourceListingId = :listingId")
+    List<UserAccount> findLinkedToListing(@Param("listingId") UUID listingId);
+
     List<UserAccount> findByCurrentListingIdIn(Collection<UUID> listingIds);
 
     boolean existsBySourceListingId(UUID listingId);
+
+    boolean existsByCurrentListingIdOrSourceListingId(UUID currentListingId, UUID sourceListingId);
 
     Optional<UserAccount> findByOwnerIdAndSourceTradeId(UUID ownerId, UUID tradeId);
 

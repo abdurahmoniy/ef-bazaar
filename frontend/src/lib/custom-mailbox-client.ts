@@ -29,8 +29,8 @@ export function checkAvailability(localPart: string, domain: string, signal?: Ab
   return call<Availability>(`/custom/availability?${q}`, { signal });
 }
 
-export function claimCustomMailbox(localPart: string, domain: string): Promise<CustomMailbox> {
-  return call<CustomMailbox>('/custom', { method: 'POST', body: JSON.stringify({ localPart, domain }) });
+export function claimCustomMailbox(localPart: string, domain: string, signal?: AbortSignal): Promise<CustomMailbox> {
+  return call<CustomMailbox>('/custom', { method: 'POST', body: JSON.stringify({ localPart, domain }), signal });
 }
 
 export function listCustomMailboxes(): Promise<CustomMailbox[]> {

@@ -105,3 +105,18 @@ async def test_a_successful_handler_never_reports_failure(monkeypatch):
     await runner._process_one(_Msg())  # noqa: SLF001
 
     assert seen == []
+
+
+async def test_required_result_failure_keeps_request_uncommitted_after_retries(monkeypatch):
+    import pytest
+
+    from smart_admin_worker.kafka.producer import ResultPublicationError
+
+    async def no_ack(_event):
+        raise ResultPublicationError("result broker unavailable")
+
+    runner = _runner(no_ack)
+    monkeypatch.setattr("smart_admin_worker.kafka.consumer.from_json", lambda *_: _Event())
+    with pytest.raises(ResultPublicationError):
+        await runner._process_one(_Msg())
+    assert runner._consumer.commits == 0

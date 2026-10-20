@@ -35,6 +35,8 @@ class AdminMailboxDeleteIT extends AbstractIntegrationIT {
 
     @Autowired MockMvc mvc;
     @Autowired MailboxRepository mailboxes;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @Autowired uz.efbazaar.trade.mailbox.release.MailboxDeletionService deletions;
 
     /** Standalone, so MockWorker has no reason to touch it. */
     private UUID mailbox(UUID owner, UUID tradeId) {
@@ -62,14 +64,19 @@ class AdminMailboxDeleteIT extends AbstractIntegrationIT {
     }
 
     @Test
-    void anUnheldMailboxIsMarkedDeleted() throws Exception {
+    void anUnheldMailboxStaysVisibleUntilItsCorrelatedServerAcknowledgement() throws Exception {
         UUID id = mailbox(null, null);
 
         mvc.perform(delete(path(id)).with(asAdmin())).andExpect(status().isNoContent());
 
+        assertThat(mailboxes.findById(id).orElseThrow().getDeletedAt()).isNull();
+        UUID request = jdbc.queryForObject("SELECT deletion_request_id FROM mailboxes WHERE id=?",UUID.class,id);
+        assertThat(request).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT deletion_status FROM mailboxes WHERE id=?",String.class,id)).isEqualTo("PENDING");
+        deletions.acknowledge(new uz.efbazaar.trade.mailbox.release.MailboxDeletionService.Ack(request,id,
+                mailboxes.findById(id).orElseThrow().getEmail(),true,false,null,Instant.now()));
         assertThat(mailboxes.findById(id).orElseThrow().getDeletedAt())
-                .as("kept as a row: audit entries and closed trades still point at it")
-                .isNotNull();
+                .as("kept as a tombstone after actual server confirmation").isNotNull();
     }
 
     @Test

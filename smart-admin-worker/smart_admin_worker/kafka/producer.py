@@ -47,3 +47,16 @@ class KafkaProducerClient:
             value=payload,
         )
         log.debug("published to %s key=%s", topic, key)
+
+
+class ResultPublicationError(RuntimeError):
+    """A required result was not acknowledged; its request must remain uncommitted."""
+
+
+async def publish_required_result(
+    producer: KafkaProducerClient, topic: str, key: str, event: Any,
+) -> None:
+    try:
+        await producer.publish(topic, key, event)
+    except Exception as exc:
+        raise ResultPublicationError(str(exc)) from exc

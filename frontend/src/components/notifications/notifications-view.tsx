@@ -25,6 +25,7 @@ import { formatListingDate } from '@/lib/marketplace-format';
 import type { NotificationResponse } from '@/lib/marketplace-types';
 import { NOTIFICATIONS_CHANGED } from '@/lib/firebase-push';
 import { PushSettings } from './push-settings';
+import { WatchNotification } from './watch-notification';
 import { cn } from '@/lib/utils';
 
 interface NotificationsViewProps {
@@ -56,7 +57,7 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
     };
   }, [loadNotifications]);
 
-  const handleItemClick = async (n: NotificationResponse) => {
+  const handleItemRead = async (n: NotificationResponse) => {
     if (!n.readAt) {
       await markNotificationRead(n.id);
       window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
@@ -66,6 +67,10 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
         ) ?? prev,
       );
     }
+  };
+
+  const handleItemClick = async (n: NotificationResponse) => {
+    await handleItemRead(n);
     const href = notificationHref(n);
     if (href) router.push(href);
   };
@@ -82,6 +87,9 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
 
   const getActionDetails = (n: NotificationResponse) => {
     switch (n.type) {
+      case 'WATCH_MATCH':
+      case 'WATCH_DIGEST':
+        return { action: notificationLabel(n), icon: <Sparkles className="h-5 w-5 text-primary" />, bg: 'bg-primary/10' };
       case 'CHAT_CREATED':
         return {
           action: "E'loningiz bo'yicha yangi chat ochildi",
@@ -195,11 +203,12 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
           {items.map((n) => {
             const { action, icon, bg } = getActionDetails(n);
             const isUnread = !n.readAt;
-            const actorName = n.actorDisplayName?.trim() || 'Foydalanuvchi';
+            const isWatch = n.type === 'WATCH_MATCH' || n.type === 'WATCH_DIGEST';
+            const actorName = isWatch ? 'Kuzatuvlar' : n.actorDisplayName?.trim() || 'Foydalanuvchi';
 
             return (
+              <div key={n.id}>
               <button
-                key={n.id}
                 type="button"
                 onClick={() => handleItemClick(n)}
                 className={cn(
@@ -245,6 +254,8 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
                   )}
                 </div>
               </button>
+              {isWatch && n.watchPayload && <div className="px-4 pb-3 sm:pl-[4.5rem]"><WatchNotification payload={n.watchPayload} onOpen={() => { void handleItemRead(n); }} /></div>}
+              </div>
             );
           })}
         </div>

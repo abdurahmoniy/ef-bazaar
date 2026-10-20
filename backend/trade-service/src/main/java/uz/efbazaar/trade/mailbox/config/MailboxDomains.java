@@ -24,7 +24,7 @@ public class MailboxDomains {
     private final Set<String> premiumPlans;
 
     public MailboxDomains(@Value("${trade.mailbox.domains:efbazaar.uz}") String domains,
-                          @Value("${trade.mailbox.premium-domain-plans:MAX,STAFF}") String plans) {
+                          @Value("${trade.mailbox.premium-domain-plans:PRO,STAFF}") String plans) {
         List<String> parsed = Arrays.stream(domains.split(","))
                 .map(s -> s.trim().toLowerCase(Locale.ROOT))
                 .filter(s -> !s.isEmpty())

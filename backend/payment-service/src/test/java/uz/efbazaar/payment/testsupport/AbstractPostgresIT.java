@@ -21,6 +21,8 @@ import java.util.Base64;
  * so {@code MasterKeyProvider} finds one without asking the operator to plug in
  * a real docker secret when running {@code mvn verify}.
  */
+// Close scheduled work and JDBC pools before Testcontainers retires the shared database.
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @ActiveProfiles("test")
 @Testcontainers
 public abstract class AbstractPostgresIT {

@@ -16,6 +16,7 @@ import uz.efbazaar.trade.trade.service.TradeService;
 @RequiredArgsConstructor
 public class KonamiEmailReceivedConsumer {
 
+    private final uz.efbazaar.trade.mailbox.release.MailboxReleaseService releases;
     private final TradeService trades;
     private final uz.efbazaar.trade.trade.service.TradeSideService sides;
     private final ChatChangePublisher changes;
@@ -27,6 +28,7 @@ public class KonamiEmailReceivedConsumer {
             properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$KonamiEmailReceived"}
     )
     public void onKonamiEmail(TradeEvents.KonamiEmailReceived e) {
+        if (releases.onProof(e)) return;
         // A box with a live link session is not in a trade: the answer is the
         // session's. Looked up by address, never by e.tradeId(), so a stale
         // event keyed by an old session cannot drive a new one.

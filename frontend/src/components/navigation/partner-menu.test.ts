@@ -62,3 +62,9 @@ describe('approved partner navigation', () => {
   expect(container.querySelector('a[href="/partnership"]')).toBeNull();
  });
 });
+it('provides tools navigation in the real own profile header separately from verification',async()=>{
+ const fetcher=vi.fn<(url:string)=>Promise<Response>>(async()=>Response.json({pro:true,coverFileId:'own-cover',validUntil:new Date(Date.now()+10000).toISOString(),capability:'AVAILABLE'}));vi.stubGlobal('fetch',fetcher);
+ await act(async()=>root.render(createElement(ProfileAccount,{user,googleClientId:'',botUsername:'test',tradeAdminApplication:null})));
+ expect(container.querySelector('a[href="/seller-tools"]')?.textContent).toContain('Sotuvchi vositalari');expect(container.textContent).toContain('Pro a’zolik');expect(container.textContent).toContain('Tasdiqlangan');
+ expect(fetcher.mock.calls.some(([url])=>String(url).endsWith('/profiles/me/appearance'))).toBe(true);
+});

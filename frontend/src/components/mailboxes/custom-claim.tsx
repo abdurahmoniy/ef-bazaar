@@ -15,30 +15,36 @@ import {
   normalizeLocalPart,
   PREMIUM_DOMAIN,
   type Availability,
+  type ClaimView,
 } from '@/lib/custom-mailbox';
 import { checkAvailability, claimCustomMailbox, MailboxApiError } from '@/lib/custom-mailbox-client';
 import { PLAN_NAMES, type PlanCode } from '@/lib/plans';
+import { slotUsageSummary, type MailboxSlotStatus } from '@/lib/mailbox-slots';
 import { cn } from '@/lib/utils';
 
 interface CustomClaimProps {
-  /** Null when the plan could not be loaded — treated like Jaydari for offers. */
+  /** Null when the plan could not be loaded — do not offer a paid upgrade. */
   plan: PlanCode | null;
   /** Account the user came from; linking preselects it. */
   accountId: string | null;
+  slots?: MailboxSlotStatus | null;
 }
 
 const DOMAINS = [DEFAULT_DOMAIN, PREMIUM_DOMAIN];
 
-export function CustomClaim({ plan, accountId }: CustomClaimProps) {
+export function CustomClaim({ plan, accountId, slots }: CustomClaimProps) {
   const router = useRouter();
   const premium = isPremiumDomainPlan(plan);
   const [name, setName] = useState('');
   const [domain, setDomain] = useState(DEFAULT_DOMAIN);
   const [result, setResult] = useState<Availability | null>(null);
   const [checking, setChecking] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [recheck, setRecheck] = useState(0);
   const pending = useRef<AbortController | null>(null);
+  const claimRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => claimRequest.current?.abort(), []);
 
   const local = normalizeLocalPart(name);
 
@@ -46,6 +52,7 @@ export function CustomClaim({ plan, accountId }: CustomClaimProps) {
   useEffect(() => {
     pending.current?.abort();
     setResult(null);
+    setAvailabilityError(null);
     if (!local || localPartProblem(local)) {
       setChecking(false);
       return;
@@ -58,8 +65,12 @@ export function CustomClaim({ plan, accountId }: CustomClaimProps) {
         .then((r) => {
           if (!controller.signal.aborted) setResult(r);
         })
-        .catch(() => {
-          if (!controller.signal.aborted) setResult(null);
+        .catch((error: unknown) => {
+          if (!controller.signal.aborted) {
+            setAvailabilityError(error instanceof MailboxApiError
+              ? error.message
+              : 'Manzilni tekshirib bo‘lmadi. Qayta urinib ko‘ring');
+          }
         })
         .finally(() => {
           if (!controller.signal.aborted) setChecking(false);
@@ -71,28 +82,34 @@ export function CustomClaim({ plan, accountId }: CustomClaimProps) {
     };
   }, [local, domain, recheck]);
 
-  const view = claimView({ localPart: local, checking, result, plan });
+  const view: ClaimView = availabilityError
+    ? { tone: 'bad', message: availabilityError, action: { kind: 'none' } }
+    : claimView({ localPart: local, checking, result, plan });
   const offer = view.tone === 'ok' ? efootballOffer(plan, local) : null;
   const email = `${local}@${domain}`;
 
   async function claim() {
+    const controller = new AbortController();
+    claimRequest.current = controller;
     setClaiming(true);
     try {
-      const box = await claimCustomMailbox(local, domain);
+      const box = await claimCustomMailbox(local, domain, controller.signal);
+      if (controller.signal.aborted) return;
       toast.success(`${box.email} sizniki — endi akkount ulaymiz`);
       router.push(`/mailboxes/custom/${box.id}/link${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`);
     } catch (error) {
+      if (controller.signal.aborted) return;
       const message = error instanceof MailboxApiError ? error.message : 'Quti olinmadi, qayta urinib ko‘ring';
       toast.error(message);
       // The name may have just been taken: ask again.
       setRecheck((n) => n + 1);
     } finally {
-      setClaiming(false);
+      if (!controller.signal.aborted) setClaiming(false);
     }
   }
 
-  const planLine = plan === null || plan === 'STANDARD'
-    ? 'Jaydari · custom slot yo‘q'
+  const planLine = plan === null ? 'Tarif aniqlanmadi' : plan === 'STANDARD'
+    ? 'Free · custom slot yo‘q'
     : plan === 'STAFF' ? 'Admin · cheklovsiz' : `${PLAN_NAMES[plan]} tarifi`;
 
   return (
@@ -109,6 +126,8 @@ export function CustomClaim({ plan, accountId }: CustomClaimProps) {
           {planLine}
         </span>
       </div>
+
+      {plan !== 'STAFF' && <p className="text-xs text-muted-foreground">{slots ? slotUsageSummary(slots) : 'Pochta limiti aniqlanmadi'}. Custom chegarasi yangi nomli quti yaratish uchun; yangi quti jami limitga ham kiradi. Mavjud qutini o‘qish umumiy limit bo‘yicha tanlanadi.</p>}
 
       {premium && (
         <div role="radiogroup" aria-label="Domen" className="inline-flex self-start gap-1 rounded-xl bg-muted p-1">
@@ -175,6 +194,15 @@ export function CustomClaim({ plan, accountId }: CustomClaimProps) {
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+        {availabilityError && (
+          <button
+            type="button"
+            onClick={() => setRecheck((n) => n + 1)}
+            className="inline-flex min-h-12 items-center justify-center rounded-xl border border-border px-6 text-sm font-semibold"
+          >
+            Qayta urinish
+          </button>
+        )}
         {view.action.kind === 'claim' && (
           <button
             type="button"
@@ -212,10 +240,10 @@ export function CustomClaim({ plan, accountId }: CustomClaimProps) {
           <Crown className="h-4 w-4 shrink-0 text-gold-foreground sm:hidden" aria-hidden />
           <span className="min-w-0 flex-1 text-sm leading-snug sm:text-base">
             <strong>{offer.split(' ')[0]}</strong> {offer.split(' ').slice(1).join(' ')}
-            <span className="block text-xs text-muted-foreground sm:text-sm">efootball.uz domeni faqat Aristokrat tarifida</span>
+            <span className="block text-xs text-muted-foreground sm:text-sm">efootball.uz domeni yangi xaridlar uchun yopiq</span>
           </span>
           <span className="hidden min-h-11 items-center rounded-xl bg-gold-soft px-4 text-sm font-extrabold text-gold-foreground sm:inline-flex">
-            Aristokrat
+            Sotuvda yo‘q
           </span>
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground sm:hidden" aria-hidden />
         </Link>

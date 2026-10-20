@@ -13,6 +13,8 @@ export interface PlanCatalogItem {
 }
 
 export interface MyPlan {
+  lastPaidExpiresAt?: string | null;
+  graceEndsAt?: string | null;
   code: PlanCode;
   expiresAt: string | null;
   entitlements: Record<string, string | null>;
@@ -20,16 +22,16 @@ export interface MyPlan {
 
 /** Backend codes stay English; these are the only place the names live. */
 export const PLAN_NAMES: Record<PlanCode, string> = {
-  STANDARD: 'Jaydari',
-  PRO: 'Boyvachcha',
-  MAX: 'Aristokrat',
+  STANDARD: 'Free',
+  PRO: 'Pro',
+  MAX: 'MAX (arxiv)',
   STAFF: 'Admin',
 };
 
 /** Shown instead of a price list when the user is an admin. */
 export const STAFF_UNLIMITED_MESSAGE = 'Admin sifatida barcha imkoniyatlar cheklovsiz';
 
-export const SLOTS_KEY = 'mailbox.slots';
+export const SLOTS_KEY = 'mailbox.total_slots';
 export const CUSTOM_SLOTS_KEY = 'mailbox.custom_slots';
 
 /** null = unlimited; a missing key = the plan does not grant it (0). */
@@ -39,6 +41,15 @@ export function slotCount(entitlements: Record<string, string | null>, key: stri
   if (v === null) return null;
   const n = Number.parseInt(v, 10);
   return Number.isFinite(n) ? n : 0;
+}
+
+/** Missing or malformed unified grants are unavailable, never a zero or legacy fallback. */
+export function mailboxCapacity(entitlements: Record<string, string | null>): { total: number | null; custom: number | null } | null {
+  const valid = (key: string) => Object.prototype.hasOwnProperty.call(entitlements, key)
+    && (entitlements[key] === null || (typeof entitlements[key] === 'string'
+      && /^\d+$/.test(entitlements[key]) && Number.isSafeInteger(Number(entitlements[key]))));
+  if (!valid(SLOTS_KEY) || !valid(CUSTOM_SLOTS_KEY)) return null;
+  return { total: slotCount(entitlements, SLOTS_KEY), custom: slotCount(entitlements, CUSTOM_SLOTS_KEY) };
 }
 
 /** Computed from live prices so an admin edit never leaves a stale badge. */
@@ -67,12 +78,15 @@ export function planAction(
 ): PlanAction {
   // An admin has everything already; nothing on the page is for them to buy.
   if (mine.code === 'STAFF') return 'staff';
+  if (target.code === 'MAX' || target.code === 'STAFF') return 'unavailable';
   const live = isLive(mine, now);
   if (target.code === 'STANDARD') return live ? 'unavailable' : 'current-free';
   if (!live) return 'choose';
   // An admin-granted plan has no end to push back; buying would only burn money.
   if (target.code === mine.code) return mine.expiresAt === null ? 'unlimited-current' : 'extend';
-  const currentOrder = catalog.find((p) => p.code === mine.code)?.sortOrder ?? 0;
+  const currentOrder = catalog.find((p) => p.code === mine.code)?.sortOrder;
+  // Retired or unknown active plans must never be treated as lower than Pro.
+  if (currentOrder === undefined) return 'unavailable';
   return target.sortOrder > currentOrder ? 'upgrade' : 'unavailable';
 }
 
@@ -127,7 +141,7 @@ export function planEndDate(
   return end;
 }
 
-/** Profile plan row; null (plan lookup failed) is neutral, never "Jaydari". */
+/** Profile plan row; null (plan lookup failed) is neutral, never "Free". */
 export function planLabel(mine: MyPlan | null): string {
   if (!mine) return '—';
   if (mine.code === 'STANDARD' || mine.code === 'STAFF') return PLAN_NAMES[mine.code];

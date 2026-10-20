@@ -18,7 +18,7 @@ class TradeMailVisibilityTest {
     private final MailboxService mailboxes = mock(MailboxService.class);
     private final TradeSideService sides = mock(TradeSideService.class);
     private final TradeStateHandler handler = new TradeStateHandler(mock(TradeEventPublisher.class), mailboxes,
-            sides, mock(TradeAuditService.class), mock(TradeAdminStats.class), mock(EscrowClient.class));
+            sides, mock(TradeAuditService.class), mock(TradeAdminStats.class), mock(EscrowClient.class), mock(uz.efbazaar.trade.kafka.SellerTradeCompletionPublisher.class));
     private final Instant started = Instant.parse("2026-09-23T10:00:00Z");
     private final Trade trade = Trade.builder().id(UUID.randomUUID()).mailboxId(UUID.randomUUID())
             .sellerId(UUID.randomUUID()).buyerId(UUID.randomUUID()).mode(TradeMode.HUMAN).createdAt(started).build();

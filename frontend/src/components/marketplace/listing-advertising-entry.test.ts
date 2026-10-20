@@ -86,3 +86,9 @@ it('shows a publish confirmation only to the active listing owner', () => {
   expect(renderToStaticMarkup(createElement(MarketplaceListingDetail, props))).toContain('Akkount bozorga chiqarildi');
   expect(renderToStaticMarkup(createElement(MarketplaceListingDetail, { ...props, viewer: null }))).not.toContain('Akkount bozorga chiqarildi');
 });
+it('offers private listing tools only in the actual owner management view',()=>{
+ expect(detail(owner)).toContain('href="/seller-tools?listingId=listing-1"');
+ expect(detail({...owner,id:'other'})).not.toContain('/seller-tools?listingId=');
+ expect(detail(null)).not.toContain('/seller-tools?listingId=');
+ const preview=renderToStaticMarkup(createElement(MarketplaceListingDetail,{listing,viewer:owner,seller:null,similarListings:[],buyerPreview:true}));expect(preview).not.toContain('/seller-tools?listingId=');
+});

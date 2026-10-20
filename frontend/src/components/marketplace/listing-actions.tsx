@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { CheckCircle2, Flag, Heart, MessageCircle } from 'lucide-react';
 
 import { ListingOwnerActions } from './listing-owner-actions';
+import { PriceWatchButton } from '@/components/watch/price-watch-button';
 import { Button } from '@/components/ui/button';
 import { TelegramRequiredPrompt } from '@/components/auth/telegram-required-prompt';
 import { buildMarketplaceApiPath } from '@/lib/marketplace-client-api';
@@ -205,6 +206,7 @@ export function ListingActions({
             {message.text}
           </p>
         )}
+        {currentStatus === 'ACTIVE' && !isOwner && <PriceWatchButton listingId={listingId} authenticated={authenticated} compact />}
         <div className="flex items-center gap-2.5">
           <div className="min-w-0">
             {priceLabel && (
@@ -331,6 +333,7 @@ export function ListingActions({
         {authenticated ? "Sotuvchi bilan bog'lanish" : 'Kirish va bog\'lanish'}
       </Button>
 
+      {!isOwner && <PriceWatchButton listingId={listingId} authenticated={authenticated} />}
       <div className="grid grid-cols-2 gap-2">
         <Button
           type="button"

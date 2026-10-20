@@ -10,6 +10,7 @@ from smart_admin_worker.handlers.mailbox_provision import MailboxProvisionHandle
 from smart_admin_worker.kafka import events as e
 from smart_admin_worker.mailcow.client import Mailbox
 from smart_admin_worker.mailcow.errors import MailboxAlreadyExists
+from tests.unit.provisioning_fixtures import AuthorizingClaims, credentials_valid
 
 MAILBOX_ID = UUID("33333333-3333-3333-3333-333333333333")
 
@@ -29,9 +30,11 @@ async def test_creates_mailbox_with_admin_local_part_and_publishes(encryptor):
         encryptor=encryptor,
         producer=producer,
         mailcow_domain="efbazaar.uz",
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
     )
     await handler.handle(
-        e.MailboxProvisionRequest(mailbox_id=MAILBOX_ID, local_part="azizbek")
+        e.MailboxProvisionRequest(mailbox_id=MAILBOX_ID, local_part="azizbek", address_version=2)
     )
 
     call = mailcow.create_mailbox.await_args
@@ -51,9 +54,7 @@ async def test_creates_mailbox_with_admin_local_part_and_publishes(encryptor):
 
     # Context MUST be mbox-{mailboxId}: admin rows have no trade, so this is
     # the only context MailboxPasswordResolver can try.
-    field = EncryptedField(
-        iv=event.iv, tag=event.tag, ciphertext=event.encrypted_password
-    )
+    field = EncryptedField(iv=event.iv, tag=event.tag, ciphertext=event.encrypted_password)
     plaintext = encryptor.decrypt(f"mbox-{MAILBOX_ID}", field).decode()
     assert plaintext == call.kwargs["password"]
 
@@ -71,9 +72,11 @@ async def test_populates_caches_on_fresh_create(encryptor):
         mailcow_domain="efbazaar.uz",
         password_cache=password_cache,
         mailbox_id_to_email=mailbox_id_to_email,
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
     )
     await handler.handle(
-        e.MailboxProvisionRequest(mailbox_id=MAILBOX_ID, local_part="azizbek")
+        e.MailboxProvisionRequest(mailbox_id=MAILBOX_ID, local_part="azizbek", address_version=2)
     )
 
     generated = mailcow.create_mailbox.await_args.kwargs["password"]
@@ -93,9 +96,11 @@ async def test_replay_of_existing_mailbox_still_publishes_but_skips_caches(encry
         producer=producer,
         mailcow_domain="efbazaar.uz",
         password_cache=password_cache,
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
     )
     await handler.handle(
-        e.MailboxProvisionRequest(mailbox_id=MAILBOX_ID, local_part="azizbek")
+        e.MailboxProvisionRequest(mailbox_id=MAILBOX_ID, local_part="azizbek", address_version=2)
     )
 
     event = producer.publish.call_args[0][2]

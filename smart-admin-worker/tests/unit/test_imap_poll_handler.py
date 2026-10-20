@@ -15,6 +15,7 @@ from uuid import UUID
 
 from smart_admin_worker.handlers.imap_poll import ImapPollHandler
 from smart_admin_worker.imap.poller import PollPurpose
+from smart_admin_worker.imap.registry import ImapPollerRegistry
 from smart_admin_worker.kafka import events as e
 
 TRADE = UUID("11111111-1111-1111-1111-111111111111")
@@ -39,7 +40,7 @@ def _handler(registry):
 
 async def _run_and_capture(purpose: PollPurpose):
     """Runs the handler and returns (producer, the callback it registered)."""
-    registry = AsyncMock()
+    registry = AsyncMock(spec=ImapPollerRegistry)
     handler = _handler(registry)
     await handler.handle(
         e.ImapPollRequest(trade_id=TRADE, mailbox_email=BOX, purpose=purpose.value)

@@ -29,6 +29,10 @@ public class Mailbox {
     @Column(name = "owner_user_id")
     private UUID ownerUserId;
 
+    /** Responsible user retained after access is detached; not released by unlinking. */
+    @Column(name = "retained_user_id")
+    private UUID retainedUserId;
+
     @Column(name = "display_name", length = 60)
     private String displayName;
 
@@ -94,6 +98,16 @@ public class Mailbox {
     /** Marketplace account this box is verified for; null = free. */
     @Column(name = "linked_account_id")
     private UUID linkedAccountId;
+
+    @Column(name = "provisioning_status", nullable = false)
+    @Builder.Default
+    private String provisioningStatus = "NONE";
+
+    @Column(name = "provisioning_claim_id")
+    private UUID provisioningClaimId;
+
+    @Column(name = "provisioning_error")
+    private String provisioningError;
 
     /** Set when the worker confirms Mailcow created the box. Null = still pending. */
     @Column(name = "provisioned_at")

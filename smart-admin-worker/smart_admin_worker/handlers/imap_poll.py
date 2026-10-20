@@ -6,13 +6,16 @@ purpose Y" — we register a poll task and publish results as they arrive.
 
 from __future__ import annotations
 
+import hashlib
+import logging
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 
 from smart_admin_worker.crypto.field_encryptor import EncryptedField, FieldEncryptor
 from smart_admin_worker.imap.poller import PollPurpose
 from smart_admin_worker.imap.registry import ImapPollerRegistry
 from smart_admin_worker.kafka import events as e
-from smart_admin_worker.kafka.producer import KafkaProducerClient
+from smart_admin_worker.kafka.producer import KafkaProducerClient, publish_required_result
 from smart_admin_worker.kafka.topics import (
     TOPIC_IMAP_2FA,
     TOPIC_KONAMI_EMAIL,
@@ -20,6 +23,14 @@ from smart_admin_worker.kafka.topics import (
 )
 
 PasswordProvider = Callable[[str], Awaitable[str]]
+OriginVerifier = Callable[[bytes, str, datetime, datetime], Awaitable[bool]]
+log = logging.getLogger(__name__)
+
+
+async def _release_origin(*args) -> bool:
+    from smart_admin_worker.imap.release_auth import verify_release_origin
+
+    return await verify_release_origin(*args)
 
 
 class ImapPollHandler:
@@ -29,14 +40,28 @@ class ImapPollHandler:
         producer: KafkaProducerClient,
         password_provider: PasswordProvider,
         decryptor: FieldEncryptor | None = None,
+        origin_verifier: OriginVerifier | None = None,
     ) -> None:
         self._registry = registry
         self._producer = producer
         self._password_provider = password_provider
         self._decryptor = decryptor
+        self._origin_verifier = origin_verifier or _release_origin
 
     async def handle(self, event: e.ImapPollRequest) -> None:
         purpose = PollPurpose(event.purpose)
+        if purpose is PollPurpose.VERIFY_RELEASE:
+            start, end = getattr(event, "started_at", None), getattr(event, "expires_at", None)
+            if (
+                not isinstance(start, datetime)
+                or not isinstance(end, datetime)
+                or start.tzinfo is None
+                or end.tzinfo is None
+                or start >= end
+                or start > datetime.now(UTC)
+                or end <= datetime.now(UTC)
+            ):
+                raise ValueError("Invalid release proof time bounds")
         password = await self._password_provider(event.mailbox_email)
         if not password:
             password = self._decrypt_from_request(event)
@@ -66,6 +91,53 @@ class ImapPollHandler:
                     email_not_registered=hit.email_not_registered,
                 ),
             )
+
+        reported_failures: set[bytes] = set()
+
+        async def on_release(hit) -> bool:
+            if datetime.now(UTC) > event.expires_at:
+                return False
+            raw = getattr(hit, "raw_message", None)
+            verified = False
+            if isinstance(raw, bytes) and raw:
+                try:
+                    verified = (
+                        await self._origin_verifier(
+                            raw,
+                            event.mailbox_email,
+                            event.started_at,
+                            event.expires_at,
+                        )
+                        is True
+                    )
+                except Exception:
+                    verified = False
+            fingerprint = hashlib.sha256(raw or b"missing-original-rfc822").digest()
+            if not verified and fingerprint in reported_failures:
+                return False
+            await publish_required_result(
+                self._producer,
+                TOPIC_KONAMI_EMAIL,
+                str(event.trade_id),
+                e.KonamiEmailReceived(
+                    trade_id=event.trade_id,
+                    reset_link_present=False,
+                    sender=hit.sender,
+                    received_at=hit.received_at if verified else datetime.now(UTC),
+                    mailbox_email=event.mailbox_email,
+                    email_not_registered=bool(verified and hit.email_not_registered),
+                    origin_verified=verified,
+                ),
+            )
+            if not verified:
+                if len(reported_failures) < 200:
+                    reported_failures.add(fingerprint)
+                log.warning(
+                    "Release origin proof unverified: request_id=%s mailbox=%s",
+                    event.trade_id,
+                    event.mailbox_email,
+                )
+            return bool(verified and hit.email_not_registered and not hit.reset_link_present)
 
         async def on_2fa(hit):
             await self._producer.publish(
@@ -99,13 +171,15 @@ class ImapPollHandler:
             await self._registry.cancel(event.mailbox_email, purpose)
         try:
             self._registry.start(
-                event.mailbox_email, password, purpose,
+                event.mailbox_email,
+                password,
+                purpose,
                 on_reset=on_reset if purpose is PollPurpose.VERIFY_LINK else None,
+                on_release=on_release if purpose is PollPurpose.VERIFY_RELEASE else None,
+                expires_at=event.expires_at if purpose is PollPurpose.VERIFY_RELEASE else None,
                 on_2fa=on_2fa if purpose is PollPurpose.WAIT_2FA_CODE else None,
                 on_email_change_code=(
-                    on_email_change_code
-                    if purpose is PollPurpose.WAIT_EMAIL_CHANGE_CODE
-                    else None
+                    on_email_change_code if purpose is PollPurpose.WAIT_EMAIL_CHANGE_CODE else None
                 ),
             )
         except ValueError:

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Handshake, Heart, HelpCircle, LogOut, Mail, Moon, Package, ShieldCheck, Sun, UserCog, UserPlus, UserRound, Wallet } from 'lucide-react';
+import { BarChart3, Bell, Handshake, Heart, HelpCircle, LogOut, Mail, Moon, Package, ShieldCheck, Sun, UserCog, UserPlus, UserRound, Wallet } from 'lucide-react';
 
 import { FEATURES } from '@/lib/feature-flags';
 
@@ -86,7 +86,7 @@ export function UserMenu({ user, className }: UserMenuProps) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-12 z-50 w-56 origin-top-right animate-menu-in overflow-hidden rounded-xl border border-border bg-card p-1.5 shadow-card-hover"
+          className="absolute right-0 top-12 z-50 max-h-[calc(100dvh-5rem)] w-56 origin-top-right animate-menu-in overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-card-hover"
         >
           <div className="border-b border-border px-2.5 pb-2.5 pt-1.5">
             <p className="truncate text-[13px] font-black text-foreground">{user.displayName}</p>
@@ -122,6 +122,18 @@ export function UserMenu({ user, className }: UserMenuProps) {
             >
               <Heart className="h-4 w-4 text-muted-foreground" />
               Sevimli
+            </Link>
+            <Link href="/seller-tools" role="menuitem" className={cn(ITEM_CLASS, 'min-h-11')} onClick={() => setOpen(false)}>
+              <Package aria-hidden className="h-4 w-4 text-muted-foreground" />
+              Sotuvchi vositalari
+            </Link>
+            <Link href="/seller-analytics" role="menuitem" className={cn(ITEM_CLASS, 'min-h-11')} onClick={() => setOpen(false)}>
+              <BarChart3 aria-hidden className="h-4 w-4 text-muted-foreground" />
+              Sotuvchi hisoboti
+            </Link>
+            <Link href="/watches" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
+              <Bell className="h-4 w-4 text-muted-foreground" />
+              Kuzatuvlar
             </Link>
             <Link href="/mail" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
               <Mail className="h-4 w-4 text-muted-foreground" />

@@ -28,7 +28,7 @@ class PlanPriceControllerIT extends AbstractPostgresIT {
 
     @AfterEach
     void restoreShippedPrices() {
-        jdbc.update("UPDATE plan_prices SET price_tiyin=1000000, updated_by=NULL WHERE plan_code='PRO' AND period='MONTH'");
+        jdbc.update("UPDATE plan_prices SET price_tiyin=3000000, updated_by=NULL WHERE plan_code='PRO' AND period='MONTH'");
         jdbc.update("UPDATE plan_prices SET price_tiyin=10000000, updated_by=NULL WHERE plan_code='PRO' AND period='YEAR'");
     }
 
@@ -36,8 +36,10 @@ class PlanPriceControllerIT extends AbstractPostgresIT {
     void theCatalogueShowsPricesWithoutSigningIn() throws Exception {
         mvc.perform(get("/api/v1/payments/plans"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.code=='PRO')].prices.MONTH").value(1_000_000))
-                .andExpect(jsonPath("$[?(@.code=='MAX')].prices.YEAR").value(25_000_000))
+                .andExpect(jsonPath("$[?(@.code=='PRO')].prices.MONTH").value(3_000_000))
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[?(@.code=='MAX')]").isEmpty())
+                .andExpect(jsonPath("$[?(@.code=='PRO')].prices.YEAR").isEmpty())
                 .andExpect(jsonPath("$[?(@.code=='STANDARD')].prices.MONTH").isEmpty());
     }
 
@@ -73,6 +75,34 @@ class PlanPriceControllerIT extends AbstractPostgresIT {
                     .andExpect(status().isBadRequest());
         }
         mvc.perform(get("/api/v1/admin/plans/prices").with(asAdmin()))
-                .andExpect(jsonPath("$[?(@.planCode=='PRO' && @.period=='MONTH')].priceTiyin").value(1_000_000));
+                .andExpect(jsonPath("$[?(@.planCode=='PRO' && @.period=='MONTH')].priceTiyin").value(3_000_000));
+    }
+
+    @Test
+    void retiredProductsCannotBeSoldAgainThroughAdminPrices() throws Exception {
+        for (String product : new String[]{"MAX:MONTH", "MAX:YEAR", "PRO:YEAR", "STAFF:MONTH"}) {
+            String[] sku = product.split(":");
+            mvc.perform(put("/api/v1/admin/plans/prices").with(asAdmin())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"prices\":[{\"planCode\":\"" + sku[0]
+                                    + "\",\"period\":\"" + sku[1] + "\",\"priceTiyin\":100}]}"))
+                    .andExpect(status().isBadRequest());
+        }
+        mvc.perform(get("/api/v1/admin/plans/prices").with(asAdmin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].planCode").value("PRO"))
+                .andExpect(jsonPath("$[0].period").value("MONTH"));
+    }
+
+    @Test
+    void aMixedPriceUpdateIsAtomicWhenOneProductIsRetired() throws Exception {
+        mvc.perform(put("/api/v1/admin/plans/prices").with(asAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"prices\":[{\"planCode\":\"PRO\",\"period\":\"MONTH\",\"priceTiyin\":12},"
+                                + "{\"planCode\":\"PRO\",\"period\":\"YEAR\",\"priceTiyin\":100}]}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/admin/plans/prices").with(asAdmin()))
+                .andExpect(jsonPath("$[?(@.planCode=='PRO' && @.period=='MONTH')].priceTiyin").value(3_000_000));
     }
 }

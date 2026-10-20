@@ -58,13 +58,12 @@ class CustomMailboxIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeatu
 
     private UUID userOn(String plan, String customSlots) {
         Map<String, String> g = new HashMap<>();
-        g.put("mailbox.slots", "5");
+        g.put("mailbox.total_slots", "5");
         g.put("mailbox.custom_slots", customSlots);
-        projection.replacePlan(plan, g);
+        projection.replacePlan(plan, g, System.nanoTime(), "fixture-" + UUID.randomUUID(), java.time.Instant.now());
         UUID u = UUID.randomUUID();
         if (!"STANDARD".equals(plan)) {
-            userPlanRows.saveAndFlush(UserPlanView.builder().userId(u).planCode(plan)
-                    .updatedAt(Instant.now()).build());
+            projection.userMoved(u, plan, null, System.nanoTime(), "fixture-" + UUID.randomUUID(), Instant.now());
         }
         return u;
     }
@@ -95,8 +94,8 @@ class CustomMailboxIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeatu
     }
 
     @Test
-    void proCannotUsePremiumDomain() throws Exception {
-        UUID u = userOn("PRO", "1");
+    void freeCannotUsePremiumDomain() throws Exception {
+        UUID u = userOn("STANDARD", "0");
         String name = unique();
         mvc.perform(get("/api/v1/mailboxes/custom/availability")
                         .param("localPart", name).param("domain", "efootball.uz").with(asUser(u)))
@@ -133,8 +132,8 @@ class CustomMailboxIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeatu
     }
 
     @Test
-    void maxClaimsOnPremiumDomain() throws Exception {
-        UUID u = userOn("MAX", "3");
+    void proClaimsOnPremiumDomain() throws Exception {
+        UUID u = userOn("PRO", "3");
         String name = unique();
         mvc.perform(post("/api/v1/mailboxes/custom").with(asUser(u))
                         .contentType(MediaType.APPLICATION_JSON).content(claimBody(name, "efootball.uz")))
@@ -196,7 +195,7 @@ class CustomMailboxIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeatu
     void twoUsersRacingForOneNameOnlyOneWins() throws Exception {
         UUID a = userOn("PRO", "1");
         UUID b = UUID.randomUUID();
-        userPlanRows.saveAndFlush(UserPlanView.builder().userId(b).planCode("PRO").updatedAt(Instant.now()).build());
+        projection.userMoved(b, "PRO", null, System.nanoTime(), "fixture-" + UUID.randomUUID(), Instant.now());
         String name = unique();
         CountDownLatch go = new CountDownLatch(1);
         ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -240,4 +239,31 @@ class CustomMailboxIT extends uz.efbazaar.trade.testsupport.AbstractMailboxFeatu
         mvc.perform(get("/api/v1/mailboxes/custom").with(asUser(UUID.randomUUID())))
                 .andExpect(jsonPath("$.length()").value(0));
     }
+    @Test void stalePaidProjectionReturnsTemporaryFailureBeforeUpgradeOrQuotaErrors() throws Exception {
+        UUID user = userOn("PRO", "2");
+        projection.userMoved(user, "PRO", Instant.now().plusSeconds(3600), System.nanoTime(),
+                "stale-" + UUID.randomUUID(), Instant.now().minusSeconds(90000));
+        String name = unique();
+        mvc.perform(get("/api/v1/mailboxes/custom/availability").with(asUser(user))
+                        .param("localPart", name).param("domain", "efootball.uz"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("plan_projection_unavailable"));
+        mvc.perform(post("/api/v1/mailboxes/custom").with(asUser(user))
+                        .contentType(MediaType.APPLICATION_JSON).content(claimBody(name, "efbazaar.uz")))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("plan_projection_unavailable"));
+        assertThat(mailboxes.findByEmail(name + "@efbazaar.uz")).isEmpty();
+    }
+    @Test void missingPaidGrantReturnsTemporaryFailureAndDoesNotProvision() throws Exception {
+        UUID user = userOn("PRO", "2");
+        projection.replacePlan("PRO", Map.of("mailbox.total_slots", "10"), System.nanoTime(),
+                "missing-" + UUID.randomUUID(), Instant.now());
+        String name = unique();
+        mvc.perform(post("/api/v1/mailboxes/custom").with(asUser(user))
+                        .contentType(MediaType.APPLICATION_JSON).content(claimBody(name, "efbazaar.uz")))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("plan_projection_unavailable"));
+        assertThat(mailboxes.findByEmail(name + "@efbazaar.uz")).isEmpty();
+    }
+
 }

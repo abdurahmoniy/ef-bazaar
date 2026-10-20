@@ -1,6 +1,8 @@
 package uz.efbazaar.marketplace.domain;
 
 public enum NotificationType {
+    WATCH_MATCH,
+    WATCH_DIGEST,
     /** A buyer opened a chat on my listing. */
     CHAT_CREATED,
     /** My chat partner sent a message. */

@@ -6,10 +6,11 @@ import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 
 import { MailSidebar } from '@/components/mail/mail-sidebar';
-import type { MailboxSummary } from '@/lib/mail-types';
+import type { MailboxSlotStatus, MailboxSummary } from '@/lib/mail-types';
 
 interface MobileSidebarProps {
   mailboxes: MailboxSummary[];
+  slots?: MailboxSlotStatus | null;
   activeMailboxId: string | null;
 }
 
@@ -18,7 +19,7 @@ interface MobileSidebarProps {
  * is visible and this renders only the (hidden) trigger. Closes on backdrop
  * tap, Escape, and any route change (tapping a mailbox navigates).
  */
-export function MobileSidebar({ mailboxes, activeMailboxId }: MobileSidebarProps) {
+export function MobileSidebar({ mailboxes, activeMailboxId, slots }: MobileSidebarProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -78,6 +79,7 @@ export function MobileSidebar({ mailboxes, activeMailboxId }: MobileSidebarProps
               <MailSidebar
                 mailboxes={mailboxes}
                 activeMailboxId={activeMailboxId}
+                slots={slots}
                 hideHeader
               />
             </div>

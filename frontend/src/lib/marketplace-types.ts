@@ -484,6 +484,8 @@ export interface MessageResponse {
 }
 
 export type NotificationType =
+  | 'WATCH_MATCH'
+  | 'WATCH_DIGEST'
   | 'CHAT_CREATED'
   | 'CHAT_MESSAGE'
   | 'TRADE_ADMIN_INVITED'
@@ -507,7 +509,14 @@ export type NotificationType =
   | 'PARTNER_REJECTED'
   | 'PARTNER_CANCELLED';
 
+export interface WatchNotificationPayload {
+  items: { listingId: string; reasons: string[]; oldPrice?: number | null; newPrice?: number | null }[];
+  totalCount: number;
+  remainingCount: number;
+}
+
 export interface NotificationResponse {
+  watchPayload?: WatchNotificationPayload | null;
   verificationCode?: string | null;
   id: string;
   type: NotificationType;

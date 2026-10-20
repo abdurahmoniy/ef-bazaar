@@ -32,3 +32,10 @@ app:
   logging:
     kafka-forward:
       enabled: false
+
+# Most database tests deliberately have no broker. Bound the new outbox sender's
+# own metadata/ack wait as well, so cached contexts do not occupy DB connections
+# for 10 seconds per retry. PlanDeliveryIT uses a real broker and overrides to 2s.
+outbox:
+  relay:
+    send-timeout: 100ms

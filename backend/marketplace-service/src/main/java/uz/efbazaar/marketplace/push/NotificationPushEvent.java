@@ -9,6 +9,8 @@ public record NotificationPushEvent(UUID recipientUserId, Map<String, String> da
         String actor = n.getActorDisplayName() == null || n.getActorDisplayName().isBlank() ? "Foydalanuvchi" : n.getActorDisplayName().trim();
         actor = actor.substring(0, Math.min(actor.length(), 64));
         String body = switch (n.getType()) {
+            case WATCH_MATCH -> "Kuzatuvingizga mos yangilik";
+            case WATCH_DIGEST -> "Kuzatuvlar bo‘yicha kunlik jamlanma";
             case CHAT_CREATED -> actor + " e’loningiz bo‘yicha chat ochdi";
             case CHAT_MESSAGE -> actor + " sizga xabar yozdi";
             case TRUST_WARNING -> "Profilingizga ogohlantirish berildi";
@@ -42,6 +44,7 @@ public record NotificationPushEvent(UUID recipientUserId, Map<String, String> da
 
     private static String destination(Notification n) {
         return switch (n.getType()) {
+            case WATCH_MATCH, WATCH_DIGEST -> "/watches";
             case WITHDRAWAL_REQUESTED -> "/admin/payments/withdrawals?ticket=" + (n.getWithdrawalId() == null ? "" : n.getWithdrawalId());
             case WALLET_CREDITED, WITHDRAWAL_PAID, WITHDRAWAL_REJECTED -> "/hamyon";
             case PARTNER_APPROVED -> "/partner";

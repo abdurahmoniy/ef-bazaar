@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import uz.efbazaar.trade.testsupport.AbstractPostgresIT;
+import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
 import uz.efbazaar.trade.trade.domain.TradeState;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * so it needs a test.
  */
 @SpringBootTest
-class HumanModeSchemaIT extends AbstractPostgresIT {
+class HumanModeSchemaIT extends AbstractIntegrationIT {
 
     @Autowired JdbcTemplate jdbc;
 

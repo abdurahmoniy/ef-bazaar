@@ -7,7 +7,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
 import uz.efbazaar.trade.mailbox.domain.MailboxKind;
-import uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException;
 import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
 import uz.efbazaar.trade.plan.repository.PlanEntitlementViewRepository;
@@ -25,12 +24,10 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Custom (self-named) boxes spend {@code mailbox.custom_slots}, never
- * {@code mailbox.slots}, and are locked — not deleted — past their own limit.
+ * Custom creation has a sublimit; existing access shares the total pool across kinds.
  */
 @SpringBootTest
 @Import(StubEscrowConfig.class)
@@ -52,10 +49,13 @@ class CustomSlotIT extends AbstractIntegrationIT {
     }
 
     private void standardGrants(Map<String, String> granted) {
-        projection.replacePlan("STANDARD", new HashMap<>(granted));
+        projection.replacePlan("STANDARD", new HashMap<>(granted), System.nanoTime(), "fixture-" + UUID.randomUUID(), java.time.Instant.now());
     }
 
     private UUID box(UUID owner, MailboxKind kind, long priority) {
+        // A verified Free subscription is distinct from a missing projection.
+        if (!userPlanRows.existsById(owner)) projection.userMoved(owner, "STANDARD", null,
+                System.nanoTime(), "fixture-" + UUID.randomUUID(), Instant.now());
         UUID id = UUID.randomUUID();
         mailboxes.saveAndFlush(Mailbox.builder().id(id).email("c-" + id + "@efbazaar.uz")
                 .ownerUserId(owner).encryptedPassword(new byte[]{1}).passwordIv(new byte[12])
@@ -75,7 +75,7 @@ class CustomSlotIT extends AbstractIntegrationIT {
 
     @Test
     void anAdminGivenCustomBoxNeitherSpendsASlotNorLocks() {
-        standardGrants(Map.of("mailbox.slots", "3", "mailbox.custom_slots", "0"));
+        standardGrants(Map.of("mailbox.total_slots", "3", "mailbox.custom_slots", "0"));
         UUID u = UUID.randomUUID();
         UUID gift = adminGift(u, 1);
 
@@ -85,7 +85,7 @@ class CustomSlotIT extends AbstractIntegrationIT {
 
     @Test
     void adminGiftsDoNotPushUserClaimedBoxesIntoTheLock() {
-        standardGrants(Map.of("mailbox.slots", "3", "mailbox.custom_slots", "1"));
+        standardGrants(Map.of("mailbox.total_slots", "3", "mailbox.custom_slots", "1"));
         UUID u = UUID.randomUUID();
         adminGift(u, 9);
         UUID claimed = box(u, MailboxKind.CUSTOM, 1);
@@ -95,18 +95,19 @@ class CustomSlotIT extends AbstractIntegrationIT {
     }
 
     @Test
-    void customBoxesDoNotSpendRandomSlots() {
-        standardGrants(Map.of("mailbox.slots", "1", "mailbox.custom_slots", "0"));
+    void customBoxesSpendTheUnifiedPool() {
+        standardGrants(Map.of("mailbox.total_slots", "1", "mailbox.custom_slots", "0"));
         UUID u = UUID.randomUUID();
         box(u, MailboxKind.CUSTOM, 1);
 
-        assertThat(slots.used(u)).isZero();
-        assertThatCode(() -> slots.assertCanAllocate(u)).doesNotThrowAnyException();
+        assertThat(slots.used(u)).isEqualTo(1);
+        assertThatThrownBy(() -> slots.assertCanAllocate(u))
+                .isInstanceOf(uz.efbazaar.trade.plan.exception.MailboxSlotsExhaustedException.class);
     }
 
     @Test
     void missingCustomEntitlementMeansZero() {
-        standardGrants(Map.of("mailbox.slots", "3"));
+        standardGrants(Map.of("mailbox.total_slots", "3"));
         UUID u = UUID.randomUUID();
 
         assertThat(custom.limitFor(u)).hasValue(0);
@@ -126,7 +127,7 @@ class CustomSlotIT extends AbstractIntegrationIT {
 
     @Test
     void customUsageCountsOnlyCustomBoxes() {
-        standardGrants(Map.of("mailbox.slots", "5", "mailbox.custom_slots", "2"));
+        standardGrants(Map.of("mailbox.total_slots", "5", "mailbox.custom_slots", "2"));
         UUID u = UUID.randomUUID();
         box(u, MailboxKind.CUSTOM, 1);
         box(u, MailboxKind.RANDOM, 2);
@@ -136,50 +137,50 @@ class CustomSlotIT extends AbstractIntegrationIT {
     }
 
     @Test
-    void downgradeLocksOldestCustomBoxesOnly() {
-        standardGrants(Map.of("mailbox.slots", "5", "mailbox.custom_slots", "1"));
+    void customCreationSublimitDoesNotLockExistingCustomBoxes() {
+        standardGrants(Map.of("mailbox.total_slots", "5", "mailbox.custom_slots", "1"));
         UUID u = UUID.randomUUID();
         UUID older = box(u, MailboxKind.CUSTOM, 1);
         box(u, MailboxKind.CUSTOM, 2);
         box(u, MailboxKind.RANDOM, 3);
 
-        assertThat(access.lockedIds(u)).containsExactly(older);
+        assertThat(access.lockedIds(u)).isEmpty();
         assertThat(custom.canAllocate(u)).isFalse();
         assertThat(mailboxes.findById(older)).isPresent();
     }
 
     @Test
-    void randomLimitDoesNotLockCustomBoxes() {
-        standardGrants(Map.of("mailbox.slots", "1", "mailbox.custom_slots", "1"));
+    void totalLimitOrdersBothKindsTogether() {
+        standardGrants(Map.of("mailbox.total_slots", "1", "mailbox.custom_slots", "1"));
         UUID u = UUID.randomUUID();
         UUID customBox = box(u, MailboxKind.CUSTOM, 5);
         UUID oldRandom = box(u, MailboxKind.RANDOM, 1);
-        box(u, MailboxKind.RANDOM, 2);
+        UUID otherRandom = box(u, MailboxKind.RANDOM, 2);
 
-        assertThat(access.lockedIds(u)).containsExactly(oldRandom).doesNotContain(customBox);
+        assertThat(access.lockedIds(u)).containsExactly(otherRandom, oldRandom).doesNotContain(customBox);
     }
 
     @Test
-    void unlimitedRandomPlanStillLocksCustomPastLimit() {
+    void unlimitedTotalPlanDoesNotLockExistingCustom() {
         Map<String, String> g = new HashMap<>();
-        g.put("mailbox.slots", null);
+        g.put("mailbox.total_slots", null);
         g.put("mailbox.custom_slots", "0");
         standardGrants(g);
         UUID u = UUID.randomUUID();
         UUID customBox = box(u, MailboxKind.CUSTOM, 1);
 
-        assertThat(access.lockedIds(u)).containsExactly(customBox);
+        assertThat(access.lockedIds(u)).doesNotContain(customBox);
     }
 
     @Test
-    void unlockSwapRefusesMixingKinds() {
-        standardGrants(Map.of("mailbox.slots", "1", "mailbox.custom_slots", "1"));
+    void unlockSwapAllowsMixingKinds() {
+        standardGrants(Map.of("mailbox.total_slots", "1", "mailbox.custom_slots", "1"));
         UUID u = UUID.randomUUID();
         UUID lockedCustom = box(u, MailboxKind.CUSTOM, 1);
         box(u, MailboxKind.CUSTOM, 2);
         UUID openRandom = box(u, MailboxKind.RANDOM, 3);
 
-        assertThatThrownBy(() -> mailboxService.swapAccess(u, lockedCustom, openRandom))
-                .isInstanceOf(InvalidUnlockSwapException.class);
+        mailboxService.swapAccess(u, lockedCustom, openRandom);
+        assertThat(access.lockedIds(u)).contains(openRandom).doesNotContain(lockedCustom);
     }
 }

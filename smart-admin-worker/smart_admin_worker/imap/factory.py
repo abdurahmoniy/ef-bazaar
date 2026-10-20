@@ -19,6 +19,15 @@ from imap_tools.message import MailMessage
 SOCKET_TIMEOUT_SECONDS = 30
 
 
+class RawMailMessage(MailMessage):
+    """Retain original RFC822 octets; reserialization is not DKIM evidence."""
+
+    def __init__(self, fetch_data: list) -> None:
+        raw = self._get_message_data_parts(fetch_data)[0]
+        self.raw_message = raw if isinstance(raw, bytes) and len(raw) <= 1024 * 1024 else None
+        super().__init__(fetch_data)
+
+
 class _ImapConn:
     def __init__(self, mailbox: MailBox) -> None:
         self._mailbox = mailbox
@@ -52,7 +61,14 @@ class ImapToolsConnectionFactory:
     """Implements the `ImapConnectionFactory` protocol from `imap.poller`."""
 
     def open(self, host: str, port: int, email: str, password: str) -> _ImapConn:
-        mb = MailBox(host, port, timeout=SOCKET_TIMEOUT_SECONDS).login(
-            email, password, initial_folder="INBOX"
-        )
+        mb = MailBox(host, port, timeout=SOCKET_TIMEOUT_SECONDS)
+        mb.email_message_class = RawMailMessage
+        mb.login(email, password, initial_folder="INBOX")
         return _ImapConn(mb)
+
+
+def verify_credentials(host: str, port: int, email: str, password: str) -> bool:
+    """AUTH only: no SELECT, FETCH, flags or other mailbox mutations."""
+    with MailBox(host, port, timeout=SOCKET_TIMEOUT_SECONDS) as mailbox:
+        mailbox.login(email, password, initial_folder=None)
+        return True

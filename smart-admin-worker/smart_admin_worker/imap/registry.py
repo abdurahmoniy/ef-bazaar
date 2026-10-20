@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 
 from smart_admin_worker.imap.detector import (
     EmailChangeCodeHit,
@@ -62,6 +63,8 @@ class ImapPollerRegistry:
         on_reset: Callable[[ResetHit], Awaitable[None]] | None,
         on_2fa: Callable[[TwoFaHit], Awaitable[None]] | None,
         on_email_change_code: Callable[[EmailChangeCodeHit], Awaitable[None]] | None = None,
+        on_release: Callable[[ResetHit], Awaitable[bool]] | None = None,
+        expires_at: datetime | None = None,
     ) -> asyncio.Task:
         key = (mailbox_email, purpose)
         if key in self._tasks and not self._tasks[key].done():
@@ -74,11 +77,32 @@ class ImapPollerRegistry:
             on_reset=on_reset,
             on_2fa=on_2fa,
             on_email_change_code=on_email_change_code,
+            on_release=on_release,
             imap_host=self._imap_host,
             imap_port=self._imap_port,
             snapshots=self._subscribe(key, password),
         )
-        task = asyncio.create_task(poller.run(mailbox_email, password, purpose))
+
+        async def run_release() -> None:
+            try:
+                async with asyncio.timeout(
+                    max(0, (expires_at - datetime.now(UTC)).total_seconds())
+                ):
+                    await poller.run(mailbox_email, password, purpose)
+            except TimeoutError:
+                pass
+            finally:
+                if self._tasks.get(key) is asyncio.current_task():
+                    self._tasks.pop(key, None)
+                    self._unsubscribe(key)
+
+        if purpose is PollPurpose.VERIFY_RELEASE:
+            if expires_at is None:
+                self._unsubscribe(key)
+                raise ValueError("Release proof requires expiry bounds")
+            task = asyncio.create_task(run_release())
+        else:
+            task = asyncio.create_task(poller.run(mailbox_email, password, purpose))
         self._tasks[key] = task
         return task
 
@@ -154,9 +178,7 @@ class ImapPollerRegistry:
                 pass  # loop already closed at shutdown
 
         watched.watcher = MailboxWatcher(
-            lambda: self._factory.open(
-                self._imap_host, self._imap_port, mailbox_email, password
-            ),
+            lambda: self._factory.open(self._imap_host, self._imap_port, mailbox_email, password),
             mailbox_email,
             on_snapshot=on_snapshot,
             on_closed=on_closed,

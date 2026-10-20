@@ -86,3 +86,5 @@ it('collects sold accounts under their own filter and keeps them out of the idle
   await act(async () => button('Bozorda emas').click());
   expect(container.textContent).not.toContain('Eski');
 });
+
+it('offers real seller bulk management from the account collection',async()=>{await render();expect(container.querySelector('a[href="/seller-tools"]')?.textContent).toContain('Sotuvchi vositalari');});

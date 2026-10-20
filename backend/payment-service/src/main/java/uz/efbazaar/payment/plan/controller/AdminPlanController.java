@@ -41,8 +41,7 @@ public class AdminPlanController {
     @PostMapping("/assign")
     public MyPlanResponse assign(@Valid @RequestBody AssignPlanRequest req) {
         var sub = plans.assign(req.userId(), req.planCode(), req.expiresAt(), req.source());
-        return new MyPlanResponse(sub.getPlanCode(), sub.getExpiresAt(),
-                plans.entitlementsOf(sub.getPlanCode()));
+        return plans.mine(sub.getUserId());
     }
 
     @GetMapping("/prices")

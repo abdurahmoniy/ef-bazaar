@@ -15,6 +15,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 
+import { ProfileAppearance } from '@/components/profile/profile-appearance';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -103,6 +104,7 @@ export default async function UserProfilePage({ params }: UserPageProps) {
 
         {/* Profile Header */}
         <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6">
+          <ProfileAppearance userId={id} />
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:text-left">
               <Avatar className="h-20 w-20 ring-4 ring-primary/10 sm:h-24 sm:w-24">

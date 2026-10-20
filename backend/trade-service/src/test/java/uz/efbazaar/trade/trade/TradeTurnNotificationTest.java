@@ -32,7 +32,7 @@ class TradeTurnNotificationTest {
         when(sides.find(id, ParticipantRole.BUYER)).thenReturn(Optional.of(buyerSide));
         service = new TradeService(repo, null, null, new TradeStateMachine(), handler,
                 new TradeSideService(sides, mock(MailboxRepository.class)), mock(TradeAuditService.class),
-                null, null, mock(TradeBroadcaster.class), events, null) {
+                null, null, mock(TradeBroadcaster.class), events, null, mock(uz.efbazaar.trade.plan.service.MailboxQuotaLock.class), mock(uz.efbazaar.trade.mailbox.provision.ProvisioningClaimService.class)) {
             @Override public TradeResponse toResponse(Trade t, ParticipantRole role) { return null; }
         };
     }

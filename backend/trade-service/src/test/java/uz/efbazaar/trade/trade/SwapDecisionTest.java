@@ -49,7 +49,7 @@ class SwapDecisionTest {
         TradeStateHandler handler = mock(TradeStateHandler.class);
         TradeService service = new TradeService(repository, mock(TradeChatRepository.class),
                 mock(TradeMessageRepository.class), new TradeStateMachine(), handler, sides,
-                mock(TradeAuditService.class), null, null, mock(TradeBroadcaster.class), null, null) {
+                mock(TradeAuditService.class), null, null, mock(TradeBroadcaster.class), null, null, mock(uz.efbazaar.trade.plan.service.MailboxQuotaLock.class), mock(uz.efbazaar.trade.mailbox.provision.ProvisioningClaimService.class)) {
             @Override
             public TradeResponse toResponse(Trade current, ParticipantRole role) { return null; }
         };

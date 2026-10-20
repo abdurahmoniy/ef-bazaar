@@ -38,14 +38,14 @@ class MailServiceOwnershipTest {
         mailboxes = mock(MailboxService.class);
         pool = mock(ImapConnectionPool.class);
         sanitizer = mock(HtmlSanitizer.class);
-        svc = new MailService(mailboxes, pool, sanitizer, mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class));
+        svc = new MailService(mailboxes, pool, sanitizer, mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class), mock(uz.efbazaar.trade.mailbox.service.MailboxPreservationService.class));
     }
 
     @Test
     void summaryIncludesNameEvenWhenImapIsUnavailable() throws Exception {
         var box = Mailbox.builder()
                 .id(UUID.randomUUID()).email("box@efbazaar.uz").displayName("Main account").build();
-        when(pool.acquire(box)).thenThrow(new MessagingException("offline"));
+        when(pool.lease(box)).thenThrow(new MessagingException("offline"));
 
         var summary = svc.summarize(List.of(box)).getFirst();
 
@@ -61,7 +61,7 @@ class MailServiceOwnershipTest {
         var access = mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class);
         when(access.lockedIds(owner)).thenReturn(java.util.Set.of(box.getId()));
         when(mailboxes.listOwnedBy(owner)).thenReturn(List.of(box));
-        var local = new MailService(mailboxes, pool, sanitizer, access);
+        var local = new MailService(mailboxes, pool, sanitizer, access, mock(uz.efbazaar.trade.mailbox.service.MailboxPreservationService.class));
 
         var summary = local.listMyMailboxes(owner).getFirst();
 

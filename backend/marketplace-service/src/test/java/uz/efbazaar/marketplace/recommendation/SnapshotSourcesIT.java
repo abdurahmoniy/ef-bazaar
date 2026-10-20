@@ -30,7 +30,7 @@ class SnapshotSourcesIT {
         jdbc.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public");
         jdbc.execute("""
                 CREATE TABLE listings (id UUID PRIMARY KEY, seller_id UUID NOT NULL, status VARCHAR(16) NOT NULL,
-                    price NUMERIC(19,2) NOT NULL, value_score DOUBLE PRECISION);
+                    price NUMERIC(19,2) NOT NULL, value_score DOUBLE PRECISION, published_at TIMESTAMPTZ, publication_version BIGINT NOT NULL DEFAULT 0);
                 CREATE TABLE listing_cards (listing_id UUID NOT NULL, efhub_id BIGINT NOT NULL,
                     player_id UUID NOT NULL, ordinal SMALLINT NOT NULL);
                 CREATE TABLE listing_likes (listing_id UUID NOT NULL, user_id UUID NOT NULL);
@@ -40,7 +40,7 @@ class SnapshotSourcesIT {
     @Test
     void listingSnapshotCarriesCurrentStateAndOrderedCards() {
         UUID id = UUID.randomUUID(), seller = UUID.randomUUID(), p1 = UUID.randomUUID(), p2 = UUID.randomUUID();
-        jdbc.update("INSERT INTO listings VALUES (?, ?, 'ACTIVE', 150000, 0.42)", id, seller);
+        jdbc.update("INSERT INTO listings(id,seller_id,status,price,value_score) VALUES (?, ?, 'ACTIVE', 150000, 0.42)", id, seller);
         jdbc.update("INSERT INTO listing_cards VALUES (?, 89002, ?, 1), (?, 89001, ?, 0)", id, p2, id, p1);
 
         ListingSnapshot s = (ListingSnapshot) new ListingSnapshotSource(jdbc).build(id.toString(), 7).orElseThrow();

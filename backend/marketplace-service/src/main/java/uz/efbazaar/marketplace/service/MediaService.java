@@ -50,6 +50,18 @@ public class MediaService {
                     String.format("Rasm soni %d dan %d gacha bo'lishi kerak (yuborildi: %d)",
                             props.minFiles(), props.maxFiles(), actual));
         }
+        validateFiles(files);
+    }
+
+    /** One profile cover shares all file guards, but not listing photo-count policy. */
+    public void validateSingleImage(List<MultipartFile> files) {
+        if (files == null || files.size() != 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Exactly one cover image is required");
+        }
+        validateFiles(files);
+    }
+
+    private void validateFiles(List<MultipartFile> files) {
         for (MultipartFile mf : files) {
             if (mf.isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bo'sh fayl");

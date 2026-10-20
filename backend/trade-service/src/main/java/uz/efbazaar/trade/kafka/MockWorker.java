@@ -46,6 +46,10 @@ public class MockWorker {
             properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$EmailProvisionRequest"}
     )
     public void onProvisionRequest(TradeEvents.EmailProvisionRequest req) {
+        if (req.addressVersion() != 2) {
+            log.warn("MockWorker refused legacy provision request {}", req.mailboxId());
+            return;
+        }
         // Named after the mailbox, not the trade. A swap asks for two boxes on
         // one trade, and naming them after the trade gave both the same address
         // — mailboxes.email is unique, so the second insert threw inside the
@@ -53,7 +57,7 @@ public class MockWorker {
         // never succeed, stalling every trade behind it. The real worker names
         // them the same way; this is the mock catching up.
         UUID mailboxId = req.mailboxId();
-        String email = "trade-" + mailboxId.toString().substring(0, 8) + "@efbazaar.uz";
+        String email = "trade-" + mailboxId.toString().replace("-", "") + "@efbazaar.uz";
         String pw = randomPassword();
         // Echo back the placeholder id trade-service supplied. Encryption
         // context stays on the mock-specific prefix so MailboxPasswordResolver's
@@ -73,6 +77,10 @@ public class MockWorker {
             properties = {"spring.json.value.default.type=uz.efbazaar.trade.kafka.TradeEvents$MailboxProvisionRequest"}
     )
     public void onMailboxProvisionRequest(TradeEvents.MailboxProvisionRequest req) {
+        if (req.addressVersion() != 2) {
+            log.warn("MockWorker refused legacy mailbox provision request {}", req.mailboxId());
+            return;
+        }
         String email = req.localPart() + "@" + (req.domain() == null ? mailboxDomain : req.domain());
         String pw = randomPassword();
         // Admin-created rows have no trade, so the mailbox-id context is the

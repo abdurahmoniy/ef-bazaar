@@ -17,10 +17,10 @@ import {
 } from '@/lib/plans-admin';
 import { CUSTOM_SLOTS_KEY, PLAN_NAMES, SLOTS_KEY, type PlanCode } from '@/lib/plans';
 
-const PLANS: PlanCode[] = ['STANDARD', 'PRO', 'MAX'];
+const PLANS: PlanCode[] = ['STANDARD', 'PRO'];
 const COLUMNS = [
-  { key: SLOTS_KEY, label: 'Tasodifiy qutilar', aria: 'tasodifiy qutilar' },
-  { key: CUSTOM_SLOTS_KEY, label: 'Shaxsiy nomli qutilar', aria: 'shaxsiy qutilar' },
+  { key: SLOTS_KEY, label: 'Jami qutilar', aria: 'jami qutilar' },
+  { key: CUSTOM_SLOTS_KEY, label: 'Shundan yangi shaxsiy qutilar', aria: 'shaxsiy qutilar' },
 ];
 const cell = (c: PlanCode, k: string) => `${c}|${k}`;
 
@@ -99,6 +99,8 @@ export function AdminPlanMailboxes({ initial }: { initial: PlanEntitlementRow[] 
     void commit(items);
   }
 
+  const totalReduction = pending?.some((i) => i.key === SLOTS_KEY && isReduction(base[cell(i.planCode, i.key)], i.value)) ?? false;
+
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <section className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground">
@@ -146,8 +148,7 @@ export function AdminPlanMailboxes({ initial }: { initial: PlanEntitlementRow[] 
       <div role="note" className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm leading-relaxed text-foreground">
         <TriangleAlert className="mt-0.5 size-[18px] shrink-0 text-destructive" aria-hidden />
         <span>
-          Kamaytirsangiz, foydalanuvchilarning limitdan ortiq qutilari qulflanadi. Qutilar o‘chirilmaydi va limit
-          oshirilsa qayta ochiladi.
+          Jami limit kamaytirilsa ortiqcha qutilar qulflanishi mumkin; faol savdo va limitdan tashqari qutilar himoyalangan. Custom chegarasi faqat yangi nomli quti yaratishga ta’sir qiladi; mavjud qutilarni o‘qish umumiy limit bo‘yicha saqlanadi.
         </span>
       </div>
 
@@ -168,7 +169,9 @@ export function AdminPlanMailboxes({ initial }: { initial: PlanEntitlementRow[] 
           >
             <Dialog.Title className="text-lg font-extrabold">Limitni kamaytirasizmi?</Dialog.Title>
             <Dialog.Description className="text-sm text-muted-foreground">
-              Kamaytirsangiz, limitdan ortiq qutilar qulflanadi. Davom etasizmi?
+              {totalReduction
+                ? 'Jami limitdan ortiq qutilar qulflanishi mumkin. Faol savdo va limitdan tashqari qutilar himoyalangan. Davom etasizmi?'
+                : 'Yangi nomli quti olish chegarasi kamayadi. Mavjud qutilarni o‘qish umumiy limit bo‘yicha saqlanadi. Davom etasizmi?'}
             </Dialog.Description>
             <div className="grid grid-cols-2 gap-2.5">
               <Button type="button" variant="outline" size="lg" disabled={saving} onClick={() => setPending(null)}>

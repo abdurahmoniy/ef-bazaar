@@ -29,6 +29,7 @@ class EmailProvisionRequest:
     # in EmailProvisioned so all IDs (persisted mailbox row, encryption
     # context, rotate cache key) share the same UUID.
     mailbox_id: UUID
+    address_version: int = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +58,8 @@ class ImapPollRequest:
     iv: bytes | None = None
     tag: bytes | None = None
     restart: bool = False
+    started_at: datetime | None = None
+    expires_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +84,7 @@ class MailboxProvisionRequest:
     domain: str | None = None
     # A user-chosen (custom) name: an existing Mailcow box with it is not ours.
     custom: bool = False
+    address_version: int = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,13 +103,20 @@ class MailboxRotateRequest:
 class MailboxDeleteRequest:
     """An admin is clearing out a mailbox nobody holds.
 
-    Carries the address rather than only the id: trade-service marks its own
-    row deleted before publishing, so by the time this arrives there is nothing
-    left here to look the address up from.
+    Carries the exact address and an optional request id. Trade-service keeps
+    a pending deletion intent and permanent unique-address tombstone; only a
+    correlated confirmed result permits it to retire resource responsibility.
     """
 
     mailbox_id: UUID
     mailbox_email: str
+    request_id: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MailboxInventoryRequest:
+    request_id: UUID
+    domains: list[str]
 
 
 # ---------- Response DTOs (worker produces) ----------
@@ -128,6 +139,7 @@ class EmailProvisioned:
     encrypted_password: bytes
     iv: bytes
     tag: bytes
+    claim_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +156,7 @@ class KonamiEmailReceived:
     # Konami pochta Konami ID ga ulanmaganini aytdi: trade-service sotuvchiga
     # emailni o'tkazishni aytadi, savdo esa shu qadamda kutib turadi.
     email_not_registered: bool = False
+    origin_verified: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +177,7 @@ class MailboxProvisioned:
     encrypted_password: bytes
     iv: bytes
     tag: bytes
+    claim_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,6 +197,28 @@ class KonamiEmailChangeCodeReceived:
     # Which escrow mailbox it landed in. A swap has two, each with its own
     # code, and without this trade-service cannot tell whose is whose.
     mailbox_email: str
+
+
+@dataclass(frozen=True, slots=True)
+class MailboxDeleteResult:
+    request_id: UUID | None
+    mailbox_id: UUID
+    mailbox_email: str
+    success: bool
+    already_absent: bool
+    error: str | None
+    occurred_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class MailboxInventoryObserved:
+    request_id: UUID
+    observed_at: datetime
+    page: int
+    last_page: bool
+    success: bool
+    error: str | None
+    mailboxes: list[Any]
 
 
 # ---------- Backpressure DTOs (worker produces, NEW) ----------
@@ -230,9 +266,13 @@ def _encode_value(v: Any) -> Any:
     if isinstance(v, UUID):
         return str(v)
     if isinstance(v, datetime):
-        return v.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return v.astimezone(UTC).isoformat().replace("+00:00", "Z")
     if isinstance(v, bytes):
         return base64.b64encode(v).decode("ascii")
+    if is_dataclass(v):
+        return {_to_camel(f.name): _encode_value(getattr(v, f.name)) for f in fields(v)}
+    if isinstance(v, list):
+        return [_encode_value(item) for item in v]
     return v
 
 
@@ -241,6 +281,7 @@ def to_json(event: Any) -> bytes:
         raise TypeError(f"not a dataclass: {type(event).__name__}")
     payload = {
         _to_camel(f.name): _encode_value(getattr(event, f.name)) for f in fields(event)
+        if f.name != "origin_verified" or getattr(event, f.name) is not None
     }
     return json.dumps(payload, separators=(",", ":")).encode("utf-8")
 
@@ -251,6 +292,7 @@ _TOPIC_TO_TYPE: dict[str, type] = {
     topics.TOPIC_IMAP_POLL_REQ: ImapPollRequest,
     topics.TOPIC_MAILBOX_ROTATE_REQ: MailboxRotateRequest,
     topics.TOPIC_MAILBOX_DELETE_REQ: MailboxDeleteRequest,
+    topics.TOPIC_MAILBOX_INVENTORY_REQ: MailboxInventoryRequest,
     topics.TOPIC_MAILBOX_PROVISION_REQ: MailboxProvisionRequest,
     topics.TOPIC_IMAP_POLL_STOP_REQ: ImapPollStopRequest,
 }
@@ -284,8 +326,13 @@ _BYTES_REQUEST_FIELDS = frozenset({"encrypted_password", "iv", "tag"})
 def _decode_field(name: str, raw: Any) -> Any:
     if raw is None:
         return None
-    if name in ("trade_id", "mailbox_id"):
+    if name in ("trade_id", "mailbox_id", "request_id"):
         return UUID(raw)
+    if name in ("started_at", "expires_at"):
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            raise ValueError("Request timestamp requires timezone")
+        return parsed
     if name in _BYTES_REQUEST_FIELDS:
         # Jackson writes byte[] as base64, the same way to_json() does.
         return base64.b64decode(raw)

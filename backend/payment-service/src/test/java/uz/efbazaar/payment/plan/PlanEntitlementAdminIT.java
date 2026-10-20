@@ -32,8 +32,8 @@ class PlanEntitlementAdminIT extends AbstractPostgresIT {
 
     @AfterEach
     void restore() {
-        jdbc.update("UPDATE plan_entitlements SET value='3', updated_by=NULL WHERE plan_code='STANDARD' AND key='mailbox.slots'");
-        jdbc.update("UPDATE plan_entitlements SET value='10', updated_by=NULL WHERE plan_code='MAX' AND key='mailbox.slots'");
+        jdbc.update("UPDATE plan_entitlements SET value='3', updated_by=NULL WHERE plan_code='STANDARD' AND key='mailbox.total_slots'");
+        jdbc.update("UPDATE plan_entitlements SET value='13', updated_by=NULL WHERE plan_code='MAX' AND key='mailbox.total_slots'");
     }
 
     private void putEntitlements(String json, int expected) throws Exception {
@@ -44,36 +44,36 @@ class PlanEntitlementAdminIT extends AbstractPostgresIT {
 
     @Test
     void anAdminSetsAPlanToUnlimited() throws Exception {
-        putEntitlements("{\"entitlements\":[{\"planCode\":\"MAX\",\"key\":\"mailbox.slots\",\"value\":null}]}", 200);
+        putEntitlements("{\"entitlements\":[{\"planCode\":\"MAX\",\"key\":\"mailbox.total_slots\",\"value\":null}]}", 200);
 
-        assertThat(plans.entitlementsOf("MAX")).containsKey("mailbox.slots");
-        assertThat(plans.entitlementsOf("MAX").get("mailbox.slots")).isNull();
+        assertThat(plans.entitlementsOf("MAX")).containsKey("mailbox.total_slots");
+        assertThat(plans.entitlementsOf("MAX").get("mailbox.total_slots")).isNull();
     }
 
     @Test
     void savingPublishesTheChangedPlanWholeStraightAway() throws Exception {
         clearInvocations(events);
-        putEntitlements("{\"entitlements\":[{\"planCode\":\"STANDARD\",\"key\":\"mailbox.slots\",\"value\":\"4\"}]}", 200);
+        putEntitlements("{\"entitlements\":[{\"planCode\":\"STANDARD\",\"key\":\"mailbox.total_slots\",\"value\":\"4\"}]}", 200);
 
         var captor = ArgumentCaptor.forClass(PlanEntitlementsSnapshot.class);
         verify(events, times(1)).planEntitlements(captor.capture());
         assertThat(captor.getValue().planCode()).isEqualTo("STANDARD");
         assertThat(captor.getValue().entitlements())
-                .containsEntry("mailbox.slots", "4").containsEntry("mailbox.custom_slots", "0");
+                .containsEntry("mailbox.total_slots", "4").containsEntry("mailbox.custom_slots", "0");
     }
 
     @Test
     void badValuesAndUnknownKeysChangeNothing() throws Exception {
         clearInvocations(events);
-        putEntitlements("{\"entitlements\":[{\"planCode\":\"STANDARD\",\"key\":\"mailbox.slots\",\"value\":\"-1\"}]}", 400);
-        putEntitlements("{\"entitlements\":[{\"planCode\":\"STANDARD\",\"key\":\"mailbox.slots\",\"value\":\"abc\"}]}", 400);
+        putEntitlements("{\"entitlements\":[{\"planCode\":\"STANDARD\",\"key\":\"mailbox.total_slots\",\"value\":\"-1\"}]}", 400);
+        putEntitlements("{\"entitlements\":[{\"planCode\":\"STANDARD\",\"key\":\"mailbox.total_slots\",\"value\":\"abc\"}]}", 400);
         putEntitlements("{\"entitlements\":[{\"planCode\":\"STANDARD\",\"key\":\"fee.discount\",\"value\":\"5\"}]}", 400);
-        putEntitlements("{\"entitlements\":[{\"planCode\":\"GOLD\",\"key\":\"mailbox.slots\",\"value\":\"5\"}]}", 400);
+        putEntitlements("{\"entitlements\":[{\"planCode\":\"GOLD\",\"key\":\"mailbox.total_slots\",\"value\":\"5\"}]}", 400);
         // All-or-nothing: the good row in a batch with a bad one is not applied either.
-        putEntitlements("{\"entitlements\":[{\"planCode\":\"STANDARD\",\"key\":\"mailbox.slots\",\"value\":\"9\"},"
-                + "{\"planCode\":\"STANDARD\",\"key\":\"mailbox.slots\",\"value\":\"-2\"}]}", 400);
+        putEntitlements("{\"entitlements\":[{\"planCode\":\"STANDARD\",\"key\":\"mailbox.total_slots\",\"value\":\"9\"},"
+                + "{\"planCode\":\"STANDARD\",\"key\":\"mailbox.total_slots\",\"value\":\"-2\"}]}", 400);
 
-        assertThat(plans.entitlementsOf("STANDARD")).containsEntry("mailbox.slots", "3");
+        assertThat(plans.entitlementsOf("STANDARD")).containsEntry("mailbox.total_slots", "3");
         verify(events, never()).planEntitlements(any());
     }
 }

@@ -30,6 +30,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+// Dispose the Spring context while its class-owned database is still running.
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @Import(ListingStatusConstraintIT.Config.class)
 @TestPropertySource(properties = {

@@ -27,7 +27,7 @@ describe('locked mailbox', () => {
   });
 
   it('renders the locked panel with both main-site links', () => {
-    const html = renderToStaticMarkup(createElement(LockedMailbox, { mailbox: locked }));
+    const html = renderToStaticMarkup(createElement(LockedMailbox, { mailbox: locked, plan: 'STANDARD' }));
     expect(html).toContain('Bu quti qulflangan');
     expect(html).toContain(`href="${MAIN_SITE_URL}/plans"`);
     expect(html).toContain('Tarifni oshirish');
@@ -44,3 +44,12 @@ describe('locked mailbox', () => {
     expect(html).not.toContain('yangi xat');
   });
 });
+
+ it.each(['PRO', 'MAX', 'STAFF', null])('offers shared access selection without a nonexistent upgrade for %s', plan => {
+   const html = renderToStaticMarkup(createElement(LockedMailbox, { mailbox: locked, plan }));
+   expect(html).not.toContain(`href="${MAIN_SITE_URL}/plans"`);
+   expect(html).not.toContain('Tarifni oshirish');
+   expect(html).toContain('mailbox=abc#mailboxes');
+   expect(html).toContain('Boshqa qutini qulflab, shuni ochish');
+   expect(html).toContain('umumiy o‘qish limitidan tashqarida');
+ });

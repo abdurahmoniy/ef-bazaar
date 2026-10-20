@@ -26,7 +26,8 @@ public class PlanProjectionConsumer {
             groupId = "trade-service-plan-entitlements",
             properties = {
                     "spring.json.value.default.type=uz.efbazaar.trade.plan.kafka.PlanEvents$PlanEntitlementsSnapshot",
-                    "spring.json.use.type.headers=false"
+                    "spring.json.use.type.headers=false",
+                    "auto.offset.reset=earliest"
             }
     )
     public void onPlanEntitlements(PlanEvents.PlanEntitlementsSnapshot e) {
@@ -35,7 +36,7 @@ public class PlanProjectionConsumer {
             return;
         }
         projection.replacePlan(e.planCode(),
-                e.entitlements() == null ? Map.of() : e.entitlements());
+                e.entitlements() == null ? Map.of() : e.entitlements(), e.version(), e.idempotencyKey(), e.occurredAt());
     }
 
     @KafkaListener(
@@ -43,7 +44,8 @@ public class PlanProjectionConsumer {
             groupId = "trade-service-subscription-changed",
             properties = {
                     "spring.json.value.default.type=uz.efbazaar.trade.plan.kafka.PlanEvents$SubscriptionChanged",
-                    "spring.json.use.type.headers=false"
+                    "spring.json.use.type.headers=false",
+                    "auto.offset.reset=earliest"
             }
     )
     public void onSubscriptionChanged(PlanEvents.SubscriptionChanged e) {
@@ -51,6 +53,6 @@ public class PlanProjectionConsumer {
             log.warn("subscription-changed with no user or plan, skipping");
             return;
         }
-        projection.userMoved(e.userId(), e.planCode(), e.expiresAt());
+        projection.userMoved(e.userId(), e.planCode(), e.expiresAt(), e.lastPaidExpiresAt(), e.version(), e.idempotencyKey(), e.occurredAt());
     }
 }

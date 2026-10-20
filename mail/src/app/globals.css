@@ -182,7 +182,8 @@
      these rules give those tags readable defaults. Keep selectors scoped
      under .mail-html-body: email markup is arbitrary and must never leak
      styling out into the app shell. */
-  .mail-html-body {
+  .mail-html-body,
+  .mail-plain-body {
     overflow-wrap: anywhere; /* Konami reset URLs are very long */
     @apply text-sm leading-relaxed text-foreground;
   }
@@ -194,8 +195,20 @@
   .mail-html-body pre {
     @apply my-3;
   }
-  .mail-html-body a {
-    @apply font-semibold text-primary underline underline-offset-2;
+  .mail-html-body a,
+  .mail-plain-body a {
+    @apply font-semibold text-primary underline underline-offset-2 dark:text-blue-400;
+  }
+  @media (max-width: 767px) {
+    .mail-html-body a,
+    .mail-plain-body a {
+      display: inline-block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: bottom;
+    }
   }
   .mail-html-body ul {
     @apply list-disc pl-5;

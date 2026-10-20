@@ -1,20 +1,16 @@
-"""Handler for efbazaar.trade.email-provision-request.
+"""Provision a version-2 random mailbox through an authoritative one-shot claim.
 
-Flow:
-1. Compute a synthetic local_part from the trade UUID prefix.
-2. Generate a random mailbox password (secrets.token_urlsafe(16)).
-3. Create the mailbox via MailcowClient.
-4. Encrypt the plaintext password with FieldEncryptor(context="mbox-{tradeId}").
-5. Publish EmailProvisioned so trade-service can persist iv/tag/ciphertext.
-
-If Mailcow returns MailboxAlreadyExists (Kafka replay), we treat it as
-success — the row on the trade-service side is idempotent and the encrypted
-payload we publish overwrites the previous one.
+The address uses the whole mailbox UUID. Trade-service persists the proposed
+password encrypted under mbox-{mailboxId} before granting the first create.
+A repeated STARTED claim can only prove the original password with IMAP AUTH
+and republish its matching claim result; it cannot create or rotate a mailbox.
+Legacy requests and unknown outcomes require visible reconciliation.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 import secrets
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -22,11 +18,17 @@ from uuid import UUID
 import structlog
 
 from smart_admin_worker.crypto.field_encryptor import FieldEncryptor
+from smart_admin_worker.handlers.provision_claim import (
+    CredentialVerifier,
+    acquire,
+    prove_existing,
+)
 from smart_admin_worker.kafka import events as e
-from smart_admin_worker.kafka.producer import KafkaProducerClient
+from smart_admin_worker.kafka.producer import KafkaProducerClient, publish_required_result
 from smart_admin_worker.kafka.topics import TOPIC_EMAIL_PROVISIONED
 from smart_admin_worker.mailcow.client import Mailbox, MailcowClient
 from smart_admin_worker.mailcow.errors import MailboxAlreadyExists
+from smart_admin_worker.trade.client import ProvisionClaimClient
 
 if TYPE_CHECKING:
     from smart_admin_worker.telegram.notifier import TelegramNotifier
@@ -44,6 +46,8 @@ class EmailProvisionHandler:
         password_cache: dict[str, str] | None = None,
         mailbox_id_to_email: dict[UUID, str] | None = None,
         notifier: TelegramNotifier | None = None,
+        claims: ProvisionClaimClient | None = None,
+        credential_verifier: CredentialVerifier | None = None,
     ) -> None:
         self._mailcow = mailcow
         self._encryptor = encryptor
@@ -57,8 +61,17 @@ class EmailProvisionHandler:
         self._password_cache = password_cache
         self._mailbox_id_to_email = mailbox_id_to_email
         self._notifier = notifier
+        self._claims = claims
+        self._credential_verifier = credential_verifier
 
     async def handle(self, event: e.EmailProvisionRequest) -> None:
+        if type(event.address_version) is not int or event.address_version != 2:
+            logging.getLogger(__name__).error(
+                "Rejected legacy provisioning request; manual reconciliation required: "
+                "mailbox_id=%s",
+                event.mailbox_id,
+            )
+            return
         local_part = self._local_part_for(event.mailbox_id)
         password = self._generate_password()
         # Echo back the mailbox id trade-service supplied in the request.
@@ -68,24 +81,46 @@ class EmailProvisionHandler:
         # via the same UUID trade-service later publishes on rotate-request.
         mailbox_id = event.mailbox_id
 
-        fresh_create = True
-        try:
-            mb = await self._mailcow.create_mailbox(
-                local_part=local_part,
-                domain=self._domain,
-                password=password,
-                quota_mb=100,
-            )
-        except MailboxAlreadyExists:
-            mb = Mailbox(email=f"{local_part}@{self._domain}")
-            fresh_create = False
-
-        field = self._encryptor.encrypt(
-            f"mbox-{mailbox_id}",
-            password.encode("utf-8"),
+        authorization = await acquire(
+            self._claims,
+            self._encryptor,
+            mailbox_id,
+            event.trade_id,
+            f"{local_part}@{self._domain}",
+            password,
         )
+        if authorization is None:
+            return
+        claim, password = authorization
+        fresh_create = claim.allow_create
+        mb = Mailbox(email=claim.mailbox_email)
+        if claim.allow_create:
+            try:
+                await self._mailcow.create_mailbox(
+                    local_part=local_part,
+                    domain=self._domain,
+                    password=password,
+                    quota_mb=100,
+                )
+            except MailboxAlreadyExists:
+                fresh_create = False
+                if not await prove_existing(self._credential_verifier, mb.email, password):
+                    log.error("provision_existing_password_unproven", mailbox_id=str(mailbox_id))
+                    return
+            except Exception as error:
+                log.error(
+                    "provision_unknown_manual_reconciliation",
+                    mailbox_id=str(mailbox_id),
+                    error_type=type(error).__name__,
+                )
+                return
+        elif not await prove_existing(self._credential_verifier, mb.email, password):
+            log.error("provision_claim_started_unknown", mailbox_id=str(mailbox_id))
+            return
+        field = claim.password
 
-        await self._producer.publish(
+        await publish_required_result(
+            self._producer,
             TOPIC_EMAIL_PROVISIONED,
             str(event.trade_id),
             e.EmailProvisioned(
@@ -95,6 +130,7 @@ class EmailProvisionHandler:
                 encrypted_password=field.ciphertext,
                 iv=field.iv,
                 tag=field.tag,
+                claim_id=claim.claim_id,
             ),
         )
 
@@ -150,7 +186,7 @@ class EmailProvisionHandler:
         placeholder for ever. Both parties were then shown whichever one had
         been provisioned.
         """
-        return "trade-" + str(mailbox_id)[:8]
+        return "trade-" + mailbox_id.hex
 
     @staticmethod
     def _generate_password() -> str:

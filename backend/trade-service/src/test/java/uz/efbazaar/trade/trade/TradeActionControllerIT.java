@@ -26,6 +26,7 @@ import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUse
 @Import(StubEscrowConfig.class)
 class TradeActionControllerIT extends AbstractIntegrationIT {
 
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired TradeService trades;
@@ -144,7 +145,7 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
         UUID seller = UUID.randomUUID();
         UUID buyer = UUID.randomUUID();
         var t = trades.openTrade(seller, buyer, 500_000L,
-                UUID.randomUUID(), UUID.randomUUID(), null);
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
         leaveInitiated(trades, t.id());
         mvc.perform(post("/api/v1/trades/" + t.id() + "/actions/confirm").with(asUser(buyer)))
                 .andExpect(status().isConflict());
@@ -159,6 +160,29 @@ class TradeActionControllerIT extends AbstractIntegrationIT {
                 .andExpect(status().isOk());
         assertThat(repo.findById(t.id()).orElseThrow().getState()).isEqualTo(TradeState.SUCCESS);
         assertThat(StubEscrowConfig.calls).contains("settle:" + t.id());
+        assertThat(jdbc.queryForObject("SELECT to_regclass('outbox_events')::text", String.class)).as("completion must be stored durably before Kafka ack").isNotNull();
+        var facts = jdbc.queryForList("SELECT convert_from(payload,'UTF8') AS payload FROM outbox_events WHERE topic='efbazaar.trade.seller-trade-completed' AND message_key=?", t.id().toString());
+        assertThat(facts).hasSize(1);
+        var fact=json.readTree((String)facts.getFirst().get("payload"));
+        assertThat(fact.path("tradeId").asText()).isEqualTo(t.id().toString());
+        assertThat(fact.path("kind").asText()).isEqualTo("SALE");
+        assertThat(fact.path("priceUzs").asLong()).isEqualTo(500_000);
+        assertThat(fact.path("completedAt").asText()).isNotBlank();
+    }
+
+    @Test
+    void failedSettlementCannotPublishCompletionAndRetryPublishesOnce() throws Exception {
+        UUID seller=UUID.randomUUID(),buyer=UUID.randomUUID();
+        var trade=trades.openTrade(seller,buyer,123_456L,UUID.randomUUID(),UUID.randomUUID(),UUID.randomUUID());
+        leaveInitiated(trades,trade.id());seed(trade.id(),TradeState.WAITING_BUYER_VERIFY);
+        StubEscrowConfig.failNext("settle",trade.id(),()->new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"settlement unavailable"));
+        try {
+            mvc.perform(post("/api/v1/trades/"+trade.id()+"/actions/confirm").with(asUser(buyer))).andExpect(status().isServiceUnavailable());
+        } finally { StubEscrowConfig.clear(); }
+        assertThat(repo.findById(trade.id()).orElseThrow().getState()).isEqualTo(TradeState.WAITING_BUYER_VERIFY);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM seller_trade_completions WHERE trade_id=?",Long.class,trade.id())).isZero();
+        mvc.perform(post("/api/v1/trades/"+trade.id()+"/actions/confirm").with(asUser(buyer))).andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox_events WHERE topic='efbazaar.trade.seller-trade-completed' AND message_key=?",Long.class,trade.id().toString())).isEqualTo(1);
     }
 
     @Test

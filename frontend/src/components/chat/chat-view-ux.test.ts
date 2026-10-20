@@ -864,3 +864,16 @@ async function touch(target: Element, type: string, points: number[][]) {
   Object.defineProperty(event, 'changedTouches', { value: touches });
   await act(async () => { target.dispatchEvent(event); });
 }
+
+it('inserts a retained Free template in the real saved draft without sending and exposes private chat notes', async () => {
+  sessionStorage.setItem('chat-draft:buyer:chat','Existing draft');
+  const normal = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation(async (url, init) => String(url).includes('/seller-tools/templates') ? Response.json({content:[{id:'11111111-1111-4111-8111-111111111111',title:'Saved reply',body:'Reply body',chatId:null,listingId:null,createdAt:'2026-10-20T00:00:00Z',updatedAt:'2026-10-20T00:00:00Z'}],page:0,size:50,totalElements:1}) : normal(url,init));
+  await render();
+  expect(container.querySelector('a[href="/seller-tools?chatId=chat"]')?.textContent).toContain('Shaxsiy qaydlar');
+  await click(findButton('Javob shablonini tanlash'));
+  await click(findButton('Saved reply'));
+  expect(container.querySelector('[role="textbox"]')?.textContent).toContain('Existing draft');
+  expect(sessionStorage.getItem('chat-draft:buyer:chat')).toBe('Existing draft\nReply body');
+  expect(vi.mocked(fetch).mock.calls.filter(([,init])=>init?.method==='POST'&&String(init.body).includes('Reply body'))).toHaveLength(0);
+});

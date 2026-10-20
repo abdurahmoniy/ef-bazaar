@@ -28,7 +28,7 @@ trade:
   mailbox:
     # Both domains, so custom-mailbox and admin ITs share one context.
     domains: efbazaar.uz,efootball.uz
-    premium-domain-plans: MAX,STAFF
+    premium-domain-plans: PRO,STAFF
   crypto:
     master-key-file: ${MASTER_KEY_FILE:target/test-master-key}
   timeouts:

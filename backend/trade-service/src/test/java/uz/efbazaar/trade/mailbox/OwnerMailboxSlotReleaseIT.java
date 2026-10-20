@@ -18,17 +18,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUser;
 
-/**
- * Foydalanuvchi O'Z pochta qutisini o'chiradi.
- *
- * <p>Slot to'lganda savdoga kira olmaydi va yagona chiqish yo'li —
- * eskisini bo'shatish. Ilgari o'chirish faqat adminda edi va admin ham
- * egasi bor qutini o'chira olmasdi: to'lgan slot boshi berk ko'cha
- * bo'lardi va foydalanuvchi buni bilmasdi ham.
- *
- * <p>Rad etishlar o'chirishdan muhimroq: begonaning qutisi Konami
- * parol tiklash xatlarini saqlaydi.
- */
+/** Detach revokes access while preserving mailbox data and resource responsibility. */
 @SpringBootTest
 @AutoConfigureMockMvc
 class OwnerMailboxSlotReleaseIT extends AbstractIntegrationIT {
@@ -62,8 +52,8 @@ class OwnerMailboxSlotReleaseIT extends AbstractIntegrationIT {
     /**
      * Foydalanuvchida pochta serveridan o'chirish yo'li YO'Q.
      *
-     * <p>Slotni bo'shatish uchun uzish bor ({@code POST /{id}/detach}) va u
-     * yetarli. O'chirish esa adminda qoladi: quti Konami parol tiklash
+     * <p>Detach slotni bo‘shatmaydi; u faqat kirishni yopadi.
+     * Quti Konami parol tiklash
      * xatlarini saqlaydi va nizo chiqqanda tekshiriladigan yagona iz o'sha
      * — bir bosish bilan yo'q qilinsa, orqaga yo'l qolmaydi.
      */
@@ -80,16 +70,17 @@ class OwnerMailboxSlotReleaseIT extends AbstractIntegrationIT {
     }
 
     @Test
-    void theOwnerFreesTheSlotByDetaching() throws Exception {
+    void theOwnerLosesAccessButRetainsResourceResponsibilityByDetaching() throws Exception {
         UUID id = mailbox(owner, null);
 
         mvc.perform(post(path(id) + "/detach").with(asUser(owner)))
                 .andExpect(status().isNoContent());
 
         Mailbox after = mailboxes.findById(id).orElseThrow();
-        // Egalik olib tashlanadi — slot aynan shundan bo'shaydi.
+        // Ownership access ends; resource responsibility is retained.
         assertThat(after.getOwnerUserId()).isNull();
-        // Quti esa joyida: uni olib tashlash admin ishi.
+        assertThat(after.getRetainedUserId()).isEqualTo(owner);
+        // A detach does not prove the external account left this address.
         assertThat(after.getDeletedAt()).isNull();
     }
 

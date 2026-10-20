@@ -18,7 +18,13 @@ public final class Snapshots {
 
     public record ListingSnapshot(String idempotencyKey, UUID listingId, UUID sellerId, String status,
                                   BigDecimal price, Double valueScore, List<CardRef> cards,
-                                  long version, Instant occurredAt) {}
+                                  long version, Instant occurredAt, Instant publishedAt, Long publicationVersion) {
+        public ListingSnapshot(String idempotencyKey, UUID listingId, UUID sellerId, String status,
+                               BigDecimal price, Double valueScore, List<CardRef> cards,
+                               long version, Instant occurredAt) {
+            this(idempotencyKey, listingId, sellerId, status, price, valueScore, cards, version, occurredAt, null, null);
+        }
+    }
 
     public record LikeToggled(String idempotencyKey, UUID listingId, UUID userId, boolean liked,
                               long version, Instant occurredAt) {}

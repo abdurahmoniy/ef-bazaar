@@ -8,6 +8,7 @@ sensibly. HTTP 4xx/5xx bubble up as MailcowApiError.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -23,6 +24,36 @@ from smart_admin_worker.mailcow.errors import (
 @dataclass(frozen=True, slots=True)
 class Mailbox:
     email: str
+
+
+@dataclass(frozen=True, slots=True)
+class MailboxInventoryEntry:
+    mailbox_email: str
+    used_bytes: int
+    quota_bytes: int
+    active: bool
+
+
+MAX_INVENTORY_BYTES = 8 * 1024 * 1024
+MAX_INVENTORY_MAILBOXES = 10_000
+_DOMAIN = re.compile(r"(?=.{1,253}\Z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
+                     r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\Z")
+
+
+def validate_domain(domain: str) -> str:
+    if not isinstance(domain, str) or not _DOMAIN.fullmatch(domain):
+        raise ValueError("Invalid inventory domain")
+    return domain
+
+
+def _byte_count(value: Any) -> int:
+    # Mailcow PDO can encode BIGINT columns as decimal strings. Both GET
+    # quota_used and quota are bytes, unlike POST add/mailbox's MiB quota.
+    if isinstance(value, str) and re.fullmatch(r"[0-9]{1,19}", value):
+        value = int(value)
+    if type(value) is not int or not 0 <= value <= 2**63 - 1:
+        raise ValueError("Invalid inventory byte count")
+    return value
 
 
 class MailcowClient:
@@ -72,6 +103,56 @@ class MailcowClient:
         body = await self._post("/delete/mailbox", payload)
         self._raise_for_msg(body, when_missing=MailboxNotFound)
 
+    async def get_mailbox_inventory(self, domain: str) -> list[MailboxInventoryEntry]:
+        """Read a bounded, complete domain snapshot; errors are never empty lists.
+
+        Official Mailcow OpenAPI: GET /api/v1/get/mailbox/all/{domain}.
+        quota_used and quota are byte counts; active is 0/1 (often strings).
+        """
+        validate_domain(domain)
+        async with self._client.stream("GET", f"/get/mailbox/all/{domain}") as response:
+            if not 200 <= response.status_code < 300:
+                raise MailcowApiError(response.status_code, "Inventory request failed")
+            body = bytearray()
+            async for chunk in response.aiter_bytes():
+                body.extend(chunk)
+                if len(body) > MAX_INVENTORY_BYTES:
+                    raise MailcowApiError(200, "Inventory response exceeds byte limit")
+        try:
+            import json
+
+            payload = json.loads(body)
+            if not isinstance(payload, list) or len(payload) > MAX_INVENTORY_MAILBOXES:
+                raise ValueError("Invalid inventory list")
+            result = []
+            seen = set()
+            for entry in payload:
+                if not isinstance(entry, dict):
+                    raise ValueError("Invalid inventory entry")
+                email = entry.get("username")
+                if (not isinstance(email, str) or len(email) > 254 or email.count("@") != 1
+                        or not 1 <= len(email.split("@")[0]) <= 64
+                        or any(c.isspace() or ord(c) < 32 for c in email)):
+                    raise ValueError("Invalid inventory mailbox address")
+                email = email.lower()
+                # Never publish unrelated server mailboxes, even if Mailcow's
+                # endpoint unexpectedly returns rows outside the requested domain.
+                if email.rsplit("@", 1)[1] != domain:
+                    continue
+                if email in seen:
+                    raise ValueError("Duplicate inventory mailbox")
+                seen.add(email)
+                active = entry.get("active")
+                if type(active) not in (str, int, bool) or active not in ("0", "1", 0, 1):
+                    raise ValueError("Invalid inventory active flag")
+                result.append(MailboxInventoryEntry(
+                    email, _byte_count(entry.get("quota_used")),
+                    _byte_count(entry.get("quota")), active in ("1", 1),
+                ))
+            return result
+        except (ValueError, TypeError) as exc:
+            raise MailcowApiError(200, "Malformed inventory response") from exc
+
     async def get_domain_capacity(self, domain: str) -> dict[str, int] | None:
         """Return current mailbox usage for the domain, or None on any error.
 
@@ -105,7 +186,7 @@ class MailcowClient:
 
     async def _post(self, path: str, payload: Any) -> list[dict]:
         r = await self._client.post(path, json=payload)
-        if r.status_code >= 400:
+        if not 200 <= r.status_code < 300:
             raise MailcowApiError(r.status_code, r.text)
         try:
             return r.json()
@@ -118,14 +199,27 @@ class MailcowClient:
         when_exists: type[MailcowApiError] | None = None,
         when_missing: type[MailcowApiError] | None = None,
     ) -> None:
+        if not isinstance(body, list) or not body or any(
+            not isinstance(entry, dict) or entry.get("type") not in ("success", "danger", "error")
+            for entry in body
+        ):
+            raise MailcowApiError(200, "Malformed Mailcow mutation response")
         for entry in body:
-            if entry.get("type") == "success":
-                return
-        for entry in body:
+            msg = entry.get("msg")
+            if (not isinstance(msg, str | list) or not msg
+                    or isinstance(msg, list) and not all(isinstance(part, str) for part in msg)):
+                raise MailcowApiError(200, "Malformed Mailcow mutation message")
+        failures = [entry for entry in body if entry["type"] != "success"]
+        if not failures:
+            return
+        messages = []
+        for entry in failures:
             msg = entry.get("msg") or []
-            joined = " ".join(msg) if isinstance(msg, list) else str(msg)
-            if when_exists and "object_exists" in joined:
-                raise when_exists(200, joined)
-            if when_missing and ("object_dne" in joined or "not_found" in joined):
-                raise when_missing(200, joined)
-        raise MailcowApiError(200, str(body))
+            messages.append(msg if isinstance(msg, list) else [msg])
+        if when_exists and all("object_exists" in parts for parts in messages):
+            raise when_exists(200, "object_exists")
+        if when_missing and all(
+            any(part in ("object_dne", "not_found") for part in parts) for parts in messages
+        ):
+            raise when_missing(200, "object_dne")
+        raise MailcowApiError(200, "Mailcow mutation refused")

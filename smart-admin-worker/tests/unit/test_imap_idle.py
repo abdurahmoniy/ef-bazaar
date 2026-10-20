@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import fakeredis.aioredis
 import pytest
@@ -178,7 +178,17 @@ async def test_all_steps_of_one_mailbox_share_one_idle_connection(redis):
     registry = _registry(server, redis)
     try:
         for purpose in PollPurpose:
-            registry.start(BOX, "pw", purpose, None, None, None)
+            registry.start(
+                BOX,
+                "pw",
+                purpose,
+                None,
+                None,
+                None,
+                expires_at=datetime.now(UTC) + timedelta(minutes=1)
+                if purpose is PollPurpose.VERIFY_RELEASE
+                else None,
+            )
         await _until(lambda: server.active_idle(BOX) == 1)
         await asyncio.sleep(0.05)
 
@@ -284,3 +294,36 @@ async def test_failed_delivery_is_retried_without_waiting_for_new_mail(redis):
         await _until(lambda: server.boxes[BOX][0].seen)
     finally:
         await registry.cancel_all()
+
+
+async def test_ten_mailbox_fixture_fanout_with_five_idle_slots_reports_bounded_latency(redis):
+    import time
+
+    server = FakeServer()
+    registry = _registry(server, redis, poll_interval=0.01, max_idle=5)
+    boxes = [f"load-{index}@efbazaar.uz" for index in range(10)]
+    delivered: asyncio.Queue = asyncio.Queue()
+    try:
+        for box in boxes:
+            _start_2fa(registry, box, delivered)
+        await _until(lambda: sum(server.active_idle(box) for box in boxes) == 5)
+        assert len(registry.idle_mailboxes()) == 5
+        started = time.perf_counter()
+        for index, box in enumerate(boxes):
+            server.deliver(box, Mail("1", f"{index:06d}"))
+        codes, latencies = set(), []
+        async with asyncio.timeout(2):
+            for _ in boxes:
+                codes.add(await delivered.get())
+                latencies.append((time.perf_counter() - started) * 1000)
+        assert codes == {f"{index:06d}" for index in range(10)}
+        assert sum(server.active_idle(box) for box in boxes) <= 5
+        print(
+            f"FIXTURE fanout=10 idle_limit=5 fallback=5 poll_interval_ms=10 "
+            f"delivery_max_ms={max(latencies):.3f}"
+        )
+    finally:
+        await registry.cancel_all()
+    # stop() signals watcher threads; observe their asynchronous connection cleanup.
+    await _until(lambda: all(server.active_idle(box) == 0 for box in boxes))
+    assert all(server.active_idle(box) == 0 for box in boxes)

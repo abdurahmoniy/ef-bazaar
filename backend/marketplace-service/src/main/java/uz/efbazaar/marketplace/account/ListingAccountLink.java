@@ -40,6 +40,10 @@ public class ListingAccountLink {
 
     @Transactional
     public void onListingCreated(Listing listing) {
+        // The listing is persisted before this short transaction starts. Serialize
+        // account creation with bulk removal and use current persisted state.
+        listing = listings.findByIdForUpdate(listing.getId())
+                .orElseThrow(uz.efbazaar.marketplace.exception.MarketplaceException::listingNotFound);
         // Takror hodisa yoki backfill bir xil e'lon uchun ikkinchi akkount
         // ochmasligi kerak — qisman unique indeks ham shuni qo'llab turadi.
         if (accounts.existsBySourceListingId(listing.getId())) {
@@ -59,7 +63,8 @@ public class ListingAccountLink {
                 .mediaMessageIds(listing.getMediaMessageIds() == null
                         ? new ArrayList<>() : new ArrayList<>(listing.getMediaMessageIds()))
                 .status(UserAccountStatus.ACTIVE)
-                .currentListingId(listing.getId())
+                .currentListingId(listing.getStatus() == uz.efbazaar.marketplace.domain.ListingStatus.ACTIVE
+                        ? listing.getId() : null)
                 .sourceListingId(listing.getId())
                 .build();
 

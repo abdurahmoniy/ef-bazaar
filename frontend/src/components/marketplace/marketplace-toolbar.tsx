@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { SaveSearchLink } from '@/components/watch/save-search-link';
 
 import { useMarketplaceNavigation } from '@/components/marketplace/marketplace-navigation';
 import { MarketplaceViewMenu } from '@/components/marketplace/marketplace-view-menu';
@@ -56,6 +57,7 @@ export function MarketplaceToolbar({
         <div className="marketplace-toolbar-actions snap-rail flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-0.5 sm:gap-2">
           {playerTrigger}
           {quickChips}
+          <SaveSearchLink rawQuery={rawQuery} />
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {sortOptions.length > 0 && <SortMenu options={sortOptions} activeId={activeSortId} compact />}

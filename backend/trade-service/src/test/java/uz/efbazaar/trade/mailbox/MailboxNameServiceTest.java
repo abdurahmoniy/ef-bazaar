@@ -25,7 +25,8 @@ class MailboxNameServiceTest {
     @BeforeEach
     void setUp() {
         repo = mock(MailboxRepository.class);
-        service = new MailboxService(repo, mock(TradeRepository.class), mock(TradeCrypto.class),
+        service = new MailboxService(repo, mock(uz.efbazaar.trade.mailbox.release.MailboxDeletionService.class), mock(uz.efbazaar.trade.plan.service.MailboxQuotaLock.class),
+                mock(uz.efbazaar.trade.plan.service.MailboxSlotService.class), mock(TradeRepository.class), mock(TradeCrypto.class),
                 mock(TradeEventPublisher.class), mock(uz.efbazaar.trade.plan.service.MailboxAccessService.class),
                 mock(uz.efbazaar.trade.mailbox.link.LinkSessionService.class));
     }
@@ -123,6 +124,8 @@ class MailboxNameServiceTest {
     private Mailbox namedMailbox() {
         Mailbox box = Mailbox.builder().id(id).ownerUserId(owner).displayName("Main account").build();
         when(repo.findById(id)).thenReturn(Optional.of(box));
+        when(repo.detachIfUnchanged(eq(id), any(), any())).thenReturn(1);
+        when(repo.reassignIfUnchanged(eq(id), any(), any(), any(), any())).thenReturn(1);
         return box;
     }
 }

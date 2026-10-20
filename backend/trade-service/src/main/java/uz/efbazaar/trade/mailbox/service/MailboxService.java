@@ -32,7 +32,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class MailboxService {
 
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
     private final MailboxRepository mailboxes;
+    private final uz.efbazaar.trade.mailbox.release.MailboxDeletionService deletions;
+    private final uz.efbazaar.trade.plan.service.MailboxQuotaLock quotaLock;
+    private final uz.efbazaar.trade.plan.service.MailboxSlotService slots;
     private final TradeRepository trades;
     private final TradeCrypto crypto;
     private final uz.efbazaar.trade.kafka.TradeEventPublisher events;
@@ -56,13 +61,24 @@ public class MailboxService {
         return mailboxes.save(mbox);
     }
 
+    /** SQL rechecks current ownership while taking the destructive operation's row lock. */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Mailbox getOwnedForCleanup(UUID userId, UUID mailboxId) {
+        Mailbox locked = mailboxes.lockOwned(mailboxId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
+        // A locking query may retain an earlier managed entity. Use the current cutoff and credentials.
+        entityManager.refresh(locked, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (!userId.equals(locked.getOwnerUserId()) || locked.getDeletedAt() != null)
+            throw new EntityNotFoundException("Mailbox " + mailboxId);
+        return locked;
+    }
+
     /** Owned AND within the plan limit. The only way the user-facing mail API resolves a mailbox. */
     @Transactional(readOnly = true)
     public Mailbox getReadable(UUID ownerUserId, UUID mailboxId) {
         Mailbox m = getOwned(ownerUserId, mailboxId);
-        if (access.isLocked(ownerUserId, mailboxId)) {
-            throw new uz.efbazaar.trade.mailbox.exception.MailboxLockedException();
-        }
+        if (m.getDeletedAt() != null) throw new EntityNotFoundException("Mailbox " + mailboxId);
+        // Access mode limits individual messages in MailService; recovery keeps critical mail available.
         return m;
     }
 
@@ -82,40 +98,31 @@ public class MailboxService {
             throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
                     "Bitta qutining o'zi bilan almashtirib bo'lmaydi");
         }
-        // Every row of the owner is locked, in id order, before anything is
-        // read: concurrent swaps cannot deadlock or interleave. Row locks do not
-        // stop an INSERT, but a mailbox created in between is harmless: the
-        // renumbering below only touches the rows read here, and a new row
-        // arrives with the newest priority, so it opens first and cannot change
-        // which of the two validated boxes ends up locked or open.
+        // User quota lock serializes allocations and swaps, then row locks in
+        // id order protect priorities and ownership until this swap commits.
+        quotaLock.lock(ownerUserId);
         List<Mailbox> all = mailboxes.lockAllOwned(ownerUserId);
         java.util.Set<UUID> ids = new java.util.HashSet<>();
         all.forEach(m -> ids.add(m.getId()));
         if (!ids.contains(lockedId) || !ids.contains(lockInsteadId)) {
             throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException("Quti topilmadi");
         }
-        Set<UUID> locked = access.lockedIds(ownerUserId);
+        Set<UUID> locked = access.excessIds(ownerUserId);
         if (!locked.contains(lockedId) || locked.contains(lockInsteadId)) {
             throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
                     "Faqat qulflangan qutini ochiq quti bilan almashtirish mumkin");
+        }
+        if (all.stream().anyMatch(m -> m.getId().equals(lockInsteadId) && m.getSource() == MailboxSource.ADMIN)) {
+            throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
+                    "Sovg‘a qutisi tarif slotini bo‘shatmaydi");
         }
         if (trades.existsLiveWithMailbox(lockInsteadId, TradeState.nonTerminal())) {
             throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
                     "Davom etayotgan savdodagi qutini qulflab bo'lmaydi");
         }
-        // Each kind has its own limit: opening a custom box by locking a random
-        // one (or the reverse) would leave one allowance over and the other under.
-        uz.efbazaar.trade.mailbox.domain.MailboxKind kind = all.stream()
-                .filter(m -> m.getId().equals(lockedId)).findFirst().orElseThrow().getKind();
-        boolean sameKind = all.stream()
-                .anyMatch(m -> m.getId().equals(lockInsteadId) && m.getKind() == kind);
-        if (!sameKind) {
-            throw new uz.efbazaar.trade.mailbox.exception.InvalidUnlockSwapException(
-                    "Faqat bir xil turdagi qutilarni almashtirish mumkin");
-        }
         // Exchange the two positions in the current order, then renumber everyone
         // with distinct values so ties can never decide the outcome.
-        List<Mailbox> order = new java.util.ArrayList<>(mailboxes.findAccessOrderOwnedBy(ownerUserId, kind));
+        List<Mailbox> order = new java.util.ArrayList<>(mailboxes.findAccessOrderOwnedBy(ownerUserId));
         int i = -1, j = -1;
         for (int k = 0; k < order.size(); k++) {
             if (order.get(k).getId().equals(lockedId)) i = k;
@@ -153,6 +160,7 @@ public class MailboxService {
     /** The owner releases access, preserving the mailbox and its messages. */
     @Transactional
     public void detachOwnedBy(UUID ownerUserId, UUID mailboxId) {
+        quotaLock.lock(ownerUserId);
         Mailbox m = getOwned(ownerUserId, mailboxId);
         if (m.getDeletedAt() != null) {
             throw new EntityNotFoundException("Mailbox " + mailboxId);
@@ -190,7 +198,7 @@ public class MailboxService {
      * account with it, and no password reset can bring either back. A mailbox
      * in a live trade is worse still — it is the trade's instrument.
      *
-     * <p>Soft-deleted here and removed from Mailcow by the worker. The row
+     * <p>Queued durably here and marked deleted only after Mailcow confirms absence. The row
      * stays because audit rows and closed trades point at it, and a deleted
      * mailbox that leaves dangling references behind is not tidier.
      *
@@ -199,35 +207,29 @@ public class MailboxService {
      */
     @Transactional
     public void deleteUnheld(UUID mailboxId) {
-        Mailbox m = mailboxes.findById(mailboxId)
+        Mailbox snapshot = mailboxes.findById(mailboxId)
                 .orElseThrow(() -> new EntityNotFoundException("Mailbox " + mailboxId));
-        if (m.getDeletedAt() != null) {
-            return;
-        }
-        if (m.getOwnerUserId() != null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Bu pochta qutisi foydalanuvchiga biriktirilgan — o'chirib bo'lmaydi");
-        }
-        if (m.getTradeId() != null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Bu pochta qutisi savdoda ishlatilmoqda — o'chirib bo'lmaydi");
-        }
-        String email = m.getEmail();
-        boolean everMade = m.getProvisionedAt() != null;
-        m.setDeletedAt(Instant.now());
-        mailboxes.save(m);
-        if (everMade) {
-            // Published after the row is marked, so a worker that acts
-            // instantly cannot delete a box we then fail to mark.
-            events.mailboxDeleteRequest(mailboxId, email);
-            log.info("Mailbox {} marked deleted and queued for removal from Mailcow", mailboxId);
-        } else {
-            // Reserved but never created — there is nothing on the mail server
-            // to remove. Asking anyway got Mailcow's access_denied (which is
-            // what it answers for a mailbox that does not exist), and that is
-            // not a failure the worker can ever retry its way out of.
-            log.info("Mailbox {} was never provisioned; nothing to remove from Mailcow", mailboxId);
-        }
+        // Terminal trade transitions may still be managed but unflushed. JDBC
+        // preservation/reservation checks must see those writes in this transaction.
+        mailboxes.flush();
+        deletions.requestUnheld(mailboxId, snapshot.getEmail(), snapshot.getProvisionedAt());
+    }
+
+    /** Called under the trade row and participant quota locks; retries preserve rotations. */
+    @Transactional
+    public void recordInitialTradeProvisioning(UUID mailboxId, String email, byte[] encPass, byte[] iv, byte[] tag) {
+        mailboxes.recordInitialTradeProvisioning(mailboxId, email, encPass, iv, tag, Instant.now());
+    }
+
+    @Transactional
+    public void restoreFailedProvisionedResponsibility(UUID mailboxId, UUID responsibleUserId) {
+        mailboxes.restoreFailedProvisionedResponsibility(mailboxId, responsibleUserId);
+    }
+
+    /** Failed provisioning keeps real resources charged without granting ownership access. */
+    @Transactional
+    public void retainProvisionedResponsibility(UUID mailboxId, UUID responsibleUserId) {
+        mailboxes.retainProvisionedResponsibility(mailboxId, responsibleUserId);
     }
 
     /**
@@ -506,8 +508,11 @@ public class MailboxService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Bu pochta qutisi hech kimga biriktirilmagan");
         }
+        quotaLock.lock(previous);
+        if (mailboxes.detachIfUnchanged(mailboxId, previous, m.getRetainedUserId()) == 0)
+            throw ownershipChanged();
+        m.setRetainedUserId(previous);
         m.setOwnerUserId(null);
-        mailboxes.save(m);
         linkSessions.endForMailbox(mailboxId);
         rotateIfProvisioned(m);
         log.info("Admin {} detached mailbox {} from user {}", adminId, mailboxId, previous);
@@ -526,17 +531,27 @@ public class MailboxService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Pochta qutisi allaqachon shu foydalanuvchida");
         }
+        quotaLock.lock(previous, m.getRetainedUserId(), newOwnerId);
+        if (m.getSource() != MailboxSource.ADMIN && !newOwnerId.equals(m.getRetainedUserId()))
+            slots.assertCanAllocate(newOwnerId);
+        Instant now = Instant.now();
+        if (mailboxes.reassignIfUnchanged(mailboxId, previous, m.getRetainedUserId(), newOwnerId, now) == 0)
+            throw ownershipChanged();
+        m.setRetainedUserId(null);
         m.setOwnerUserId(newOwnerId);
         m.setTradeId(null);
-        m.setHandedOffAt(Instant.now());
-        Mailbox saved = mailboxes.save(m);
+        m.setHandedOffAt(now);
         // A box just handed to a user is the newest to them: it opens first.
         // Column-only write — never put the whole row back.
         mailboxes.setAccessPriority(mailboxId, System.currentTimeMillis());
         linkSessions.endForMailbox(mailboxId);
         rotateIfProvisioned(m);
         log.info("Admin {} moved mailbox {} from user {} to user {}", adminId, mailboxId, previous, newOwnerId);
-        return saved;
+        return m;
+    }
+
+    private ResponseStatusException ownershipChanged() {
+        return new ResponseStatusException(HttpStatus.CONFLICT, "Mailbox ownership changed; retry the request");
     }
 
     /**

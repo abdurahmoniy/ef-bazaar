@@ -1,10 +1,12 @@
+import { MailboxAccessBanner } from '@/components/mail/mailbox-access-banner';
+import { legacyMailboxLocked } from '@/lib/mail-types';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { MarkReadBeacon } from '@/components/mail/mark-read-beacon';
 import { MessageView, type MessageNav } from '@/components/mail/message-view';
 import { LockedMailbox } from '@/components/mail/locked-mailbox';
-import { getInbox, getMessage, getMyMailboxes, MailboxLockedError } from '@/lib/mail-server';
+import { getInbox, getMessage, getMyMailboxes, getMailboxSlots, MailboxLockedError } from '@/lib/mail-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +27,7 @@ export default async function MessagePage({ params }: MessagePageProps) {
   // Memoized with the layout's fetch. Locked: no content calls at all.
   const active = (await getMyMailboxes()).find((m) => m.id === mailboxId);
   if (!active) notFound();
-  if (active.locked) return <LockedMailbox mailbox={active} />;
+  if (legacyMailboxLocked(active)) return <LockedMailbox mailbox={active} plan={(await getMailboxSlots())?.plan ?? null} />;
 
   // Session, shell and mailbox-ownership checks live in ../layout.tsx; the
   // backend re-verifies ownership on every call anyway (403 → null → 404).
@@ -39,7 +41,7 @@ export default async function MessagePage({ params }: MessagePageProps) {
       getInbox(mailboxId, { limit: NEIGHBOR_SCAN, offset: 0 }),
     ]);
   } catch (error) {
-    if (error instanceof MailboxLockedError) return <LockedMailbox mailbox={active} />;
+    if (error instanceof MailboxLockedError) return <LockedMailbox mailbox={active} plan={(await getMailboxSlots())?.plan ?? null} />;
     throw error;
   }
   if (!message) notFound();
@@ -60,6 +62,7 @@ export default async function MessagePage({ params }: MessagePageProps) {
 
   return (
     <>
+      <MailboxAccessBanner mailbox={active} />
       <MarkReadBeacon mailboxId={mailboxId} messageId={decodedId} seen={message.seen} />
       <MessageView mailboxId={mailboxId} message={message} nav={nav} />
     </>

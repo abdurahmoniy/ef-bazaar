@@ -26,6 +26,9 @@ public class StaffPlanService {
 
     @Transactional
     public void onRoleChanged(UUID userId, String oldRole, String newRole) {
+        if (!ADMIN.equals(oldRole) && !ADMIN.equals(newRole)) return;
+        subscriptions.ensureRow(userId);
+        subscriptions.lockByUserId(userId).orElseThrow();
         if (ADMIN.equals(newRole)) {
             plans.assign(userId, PlanService.STAFF_PLAN, null, PlanService.ROLE_SOURCE);
         } else if (ADMIN.equals(oldRole)) {

@@ -130,3 +130,8 @@ describe('marketplace sort integration', () => {
     expect(container.querySelector('button[aria-label^="Saralash:"]')).toBeNull();
   });
 });
+
+it('offers saving the current card and price filter from the market toolbar', async () => {
+  await renderBrowser('minPrice=100&maxPrice=200');
+  expect(container.querySelector('a[href="/watches?criteria=minPrice%3D100%26maxPrice%3D200"]')?.textContent).toContain('Qidiruvni saqlash');
+});

@@ -29,6 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MailboxAccessIT extends AbstractIntegrationIT {
 
     @Autowired MailboxAccessService access;
+    @Autowired uz.efbazaar.trade.plan.service.CustomSlotService customSlots;
+    @Autowired uz.efbazaar.trade.plan.service.MailboxSlotService randomSlots;
     @Autowired MailboxRepository mailboxes;
     @Autowired PlanProjection projection;
     @Autowired TradeService trades;
@@ -45,11 +47,14 @@ class MailboxAccessIT extends AbstractIntegrationIT {
 
     private void standardGrants(String value) {
         Map<String, String> m = new HashMap<>();
-        m.put("mailbox.slots", value);
-        projection.replacePlan("STANDARD", m);
+        m.put("mailbox.total_slots", value);
+        projection.replacePlan("STANDARD", m, System.nanoTime(), "fixture-" + UUID.randomUUID(), java.time.Instant.now());
     }
 
     private UUID owned(UUID owner, long priority) {
+        // A verified Free subscription is distinct from a missing projection.
+        if (!userPlanRows.existsById(owner)) projection.userMoved(owner, "STANDARD", null,
+                System.nanoTime(), "fixture-" + UUID.randomUUID(), Instant.now());
         UUID id = UUID.randomUUID();
         mailboxes.saveAndFlush(Mailbox.builder().id(id).email("acc-" + id + "@efbazaar.uz")
                 .ownerUserId(owner).encryptedPassword(new byte[]{1}).passwordIv(new byte[12])
@@ -81,6 +86,7 @@ class MailboxAccessIT extends AbstractIntegrationIT {
     void anUnknownPlanLocksNothing() {
         UUID u = UUID.randomUUID();
         owned(u, 1); owned(u, 2); owned(u, 3); owned(u, 4);
+        userPlanRows.deleteById(u);
         assertThat(access.lockedIds(u)).isEmpty();
     }
 
@@ -144,4 +150,82 @@ class MailboxAccessIT extends AbstractIntegrationIT {
         // live box takes one of the two places: only the newest of the rest stays open
         assertThat(access.lockedIds(user)).containsExactly(older).doesNotContain(tradeBox, newer);
     }
+    private UUID customOwned(UUID owner, long priority) {
+        UUID id = owned(owner, priority);
+        jdbc.update("UPDATE mailboxes SET kind = 'CUSTOM', source = 'USER' WHERE id = ?", id);
+        return id;
+    }
+    private void grant(String plan, Map<String,String> grants, Instant at) {
+        projection.replacePlan(plan, grants, System.nanoTime(), "access-" + UUID.randomUUID(), at);
+    }
+    private void subscribe(UUID user, String plan, Instant expiresAt, Instant at) {
+        projection.userMoved(user, plan, expiresAt, System.nanoTime(), "access-" + UUID.randomUUID(), at);
+    }
+    @Test void staleUnexpiredPaidSnapshotKeepsExistingReadsButRefusesNewAllocations() {
+        UUID user = UUID.randomUUID();
+        grant("STANDARD", Map.of("mailbox.total_slots","3", "mailbox.custom_slots","0"), Instant.now());
+        grant("PRO", Map.of("mailbox.total_slots","10", "mailbox.custom_slots","2"), Instant.now().minusSeconds(90000));
+        subscribe(user, "PRO", Instant.now().plusSeconds(3600), Instant.now().minusSeconds(90000));
+        for (int i = 0; i < 4; i++) owned(user, i);
+        UUID custom = customOwned(user, 10);
+        assertThat(access.lockedIds(user)).isEmpty();
+        assertThat(access.isLocked(user, custom)).isFalse();
+        assertThat(customSlots.canAllocate(user)).isFalse();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> randomSlots.assertCanAllocate(user))
+                .isInstanceOfSatisfying(uz.efbazaar.trade.common.exception.ApiCodeException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("plan_projection_unavailable"));
+    }
+    @Test void malformedReadLimitPreservesOwnedMailboxAccess() {
+        UUID user = UUID.randomUUID();
+        grant("PRO", Map.of("mailbox.total_slots","invalid", "mailbox.custom_slots","invalid"), Instant.now());
+        subscribe(user, "PRO", Instant.now().plusSeconds(3600), Instant.now());
+        owned(user, 1); customOwned(user, 2);
+        assertThat(access.lockedIds(user)).isEmpty();
+        assertThat(customSlots.canAllocate(user)).isFalse();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> randomSlots.assertCanAllocate(user))
+                .isInstanceOfSatisfying(uz.efbazaar.trade.common.exception.ApiCodeException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("plan_projection_unavailable"));
+    }
+    @Test void paidExpiryAndDowngradePreserveGraceThenRestrictExcessToRecovery() {
+        grant("STANDARD", Map.of("mailbox.total_slots","3", "mailbox.custom_slots","0"), Instant.now());
+        grant("PRO", Map.of("mailbox.total_slots","10", "mailbox.custom_slots","2"), Instant.now());
+        for (boolean expired : new boolean[]{true, false}) {
+            for (boolean recovery : new boolean[]{false, true}) {
+                UUID user = UUID.randomUUID();
+                Instant now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+                Instant paidExpiry = recovery ? now.minus(java.time.Duration.ofDays(31))
+                        : expired ? now.minusSeconds(1) : now.plusSeconds(3600);
+                subscribe(user, "PRO", paidExpiry, Instant.now());
+                if (!expired) subscribe(user, "STANDARD", null, Instant.now());
+                UUID oldest = owned(user, 1);
+                UUID second = owned(user, 2);
+                for (int i = 3; i < 5; i++) owned(user, i);
+                UUID custom = customOwned(user, 10);
+                assertThat(access.excessIds(user)).containsExactlyInAnyOrder(oldest, second).doesNotContain(custom);
+                assertThat(access.metadata(user, oldest).accessState()).isEqualTo(recovery
+                        ? MailboxAccessService.AccessState.RECOVERY : MailboxAccessService.AccessState.GRACE);
+                assertThat(access.metadata(user, oldest).paidExpiresAt()).isEqualTo(paidExpiry);
+                assertThat(access.metadata(user, oldest).selectedForFree()).isFalse();
+                assertThat(access.metadata(user, custom).accessState()).isEqualTo(MailboxAccessService.AccessState.ACTIVE);
+                assertThat(access.metadata(user, custom).selectedForFree()).isTrue();
+                if (recovery) assertThat(access.lockedIds(user)).containsExactlyInAnyOrder(oldest, second);
+                else assertThat(access.lockedIds(user)).isEmpty();
+                org.assertj.core.api.Assertions.assertThatThrownBy(() -> randomSlots.assertCanAllocate(user))
+                        .isInstanceOf(uz.efbazaar.trade.plan.exception.MailboxSlotsExhaustedException.class);
+            }
+        }
+    }
+
+    @Test void missingSubscriptionPreservesOwnedReadsEvenWhenFreeCatalogIsFresh() {
+        UUID user = UUID.randomUUID();
+        grant("STANDARD", Map.of("mailbox.total_slots","3", "mailbox.custom_slots","0"), Instant.now());
+        for (int i = 0; i < 4; i++) owned(user, i);
+        customOwned(user, 10);
+        userPlanRows.deleteById(user); // Simulate subscription projection loss, not an explicit Free downgrade.
+        assertThat(access.lockedIds(user)).isEmpty();
+        assertThat(customSlots.canAllocate(user)).isFalse();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> randomSlots.assertCanAllocate(user))
+                .isInstanceOf(uz.efbazaar.trade.plan.exception.MailboxSlotsExhaustedException.class);
+    }
+
 }

@@ -66,6 +66,10 @@ public class Notification {
     @Column(name = "verification_code", length = 8)
     private String verificationCode;
 
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "watch_payload", columnDefinition = "jsonb")
+    private java.util.Map<String, Object> watchPayload;
+
     @Column(name = "read_at")
     private Instant readAt;
 

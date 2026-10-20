@@ -37,6 +37,7 @@ class LockedMailboxIT extends AbstractIntegrationIT {
     @Autowired MockMvc mvc;
     @Autowired MailboxRepository mailboxes;
     @Autowired PlanProjection projection;
+    @Autowired uz.efbazaar.trade.plan.repository.UserPlanViewRepository userPlanRows;
     @Autowired MailboxAccessService access;
     @Autowired uz.efbazaar.trade.trade.service.TradeService trades;
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
@@ -44,7 +45,7 @@ class LockedMailboxIT extends AbstractIntegrationIT {
     @MockBean ImapConnectionPool pool;
 
     @AfterEach
-    void forget() { entitlementRows.deleteAll(); }
+    void forget() { entitlementRows.deleteAll(); userPlanRows.deleteAll(); }
 
     private static final Instant SAME_MOMENT = Instant.parse("2026-01-01T00:00:00Z");
 
@@ -54,6 +55,8 @@ class LockedMailboxIT extends AbstractIntegrationIT {
 
     /** All rows share created_at, so only priority and then id decide the order. */
     private UUID owned(UUID owner, long priority, UUID id) {
+        if (!userPlanRows.existsById(owner)) projection.userMoved(owner, "STANDARD", null,
+                System.nanoTime(), "fixture-" + UUID.randomUUID(), Instant.now());
         mailboxes.saveAndFlush(Mailbox.builder().id(id).email("lk-" + id + "@efbazaar.uz")
                 .ownerUserId(owner).encryptedPassword(new byte[]{1}).passwordIv(new byte[12])
                 .passwordTag(new byte[16]).createdAt(SAME_MOMENT).provisionedAt(Instant.now())
@@ -63,27 +66,28 @@ class LockedMailboxIT extends AbstractIntegrationIT {
 
     private void limitOne() {
         Map<String, String> m = new HashMap<>();
-        m.put("mailbox.slots", "1");
-        projection.replacePlan("STANDARD", m);
+        m.put("mailbox.total_slots", "1");
+        projection.replacePlan("STANDARD", m, System.nanoTime(), "fixture-" + UUID.randomUUID(), java.time.Instant.now());
     }
 
     @Test
-    void everyMailEndpointRefusesALockedMailbox() throws Exception {
+    void recoveryMailboxOpensOnlyTheFilteredInboxAndDeniesArbitraryUids() throws Exception {
         limitOne();
-        UUID u = UUID.randomUUID();
-        UUID locked = owned(u, 1);
-        owned(u, 2);
-
-        for (var req : List.of(
-                get("/api/v1/mail/{m}/inbox", locked),
-                get("/api/v1/mail/{m}/messages/{id}", locked, "7"),
+        UUID u = UUID.randomUUID(); UUID locked = owned(u, 1); owned(u, 2);
+        var store = org.mockito.Mockito.mock(jakarta.mail.Store.class);
+        var inbox = org.mockito.Mockito.mock(org.eclipse.angus.mail.imap.IMAPFolder.class);
+        org.mockito.Mockito.when(pool.lease(any())).thenReturn(new ImapConnectionPool.Lease(store, () -> {}));
+        org.mockito.Mockito.when(store.getFolder("INBOX")).thenReturn(inbox);
+        org.mockito.Mockito.when(inbox.search(org.mockito.ArgumentMatchers.any(jakarta.mail.search.SearchTerm.class)))
+                .thenReturn(new jakarta.mail.Message[0]);
+        mvc.perform(get("/api/v1/mail/{m}/inbox", locked).with(asUser(u)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0))
+                .andExpect(jsonPath("$.messages").isEmpty());
+        for (var req : List.of(get("/api/v1/mail/{m}/messages/{id}", locked, "7"),
                 post("/api/v1/mail/{m}/messages/{id}/read", locked, "7"),
-                get("/api/v1/mail/{m}/messages/{id}/attachments/{a}", locked, "7", "1"))) {
-            mvc.perform(req.with(asUser(u)))
-                    .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.code").value("mailbox_locked"));
-        }
-        verifyNoInteractions(pool);
+                get("/api/v1/mail/{m}/messages/{id}/attachments/{a}", locked, "7", "1")))
+            mvc.perform(req.with(asUser(u))).andExpect(status().isNotFound());
+        org.mockito.Mockito.verify(pool, org.mockito.Mockito.times(4)).lease(any());
     }
 
     @Test
@@ -167,7 +171,7 @@ class LockedMailboxIT extends AbstractIntegrationIT {
         } catch (jakarta.servlet.ServletException expectedFromMockedPool) {
             // fine
         }
-        verify(pool).acquire(any());
+        verify(pool).lease(any());
     }
 
     private void unlock(UUID u, UUID locked, UUID instead) throws Exception {
@@ -180,8 +184,8 @@ class LockedMailboxIT extends AbstractIntegrationIT {
     @Test
     void aSwapAmongThreeTiedMailboxesMovesOnlyTheChosenPair() throws Exception {
         Map<String, String> m = new HashMap<>();
-        m.put("mailbox.slots", "2");
-        projection.replacePlan("STANDARD", m);
+        m.put("mailbox.total_slots", "2");
+        projection.replacePlan("STANDARD", m, System.nanoTime(), "fixture-" + UUID.randomUUID(), java.time.Instant.now());
         UUID u = UUID.randomUUID();
         long base = new java.util.Random().nextLong() & 0x7fffffffffffffffL;
         UUID hi = owned(u, 5, new UUID(base, 3)), mid = owned(u, 5, new UUID(base, 2)),

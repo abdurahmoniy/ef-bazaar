@@ -1,5 +1,7 @@
 package uz.efbazaar.payment.plan.service;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -41,6 +43,7 @@ public class PlanPurchaseService {
     private final PlanPurchaseRepository purchases;
     private final LedgerService ledger;
     private final Clock clock;
+    private final EntityManager entityManager;
 
     @Transactional
     public MyPlanResponse purchase(UUID userId, Long telegramId, PurchasePlanRequest req) {
@@ -68,6 +71,10 @@ public class PlanPurchaseService {
 
         subscriptions.ensureRow(userId);
         var sub = subscriptions.lockByUserId(userId).orElseThrow();
+        // planFor (or a caller transaction) may already have loaded this entity.
+        // A locking query retains managed state: refresh after waiting so renewals
+        // extend the latest committed expiry instead of charging for the same term.
+        entityManager.refresh(sub, LockModeType.PESSIMISTIC_WRITE);
         // A twin of this request may have committed while we waited for the lock.
         if (isReplay(userId, req.idempotencyKey())) {
             return mine(userId);
@@ -108,7 +115,6 @@ public class PlanPurchaseService {
     }
 
     private MyPlanResponse mine(UUID userId) {
-        String code = planService.planFor(userId);
-        return new MyPlanResponse(code, planService.expiryFor(userId), planService.entitlementsOf(code));
+        return planService.mine(userId);
     }
 }

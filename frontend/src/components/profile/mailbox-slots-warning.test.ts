@@ -24,7 +24,7 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
-  vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 2, limit: 3, full: false, plan: 'STANDARD', lockedCount: 0 });
+  vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 2, limit: 3, totalUsed: 2, totalLimit: 3, customUsed: 0, customLimit: 0, full: false, plan: 'STANDARD', lockedCount: 0 });
   vi.mocked(fetchOwnedMailboxes).mockResolvedValue([
     { id: 'm1', email: 'bound@efbazaar.uz', tradeId: null, createdAt: '2026-09-01T00:00:00Z', handedOffAt: null, locked: false },
     { id: 'm2', email: 'free@efbazaar.uz', tradeId: null, createdAt: '2026-09-02T00:00:00Z', handedOffAt: null, locked: false },
@@ -63,6 +63,8 @@ describe('MailboxSlotsWarning', () => {
     const rows = Array.from(container.querySelectorAll('li'));
     expect(rows[0].textContent).toContain('free@efbazaar.uz');
     expect(rows[0].textContent).toContain('bog‘lanmagan');
+    expect(rows[0].textContent).not.toContain('o‘chirish xavfsiz');
+    expect(rows[0].textContent).toContain('uzilgach kirish yo‘qoladi, quti saqlanadi');
     expect(rows[1].textContent).toContain('bog‘langan');
   });
 
@@ -76,9 +78,11 @@ describe('MailboxSlotsWarning', () => {
     expect(container.textContent).not.toContain('bog‘lanmagan');
   });
 
-  it('joy yetarli bo‘lsa umuman chizilmaydi', async () => {
-    vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 1, limit: 3, full: false, plan: 'STANDARD', lockedCount: 0 });
+  it('shows total and custom usage even while there is room', async () => {
+    vi.mocked(fetchSlotStatus).mockResolvedValue({ used: 1, limit: 3, totalUsed: 1, totalLimit: 3, customUsed: 0, customLimit: 0, full: false, plan: 'STANDARD', lockedCount: 0 });
     await render();
-    expect(container.textContent).toBe('');
+    expect(container.textContent).toContain('Jami: 1 / 3');
+    expect(container.textContent).toContain('shundan custom: 0 / 0');
+    expect(container.textContent).not.toContain('to‘lay');
   });
 });

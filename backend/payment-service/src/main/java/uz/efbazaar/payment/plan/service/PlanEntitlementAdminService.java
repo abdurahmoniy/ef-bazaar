@@ -4,8 +4,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import uz.efbazaar.payment.plan.domain.PlanEntitlement;
 import uz.efbazaar.payment.plan.domain.PlanEntitlementId;
 import uz.efbazaar.payment.plan.dto.PlanEntitlementRow;
@@ -29,7 +27,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class PlanEntitlementAdminService {
 
-    public static final Set<String> ADMIN_KEYS = Set.of("mailbox.slots", "mailbox.custom_slots");
+    public static final Set<String> ADMIN_KEYS = Set.of("mailbox.total_slots", "mailbox.custom_slots");
 
     private final PlanEntitlementRepository entitlements;
     private final PlanRepository plans;
@@ -50,6 +48,10 @@ public class PlanEntitlementAdminService {
     public List<PlanEntitlementRow> update(UUID adminId, List<UpdatePlanEntitlementsRequest.Item> items) {
         items.forEach(PlanEntitlementAdminService::validate);   // all before any write
         Set<String> touched = new TreeSet<>();
+        // Lock in a stable order before any writes, also used by recovery replay.
+        items.stream().map(UpdatePlanEntitlementsRequest.Item::planCode).distinct().sorted()
+                .forEach(code -> plans.lockByCode(code)
+                        .orElseThrow(() -> new IllegalArgumentException("Unknown plan " + code)));
         for (var item : items) {
             if (!plans.existsById(item.planCode())) {
                 throw new IllegalArgumentException("Unknown plan " + item.planCode());
@@ -68,17 +70,9 @@ public class PlanEntitlementAdminService {
             log.info("Admin {} set {}.{} = {}", adminId, item.planCode(), item.key(),
                     item.value() == null ? "unlimited" : item.value());
         }
-        // Built inside the transaction (the query flushes, so it sees these writes);
-        // published only after commit so a reader never sees a rolled-back value.
-        List<PlanEntitlementsSnapshot> snapshots = new ArrayList<>();
         for (String plan : touched) {
-            snapshots.add(new PlanEntitlementsSnapshot(plan, planService.entitlementsOf(plan), Instant.now()));
+            events.planEntitlements(new PlanEntitlementsSnapshot(plan, planService.entitlementsOf(plan), Instant.now()));
         }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCommit() {
-                snapshots.forEach(events::planEntitlements);
-            }
-        });
         return all();
     }
 

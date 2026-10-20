@@ -98,3 +98,10 @@ describe('ListingActions', () => {
     expect(html).toContain('Shikoyat');
   });
 });
+
+it('offers a price watch separately from Favorites only for an active buyer listing', () => {
+  const html = renderToStaticMarkup(createElement(ListingActions, { listingId: 'listing-1', authenticated: true, initialLikeCount: 2 }));
+  expect(html).toContain('Narxni kuzatish');
+  const owner = renderToStaticMarkup(createElement(ListingActions, { listingId: 'listing-1', authenticated: true, initialLikeCount: 2, isOwner: true }));
+  expect(owner).not.toContain('Narxni kuzatish');
+});

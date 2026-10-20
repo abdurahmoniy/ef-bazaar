@@ -1,3 +1,4 @@
+import type { MailboxAccessFields } from './mailbox-access';
 import type { PlanCode } from './plans';
 
 /**
@@ -27,7 +28,7 @@ export type Availability = {
 
 export type ClaimAction =
   | { kind: 'claim' }
-  | { kind: 'upgrade'; plan: 'PRO' | 'MAX'; label: string }
+  | { kind: 'upgrade'; plan: 'PRO'; label: string }
   | { kind: 'none' };
 
 export type ClaimView = {
@@ -36,7 +37,7 @@ export type ClaimView = {
   action: ClaimAction;
 };
 
-export type CustomMailbox = {
+export type CustomMailbox = MailboxAccessFields & {
   id: string;
   email: string;
   provisioned: boolean;
@@ -55,7 +56,7 @@ export function localPartProblem(localPart: string): 'invalid' | null {
 }
 
 export function isPremiumDomainPlan(plan: PlanCode | null): boolean {
-  return plan === 'MAX' || plan === 'STAFF';
+  return plan === 'PRO' || plan === 'STAFF';
 }
 
 const REASON_TEXT: Record<AvailabilityReason, string> = {
@@ -66,8 +67,7 @@ const REASON_TEXT: Record<AvailabilityReason, string> = {
 };
 
 const NONE: ClaimAction = { kind: 'none' };
-const TO_PRO: ClaimAction = { kind: 'upgrade', plan: 'PRO', label: 'Boyvachcha tarifida oling' };
-const TO_MAX: ClaimAction = { kind: 'upgrade', plan: 'MAX', label: 'Aristokrat tarifida oling' };
+const TO_PRO: ClaimAction = { kind: 'upgrade', plan: 'PRO', label: 'Pro tarifini ko‘rish' };
 
 /**
  * What the claim card says for the name in the field.
@@ -93,21 +93,20 @@ export function claimView(input: {
   }
   if (result.canClaim) return { tone: 'ok', message: 'Olishingiz mumkin', action: { kind: 'claim' } };
   if (result.claimBlock === 'PLAN_DOMAIN') {
-    return { tone: 'ok', message: 'Olishingiz mumkin', action: TO_MAX };
+    return { tone: 'bad', message: 'Bu domen joriy tarifda mavjud emas', action: NONE };
   }
-  if (input.plan === 'STANDARD' || input.plan === null) {
+  if (input.plan === null) return { tone: 'bad', message: 'Tarif aniqlanmadi. Qayta urinib ko‘ring', action: NONE };
+  if (input.plan === 'STANDARD') {
     return { tone: 'ok', message: 'Olishingiz mumkin', action: TO_PRO };
   }
   return {
     tone: 'ok',
-    message: 'Barcha custom slotlar band',
-    action: input.plan === 'PRO' ? TO_MAX : NONE,
+    message: 'Jami yoki custom quti limiti band',
+    action: NONE,
   };
 }
 
-/** The upsell under the card for plans that cannot use efootball.uz. */
-export function efootballOffer(plan: PlanCode | null, localPart: string): string | null {
-  const local = normalizeLocalPart(localPart);
-  if (isPremiumDomainPlan(plan) || localPartProblem(local)) return null;
-  return `${local}@${PREMIUM_DOMAIN} ni ham olishingiz mumkin`;
+/** The premium domain remains available to existing eligible plans, but is not for sale. */
+export function efootballOffer(_plan: PlanCode | null, _localPart: string): string | null {
+  return null;
 }

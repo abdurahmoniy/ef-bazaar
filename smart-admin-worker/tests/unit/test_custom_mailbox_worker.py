@@ -19,9 +19,11 @@ from smart_admin_worker.handlers.imap_poll import ImapPollHandler
 from smart_admin_worker.handlers.imap_poll_stop import ImapPollStopHandler
 from smart_admin_worker.handlers.mailbox_provision import MailboxProvisionHandler
 from smart_admin_worker.imap.poller import PollPurpose
+from smart_admin_worker.imap.registry import ImapPollerRegistry
 from smart_admin_worker.kafka import events as e
 from smart_admin_worker.kafka.events import from_json
 from smart_admin_worker.mailcow.client import Mailbox
+from tests.unit.provisioning_fixtures import AuthorizingClaims, credentials_valid
 
 SESSION = UUID("44444444-4444-4444-4444-444444444444")
 BOX_ID = UUID("55555555-5555-5555-5555-555555555555")
@@ -36,10 +38,18 @@ def encryptor():
 async def test_provision_uses_the_domain_in_the_event(encryptor):
     mailcow = AsyncMock()
     mailcow.create_mailbox.return_value = Mailbox(email=BOX)
-    handler = MailboxProvisionHandler(mailcow=mailcow, encryptor=encryptor, producer=AsyncMock())
+    handler = MailboxProvisionHandler(
+        mailcow=mailcow,
+        encryptor=encryptor,
+        producer=AsyncMock(),
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
+    )
 
     await handler.handle(
-        e.MailboxProvisionRequest(mailbox_id=BOX_ID, local_part="alibek1", domain="efootball.uz")
+        e.MailboxProvisionRequest(
+            mailbox_id=BOX_ID, local_part="alibek1", domain="efootball.uz", address_version=2
+        )
     )
 
     assert mailcow.create_mailbox.await_args.kwargs["domain"] == "efootball.uz"
@@ -48,9 +58,17 @@ async def test_provision_uses_the_domain_in_the_event(encryptor):
 async def test_provision_keeps_the_default_for_events_without_domain(encryptor):
     mailcow = AsyncMock()
     mailcow.create_mailbox.return_value = Mailbox(email="alibek1@efbazaar.uz")
-    handler = MailboxProvisionHandler(mailcow=mailcow, encryptor=encryptor, producer=AsyncMock())
+    handler = MailboxProvisionHandler(
+        mailcow=mailcow,
+        encryptor=encryptor,
+        producer=AsyncMock(),
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
+    )
 
-    await handler.handle(e.MailboxProvisionRequest(mailbox_id=BOX_ID, local_part="alibek1"))
+    await handler.handle(
+        e.MailboxProvisionRequest(mailbox_id=BOX_ID, local_part="alibek1", address_version=2)
+    )
 
     assert mailcow.create_mailbox.await_args.kwargs["domain"] == "efbazaar.uz"
 
@@ -109,8 +127,7 @@ def test_old_poll_request_still_decodes():
 
 async def test_poll_decrypts_the_request_when_the_cache_is_empty(encryptor):
     field = encryptor.encrypt(f"mbox-{BOX_ID}", b"s3cret")
-    registry = AsyncMock()
-    registry.start = AsyncMock()
+    registry = AsyncMock(spec=ImapPollerRegistry)
     handler = ImapPollHandler(
         registry=registry,
         producer=AsyncMock(),
@@ -135,7 +152,7 @@ async def test_poll_decrypts_the_request_when_the_cache_is_empty(encryptor):
 
 async def test_poll_without_cache_or_credentials_still_refuses():
     handler = ImapPollHandler(
-        registry=AsyncMock(),
+        registry=AsyncMock(spec=ImapPollerRegistry),
         producer=AsyncMock(),
         password_provider=AsyncMock(return_value=""),
         decryptor=None,
@@ -148,7 +165,7 @@ async def test_poll_without_cache_or_credentials_still_refuses():
 
 
 async def test_restart_cancels_the_running_poller_first():
-    registry = AsyncMock()
+    registry = AsyncMock(spec=ImapPollerRegistry)
     handler = ImapPollHandler(
         registry=registry, producer=AsyncMock(), password_provider=AsyncMock(return_value="pw")
     )
@@ -162,7 +179,7 @@ async def test_restart_cancels_the_running_poller_first():
 
 
 async def test_no_restart_leaves_the_running_poller_alone():
-    registry = AsyncMock()
+    registry = AsyncMock(spec=ImapPollerRegistry)
     handler = ImapPollHandler(
         registry=registry, producer=AsyncMock(), password_provider=AsyncMock(return_value="pw")
     )
@@ -175,7 +192,7 @@ async def test_no_restart_leaves_the_running_poller_alone():
 
 
 async def test_stop_cancels_every_poller_of_the_mailbox():
-    registry = AsyncMock()
+    registry = AsyncMock(spec=ImapPollerRegistry)
 
     await ImapPollStopHandler(registry).handle(e.ImapPollStopRequest(mailbox_email=BOX))
 
@@ -203,12 +220,21 @@ async def test_custom_name_already_in_mailcow_is_not_reported_as_ours(encryptor)
     notifier = AsyncMock()
     notifier.enabled = True
     handler = MailboxProvisionHandler(
-        mailcow=mailcow, encryptor=encryptor, producer=producer, notifier=notifier
+        mailcow=mailcow,
+        encryptor=encryptor,
+        producer=producer,
+        notifier=notifier,
+        claims=AuthorizingClaims(),
+        credential_verifier=credentials_valid,
     )
 
     await handler.handle(
         e.MailboxProvisionRequest(
-            mailbox_id=BOX_ID, local_part="alibek1", domain="efbazaar.uz", custom=True
+            mailbox_id=BOX_ID,
+            local_part="alibek1",
+            domain="efbazaar.uz",
+            custom=True,
+            address_version=2,
         )
     )
 
@@ -228,7 +254,7 @@ async def test_poll_accepts_an_older_shaped_event():
     """Callers (and the end-to-end test) may pass an event without the new fields."""
     from types import SimpleNamespace
 
-    registry = AsyncMock()
+    registry = AsyncMock(spec=ImapPollerRegistry)
     handler = ImapPollHandler(
         registry=registry, producer=AsyncMock(), password_provider=AsyncMock(return_value="pw")
     )

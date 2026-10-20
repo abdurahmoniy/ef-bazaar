@@ -24,5 +24,6 @@ public record MessageDetail(
         String bodyHtml,
         String bodyPlain,
         List<AttachmentMeta> attachments,
-        boolean seen
+        boolean seen,
+        boolean criticalRecovery
 ) {}

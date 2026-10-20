@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.trade.mailbox.domain.Mailbox;
-import uz.efbazaar.trade.mailbox.domain.MailboxKind;
 import uz.efbazaar.trade.mailbox.repository.MailboxRepository;
 import uz.efbazaar.trade.trade.domain.TradeState;
 import uz.efbazaar.trade.trade.repository.TradeRepository;
@@ -12,7 +11,6 @@ import uz.efbazaar.trade.trade.repository.TradeRepository;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
@@ -37,41 +35,70 @@ public class MailboxAccessService {
     private final MailboxRepository mailboxes;
     private final TradeRepository trades;
     private final EntitlementService entitlements;
-    private final CustomSlotService customSlots;
+    private final uz.efbazaar.trade.plan.repository.UserPlanViewRepository plans;
+    private final java.time.Clock clock;
 
-    /** Random boxes past {@code mailbox.slots} plus custom boxes past {@code mailbox.custom_slots}. */
-    @Transactional(readOnly = true)
-    public Set<UUID> lockedIds(UUID userId) {
-        Set<UUID> locked = new LinkedHashSet<>(lockedRandomIds(userId));
-        locked.addAll(customSlots.lockedIds(userId));
-        return locked;
+    public enum AccessState { ACTIVE, GRACE, RECOVERY }
+    public record Access(AccessState accessState, java.time.Instant paidExpiresAt,
+                         java.time.Instant graceEndsAt, boolean selectedForFree) {
+        public boolean locked() { return accessState == AccessState.RECOVERY; }
     }
 
-    private Set<UUID> lockedRandomIds(UUID userId) {
-        OptionalLong limit = entitlements.limit(userId, MailboxSlotService.KEY);
-        if (limit.isEmpty()) return Set.of();
+    @Transactional(readOnly = true)
+    public Access metadata(UUID userId, UUID mailboxId) {
+        var owned = metadataFor(userId).get(mailboxId);
+        if (owned != null) return owned;
+        var plan = plans.findById(userId).orElse(null);
+        var expiry = plan == null ? null : plan.getLastPaidExpiresAt();
+        return new Access(AccessState.RECOVERY, expiry, expiry == null ? null : expiry.plus(java.time.Duration.ofDays(30)), false);
+    }
 
-        List<Mailbox> owned = mailboxes.findAccessOrderOwnedBy(userId, MailboxKind.RANDOM);
+    /** One owner snapshot and two live-trade queries for the whole account switcher. */
+    @Transactional(readOnly = true)
+    public java.util.Map<UUID, Access> metadataFor(UUID userId) {
+        var plan = plans.findById(userId).orElse(null);
+        var paidExpiry = plan == null ? null : plan.getLastPaidExpiresAt();
+        var graceEnd = paidExpiry == null ? null : paidExpiry.plus(java.time.Duration.ofDays(30));
+        var limit = entitlements.mailboxReadLimit(userId, MailboxSlotService.KEY);
+        List<Mailbox> owned = mailboxes.findAccessOrderOwnedBy(userId);
         List<UUID> ids = owned.stream().map(Mailbox::getId).toList();
-        // Two queries for the lot. Only a live box whose owner is a party to the
-        // trade is held open and spends the limit; the escrow box a human
-        // trade-admin was lent is open too but neither locked nor counted.
-        Set<UUID> anyLive = ids.isEmpty() ? Set.of()
-                : Set.copyOf(trades.liveMailboxIds(ids, TradeState.nonTerminal()));
+        Set<UUID> anyLive = ids.isEmpty() ? Set.of() : Set.copyOf(trades.liveMailboxIds(ids, TradeState.nonTerminal()));
         Set<UUID> partyLive = anyLive.isEmpty() ? Set.of()
                 : Set.copyOf(trades.liveMailboxIdsOfParty(userId, ids, TradeState.nonTerminal()));
-        List<Mailbox> live = new ArrayList<>();
-        List<Mailbox> rest = new ArrayList<>();
-        for (Mailbox m : owned) {
-            if (partyLive.contains(m.getId())) live.add(m);
-            else if (!anyLive.contains(m.getId())) rest.add(m);
+        List<Mailbox> priority = new ArrayList<>();
+        owned.stream().filter(m -> m.getSource() != uz.efbazaar.trade.mailbox.domain.MailboxSource.ADMIN
+                && partyLive.contains(m.getId())).forEach(priority::add);
+        owned.stream().filter(m -> m.getSource() != uz.efbazaar.trade.mailbox.domain.MailboxSource.ADMIN
+                && !anyLive.contains(m.getId())).forEach(priority::add);
+        Set<UUID> freeSelected = new LinkedHashSet<>();
+        priority.stream().limit(3).map(Mailbox::getId).forEach(freeSelected::add);
+        Set<UUID> withinLimit = new LinkedHashSet<>();
+        priority.stream().limit(limit.orElse(Long.MAX_VALUE)).map(Mailbox::getId).forEach(withinLimit::add);
+        var result = new java.util.LinkedHashMap<UUID, Access>();
+        for (Mailbox mb : owned) {
+            boolean active = mb.getSource() == uz.efbazaar.trade.mailbox.domain.MailboxSource.ADMIN
+                    || anyLive.contains(mb.getId()) || withinLimit.contains(mb.getId());
+            AccessState state = active ? AccessState.ACTIVE
+                    : graceEnd != null && clock.instant().isBefore(graceEnd) ? AccessState.GRACE : AccessState.RECOVERY;
+            result.put(mb.getId(), new Access(state, paidExpiry, graceEnd, freeSelected.contains(mb.getId())));
         }
-        long free = Math.max(0, limit.getAsLong() - live.size());
-        Set<UUID> locked = new LinkedHashSet<>();
-        for (int i = 0; i < rest.size(); i++) {
-            if (i >= free) locked.add(rest.get(i).getId());
-        }
-        return locked;
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Set<UUID> excessIds(UUID userId) {
+        // Free selection remains available during grace and survives renewal; priorities are persisted.
+        var states = metadataFor(userId);
+        var selected = new LinkedHashSet<UUID>();
+        states.forEach((id, a) -> { if (a.accessState() != AccessState.ACTIVE) selected.add(id); });
+        return selected;
+    }
+
+    @Transactional(readOnly = true)
+    public Set<UUID> lockedIds(UUID userId) {
+        var selected = new LinkedHashSet<UUID>();
+        metadataFor(userId).forEach((id, a) -> { if (a.locked()) selected.add(id); });
+        return selected;
     }
 
     @Transactional(readOnly = true)

@@ -3,9 +3,11 @@ import 'server-only';
 import { cache } from 'react';
 
 import { apiFetch, ApiException } from './api';
+import { isMailboxSlotStatus } from './mail-types';
 import type {
   InboxPage,
   MailboxSummary,
+  MailboxSlotStatus,
   MessageDetail,
 } from './mail-types';
 
@@ -88,3 +90,9 @@ export function attachmentDownloadUrl(
 ): string {
   return `/api/trade/v1/mail/${encodeURIComponent(mailboxId)}/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`;
 }
+
+/** Read the actual allocation counters; sidebar row counts exclude reservations. */
+export const getMailboxSlots = cache(async (): Promise<MailboxSlotStatus | null> => {
+  const status = await safeGet<unknown>('/trade/v1/mailboxes/slots');
+  return isMailboxSlotStatus(status) ? status : null;
+});

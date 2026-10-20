@@ -20,6 +20,7 @@ import uz.efbazaar.trade.mailbox.service.MailboxService;
 public class MailboxProvisionedConsumer {
 
     private final MailboxService mailboxes;
+    private final uz.efbazaar.trade.mailbox.provision.ProvisioningClaimService claims;
 
     @KafkaListener(
             topics = TradeEvents.TOPIC_MAILBOX_PROVISIONED,
@@ -28,8 +29,10 @@ public class MailboxProvisionedConsumer {
     )
     public void onMailboxProvisioned(TradeEvents.MailboxProvisioned e) {
         try {
-            mailboxes.markProvisioned(e.mailboxId(), e.mailboxEmail(),
-                    e.encryptedPassword(), e.iv(), e.tag());
+            var completion = claims.complete(e.mailboxId(), null, e.mailboxEmail(), e.encryptedPassword(), e.iv(), e.tag(), e.claimId());
+            if (completion == uz.efbazaar.trade.mailbox.provision.ProvisioningClaimService.Completion.REJECTED) return;
+            if (completion == uz.efbazaar.trade.mailbox.provision.ProvisioningClaimService.Completion.LEGACY)
+                mailboxes.markProvisioned(e.mailboxId(), e.mailboxEmail(), e.encryptedPassword(), e.iv(), e.tag());
             log.info("Mailbox {} provisioned as {}", e.mailboxId(), e.mailboxEmail());
         } catch (EntityNotFoundException ex) {
             // The row is created before the request is published, so this only

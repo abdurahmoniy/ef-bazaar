@@ -14,6 +14,9 @@ TOPIC_MAILBOX_PROVISION_REQ = "efbazaar.trade.mailbox-provision-request"
 TOPIC_MAILBOX_PROVISIONED = "efbazaar.trade.mailbox-provisioned"
 TOPIC_MAILBOX_ROTATE_REQ = "efbazaar.trade.mailbox-rotate-request"
 TOPIC_MAILBOX_ROTATED = "efbazaar.trade.mailbox-rotated"
+TOPIC_MAILBOX_DELETE_RESULT = "efbazaar.trade.mailbox-delete-result"
+TOPIC_MAILBOX_INVENTORY_REQ = "efbazaar.trade.mailbox-inventory-request"
+TOPIC_MAILBOX_INVENTORY_OBSERVED = "efbazaar.trade.mailbox-inventory-observed"
 TOPIC_MAILBOX_DELETE_REQ = "efbazaar.trade.mailbox-delete-request"
 
 # NEW in Plan C — backpressure UX
@@ -34,4 +37,5 @@ REQUEST_TOPICS = (
     TOPIC_IMAP_POLL_STOP_REQ,
     TOPIC_MAILBOX_ROTATE_REQ,
     TOPIC_MAILBOX_DELETE_REQ,
+    TOPIC_MAILBOX_INVENTORY_REQ,
 )

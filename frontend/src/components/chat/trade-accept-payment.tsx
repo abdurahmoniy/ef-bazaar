@@ -195,7 +195,7 @@ export function TradeAcceptPayment({ proposal, viewerId, unavailable = false, on
         Eng kam to‘ldirish: {formatPriceUZS(MIN_TOP_UP_UZS)}. Ortiqcha mablag‘ hamyoningizda qoladi.
       </p>}
       {error && <p role="alert" className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-      {slotsPlan && <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3"><UpgradeCta plan={slotsPlan} message="" /></div>}
+      {slotsPlan && <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3"><p className="mb-2 text-sm text-muted-foreground">Shaxsiy va savdo qutilari umumiy limitga kiradi.</p><UpgradeCta plan={slotsPlan} message="" /></div>}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Yopish</Button>
         {balance === null && !loading && <Button type="button" variant="outline" onClick={() => { setError(null); void refreshWallet(); }}>Qayta urinish</Button>}

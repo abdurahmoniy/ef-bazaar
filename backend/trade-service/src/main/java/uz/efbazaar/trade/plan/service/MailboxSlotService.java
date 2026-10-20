@@ -15,12 +15,12 @@ import java.util.OptionalLong;
 import java.util.UUID;
 
 /**
- * How many escrow mailboxes a user may hold at once.
+ * Unified mailbox resource quota, including retained resources and live reservations.
  *
  * <p>Every trade creates a real mailbox on the mail server, so this is the
  * cost the tiers are actually about. A slot is taken by a mailbox the user owns
- * or one a live trade has reserved for their side, and it comes back when
- * either the mailbox is deleted or the trade ends without them keeping it.
+ * or retains responsibility for, or a live trade reserves for them. UI detach
+ * never releases a real resource. Failed trades release unowned reservations.
  */
 @Slf4j
 @Service
@@ -28,11 +28,12 @@ import java.util.UUID;
 public class MailboxSlotService {
 
     /** The capability this asks about. Plans are never named here. */
-    public static final String KEY = "mailbox.slots";
+    public static final String KEY = "mailbox.total_slots";
 
     private final MailboxRepository mailboxes;
     private final EntitlementService entitlements;
     private final MailboxAccessService access;
+    private final CustomSlotService customSlots;
 
     /**
      * How many mailboxes an unlimited plan may hold before we look into it.
@@ -66,14 +67,27 @@ public class MailboxSlotService {
     public SlotStatus statusFor(UUID userId) {
         OptionalLong limit = entitlements.limit(userId, KEY);
         long used = used(userId);
-        return new SlotStatus(used,
-                limit.isPresent() ? limit.getAsLong() : null,
+        OptionalLong customLimit = customSlots.limitFor(userId);
+        long exempt = mailboxes.countExemptHeldBy(userId, TERMINAL);
+        Long total = limit.isPresent() ? limit.getAsLong() : null;
+        var modes = access.metadataFor(userId);
+        var sample = modes.values().stream().findFirst().orElseGet(() -> access.metadata(userId, new UUID(0,0)));
+        var state = modes.values().stream().anyMatch(a -> a.accessState() == MailboxAccessService.AccessState.RECOVERY)
+                ? MailboxAccessService.AccessState.RECOVERY
+                : modes.values().stream().anyMatch(a -> a.accessState() == MailboxAccessService.AccessState.GRACE)
+                    ? MailboxAccessService.AccessState.GRACE : MailboxAccessService.AccessState.ACTIVE;
+        return new SlotStatus(used, total,
                 limit.isPresent() && used >= limit.getAsLong(),
-                entitlements.planFor(userId),
-                access.lockedIds(userId).size());
+                entitlements.planFor(userId), access.lockedIds(userId).size(), used, total,
+                customSlots.used(userId), customLimit.isPresent() ? customLimit.getAsLong() : null,
+                exempt, used + exempt, state, sample == null ? null : sample.paidExpiresAt(),
+                sample == null ? null : sample.graceEndsAt(), modes.values().stream().filter(MailboxAccessService.Access::selectedForFree).count());
     }
 
-    public record SlotStatus(long used, Long limit, boolean full, String plan, long lockedCount) {}
+    public record SlotStatus(long used, Long limit, boolean full, String plan, long lockedCount,
+                             long totalUsed, Long totalLimit, long customUsed, Long customLimit,
+                             long exemptUsed, long resourceUsed, MailboxAccessService.AccessState accessState,
+                             java.time.Instant paidExpiresAt, java.time.Instant graceEndsAt, long selectedForFreeCount) {}
 
     /** The ceiling, or empty when this user has none. */
     @Transactional(readOnly = true)
@@ -84,13 +98,13 @@ public class MailboxSlotService {
     /**
      * Refuses when there is no room for another mailbox.
      *
-     * <p>Called once per party rather than once per trade: a swap creates a
-     * mailbox for each of them, and charging both to whoever opened it would
-     * let one user spend another's allowance.
+     * <p>Both parties need capacity: sales reserve one address for the source
+     * and recipient; swaps reserve one outgoing address each. Callers hold
+     * MailboxQuotaLock until the reservation transaction commits.
      */
     @Transactional(readOnly = true)
     public void assertCanAllocate(UUID userId) {
-        OptionalLong limit = entitlements.limit(userId, KEY);
+        OptionalLong limit = entitlements.allocationLimit(userId, KEY);
         long used = used(userId);
         if (limit.isEmpty()) {
             if (used >= unlimitedAlertThreshold) {

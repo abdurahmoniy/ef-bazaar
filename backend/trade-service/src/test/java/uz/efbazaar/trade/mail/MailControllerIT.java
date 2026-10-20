@@ -10,7 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import uz.efbazaar.trade.mailbox.service.MailboxService;
-import uz.efbazaar.trade.testsupport.AbstractPostgresIT;
+import uz.efbazaar.trade.testsupport.AbstractIntegrationIT;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -32,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * </ul>
  */
 @SpringBootTest
-class MailControllerIT extends AbstractPostgresIT {
+class MailControllerIT extends AbstractIntegrationIT {
 
     @Autowired
     private WebApplicationContext ctx;

@@ -29,6 +29,7 @@ import static uz.efbazaar.trade.testsupport.AuthHeaderRequestPostProcessor.asUse
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@org.springframework.transaction.annotation.Transactional
 class TradeAdminCatalogControllerIT extends AbstractIntegrationIT {
 
     @Autowired MockMvc mvc;
@@ -51,12 +52,15 @@ class TradeAdminCatalogControllerIT extends AbstractIntegrationIT {
      * (two admins can share the same average rating), so leftover rows from
      * an earlier test method in this class would make the outcome depend on
      * JUnit's method order rather than the code under test. Start every test
-     * from an empty table.
+     * from an isolated catalogue view. Each test rolls back its fixtures and
+     * temporary visibility changes; unrelated trades/claims must remain intact.
      */
     @BeforeEach
     void cleanCatalogue() {
-        trades.deleteAll();
-        profiles.deleteAll();
+        // Hide inherited fixtures only inside this rollback-only test transaction.
+        // Global trade deletion destroys other tests' immutable provision claims.
+        for (TradeAdminProfile profile : profiles.findAll()) profile.setActive(false);
+        profiles.flush();
     }
 
     private UUID admin(boolean active, boolean accepting, int concurrent,

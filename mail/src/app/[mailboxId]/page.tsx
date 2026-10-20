@@ -1,3 +1,6 @@
+import { MailboxDataTools } from '@/components/mail/mailbox-data-tools';
+import { MailboxAccessBanner } from '@/components/mail/mailbox-access-banner';
+import { legacyMailboxLocked } from '@/lib/mail-types';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -9,7 +12,7 @@ import { InboxView } from '@/components/mail/inbox-view';
 import { RefreshControls } from '@/components/mail/refresh-controls';
 import { mailAvatarColor, mailAvatarInitial } from '@/lib/mail-format';
 import { LockedMailbox } from '@/components/mail/locked-mailbox';
-import { getInbox, getMyMailboxes, MailboxLockedError } from '@/lib/mail-server';
+import { getInbox, getMyMailboxes, getMailboxSlots, MailboxLockedError } from '@/lib/mail-server';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -37,13 +40,13 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
   if (!active) notFound();
 
   // Locked: never ask the backend for content (it would refuse anyway).
-  if (active.locked) return <LockedMailbox mailbox={active} />;
+  if (legacyMailboxLocked(active)) return <LockedMailbox mailbox={active} plan={(await getMailboxSlots())?.plan ?? null} />;
 
   let page: Awaited<ReturnType<typeof getInbox>>;
   try {
     page = await getInbox(mailboxId, { limit: PAGE_SIZE, offset });
   } catch (error) {
-    if (error instanceof MailboxLockedError) return <LockedMailbox mailbox={active} />;
+    if (error instanceof MailboxLockedError) return <LockedMailbox mailbox={active} plan={(await getMailboxSlots())?.plan ?? null} />;
     throw error;
   }
 
@@ -74,6 +77,8 @@ export default async function InboxPage({ params, searchParams }: InboxPageProps
         </div>
       </div>
 
+      <MailboxAccessBanner mailbox={active} />
+      <MailboxDataTools key={`${active.id}-${offset}`} mailboxId={active.id} messages={page?.messages ?? []} />
       {page === null ? (
         <ImapError />
       ) : (

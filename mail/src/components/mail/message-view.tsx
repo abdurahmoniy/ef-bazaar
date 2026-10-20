@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import parseHtml from 'html-react-parser';
+import Linkify from 'linkify-react';
+import type { Opts } from 'linkifyjs';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -26,6 +29,16 @@ import {
 import { cn } from '@/lib/utils';
 import type { MessageDetail } from '@/lib/mail-types';
 
+// Only HTTP(S) and email links may be created from message text. Existing
+// HTML links already have safe protocols/targets enforced by the backend.
+const BODY_LINK_OPTIONS: Opts = {
+  defaultProtocol: 'https',
+  target: '_blank',
+  rel: 'noopener noreferrer',
+  ignoreTags: ['a', 'pre', 'code'],
+  validate: (_value, _type, token) => /^(?:https?:|mailto:)/i.test(token.toHref('https')),
+};
+
 export interface MessageNav {
   /** Href of the newer neighbour in the inbox, or null at the top. */
   prevHref: string | null;
@@ -45,12 +58,13 @@ interface MessageViewProps {
 /**
  * Full message reader: a sticky back / prev-next toolbar over a centered
  * reading column. HTML body is already sanitised server-side by Jsoup
- * (script / iframe / img / style stripped) — we render it with
- * `dangerouslySetInnerHTML` because we've already proved it's safe on the
- * trade-service side and shipping a client-side sanitiser (DOMPurify) would
- * add ~50kb for a guarantee we already have.
+ * (script / iframe / img / style stripped). Parse it into React elements so
+ * HTML entities are decoded once and React escapes text and link attributes.
+ * Linkify adds links in text nodes, keeping existing anchors and markup intact.
+ * Neither library is a sanitiser: only parse the backend's sanitised bodyHtml.
  *
- * Body preference: HTML if present, otherwise plain (whitespace-preserved).
+ * Body preference: HTML if present, otherwise escaped plain text with links
+ * and preserved whitespace. Never interpret markup in the plain alternative.
  * If both are missing (rare — extract failure) the reader shows a friendly
  * note instead of empty space.
  *
@@ -170,15 +184,15 @@ export function MessageView({ mailboxId, message, nav }: MessageViewProps) {
         )}
 
         {hasHtml ? (
-          <div
-            className="mail-html-body"
-            // Sanitised server-side by Jsoup — see MessageView docstring.
-            dangerouslySetInnerHTML={{ __html: message.bodyHtml ?? '' }}
-          />
+          <div className="mail-html-body">
+            <Linkify options={BODY_LINK_OPTIONS}>
+              {parseHtml(message.bodyHtml ?? '')}
+            </Linkify>
+          </div>
         ) : hasPlain ? (
-          <pre className="whitespace-pre-wrap break-words font-sans text-sm text-foreground">
-            {message.bodyPlain}
-          </pre>
+          <div className="mail-plain-body whitespace-pre-wrap font-sans">
+            <Linkify options={BODY_LINK_OPTIONS}>{message.bodyPlain}</Linkify>
+          </div>
         ) : (
           <p className="text-sm text-muted-foreground">
             Xat matnini ko&apos;rsatib bo&apos;lmadi.

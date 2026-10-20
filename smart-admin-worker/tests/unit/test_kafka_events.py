@@ -123,3 +123,15 @@ def test_from_json_ignores_extra_fields():
     )
     assert isinstance(ev, e.ForgotPasswordRequest)
     assert ev.mailbox_email == "trade-abc@efbazaar.uz"
+
+
+def test_observation_timestamp_preserves_subsecond_ordering():
+    import json
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from smart_admin_worker.kafka.events import MailboxDeleteResult, to_json
+
+    observed = datetime(2026, 10, 20, 1, 2, 3, 456789, tzinfo=UTC)
+    event = MailboxDeleteResult(uuid4(), uuid4(), "a@efbazaar.uz", True, False, None, observed)
+    assert json.loads(to_json(event))["occurredAt"] == "2026-10-20T01:02:03.456789Z"

@@ -59,8 +59,10 @@ public class CustomMailboxController {
         return boxes.stream().map(m -> toResponse(m, locked, live)).toList();
     }
 
-    private static CustomMailboxResponse toResponse(Mailbox m, Set<UUID> locked, java.util.Map<UUID, UUID> live) {
+    private CustomMailboxResponse toResponse(Mailbox m, Set<UUID> locked, java.util.Map<UUID, UUID> live) {
+        var a = access.metadata(m.getOwnerUserId(), m.getId());
+        if (a == null) a = new MailboxAccessService.Access(MailboxAccessService.AccessState.ACTIVE, null, null, false);
         return new CustomMailboxResponse(m.getId(), m.getEmail(), m.getProvisionedAt() != null,
-                locked.contains(m.getId()), m.getLinkedAccountId(), live.get(m.getId()), m.getCreatedAt());
+                locked.contains(m.getId()), m.getLinkedAccountId(), live.get(m.getId()), m.getCreatedAt(), a.accessState(), a.paidExpiresAt(), a.graceEndsAt(), a.selectedForFree());
     }
 }

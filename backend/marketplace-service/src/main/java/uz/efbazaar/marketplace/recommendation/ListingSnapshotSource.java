@@ -43,12 +43,13 @@ public class ListingSnapshotSource implements SnapshotSource {
         List<CardRef> cards = jdbc.query(
                 "SELECT efhub_id, player_id FROM listing_cards WHERE listing_id = ? ORDER BY ordinal",
                 (rs, n) -> new CardRef(rs.getLong("efhub_id"), rs.getObject("player_id", UUID.class)), id);
-        return jdbc.query("SELECT seller_id, status, price, value_score FROM listings WHERE id = ?",
+        return jdbc.query("SELECT seller_id, status, price, value_score, published_at, publication_version FROM listings WHERE id = ?",
                 (rs, n) -> (Object) new ListingSnapshot(
                         RecommendationTopics.idempotencyKey(source(), entityId, version), id,
                         rs.getObject("seller_id", UUID.class), rs.getString("status"),
                         rs.getBigDecimal("price"), (Double) rs.getObject("value_score"),
-                        cards, version, Instant.now()), id)
+                        cards, version, Instant.now(), rs.getTimestamp("published_at") == null ? null : rs.getTimestamp("published_at").toInstant(),
+                        rs.getLong("publication_version")), id)
                 .stream().findFirst();
     }
 }

@@ -134,20 +134,37 @@ public class AdminTelegramNotifier {
 
     /** UI names live in the frontend; the bot message needs them too, so they are mirrored here. */
     private static final java.util.Map<String, String> PLAN_NAMES =
-            java.util.Map.of("PRO", "Boyvachcha", "MAX", "Aristokrat", "STANDARD", "Jaydari");
+            java.util.Map.of("PRO", "Pro", "MAX", "MAX (eski tarif)", "STANDARD", "Free");
 
     public void planReminderToOwner(Long chatId, String planCode, boolean expired) {
         if (!enabled || chatId == null) return;
         String name = PLAN_NAMES.getOrDefault(planCode, planCode);
-        String html = expired
-                ? "⏳ <b>" + name + "</b> tarifingiz tugadi. Ortiqcha pochta qutilari qulflandi.\n"
-                  + "Uzaytirish: https://efbazaar.uz/plans"
-                : "⏰ <b>" + name + "</b> tarifingiz 3 kundan keyin tugaydi.\n"
-                  + "Uzaytirish: https://efbazaar.uz/plans";
+        String action = "MAX".equals(planCode) ? "Mavjud tariflar: " : "Uzaytirish: ";
+        String html = (expired
+                ? "⏳ <b>" + name + "</b> tarifingiz tugadi.\n"
+                : "⏰ <b>" + name + "</b> tarifingiz 3 kundan keyin tugaydi.\n")
+                + action + "https://efbazaar.uz/plans";
         try {
             bot.sendDirectMessage(chatId, html);
         } catch (Exception e) {
             log.warn("Could not remind {} about plan {}: {}", chatId, planCode, e.toString());
+        }
+    }
+
+    /** Returns confirmed delivery, preserving unknown outcomes for the durable notice dispatcher. */
+    public boolean deliverPlanNotice(Long chatId, String kind) {
+        if (!enabled || chatId == null) return false;
+        String text = switch (kind) {
+            case "EXPIRING" -> "⏰ Pullik tarifingiz 3 kun ichida tugaydi.";
+            case "EXPIRED" -> "⏳ Pullik tarifingiz tugadi. Eski pochta qutilari 30 kun grace davomida ishlaydi; yangi imkoniyatlar Free limitida.";
+            case "GRACE_ENDED" -> "📬 Pochta grace muddati tugadi. Free uchun 3 qutini tanlang. Qolgan qutilarda muhim tiklash xatlari va eksport saqlanadi; recovery uchun to‘lov shart emas.";
+            default -> throw new IllegalArgumentException("Unknown plan notice " + kind);
+        };
+        try {
+            return bot.sendDirectMessage(chatId, text + "\nhttps://efbazaar.uz/profile").isPresent();
+        } catch (Exception e) {
+            log.warn("Plan notice delivery unconfirmed for {}: {}", chatId, e.toString());
+            return false;
         }
     }
 

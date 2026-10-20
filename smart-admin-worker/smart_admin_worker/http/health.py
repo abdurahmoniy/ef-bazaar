@@ -1,14 +1,14 @@
 """GET /health — reports Kafka consumer readiness.
 
 Until the consumer is wired in Task 10, this returns kafka: "not-started".
-Docker healthcheck curls this and expects HTTP 200 regardless of the kafka
-field — a slow-to-connect Kafka must NOT cascade to a container restart, so
-we return 200 as long as the process itself is up.
+Startup returns HTTP 200 while Kafka connects. A crashed consumer returns 503
+so monitoring can see the failure and operators can recover/restart safely.
+Docker health alone does not automatically restart an unhealthy container.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 router = APIRouter()
 
@@ -22,5 +22,8 @@ def set_kafka_state(state: str) -> None:
 
 
 @router.get("/health")
-async def health() -> dict[str, str]:
+async def health(response: Response) -> dict[str, str]:
+    if _kafka_state == "error":
+        response.status_code = 503
+        return {"status": "DOWN", "kafka": _kafka_state}
     return {"status": "UP", "kafka": _kafka_state}

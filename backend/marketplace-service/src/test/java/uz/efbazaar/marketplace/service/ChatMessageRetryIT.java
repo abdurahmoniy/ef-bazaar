@@ -31,6 +31,8 @@ import static org.mockito.Mockito.*;
 @DataJpaTest(properties = {"spring.jpa.hibernate.ddl-auto=create-drop", "spring.flyway.enabled=false",
         "app.cards.datasource.url=jdbc:postgresql://localhost/skip", "app.cards.datasource.username=skip", "app.cards.datasource.password=skip"})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+// Dispose the Spring context while its class-owned database is still running.
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @Import(ChatService.class)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)

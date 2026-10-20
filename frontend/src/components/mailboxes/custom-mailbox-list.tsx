@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Check, Loader2, Lock } from 'lucide-react';
 
+import { siteConfig } from '@/lib/site';
+import { accessDescription, mailboxAccess } from '@/lib/mailbox-access';
 import type { CustomMailbox } from '@/lib/custom-mailbox';
 import { cn } from '@/lib/utils';
 
@@ -22,20 +24,22 @@ export function CustomMailboxList({ boxes }: { boxes: CustomMailbox[] }) {
 }
 
 function CustomMailboxRow({ box }: { box: CustomMailbox }) {
-  const free = box.provisioned && !box.locked && !box.linkedAccountId;
+  const access = mailboxAccess(box);
+  const restricted = access === 'RECOVERY' || access === 'LOCKED';
+  const free = box.provisioned && !restricted && !box.linkedAccountId;
   const linkHref = `/mailboxes/custom/${box.id}/link${box.activeSessionId ? `?session=${box.activeSessionId}` : ''}`;
   return (
     <article
       className={cn(
         'flex items-center justify-between gap-3 rounded-xl border-2 bg-card px-3 py-2 sm:flex-col sm:items-stretch sm:rounded-2xl sm:p-4',
-        box.linkedAccountId && !box.locked ? 'gold-ring' : free ? 'border-dashed border-gold-border' : 'border-border',
+        box.linkedAccountId && !restricted ? 'gold-ring' : free ? 'border-dashed border-gold-border' : 'border-border',
       )}
     >
       <div className="flex min-w-0 flex-col gap-0.5 sm:gap-2">
         <span className="truncate text-sm font-bold sm:text-base">{box.email}</span>
-        {box.locked ? (
+        {restricted ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground sm:text-sm">
-            <Lock className="h-3.5 w-3.5" aria-hidden /> Qulflangan
+            <Lock className="h-3.5 w-3.5" aria-hidden /> {access === 'RECOVERY' ? 'Recovery' : 'Qulflangan'}
           </span>
         ) : !box.provisioned ? (
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
@@ -50,16 +54,18 @@ function CustomMailboxRow({ box }: { box: CustomMailbox }) {
             {box.activeSessionId ? 'Ulanmoqda…' : 'Bo‘sh turibdi'}
           </span>
         )}
+        {box.accessState && <span className="text-xs text-muted-foreground">{accessDescription(box)}</span>}
       </div>
-      {box.locked ? (
-        <Link href="/plans" className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-primary px-3 text-sm font-bold text-white">
-          Tarifni oshirish
+      {restricted ? (
+        <Link href={`/profile?mailbox=${encodeURIComponent(box.id)}#mailboxes`} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-primary px-3 text-sm font-bold text-white">
+          {box.accessState ? 'Free uchun tanlash' : 'O‘qish uchun tanlash'}
         </Link>
       ) : free ? (
         <Link href={linkHref} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-primary px-3 text-sm font-bold text-white sm:min-h-11">
           {box.activeSessionId ? 'Davom etish' : 'Akkount ulash'}
         </Link>
       ) : null}
+      {box.accessState === 'RECOVERY' && <a className="inline-flex min-h-11 items-center text-sm underline" href={`${siteConfig.mailUrl}/${encodeURIComponent(box.id)}`}>Konami xavfsizlik xatlari</a>}
     </article>
   );
 }
