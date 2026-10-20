@@ -347,8 +347,13 @@ summary; ownership and access mode are still checked on every request.
 `ImapPoolLoadTest` uses a loopback IMAP protocol fixture with real Angus sockets
 and empty INBOX folders. Its plaintext transport is confined to the test Store
 factory; production always uses IMAPS. It performs 100 SELECT/folder cycles
-across ten mailboxes with 16 clients and asserts a maximum of eight sockets and
-one concurrent lease per mailbox. One local Java 21 run on 2026-10-20 measured
+across ten mailboxes with 16 clients and asserts a maximum of eight active IMAP
+sessions and one concurrent lease per mailbox. A session leaves the fixture
+count before its LOGOUT completion is acknowledged; delayed server-handler/FD
+cleanup is not an active cached client connection. A latch-controlled one-slot
+regression holds cleanup after the ACK to verify this accounting boundary.
+The report records `peakActiveSessions`, not server-handler lifetime.
+One local Java 21 run on 2026-10-20 measured
 150.338 ms total, p50 19.122 ms and p95 47.149 ms; the fresh report is written to
 `/tmp/c-trade-imap-benchmark.json`. These are controlled fixture measurements,
 not production latency or capacity estimates. Reproduce with Java 21:

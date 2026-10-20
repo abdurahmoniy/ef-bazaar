@@ -466,6 +466,14 @@ Keyingi foydalanuvchi ko‘rsatmasi A–F commit/push, PR va oxirgi commit CI’
 
 `git checkout-index`dan olingan aynan staged frontend daraxti yangi Node22 lockfile install bilan tekshirildi: original `npm run build`, `npm run typecheck`, `npm run lint`, `npm test` — exit 0. **302 fayl / 2 522 test**, failure/skipped 0; lint 0 error va 23 existing warning. Farq yuqorida tekshirilgan workspace’dagi eski artwork’ning 6 testidan kelib chiqadi; failing test yoki assertion olib tashlanmadi. Tekshiruv dalili `/private/tmp/ef-af-staged-frontend-verification.json`, loglar `ef-af-staged-frontend-{build,typecheck,lint,test}.log`. Bu tekshiruvlardan keyin faqat ushbu Markdown qaydi yangilandi.
 
+#### PR #394: CI fixture hisoblash tuzatishi (2026-10-20)
+
+A–F `26ed145f` commitida push qilinib, [PR #394](https://github.com/abdurahmoniy/ef-bazaar/pull/394) ochildi. Birinchi remote CI’da 8 job PASS; trade unit yuk testida fixture counter 9 bo‘lib, 8 chegarasidan oshdi. Sabab production pool emas: server LOGOUT ACK bergach, eski handler `finally`ga yetguncha counter uni faol deb sanagan. Angus client eski socketni yopib keyingisini ochishini mustaqil ko‘rik tasdiqladi.
+
+Max1 va ACK’dan keyin latch bilan ushlangan cleanup regressiyasi avval RED (2 > 1), keyin GREEN bo‘ldi. Fixture faqat faol IMAP sessiyalarini sanaydi va EOF/error cleanup’da aynan bir marta kamayadi. Mavjud <=8 ceiling, har mailbox uchun bitta lease va 100 operation assertionlari o‘zgarmadi; retry yoki test skip qo‘shilmadi. Benchmark maydoni `peakActiveSessions` deb aniq nomlandi. Production pool kodi o‘zgarmadi.
+
+Mustaqil sifat ko‘rigi PASS; barcha 5 IMAP testi va keyingi Java21 `mvn -B -ntp clean verify` PASS: **346 unit + 444 IT**, failure/error/skipped 0, dump yo‘q. Dalillar `/private/tmp/ef-af-imap-ci-{red,green}.log`, `ef-af-ci-fix-trade-full.log` va `ef-af-imap-ci-fix-evidence.json`da. Trade yaratgan crypto fixture oldingi baytlarga qaytarildi. Follow-up commit uchun remote CI qayta tekshiriladi; yakuniy natija PR’ning aynan oxirgi head SHA checklaridan olinadi. Merge/deploy bajarilmaydi.
+
 ## 5. Bog‘liqlik va chiqarish tartibi
 
 1. A backend katalogi va ishonchli hodisalar → B umumiy mailbox pool → C pochta davomiyligi va resurs hisobi. UI o‘zgarishi mavjud imkoniyatlar bilan birga yoqiladi.
