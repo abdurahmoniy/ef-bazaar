@@ -27,6 +27,7 @@ import {
   Wallet,
 } from 'lucide-react';
 
+import { ProfileMembership } from '@/components/profile/profile-membership';
 import { ProfileAppearance } from '@/components/profile/profile-appearance';
 import { MailboxSlotsWarning } from '@/components/profile/mailbox-slots-warning';
 import { ProfileBalance } from '@/components/profile/profile-balance';
@@ -52,7 +53,7 @@ import { cn } from '@/lib/utils';
 import type { TradeAdminApplicationResponse } from '@/lib/trade-admin-applications';
 import type { SellerRatingSummaryResponse } from '@/lib/trade-types';
 import type { User } from '@/lib/types';
-import { planLabel, type MyPlan } from '@/lib/plans';
+import { type MyPlan, type PlanCatalogItem } from '@/lib/plans';
 import { logoutAction } from '@/app/auth/actions';
 
 interface ProfileAccountProps {
@@ -65,6 +66,8 @@ interface ProfileAccountProps {
   ratingSummary?: SellerRatingSummaryResponse | null;
   availableTiyin?: number | null;
   plan?: MyPlan | null;
+  planCatalog?: PlanCatalogItem[] | null;
+  children?: React.ReactNode;
 }
 
 export function ProfileAccount({
@@ -77,6 +80,8 @@ export function ProfileAccount({
   ratingSummary,
   availableTiyin = null,
   plan = null,
+  planCatalog = null,
+  children,
 }: ProfileAccountProps) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -285,18 +290,21 @@ export function ProfileAccount({
             </Link>
           </div>
         </div>
+        <ProfileMembership plan={plan} catalog={planCatalog} displayName={user.displayName} />
         {FEATURES.wallet && <ProfileBalance availableTiyin={availableTiyin} />}
       </div>
 
+      {children}
+
       {/* 2. Grouped Navigation Menu (List Hub) */}
-      <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm divide-y divide-border/60">
+      <div className="grid overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm md:grid-cols-2" aria-label="Profil bo‘limlari">
         {navMenuItems.map((item) => (
           <Link
             key={item.id}
             href={item.href}
             prefetch={false}
             className={cn(
-              "flex items-center justify-between p-4 transition-colors hover:bg-muted/40 active:bg-muted/70 tap-press",
+              "flex min-h-20 items-center justify-between border-b border-border/60 p-4 transition-colors hover:bg-muted/40 active:bg-muted/70 tap-press",
               item.mobileOnly && "md:hidden"
             )}
           >
@@ -361,16 +369,6 @@ export function ProfileAccount({
           </div>
         </button>
       </div>
-
-      <Link
-        href="/plans"
-        className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground hover:bg-muted"
-      >
-        <span className="font-semibold">Tarif</span>
-        <span className="text-muted-foreground">
-          {planLabel(plan)}
-        </span>
-      </Link>
 
       <MailboxSlotsWarning />
 

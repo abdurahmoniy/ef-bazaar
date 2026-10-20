@@ -18,7 +18,7 @@ import { getMyFavorites } from '@/lib/marketplace-server';
 import { getMyCards, getMyTrades, getSellerRatingSummary } from '@/lib/trade-server';
 import { getMyTradeAdminApplication } from '@/lib/trade-admin-applications-server';
 import { getWallet } from '@/lib/payment-server';
-import { getMyPlanSSR } from '@/lib/plans-server';
+import { getMyPlanSSR, getPlanCatalogSSR } from '@/lib/plans-server';
 import { FEATURES } from '@/lib/feature-flags';
 import { getAccountDisplayData } from '@/lib/account-display-server';
 import { getMyMailboxesSSR } from '@/lib/custom-mailbox-server';
@@ -63,7 +63,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
 
   // Fetch tab data server-side.
-  const [accounts, favorites, cards, tradePage, tradeAdminApplication, sellerRatingSummary, wallet, myPlan] = await Promise.all([
+  const [accounts, favorites, cards, tradePage, tradeAdminApplication, sellerRatingSummary, wallet, myPlan, planCatalog] = await Promise.all([
     getMyAccountsServer(),
     activeTab === 'favorites' || activeTab === 'account' ? getMyFavorites() : Promise.resolve([]),
     activeTab === 'kartalar' ? getMyCards() : Promise.resolve([]),
@@ -72,6 +72,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     activeTab === 'account' ? getSellerRatingSummary(user.id) : Promise.resolve(null),
     activeTab === 'account' && FEATURES.wallet ? getWallet() : Promise.resolve(null),
     activeTab === 'account' ? getMyPlanSSR() : Promise.resolve(null),
+    activeTab === 'account' ? getPlanCatalogSSR() : Promise.resolve(null),
   ]);
 
   const [accountDisplay, customBoxes] = await Promise.all([
@@ -163,14 +164,13 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           bu blok o'zi yo'qoladi.
         */}
 
-        {customBoxes && (
+        {activeTab !== 'account' && customBoxes && (
           <FreeCustomMailboxBanner
             boxes={customBoxes}
             accountEmails={accounts.filter((a) => a.status === 'ACTIVE' && a.email).map((a) => a.email as string)}
           />
         )}
 
-        {activeTab === 'account' && <PlanNotices />}
         {/* Tab content view */}
         <section key={activeTab} className="animate-panel-in">
           {activeTab === 'accounts' && <ProfileAccounts accounts={accounts} displayById={accountDisplay} viewerId={user.id} savedAccountId={typeof params.saved === 'string' ? params.saved : undefined} />}
@@ -188,7 +188,11 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               ratingSummary={sellerRatingSummary}
               availableTiyin={wallet?.availableTiyin ?? null}
               plan={myPlan}
-            />
+              planCatalog={planCatalog}
+            >
+              <PlanNotices />
+              {customBoxes && <FreeCustomMailboxBanner boxes={customBoxes} accountEmails={accounts.filter(a => a.status === 'ACTIVE' && a.email).map(a => a.email as string)} />}
+            </ProfileAccount>
           )}
         </section>
         {activeTab !== 'account' && <MailboxSlotsWarning />}

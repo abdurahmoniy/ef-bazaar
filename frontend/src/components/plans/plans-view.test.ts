@@ -11,9 +11,10 @@ const mocks = vi.hoisted(() => ({
   getWallet: vi.fn(),
   refresh: vi.fn(),
   success: vi.fn(),
+  push: vi.fn(),
 }));
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: mocks.refresh }) }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }) }));
 vi.mock('next/link', () => ({
   default: (p: { href: string; children: unknown }) => createElement('a', { href: p.href }, p.children as string),
 }));
@@ -77,6 +78,7 @@ beforeEach(() => {
   document.body.appendChild(host);
   root = createRoot(host);
   mocks.purchasePlan.mockReset();
+  mocks.push.mockReset();
   mocks.getWallet.mockReset();
 });
 afterEach(async () => {
@@ -103,13 +105,14 @@ describe('PlansView', () => {
   it('purchases only the monthly live price and reports activation pending', async () => {
     mocks.purchasePlan.mockResolvedValue({ code: 'PRO', expiresAt: inDays(30), entitlements: {} });
     await mount(free);
-    await click('Tanlash');
+    await click('Pro’ga o‘tish');
+    await clickInDialog('Tasdiqlash');
     expect(mocks.purchasePlan).toHaveBeenLastCalledWith(expect.objectContaining({
       planCode: 'PRO', period: 'MONTH', expectedPriceTiyin: 3_000_000,
     }));
     expect(mocks.success).toHaveBeenLastCalledWith('Xarid qabul qilindi. Pro imkoniyatlari faollashtirilmoqda.');
     expect(host.querySelector('[role="status"]')?.textContent).toContain('faollashtirilmoqda');
-    expect(button('Tanlash')).toBeUndefined();
+    expect(button('Pro’ga o‘tish')).toBeUndefined();
   });
 
   it('explains expiry and manual renewal in accessible expandable help', async () => {
@@ -127,8 +130,10 @@ describe('PlansView', () => {
   it('reuses one idempotency key when the same purchase is retried', async () => {
     mocks.purchasePlan.mockRejectedValue(new PlanPurchaseError({ kind: 'other', message: 'x' }));
     await mount(free);
-    await click('Tanlash');
-    await click('Tanlash');
+    await click('Pro’ga o‘tish');
+    await clickInDialog('Tasdiqlash');
+    await click('Pro’ga o‘tish');
+    await clickInDialog('Tasdiqlash');
     expect(mocks.purchasePlan).toHaveBeenCalledTimes(2);
     const [a, b] = mocks.purchasePlan.mock.calls.map((c) => c[0]);
     expect(a.idempotencyKey).toBeTruthy();
@@ -140,11 +145,12 @@ describe('PlansView', () => {
       .mockRejectedValueOnce(new PlanPurchaseError({ kind: 'price_changed', currentPriceTiyin: 1_500_000 }))
       .mockResolvedValueOnce(free);
     await mount(free);
-    await click('Tanlash');
+    await click('Pro’ga o‘tish');
+    await clickInDialog('Tasdiqlash');
     const dialog = document.body.querySelector('[role="dialog"]');
     expect(dialog?.textContent).toContain('Narx o‘zgardi: 15 000 so‘m');
     expect(dialog?.textContent).not.toContain('kuni kuyadi');
-    await clickInDialog('Tanlash');
+    await clickInDialog('Tasdiqlash');
     expect(mocks.purchasePlan).toHaveBeenCalledTimes(2);
     expect(mocks.purchasePlan.mock.calls[1][0].expectedPriceTiyin).toBe(1_500_000);
   });
@@ -155,8 +161,9 @@ describe('PlansView', () => {
     mocks.purchasePlan.mockReturnValue(new Promise<MyPlan>((r) => { finish = r; }));
     await mount(onPro);
     mocks.purchasePlan.mockRejectedValueOnce(new PlanPurchaseError({ kind: 'price_changed', currentPriceTiyin: 3_100_000 }));
-    await click('Uzaytirish');
-    await clickInDialog('Uzaytirish');
+    await click('Pro’ni uzaytirish');
+    await clickInDialog('Tasdiqlash');
+    await clickInDialog('Tasdiqlash');
     expect(dialogButton('Kuting')?.hasAttribute('disabled')).toBe(true);
     await clickInDialog('Kuting');
     await clickInDialog('Kuting');
@@ -170,7 +177,8 @@ describe('PlansView', () => {
       new PlanPurchaseError({ kind: 'price_changed', currentPriceTiyin: 1_200_000 }),
     );
     await mount(onPro);
-    await click('Uzaytirish');
+    await click('Pro’ni uzaytirish');
+    await clickInDialog('Tasdiqlash');
     const text = document.body.querySelector('[role="dialog"]')?.textContent ?? '';
     expect(text).toContain('uzayadi');
     expect(text).not.toContain('kuyadi');
@@ -179,14 +187,14 @@ describe('PlansView', () => {
   it('does not sell Pro as an upgrade from a live historical MAX subscription', async () => {
     await mount({ code: 'MAX', expiresAt: inDays(10), entitlements: {} });
     expect(button('Oshirish')).toBeUndefined();
-    expect(button('Tanlash')).toBeUndefined();
-    expect(button('Uzaytirish')).toBeUndefined();
+    expect(button('Pro’ga o‘tish')).toBeUndefined();
+    expect(button('Pro’ni uzaytirish')).toBeUndefined();
   });
 
   it('an unlimited granted plan offers no extend button on its own card', async () => {
     const unlimitedPro: MyPlan = { code: 'PRO', expiresAt: null, entitlements: {} };
     await mount(unlimitedPro);
-    expect(button('Uzaytirish')).toBeUndefined();
+    expect(button('Pro’ni uzaytirish')).toBeUndefined();
     expect(button('Muddatsiz faol')?.hasAttribute('disabled')).toBe(true);
   });
 
@@ -196,7 +204,8 @@ describe('PlansView', () => {
     );
     mocks.getWallet.mockResolvedValue({ availableTiyin: 0 });
     await mount(free);
-    await click('Tanlash');
+    await click('Pro’ga o‘tish');
+    await clickInDialog('Tasdiqlash');
     const link = document.body.querySelector('a[href^="/hamyon"]');
     expect(link?.getAttribute('href')).toContain('toldirish=30000');
   });
@@ -206,7 +215,7 @@ describe('PlansView', () => {
     await mount(staff);
     expect(document.body.textContent).toContain('Admin sifatida barcha imkoniyatlar cheklovsiz');
     expect(document.body.textContent).toContain('Hozir: Admin');
-    expect(button('Tanlash')).toBeUndefined();
+    expect(button('Pro’ga o‘tish')).toBeUndefined();
     const ctas = [...document.body.querySelectorAll('article button')];
     expect(ctas).toHaveLength(2);
     expect(ctas.every((b) => b.hasAttribute('disabled'))).toBe(true);
@@ -220,7 +229,7 @@ describe('PlansView', () => {
 
   it('does not offer purchase when the signed-in user\'s plan is unknown', async () => {
     await mount(null, true);
-    expect(button('Tanlash')).toBeUndefined();
+    expect(button('Pro’ga o‘tish')).toBeUndefined();
     expect(document.body.textContent).toContain('Qayta urinish');
   });
 
@@ -270,12 +279,107 @@ describe('PlansView', () => {
  it('blocks a stale price confirmation after the catalogue loses unified capacity', async () => {
    mocks.purchasePlan.mockRejectedValueOnce(new PlanPurchaseError({ kind: 'price_changed', currentPriceTiyin: 3_100_000 }));
    await mount(free);
-   await click('Tanlash');
+   await click('Pro’ga o‘tish');
+    await clickInDialog('Tasdiqlash');
    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
    await act(async () => root.render(createElement(PlansView, {
      catalog: [catalog[0], { ...catalog[1], entitlements: { 'mailbox.slots': '5', 'mailbox.custom_slots': '1' } }],
      mine: free, signedIn: true,
    })));
-   await clickInDialog('Tanlash');
+   await clickInDialog('Tasdiqlash');
    expect(mocks.purchasePlan).toHaveBeenCalledTimes(1);
  });
+
+
+it('previews a new monthly purchase and charges only after explicit confirmation', async () => {
+  mocks.purchasePlan.mockResolvedValue(free);
+  await mount(free);
+  await click('Pro’ga o‘tish');
+  expect(mocks.purchasePlan).not.toHaveBeenCalled();
+  expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('30\u00a0000');
+  expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain('Avtomatik pul yechilmaydi');
+  await clickInDialog('Bekor qilish');
+  expect(mocks.purchasePlan).not.toHaveBeenCalled();
+  await click('Pro’ga o‘tish');
+  await clickInDialog('Tasdiqlash');
+  expect(mocks.purchasePlan).toHaveBeenCalledTimes(1);
+});
+it('previews renewal before extending and preserves remaining paid days', async () => {
+  await mount({ code: 'PRO', expiresAt: inDays(12), entitlements: {} });
+  await click('Pro’ni uzaytirish');
+  expect(mocks.purchasePlan).not.toHaveBeenCalled();
+  const text = document.body.querySelector('[role="dialog"]')?.textContent;
+  expect(text).toContain('uzayadi');
+  expect(text).not.toContain('kuyadi');
+});
+it('uses an upgrade return destination for signed-out visitors without charging', async () => {
+  await mount(null, false);
+  await click('Pro’ga o‘tish');
+  expect(mocks.push).toHaveBeenCalledWith('/auth/login?from=' + encodeURIComponent('/plans?intent=pro#pro'));
+  expect(mocks.purchasePlan).not.toHaveBeenCalled();
+});
+it('shows recovery for an empty catalog without invented prices or a purchase', async () => {
+  await act(async () => root.render(createElement(PlansView, { catalog: [], mine: free, signedIn: true })));
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain('Tariflar hozircha mavjud emas');
+  expect(button('Qayta urinish')).toBeDefined();
+  expect(host.textContent).not.toContain('30\u00a0000');
+  expect(mocks.purchasePlan).not.toHaveBeenCalled();
+});
+
+it('never starts a charge from the first click on the paid offer', async () => {
+  mocks.purchasePlan.mockResolvedValue(free);
+  await mount(free);
+  const paid = host.querySelector<HTMLButtonElement>('article[aria-label="Pro tarifi"] button')!;
+  await act(async () => paid.click());
+  expect(mocks.purchasePlan).not.toHaveBeenCalled();
+  expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+});
+
+it('blocks an invalid expiry rather than guessing an expired Free member', async () => {
+  await mount({ code: 'PRO', expiresAt: 'invalid', entitlements: {} });
+  expect(host.textContent).toContain('Joriy tarifingizni aniqlab bo‘lmadi');
+  const paid = host.querySelector<HTMLButtonElement>('article[aria-label="Pro tarifi"] button')!;
+  expect(paid.disabled).toBe(true);
+  await act(async () => paid.click());
+  expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+  expect(mocks.purchasePlan).not.toHaveBeenCalled();
+});
+it.each([
+  null,
+  { code: 'STAFF', expiresAt: null, entitlements: {} },
+  { code: 'PRO', expiresAt: null, entitlements: {} },
+  { code: 'MAX', expiresAt: inDays(10), entitlements: {} },
+] as (MyPlan | null)[])('revalidates the caller membership before a stale confirmation charges (%j)', async changed => {
+  await mount(free);
+  await click('Pro’ga o‘tish');
+  await mount(changed);
+  await clickInDialog('Tasdiqlash');
+  expect(mocks.purchasePlan).not.toHaveBeenCalled();
+});
+
+it('updates the paid card when an open plans tab reaches expiry', async () => {
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(new Date('2026-10-20T12:00:00Z'));
+    await mount({ code: 'PRO', expiresAt: new Date(Date.now() + 1000).toISOString(), entitlements: {} });
+    expect(button('Pro’ni uzaytirish')).toBeDefined();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1001); });
+    expect(host.textContent).toContain('Hozir: Free · Pro muddati tugagan');
+    expect(button('Pro’ga o‘tish')).toBeDefined();
+    expect(host.querySelector('article[aria-label="Pro tarifi"]')?.textContent).not.toContain('Sizning tarifingiz');
+  } finally { vi.useRealTimers(); }
+});
+
+it('quotes a new Free purchase from the time the confirmation opens, not mount time', async () => {
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(new Date('2026-10-20T12:00:00Z'));
+    await mount(free);
+    vi.setSystemTime(new Date('2026-10-21T12:00:00Z'));
+    await click('Pro’ga o‘tish');
+    const text = document.body.querySelector('[role="dialog"]')?.textContent;
+    expect(text).toContain('21.11.2026');
+    expect(text).not.toContain('20.11.2026');
+    expect(mocks.purchasePlan).not.toHaveBeenCalled();
+  } finally { vi.useRealTimers(); }
+});

@@ -1,0 +1,21 @@
+.pass { position: relative; isolation: isolate; overflow: hidden; width: 100%; aspect-ratio: 1.65; border-radius: 22px; padding: 26px; color: hsl(var(--primary-foreground)); background: linear-gradient(115deg, hsl(240 100% 20%), hsl(240 100% 30%) 65%, hsl(235 85% 38%)); border: 1px solid hsl(var(--secondary) / .4); box-shadow: 0 18px 40px hsl(240 100% 15% / .15); display: flex; flex-direction: column; justify-content: space-between; }
+.pass::after { content: ''; position: absolute; inset: -80% -50%; pointer-events: none; background: linear-gradient(110deg, transparent 40%, hsl(0 0% 100% / .09) 50%, transparent 60%); transform: translateX(-65%); animation: sheen 1.2s .25s ease-out both; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 750; font-size: 16px; }
+.brand svg { width: 25px; height: 25px; }
+.edition { margin-left: auto; font-size: 9px; letter-spacing: .16em; opacity: .8; }
+.tier { font-size: clamp(40px, 5vw, 62px); line-height: 1; font-weight: 850; letter-spacing: -.055em; }
+.tier span { display: block; margin-top: 10px; font-size: 11px; font-weight: 500; letter-spacing: .01em; }
+.owner { display: flex; justify-content: space-between; align-items: end; gap: 16px; font-size: 11px; font-weight: 600; }
+.owner > span { max-width: 80%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.owner svg { width: 35px; height: 35px; opacity: .65; }
+.pitch { position: absolute; z-index: -1; right: -12%; top: 14%; width: 78%; height: 85%; border: 1px solid hsl(0 0% 100% / .13); transform: rotate(-18deg); border-radius: 3px; }
+.pitch::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px solid hsl(0 0% 100% / .13); }
+.pitch::after { content: ''; position: absolute; width: 70px; height: 70px; border: 1px solid hsl(0 0% 100% / .13); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+.pitch span { position: absolute; height: 48%; width: 20%; left: 0; top: 26%; border: 1px solid hsl(0 0% 100% / .13); border-left: 0; }
+@keyframes sheen { to { transform: translateX(65%); } }
+@media(max-width: 639px) { .pass { padding: 22px; border-radius: 18px; }.tier { font-size: 48px; } }
+@media(prefers-reduced-motion: reduce) { .pass::after { animation: none; display: none; } }
+
+.compact { padding: 18px; border-radius: 16px; }
+.compact .brand { font-size: 12px; gap: 6px; }.compact .brand svg { width: 18px; height: 18px; }.compact .edition { font-size: 7px; }
+.compact .tier { font-size: 38px; }.compact .tier span { font-size: 9px; margin-top: 4px; }.compact .owner { font-size: 10px; }.compact .owner svg { width: 20px; height: 20px; }

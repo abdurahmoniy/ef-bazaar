@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { formatTiyin } from '@/lib/money';
 import {
   PLAN_NAMES,
+  planBenefits,
   mailboxCapacity,
   formatPlanDate,
   type PlanAction,
@@ -18,7 +19,7 @@ import styles from './plans.module.css';
 
 const TAGLINES: Record<PlanCatalogItem['code'], string> = {
   STANDARD: 'Kundalik foydalanish uchun bepul tarif.',
-  PRO: 'Ko‘proq pochta imkoniyatlari uchun.',
+  PRO: 'Faol savdo va o‘zingizga xos profil uchun.',
   MAX: 'Kengroq imkoniyat. O‘zingizga xos daraja.',
   STAFF: 'Barcha imkoniyatlar siz uchun ochiq.',
 };
@@ -29,9 +30,9 @@ const CTA: Record<CardAction, string> = {
   'free-anon': 'Bepul',
   unknown: 'Tarif aniqlanmadi',
   pending: 'Faollashtirilmoqda',
-  choose: 'Tanlash',
-  extend: 'Uzaytirish',
-  upgrade: 'Oshirish',
+  choose: 'Pro’ga o‘tish',
+  extend: 'Pro’ni uzaytirish',
+  upgrade: 'Pro’ga o‘tish',
   unavailable: 'Joriy tarif tugagach',
   'current-free': 'Joriy tarif',
   'unlimited-current': 'Muddatsiz faol',
@@ -61,16 +62,16 @@ export function PlanCard({
   const features = capacity ? [
     slots === null ? 'Cheksiz jami pochta qutisi' : `${slots} ta jami pochta qutisi`,
     ...(custom === null ? ['Shundan cheksiz yangi shaxsiy email'] : custom !== undefined && custom > 0 ? [`Shundan ${custom} ta yangi shaxsiy email`] : []),
-    'Qutilarda xatlarni o‘qish',
+    ...planBenefits(item).filter(f => !f.startsWith('Mos yangilik') && !f.startsWith('Kuzatuvlardan')).slice(0, 3),
   ] : ['Pochta limiti aniqlanmadi'];
   const note = isCurrent && !free && expiresAt
-    ? `${formatPlanDate(expiresAt)} gacha faol`
+    ? `${formatPlanDate(expiresAt)} gacha${new Date(expiresAt).getTime() > Date.now() ? ' faol' : ' — muddati tugagan'}`
     : free ? 'Muddatsiz. Har doim bepul.' : 'To‘lov hamyon balansidan';
 
   return (
-    <article className={cn(styles.card, featured && styles.featured, isCurrent && styles.current)} aria-label={`${PLAN_NAMES[item.code]} tarifi`}>
+    <article id={free ? 'free' : 'pro'} tabIndex={-1} className={cn(styles.card, featured && styles.featured, isCurrent && styles.current)} aria-label={`${PLAN_NAMES[item.code]} tarifi`}>
       <div className={styles.cardTopline}>
-        <span className={styles.cardEdition}>{free ? 'BEPUL TARIF' : 'OYLIK TARIF'}</span>
+        <span className={styles.cardEdition}>{free ? 'BEPUL TARIF' : 'FAOL SAVDO UCHUN'}</span>
         {isCurrent ? (
           <span className={styles.currentPill}><span />Sizning tarifingiz</span>
         ) : null}
@@ -90,6 +91,17 @@ export function PlanCard({
             {free ? 'Obuna to‘lovi yo‘q' : 'Avtomatik pul yechilmaydi'}
           </div>
         </div>
+        <div className={styles.cardFooter}>
+          {action === 'free-anon' ? (
+            <span className={styles.freeLabel}><Check size={15} aria-hidden />Bepul foydalaning</span>
+          ) : (
+            <Button type="button" size="lg" disabled={disabled} onClick={onSelect} variant={featured ? 'secondary' : 'outline'} className={cn(styles.cardButton, !free && styles.paidButton, featured && styles.premiumButton)}>
+              {busy ? 'Kuting…' : !capacity ? 'Pochta limiti aniqlanmadi' : CTA[action]}
+              {!disabled && <ArrowUpRight size={17} aria-hidden />}
+            </Button>
+          )}
+          <span className={styles.cardNote}>{note}</span>
+        </div>
         <div className={styles.cardDivider} />
         <ul className={styles.features}>
           {features.map((feature) => <li key={feature}><Check size={15} strokeWidth={1.8} aria-hidden /><span>{feature}</span></li>)}
@@ -97,17 +109,7 @@ export function PlanCard({
         {capacity && custom !== 0 && (
           <div className={styles.emailExample}><Mail size={13} aria-hidden /><span>sizningnomingiz<span>@efbazaar.uz</span></span></div>
         )}
-        <div className={styles.cardFooter}>
-          {action === 'free-anon' ? (
-            <span className={styles.freeLabel}><Check size={15} aria-hidden />Bepul foydalaning</span>
-          ) : (
-            <Button type="button" size="lg" disabled={disabled} onClick={onSelect} variant="outline" className={cn(styles.cardButton, !free && styles.paidButton, featured && styles.premiumButton)}>
-              {busy ? 'Kuting…' : !capacity ? 'Pochta limiti aniqlanmadi' : CTA[action]}
-              {!disabled && <ArrowUpRight size={17} aria-hidden />}
-            </Button>
-          )}
-          <span className={styles.cardNote}>{note}</span>
-        </div>
+
       </div>
     </article>
   );

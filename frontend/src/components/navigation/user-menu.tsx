@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { BarChart3, Bell, Handshake, Heart, HelpCircle, LogOut, Mail, Moon, Package, ShieldCheck, Sun, UserCog, UserPlus, UserRound, Wallet } from 'lucide-react';
+import { BarChart3, Bell, Sparkles, Handshake, Heart, HelpCircle, LogOut, Mail, Moon, Package, ShieldCheck, Sun, UserCog, UserPlus, UserRound, Wallet } from 'lucide-react';
 
 import { FEATURES } from '@/lib/feature-flags';
 
@@ -99,6 +99,10 @@ export function UserMenu({ user, className }: UserMenuProps) {
             <Link href="/profile" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
               <UserRound className="h-4 w-4 text-muted-foreground" />
               Profil
+            </Link>
+            <Link href="/plans" role="menuitem" className={cn(ITEM_CLASS, 'min-h-11')} onClick={() => setOpen(false)}>
+              <Sparkles aria-hidden className="h-4 w-4 text-gold-foreground" />
+              Tariflar va Pro
             </Link>
             <Link href="/invite" role="menuitem" className={cn(ITEM_CLASS, 'min-h-11 bg-primary/5 text-primary dark:text-secondary')}
               onClick={() => { trackGrowth('invite_open', { placement: 'user_menu' }); setOpen(false); }}>

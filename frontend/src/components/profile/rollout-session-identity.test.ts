@@ -19,7 +19,7 @@ vi.mock('@/lib/trade-server', () => ({ getMyCards: async () => [], getMyTrades: 
 vi.mock('@/lib/trade-admin-applications-server', () => ({ getMyTradeAdminApplication: async () => null }));
 vi.mock('@/lib/payment-server', () => ({ getWallet: async () => null }));
 vi.mock('@/lib/custom-mailbox-server', () => ({ getMyMailboxesSSR: async () => [], getMyCustomMailboxesSSR: async () => [], getMailboxSlotsSSR: async () => null }));
-vi.mock('@/components/profile/profile-account', () => ({ ProfileAccount: () => null }));
+vi.mock('@/components/profile/profile-account', () => ({ ProfileAccount: ({ children }: { children: ReactNode }) => createElement('section', null, children) }));
 vi.mock('@/components/profile/profile-accounts', () => ({ ProfileAccounts: () => null }));
 import WatchesPage from '@/app/watches/page';
 import AnalyticsPage from '@/app/seller-analytics/page';
@@ -99,10 +99,10 @@ it('reloads allocation counters when the account-tab principal changes', async (
   expect(host.textContent).toContain('Jami: 2 / 3'); expect(host.textContent).not.toContain('Jami: 1 / 3');
 });
 it('clears the prior owner purchase completion when a different principal opens the same plans route', async () => {
-  await render('plans'); await click('Tanlash'); expect(host.textContent).toContain('Xarid qabul qilindi');
+  await render('plans'); await click('Pro’ga o‘tish'); await act(async () => [...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(b => b.textContent?.includes('Tasdiqlash'))!.click()); expect(host.textContent).toContain('Xarid qabul qilindi');
   await render('plans'); expect(host.textContent).toContain('Xarid qabul qilindi');
   identity = 'B'; await render('plans');
-  expect(host.textContent).not.toContain('Xarid qabul qilindi'); expect([...host.querySelectorAll('button')].some(button => button.textContent?.includes('Tanlash') && !button.disabled)).toBe(true);
+  expect(host.textContent).not.toContain('Xarid qabul qilindi'); expect([...host.querySelectorAll('button')].some(button => button.textContent?.includes('Pro’ga o‘tish') && !button.disabled)).toBe(true);
 });
 
 it('resets custom mailbox drafts and suppresses a late claim redirect after the principal changes', async () => {
