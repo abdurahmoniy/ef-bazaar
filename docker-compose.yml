@@ -802,7 +802,7 @@ services:
     environment:
       # Snake-oil bootstrap uchun domenlar (har biri uchun alohida SAN papka).
       # efbazaar.uz → efbazaar.uz + api.efbazaar.uz; chempox.uz → chempox.uz +
-      # www + api.chempox.uz (Chempionat-X co-location, chempox.conf).
+      # www + api.chempox.uz (Examiner, chempox.conf).
       TLS_DOMAINS: "efbazaar.uz chempox.uz"
       # Chempionat-X header-auth uchun /api/tournaments route'ida yuboriladi
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-}
@@ -817,6 +817,9 @@ services:
       - letsencrypt_data:/etc/letsencrypt           # Real Let's Encrypt certlar (certbot bilan baham ko'riladi)
       - acme_challenge:/var/www/certbot              # ACME HTTP-01 challenge fayllari
       - nginx_auth:/etc/nginx/auth                   # htpasswd (init-cert.sh yozadi)
+      # chempox.uz — Examiner o'z server bloklari va offline sahifasini shu yerga yozadi
+      # (nginx/conf.d/chempox.conf include qiladi). Papka bo'sh/yo'q bo'lsa ham nginx ko'tariladi.
+      - /opt/examiner/nginx:/etc/nginx/examiner:ro
     depends_on:
       - auth-service
       - marketplace-service

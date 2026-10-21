@@ -13,13 +13,10 @@ set $backend_payment     "payment-service:8087";
 set $backend_access      "access-service:8088";
 set $backend_userbot     "userbot-core:8089";
 set $backend_rec         "recommendation-service:8083";
-# Chempionat-X — bir xost, shared docker network (co-location). nginx
-# `chempionat-api` (REST) va `chempox-front` (Next.js static) ni docker DNS
-# orqali topadi. `/api/tournaments/**` integratsiya yo'li ham, chempox.uz /
-# api.chempox.uz native domenlari ham (chempox.conf) shu internal upstream'lar
-# orqali ishlaydi — public HTTPS/TLS loop yo'q.
+# Chempionat-X — bir xost, shared docker network. `/api/tournaments/**`
+# integratsiya yo'li (efbazaar.conf) `chempionat-api` ni docker DNS orqali
+# topadi. chempox.uz domenlari endi Examiner'niki (chempox.conf).
 set $backend_tournament    "chempionat-api:8080";
-set $backend_chempox_front "chempox-front:80";
 set $backend_frontend    "frontend:3000";
 set $backend_mail        "mail-frontend:3000";
 set $backend_grafana     "grafana:3000";
