@@ -17,7 +17,7 @@ Yagona kirish nuqtasi: TLS, domenlar bo'yicha marshrutlash, har so'rovda auth te
 | `conf.d/mail.conf` | mail.efbazaar.uz → mail-frontend |
 | `conf.d/mailcow.conf` | mailcow.efbazaar.uz, autodiscover/autoconfig → hostdagi Mailcow (`host.docker.internal:8443`) |
 | `conf.d/dashboard.conf` | dashboard.efbazaar.uz → Grafana |
-| `conf.d/chempox.conf` | chempox.uz, api.chempox.uz → shu hostdagi Chempionat-X konteynerlari |
+| `conf.d/chempox.conf` | chempox.uz (+ www, api) → Examiner: faqat `include /etc/nginx/examiner/site/*.conf`. Server bloklarini Examiner deploy'i hostdagi `/opt/examiner/nginx/site/` ga yozadi (`:ro` mount); papka bo'sh bo'lsa ham nginx ko'tariladi |
 | `docker-entrypoint.sh` | Real sertifikat hali yo'q bo'lsa self-signed yaratadi (nginx start bo'lsin). certbot keyin almashtiradi |
 
 ## efbazaar.uz marshrutlari
