@@ -15,10 +15,13 @@ const accounts = Array.from({ length: 6 }, (_, index) => ({
   description: 'Akkount tavsifi', attributes: { platform: 'MOBILE', highest_division_level: 3, team_strength: 3150, device_transfer_limit: 5 },
   id: `acc-${index}`, title: `Team ${index}`, status: 'ACTIVE', onMarket: index < 2,
 })) as UserAccountResponse[];
+let desktop = true;
 let root: Root;
 let container: HTMLDivElement;
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  desktop = true;
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({ matches: query.includes('min-width') && desktop, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   localStorage.clear(); sessionStorage.clear();
   container = document.createElement('div'); document.body.append(container); root = createRoot(container);
 });
@@ -30,6 +33,7 @@ const button = (text: string) => Array.from(container.querySelectorAll('button')
 it('shows controls only for a larger collection and preserves filters when returning', async () => {
   await render('viewer', accounts.slice(0, 1));
   expect(container.querySelector('input')).toBeNull();
+  expect(container.querySelector('[aria-label="Akkount holati"]')).toBeNull();
   await render();
   await act(async () => button('Bozorda emas').click());
   expect(container.querySelectorAll('article')).toHaveLength(4);
@@ -88,3 +92,50 @@ it('collects sold accounts under their own filter and keeps them out of the idle
 });
 
 it('offers real seller bulk management from the account collection',async()=>{await render();expect(container.querySelector('a[href="/seller-tools"]')?.textContent).toContain('Sotuvchi vositalari');});
+
+it('shows working compact mobile status filters even for two accounts', async () => {
+  desktop = false;
+  const rows = [accounts[0], { ...accounts[1], id: 'sold', status: 'ARCHIVED', onMarket: false, archivedReason: 'SOLD_ON_PLATFORM' }] as UserAccountResponse[];
+  await render('viewer', rows);
+  expect(container.querySelector('[aria-label="Akkount holati"]')).not.toBeNull();
+  expect(button('Barchasi').textContent).toContain('2');
+  expect(button('Sotilgan').textContent).toContain('1');
+  await act(async () => button('Sotilgan').click());
+  expect(container.querySelectorAll('article')).toHaveLength(1);
+  expect(container.querySelector('article')?.getAttribute('data-id')).toBe('sold');
+  await act(async () => button('Bozorda').click());
+  expect(container.querySelector('article')?.getAttribute('data-id')).toBe('acc-0');
+});
+
+it('keeps the mobile search behind a labelled control until requested', async () => {
+  desktop = false;
+  await render();
+  expect(container.querySelector('input')).toBeNull();
+  const search = container.querySelector<HTMLButtonElement>('[aria-label="Akkount qidirish"]')!;
+  expect(search).not.toBeNull();
+  await act(async () => search.click());
+  expect(container.querySelector('input')).not.toBeNull();
+  expect(document.activeElement).toBe(container.querySelector('input'));
+});
+
+it('offers the mobile archive filter with a zero count and a recoverable empty state', async () => {
+  desktop = false;
+  await render('viewer', accounts.slice(0,1));
+  expect(button('Sotilgan').textContent).toContain('0');
+  await act(async () => button('Sotilgan').click());
+  expect(container.querySelectorAll('article')).toHaveLength(0);
+  expect(container.textContent).toContain('Akkount topilmadi');
+  await act(async () => button('Tozalash').click());
+  expect(container.querySelectorAll('article')).toHaveLength(1);
+});
+
+it('retains the selected idle filter when returning from desktop to mobile', async () => {
+  desktop = false;
+  sessionStorage.setItem('accounts-view:viewer', JSON.stringify({ query: '', filter: 'unlisted' }));
+  await render();
+  expect(button('Bozorda emas').getAttribute('aria-pressed')).toBe('true');
+  expect(container.querySelectorAll('article')).toHaveLength(4);
+  await act(async () => button('Barchasi').click());
+  expect(container.querySelectorAll('article')).toHaveLength(6);
+  expect(button('Bozorda emas')).toBeUndefined();
+});

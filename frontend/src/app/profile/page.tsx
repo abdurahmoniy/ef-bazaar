@@ -98,10 +98,10 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               href="/profile/accounts/new"
               title="Yangi akkount qo'shish"
               aria-label="Yangi akkount qo'shish"
-              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-4 sm:text-sm"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center gap-1.5 rounded-2xl bg-primary text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:w-auto md:rounded-lg md:px-4 md:text-sm"
             >
-              <Plus className="h-5 w-5" />
-              Qo&apos;shish
+              <Plus aria-hidden className="h-5 w-5" />
+              <span className="hidden md:inline">Qo&apos;shish</span>
             </Link>
           ),
         };
@@ -144,11 +144,11 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                 <ChevronLeft className="h-5 w-5" />
               </Link>}
               <div className="min-w-0">
-                <h1 className="text-base font-bold text-foreground leading-none">
+                <h1 className={activeTab === 'accounts' ? "text-xl font-bold leading-none text-foreground md:text-base" : "text-base font-bold text-foreground leading-none"}>
                   {subpageHeader.title}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {subpageHeader.subtitle}
+                  {activeTab === 'accounts' ? <><span className="md:hidden">{ownedAccounts.length} ta aktiv · {soldCount} ta arxivda</span><span className="hidden md:inline">{subpageHeader.subtitle}</span></> : subpageHeader.subtitle}
                 </p>
               </div>
             </div>

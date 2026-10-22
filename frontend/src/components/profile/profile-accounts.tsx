@@ -9,6 +9,8 @@ import { AccountCard } from '@/components/profile/account-card';
 import { PublishAccountDialog } from '@/components/profile/publish-account-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useMediaQuery } from '@/hooks/use-media-query';
+import { cn } from '@/lib/utils';
 import { accountDetailsIncomplete } from '@/lib/account-completeness';
 import type { AccountDisplayData, UserAccountResponse } from '@/lib/accounts-types';
 
@@ -39,6 +41,9 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
   viewerId: string;
   savedAccountId?: string;
 }) {
+  const desktop = useMediaQuery('(min-width: 768px)');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
   const savedAccount = accounts.find((account) => account.id === savedAccountId);
   const savedCard = useRef<HTMLDivElement>(null);
   const [highlighted, setHighlighted] = useState(true);
@@ -50,7 +55,12 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
   const searchId = useId();
   const viewKey = `accounts-view:${viewerId}`;
   const pinsKey = `accounts-pins:${viewerId}`;
-  const showControls = accounts.length >= 5;
+  const showSearch = accounts.length >= 5;
+  const showControls = !desktop || showSearch;
+
+  useEffect(() => {
+    if (searchOpen && !desktop) searchRef.current?.focus();
+  }, [searchOpen, desktop]);
 
   useEffect(() => {
     setQuery('');
@@ -99,6 +109,8 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
       && (account.title?.trim() || 'Nomsiz akkount').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())))
     .sort((a, b) => Number(b.id === savedAccountId) - Number(a.id === savedAccountId) || Number(pinnedIds.includes(b.id)) - Number(pinnedIds.includes(a.id)));
 
+  const sellerTools = <Button asChild variant="outline" className="min-h-11"><Link href="/seller-tools">Sotuvchi vositalari</Link></Button>;
+
   if (accounts.length === 0) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card px-4 py-16 text-center shadow-xs">
@@ -121,7 +133,7 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
 
   return (
     <div className="space-y-4">
-      <Button asChild variant="outline" className="min-h-11"><Link href="/seller-tools">Sotuvchi vositalari</Link></Button>
+      {desktop && sellerTools}
       {savedAccount && <CompletionNotice key={savedAccount.id} title="Akkount saqlandi" description={savedAccount.onMarket ? 'O‘zgarishlar saqlandi. Akkountingiz bozorda.' : savedAccount.status === 'ARCHIVED' ? 'O‘zgarishlar saqlandi. Akkount arxivda.' : 'Hali bozorga chiqarilmagan. Tayyor bo‘lganda sotuvga qo‘yishingiz mumkin.'} queryKey="saved" focusOnMount={false} onDismiss={() => setHighlighted(false)}>
         <p className="mb-3 break-words text-sm font-semibold">{savedAccount.title?.trim() || 'Nomsiz akkount'}</p>
         {savedAccount.onMarket && savedAccount.currentListingId ? <Button asChild className="min-h-11"><Link href={`/marketplace/${savedAccount.currentListingId}`}>E’lonni ko‘rish</Link></Button>
@@ -129,21 +141,30 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
       </CompletionNotice>}
       {showControls && (
         <div className="space-y-3">
-          <div className="relative max-w-md">
+          {(desktop || searchOpen || query.length > 0) && <div className="relative max-w-md">
             <label htmlFor={searchId} className="sr-only">Akkount nomi bo‘yicha qidirish</label>
             <Search aria-hidden className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-            <Input id={searchId} type="search" placeholder="Akkount nomi bo‘yicha qidirish" value={query}
+            <Input ref={searchRef} id={searchId} type="search" placeholder="Akkount nomi bo‘yicha qidirish" value={query}
               onChange={(event) => changeView(event.target.value, filter)} className="pl-10" />
-          </div>
-          <div role="group" aria-label="Akkount holati" className="flex flex-wrap gap-2">
-            {FILTERS.filter((item) => item.id !== 'archived' || accounts.some((account) => account.status === 'ARCHIVED')).map((item) => (
+          </div>}
+          <div role="group" aria-label="Akkount holati" className={cn('flex', desktop ? 'flex-wrap gap-2' : 'flex-wrap items-center gap-1')}>
+            {FILTERS.filter((item) => desktop
+              ? item.id !== 'archived' || accounts.some((account) => account.status === 'ARCHIVED')
+              : item.id !== 'unlisted' || filter === 'unlisted').map((item) => (
               <Button key={item.id} type="button" variant="ghost"
-                className={`min-h-11 rounded-lg px-3 text-xs ${filter === item.id ? 'bg-muted' : ''}`} aria-pressed={filter === item.id} onClick={() => changeView(query, item.id)}>
+                className={cn('min-h-11 text-xs', desktop ? 'rounded-lg px-3' : 'gap-1.5 rounded-xl px-2',
+                  filter === item.id && (desktop ? 'bg-muted' : 'bg-primary/10 text-primary dark:text-foreground'))}
+                aria-pressed={filter === item.id} onClick={() => changeView(query, item.id)}>
                 {item.label}<span className="text-xs opacity-75">{accounts.filter((account) => matchesFilter(account, item.id)).length}</span>
               </Button>
             ))}
+            {!desktop && showSearch && <Button type="button" variant="ghost" size="icon" className="ml-auto h-11 w-11 shrink-0 rounded-xl"
+              aria-label="Akkount qidirish" aria-expanded={searchOpen || query.length > 0} aria-controls={searchId}
+              onClick={() => { const open = !(searchOpen || query.length > 0); setSearchOpen(open); if (!open) changeView('', filter); }}>
+              <Search aria-hidden className="h-4 w-4" />
+            </Button>}
           </div>
-          <p role="status" className="text-xs text-muted-foreground">{visibleAccounts.length} ta akkount</p>
+          <p role="status" className={desktop ? 'text-xs text-muted-foreground' : 'sr-only'}>{visibleAccounts.length} ta akkount</p>
         </div>
       )}
       {storageNotice && <p role="status" className="text-sm text-muted-foreground">{storageNotice}</p>}
@@ -165,6 +186,7 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
         </div>
       )}
 
+      {!desktop && sellerTools}
       {publishing && (
         <PublishAccountDialog account={publishing} onClose={() => setPublishing(null)} />
       )}
