@@ -74,6 +74,16 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.NOT_FOUND, "not_found", "Not Found", null);
     }
 
+    /**
+     * The client went away (closed the page, cancelled the request, lost the
+     * network) before the response was written. Nothing failed on our side and
+     * there is nobody left to answer, so it is not worth an error alert.
+     */
+    @ExceptionHandler(org.springframework.web.context.request.async.AsyncRequestNotUsableException.class)
+    void onClientGone(org.springframework.web.context.request.async.AsyncRequestNotUsableException ex) {
+        log.debug("Client went away before the response was written: {}", ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> onUnknown(Exception ex) {
         Throwable root = ex;
