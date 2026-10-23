@@ -852,6 +852,27 @@ services:
         # tinglamaydigan portga borardi.
         aliases:
           - mailcow.efbazaar.uz
+      # vps-edge (github.com/mukhiddinov/vps-edge): the shared Traefik that
+      # will own the host's 80/443. Until then it only listens on staging
+      # ports and this changes nothing for visitors.
+      vps-edge:
+        aliases:
+          - efbazaar-nginx
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: edge
+      # :80 goes to nginx's own :80 untouched — certbot and Mailcow renew
+      # through /.well-known/acme-challenge/ there, the rest is redirected.
+      traefik.http.routers.efbazaar-http.rule: "Host(`efbazaar.uz`) || Host(`api.efbazaar.uz`) || Host(`dashboard.efbazaar.uz`) || Host(`mail.efbazaar.uz`) || Host(`mailcow.efbazaar.uz`) || Host(`autodiscover.efbazaar.uz`) || Host(`autoconfig.efbazaar.uz`)"
+      traefik.http.routers.efbazaar-http.entrypoints: web
+      traefik.http.routers.efbazaar-http.service: efbazaar-http
+      traefik.http.services.efbazaar-http.loadbalancer.server.port: "80"
+      # :443 — Traefik terminates TLS and forwards to :9080 (nginx.conf).
+      traefik.http.routers.efbazaar.rule: "Host(`efbazaar.uz`) || Host(`api.efbazaar.uz`) || Host(`dashboard.efbazaar.uz`) || Host(`mail.efbazaar.uz`) || Host(`mailcow.efbazaar.uz`) || Host(`autodiscover.efbazaar.uz`) || Host(`autoconfig.efbazaar.uz`)"
+      traefik.http.routers.efbazaar.entrypoints: websecure
+      traefik.http.routers.efbazaar.tls: "true"
+      traefik.http.routers.efbazaar.service: efbazaar
+      traefik.http.services.efbazaar.loadbalancer.server.port: "9080"
 
   # ---------- Certbot — Let's Encrypt cert issuance + renewal ----------
   # First boot: 'docker compose run --rm certbot certonly --webroot ...' qo'lda chaqiring (init-cert.sh).
@@ -901,6 +922,10 @@ volumes:
 networks:
   efbazaar-net:
     driver: bridge
+  # Created by the vps-edge stack, which must be deployed first.
+  vps-edge:
+    external: true
+    name: edge
 
 secrets:
   master_key:
