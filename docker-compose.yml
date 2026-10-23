@@ -869,8 +869,10 @@ services:
       traefik.http.services.efbazaar-http.loadbalancer.server.port: "80"
       # :443 — Traefik terminates TLS and forwards to :9080 (nginx.conf).
       traefik.http.routers.efbazaar.rule: "Host(`efbazaar.uz`) || Host(`api.efbazaar.uz`) || Host(`dashboard.efbazaar.uz`) || Host(`mail.efbazaar.uz`) || Host(`mailcow.efbazaar.uz`) || Host(`autodiscover.efbazaar.uz`) || Host(`autoconfig.efbazaar.uz`)"
+      # No tls label: the websecure entrypoint supplies TLS and the
+      # certificate resolver; declaring tls here, even "true", replaces that
+      # default and the router gets no certificate.
       traefik.http.routers.efbazaar.entrypoints: websecure
-      traefik.http.routers.efbazaar.tls: "true"
       traefik.http.routers.efbazaar.service: efbazaar
       traefik.http.services.efbazaar.loadbalancer.server.port: "9080"
 
