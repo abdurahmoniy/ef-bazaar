@@ -12,7 +12,8 @@ COPY conf.d/ /etc/nginx/conf.d/
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-EXPOSE 80 443
+# 9080: plain-HTTP twin of :443 for the vps-edge Traefik (edge network only)
+EXPOSE 80 443 9080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget -qO- http://127.0.0.1/healthz > /dev/null || exit 1
