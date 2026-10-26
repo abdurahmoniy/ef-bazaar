@@ -104,7 +104,7 @@ export function HumanPartyTradePanel({
         <Badge variant="info">Platforma komissiyasi yo'q</Badge>
       </div>
 
-      <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+      <div className="rounded-lg border border-warning-border bg-warning-soft px-3 py-2 text-xs text-warning">
         Xaridor to'lovni admin bilan bevosita qiladi. Platforma pulni ushlab turmaydi;
         admin reputatsiyasi va ratingi asosiy ishonch belgisi.
       </div>
@@ -316,7 +316,7 @@ function RatingBox({ tradeId }: { tradeId: string }) {
             key={value}
             type="button"
             onClick={() => setStars(value)}
-            className="grid h-10 w-10 place-items-center rounded-lg text-amber-500 transition hover:bg-amber-100/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="grid h-10 w-10 place-items-center rounded-lg text-warning transition hover:bg-warning-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={`${value} yulduz`}
           >
             <Star className={value <= stars ? 'h-5 w-5 fill-current' : 'h-5 w-5'} />

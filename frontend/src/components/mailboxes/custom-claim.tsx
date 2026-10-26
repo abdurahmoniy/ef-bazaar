@@ -156,7 +156,7 @@ export function CustomClaim({ plan, accountId, slots }: CustomClaimProps) {
         <div
           className={cn(
             'flex items-stretch overflow-hidden rounded-xl border-2 bg-background sm:rounded-2xl',
-            view.tone === 'ok' ? 'border-emerald-600 dark:border-emerald-400'
+            view.tone === 'ok' ? 'border-success-border'
               : view.tone === 'bad' ? 'border-destructive' : 'border-border',
           )}
         >
@@ -182,7 +182,7 @@ export function CustomClaim({ plan, accountId, slots }: CustomClaimProps) {
           aria-live="polite"
           className={cn(
             'flex min-h-6 items-center gap-2 text-sm font-semibold sm:text-base',
-            view.tone === 'ok' && 'text-emerald-700 dark:text-emerald-400',
+            view.tone === 'ok' && 'text-success',
             view.tone === 'bad' && 'text-destructive',
             view.tone === 'checking' && 'text-muted-foreground',
           )}

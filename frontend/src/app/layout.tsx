@@ -7,6 +7,8 @@ import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-
 import { TelegramBackProvider } from '@/components/telegram/telegram-back-provider';
 import { TelegramViewportBootstrap } from '@/components/telegram/telegram-viewport-bootstrap';
 import { ThemeScript } from '@/components/theme/theme-script';
+import { StartupIntro } from '@/components/brand/startup-intro';
+import { StartupIntroScript } from '@/components/brand/startup-intro-script';
 import { absoluteUrl, siteConfig } from '@/lib/site';
 import { PushProvider } from '@/components/notifications/push-provider';
 import { StoreProvider } from '@/store/provider';
@@ -115,8 +117,10 @@ export default function RootLayout({
         />
         {/* Independent raw fallback: stored/system theme still initializes if the SDK fails. */}
         <ThemeScript />
+        <StartupIntroScript />
       </head>
       <body className="font-sans">
+        <StartupIntro />
         {/* Syncs the first visible Mini App state before calling Telegram ready. */}
         <TelegramViewportBootstrap />
         {/* Telegram Mini App context aniqlansa har qanday entry point'da auto-login */}

@@ -42,7 +42,7 @@ export function AccountForm({
   return (
     <div className="space-y-3">
       {account?.onMarket && (
-        <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+        <p className="rounded-xl border border-warning-border bg-warning-soft px-4 py-3 text-xs text-warning">
           Bu akkount hozir bozorda. O&apos;zgarishlar e&apos;longa ham tushadi — narx va obmen
           sharti esa tegilmaydi.
         </p>

@@ -113,12 +113,12 @@ export default async function AdminDashboardPage() {
                 Boshqaruv markazi
               </span>
               {actionRequiredCount > 0 ? (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                <span className="inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning-soft px-2 py-0.5 text-xs font-semibold text-warning">
                   <AlertTriangle className="h-3 w-3" />
                   {actionRequiredCount} ta eʼtibor talab holat
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                <span className="inline-flex items-center gap-1 rounded-full border border-success-border bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">
                   <CheckCircle2 className="h-3 w-3" />
                   Tizim barqaror
                 </span>
@@ -140,7 +140,7 @@ export default async function AdminDashboardPage() {
                   className={cn(
                     'h-2.5 w-2.5 rounded-full',
                     userbot?.healthy
-                      ? 'bg-emerald-500 animate-pulse'
+                      ? 'bg-success animate-pulse'
                       : 'bg-destructive animate-ping',
                   )}
                 />
@@ -184,11 +184,11 @@ export default async function AdminDashboardPage() {
         {/* Active Listings */}
         <Link
           href="/admin/listings?status=ACTIVE"
-          className="group rounded-xl border border-border bg-card p-5 shadow-xs transition hover:border-emerald-500/50 hover:shadow-md"
+          className="group rounded-xl border border-border bg-card p-5 shadow-xs transition hover:border-success-border hover:shadow-md"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Aktiv Eʼlonlar</span>
-            <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600 transition-transform group-hover:scale-110">
+            <div className="rounded-lg bg-success-soft p-2 text-success transition-transform group-hover:scale-110">
               <CheckCircle2 className="h-5 w-5" />
             </div>
           </div>
@@ -196,7 +196,7 @@ export default async function AdminDashboardPage() {
             <div className="text-3xl font-black tracking-tight tabular-nums text-foreground">
               {stats.activeListings.toLocaleString('ru-RU')}
             </div>
-            <div className="mt-1 flex items-center gap-1 text-xs text-emerald-600 font-medium">
+            <div className="mt-1 flex items-center gap-1 text-xs text-success font-medium">
               <TrendingUp className="h-3.5 w-3.5" />
               <span>Jami {stats.totalListings} tadan {activeRate}%</span>
             </div>
@@ -206,11 +206,11 @@ export default async function AdminDashboardPage() {
         {/* Sold Listings */}
         <Link
           href="/admin/listings?status=SOLD"
-          className="group rounded-xl border border-border bg-card p-5 shadow-xs transition hover:border-amber-500/50 hover:shadow-md"
+          className="group rounded-xl border border-border bg-card p-5 shadow-xs transition hover:border-warning-border hover:shadow-md"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sotilgan Akkauntlar</span>
-            <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600 transition-transform group-hover:scale-110">
+            <div className="rounded-lg bg-warning-soft p-2 text-warning transition-transform group-hover:scale-110">
               <Package className="h-5 w-5" />
             </div>
           </div>
@@ -218,7 +218,7 @@ export default async function AdminDashboardPage() {
             <div className="text-3xl font-black tracking-tight tabular-nums text-foreground">
               {stats.soldListings.toLocaleString('ru-RU')}
             </div>
-            <div className="mt-1 flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 font-medium">
+            <div className="mt-1 flex items-center gap-1 text-xs text-warning font-medium">
               <span>Muvaffaqiyatli bitimlar: {soldRate}%</span>
             </div>
           </div>
@@ -283,13 +283,13 @@ export default async function AdminDashboardPage() {
             className={cn(
               'group rounded-xl border p-5 transition hover:shadow-md',
               openWithdrawals.length > 0
-                ? 'border-amber-500/40 bg-amber-500/5 hover:border-amber-500'
+                ? 'border-warning-border bg-warning-soft hover:border-warning-border'
                 : 'border-border bg-card hover:border-primary/40',
             )}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ArrowUpFromLine className="h-4 w-4 text-amber-600" />
+                <ArrowUpFromLine className="h-4 w-4 text-warning" />
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Pul yechish so‘rovlari
                 </span>
@@ -298,7 +298,7 @@ export default async function AdminDashboardPage() {
                 className={cn(
                   'rounded-full px-2 py-0.5 text-xs font-bold',
                   openWithdrawals.length > 0
-                    ? 'bg-amber-500/20 text-amber-800 dark:text-amber-300'
+                    ? 'bg-warning-soft text-warning'
                     : 'bg-muted text-muted-foreground',
                 )}
               >
@@ -360,12 +360,12 @@ export default async function AdminDashboardPage() {
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-emerald-600" />
+                <CreditCard className="h-4 w-4 text-success" />
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Platforma kartalari
                 </span>
               </div>
-              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-600">
+              <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-bold text-success">
                 {activeCardsCount} / {totalCardsCount} aktiv
               </span>
             </div>
@@ -403,12 +403,12 @@ export default async function AdminDashboardPage() {
             <div className="flex h-3.5 w-full overflow-hidden rounded-full bg-muted">
               <div
                 style={{ width: `${stats.totalListings ? (stats.activeListings / stats.totalListings) * 100 : 0}%` }}
-                className="bg-emerald-500 transition-all"
+                className="bg-success transition-all"
                 title={`Aktiv: ${stats.activeListings}`}
               />
               <div
                 style={{ width: `${stats.totalListings ? (stats.soldListings / stats.totalListings) * 100 : 0}%` }}
-                className="bg-amber-500 transition-all"
+                className="bg-warning transition-all"
                 title={`Sotilgan: ${stats.soldListings}`}
               />
               <div
@@ -419,14 +419,14 @@ export default async function AdminDashboardPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-2 pt-2 text-center text-xs">
-              <div className="rounded-lg bg-emerald-500/10 p-2">
-                <div className="font-bold text-emerald-700 dark:text-emerald-400">
+              <div className="rounded-lg bg-success-soft p-2">
+                <div className="font-bold text-success">
                   {stats.activeListings} ta
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">Aktiv eʼlonlar</div>
               </div>
-              <div className="rounded-lg bg-amber-500/10 p-2">
-                <div className="font-bold text-amber-700 dark:text-amber-400">
+              <div className="rounded-lg bg-warning-soft p-2">
+                <div className="font-bold text-warning">
                   {stats.soldListings} ta
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">Sotilgan</div>
@@ -466,11 +466,11 @@ export default async function AdminDashboardPage() {
               <div className="text-[11px] font-semibold text-muted-foreground mt-1">Savdo (Trade)</div>
             </div>
             <div className="rounded-xl border border-border/80 bg-background/50 p-3 text-center">
-              <div className="text-xl font-black tabular-nums text-emerald-600">{mailboxStats?.admin ?? '—'}</div>
+              <div className="text-xl font-black tabular-nums text-success">{mailboxStats?.admin ?? '—'}</div>
               <div className="text-[11px] font-semibold text-muted-foreground mt-1">Admin pochtalar</div>
             </div>
             <div className="rounded-xl border border-border/80 bg-background/50 p-3 text-center">
-              <div className="text-xl font-black tabular-nums text-amber-600">{mailboxStats?.unassigned ?? '—'}</div>
+              <div className="text-xl font-black tabular-nums text-warning">{mailboxStats?.unassigned ?? '—'}</div>
               <div className="text-[11px] font-semibold text-muted-foreground mt-1">Bo‘sh zaxira</div>
             </div>
           </div>

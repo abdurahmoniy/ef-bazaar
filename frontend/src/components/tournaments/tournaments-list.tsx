@@ -249,7 +249,7 @@ function Section({
   accent: 'active' | 'joinable';
   joinedIds: Set<number>;
 }) {
-  const dotColor = accent === 'active' ? 'bg-emerald-500' : 'bg-sky-500';
+  const dotColor = accent === 'active' ? 'bg-success' : 'bg-info';
   return (
     <section className="mt-5">
       <div className="flex items-center justify-between">

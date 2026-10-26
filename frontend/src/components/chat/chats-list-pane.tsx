@@ -55,7 +55,7 @@ export function ChatsListPane({ chats, viewerId }: ChatsListPaneProps) {
         </Button>
         <h1 className="text-xl font-bold tracking-tight text-foreground">Chatlar</h1>
         {unreadCount > 0 && (
-          <span aria-label={`${unreadCount} ta o'qilmagan xabar`} className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold tabular-nums text-primary dark:bg-sky-400/15 dark:text-sky-300">
+          <span aria-label={`${unreadCount} ta o'qilmagan xabar`} className="rounded-full bg-info-soft px-2 py-0.5 text-xs font-semibold tabular-nums text-primary">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -94,13 +94,13 @@ export function ChatsListPane({ chats, viewerId }: ChatsListPaneProps) {
             className={cn(
               'relative flex min-h-11 shrink-0 items-center gap-1.5 px-0.5 text-[13px] font-semibold transition-colors after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:rounded-t-full after:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
               filter === f.id
-                ? 'text-primary after:bg-primary dark:text-sky-300 dark:after:bg-sky-300'
+                ? 'text-primary after:bg-info'
                 : 'text-muted-foreground after:bg-transparent hover:text-foreground',
             )}
           >
             {f.label}
             {counts[f.id] > 0 && (
-              <span aria-hidden className={cn('rounded-full px-1.5 text-[10px] leading-[18px] tabular-nums', filter === f.id ? 'bg-primary/10 text-primary dark:bg-sky-400/15 dark:text-sky-300' : 'bg-muted text-muted-foreground')}>
+              <span aria-hidden className={cn('rounded-full px-1.5 text-[10px] leading-[18px] tabular-nums', filter === f.id ? 'bg-info-soft text-primary' : 'bg-muted text-muted-foreground')}>
                 {counts[f.id]}
               </span>
             )}

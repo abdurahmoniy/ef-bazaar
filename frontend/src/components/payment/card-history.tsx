@@ -11,13 +11,14 @@ import {
   movementDetail,
 } from '@/lib/card-history';
 import { formatTiyin } from '@/lib/money';
+import { MONEY_COLORS } from '@/lib/payment-analytics';
 import { listCardHistory } from '@/lib/payment-admin-client';
 import type { CardMovement } from '@/lib/payment-types';
 import { cn } from '@/lib/utils';
 
 /** The same two colours the finance panel uses: money in, money out. */
-const IN_COLOR = '#059669';
-const OUT_COLOR = '#6C7FD4';
+const IN_COLOR = MONEY_COLORS.own;
+const OUT_COLOR = MONEY_COLORS.users;
 
 interface CardHistoryProps {
   initialMovements: CardMovement[];
@@ -214,8 +215,8 @@ function MovementRow({ movement }: { movement: CardMovement }) {
       {/* The icon, the sign and the screen-reader word all say the direction.
           The colour only reinforces it — it never carries the meaning alone. */}
       <span
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-        style={{ backgroundColor: `${color}1F`, color }}
+        className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", outgoing ? "bg-info-soft" : "bg-success-soft")}
+        style={{ color }}
         aria-hidden="true"
       >
         <Icon className="h-4 w-4" />

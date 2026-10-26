@@ -102,7 +102,7 @@ export function WithdrawForm({
   return (
     <section className="overflow-hidden rounded-2xl border border-border/80 bg-card p-4 shadow-sm sm:p-6 transition-all">
       <div className="flex items-center gap-2.5 mb-4">
-        <div className="grid h-9 w-9 place-items-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400">
+        <div className="grid h-9 w-9 place-items-center rounded-xl bg-info-soft text-info">
           <ArrowUpFromLine className="h-4.5 w-4.5" />
         </div>
         <div>

@@ -161,7 +161,7 @@ export function TradePinnedBar() {
               className={cn(
                 'grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs',
                 isSuccess
-                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                  ? 'bg-success-soft text-success'
                   : isRejected
                     ? 'bg-destructive/20 text-destructive'
                     : 'bg-muted-foreground/20 text-muted-foreground',

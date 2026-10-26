@@ -32,7 +32,7 @@ export function LockedMailboxCard({ mailbox, plan, limit, candidates, onChanged,
   return (
     <article
       aria-label={`Qulflangan quti ${mailbox.email}`}
-      className="relative grid min-h-36 overflow-hidden rounded-2xl border border-dashed border-amber-500/60 bg-card"
+      className="relative grid min-h-36 overflow-hidden rounded-2xl border border-dashed border-warning-border bg-card"
     >
       <div aria-hidden className="col-start-1 row-start-1 flex flex-col gap-3.5 p-4 opacity-70 blur-[5px]">
         <div className="flex items-center gap-3">
@@ -50,11 +50,11 @@ export function LockedMailboxCard({ mailbox, plan, limit, candidates, onChanged,
 
       <div className="relative col-start-1 row-start-1 flex flex-wrap items-center justify-between gap-3 bg-card/75 p-4 backdrop-blur-[2px]">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-500/15 text-amber-800 dark:text-amber-300">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-warning-soft text-warning">
             <Lock className="size-5" aria-hidden />
           </span>
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-warning">
               {mailboxAccess(mailbox) === 'RECOVERY' ? 'Recovery' : 'Qulflangan'}
             </span>
             <span className="break-all text-sm font-bold text-foreground">{mailbox.email}</span>

@@ -212,7 +212,7 @@ export function TournamentDetail({ tournament, viewer, joined }: Props) {
           </div>
 
           {liveCount > 0 && (
-            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-success">
               <Radio className="h-3 w-3 animate-pulse" />
               {liveCount} match ketmoqda
             </p>

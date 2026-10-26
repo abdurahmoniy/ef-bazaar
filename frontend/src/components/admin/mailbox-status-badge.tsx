@@ -30,10 +30,10 @@ function describe(mailbox: AdminMailbox): { label: string; variant: Variant; dot
     return { label: "o'chirilgan", variant: 'danger', dot: 'bg-destructive' };
   }
   if (!mailbox.provisionedAt) {
-    return { label: 'kutilmoqda', variant: 'warn', dot: 'bg-amber-500 animate-pulse' };
+    return { label: 'kutilmoqda', variant: 'warn', dot: 'bg-warning animate-pulse' };
   }
   if (mailbox.source === 'ADMIN') {
-    return { label: 'admin', variant: 'info', dot: 'bg-sky-500' };
+    return { label: 'admin', variant: 'info', dot: 'bg-info' };
   }
   return { label: 'savdo', variant: 'muted', dot: 'bg-muted-foreground/60' };
 }

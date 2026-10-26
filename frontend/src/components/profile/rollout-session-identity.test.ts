@@ -19,7 +19,10 @@ vi.mock('@/lib/trade-server', () => ({ getMyCards: async () => [], getMyTrades: 
 vi.mock('@/lib/trade-admin-applications-server', () => ({ getMyTradeAdminApplication: async () => null }));
 vi.mock('@/lib/payment-server', () => ({ getWallet: async () => null }));
 vi.mock('@/lib/custom-mailbox-server', () => ({ getMyMailboxesSSR: async () => [], getMyCustomMailboxesSSR: async () => [], getMailboxSlotsSSR: async () => null }));
-vi.mock('@/components/profile/profile-account', () => ({ ProfileAccount: ({ children }: { children: ReactNode }) => createElement('section', null, children) }));
+vi.mock('@/components/profile/profile-account', async () => {
+  const { MailboxSummaryCard } = await import('./mailbox-summary-card');
+  return { ProfileAccount: ({ children }: { children: ReactNode }) => createElement('section', null, children, createElement(MailboxSummaryCard)) };
+});
 vi.mock('@/components/profile/profile-accounts', () => ({ ProfileAccounts: () => null }));
 import WatchesPage from '@/app/watches/page';
 import AnalyticsPage from '@/app/seller-analytics/page';
@@ -88,15 +91,17 @@ it('replaces seller statistics and aborts an earlier owner export on a principal
   await act(async () => finish(new Response('A private CSV', { headers: { 'Content-Type': 'text/csv' } })));
   expect(create).not.toHaveBeenCalled(); expect(host.textContent).toContain('22'); expect(host.textContent).not.toContain('11');
 });
-it('replaces mailbox resources and plan notices when the profile principal changes', async () => {
-  await render('profile'); expect(host.textContent).toContain('A-private@'); expect(host.textContent).toContain('2025');
+it('replaces the compact mailbox summary and plan notices when the profile principal changes', async () => {
+  await render('profile'); expect(host.textContent).toContain('Jami: 1 / 3'); expect(host.textContent).toContain('2025');
   identity = 'B'; await render('profile');
-  expect(host.textContent).toContain('B-private@'); expect(host.textContent).not.toContain('A-private@'); expect(host.textContent).not.toContain('2025');
+  expect(host.textContent).toContain('Jami: 2 / 3'); expect(host.textContent).not.toContain('Jami: 1 / 3'); expect(host.textContent).not.toContain('2025');
+  expect(fetcher.mock.calls.some(([url]) => url.endsWith('/resources'))).toBe(false);
 });
-it('reloads allocation counters when the account-tab principal changes', async () => {
-  await render('accounts'); expect(host.textContent).toContain('Jami: 1 / 3');
+it('keeps general mailbox data off the accounts tab across principal changes', async () => {
+  await render('accounts');
   identity = 'B'; await render('accounts');
-  expect(host.textContent).toContain('Jami: 2 / 3'); expect(host.textContent).not.toContain('Jami: 1 / 3');
+  expect(host.textContent).not.toContain('Jami:');
+  expect(fetcher.mock.calls.some(([url]) => url.endsWith('/slots') || url.endsWith('/resources'))).toBe(false);
 });
 it('clears the prior owner purchase completion when a different principal opens the same plans route', async () => {
   await render('plans'); await click('Pro’ga o‘tish'); await act(async () => [...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(b => b.textContent?.includes('Tasdiqlash'))!.click()); expect(host.textContent).toContain('Xarid qabul qilindi');

@@ -214,7 +214,7 @@ export function AccountCard({ account, onPublish, display, pinned = false, onTog
                 {emailShown ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
               </Button>
               <Button type="button" variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground" aria-label="Emailni nusxalash" onClick={copyEmail}>
-                {copied ? <Check aria-hidden className="text-emerald-600 dark:text-emerald-300" /> : <Copy aria-hidden />}
+                {copied ? <Check aria-hidden className="text-success" /> : <Copy aria-hidden />}
               </Button>
               <span role="status" className="sr-only">{copied ? 'Nusxalandi' : 'Nusxalash'}</span>
             </div>}
@@ -405,8 +405,8 @@ function AccountPreview({ account, expanded, panelId, desktop, previewRef, pinne
               {pinned && <Pin aria-label="Mahkamlangan" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
             </span>
             <span className={cn('flex items-center gap-1.5 text-xs font-normal',
-              !archived && account.onMarket ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground')}>
-              {!archived && account.onMarket && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+              !archived && account.onMarket ? 'text-success' : 'text-muted-foreground')}>
+              {!archived && account.onMarket && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success" />}
               {status}
             </span>
           </span>
@@ -423,8 +423,8 @@ function AccountPreview({ account, expanded, panelId, desktop, previewRef, pinne
       <span className="relative block aspect-[4/3] overflow-hidden rounded-t-2xl bg-muted">
         <AccountPhoto key={photo} photo={photo} title={title} />
         <span className={cn('absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/95 px-2.5 py-1 text-xs font-semibold shadow-sm',
-          !archived && account.onMarket ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground')}>
-          {!archived && account.onMarket && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-500" />}
+          !archived && account.onMarket ? 'text-success' : 'text-muted-foreground')}>
+          {!archived && account.onMarket && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success" />}
           {status}
         </span>
         {pinned && <span className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-full border border-border/60 bg-card/95 text-foreground shadow-sm"><Pin aria-label="Mahkamlangan" className="h-3.5 w-3.5" /></span>}

@@ -53,9 +53,9 @@ function ReferralWelcomeContent() {
     <ReferralCapture authenticated={authenticated} />
     <div className="container pt-4">
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4">
-        <UserPlus aria-hidden className="h-5 w-5 shrink-0 text-primary dark:text-secondary" />
+        <UserPlus aria-hidden className="h-5 w-5 shrink-0 text-primary" />
         <p className="min-w-0 flex-1 text-sm leading-relaxed text-foreground">Taklif orqali keldingiz — xush kelibsiz! Sizga mos eFootball akkountlarini ko‘rib chiqing.</p>
-        <Link href="/marketplace" className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-primary dark:text-secondary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Bozorni ko‘rish →</Link>
+        <Link href="/marketplace" className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Bozorni ko‘rish →</Link>
       </div>
     </div>
   </>;

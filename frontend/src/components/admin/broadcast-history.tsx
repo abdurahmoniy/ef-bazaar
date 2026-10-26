@@ -35,7 +35,7 @@ function StatusBadge({ status }: { status: BroadcastStatus }) {
     SENT: {
       icon: <CheckCircle2 className="h-3.5 w-3.5" />,
       label: 'Yuborildi',
-      className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+      className: 'bg-success-soft text-success',
     },
     FAILED: {
       icon: <XCircle className="h-3.5 w-3.5" />,
@@ -143,7 +143,7 @@ export function BroadcastHistory() {
               qorishtirib yuborardi.
             */}
             <div className="flex flex-wrap gap-x-3 gap-y-1">
-              <span className="text-emerald-600 dark:text-emerald-400">
+              <span className="text-success">
                 Yetdi: {item.sentCount}
               </span>
               <span className="text-muted-foreground">Bloklagan: {item.blockedCount}</span>

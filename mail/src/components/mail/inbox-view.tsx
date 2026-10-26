@@ -55,7 +55,7 @@ export function InboxView({ mailboxId, mailboxEmail, messages, emptySlice }: Inb
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Xatlardan qidirish…"
               aria-label="Xatlar ichidan qidirish"
-              className="h-9 w-full rounded-full border border-transparent bg-muted pl-9 pr-8 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus-visible:border-primary/40 focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring/25"
+              className="h-9 w-full rounded-full border border-input bg-muted pl-9 pr-8 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:bg-card focus-visible:ring-2 focus-visible:ring-ring"
             />
             {query && (
               <button

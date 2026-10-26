@@ -64,7 +64,7 @@ export function SiteFooter({ embedded = false }: SiteFooterProps) {
               <FooterLink href="/help">Yordam va Qo‘llanma</FooterLink>
             </li>
             <li>
-              <GrowthLink href="/invite" event="invite_open" placement="footer" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary dark:text-secondary hover:underline">Do‘st taklif qilish</GrowthLink>
+              <GrowthLink href="/invite" event="invite_open" placement="footer" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline">Do‘st taklif qilish</GrowthLink>
             </li>
             <li>
               <GrowthLink href="/partnership" event="partnership_open" placement="footer" className="inline-flex min-h-11 items-center text-sm font-semibold text-muted-foreground hover:text-foreground">Telegram kanal egalari uchun</GrowthLink>

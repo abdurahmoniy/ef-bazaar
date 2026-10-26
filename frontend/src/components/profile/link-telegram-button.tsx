@@ -55,7 +55,7 @@ export function LinkTelegramButton({
     return (
       <div className="flex flex-col items-start gap-3 rounded-xl sm:flex-row sm:items-center sm:justify-between border border-border/80 bg-muted/30 px-4 py-3 min-w-0">
         <div className="flex items-center gap-2.5 min-w-0 w-full flex-1">
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-success-soft text-success">
             <Check className="h-4 w-4" />
           </div>
           <div className="min-w-0 w-full flex-1">
@@ -65,7 +65,7 @@ export function LinkTelegramButton({
             )}
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 shrink-0">
+        <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-1 text-xs font-semibold text-success border border-success-border shrink-0">
           <Check className="h-3 w-3" />
           Tasdiqlangan
         </span>
@@ -96,7 +96,7 @@ export function LinkTelegramButton({
         onRenderIssue={setRenderIssue}
       />
       {renderIssue && (
-        <div role="alert" className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+        <div role="alert" className="space-y-3 rounded-xl border border-warning-border bg-warning-soft px-4 py-3 text-sm text-warning">
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <div className="space-y-1">

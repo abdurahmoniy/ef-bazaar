@@ -22,7 +22,7 @@ export function UserbotBanner({ status }: { status: UserbotStatusResponse }) {
 
   if (status.healthy) {
     return (
-      <p className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+      <p className="flex items-center gap-2 rounded-xl border border-success-border bg-success-soft px-4 py-2.5 text-sm font-semibold text-success">
         <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span>
           To&apos;lov kuzatuvchisi ishlayapti

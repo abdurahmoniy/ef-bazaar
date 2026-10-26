@@ -172,7 +172,7 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
         {visibleAccounts.map((account) => (
           <div key={account.id} ref={account.id === savedAccountId ? savedCard : undefined} tabIndex={account.id === savedAccountId ? -1 : undefined}
             aria-label={account.id === savedAccountId ? 'Saqlangan akkount' : undefined}
-            className={account.id === savedAccountId && highlighted ? 'rounded-2xl ring-2 ring-emerald-600 ring-offset-2 ring-offset-background scroll-mt-24' : 'min-w-0'}>
+            className={account.id === savedAccountId && highlighted ? 'rounded-2xl ring-2 ring-success-border ring-offset-2 ring-offset-background scroll-mt-24' : 'min-w-0'}>
             <AccountCard account={account} display={displayById[account.id]} onPublish={setPublishing}
               pinned={pinnedIds.includes(account.id)} onTogglePin={accounts.length > 1 ? () => togglePin(account.id) : undefined} />
           </div>

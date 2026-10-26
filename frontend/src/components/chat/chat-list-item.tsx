@@ -35,7 +35,7 @@ export function ChatListItem({ chat, viewerId }: ChatListItemProps) {
       className={cn(
         'relative flex min-h-20 items-center gap-3 px-4 py-3 text-left transition-colors after:absolute after:bottom-0 after:left-[5.25rem] after:right-4 after:h-px after:bg-border/40',
         'hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
-        active ? 'bg-primary/10 dark:bg-sky-400/10' : 'bg-transparent',
+        active ? 'bg-info-soft' : 'bg-transparent',
       )}
     >
       <div className="relative h-14 w-14 shrink-0">
@@ -51,11 +51,11 @@ export function ChatListItem({ chat, viewerId }: ChatListItemProps) {
           aria-hidden={!activity?.online}
           title={activity?.online ? 'Onlayn' : undefined}
           className={cn(
-            'pointer-events-none absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-card bg-emerald-500 transition-[opacity,transform] duration-200 motion-reduce:transition-none',
+            'pointer-events-none absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-card bg-success transition-[opacity,transform] duration-200 motion-reduce:transition-none',
             activity?.online ? 'scale-100 opacity-100' : 'scale-75 opacity-0',
           )}
         />
-        <LinkPendingIndicator className="absolute -bottom-0.5 -right-0.5 z-10 h-7 w-7 rounded-full bg-card text-primary shadow-sm dark:text-sky-300" iconClassName="h-4 w-4" />
+        <LinkPendingIndicator className="absolute -bottom-0.5 -right-0.5 z-10 h-7 w-7 rounded-full bg-card text-primary shadow-sm" iconClassName="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -67,7 +67,7 @@ export function ChatListItem({ chat, viewerId }: ChatListItemProps) {
           >
             {name}
           </p>
-          <time dateTime={stamp} title={formatListingDate(stamp)} className={cn('ml-auto shrink-0 text-[11px] tabular-nums', unread > 0 ? 'font-medium text-primary dark:text-sky-300' : 'text-muted-foreground')}>
+          <time dateTime={stamp} title={formatListingDate(stamp)} className={cn('ml-auto shrink-0 text-[11px] tabular-nums', unread > 0 ? 'font-medium text-primary' : 'text-muted-foreground')}>
             {timeLabel}
           </time>
         </div>
@@ -87,7 +87,7 @@ export function ChatListItem({ chat, viewerId }: ChatListItemProps) {
             </span>
           )}
           {unread > 0 && (
-            <span aria-label={`${unread} ta o'qilmagan xabar`} className="ml-auto grid min-w-5 shrink-0 place-items-center rounded-full bg-primary px-1.5 text-[11px] font-semibold leading-5 tabular-nums text-primary-foreground dark:bg-sky-300 dark:text-slate-950">
+            <span aria-label={`${unread} ta o'qilmagan xabar`} className="ml-auto grid min-w-5 shrink-0 place-items-center rounded-full bg-primary px-1.5 text-[11px] font-semibold leading-5 tabular-nums text-primary-foreground">
               {unread > 99 ? '99+' : unread}
             </span>
           )}

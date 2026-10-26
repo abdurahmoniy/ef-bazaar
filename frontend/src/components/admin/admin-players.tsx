@@ -253,7 +253,7 @@ export function AdminPlayers({ cards, total, query, activeType, activeTier }: Ad
         </p>
       )}
       {notice && (
-        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+        <p className="rounded-lg border border-success-border bg-success-soft px-3 py-2 text-sm font-semibold text-success">
           {notice}
         </p>
       )}
@@ -389,7 +389,7 @@ function PlayerRow({
       className={cn(
         'relative overflow-hidden rounded-xl border bg-card p-2 shadow-card transition',
         selected ? 'border-primary ring-2 ring-primary/30' : 'border-border',
-        isMeta && !selected && 'border-amber-400/60',
+        isMeta && !selected && 'border-warning-border',
       )}
     >
       <button

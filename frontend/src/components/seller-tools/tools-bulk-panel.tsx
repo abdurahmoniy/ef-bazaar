@@ -196,7 +196,7 @@ export function ToolsBulkPanel({
                   </span>
                 </label>
                 <Link
-                  className="inline-flex min-h-11 items-center rounded-lg px-3 text-xs font-semibold text-primary dark:text-secondary"
+                  className="inline-flex min-h-11 items-center rounded-lg px-3 text-xs font-semibold text-primary"
                   href={`/seller-tools?listingId=${encodeURIComponent(listing.id)}`}
                 >
                   Shaxsiy qayd

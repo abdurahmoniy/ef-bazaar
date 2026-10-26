@@ -139,7 +139,7 @@ export function MailboxUnlink({ mailboxId, email }: { mailboxId: string; email: 
               autoCapitalize="none"
               spellCheck={false}
               placeholder={email}
-              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+              className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
             />
           </div>
           {error && <p role="alert" className="text-xs font-semibold text-destructive">{error}</p>}

@@ -90,7 +90,7 @@ export function AccessRequiredView({ requirements, from }: AccessRequiredViewPro
         </header>
 
         {stillUnmet && (
-          <div className="flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+          <div className="flex items-start gap-3 rounded-xl border border-warning-border bg-warning-soft px-4 py-3 text-sm text-warning">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>Hali barcha shartlar bajarilmagan. Obuna bo&apos;lganingizni tekshirib, qayta urinib ko&apos;ring.</span>
           </div>
@@ -149,7 +149,7 @@ function RequirementRow({
     <li
       className={cn(
         'flex items-center gap-3 rounded-2xl border bg-card p-3 shadow-sm transition',
-        opened ? 'border-emerald-500/40' : 'border-border',
+        opened ? 'border-success-border' : 'border-border',
       )}
     >
       <div className="relative shrink-0">
@@ -157,7 +157,7 @@ function RequirementRow({
         <span
           className={cn(
             'absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-card text-[10px] font-bold',
-            opened ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground',
+            opened ? 'bg-success-soft text-success' : 'bg-muted text-muted-foreground',
           )}
         >
           {opened ? <Check className="h-3 w-3" /> : index}

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Inbox, Lock } from 'lucide-react';
+import { Inbox, Lock, Settings2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { fullDateUz, mailAvatarColor, mailAvatarInitial, relativeUz } from '@/lib/mail-format';
@@ -37,11 +37,13 @@ export function MailSidebar({ mailboxes, activeMailboxId, hideHeader, slots }: M
       )}
       {slots?.plan !== 'STAFF' && (
         <p className="px-4 py-3 text-xs leading-relaxed text-muted-foreground">
-          {slots ? `Jami: ${slots.totalUsed} / ${slots.totalLimit === null ? 'cheksiz' : slots.totalLimit} · shundan custom: ${slots.customUsed} / ${slots.customLimit === null ? 'cheksiz' : slots.customLimit}` : 'Pochta limiti aniqlanmadi'}
-          {slots?.exemptUsed !== undefined && slots.resourceUsed !== undefined && ` · Limitdan tashqari qutilar: ${slots.exemptUsed} · Resursda: ${slots.resourceUsed}`}
-          {slots && <span className="mt-1 block">Custom chegarasi yangi nomli quti yaratish uchun; mavjud qutini o‘qish umumiy limit bo‘yicha tanlanadi.</span>}
+          {slots ? `Jami: ${slots.totalUsed} / ${slots.totalLimit === null ? 'cheksiz' : slots.totalLimit}` : 'Pochta limiti aniqlanmadi'}
+
         </p>
       )}
+      <Link href="/settings/mailboxes" className="mx-3 mb-2 flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Settings2 aria-hidden className="h-4 w-4" />Qutilarni boshqarish
+      </Link>
       {mailboxes.length === 0 ? (
         <EmptySidebar />
       ) : (
@@ -76,7 +78,7 @@ function MailboxRow({ mailbox, active }: { mailbox: MailboxSummary; active: bool
     >
       {active && (
         <span
-          className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary"
+          className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-ring"
           aria-hidden
         />
       )}

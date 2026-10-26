@@ -13,8 +13,8 @@ interface StandingsTableProps {
 }
 
 function gdClass(gd: number) {
-  if (gd > 0) return 'text-emerald-600 dark:text-emerald-400';
-  if (gd < 0) return 'text-rose-600 dark:text-rose-400';
+  if (gd > 0) return 'text-success';
+  if (gd < 0) return 'text-destructive';
   return 'text-muted-foreground';
 }
 
@@ -63,9 +63,9 @@ export function StandingsTable({ rows, teamsById, highlightTeamIds }: StandingsT
               </div>
               <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[11px]">
                 <MobileStat label="O" value={row.played} />
-                <MobileStat label="G" value={row.won} className="text-emerald-700 dark:text-emerald-400" />
+                <MobileStat label="G" value={row.won} className="text-success" />
                 <MobileStat label="D" value={row.drawn} />
-                <MobileStat label="M" value={row.lost} className="text-rose-700 dark:text-rose-400" />
+                <MobileStat label="M" value={row.lost} className="text-destructive" />
                 <MobileStat label="UG" value={row.goalsFor} />
                 <MobileStat label="OG" value={row.goalsAgainst} />
                 <MobileStat
@@ -123,13 +123,13 @@ export function StandingsTable({ rows, teamsById, highlightTeamIds }: StandingsT
                   <td className="px-2 py-2.5 text-center tabular-nums text-muted-foreground">
                     {row.played}
                   </td>
-                  <td className="px-2 py-2.5 text-center tabular-nums text-emerald-700 dark:text-emerald-400">
+                  <td className="px-2 py-2.5 text-center tabular-nums text-success">
                     {row.won}
                   </td>
                   <td className="px-2 py-2.5 text-center tabular-nums text-muted-foreground">
                     {row.drawn}
                   </td>
-                  <td className="px-2 py-2.5 text-center tabular-nums text-rose-700 dark:text-rose-400">
+                  <td className="px-2 py-2.5 text-center tabular-nums text-destructive">
                     {row.lost}
                   </td>
                   <td className="px-2 py-2.5 text-center tabular-nums text-muted-foreground">
@@ -180,21 +180,21 @@ function MobileStat({
 function PositionBadge({ position }: { position: number }) {
   if (position === 1) {
     return (
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-[11px] font-black text-amber-800 ring-1 ring-amber-300">
+      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gold-soft text-[11px] font-black text-gold-foreground ring-1 ring-gold-border">
         {position}
       </span>
     );
   }
   if (position === 2) {
     return (
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[11px] font-black text-slate-700 ring-1 ring-slate-300">
+      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[11px] font-black text-foreground ring-1 ring-border">
         {position}
       </span>
     );
   }
   if (position === 3) {
     return (
-      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-orange-100 text-[11px] font-black text-orange-800 ring-1 ring-orange-300">
+      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-warning-soft text-[11px] font-black text-warning ring-1 ring-warning-border">
         {position}
       </span>
     );

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { CustomMailbox } from '@/lib/custom-mailbox';
 import { CustomMailboxList } from './custom-mailbox-list';
+import { siteConfig } from '@/lib/site';
 
 const box: CustomMailbox = {
   id: 'custom-1', email: 'alibek1@efbazaar.uz', provisioned: true, locked: true,
@@ -12,7 +13,7 @@ const box: CustomMailbox = {
 describe('custom mailbox access selection', () => {
   it('routes a locked existing custom inbox to the unified access picker', () => {
     const html = renderToStaticMarkup(createElement(CustomMailboxList, { boxes: [box] }));
-    expect(html).toContain('href="/profile?mailbox=custom-1#mailboxes"');
+    expect(html).toContain(`href="${siteConfig.mailUrl}/settings/mailboxes?mailbox=custom-1"`);
     expect(html).toContain('O‘qish uchun tanlash');
     expect(html).not.toContain('href="/plans"');
     expect(html).not.toContain('/custom-1/link');
@@ -32,4 +33,10 @@ it('labels explicit Recovery and opens the filtered inbox instead of treating it
   expect(html).toContain('01.10.2026');
   expect(html).not.toContain('/custom-1/link');
   expect(html).toContain('Free uchun tanlash');
+});
+
+
+it('encodes mailbox selections in the configured webmail URL', () => {
+  const html = renderToStaticMarkup(createElement(CustomMailboxList, { boxes: [{ ...box, id: 'box/id &other=1' }] }));
+  expect(html).toContain(`href="${siteConfig.mailUrl}/settings/mailboxes?mailbox=box%2Fid%20%26other%3D1"`);
 });

@@ -81,8 +81,8 @@ function MatchGroup({
     <div className="rounded-lg bg-card p-2.5">
       <h3 className={cn(
         'flex items-center gap-1.5 text-xs font-black',
-        tone === 'success' && 'text-emerald-700 dark:text-emerald-400',
-        tone === 'alternate' && 'text-amber-700 dark:text-amber-300',
+        tone === 'success' && 'text-success',
+        tone === 'alternate' && 'text-warning',
         tone === 'missing' && 'text-destructive',
       )}>
         {icon}

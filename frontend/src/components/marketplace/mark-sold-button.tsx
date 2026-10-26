@@ -41,7 +41,7 @@ export function MarkSoldButton({ listingId, className, onSuccess }: MarkSoldButt
         <Button
           type="button"
           variant="outline"
-          className="w-full border-emerald-500/60 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-500/40 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+          className="w-full border-success-border text-success hover:bg-success-soft"
           onClick={() => {
             setError(null);
             setConfirming(true);
@@ -55,8 +55,8 @@ export function MarkSoldButton({ listingId, className, onSuccess }: MarkSoldButt
   }
 
   return (
-    <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3">
-      <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+    <div className="rounded-lg border border-success-border bg-success-soft p-3">
+      <p className="text-sm font-semibold text-success">
         E&apos;lonni sotilgan deb belgilaysizmi?
       </p>
       <p className="mt-1 text-xs text-muted-foreground">
@@ -79,7 +79,7 @@ export function MarkSoldButton({ listingId, className, onSuccess }: MarkSoldButt
         <Button
           type="button"
           size="sm"
-          className="bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={handleMarkSold}
           disabled={pending}
         >

@@ -1,7 +1,7 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import { ArrowRight, ArrowUp, ArrowUpRight, RefreshCw, Sparkles, TriangleAlert, X } from 'lucide-react';
+import { ArrowUp, ArrowUpRight, RefreshCw, TriangleAlert, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
@@ -31,7 +31,6 @@ import { PlanPurchaseError, purchasePlan } from '@/lib/plans-client';
 import { shortfallTiyin, topUpHref } from '@/lib/wallet-shortfall';
 
 import { PlanCard, type CardAction } from './plan-card';
-import { MembershipPass } from './membership-pass';
 import { PlanComparison } from './plan-comparison';
 import { PlansFaq } from './plans-faq';
 import styles from './plans.module.css';
@@ -60,7 +59,7 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
   const inFlight = useRef(false);
   const [busy, setBusy] = useState<PlanCode | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
-  const [topUp, setTopUp] = useState<{ href: string; message: string } | null>(null);
+  const [topUp, setTopUp] = useState<{ href: string; message: string; shortfallSom?: number } | null>(null);
   // Prices the server corrected us on, layered over the SSR catalog.
   const [prices, setPrices] = useState<Partial<Record<PlanCode, PlanCatalogItem['prices']>>>({});
   // One key per (plan, period, price) attempt: a retry or double-click reuses
@@ -78,7 +77,6 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
   const me = mine ?? FREE;
 
   const currentName = ['expired', 'grace', 'recovery'].includes(state) ? `Free · ${expiredPlanName(me)} muddati tugagan` : PLAN_NAMES[me.code];
-  const proPrice = plans.find(item => item.code === 'PRO')?.prices.MONTH;
   const currentLive = state === 'active' || state === 'unlimited' || state === 'staff' || state === 'free';
 
   async function run(item: PlanCatalogItem, per: PlanPeriod, action: PlanAction) {
@@ -130,19 +128,20 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
         });
       } else if (detail?.kind === 'insufficient') {
         setConfirm(null);
-        let message = detail.message;
-        let href = topUpHref(0, '/plans');
+        const message = detail.message;
+        let missingSom: number | undefined;
+        let href = topUpHref(0, '/plans?intent=pro#pro');
         try {
           const wallet = await getWallet();
           const missing = shortfallTiyin(price, wallet.availableTiyin);
           if (missing > 0) {
-            href = topUpHref(missing, '/plans');
-            message = `Hamyonda mablag‘ yetarli emas — ${formatTiyin(missing * 100)} so‘m yetishmayapti`;
+            missingSom = missing;
+            href = topUpHref(missing, '/plans?intent=pro#pro');
           }
         } catch {
           // Fall back to the server's own wording.
         }
-        setTopUp({ href, message });
+        setTopUp({ href, message, shortfallSom: missingSom });
       } else {
         setConfirm(null);
         toast.error(
@@ -177,17 +176,8 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
         {signedIn && !planUnknown && <span className={styles.myPlan}><span />Hozir: {currentName}</span>}
       </div>
       <header className={styles.hero}>
-        <div className={styles.heroCopy}>
-          <span className={styles.eyebrow}><Sparkles size={14} aria-hidden /> EFBAZAAR A’ZOLIGI</span>
-          <h1>Free bilan boshlang.<br /><span>Pro bilan kengaying.</span></h1>
-          <p>Kerakli akkountni topishdan savdoni boshqarishgacha. Kundalik foydalanish uchun Free, ko‘proq imkoniyat uchun Pro.</p>
-          {proPrice !== undefined && <p className={styles.heroPrice}>Pro <strong>{formatTiyin(proPrice)}</strong> so‘m / oy</p>}
-          <div className={styles.heroActions}>
-            {plans.some(p => p.code === 'PRO') && <a href="#pro" className={styles.heroPrimary}>Pro taklifini ko‘rish <ArrowRight size={17} aria-hidden /></a>}
-            <a href="#compare" className={styles.heroLink}>Solishtirish</a>
-          </div>
-        </div>
-        <div className={styles.heroPass}><MembershipPass /></div>
+        <h1>Sizga mos tarif</h1>
+        <p>Kundalik foydalanish uchun Free. Faol savdo va ko‘proq imkoniyat uchun Pro.</p>
       </header>
 
       {plans.length === 0 && <PlansUnavailable empty />}
@@ -213,16 +203,7 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
         </div>
       )}
 
-      {topUp && (
-        <div role="alert" className="mx-auto mt-6 flex max-w-xl flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
-          <span>{topUp.message}</span>
-          <Button asChild size="sm">
-            <Link href={topUp.href}>Hamyonni to‘ldirish</Link>
-          </Button>
-        </div>
-      )}
-
-      <div className={styles.cards}>
+      <div className={styles.cards} data-recovery={topUp !== null}>
         {plans.map((item) => {
           const action = planAction(item, me, plans, now);
           const cardAction = (it: PlanCatalogItem, a: PlanAction): CardAction =>
@@ -237,6 +218,7 @@ export function PlansView({ catalog, mine, signedIn }: PlansViewProps) {
               expiresAt={me.code === item.code ? me.expiresAt : null}
               busy={busy === item.code}
               featured={item.code === 'PRO'}
+              recovery={item.code === 'PRO' && !planUnknown && !accepted && ['choose', 'extend', 'upgrade'].includes(action) ? topUp : null}
               onSelect={() => select(item)}
             />
           );

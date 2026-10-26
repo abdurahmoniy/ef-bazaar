@@ -11,8 +11,8 @@ it('renders all markers with status text and exposes the current step accessibly
   }));
   expect(html.match(/data-step=/g)).toHaveLength(9);
   expect(html.match(/aria-current="step"/g)).toHaveLength(1);
-  expect(html).toContain('bg-emerald-600');
-  expect(html).toContain('bg-yellow-100');
+  expect(html).toContain('bg-success-soft');
+  expect(html).toContain('bg-warning-soft');
   expect(html).toContain('Bajarildi');
   expect(html).toContain('Jarayonda');
   expect(html).toContain('Keyingi bosqich');
@@ -23,7 +23,7 @@ it('renders a rejected step red while keeping the unsuccessful finish gray', () 
   const html = renderToStaticMarkup(createElement(TradeProgressTimeline, {
     outcome: 'ACCEPTED', createdAt: '', trade: { state: 'REJECTED', mode: 'SMART' } as TradeResponse,
   }));
-  expect(html).toContain('bg-red-600');
+  expect(html).toContain('bg-destructive/10');
   expect(html).toContain('data-step="SUCCESS" data-status="next"');
   expect(html).not.toContain('aria-current');
 });

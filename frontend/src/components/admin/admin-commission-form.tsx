@@ -152,7 +152,7 @@ export function AdminCommissionForm({ initialConfig }: AdminCommissionFormProps)
             )}
 
             {success && (
-              <div className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="flex items-center gap-2 rounded-xl border border-success-border bg-success-soft p-3 text-xs font-bold text-success">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
                 <span>Komissiya stavkalari muvaffaqiyatli saqlandi va barcha yangi savdolarda darhol kuchga kirdi!</span>
               </div>
@@ -363,11 +363,11 @@ export function AdminCommissionForm({ initialConfig }: AdminCommissionFormProps)
                 <span className="text-muted-foreground">Qo&apos;llaniladigan rejim:</span>
                 <span className="font-bold text-foreground">
                   {isBelowBand ? (
-                    <span className="text-amber-600 dark:text-amber-400">
+                    <span className="text-warning">
                       Kichik savdo ({previewConfig.lowRatePercent}%, min {formatPriceUZS(previewConfig.lowMinSom)})
                     </span>
                   ) : (
-                    <span className="text-emerald-600 dark:text-emerald-400">
+                    <span className="text-success">
                       Katta savdo ({previewConfig.highRatePercent}%, min {formatPriceUZS(previewConfig.highMinSom)})
                     </span>
                   )}
@@ -383,14 +383,14 @@ export function AdminCommissionForm({ initialConfig }: AdminCommissionFormProps)
 
               <div className="border-t border-border/80 pt-2 flex items-center justify-between">
                 <span className="text-xs font-bold text-foreground">Sotuvchiga tushadigan sof summa:</span>
-                <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                <span className="text-sm font-black text-success">
                   {formatPriceUZS(simulatedProceeds)}
                 </span>
               </div>
             </div>
 
             <div className="flex items-start gap-2 rounded-xl bg-muted/40 p-2.5 text-[11px] text-muted-foreground">
-              <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
+              <ShieldCheck className="h-4 w-4 shrink-0 text-success mt-0.5" />
               <span>
                 Hisob-kitob butun sonli tiyin arifmetikasi orqali bajariladi. Har doim sotuvchi foydasiga yaxlitlanadi.
               </span>

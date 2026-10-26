@@ -264,7 +264,7 @@ export function ProfileCoverEditor() {
       )}
       {denied && (
         <Link
-          className="inline-flex min-h-11 items-center text-sm font-semibold text-primary dark:text-secondary"
+          className="inline-flex min-h-11 items-center text-sm font-semibold text-primary"
           href="/plans"
         >
           Pro tarifini ko‘rish

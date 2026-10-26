@@ -153,7 +153,7 @@ export function InvoicePanel({ invoice, onExpired, onDismiss, compact = false }:
                 <span className={compact ? 'min-w-0 whitespace-normal text-left' : 'truncate'}>{formatPanForDisplay(invoice.pan)}</span>
                 <span className="ml-2 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-muted/80 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition">
                   {copied === 'pan' ? (
-                    <Check className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+                    <Check className="h-4 w-4 text-success" aria-hidden="true" />
                   ) : (
                     <Copy className="h-4 w-4" aria-hidden="true" />
                   )}
@@ -181,7 +181,7 @@ export function InvoicePanel({ invoice, onExpired, onDismiss, compact = false }:
                 </span>
                 <span className="ml-2 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition">
                   {copied === 'amount' ? (
-                    <Check className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+                    <Check className="h-4 w-4 text-success" aria-hidden="true" />
                   ) : (
                     <Copy className="h-4 w-4" aria-hidden="true" />
                   )}
@@ -192,7 +192,7 @@ export function InvoicePanel({ invoice, onExpired, onDismiss, compact = false }:
         </dl>
 
         {copied && (
-          <p role="status" className="mt-2.5 text-xs sm:text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+          <p role="status" className="mt-2.5 text-xs sm:text-sm font-semibold text-success flex items-center gap-1">
             <Check className="h-3.5 w-3.5" />
             Nusxalandi
           </p>
@@ -205,7 +205,7 @@ export function InvoicePanel({ invoice, onExpired, onDismiss, compact = false }:
       </div>
 
       {bumpTiyin !== 0 && (
-        <p className="mt-4 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3.5 text-xs sm:text-sm leading-relaxed text-amber-900 dark:text-amber-200">
+        <p className="mt-4 rounded-xl bg-warning-soft border border-warning-border p-3.5 text-xs sm:text-sm leading-relaxed text-warning">
           Siz {formatTiyin(invoice.requestedTiyin)} so‘m so‘radingiz, lekin o‘tkazish uchun{' '}
           {formatTiyin(invoice.transferTiyin)} so‘m ko‘rsatilgan. Ayni damda shu summada
           boshqa to‘lov ham kutilmoqda — tizim ularni ajrata olishi uchun summa biroz

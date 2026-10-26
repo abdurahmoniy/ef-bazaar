@@ -57,7 +57,7 @@ export function ParticipantsList({
                 <p className="truncate text-sm font-semibold text-foreground">
                   {team.name}
                   {team.withdrawn && (
-                    <span className="ml-1.5 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                    <span className="ml-1.5 text-[11px] font-semibold text-destructive">
                       chiqib ketdi
                     </span>
                   )}

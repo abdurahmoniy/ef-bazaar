@@ -65,7 +65,7 @@ export function InvitationCard({
           }}><X aria-hidden className="h-4 w-4" /></button>
       )}
       <div className={cn('flex gap-3', compact && 'sm:items-center', dismissible && 'pr-7')}>
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary dark:text-secondary"><Gift aria-hidden className="h-5 w-5" /></span>
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Gift aria-hidden className="h-5 w-5" /></span>
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-bold leading-snug text-foreground">{title}</h2>
           <p className={cn('mt-1 leading-relaxed text-muted-foreground', compact ? 'text-xs sm:text-sm' : 'text-sm')}>

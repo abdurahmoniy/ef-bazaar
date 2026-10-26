@@ -164,24 +164,24 @@ export function TradeAcceptPayment({ proposal, viewerId, unavailable = false, on
         </div>
         {missing !== null && missing > 0 && <div className="flex flex-wrap justify-between gap-2 border-t border-border pt-3">
           <dt className="text-muted-foreground">Yetishmayapti</dt>
-          <dd className="font-bold text-amber-700 dark:text-amber-300">{formatPriceUZS(missing)}</dd>
+          <dd className="font-bold text-warning">{formatPriceUZS(missing)}</dd>
         </div>}
       </dl>
 
       <p className="text-sm font-semibold">Hamyondan jami: {formatTiyin(requiredTiyin)} so‘m</p>
-      <p className="flex gap-2 rounded-xl bg-emerald-500/10 p-3 text-xs text-muted-foreground">
-        <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+      <p className="flex gap-2 rounded-xl bg-success-soft p-3 text-xs text-muted-foreground">
+        <ShieldCheck className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />
         To‘lash va boshlash tugmasini bosganingizda summa hamyoningizdan yechiladi va savdo yakunlanguncha platformada saqlanadi.
         Savdo bekor bo‘lsa, to‘liq qaytariladi.
       </p>
       {proposal.kind === 'SWAP_SURCHARGE' && <p className="text-xs text-muted-foreground">Ikkalangiz tasdiqlagach akkountlar almashinadi.</p>}
-      {expired && <p role="alert" className="rounded-xl bg-amber-500/10 p-3 text-sm">
+      {expired && <p role="alert" className="rounded-xl bg-warning-soft p-3 text-sm">
         Taklif muddati tugagan. Sotuvchidan qayta taklif yuborishni so‘rang. To‘ldirilgan mablag‘ hamyoningizda qoladi.
       </p>}
-      {unavailable && !expired && <p role="alert" className="rounded-xl bg-amber-500/10 p-3 text-sm">
+      {unavailable && !expired && <p role="alert" className="rounded-xl bg-warning-soft p-3 text-sm">
         Taklif endi faol emas. Joriy taklifni chatdan oching. To‘ldirilgan mablag‘ hamyoningizda qoladi.
       </p>}
-      {credited && <p role="status" className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+      {credited && <p role="status" className="text-sm font-medium text-success">
         Hamyon to‘ldirildi.{!expired && !unavailable && ' Savdoni boshlash uchun to‘lovni tasdiqlang.'}
       </p>}
       {invoice && <div className="space-y-3">
@@ -195,7 +195,7 @@ export function TradeAcceptPayment({ proposal, viewerId, unavailable = false, on
         Eng kam to‘ldirish: {formatPriceUZS(MIN_TOP_UP_UZS)}. Ortiqcha mablag‘ hamyoningizda qoladi.
       </p>}
       {error && <p role="alert" className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-      {slotsPlan && <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3"><p className="mb-2 text-sm text-muted-foreground">Shaxsiy va savdo qutilari umumiy limitga kiradi.</p><UpgradeCta plan={slotsPlan} message="" /></div>}
+      {slotsPlan && <div className="rounded-xl border border-warning-border bg-warning-soft p-3"><p className="mb-2 text-sm text-muted-foreground">Shaxsiy va savdo qutilari umumiy limitga kiradi.</p><UpgradeCta plan={slotsPlan} message="" /></div>}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Yopish</Button>
         {balance === null && !loading && <Button type="button" variant="outline" onClick={() => { setError(null); void refreshWallet(); }}>Qayta urinish</Button>}

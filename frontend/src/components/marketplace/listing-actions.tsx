@@ -235,7 +235,7 @@ export function ListingActions({
             </Button>
           ) : currentStatus === 'SOLD' ? (
             <div className="ml-auto flex items-center gap-2">
-              <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="rounded-lg bg-success-soft px-3 py-2 text-xs font-bold text-success">
                 Sotilgan
               </div>
             </div>
@@ -275,8 +275,8 @@ export function ListingActions({
   if (isOwner && !buyerPreview && currentStatus === 'SOLD') {
     return (
       <div className="space-y-2">
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-center">
-          <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-emerald-700 dark:text-emerald-300">
+        <div className="rounded-lg border border-success-border bg-success-soft p-3 text-center">
+          <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-success">
             <CheckCircle2 className="h-4 w-4" /> Ushbu e&apos;lon sotilgan
           </div>
           <p className="mt-1 text-xs text-muted-foreground">

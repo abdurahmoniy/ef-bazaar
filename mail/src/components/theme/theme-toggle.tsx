@@ -17,6 +17,9 @@ function readTheme(): Theme {
 
 function applyTheme(t: Theme) {
   document.documentElement.classList.toggle('dark', t === 'dark');
+  document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+    meta.setAttribute('content', t === 'dark' ? '#090910' : '#ffffff');
+  });
   try {
     localStorage.setItem(THEME_STORAGE_KEY, t);
   } catch {}

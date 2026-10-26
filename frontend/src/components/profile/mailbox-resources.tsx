@@ -63,17 +63,17 @@ function ResourceRow({ box, admin, onChanged }: { box: MailboxResource; admin: b
   return <li className="space-y-2 rounded-lg border border-border p-3 text-sm">
     <p className="break-all font-semibold">{box.email}</p>
     <p className="text-xs text-muted-foreground">{box.accessState ? `${box.accessState} · ${accessDescription(box)}` : 'Kirish holati noma’lum'}{box.slotExempt ? ' · Limitdan tashqari' : ''}{box.retainedUserId ? ' · Saqlangan allocation' : ''}</p>
-    <p className={usage.warning ? 'font-semibold text-amber-700 dark:text-amber-300' : ''}>Hajm: {bytes(box.usageBytes)} / {box.quotaBytes === 0 ? 'cheksiz' : bytes(box.quotaBytes)}{usage.percent !== null ? ` · ${usage.percent}%` : ''}{usage.warning ? ' · 80% yoki ko‘proq band' : ''}</p>
+    <p className={usage.warning ? 'font-semibold text-warning' : ''}>Hajm: {bytes(box.usageBytes)} / {box.quotaBytes === 0 ? 'cheksiz' : bytes(box.quotaBytes)}{usage.percent !== null ? ` · ${usage.percent}%` : ''}{usage.warning ? ' · 80% yoki ko‘proq band' : ''}</p>
     <p className="text-xs text-muted-foreground">{usage.label}{box.usageObservedAt ? ` · ${new Date(box.usageObservedAt).toLocaleString('uz-UZ')}` : ' · O‘lchov vaqti noma’lum'}</p>
     {box.usageError && <p role="alert" className="text-xs text-destructive">{box.usageError}</p>}
     <p className="text-xs">Mailcow: {box.mailcowPresent === true ? 'mavjud' : box.mailcowPresent === false ? 'yo‘q (tasdiqlangan)' : 'mavjudligi noma’lum'} · {deletionLabel[box.deletionStatus] ?? 'O‘chirish holati noma’lum'}</p>
-    {box.deleted && box.mailcowPresent !== false && <p className="text-xs text-amber-700 dark:text-amber-300">Lokal yozuv o‘chirilgan; serverdagi quti yo‘qligi hali tasdiqlanmagan.</p>}
+    {box.deleted && box.mailcowPresent !== false && <p className="text-xs text-warning">Lokal yozuv o‘chirilgan; serverdagi quti yo‘qligi hali tasdiqlanmagan.</p>}
     {box.deletionError && <p role="alert" className="text-xs text-destructive">{box.deletionError}</p>}
     {admin && <p className="break-all text-xs text-muted-foreground">Egasi: {box.ownerUserId ?? 'yo‘q'} · Saqlovchi: {box.retainedUserId ?? 'yo‘q'}{box.id === null ? ' · Faqat serverda mavjud' : ''}</p>}
-    {box.provisioningStatus === 'STARTED' && <p role="status" className="text-xs text-amber-700 dark:text-amber-300">Yaratish natijasi tasdiqlanmagan. Tekshiruv yakunlanmaguncha bu qutini bo‘shatish yoki qayta yaratish mumkin emas.</p>}
+    {box.provisioningStatus === 'STARTED' && <p role="status" className="text-xs text-warning">Yaratish natijasi tasdiqlanmagan. Tekshiruv yakunlanmaguncha bu qutini bo‘shatish yoki qayta yaratish mumkin emas.</p>}
     {box.provisioningError && <p role="alert" className="text-xs text-destructive">{box.provisioningError}</p>}
     {admin && box.provisioningClaimId && <p className="break-all text-xs text-muted-foreground">Yaratish tekshiruvi: {box.provisioningStatus} · {box.provisioningClaimId}</p>}
-    {(box.legalHold || box.activeTrade) && <p className="text-xs text-amber-700 dark:text-amber-300">{box.holdReason ?? (box.activeTrade ? 'Faol savdo: tozalash va bo‘shatish himoyalangan.' : 'Nizo yoki huquqiy saqlash: xatlarni o‘chirish va qutini bo‘shatish taqiqlangan.')}</p>}
+    {(box.legalHold || box.activeTrade) && <p className="text-xs text-warning">{box.holdReason ?? (box.activeTrade ? 'Faol savdo: tozalash va bo‘shatish himoyalangan.' : 'Nizo yoki huquqiy saqlash: xatlarni o‘chirish va qutini bo‘shatish taqiqlangan.')}</p>}
     {!admin && box.id && box.deletionStatus !== 'CONFIRMED' && <>
       <div className="flex flex-wrap items-center gap-3">{box.ownerUserId != null ? <a href={`${siteConfig.mailUrl}/${encodeURIComponent(box.id)}`} className="inline-flex min-h-11 items-center font-semibold underline">Xatlarni ko‘rish / eksport / tozalash</a> : <p className="text-xs text-muted-foreground">Kirish huquqi uzilgan. Saqlangan resursni tasdiqlangan email ko‘chirish orqali bo‘shatish mumkin.</p>}</div>
       {!proof && <Button variant="outline" size="sm" disabled={busy || held || box.deletionStatus === 'PENDING'} onClick={() => void start()}>Tashqi pochtaga ko‘chirish</Button>}

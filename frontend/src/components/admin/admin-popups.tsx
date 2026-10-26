@@ -89,7 +89,7 @@ export function AdminPopups() {
       <p className="font-semibold">E’tiborni ehtiyot qilamiz</p><p className="mt-1 text-muted-foreground">Bir sessiyada 1 ta, 24 soatda ko‘pi bilan 2 ta xabar. Oraliq kamida 6 soat. Bir xabar bir foydalanuvchiga qayta ko‘rsatilmaydi. Chat, to‘lov, forma va boshqa oynalar ochiq bo‘lsa kutadi.</p>
     </div>
     {error && <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</div>}
-    {notice && <p role="status" className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm">{notice}</p>}
+    {notice && <p role="status" className="rounded-xl border border-success-border bg-success-soft p-4 text-sm">{notice}</p>}
     <form onSubmit={e => { e.preventDefault(); void save(); }} className="rounded-2xl border border-border bg-card p-5 sm:p-6">
       <div className="mb-5 flex items-center justify-between"><h2 className="text-lg font-semibold">Xabar yaratish</h2><span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">Avval qoralama</span></div>
       <fieldset disabled={busy} className="grid min-w-0 gap-5 lg:grid-cols-2">

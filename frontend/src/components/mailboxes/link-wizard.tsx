@@ -164,7 +164,7 @@ export function LinkWizard({ mailboxId, email, accounts, initialAccountId, initi
                     <span className="truncate text-sm font-bold sm:text-base">{accountLabel(a)}</span>
                     <span className="truncate text-xs text-muted-foreground sm:text-sm">{a.email ?? 'Email biriktirilmagan'}</span>
                   </span>
-                  {!a.email && <span className="shrink-0 text-xs font-bold text-amber-800 dark:text-amber-300">Emailsiz</span>}
+                  {!a.email && <span className="shrink-0 text-xs font-bold text-warning">Emailsiz</span>}
                 </button>
               ))}
               <Link
@@ -218,7 +218,7 @@ export function LinkWizard({ mailboxId, email, accounts, initialAccountId, initi
         {session?.state === 'WAIT_EMAIL_CHANGE' && view && (
           <>
             {view.warning && (
-              <p role="alert" className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900 dark:bg-amber-400/10 dark:text-amber-200">
+              <p role="alert" className="flex items-start gap-2 rounded-xl bg-warning-soft px-3 py-2.5 text-sm font-semibold text-warning">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                 {view.warning} — Konami bu manzil hech qaysi akkountga ulanmaganini aytdi. Avval emailni almashtiring.
               </p>
@@ -281,7 +281,7 @@ export function LinkWizard({ mailboxId, email, accounts, initialAccountId, initi
               Forgot password sahifasini ochish
               <ExternalLink className="h-4 w-4" aria-hidden />
             </a>
-            <p className="rounded-xl bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-300">
+            <p className="rounded-xl bg-success-soft px-3 py-2.5 text-sm font-semibold text-success">
               {view.body}
             </p>
             <div className="flex items-center gap-3 rounded-xl border-2 border-dashed border-border p-4">

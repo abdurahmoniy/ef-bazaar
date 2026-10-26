@@ -210,7 +210,7 @@ export function AdminMailboxCreate({
               </p>
             )}
             {notice && (
-              <p className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-600 dark:text-emerald-300">
+              <p className="flex items-start gap-2 rounded-lg border border-success-border bg-success-soft px-3 py-2 text-sm font-semibold text-success">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                 {notice}
               </p>

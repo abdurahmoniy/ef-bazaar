@@ -175,13 +175,13 @@ export function PlayerFilterDialog({
             'tap-press relative inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors',
             activeCount > 0
               ? 'border-amber-400 bg-amber-400 text-amber-950 shadow-sm hover:bg-amber-300 hover:border-amber-300'
-              : 'border-amber-400/40 bg-amber-400/10 text-amber-600 hover:border-amber-400/70 hover:bg-amber-400/20 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-200',
+              : 'border-warning-border bg-warning-soft text-warning hover:border-warning hover:bg-warning/20',
           )}
         >
           <Flame className="h-3.5 w-3.5" />
           <span>O‘yinchilar</span>
           {activeCount > 0 && (
-            <span className="grid h-4 min-w-4 place-items-center rounded-full bg-amber-950 px-1 text-[10px] font-black text-amber-200">
+            <span className="grid h-4 min-w-4 place-items-center rounded-full bg-warning-soft px-1 text-[10px] font-black text-warning">
               {activeCount}
             </span>
           )}
@@ -717,7 +717,7 @@ function DialogFooter({
         </details>
       )}
       {chosenCount >= MAX_MATCH_PLAYERS && (
-        <p className="mb-2 text-xs text-amber-700 dark:text-amber-300" role="status">
+        <p className="mb-2 text-xs text-warning" role="status">
           Ko&apos;pi bilan 11 ta o&apos;yinchi. Yangisini tanlash uchun bittasini olib tashlang.
         </p>
       )}

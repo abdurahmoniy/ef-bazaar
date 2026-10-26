@@ -84,7 +84,7 @@ export function InvitePanel({ botUsername }: { botUsername: string }) {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 pb-4">
       <header>
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-primary dark:text-secondary">Do‘stlar bilan yaxshiroq</p>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-primary">Do‘stlar bilan yaxshiroq</p>
         <h1 className="text-2xl font-bold tracking-tight">Do‘st taklif qilish</h1>
         <p className="mt-1 text-sm text-muted-foreground">EFBazaar’ni do‘stlaringiz bilan ulashing.</p>
       </header>
@@ -107,14 +107,14 @@ export function InvitePanel({ botUsername }: { botUsername: string }) {
         <>
           <section aria-labelledby="invite-reward" className="overflow-hidden rounded-2xl border border-primary/20 bg-card shadow-sm">
             <div className="bg-primary/[0.06] p-5 sm:p-6">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary dark:text-secondary">
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 {hasReward ? <Gift aria-hidden className="h-6 w-6" /> : <UserPlus aria-hidden className="h-6 w-6" />}
               </div>
               {hasReward ? (
                 <>
                   <p className="text-sm font-medium text-muted-foreground">Har bir yangi do‘st uchun</p>
                   <h2 id="invite-reward" className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
-                    {som(data.rewardSom)} <span className="text-lg font-semibold text-primary dark:text-secondary">so‘m</span>
+                    {som(data.rewardSom)} <span className="text-lg font-semibold text-primary">so‘m</span>
                   </h2>
                   <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
                     Do‘stingiz havolangiz orqali ro‘yxatdan o‘tib, birinchi savdosini muvaffaqiyatli yakunlaganda hamyoningizga tushadi.
@@ -140,7 +140,7 @@ export function InvitePanel({ botUsername }: { botUsername: string }) {
                 {copyState === 'copying' ? 'Nusxalanmoqda…' : 'Havolani nusxalash'}
               </Button>
               <p className="text-center text-xs leading-relaxed text-muted-foreground">Xabar matnini Telegramda o‘zgartirishingiz mumkin.</p>
-              <p role="status" className="text-center text-xs font-medium text-emerald-700 dark:text-emerald-400">
+              <p role="status" className="text-center text-xs font-medium text-success">
                 {copyState === 'copied' ? 'Havola nusxalandi. Do‘stingizga yuborishingiz mumkin.' : ''}
               </p>
               {copyState === 'failed' && inviteUrl && (
@@ -170,7 +170,7 @@ export function InvitePanel({ botUsername }: { botUsername: string }) {
                 ['Birinchi savdo yakunlanadi', hasReward ? 'Savdo muvaffaqiyatli tugagach, mukofot hamyoningizga tushadi.' : 'Do‘stingiz EFBazaar’da savdo qilishni boshlaydi.'],
               ].map(([title, description], index) => (
                 <li key={title} className="flex items-start gap-3">
-                  <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary dark:text-secondary">{index + 1}</span>
+                  <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">{index + 1}</span>
                   <div><p className="text-sm font-medium">{title}</p><p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{description}</p></div>
                 </li>
               ))}
@@ -181,7 +181,7 @@ export function InvitePanel({ botUsername }: { botUsername: string }) {
             <dl className="grid grid-cols-3 divide-x divide-border px-1 py-4 sm:py-5">
               <div className="min-w-0 px-2 text-center sm:px-3"><dt className="text-[11px] leading-4 text-muted-foreground sm:text-xs">Qo‘shilgan do‘stlar</dt><dd className="mt-2 text-xl font-bold">{data.invitedCount}</dd></div>
               <div className="min-w-0 px-2 text-center sm:px-3"><dt className="text-[11px] leading-4 text-muted-foreground sm:text-xs">Mukofot tushgan</dt><dd className="mt-2 text-xl font-bold">{data.rewardedCount}</dd></div>
-              <div className="min-w-0 px-2 text-center sm:px-3"><dt className="text-[11px] leading-4 text-muted-foreground sm:text-xs">Jami mukofot</dt><dd className="mt-2 break-words text-lg font-bold text-primary dark:text-secondary">{som(data.earnedSom)} <span className="text-xs font-medium">so‘m</span></dd></div>
+              <div className="min-w-0 px-2 text-center sm:px-3"><dt className="text-[11px] leading-4 text-muted-foreground sm:text-xs">Jami mukofot</dt><dd className="mt-2 break-words text-lg font-bold text-primary">{som(data.earnedSom)} <span className="text-xs font-medium">so‘m</span></dd></div>
             </dl>
             <Link href="/hamyon" className="flex min-h-11 items-center justify-between gap-2 border-t border-border px-4 text-sm font-medium transition hover:bg-muted/40">
               <span className="flex items-center gap-2"><Wallet aria-hidden className="h-4 w-4 text-muted-foreground" /> Hamyonni ko‘rish</span><ArrowRight aria-hidden className="h-4 w-4 text-muted-foreground" />
@@ -189,7 +189,7 @@ export function InvitePanel({ botUsername }: { botUsername: string }) {
           </section>
 
           <section aria-labelledby="invited-friends" className="overflow-hidden rounded-2xl border border-border bg-card">
-            <h2 id="invited-friends" className="flex items-center gap-2 border-b border-border px-4 py-3.5 text-sm font-semibold"><Users aria-hidden className="h-4 w-4 text-primary dark:text-secondary" /> Siz orqali qo‘shilganlar</h2>
+            <h2 id="invited-friends" className="flex items-center gap-2 border-b border-border px-4 py-3.5 text-sm font-semibold"><Users aria-hidden className="h-4 w-4 text-primary" /> Siz orqali qo‘shilganlar</h2>
             {data.invited.length === 0 ? (
               <div className="px-4 py-6 text-center">
                 <p className="text-sm font-medium">Birinchi do‘stingizni taklif qiling</p>
@@ -204,7 +204,7 @@ export function InvitePanel({ botUsername }: { botUsername: string }) {
                       <p className="mt-1 text-xs text-muted-foreground">{new Date(person.joinedAt).toLocaleDateString('uz-UZ')} · Qo‘shilgan</p>
                     </div>
                     {person.rewardedAt ? (
-                      <div className="text-right"><p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">{person.rewardSom != null ? `+${som(person.rewardSom)} so‘m` : 'Mukofot tushgan'}</p><p className="mt-1 text-[11px] text-muted-foreground">Mukofot tushgan</p></div>
+                      <div className="text-right"><p className="text-xs font-semibold text-success">{person.rewardSom != null ? `+${som(person.rewardSom)} so‘m` : 'Mukofot tushgan'}</p><p className="mt-1 text-[11px] text-muted-foreground">Mukofot tushgan</p></div>
                     ) : <span className="text-xs text-muted-foreground">Mukofot hali tushmagan</span>}
                   </li>
                 ))}

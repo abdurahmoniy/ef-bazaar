@@ -91,8 +91,8 @@ export default async function UserProfilePage({ params }: UserPageProps) {
       <div className="mx-auto w-full max-w-4xl space-y-6 pb-20">
         {/* Blacklist Warning */}
         {blacklisted && (
-          <div className="flex items-center gap-3 rounded-xl border border-red-300 bg-red-50 p-4 text-sm font-semibold text-red-800 dark:border-red-500/40 dark:bg-red-950/40 dark:text-red-200">
-            <ShieldAlert className="h-5 w-5 shrink-0 text-red-600" />
+          <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
+            <ShieldAlert className="h-5 w-5 shrink-0 text-destructive" />
             <div className="flex-1">
               <span>Ushbu foydalanuvchi qora ro&apos;yxatga kiritilgan.</span>{' '}
               <Link href="/blacklist" className="underline underline-offset-2">
@@ -144,7 +144,7 @@ export default async function UserProfilePage({ params }: UserPageProps) {
                   <span className="inline-flex items-center gap-1">
                     <Calendar className="h-3.5 w-3.5 text-muted-foreground" /> A&apos;zo: {memberSinceYear}-yildan
                   </span>
-                  <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span className="inline-flex items-center gap-1 text-success font-medium">
                     <ShieldCheck className="h-3.5 w-3.5" /> Xavfsiz bitimlar
                   </span>
                 </div>
@@ -203,16 +203,16 @@ export default async function UserProfilePage({ params }: UserPageProps) {
 
             <div className="rounded-xl bg-muted/40 p-3 text-center sm:text-left">
               <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground sm:justify-start">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Sotilgan
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" /> Sotilgan
               </div>
-              <div className="mt-1 text-lg font-black text-emerald-600 dark:text-emerald-400">
+              <div className="mt-1 text-lg font-black text-success">
                 {soldListings.length}
               </div>
             </div>
 
             <div className="rounded-xl bg-muted/40 p-3 text-center sm:text-left">
               <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground sm:justify-start">
-                <Layers className="h-3.5 w-3.5 text-blue-500" /> Jami e&apos;lonlar
+                <Layers className="h-3.5 w-3.5 text-info" /> Jami e&apos;lonlar
               </div>
               <div className="mt-1 text-lg font-black text-foreground">
                 {listings.length}
@@ -221,9 +221,9 @@ export default async function UserProfilePage({ params }: UserPageProps) {
 
             <div className="rounded-xl bg-muted/40 p-3 text-center sm:text-left">
               <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground sm:justify-start">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Kafolat
+                <ShieldCheck className="h-3.5 w-3.5 text-success" /> Kafolat
               </div>
-              <div className="mt-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="mt-1 text-xs font-bold text-success">
                 100% Xavfsiz
               </div>
             </div>
@@ -292,7 +292,7 @@ export default async function UserProfilePage({ params }: UserPageProps) {
               Xaridorlar fikrlari ({sellerRatings.length})
             </h2>
             {hasRatings && (
-              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-warning">
                 <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
                 <span>{ratingSummary.averageRating.toFixed(1)} / 5.0</span>
                 <span className="text-muted-foreground">({ratingSummary.ratingCount} ta baho)</span>
@@ -344,7 +344,7 @@ export default async function UserProfilePage({ params }: UserPageProps) {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-0.5 text-amber-500">
+                      <div className="flex items-center gap-0.5 text-warning">
                         {[1, 2, 3, 4, 5].map((starVal) => (
                           <Star
                             key={starVal}

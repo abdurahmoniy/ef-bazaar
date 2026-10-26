@@ -31,7 +31,6 @@ Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
 - YouTube IFrame API ishlatiladi; CSP faqat `www.youtube.com` (script/frame) va `s.ytimg.com` (script) manbalarini qo‘shadi. Ko‘rinmaydigan YouTube ijrosi [YouTube developer talablariga](https://developers.google.com/youtube/terms/developer-policies) mos integratsiya emas va provayder/brauzer tomonidan bloklanishi mumkin. Ushbu ko‘rinish foydalanuvchining aniq talabi; barqaror, provayder talablariga mos faqat-audio ijro uchun litsenziyalangan audio fayllar kerak.
 - Boshlang‘ich ro‘yxat bo‘sh. Admin birinchi havolani qo‘shmaguncha musiqa yangramaydi; API kaliti yoki yangi env kerak emas. Marketplace V85 migratsiyasi ushbu frontenddan oldin yoki u bilan birga chiqarilishi kerak.
 
-
 ## Backend'ga qanday murojaat qilinadi
 
 - **Server (SSR, Server Actions):** `INTERNAL_API_BASE_URL` = `http://nginx:8080/api` —
@@ -59,8 +58,11 @@ Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
 - Kartalar va admin tahriri `mailbox.total_slots` / `mailbox.custom_slots` bilan ishlaydi:
   Free jami 3, Pro jami 10, shundan 2 tagacha yangi custom quti. `mailbox.slots` tarixiy
   random limiti umumiy limit sifatida ishlatilmaydi. Custom quti alohida qo‘shimcha sig‘im emas.
-- Profil va custom yaratish sahifasi `GET /api/trade/v1/mailboxes/slots` javobidagi
-  `totalUsed`, `totalLimit`, `customUsed`, `customLimit`ni ko‘rsatadi. `exemptUsed` —
+- Profil faqat `GET /api/trade/v1/mailboxes/slots` javobidagi `totalUsed / totalLimit`
+  xulosasi va sozlangan webmail manziliga «Pochtani ochish» havolasini ko‘rsatadi.
+  Akkountlar, savdolar, sevimlilar va kartalar tablarida umumiy pochta panellari yo‘q.
+  Yuklanish va xato haqiqiy 0 yoki cheksiz limitdan ajratiladi; xatoda qayta urinish bor.
+  Custom yaratish sahifasi `totalUsed`, `totalLimit`, `customUsed`, `customLimit`ni ko‘rsatadi. `exemptUsed` —
   umumiy limitga kirmaydigan qutilar (admin sovg‘alari va vaqtincha savdoda olingan escrow); `resourceUsed` — resursdagi ajratilgan qutilar.
   `used`/`limit` moslik aliaslari hisoblash manbasi emas. Yangi maydonlari yo‘q eski javob
   noma’lum capacity bo‘ladi. `customUsed` saqlanayotgan nomli qutilarni, `customLimit` yangi
@@ -90,7 +92,11 @@ Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
   bermaydi; Recovery muhim Konami tiklash/xavfsizlik xatlarini webmail’da o‘qitadi.
   Free uchun random/custom aralash 3 qutini amaldagi unlock swap bilan tanlash mumkin.
   Admin sovg‘asi va faol savdo himoyalangan; Pro uzayishi mavjud qutilarga kirishni tiklaydi.
-- Profil `GET /api/trade/v1/mailboxes/resources` dagi o‘z va saqlangan resurslarni,
+- Batafsil pochta boshqaruvi webmail `/settings/mailboxes` sahifasida. Eski
+  `/profile?mailbox=<id>` havolasi login tekshiruvidan keyin sozlangan webmail
+  `/settings/mailboxes?mailbox=<id>` manziliga o‘tadi; kirish tanlash va tarifdagi
+  boshqaruv havolalari ham shu manzilga olib boradi.
+- Webmail `GET /api/trade/v1/mailboxes/resources` dagi o‘z va saqlangan resurslarni,
   `/admin/plans/mailboxes` esa `GET /api/trade/v1/admin/mailboxes/resources` dagi barcha
   resurslarni ko‘rsatadi, shu jumladan `id:null` server qutilari. `usageBytes/quotaBytes`
   haqiqiy o‘lchov; `usageObservedAt`, `usageStatus: FRESH|STALE|ERROR|UNKNOWN`, `usageError`
@@ -111,7 +117,8 @@ Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
   manzil doimiy zahirada qoladi. Uzilgan, saqlangan quti uchun o‘qish/eksport kirishi qaytmaydi;
   resurs panelida faqat release jarayoni qoladi. Xatlarni eksport/tozalash egasining webmail’ida.
 - Profilning doimiy tarif xabarlari `GET /api/payment/v1/payments/plans/notices` dan olinadi:
-  `EXPIRING|EXPIRED|GRACE_ENDED`, haqiqiy paid/grace sanalari va `/plans` CTA.
+  `EXPIRING|EXPIRED|GRACE_ENDED`, to‘langan obunaning tugash sanasi va `/plans` CTA.
+  Profil xabarlari faqat obunaga tegishli; pochta Grace/Recovery izohlari va sanalari webmail’da.
   Takror id bir marta chiqadi; foydalanuvchi bosgandagina `POST /notices/{id}/read` qilinadi.
   `plans/me` dagi `lastPaidExpiresAt`/`graceEndsAt` tarixni saqlaydi; `expiresAt` joriy paid
   muddat bo‘lib qoladi. Telegramga bog‘liqlik yo‘q.

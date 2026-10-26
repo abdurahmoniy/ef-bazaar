@@ -71,8 +71,8 @@ export function TopUpForm({ onCreated, initialAmount }: TopUpFormProps) {
             <h2 className="text-base font-bold text-foreground sm:text-lg">Hamyonni to‘ldirish</h2>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
-          <Zap className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+        <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-1 text-[11px] font-semibold text-success border border-success-border">
+          <Zap className="h-3 w-3 text-success" />
           0% komissiya
         </span>
       </div>

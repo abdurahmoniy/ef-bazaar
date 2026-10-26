@@ -69,7 +69,7 @@ export function MailboxTitle({ mailbox }: { mailbox: MailboxSummary }) {
           placeholder="Masalan, Asosiy akkaunt"
           aria-describedby={`${inputId}-help${error ? ` ${inputId}-error` : ''}`}
           aria-invalid={!!error}
-          className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+          className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
         />
         <p id={`${inputId}-help`} className="text-[11px] text-muted-foreground">
           Nomni olib tashlash uchun maydonni bo‘sh qoldiring. 60 ta belgigacha.

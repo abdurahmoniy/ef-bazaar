@@ -9,7 +9,7 @@ export function PartnerChannelCard({ application }: { application: PartnerApplic
     <Link href="/partner" className="mt-4 block rounded-xl border border-primary/15 bg-primary/5 p-4 transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-semibold text-primary">Hamkor kanal</span>
-        {approved && <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400"><BadgeCheck aria-hidden className="h-3.5 w-3.5" />Faol</span>}
+        {approved && <span className="inline-flex items-center gap-1 text-xs font-medium text-success"><BadgeCheck aria-hidden className="h-3.5 w-3.5" />Faol</span>}
       </div>
       <div className="mt-3 flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Radio aria-hidden className="h-5 w-5" /></span>

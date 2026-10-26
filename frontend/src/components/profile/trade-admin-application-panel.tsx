@@ -150,5 +150,5 @@ export function TradeAdminApplicationPanel({
 function StatusIcon({ status }: { status?: TradeAdminApplicationResponse['status'] }) {
   if (status === 'APPROVED') return <CheckCircle2 className="h-4 w-4 text-primary" />;
   if (status === 'REJECTED') return <XCircle className="h-4 w-4 text-destructive" />;
-  return <Clock3 className="h-4 w-4 text-amber-600" />;
+  return <Clock3 className="h-4 w-4 text-warning" />;
 }

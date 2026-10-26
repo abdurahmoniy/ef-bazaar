@@ -300,12 +300,12 @@ export function AdminAttributes({ definitions }: AdminAttributesProps) {
                       {def.type}
                     </span>
                     {def.required && (
-                      <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-black uppercase tracking-wide text-amber-800">
+                      <span className="rounded-md bg-warning-soft px-2 py-0.5 text-xs font-black uppercase tracking-wide text-warning">
                         Majburiy
                       </span>
                     )}
                     {def.searchable && (
-                      <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-black uppercase tracking-wide text-emerald-800">
+                      <span className="rounded-md bg-success-soft px-2 py-0.5 text-xs font-black uppercase tracking-wide text-success">
                         Filtr
                       </span>
                     )}

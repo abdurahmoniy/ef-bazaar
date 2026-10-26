@@ -1,6 +1,6 @@
 # mail (mail-frontend)
 
-mail.efbazaar.uz — foydalanuvchining escrow pochta qutilarini **faqat o'qish** uchun webmail.
+mail.efbazaar.uz — foydalanuvchining escrow pochta qutilarini xatlarni o‘qish va pochta qutilarini boshqarish uchun webmail.
 Savdo paytida akkount shu qutilarga bog'lanadi; foydalanuvchi Konami xatlarini shu yerda ko'radi.
 Ma'lumot trade-service'ning mail API'sidan keladi (`/api/v1/mail/**`, IMAP orqali).
 
@@ -23,13 +23,23 @@ Ma'lumot trade-service'ning mail API'sidan keladi (`/api/v1/mail/**`, IMAP orqal
 
 ## Umumiy pochta sig‘imi
 
-Sidebar desktop va mobil ko‘rinishda `GET /api/trade/v1/mailboxes/slots` dan haqiqiy
-`totalUsed`/`totalLimit` va `customUsed`/`customLimit` sonlarini oladi. Free — jami 3,
-Pro — jami 10, shundan 2 tagacha yangi custom quti. Custom limiti jami limit ichida;
-ro‘yxat uzunligidan yoki alohida limitlar yig‘indisidan sig‘im taxmin qilinmaydi.
-`exemptUsed` admin sovg‘alari va vaqtincha savdoda olingan escrow qutilarini alohida, `resourceUsed` resursdagi ajratilgan, shu jumladan uzilgan qutilarni
-ko‘rsatadi. STAFF uchun quota yashirin; yangi total/custom maydonlari yo‘q eski javob yoki xatoda “Pochta limiti aniqlanmadi” chiqadi.
-Mavjud custom quti Free’da ham umumiy pool ichida o‘qish uchun tanlanishi mumkin.
+Desktop va mobil sidebar qisqa jami hisoblagich va “Qutilarni boshqarish” havolasini ko‘rsatadi.
+Yangi /settings/mailboxes sahifasi autentifikatsiyadan keyin GET /api/trade/v1/mailboxes/slots va
+GET /api/trade/v1/mailboxes orqali haqiqiy total/custom limitlar va qutilarni oladi.
+Free — jami 3, Pro — jami 10, shundan 2 tagacha yangi custom quti; real qiymatlar API’dan.
+Custom limiti jami limit ichida. STAFF hisoblagichi yashirin; eski yoki xato javoblar
+noma’lum holat bo‘lib, nol yoki cheksiz deb taxmin qilinmaydi.
+
+Limit tafsilotlaridagi exemptUsed sovg‘a/savdo qutilarini, resourceUsed ajratilgan
+resurslarni bildiradi. Oddiy sig‘im va ulanmagan qutilar neytral ko‘rsatiladi;
+faqat to‘layotgan/to‘lgan sig‘im holati ogohlantiriladi. Akkountga ulanmagan qutilar
+serverda /marketplace/v1/accounts o‘qilgandagina aniqlanadi; xato bo‘lsa bog‘lanish
+noma’lum qoladi. “Ulash” asosiy saytdagi mavjud Konami ulash oqimiga olib boradi.
+
+Kirish tanlovi shu sahifada mavjud POST /api/trade/v1/mailboxes/{id}/unlock ga
+lockInsteadId bilan faqat foydalanuvchi tasdiqlaganda yuboriladi. Sovg‘alar va faol
+savdo qutilarini qulflash mumkin emas; backend xatosi tanlovni saqlagan holda ko‘rsatiladi.
+Takroriy yuborish bloklanadi va sahifa/principal almashganda kutilayotgan so‘rov bekor qilinadi.
 
 ## Kirish holati va xatlarni saqlash
 
@@ -37,8 +47,8 @@ Mavjud custom quti Free’da ham umumiy pool ichida o‘qish uchun tanlanishi mu
 `locked:true` kontent so‘rovlarini yubormaydigan konservativ ekran beradi. `GRACE` Pro
 tugaganidan keyin 30 kun to‘liq o‘qishni, `RECOVERY` backend filtrlagan faqat muhim Konami
 parol tiklash/xavfsizlik xatlarini beradi. Boshqa UID’larni backend rad etadi. Inbox va
-xat ekranida haqiqiy `paidExpiresAt`/`graceEndsAt`, Pro uzaytirish va profilda Free uchun
-3 qutini tanlash havolalari bor. Pro uzayishi shu qutilarga kirishni tiklaydi.
+xat ekranida haqiqiy `paidExpiresAt`/`graceEndsAt`, Pro uzaytirish va shu webmail boshqaruvida Free uchun
+qutilarni tanlash havolalari bor. Pro uzayishi shu qutilarga kirishni tiklaydi.
 
 Inbox’dagi “Eksport va xatlarni tozalash” ochiluvchi bo‘limi foydalanuvchi tasdig‘i bilan:
 
@@ -50,7 +60,7 @@ Inbox’dagi “Eksport va xatlarni tozalash” ochiluvchi bo‘limi foydalanuvc
   statusi noma’lum xatlar tanlanmaydi; backend nizo/huquqiy saqlashni qayta tekshiradi,
   xatolar tanlovni yo‘qotmasdan ko‘rsatiladi. Avtomatik arxiv/o‘chirish yo‘q.
 - Xavfsiz quti bo‘shatish, Mailcow haqiqiy hajmi, o‘chirishning pending/failed/confirmed
-  holati va isbotni tekshirish asosiy sayt profili resurslar panelida. Webmail’dagi oddiy
+  holati va isbotni tekshirish webmail /settings/mailboxes ichidagi “Hajm va qutini bo‘shatish” bo‘limida. Oddiy
   hisobdan uzish allocationni bo‘shatmaydi va Konami ko‘chirish isboti hisoblanmaydi.
 
 ## Xatlarni ko'rsatish

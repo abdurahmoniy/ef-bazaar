@@ -89,8 +89,8 @@ export function SupportWidget({ user }: SupportWidgetProps) {
             <Headphones className="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover:scale-110" />
             {hasUnreadReply && (
               <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-background" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-success border-2 border-background" />
               </span>
             )}
           </button>

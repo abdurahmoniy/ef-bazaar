@@ -1,12 +1,13 @@
 /*
  * Gamer Card — self-contained dark "share poster" surface.
  *
- * Deliberately NOT themed off the site's CSS variables: the card is rasterized
+ * The full poster is deliberately independent of site CSS variables: it is rasterized
  * to PNG (html2canvas) and shared into Telegram, so it must look identical in
  * light and dark mode. Everything here is html2canvas-safe — no clip-path,
  * mask-image, mix-blend-mode, backdrop-filter or drop-shadow filters, since
  * html2canvas 1.4 silently drops them and the PNG would not match the DOM.
  *
+ * The compact profile panel and viewer controls follow the site theme.
  * Tier metal colours arrive as --m1/--m2/--m3 inline on .gc-card.
  */
 
@@ -18,7 +19,7 @@
   --gc-line-hot: rgba(139, 109, 255, 0.42);
   --gc-ink: #f2efff;
   --gc-ink-mid: #9c93c4;
-  --gc-ink-dim: #6b6395;
+  --gc-ink-dim: #aaa1cf;
   --gc-lime: #c7f534;
   --gc-green: #3de07b;
   --gc-red: #ff4d6d;
@@ -494,10 +495,23 @@
 
 /* ── compact variant (profil sahifasi) ───────────────────── */
 .gc-card.gc-compact {
+  --gc-bg: hsl(var(--card));
+  --gc-tile: hsl(var(--muted));
+  --gc-tile-2: hsl(var(--muted));
+  --gc-line: hsl(var(--border));
+  --gc-line-hot: hsl(var(--input));
+  --gc-ink: hsl(var(--foreground));
+  --gc-ink-mid: hsl(var(--muted-foreground));
+  --gc-ink-dim: hsl(var(--muted-foreground));
+  --gc-lime: hsl(var(--primary-text));
+  --gc-green: hsl(var(--success));
+  --gc-red: hsl(var(--destructive-text));
+
   gap: 11px;
   max-width: none;
   padding: 14px;
   border-radius: 20px;
+  background-image: none;
 }
 .gc-c-top {
   display: flex;
@@ -509,6 +523,14 @@
   height: 52px;
   border-radius: 15px;
   font-size: 23px;
+  background-color: var(--gc-tile);
+  background-image: none;
+}
+.gc-compact .gc-vfy {
+  color: hsl(var(--primary-text));
+}
+.gc-compact .gc-seg {
+  background-color: hsl(var(--border));
 }
 .gc-compact .gc-name {
   font-size: 18px;
@@ -657,7 +679,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 14px 12px calc(24px + env(safe-area-inset-bottom));
-  background-color: rgba(5, 4, 10, 0.92);
+  background-color: hsl(var(--background) / 0.96);
 }
 .gc-viewer-inner {
   display: flex;
@@ -678,13 +700,20 @@
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  border: 1px solid rgba(139, 109, 255, 0.3);
+  border: 1px solid hsl(var(--input));
   border-radius: 12px;
-  background-color: rgba(18, 14, 36, 0.9);
+  background-color: hsl(var(--card));
   font-size: 13px;
   font-weight: 600;
-  color: #f2efff;
+  color: hsl(var(--foreground));
   cursor: pointer;
+}
+.gc-viewer-close:hover {
+  background-color: hsl(var(--muted));
+}
+.gc-viewer-close:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
 }
 /* PNG capture host: in the DOM (html2canvas cannot rasterize display:none)
    but out of sight and out of the a11y tree. */

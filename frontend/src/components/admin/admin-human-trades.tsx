@@ -70,7 +70,7 @@ export function AdminHumanTrades({
 
       <section className="rounded-lg border border-border bg-card p-4 shadow-card">
         <div className="flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5 text-amber-500" />
+          <ShieldAlert className="h-5 w-5 text-warning" />
           <h2 className="text-sm font-black text-foreground">Eskalatsiya queue</h2>
         </div>
 
@@ -160,7 +160,7 @@ function EscalatedRow({
             {trade.escalationReason ?? 'ko\'rsatilmagan'}
           </p>
         </div>
-        <div className="flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-400/10 dark:text-amber-100">
+        <div className="flex items-center gap-1 rounded-lg bg-warning-soft px-2 py-1 text-xs font-semibold text-warning">
           <AlertTriangle className="h-3.5 w-3.5" />
           Ko'rib chiqish kerak
         </div>
