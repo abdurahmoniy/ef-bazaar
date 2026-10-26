@@ -75,7 +75,7 @@ export function TradeAdminCard({
       <div className={cn('grid gap-2 text-xs', compact ? 'grid-cols-2' : 'grid-cols-3')}>
         <div className="rounded-lg bg-muted/40 p-2">
           <p className="flex items-center gap-1 font-bold text-foreground">
-            <Star className="h-3.5 w-3.5 text-amber-500" />
+            <Star className="h-3.5 w-3.5 text-warning" />
             {admin.averageStars ? admin.averageStars.toFixed(1) : 'Yangi'}
           </p>
           <p className="text-[10.5px] text-muted-foreground">{admin.ratingCount} baho</p>

@@ -104,7 +104,7 @@ export function UserMenu({ user, className }: UserMenuProps) {
               <Sparkles aria-hidden className="h-4 w-4 text-gold-foreground" />
               Tariflar va Pro
             </Link>
-            <Link href="/invite" role="menuitem" className={cn(ITEM_CLASS, 'min-h-11 bg-primary/5 text-primary dark:text-secondary')}
+            <Link href="/invite" role="menuitem" className={cn(ITEM_CLASS, 'min-h-11 bg-primary/5 text-primary')}
               onClick={() => { trackGrowth('invite_open', { placement: 'user_menu' }); setOpen(false); }}>
               <UserPlus aria-hidden className="h-4 w-4" />
               Do&apos;st taklif qilish

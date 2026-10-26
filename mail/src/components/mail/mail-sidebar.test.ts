@@ -40,13 +40,13 @@ describe('mailbox names in the sidebar', () => {
 });
 
  describe('shared mailbox capacity', () => {
-   it('shows authoritative total/custom allocation, with gifts counted separately', () => {
+   it('keeps navigation compact and links detailed capacity management', () => {
      const html = renderToStaticMarkup(createElement(MailSidebar, { mailboxes: [mailbox], activeMailboxId: null, slots: { used: 10, limit: 10, totalUsed: 10, totalLimit: 10, customUsed: 2, customLimit: 2, exemptUsed: 1, resourceUsed: 11, full: true, plan: 'PRO', lockedCount: 0 } }));
      expect(html).toContain('Jami: 10 / 10');
-     expect(html).toContain('shundan custom: 2 / 2');
-     expect(html).toContain('Limitdan tashqari qutilar: 1');
-     expect(html).toContain('Resursda: 11');
-     expect(html).toContain('Custom chegarasi yangi nomli quti yaratish uchun');
+     expect(html).toContain('href="/settings/mailboxes"');
+     expect(html).toContain('Qutilarni boshqarish');
+     expect(html).not.toContain('Resursda:');
+     expect(html).not.toContain('Custom chegarasi');
    });
    it('does not invent an unlimited or zero allowance when the request fails', () => {
      const html = renderToStaticMarkup(createElement(MailSidebar, { mailboxes: [mailbox], activeMailboxId: null, slots: null }));

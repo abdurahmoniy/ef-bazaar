@@ -383,3 +383,39 @@ it('quotes a new Free purchase from the time the confirmation opens, not mount t
     expect(mocks.purchasePlan).not.toHaveBeenCalled();
   } finally { vi.useRealTimers(); }
 });
+
+
+it('keeps the exact shortfall and one recovery action inside the Pro purchase footer', async () => {
+  mocks.purchasePlan.mockRejectedValue(new PlanPurchaseError({ kind: 'insufficient', message: 'Hamyonda mablag‘ yetarli emas' }));
+  mocks.getWallet.mockResolvedValue({ availableTiyin: 500_000 });
+  await mount(free);
+  await click('Pro’ga o‘tish');
+  await clickInDialog('Tasdiqlash');
+  const paid = host.querySelector('article[aria-label="Pro tarifi"]')!;
+  const alert = paid.querySelector<HTMLElement>('[role="alert"]');
+  expect(alert?.textContent).toContain('Yana 25\u00a0000 so‘m kerak');
+  expect(alert?.textContent).not.toContain('Hamyonda mablag‘ yetarli emas');
+  expect(document.activeElement).toBe(alert);
+  expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+  const link = paid.querySelector<HTMLAnchorElement>('a[href^="/hamyon"]')!;
+  const destination = new URL(link.href);
+  expect(destination.searchParams.get('toldirish')).toBe('25000');
+  expect(destination.searchParams.get('keyin')).toBe('/plans?intent=pro#pro');
+  expect(link.textContent).toContain('Hamyonni to‘ldirish');
+  expect([...paid.querySelectorAll('button')].some(b => b.textContent?.includes('Pro’ga o‘tish'))).toBe(false);
+  await click('Qayta urinish');
+  expect(mocks.purchasePlan).toHaveBeenCalledTimes(1);
+  expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+  await clickInDialog('Tasdiqlash');
+  expect(mocks.purchasePlan).toHaveBeenCalledTimes(2);
+  expect(mocks.purchasePlan.mock.calls[0][0].idempotencyKey).toBe(mocks.purchasePlan.mock.calls[1][0].idempotencyKey);
+});
+it('keeps a useful scoped recovery if the wallet lookup is unavailable', async () => {
+  mocks.purchasePlan.mockRejectedValue(new PlanPurchaseError({ kind: 'insufficient', message: 'Balansni tekshiring — mablag‘ yetarli emas' }));
+  mocks.getWallet.mockRejectedValue(new Error('unavailable'));
+  await mount(free); await click('Pro’ga o‘tish'); await clickInDialog('Tasdiqlash');
+  const paid = host.querySelector('article[aria-label="Pro tarifi"]')!;
+  expect(paid.querySelector('[role="alert"]')?.textContent).toContain('Balansni tekshiring');
+  expect(paid.querySelector('a[href^="/hamyon"]')).not.toBeNull();
+  expect(button('Qayta urinish')).toBeDefined();
+});

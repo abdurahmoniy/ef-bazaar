@@ -132,7 +132,7 @@ export function SmartTradeActions({ tradeId, action, sides, selectedRole }: Smar
       )}
 
       {action === 'LOGIN_CODE' && (
-        <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+        <p className="rounded-lg border border-warning-border bg-warning-soft px-3 py-2 text-xs text-warning">
           Favqulodda yo&apos;l. Odatda kodni smart admin o&apos;zi o&apos;qib beradi — bu yerga
           faqat kod kelmay qolganda qo&apos;l uriladi. Kodni o&apos;ng tarafdagi pochtadan
           o&apos;qing: u akkountni OLAYOTGAN tomonga ko&apos;rsatiladi.

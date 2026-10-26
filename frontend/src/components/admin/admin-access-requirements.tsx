@@ -402,8 +402,8 @@ function AddChannelDialog({ onClose, onAdded }: { onClose: () => void; onAdded: 
           </div>
 
           {error && botNotAdmin && (
-            <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-              <p className="flex items-center gap-2 font-semibold text-amber-700 dark:text-amber-300">
+            <div className="space-y-2 rounded-xl border border-warning-border bg-warning-soft p-3 text-sm">
+              <p className="flex items-center gap-2 font-semibold text-warning">
                 <Bot className="h-4 w-4" />
                 Bot kanalga admin qilinmagan
               </p>

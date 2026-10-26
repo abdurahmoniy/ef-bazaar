@@ -262,7 +262,7 @@ describe('ListingCard', () => {
 
     expect(cleanMarkup).toContain('data-clean-account-badge="true"');
     expect(cleanMarkup).toContain('Toza');
-    expect(cleanMarkup).toContain('text-emerald-700');
+    expect(cleanMarkup).toContain('text-success');
     expect(linkedMarkup).not.toContain('data-clean-account-badge');
     expect(negativeCoinMarkup).not.toContain('data-clean-account-badge');
   });

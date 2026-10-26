@@ -112,7 +112,7 @@ export function AdminBotBroadcast() {
         </div>
       )}
       {sentNotice && (
-        <div className="flex items-start gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-start gap-2 rounded-lg border border-success-border bg-success-soft p-3 text-sm text-success">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{sentNotice}</span>
         </div>

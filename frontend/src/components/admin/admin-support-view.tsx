@@ -57,8 +57,8 @@ const CATEGORY_FILTERS: Array<{ value: SupportCategory | 'all'; label: string }>
 ];
 
 const STATUS_BADGES: Record<SupportChatStatus, { label: string; className: string }> = {
-  OPEN: { label: 'Kutilmoqda', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30' },
-  REPLIED: { label: 'Javob berilgan', className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' },
+  OPEN: { label: 'Kutilmoqda', className: 'bg-warning-soft text-warning border-warning-border' },
+  REPLIED: { label: 'Javob berilgan', className: 'bg-success-soft text-success border-success-border' },
   CLOSED: { label: 'Yopilgan', className: 'bg-muted text-muted-foreground border-border' },
 };
 
@@ -302,7 +302,7 @@ export function AdminSupportView({
                 key={item.id}
                 className={cn(
                   'group relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 transition hover:border-primary/50 hover:shadow-sm',
-                  item.status === 'OPEN' && 'border-amber-500/40 bg-amber-500/[0.02]',
+                  item.status === 'OPEN' && 'border-warning-border bg-warning-soft',
                 )}
               >
                 <div className="space-y-2 min-w-0 flex-1">
@@ -320,7 +320,7 @@ export function AdminSupportView({
                     </span>
 
                     {item.telegramRootMessageId && (
-                      <span className="inline-flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400">
+                      <span className="inline-flex items-center gap-1 rounded bg-info-soft px-1.5 py-0.5 text-[10px] font-medium text-info">
                         TG #{item.telegramRootMessageId}
                       </span>
                     )}
@@ -405,7 +405,7 @@ export function AdminSupportView({
                     variant="outline"
                     onClick={handleCloseChat}
                     disabled={submittingReply}
-                    className="text-xs h-8 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                    className="text-xs h-8 text-warning hover:bg-warning-soft"
                   >
                     Murojaatni yopish
                   </Button>

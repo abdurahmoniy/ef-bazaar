@@ -47,17 +47,17 @@ function CustomMailboxRow({ box }: { box: CustomMailbox }) {
           </span>
         ) : box.linkedAccountId ? (
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
-            <Check className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" aria-hidden /> Akkountga ulangan
+            <Check className="h-3.5 w-3.5 text-success" aria-hidden /> Akkountga ulangan
           </span>
         ) : (
-          <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 sm:text-sm">
+          <span className="text-xs font-semibold text-warning sm:text-sm">
             {box.activeSessionId ? 'Ulanmoqda…' : 'Bo‘sh turibdi'}
           </span>
         )}
         {box.accessState && <span className="text-xs text-muted-foreground">{accessDescription(box)}</span>}
       </div>
       {restricted ? (
-        <Link href={`/profile?mailbox=${encodeURIComponent(box.id)}#mailboxes`} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-primary px-3 text-sm font-bold text-white">
+        <Link href={`${siteConfig.mailUrl}/settings/mailboxes?mailbox=${encodeURIComponent(box.id)}`} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-primary px-3 text-sm font-bold text-white">
           {box.accessState ? 'Free uchun tanlash' : 'O‘qish uchun tanlash'}
         </Link>
       ) : free ? (

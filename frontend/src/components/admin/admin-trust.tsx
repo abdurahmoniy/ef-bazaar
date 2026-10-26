@@ -32,8 +32,8 @@ const FILTERS: Array<{ value: TrustComplaintStatus | 'all'; label: string }> = [
 ];
 
 const STATUS_BADGES: Record<TrustComplaintStatus, { label: string; className: string }> = {
-  PENDING: { label: 'Kutilmoqda', className: 'bg-amber-100 text-amber-800' },
-  CONFIRMED: { label: 'Tasdiqlangan', className: 'bg-emerald-100 text-emerald-800' },
+  PENDING: { label: 'Kutilmoqda', className: 'bg-warning-soft text-warning' },
+  CONFIRMED: { label: 'Tasdiqlangan', className: 'bg-success-soft text-success' },
   REJECTED: { label: 'Rad etilgan', className: 'bg-muted text-muted-foreground' },
 };
 

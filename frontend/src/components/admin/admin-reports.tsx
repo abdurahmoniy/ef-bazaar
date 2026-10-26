@@ -27,8 +27,8 @@ const FILTERS: Array<{ value: ReportStatus | 'all'; label: string }> = [
 ];
 
 const STATUS_BADGES: Record<ReportStatus, { label: string; className: string }> = {
-  PENDING: { label: 'Kutilmoqda', className: 'bg-amber-100 text-amber-800' },
-  RESOLVED: { label: 'Hal qilingan', className: 'bg-emerald-100 text-emerald-800' },
+  PENDING: { label: 'Kutilmoqda', className: 'bg-warning-soft text-warning' },
+  RESOLVED: { label: 'Hal qilingan', className: 'bg-success-soft text-success' },
   DISMISSED: { label: 'Rad etilgan', className: 'bg-muted text-muted-foreground' },
 };
 

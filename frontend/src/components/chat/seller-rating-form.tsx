@@ -73,16 +73,16 @@ export function SellerRatingForm({
     return (
       <div
         className={cn(
-          'space-y-2.5 rounded-xl border border-emerald-300/60 bg-emerald-500/10 p-3.5 text-xs text-foreground dark:border-emerald-500/30',
+          'space-y-2.5 rounded-xl border border-success-border bg-success-soft p-3.5 text-xs text-foreground',
           className,
         )}
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-300">
+          <div className="flex items-center gap-1.5 font-bold text-success">
             <CheckCircle2 className="h-4 w-4" />
             <span>{isBuyer ? 'Siz sotuvchini baholadingiz' : 'Xaridor bahosi'}</span>
           </div>
-          <div className="flex items-center gap-1 text-amber-500">
+          <div className="flex items-center gap-1 text-warning">
             {starValues.map((v) => (
               <Star
                 key={v}
@@ -114,7 +114,7 @@ export function SellerRatingForm({
           className,
         )}
       >
-        <Star className="h-4 w-4 text-amber-400" />
+        <Star className="h-4 w-4 text-warning" />
         <span>Xaridor tomonidan baho berilishi kutilmoqda.</span>
       </div>
     );
@@ -145,7 +145,7 @@ export function SellerRatingForm({
               onClick={() => setStars(value)}
               onMouseEnter={() => setHoverStars(value)}
               onMouseLeave={() => setHoverStars(null)}
-              className="grid h-8 w-8 place-items-center rounded-lg text-amber-500 transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="grid h-8 w-8 place-items-center rounded-lg text-warning transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={`${value} yulduz`}
             >
               <Star
@@ -174,7 +174,7 @@ export function SellerRatingForm({
         <p
           className={cn(
             'text-xs font-semibold',
-            message.tone === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive',
+            message.tone === 'ok' ? 'text-success' : 'text-destructive',
           )}
         >
           {message.text}

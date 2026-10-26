@@ -133,7 +133,7 @@ function ProposalDetails({ message }: { message: MessageResponse }) {
   const ownListing = [listing, accountRequest?.listing].find(item => item?.id === listingId);
   const trade = message.proposalTradeId ? trades?.find(item => item.id === message.proposalTradeId) : null;
   const sentAt = `${formatDayLabel(message.createdAt)} · ${formatMessageTime(message.createdAt)}`;
-  const statusTone = outcome === 'ACCEPTED' ? 'text-emerald-600 dark:text-emerald-400'
+  const statusTone = outcome === 'ACCEPTED' ? 'text-success'
     : outcome === 'REJECTED' ? 'text-destructive' : 'text-muted-foreground';
 
   return (
@@ -386,7 +386,7 @@ function TradePanelContent() {
 function LastTradeLine({ trade }: { trade: TradeResponse }) {
   const ended =
     trade.state === 'SUCCESS'
-      ? { text: 'Oxirgi savdo muvaffaqiyatli yakunlandi', tone: 'text-emerald-700 dark:text-emerald-400' }
+      ? { text: 'Oxirgi savdo muvaffaqiyatli yakunlandi', tone: 'text-success' }
       : trade.state === 'REJECTED'
         ? { text: 'Oxirgi savdo rad etildi', tone: 'text-destructive' }
         : { text: 'Oxirgi savdo muddati tugadi', tone: 'text-muted-foreground' };
@@ -528,8 +528,8 @@ function TradeDetails({ trade, viewerId, onRefresh, refreshing }: {
   onRefresh: () => Promise<void> | void;
   refreshing: boolean;
 }) {
-  const statusTone = trade.state === 'SUCCESS' ? 'text-emerald-700 dark:text-emerald-400'
-    : isTerminalState(trade.state) ? 'text-red-700 dark:text-red-400' : 'text-yellow-800 dark:text-yellow-300';
+  const statusTone = trade.state === 'SUCCESS' ? 'text-success'
+    : isTerminalState(trade.state) ? 'text-destructive' : 'text-warning';
   return <div className="space-y-5">
     <section aria-label="Savdo ma’lumotlari" className="space-y-4 rounded-xl border border-border bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1410,7 +1410,7 @@ function WaitingBuyerVerifyBuyerPanel({
                     : 'Ikkala taraf ham tasdiqlagach, almashuv yakunlanadi va akkauntlar yangi egalariga o‘tkaziladi.'
                   : 'Tasdiqlaganingizdan keyin savdo yakunlanadi va pul sotuvchiga o‘tkaziladi.'}
               </p>
-              <p className="font-semibold text-amber-800 dark:text-amber-300">
+              <p className="font-semibold text-warning">
                 Tasdiqlashni ortga qaytarib bo‘lmaydi. Faqat akkauntni tekshirib, hammasi joyida ekaniga ishonch hosil qilganingizdan keyin tasdiqlang.
               </p>
             </div>
@@ -1450,7 +1450,7 @@ function SuccessPanel({
 }) {
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-3 text-xs text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-100">
+      <div className="rounded-lg border border-success-border bg-success-soft px-3 py-3 text-xs text-success">
         <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
           <CheckCircle2 className="h-4 w-4" />
           Savdo muvaffaqiyatli yakunlandi
@@ -1892,7 +1892,7 @@ function ProposeModal({
     return <ConfirmModal
       title="Smart-admin xizmat haqi"
       body={<div className="space-y-3">
-        <p className="flex gap-2 font-medium text-amber-700 dark:text-amber-300">
+        <p className="flex gap-2 font-medium text-warning">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           Smart-admin xizmat haqi sizga qoladigan summadan ko‘p. Davom etishga rozimisiz?
         </p>
@@ -2045,7 +2045,7 @@ function ProposeModal({
                 )}
               </div>
               <div className="relative">
-                <Coins className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-500" />
+                <Coins className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-warning" />
                 <Input
                   id="trade-price"
                   type="number"
@@ -2080,11 +2080,11 @@ function ProposeModal({
                   </span>
                 </div>
                 <div className="border-t border-border/60 pt-1.5 flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs shrink-0">
-                    <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  <span className="flex items-center gap-1 font-bold text-success text-xs shrink-0">
+                    <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" />
                     Sotuvchiga sof:
                   </span>
-                  <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300 truncate">
+                  <span className="text-xs sm:text-sm font-black text-success truncate">
                     {formatPriceUZS(proceedsNum)}
                   </span>
                 </div>
@@ -2108,7 +2108,7 @@ function ProposeModal({
                 )}
               </div>
               <div className="relative">
-                <Coins className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-500" />
+                <Coins className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-warning" />
                 <Input
                   id="swap-surcharge"
                   type="number"
@@ -2148,21 +2148,21 @@ function ProposeModal({
                 <div className="border-t border-border/60 pt-1.5 flex items-center justify-between gap-2">
                   {surchargeNum * 100 >= surchargeShares.seller ? (
                     <>
-                      <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs shrink-0">
-                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                      <span className="flex items-center gap-1 font-bold text-success text-xs shrink-0">
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" />
                         Sizga sof doplata:
                       </span>
-                      <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300 truncate">
+                      <span className="text-xs sm:text-sm font-black text-success truncate">
                         {formatTiyin(swapSurchargeNetProceeds)} so‘m
                       </span>
                     </>
                   ) : (
                     <>
-                      <span className="flex items-center gap-1 font-bold text-amber-700 dark:text-amber-300 text-xs shrink-0">
-                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                      <span className="flex items-center gap-1 font-bold text-warning text-xs shrink-0">
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-warning" />
                         Yetishmagan xizmat haqi:
                       </span>
-                      <span className="text-xs sm:text-sm font-black text-amber-700 dark:text-amber-300 truncate">
+                      <span className="text-xs sm:text-sm font-black text-warning truncate">
                         {formatTiyin(swapSurchargeProposerOwes)} so‘m
                       </span>
                     </>
@@ -2187,11 +2187,11 @@ function ProposeModal({
               </span>
             </div>
             <div className="border-t border-border/60 pt-1.5 flex items-center justify-between gap-2">
-              <span className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300 text-xs shrink-0">
-                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+              <span className="flex items-center gap-1 font-bold text-success text-xs shrink-0">
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" />
                 Sizning hamyoningizdan:
               </span>
-              <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300 truncate">
+              <span className="text-xs sm:text-sm font-black text-success truncate">
                 {formatTiyin(swapShares.seller)} so‘m
               </span>
             </div>
@@ -2200,8 +2200,8 @@ function ProposeModal({
 
         {/* Escrow Guarantee Callout */}
         {mode === 'SMART' ? (
-          <div className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2.5 text-xs min-w-0">
-            <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
+          <div className="flex items-start gap-2 rounded-xl border border-success-border bg-success-soft p-2.5 text-xs min-w-0">
+            <ShieldCheck className="h-4 w-4 shrink-0 text-success mt-0.5" />
             <div className="space-y-0.5 min-w-0 flex-1">
               <p className="font-bold text-foreground text-[11.5px]">100% Xavfsiz Garov (Escrow)</p>
               <p className="text-[10.5px] sm:text-[11px] text-muted-foreground leading-normal break-words">
@@ -2211,7 +2211,7 @@ function ProposeModal({
           </div>
         ) : (
           <div className="space-y-3 min-w-0">
-            <div className="rounded-xl border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+            <div className="rounded-xl border border-warning-border bg-warning-soft p-2.5 text-xs text-warning">
               Inson admin savdosida xaridor admin bilan bevosita to‘lov qiladi.
               Platforma pulni ushlab turmaydi va komissiya olmaydi.
             </div>

@@ -549,7 +549,7 @@ export function ListingForm({
 		<div className="space-y-3" aria-label="E’lon reklamasi">
 			<div className="space-y-3 rounded-2xl border border-primary/25 bg-primary/5 p-4">
 				<div className="flex items-start gap-3">
-					<Megaphone aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-primary dark:text-secondary" />
+					<Megaphone aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
 					<div><h3 className="text-base font-bold">Ko‘proq xaridorga ko‘rsating</h3><p className="mt-1 text-sm leading-relaxed text-muted-foreground">Telegram kanallari va narxlarni ko‘ring. Reklama ixtiyoriy.</p></div>
 				</div>
 				{advertising ? <>
@@ -961,7 +961,7 @@ function PhotoStep({
 								key={photo.id}
 								className={cn(
 									'relative overflow-hidden rounded-xl border-2 bg-muted transition',
-									index === 0 ? 'border-amber-400 ring-1 ring-amber-400/30' : 'border-border',
+									index === 0 ? 'border-warning-border ring-1 ring-warning-border' : 'border-border',
 								)}
 							>
 								<img
@@ -1295,7 +1295,7 @@ function GameplayStep({
 									}}
 									className={cn(
 										'tap-press flex min-h-11 items-center justify-between gap-2 rounded-xl border p-2.5 text-left transition select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-										checked ? 'border-amber-400/60 bg-amber-400/10' : 'border-border bg-card hover:border-primary/40',
+										checked ? 'border-warning-border bg-warning-soft' : 'border-border bg-card hover:border-primary/40',
 									)}
 								>
 									<span className='inline-flex min-w-0 items-center gap-1.5 text-xs font-bold text-foreground'>
@@ -1453,7 +1453,7 @@ function TeamStrengthInput({
 				</div>
 			</div>
 			<div className='relative'>
-				<Sparkles className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-emerald-500' />
+				<Sparkles className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-success' />
 				<Input
 					type='number'
 					inputMode='numeric'
@@ -1651,7 +1651,7 @@ function CoinInput({
 		<div className='space-y-1'>
 			<Label className='text-xs font-bold text-muted-foreground'>{label} <span className='text-[9px]'>(ixtiyoriy)</span></Label>
 			<div className='relative'>
-				<Coins className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-amber-500' />
+				<Coins className='absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-warning' />
 				<Input
 					aria-label={label}
 					type='number'
@@ -1910,7 +1910,7 @@ function PricingStep({
 					<div className='rounded-xl border border-border bg-muted/30 p-2.5 space-y-1.5 text-xs'>
 						<div className='flex items-center justify-between text-muted-foreground text-[11px]'>
 							<span className='flex items-center gap-1'>
-								<ShieldCheck className='h-3 w-3 text-emerald-500' /> Smart xizmat haqi
+								<ShieldCheck className='h-3 w-3 text-success' /> Smart xizmat haqi
 							</span>
 							<span className='font-semibold text-foreground'>
 								−{formatPriceUZS(tradeFeeSom(parsed, commissionConfig))}
@@ -1918,7 +1918,7 @@ function PricingStep({
 						</div>
 						<div className='border-t border-border/60 pt-1.5 flex items-center justify-between'>
 							<span className='font-bold text-foreground text-xs'>Sof summa:</span>
-							<span className='text-sm font-black text-emerald-600 dark:text-emerald-400'>
+							<span className='text-sm font-black text-success'>
 								{formatPriceUZS(sellerProceedsSom(parsed, commissionConfig))}
 							</span>
 						</div>
@@ -2168,7 +2168,7 @@ function ReviewStep({
 				{/* Store Link Badges */}
 				{mobile && <div className='flex items-center gap-2 pt-1 border-t border-border/50 text-[11px] font-semibold text-muted-foreground'>
 					<span className='inline-flex items-center gap-1'>
-						<GooglePlayIcon className={cn('h-3 w-3', hasGooglePlay === true ? 'text-emerald-500' : 'text-muted-foreground/50')} />
+						<GooglePlayIcon className={cn('h-3 w-3', hasGooglePlay === true ? 'text-success' : 'text-muted-foreground/50')} />
 						{hasGooglePlay === true ? 'Google Play ulangan' : hasGooglePlay === false ? 'Google Play ulanmagan' : 'Google Play holati noma’lum'}
 					</span>
 					<span>•</span>
@@ -2181,12 +2181,12 @@ function ReviewStep({
 
 			{/* Smart Transaction Proceeds Notice */}
 			{mobile && hasPrice && priceNum >= MIN_TRADE_PRICE_SOM && (
-				<div className='flex items-center justify-between rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs'>
-					<span className='flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-300 text-[11px]'>
-						<ShieldCheck className='h-3.5 w-3.5 text-emerald-500' />
+				<div className='flex items-center justify-between rounded-xl bg-success-soft border border-success-border px-3 py-2 text-xs'>
+					<span className='flex items-center gap-1.5 font-bold text-success text-[11px]'>
+						<ShieldCheck className='h-3.5 w-3.5 text-success' />
 						Sotilganda sof tushum:
 					</span>
-					<span className='font-black text-emerald-700 dark:text-emerald-300 text-xs'>
+					<span className='font-black text-success text-xs'>
 						{formatPriceUZS(sellerProceedsSom(priceNum, commissionConfig))}
 					</span>
 				</div>

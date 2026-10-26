@@ -146,7 +146,7 @@ function MatchRow({
       {(time || match.stage || live || match.isThirdPlaceMatch || (stateLabel && !played)) && (
         <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           {live && (
-            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+            <span className="inline-flex items-center gap-1 text-success">
               <Radio className="h-3 w-3 animate-pulse" />
               Ketmoqda
             </span>
@@ -186,7 +186,7 @@ function TeamOwner({
     >
       {owner}
       {withdrawn && (
-        <span className="ml-1 font-semibold text-rose-600 dark:text-rose-400">· chiqib ketdi</span>
+        <span className="ml-1 font-semibold text-destructive">· chiqib ketdi</span>
       )}
     </p>
   );
@@ -213,7 +213,7 @@ function ScoreCell({
       <span
         className={`rounded-md px-2.5 py-1 text-sm font-black tabular-nums ${
           live
-            ? 'bg-emerald-500/15 text-emerald-700 ring-1 ring-emerald-500/40 dark:text-emerald-300'
+            ? 'bg-success-soft text-success ring-1 ring-success-border'
             : 'bg-accent text-foreground'
         }`}
       >

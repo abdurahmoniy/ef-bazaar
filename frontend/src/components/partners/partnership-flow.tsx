@@ -35,8 +35,8 @@ function Step({ index, title, state, children }: {
   return (
     <li data-step-state={state} aria-current={state === 'active' ? 'step' : undefined} className="flex gap-3">
       <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-semibold',
-        state === 'done' ? 'border-emerald-600 bg-emerald-600 text-white' : state === 'active'
-          ? 'border-primary bg-primary/10 text-primary dark:text-secondary' : 'border-border bg-muted text-muted-foreground')}>
+        state === 'done' ? 'border-success-border bg-success-soft text-success' : state === 'active'
+          ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted text-muted-foreground')}>
         {state === 'done' ? <><Check className="h-4 w-4" /><span className="sr-only">Bajarildi</span></> : index}
       </span>
       <div className="min-w-0 flex-1 space-y-2 pt-1">
@@ -58,7 +58,7 @@ function PartnershipOverview({ authenticated }: { authenticated: boolean }) {
     <>
       <header className="grid items-center gap-8 rounded-2xl border border-border bg-card p-5 sm:p-8 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-5">
-          <p className="flex items-center gap-2 text-sm font-semibold text-primary dark:text-secondary"><Handshake className="h-5 w-5" /> Telegram kanal egalari uchun</p>
+          <p className="flex items-center gap-2 text-sm font-semibold text-primary"><Handshake className="h-5 w-5" /> Telegram kanal egalari uchun</p>
           <h1 className="max-w-xl text-3xl font-bold leading-tight tracking-tight sm:text-4xl">Kanalingizga e’lon qabul qiling</h1>
           <p className="max-w-xl text-base leading-relaxed text-muted-foreground">efBazaar sotuvchilari kanalingizni tanlasin. Joylash narxi va post ko‘rinishini o‘zingiz belgilang.</p>
           <div className="flex flex-wrap items-center gap-3">
@@ -88,14 +88,14 @@ function PartnershipOverview({ authenticated }: { authenticated: boolean }) {
             <div className="space-y-3 p-4 text-sm">
               <p className="font-semibold">Sizning kanalingiz · efBazaar</p>
               <p className="leading-relaxed text-muted-foreground">Akkaunt tavsifi, o‘yinchilar va sotuvchi belgilagan narx shu yerda ko‘rinadi.</p>
-              <div className="flex items-center justify-center gap-2 rounded-lg bg-primary/10 px-3 py-2 font-medium text-primary dark:text-secondary">E’lonni ko‘rish <ArrowRight className="h-4 w-4" /></div>
+              <div className="flex items-center justify-center gap-2 rounded-lg bg-primary/10 px-3 py-2 font-medium text-primary">E’lonni ko‘rish <ArrowRight className="h-4 w-4" /></div>
             </div>
           </div>
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Faqat ko‘rinish namunasi. Haqiqiy post e’lon ma’lumotlari va kanal sozlamalaridan tuziladi.</p>
         </figure>
       </header>
       <section aria-label="Hamkorlik imkoniyatlari" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {benefits.map(({ icon: Icon, title, text }) => <article key={title} className="space-y-3 rounded-xl border border-border bg-card p-5"><Icon className="h-5 w-5 text-primary dark:text-secondary" /><h2 className="font-semibold">{title}</h2><p className="text-sm leading-relaxed text-muted-foreground">{text}</p></article>)}
+        {benefits.map(({ icon: Icon, title, text }) => <article key={title} className="space-y-3 rounded-xl border border-border bg-card p-5"><Icon className="h-5 w-5 text-primary" /><h2 className="font-semibold">{title}</h2><p className="text-sm leading-relaxed text-muted-foreground">{text}</p></article>)}
       </section>
       <div className="grid gap-4 md:grid-cols-2">
         <section className="space-y-3 rounded-xl border border-border bg-card p-5">
@@ -220,7 +220,7 @@ function PartnershipApplication({ botUsername, telegramLinked }: { botUsername: 
       {loading && <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Ariza va shartlar yuklanmoqda…</p>}
       {loadError && <div role="alert" className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4"><p className="flex items-start gap-2 text-sm text-destructive"><AlertCircle className="h-4 w-4 shrink-0" /> {loadError}</p><p className="text-sm text-muted-foreground">Arizaning amaldagi holatini tekshirib bo‘lmadi.</p><Button variant="outline" onClick={() => void refresh()} disabled={refreshing}>Qayta urinish</Button></div>}
       {loaded && application?.status === 'APPROVED' ? (
-        <div className="space-y-4"><p className="flex items-center gap-2 font-medium text-emerald-700 dark:text-emerald-400"><CheckCircle2 className="h-5 w-5" /> Siz hamkorsiz</p><p className="text-sm text-muted-foreground">{application.channelTitle || 'Kanalingiz'} hamkorlikka qabul qilindi. Post narxi va ko‘rinishini panelda sozlang.</p><Button asChild><Link href="/partner">Hamkor paneliga o‘tish <ArrowRight /></Link></Button></div>
+        <div className="space-y-4"><p className="flex items-center gap-2 font-medium text-success"><CheckCircle2 className="h-5 w-5" /> Siz hamkorsiz</p><p className="text-sm text-muted-foreground">{application.channelTitle || 'Kanalingiz'} hamkorlikka qabul qilindi. Post narxi va ko‘rinishini panelda sozlang.</p><Button asChild><Link href="/partner">Hamkor paneliga o‘tish <ArrowRight /></Link></Button></div>
       ) : loaded && (
         <>
           {settings && <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-muted/50 p-4"><p className="text-xs text-muted-foreground">Minimal obunachi</p><p className="mt-1 text-lg font-semibold">{settings.minSubscribers.toLocaleString('uz-UZ')}</p></div><div className="rounded-xl bg-muted/50 p-4"><p className="text-xs text-muted-foreground">Hamkorlik to‘lovi</p><p className="mt-1 text-lg font-semibold">{formatPriceUZS(settings.priceSom)}</p></div><div className="rounded-xl bg-muted/50 p-4"><p className="text-xs text-muted-foreground">Standart daromad sharti</p><p className="mt-1 text-sm font-semibold">{settings.defaultPayoutMode === 'PERCENT' ? `efBazaar komissiyasidan ${settings.defaultTradePercentBp / 100}%` : `Oyiga ${formatPriceUZS(settings.defaultFixedMonthlySom)}`}</p><p className="mt-1 text-xs text-muted-foreground">Kanal uchun amaldagi shart panelda ko‘rsatiladi.</p></div></div>}

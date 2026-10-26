@@ -65,7 +65,7 @@ export function RefreshControls() {
         <span
           className={cn(
             'h-1.5 w-1.5 rounded-full',
-            auto ? 'animate-pulse bg-primary' : 'bg-muted-foreground/40',
+            auto ? 'animate-pulse bg-ring' : 'bg-muted-foreground/40',
           )}
           aria-hidden
         />

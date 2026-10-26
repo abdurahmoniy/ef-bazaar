@@ -149,7 +149,7 @@ export function HelpView({
               Yordam markazi & Qo‘llanmalar
             </span>
             {guides.length > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-1 text-[11px] font-bold text-success">
                 <Video className="h-3 w-3" />
                 {guides.length} ta video qo‘llanma
               </span>
@@ -440,7 +440,7 @@ function HelpAccordionCard({
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-black text-foreground sm:text-base">{item.title}</h3>
             {item.featured && (
-              <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-700 dark:text-amber-300">
+              <span className="rounded-md bg-warning-soft px-1.5 py-0.5 text-[10px] font-black uppercase text-warning">
                 Muhim
               </span>
             )}

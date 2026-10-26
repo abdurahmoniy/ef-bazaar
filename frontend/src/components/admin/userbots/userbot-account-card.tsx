@@ -11,15 +11,15 @@ import {
 import { ConfirmDialog } from './confirm-dialog';
 
 const TONE_CLASS: Record<BadgeTone, string> = {
-  alive: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  down: 'bg-amber-500/15 text-amber-800 dark:text-amber-300',
+  alive: 'bg-success-soft text-success',
+  down: 'bg-warning-soft text-warning',
   revoked: 'bg-destructive/10 text-destructive',
   disconnected: 'bg-muted text-muted-foreground',
 };
 
 const DOT_CLASS: Record<BadgeTone, string> = {
-  alive: 'bg-emerald-500',
-  down: 'bg-amber-500',
+  alive: 'bg-success',
+  down: 'bg-warning',
   revoked: 'bg-destructive',
   disconnected: 'bg-muted-foreground',
 };

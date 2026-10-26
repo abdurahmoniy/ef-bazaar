@@ -29,8 +29,8 @@ const FILTERS: Array<{ value: ListingStatus | 'all'; label: string }> = [
 ];
 
 const STATUS_BADGES: Record<ListingStatus, { label: string; className: string }> = {
-  ACTIVE: { label: 'Aktiv', className: 'bg-emerald-100 text-emerald-800' },
-  SOLD: { label: 'Sotilgan', className: 'bg-amber-100 text-amber-800' },
+  ACTIVE: { label: 'Aktiv', className: 'bg-success-soft text-success' },
+  SOLD: { label: 'Sotilgan', className: 'bg-warning-soft text-warning' },
   DELETED: { label: "O'chirilgan", className: 'bg-destructive/10 text-destructive' },
 };
 

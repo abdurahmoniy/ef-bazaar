@@ -118,7 +118,7 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
                         className={cn(
                           'rounded-md px-2 py-0.5 text-xs font-black uppercase tracking-wide',
                           badge === 'Inson admin'
-                            ? 'bg-sky-100 text-sky-800 dark:bg-sky-400/15 dark:text-sky-200'
+                            ? 'bg-info-soft text-info'
                             : 'bg-primary/10 text-primary',
                         )}
                       >
@@ -131,7 +131,7 @@ export function AdminUsers({ users, search, totalElements, currentUserId }: Admi
                       </span>
                     )}
                     {user.verified && (
-                      <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-black uppercase tracking-wide text-emerald-800">
+                      <span className="rounded-md bg-success-soft px-2 py-0.5 text-xs font-black uppercase tracking-wide text-success">
                         Verified
                       </span>
                     )}

@@ -105,7 +105,7 @@ export default async function TradeAdminProfilePage({ params }: PageProps) {
               {ratings.map((rating) => (
                 <li key={rating.id} className="rounded-lg border border-border bg-muted/20 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-1 text-amber-500">
+                    <div className="flex items-center gap-1 text-warning">
                       {Array.from({ length: 5 }).map((_, index) => (
                         <Star
                           key={index}

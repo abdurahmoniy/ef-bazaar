@@ -67,16 +67,16 @@ export function WatchesView({ initialQuery = '' }: { initialQuery?: string }) {
       <h1 className="text-xl font-black">Kuzatuvlar</h1>
       <p className="max-w-2xl text-sm text-muted-foreground">Saqlangan qidiruvlar va narx xabarlarini boshqaring. Sevimlilar alohida saqlanadi; narx kuzatuvi uchun o‘zingiz rozilik berasiz.</p>
       <p className="text-sm text-muted-foreground">Tarif tugaganda ma’lumotlar o‘chirilmaydi, limitdan ortiq kuzatuvlar pauza qilinadi. Asosiy kuzatuvni tanlab, ustuvorligini belgilang.</p>
-      <Link href="/plans" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary dark:text-secondary underline underline-offset-4">Tarif imkoniyatlari</Link>
+      <Link href="/plans" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4">Tarif imkoniyatlari</Link>
     </div>
-    {message && <p role="status" className="text-sm text-primary dark:text-secondary">{message}</p>}
+    {message && <p role="status" className="text-sm text-primary">{message}</p>}
     <WatchSection title="Saqlangan qidiruvlar" icon={<Search aria-hidden className="h-5 w-5" />} data={searches} error={errors.search} loading={loading} retry={load}>
       {searches?.items.length === 0 && <p className="text-sm text-muted-foreground">Hali qidiruv yo‘q. Kartalar yoki narx oralig‘ini saqlang.</p>}
       {searches?.items.map(row => <article key={row.id} className="min-w-0 space-y-3 rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="min-w-0 break-words font-bold">{row.name}</h3><span className="text-xs font-semibold text-muted-foreground">{reason(row)}{row.id === searches.items[0]?.id ? ' · Asosiy' : ''}</span></div>
         <p className="text-sm text-muted-foreground">{row.matchCard.length} ta karta · {row.minPrice === null ? '0' : formatCompactNumber(row.minPrice)} – {row.maxPrice === null ? 'cheklanmagan' : formatCompactNumber(row.maxPrice)} so‘m</p>
         <div className="flex flex-wrap items-center gap-3">
-          <Link href={savedSearchHref(row)} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary dark:text-secondary underline underline-offset-4">Natijalarni ko‘rish</Link>
+          <Link href={savedSearchHref(row)} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4">Natijalarni ko‘rish</Link>
           <Button type="button" variant="ghost" disabled={pending || !searches.available} onClick={() => { setEditing(row); setEditorKey(key => key + 1); }}>Tahrirlash</Button>
         </div>
         <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={row.notificationsEnabled} disabled={pending}
@@ -102,7 +102,7 @@ export function WatchesView({ initialQuery = '' }: { initialQuery?: string }) {
       </div>}
       {prices?.items.length === 0 && <p className="text-sm text-muted-foreground">Hali narx kuzatuvi yo‘q. E’lon sahifasida «Narxni kuzatish»ni tanlang.</p>}
       {prices?.items.map(row => <article key={row.id} className="min-w-0 space-y-3 rounded-xl border border-border bg-card p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2"><Link href={`/marketplace/${encodeURIComponent(row.listingId)}`} className="inline-flex min-h-11 items-center text-sm font-bold text-primary dark:text-secondary underline underline-offset-4">E’lonni ko‘rish</Link><span className="text-xs font-semibold text-muted-foreground">{reason(row)}{row.id === prices.items[0]?.id ? ' · Asosiy' : ''}</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><Link href={`/marketplace/${encodeURIComponent(row.listingId)}`} className="inline-flex min-h-11 items-center text-sm font-bold text-primary underline underline-offset-4">E’lonni ko‘rish</Link><span className="text-xs font-semibold text-muted-foreground">{reason(row)}{row.id === prices.items[0]?.id ? ' · Asosiy' : ''}</span></div>
         {controls('price', row, prices)}
       </article>)}
     </WatchSection>
@@ -161,7 +161,7 @@ function SearchEditor({ initialQuery, editing, pending, available, onSave, onCan
       <label className="block space-y-1 text-sm">Eng kam narx (so‘m)<Input inputMode="numeric" value={minPrice} onChange={event => setMinPrice(event.target.value)} placeholder="0" /></label>
       <label className="block space-y-1 text-sm">Eng yuqori narx (so‘m)<Input inputMode="numeric" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} placeholder="Cheklanmagan" /></label>
     </div>
-    <p className="text-sm text-muted-foreground">{draft.matchCard.length} ta o‘yinchi kartasi{draft.matchCard.length ? ` · qat’iylik ${draft.matchStrictness}/10` : ''}. <Link href={`${savedSearchHref(draft)}#marketplace-player-filter`} className="text-primary dark:text-secondary underline underline-offset-4">Bozorda kartalarni tanlash</Link></p>
+    <p className="text-sm text-muted-foreground">{draft.matchCard.length} ta o‘yinchi kartasi{draft.matchCard.length ? ` · qat’iylik ${draft.matchStrictness}/10` : ''}. <Link href={`${savedSearchHref(draft)}#marketplace-player-filter`} className="text-primary underline underline-offset-4">Bozorda kartalarni tanlash</Link></p>
     <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={notificationsEnabled} onChange={event => setNotificationsEnabled(event.target.checked)} />Bu qidiruv uchun xabar olish</label>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {!available && <p className="text-sm text-muted-foreground">Yaratish uchun tarif imkoniyati va bo‘sh kuzatuv joyi kerak. Mavjud kuzatuvni tahrirlang/o‘chiring yoki Pro tarifini ko‘ring. Pauzadagilar ham yaratish limitida hisoblanadi.</p>}

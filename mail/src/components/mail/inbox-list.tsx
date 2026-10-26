@@ -59,14 +59,14 @@ function MessageRow({ mailboxId, msg }: { mailboxId: string; msg: InboxMessage }
       href={`/${mailboxId}/${encodeURIComponent(msg.messageId)}`}
       className={cn(
         'flex flex-col gap-0.5 px-4 py-3 transition-colors hover:bg-muted/60 active:bg-muted sm:flex-row sm:items-center sm:gap-4 sm:px-6 sm:py-2.5',
-        !msg.seen && 'bg-primary/[0.04]',
+        !msg.seen && 'bg-primary/[0.04] dark:bg-accent',
       )}
     >
       {/* Sender column; on mobile this line also carries attachment + time. */}
       <span className="flex items-center justify-between gap-2 sm:w-52 sm:shrink-0 sm:justify-start">
         <span className="flex min-w-0 items-center gap-2.5">
           <span
-            className={cn('h-2 w-2 shrink-0 rounded-full', msg.seen ? 'bg-transparent' : 'bg-primary')}
+            className={cn('h-2 w-2 shrink-0 rounded-full', msg.seen ? 'bg-transparent' : 'bg-ring')}
             aria-hidden
           />
           <span

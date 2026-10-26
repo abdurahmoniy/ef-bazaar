@@ -1,6 +1,4 @@
-import { MailboxResources } from '@/components/profile/mailbox-resources';
 import { PlanNotices } from '@/components/profile/plan-notices';
-import { MailboxSlotsWarning } from '@/components/profile/mailbox-slots-warning';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -20,9 +18,8 @@ import { getMyTradeAdminApplication } from '@/lib/trade-admin-applications-serve
 import { getWallet } from '@/lib/payment-server';
 import { getMyPlanSSR, getPlanCatalogSSR } from '@/lib/plans-server';
 import { FEATURES } from '@/lib/feature-flags';
+import { siteConfig } from '@/lib/site';
 import { getAccountDisplayData } from '@/lib/account-display-server';
-import { getMyMailboxesSSR } from '@/lib/custom-mailbox-server';
-import { FreeCustomMailboxBanner } from '@/components/profile/free-custom-mailbox-banner';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +31,7 @@ export const metadata: Metadata = {
 export type ProfileTabId = 'accounts' | 'trades' | 'favorites' | 'kartalar' | 'account';
 
 interface ProfilePageProps {
-  searchParams?: Promise<{ tab?: string; saved?: string }>;
+  searchParams?: Promise<{ tab?: string; saved?: string; mailbox?: string }>;
 }
 
 const VALID_TABS: ProfileTabId[] = [
@@ -56,8 +53,13 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   const params = searchParams ? await searchParams : {};
   const activeTab = resolveTab(params.tab);
 
+  const mailboxId = typeof params.mailbox === 'string' && params.mailbox ? params.mailbox : null;
+  const returnTo = mailboxId
+    ? `/profile?mailbox=${encodeURIComponent(mailboxId)}`
+    : activeTab === 'accounts' ? '/profile?tab=accounts' : '/profile';
   const user = await getMe();
-  if (!user) redirect(`/auth/login?from=${encodeURIComponent(activeTab === 'accounts' ? '/profile?tab=accounts' : '/profile')}`);
+  if (!user) redirect(`/auth/login?from=${encodeURIComponent(returnTo)}`);
+  if (mailboxId) redirect(`${siteConfig.mailUrl}/settings/mailboxes?mailbox=${encodeURIComponent(mailboxId)}`);
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
   const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot';
@@ -75,10 +77,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     activeTab === 'account' ? getPlanCatalogSSR() : Promise.resolve(null),
   ]);
 
-  const [accountDisplay, customBoxes] = await Promise.all([
-    activeTab === 'accounts' ? getAccountDisplayData(accounts, user.id) : Promise.resolve({}),
-    activeTab === 'accounts' || activeTab === 'account' ? getMyMailboxesSSR() : Promise.resolve(null),
-  ]);
+  const accountDisplay = activeTab === 'accounts' ? await getAccountDisplayData(accounts, user.id) : {};
 
   // Sotilgan / obmen qilinganlar tarix: ular endi egasida emas.
   const ownedAccounts = accounts.filter((a) => a.status !== 'ARCHIVED');
@@ -157,20 +156,6 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           </div>
         )}
 
-        {/*
-          Slot to'lganini savdoni qabul qilishga urinishdan ANCHA oldin
-          ko'rsatamiz: u yerda xato "So'rov bajarilmadi" bo'lib ko'rinar
-          va odam na sababni, na yechimni bilardi. Slot bo'shashi bilan
-          bu blok o'zi yo'qoladi.
-        */}
-
-        {activeTab !== 'account' && customBoxes && (
-          <FreeCustomMailboxBanner
-            boxes={customBoxes}
-            accountEmails={accounts.filter((a) => a.status === 'ACTIVE' && a.email).map((a) => a.email as string)}
-          />
-        )}
-
         {/* Tab content view */}
         <section key={activeTab} className="animate-panel-in">
           {activeTab === 'accounts' && <ProfileAccounts accounts={accounts} displayById={accountDisplay} viewerId={user.id} savedAccountId={typeof params.saved === 'string' ? params.saved : undefined} />}
@@ -191,12 +176,9 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               planCatalog={planCatalog}
             >
               <PlanNotices />
-              {customBoxes && <FreeCustomMailboxBanner boxes={customBoxes} accountEmails={accounts.filter(a => a.status === 'ACTIVE' && a.email).map(a => a.email as string)} />}
             </ProfileAccount>
           )}
         </section>
-        {activeTab !== 'account' && <MailboxSlotsWarning />}
-        <MailboxResources />
       </div>
     </MarketplaceShell>
   );

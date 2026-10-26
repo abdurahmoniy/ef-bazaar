@@ -21,7 +21,7 @@ interface ProfileTradesProps {
  * reading as a win even though nothing is pending.
  */
 function stateChipClass(state: TradeState) {
-  if (state === 'SUCCESS') return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400';
+  if (state === 'SUCCESS') return 'bg-success-soft text-success';
   if (state === 'REJECTED' || state === 'ORPHANED') return 'bg-muted text-muted-foreground';
   return 'bg-primary/15 text-primary';
 }
@@ -97,7 +97,7 @@ export function ProfileTrades({ trades }: ProfileTradesProps) {
                     {formatListingDate(trade.createdAt)}
                   </span>
                   {trade.state === 'SUCCESS' && buying && (
-                    <span className="inline-flex items-center gap-0.5 text-[10.5px] font-bold text-amber-600 dark:text-amber-400">
+                    <span className="inline-flex items-center gap-0.5 text-[10.5px] font-bold text-warning">
                       <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
                       Baholash
                     </span>

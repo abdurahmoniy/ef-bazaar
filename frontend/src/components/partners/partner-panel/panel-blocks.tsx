@@ -118,10 +118,10 @@ export function PartnerPanelBlocks() {
       </section>
 
       {panel.channel.postPriceSom === 0 && (
-        <section className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+        <section className="space-y-2 rounded-xl border border-warning-border bg-warning-soft p-4">
           <h2 className="text-sm font-semibold">Kanalingizga hozir bepul joylash mumkin</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">Amaldagi post narxi 0 so‘m. Pullik joylashni xohlasangiz narx belgilang, yoki bepul joylashni ongli ravishda tanlab saqlang.</p>
-          <a href="#partner-post-price" onClick={() => setTab('stats')} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary dark:text-secondary underline underline-offset-4">Post narxini sozlash</a>
+          <a href="#partner-post-price" onClick={() => setTab('stats')} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4">Post narxini sozlash</a>
         </section>
       )}
 
@@ -193,7 +193,7 @@ export function PartnerPanelBlocks() {
           }} className="h-5 w-5 shrink-0 accent-primary" />
           Bepul joylashni tanlayman (0 so‘m)
         </label>
-        {saved && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">Narx saqlandi.</p>}
+        {saved && <p role="status" className="text-sm text-success">Narx saqlandi.</p>}
       </section>
 
       {/* 2. Kanal voronkasi — shaxsiy taklif havolasi EMAS, u /invite da */}

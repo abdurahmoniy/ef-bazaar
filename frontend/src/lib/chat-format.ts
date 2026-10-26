@@ -74,17 +74,18 @@ export function partnerInitial(name: string): string {
 /**
  * Deterministic avatar color per user id — reused across the chat list and
  * open chat header so a person's circle keeps the same tint everywhere.
+ * Fixed identity colors stay dark enough for readable white initials in both themes.
  */
 export function avatarTone(userId: string): string {
   const palette = [
-    'bg-amber-500 text-amber-50',
-    'bg-sky-500 text-sky-50',
-    'bg-emerald-500 text-emerald-50',
-    'bg-rose-500 text-rose-50',
-    'bg-violet-500 text-violet-50',
-    'bg-teal-500 text-teal-50',
-    'bg-fuchsia-500 text-fuchsia-50',
-    'bg-indigo-500 text-indigo-50',
+    'bg-amber-700 text-white',
+    'bg-sky-700 text-white',
+    'bg-emerald-700 text-white',
+    'bg-rose-700 text-white',
+    'bg-violet-700 text-white',
+    'bg-teal-700 text-white',
+    'bg-fuchsia-700 text-white',
+    'bg-indigo-700 text-white',
   ];
   let hash = 0;
   for (let i = 0; i < userId.length; i++) {

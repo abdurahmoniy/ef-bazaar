@@ -100,7 +100,7 @@ export function ShareListingButton({ listingId, title, authenticated = false, la
               </Button>
             </>
           ) : null}
-          {copied && <p role="status" className="text-xs text-primary dark:text-secondary">Nusxalandi. Endi do‘stingizga yuboring.</p>}
+          {copied && <p role="status" className="text-xs text-primary">Nusxalandi. Endi do‘stingizga yuboring.</p>}
           {copyFailed && <label className="block space-y-2 text-xs text-muted-foreground"><span role="status">Nusxalanmadi. Havolani tanlab, qo‘lda nusxalang.</span><input aria-label="E’lon havolasi" readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="min-h-11 w-full rounded-lg border border-input bg-background px-2 text-sm text-foreground" /></label>}
         </div>
       )}

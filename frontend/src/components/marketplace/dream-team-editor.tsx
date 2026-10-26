@@ -253,7 +253,7 @@ export function DreamTeamEditor({
         </p>
       )}
       {notice && (
-        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+        <p className="rounded-lg border border-success-border bg-success-soft px-3 py-2 text-sm font-semibold text-success">
           {notice}
         </p>
       )}
@@ -306,7 +306,7 @@ export function DreamTeamEditor({
               O&apos;zingiz xohlagan ideal tarkibni tuzing. Qidiruvda siz tanlagan o&apos;yinchilar soniga qarab
               mos akkountlar saralanadi.
             </p>
-            <div className="flex items-center gap-2 rounded-lg bg-amber-400/10 border border-amber-400/30 p-2.5 text-xs text-amber-800 dark:text-amber-300">
+            <div className="flex items-center gap-2 rounded-lg bg-warning-soft border border-warning-border p-2.5 text-xs text-warning">
               <Star className="h-4 w-4 shrink-0 fill-amber-400 text-amber-500" />
               <span>
                 <strong>Yulduzcha (⭐)</strong> bosilgan o&apos;yinchilar <strong>3×</strong> ustunlikka ega bo&apos;ladi.
@@ -376,7 +376,7 @@ export function DreamTeamEditor({
               className="font-bold min-h-11 border-primary/40 hover:border-primary hover:bg-primary/5"
             >
               <a href={browseHref}>
-                <Sparkles className="mr-2 h-4 w-4 text-amber-500" />
+                <Sparkles className="mr-2 h-4 w-4 text-warning" />
                 Shu jamoa bo&apos;yicha qidirish
               </a>
             </Button>
@@ -609,11 +609,11 @@ function SlotPickerModal({
               className={cn(
                 'tap-press inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition',
                 metaOnly
-                  ? 'border-amber-400 bg-amber-400/20 text-amber-700 dark:text-amber-300'
+                  ? 'border-warning-border bg-warning-soft text-warning'
                   : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted',
               )}
             >
-              <Flame className="h-3.5 w-3.5 text-amber-500" />
+              <Flame className="h-3.5 w-3.5 text-warning" />
               {metaOnly ? 'META kartalar filtri yoqilgan' : 'Mashhur META kartalarni ko‘rsatish'}
             </button>
           </div>

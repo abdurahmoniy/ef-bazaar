@@ -133,7 +133,7 @@ function CleanBadge() {
     <div
       data-clean-account-badge="true"
       title="Sotuvchi ma’lumotiga ko‘ra Google Play va Game Center ulanmagan. Mustaqil tekshiruv emas."
-      className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs"
+      className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-bold text-success sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs"
     >
       <ShieldCheck className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
       <span className="truncate">Toza</span>
@@ -247,7 +247,7 @@ function SoldOverlay() {
       role="status"
       className="absolute inset-0 z-[1] flex items-center justify-center bg-black/55"
     >
-      <span className="rounded-md bg-white/90 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-destructive sm:px-3 sm:py-1 sm:text-xs">
+      <span className="rounded-md bg-card px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-destructive sm:px-3 sm:py-1 sm:text-xs">
         Sotilgan
       </span>
     </div>

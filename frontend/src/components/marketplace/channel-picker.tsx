@@ -42,7 +42,7 @@ export function ChannelPicker({ selected, onChange, disabled = false }: ChannelP
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5" aria-label="Reklama kanallarini tanlash">
       <div className="flex items-start gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary dark:text-secondary"><Megaphone aria-hidden className="h-5 w-5" /></span>
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Megaphone aria-hidden className="h-5 w-5" /></span>
         <div className="min-w-0">
           <h2 className="text-base font-bold">Telegram kanallarini tanlang</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">E’loningizni qayerda ko‘rsatishni tanlang. Har bir narx — bir marta joylash uchun.</p>
@@ -93,7 +93,7 @@ export function ChannelPicker({ selected, onChange, disabled = false }: ChannelP
                   <span className="min-w-0 flex-1 space-y-1">
                     <span className="block break-words text-sm font-semibold">{channel.title}</span>
                     <span className="flex items-center gap-1 text-xs text-muted-foreground"><Users aria-hidden className="h-3.5 w-3.5" /> {formatSubscribers(channel.subscriberCount)} obunachi</span>
-                    <span className="block text-sm font-bold tabular-nums text-primary dark:text-secondary">{channel.priceSom === 0 ? 'Bepul' : formatAdvertisingPrice(channel.priceSom)}</span>
+                    <span className="block text-sm font-bold tabular-nums text-primary">{channel.priceSom === 0 ? 'Bepul' : formatAdvertisingPrice(channel.priceSom)}</span>
                   </span>
                   <span aria-hidden className={cn('grid h-6 w-6 shrink-0 place-items-center rounded-md border', picked ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/50')}>{picked && <Check className="h-4 w-4" />}</span>
                 </button>

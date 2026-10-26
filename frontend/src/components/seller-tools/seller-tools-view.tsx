@@ -197,7 +197,7 @@ export function SellerToolsView({
       {denied && (
         <Link
           href="/plans"
-          className="inline-flex min-h-11 items-center font-semibold text-primary dark:text-secondary"
+          className="inline-flex min-h-11 items-center font-semibold text-primary"
         >
           Pro tarifini ko‘rish
         </Link>

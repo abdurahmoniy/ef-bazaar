@@ -69,14 +69,13 @@ export function TelegramPreview({
 
   return (
     <div
-      className="rounded-xl p-4"
+      className="rounded-xl bg-muted p-4"
       style={{
         backgroundImage: pattern,
-        backgroundColor: '#8ea9c4',
         backgroundSize: '160px 160px',
       }}
     >
-      <div className="max-w-[22rem] overflow-hidden rounded-2xl rounded-tl-md bg-white shadow-md">
+      <div className="max-w-[22rem] overflow-hidden rounded-2xl rounded-tl-md bg-card shadow-md">
         {bannerUrl && (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={bannerUrl} alt="" className="block w-full" />
@@ -85,26 +84,26 @@ export function TelegramPreview({
         <div className="px-3 py-2">
           {html.trim() ? (
             <div
-              className="tg-preview whitespace-pre-wrap break-words text-[13px] leading-snug text-[#0f172a]"
+              className="tg-preview whitespace-pre-wrap break-words text-[13px] leading-snug text-foreground"
               dangerouslySetInnerHTML={{ __html: rendered }}
             />
           ) : (
-            <p className="text-[13px] italic text-slate-400">Matn bo&apos;sh</p>
+            <p className="text-[13px] italic text-muted-foreground">Matn bo&apos;sh</p>
           )}
         </div>
 
         {buttons.length > 0 && (
-          <div className="space-y-px border-t border-slate-200 bg-slate-50">
+          <div className="space-y-px border-t border-border bg-muted">
             {buttons.map((row, rowIndex) => (
               <div
                 key={rowIndex}
-                className="grid gap-px border-t border-slate-200 first:border-t-0"
+                className="grid gap-px border-t border-border first:border-t-0"
                 style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}
               >
                 {row.map((button, colIndex) => (
                   <div
                     key={colIndex}
-                    className="truncate bg-slate-50 px-3 py-2 text-center text-[13px] font-medium text-[#3390ec]"
+                    className="truncate bg-muted px-3 py-2 text-center text-[13px] font-medium text-primary"
                   >
                     {button.text}
                   </div>

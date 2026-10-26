@@ -117,7 +117,7 @@ export function VoicePlayer({ src, seed, mine }: VoicePlayerProps) {
                 i < filledBars
                   ? mine
                     ? 'bg-primary-foreground'
-                    : 'bg-primary'
+                    : 'bg-info'
                   : mine
                     ? 'bg-primary-foreground/40'
                     : 'bg-muted-foreground/40',

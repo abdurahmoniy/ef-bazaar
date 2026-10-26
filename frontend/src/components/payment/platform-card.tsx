@@ -140,7 +140,7 @@ export function PlatformCard({
             <div className="mt-1.5 h-2.5 rounded bg-muted" aria-hidden="true">
               <div
                 className="h-full rounded"
-                style={{ width: `${barPercent}%`, backgroundColor: '#059669' }}
+                style={{ width: `${barPercent}%`, backgroundColor: 'hsl(var(--success))' }}
               />
             </div>
           </div>

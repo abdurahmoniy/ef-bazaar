@@ -171,7 +171,7 @@ export function AdminMusic() {
       </form>
 
       {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-      {notice && <p role="status" className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">{notice}</p>}
+      {notice && <p role="status" className="rounded-lg border border-success-border bg-success-soft p-3 text-sm text-success">{notice}</p>}
 
       <section aria-labelledby="music-list-heading" className="space-y-3">
         <h2 id="music-list-heading" className="text-base font-semibold">Musiqalar ro‘yxati</h2>
@@ -195,7 +195,7 @@ export function AdminMusic() {
                 <div className="min-w-0 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="break-words font-semibold">{track.title}</span>
-                    <span className={track.enabled ? 'rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400' : 'rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'}>{track.enabled ? 'Faol' : 'Nofaol'}</span>
+                    <span className={track.enabled ? 'rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success' : 'rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground'}>{track.enabled ? 'Faol' : 'Nofaol'}</span>
                   </div>
                   <p className="text-sm text-muted-foreground">{track.artist || 'Ijrochi ko‘rsatilmagan'} · Tartib: {track.sortOrder}</p>
                   <a href={musicVideoUrl(track.youtubeVideoId)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">

@@ -17,6 +17,7 @@
     /* Ultra-deep electric blue */
     --primary: 240 100% 30%;
     --primary-foreground: 48 100% 60%;
+    --primary-text: var(--primary);
 
     /* Warm gold — readable against white, not pure #FFFF00 */
     --secondary: 45 95% 52%;
@@ -31,6 +32,7 @@
 
     --destructive: 0 84% 50%;
     --destructive-foreground: 0 0% 100%;
+    --destructive-text: 0 74% 40%;
 
     --border: 240 15% 88%;
     --input: 240 15% 88%;
@@ -44,6 +46,17 @@
     --gold-soft: 47 100% 90%;
     --gold-foreground: 43 100% 24%;
     --gold-border: 45 60% 57%;
+
+    /* Status colors pair readable labels with themed notice surfaces. */
+    --success: 158 64% 26%;
+    --success-soft: 158 45% 95%;
+    --success-border: 158 35% 65%;
+    --warning: 35 90% 28%;
+    --warning-soft: 43 90% 95%;
+    --warning-border: 38 65% 65%;
+    --info: var(--primary-text);
+    --info-soft: 225 80% 96%;
+    --info-border: 225 50% 72%;
 
     --radius: 0.875rem;
 
@@ -64,44 +77,56 @@
   }
 
   .dark {
-    /* Near-black navy — shared blue undertone unifies with primary/capsules */
+    /* Keep browser/Telegram chrome seamless; lift content surfaces above it. */
     --background: 240 28% 4.901960784313726%;
     --foreground: 240 15% 94%;
 
-    --card: 240 45% 8%;
+    --card: 225 22% 14%;
     --card-foreground: 240 15% 94%;
 
-    --popover: 240 45% 8%;
+    --popover: 225 22% 19%;
     --popover-foreground: 240 15% 94%;
 
-    /* Brighter deep-blue for CTAs on dark navy */
+    /* Deep blue/gold fills keep the brand; small text/icons need a lighter blue. */
     --primary: 235 90% 55%;
     --primary-foreground: 45 95% 60%;
+    --primary-text: 225 100% 80%;
 
     /* Warm gold, not neon */
     --secondary: 45 90% 55%;
     --secondary-foreground: 240 60% 12%;
 
-    --muted: 240 30% 12%;
-    --muted-foreground: 240 12% 70%;
+    --muted: 225 20% 23%;
+    --muted-foreground: 225 16% 76%;
 
-    --accent: 240 60% 16%;
+    --accent: 225 32% 24%;
     --accent-foreground: 45 90% 65%;
 
-    --destructive: 0 75% 55%;
+    --destructive: 0 75% 50%;
     --destructive-foreground: 0 0% 100%;
+    --destructive-text: 0 90% 76%;
 
-    --border: 240 35% 18%;
-    --input: 240 35% 18%;
-    --ring: 235 90% 55%;
+    --border: 225 18% 36%;
+    --input: 225 16% 56%;
+    --ring: 225 100% 80%;
 
     --price: 45 90% 60%;
     --price-foreground: 240 60% 12%;
-    --surface-alt: 240 45% 6%;
+    --surface-alt: 225 22% 10%;
     --gold: 48 100% 60%;
     --gold-soft: 49 46% 12%;
     --gold-foreground: 48 100% 60%;
     --gold-border: 46 56% 27%;
+
+    --success: 158 64% 68%;
+    --success-soft: 158 30% 16%;
+    --success-border: 158 35% 38%;
+    --warning: 43 95% 72%;
+    --warning-soft: 38 35% 17%;
+    --warning-border: 38 40% 40%;
+    --info: var(--primary-text);
+    --info-soft: 225 32% 22%;
+    --info-border: 225 40% 48%;
 
     --app-header-color: #090910;
     --app-background-color: #090910;
@@ -144,12 +169,11 @@
     @apply bg-primary/20 text-foreground;
   }
 
-  /* Consistent form control focus rings */
-  input:focus-visible,
-  textarea:focus-visible,
-  select:focus-visible,
-  button:focus-visible {
-    outline: none;
+  /* Bare controls and links need focus too; shared UI controls supply a ring. */
+  :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible,
+  label:has(input:focus-visible) {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 3px;
   }
 
   /* Prevent iOS Safari auto-zoom on input focus by guaranteeing 16px minimum font size on mobile */
@@ -541,7 +565,7 @@
 
 .tg-editor a,
 .tg-preview a {
-  color: hsl(var(--primary));
+  color: hsl(var(--primary-text));
   text-decoration: underline;
 }
 

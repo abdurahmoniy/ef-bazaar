@@ -17,8 +17,8 @@ describe('locked mailbox', () => {
     expect(upgradeUrl()).toBe(`${MAIN_SITE_URL}/plans`);
   });
 
-  it('sends the swap to the profile mailbox section', () => {
-    expect(swapUrl('abc')).toBe(`${MAIN_SITE_URL}/profile?mailbox=abc#mailboxes`);
+  it('keeps access selection inside webmail', () => {
+    expect(swapUrl('abc')).toBe('/settings/mailboxes?mailbox=abc');
   });
 
   it('blurs placeholder rows, never real mail', () => {
@@ -32,7 +32,7 @@ describe('locked mailbox', () => {
     expect(html).toContain(`href="${MAIN_SITE_URL}/plans"`);
     expect(html).toContain('Tarifni oshirish');
     expect(html).toContain('Boshqa qutini qulflab, shuni ochish');
-    expect(html).toContain('mailbox=abc#mailboxes');
+    expect(html).toContain('/settings/mailboxes?mailbox=abc');
   });
 
   it('shows a lock instead of an unread badge in the sidebar', () => {
@@ -49,7 +49,7 @@ describe('locked mailbox', () => {
    const html = renderToStaticMarkup(createElement(LockedMailbox, { mailbox: locked, plan }));
    expect(html).not.toContain(`href="${MAIN_SITE_URL}/plans"`);
    expect(html).not.toContain('Tarifni oshirish');
-   expect(html).toContain('mailbox=abc#mailboxes');
+   expect(html).toContain('/settings/mailboxes?mailbox=abc');
    expect(html).toContain('Boshqa qutini qulflab, shuni ochish');
    expect(html).toContain('umumiy o‘qish limitidan tashqarida');
  });

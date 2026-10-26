@@ -16,6 +16,11 @@ const config: Config = {
       },
     },
     extend: {
+      // Text and icons need a lighter blue/red than solid button fills in dark mode.
+      textColor: {
+        primary: { DEFAULT: 'hsl(var(--primary-text))' },
+        destructive: { DEFAULT: 'hsl(var(--destructive-text))' },
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -33,6 +38,25 @@ const config: Config = {
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
+        },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          soft: 'hsl(var(--success-soft))',
+          border: 'hsl(var(--success-border))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          soft: 'hsl(var(--warning-soft))',
+          border: 'hsl(var(--warning-border))',
+        },
+        info: {
+          DEFAULT: 'hsl(var(--info))',
+          soft: 'hsl(var(--info-soft))',
+          border: 'hsl(var(--info-border))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
         },
         muted: {
           DEFAULT: 'hsl(var(--muted))',

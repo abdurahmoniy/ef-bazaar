@@ -33,7 +33,7 @@ export default async function BlacklistPage({ searchParams }: BlacklistPageProps
     <MarketplaceShell user={viewer} activeTab="safety" hideSearch backHref="/marketplace">
       <div className="mx-auto max-w-2xl px-4 py-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
             <ShieldAlert className="h-5 w-5" />
           </div>
           <div>
@@ -60,7 +60,7 @@ export default async function BlacklistPage({ searchParams }: BlacklistPageProps
             return (
               <div
                 key={`${entry.userId}-${entry.since}`}
-                className="rounded-xl border border-red-200/70 bg-card p-4 shadow-card"
+                className="rounded-xl border border-destructive/30 bg-card p-4 shadow-card"
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="truncate text-sm font-bold text-foreground">

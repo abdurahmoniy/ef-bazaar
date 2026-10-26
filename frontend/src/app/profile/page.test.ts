@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   getApplication: vi.fn(),
   getWallet: vi.fn(),
   getDisplay: vi.fn(),
+  getMailboxes: vi.fn(),
   redirect: vi.fn((url: string) => { throw new Error(`redirect:${url}`); }),
 }));
 const features = vi.hoisted(() => ({ wallet: true }));
@@ -23,7 +24,7 @@ vi.mock('@/lib/trade-admin-applications-server', () => ({ getMyTradeAdminApplica
 vi.mock('@/lib/plans-server', () => ({ getMyPlanSSR: vi.fn().mockResolvedValue(null), getPlanCatalogSSR: vi.fn().mockResolvedValue([]) }));
 vi.mock('@/lib/payment-server', () => ({ getWallet: mocks.getWallet }));
 vi.mock('@/lib/account-display-server', () => ({ getAccountDisplayData: mocks.getDisplay }));
-vi.mock('@/lib/custom-mailbox-server', () => ({ getMyMailboxesSSR: vi.fn().mockResolvedValue(null) }));
+vi.mock('@/lib/custom-mailbox-server', () => ({ getMyMailboxesSSR: mocks.getMailboxes }));
 vi.mock('next/navigation', () => ({ redirect: mocks.redirect }));
 vi.mock('@/components/marketplace/marketplace-shell', () => ({ MarketplaceShell: () => null }));
 vi.mock('@/components/profile/profile-account', () => ({ ProfileAccount: () => null }));
@@ -37,6 +38,11 @@ import ProfilePage from './page';
 import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
 import { ProfileAccount } from '@/components/profile/profile-account';
 import { ProfileAccounts } from '@/components/profile/profile-accounts';
+import { MailboxSlotsWarning } from '@/components/profile/mailbox-slots-warning';
+import { MailboxResources } from '@/components/profile/mailbox-resources';
+import { FreeCustomMailboxBanner } from '@/components/profile/free-custom-mailbox-banner';
+import { PlanNotices } from '@/components/profile/plan-notices';
+import { siteConfig } from '@/lib/site';
 
 function propsOf<P extends object>(node: ReactNode, component: ComponentType<P>): P | undefined {
   for (const child of Children.toArray(node)) {
@@ -64,6 +70,7 @@ beforeEach(() => {
   mocks.getApplication.mockResolvedValue(null);
   mocks.getWallet.mockResolvedValue({ availableTiyin: 0 });
   mocks.getDisplay.mockResolvedValue(display);
+  mocks.getMailboxes.mockResolvedValue([{ id: 'custom-1', email: 'free@efbazaar.uz', kind: 'CUSTOM' }]);
 });
 
 it.each(['accounts', 'listings'])('selects Accounts and supplies display data for the %s tab', async (tab) => {
@@ -110,4 +117,36 @@ it('does not fetch wallet data when the wallet feature is disabled', async () =>
 it('counts only the accounts the owner still has, not the sold history', async () => {
   mocks.getAccounts.mockResolvedValue([...accounts, { id: 'sold', title: 'Eski', onMarket: false, status: 'ARCHIVED' }]);
   expect(propsOf(await open(), ProfileAccount)?.listingsCount).toBe(1);
+});
+
+
+it.each(['accounts', 'trades', 'favorites', 'kartalar', 'account'])('has no detailed mailbox panels on the %s tab', async (tab) => {
+  const page = await open(tab);
+  expect(propsOf(page, MailboxSlotsWarning)).toBeUndefined();
+  expect(propsOf(page, MailboxResources)).toBeUndefined();
+  expect(propsOf(page, FreeCustomMailboxBanner)).toBeUndefined();
+  expect(mocks.getMailboxes).not.toHaveBeenCalled();
+});
+
+it('retains plan notices and the viewer identity boundary around the profile', async () => {
+  const page = await open();
+  expect(propsOf(page, PlanNotices)).toBeDefined();
+  expect(page.props.children.key).toBe(user.id);
+});
+
+it('redirects a legacy mailbox selection to configured webmail management after authentication', async () => {
+  const mailbox = 'box/id &other=1';
+  await expect(ProfilePage({ searchParams: Promise.resolve({ mailbox }) })).rejects.toThrow('redirect:');
+  expect(mocks.redirect).toHaveBeenCalledExactlyOnceWith(`${siteConfig.mailUrl}/settings/mailboxes?mailbox=${encodeURIComponent(mailbox)}`);
+  expect(mocks.getAccounts).not.toHaveBeenCalled();
+});
+
+it('preserves a legacy mailbox selection through login without bypassing authentication', async () => {
+  mocks.getMe.mockResolvedValue(null);
+  const mailbox = 'box/id &other=1';
+  await expect(ProfilePage({ searchParams: Promise.resolve({ mailbox }) })).rejects.toThrow('redirect:');
+  const target = new URL(mocks.redirect.mock.calls[0][0], 'https://efbazaar.uz');
+  expect(target.pathname).toBe('/auth/login');
+  expect(target.searchParams.get('from')).toBe(`/profile?mailbox=${encodeURIComponent(mailbox)}`);
+  expect(mocks.getAccounts).not.toHaveBeenCalled();
 });

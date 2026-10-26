@@ -21,8 +21,8 @@ export const E_MARK = {
   hole: { cx: 50, cy: 50, r: 23.5 },
   /** middle band cleared from the disc: both gaps plus the bar zone */
   band: { y: 34.8, height: 30.4 },
-  /** crossbar: flat left end, right end rounded along the disc edge */
-  barPath: 'M14.4 42.4 L87.2 42.4 A38 38 0 0 1 87.2 57.6 L14.4 57.6 Z',
+  /** Flat left end meets the disc's x=12 edge; the right end follows its curve. */
+  barPath: 'M12 42.4 L87.2 42.4 A38 38 0 0 1 87.2 57.6 L12 57.6 Z',
 } as const;
 
 export interface EMarkSvgOptions {

@@ -61,7 +61,7 @@ export function TradeProposalMessageCard({ message, viewerId, lastReadAt = null 
             </div>
           </div>
           {outcome === 'ACCEPTED' ? (
-            <Badge variant="outline" className="gap-1 border-emerald-500/30 text-[11px] text-emerald-600 dark:text-emerald-400">
+            <Badge variant="outline" className="gap-1 border-success-border text-[11px] text-success">
               <CheckCircle2 className="h-3 w-3" />Qabul qilingan
             </Badge>
           ) : outcome === 'REJECTED' ? (

@@ -430,8 +430,8 @@ export function AdminShell({ user, children }: AdminShellProps) {
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-xs font-bold leading-tight">{user.displayName || 'Admin'}</div>
-              <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-semibold mt-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="flex items-center gap-1 text-[10px] text-success font-semibold mt-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                 Super Admin
               </div>
             </div>
@@ -486,8 +486,8 @@ export function AdminShell({ user, children }: AdminShellProps) {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs font-bold leading-tight">{user.displayName || 'Admin'}</div>
-                    <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-semibold mt-0.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <div className="flex items-center gap-1 text-[10px] text-success font-semibold mt-0.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                       Administrator
                     </div>
                   </div>
@@ -562,8 +562,8 @@ export function AdminShell({ user, children }: AdminShellProps) {
             {/* Top Right Utilities */}
             <div className="flex items-center gap-2.5">
               {/* Live Status Badge */}
-              <div className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-success-border bg-success-soft px-2.5 py-1 text-[11px] font-semibold text-success">
+                <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
                 Tizim faol
               </div>
 

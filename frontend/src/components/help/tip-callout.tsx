@@ -50,28 +50,28 @@ const VARIANT_CONFIG: Record<
   info: {
     icon: Info,
     containerClass:
-      'border-blue-500/20 bg-blue-500/5 text-foreground dark:border-blue-500/30 dark:bg-blue-500/10',
-    iconBgClass: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-    iconColorClass: 'text-blue-600 dark:text-blue-400',
-    badgeClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
+      'border-info-border bg-info-soft text-foreground',
+    iconBgClass: 'bg-info-soft text-info',
+    iconColorClass: 'text-info',
+    badgeClass: 'bg-info-soft text-info',
     badgeText: 'Ma‘lumot',
   },
   security: {
     icon: ShieldCheck,
     containerClass:
-      'border-emerald-500/25 bg-emerald-500/5 text-foreground dark:border-emerald-500/30 dark:bg-emerald-500/10',
-    iconBgClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-    iconColorClass: 'text-emerald-600 dark:text-emerald-400',
-    badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+      'border-success-border bg-success-soft text-foreground',
+    iconBgClass: 'bg-success-soft text-success',
+    iconColorClass: 'text-success',
+    badgeClass: 'bg-success-soft text-success',
     badgeText: 'Xavfsizlik',
   },
   warning: {
     icon: AlertTriangle,
     containerClass:
-      'border-amber-500/25 bg-amber-500/5 text-foreground dark:border-amber-500/30 dark:bg-amber-500/10',
-    iconBgClass: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-    iconColorClass: 'text-amber-600 dark:text-amber-400',
-    badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+      'border-warning-border bg-warning-soft text-foreground',
+    iconBgClass: 'bg-warning-soft text-warning',
+    iconColorClass: 'text-warning',
+    badgeClass: 'bg-warning-soft text-warning',
     badgeText: 'Diqqat',
   },
   guide: {

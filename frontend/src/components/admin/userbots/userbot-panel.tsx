@@ -144,7 +144,7 @@ function Stat({ label, value, warn = false }: { label: string; value: number; wa
   return (
     <div className="rounded-2xl border border-border bg-card p-5 text-card-foreground">
       <p className="text-sm text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-3xl font-black ${warn ? 'text-amber-800 dark:text-amber-300' : ''}`}>{value}</p>
+      <p className={`mt-1 text-3xl font-black ${warn ? 'text-warning' : ''}`}>{value}</p>
     </div>
   );
 }

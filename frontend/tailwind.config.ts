@@ -18,6 +18,12 @@ const config: Config = {
       },
     },
     extend: {
+      // Text/icons need more luminance than button fills on dark surfaces.
+      // Keep bg-primary and text-primary-foreground paired with the brand CTA.
+      textColor: {
+        primary: { DEFAULT: 'hsl(var(--primary-text))' },
+        destructive: { DEFAULT: 'hsl(var(--destructive-text))' },
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -35,6 +41,21 @@ const config: Config = {
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
+        },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          soft: 'hsl(var(--success-soft))',
+          border: 'hsl(var(--success-border))',
+        },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          soft: 'hsl(var(--warning-soft))',
+          border: 'hsl(var(--warning-border))',
+        },
+        info: {
+          DEFAULT: 'hsl(var(--info))',
+          soft: 'hsl(var(--info-soft))',
+          border: 'hsl(var(--info-border))',
         },
         muted: {
           DEFAULT: 'hsl(var(--muted))',

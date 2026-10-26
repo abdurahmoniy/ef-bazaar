@@ -3,6 +3,7 @@ import { Link2Off, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { showUpgrade } from '@/lib/mailbox-lock';
+import { siteConfig } from '@/lib/site';
 
 /**
  * Tarifni oshirishga chaqiruv. Pro, arxiv MAX va STAFF tariflarida oshirish yo'q:
@@ -27,7 +28,7 @@ export function UpgradeCta({
         {upgrade ? (
           <Link href="/plans"><Sparkles className="mr-1.5 h-4 w-4" aria-hidden />Tarifni oshirish</Link>
         ) : (
-          <Link href="/profile#mailboxes"><Link2Off className="mr-1.5 h-4 w-4" aria-hidden />Qutilarni boshqarish</Link>
+          <Link href={`${siteConfig.mailUrl}/settings/mailboxes`}><Link2Off className="mr-1.5 h-4 w-4" aria-hidden />Qutilarni boshqarish</Link>
         )}
       </Button>
     </div>

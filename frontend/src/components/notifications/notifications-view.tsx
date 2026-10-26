@@ -93,8 +93,8 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
       case 'CHAT_CREATED':
         return {
           action: "E'loningiz bo'yicha yangi chat ochildi",
-          icon: <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />,
-          bg: 'bg-emerald-500/10 dark:bg-emerald-400/10',
+          icon: <Sparkles className="h-5 w-5 text-success" />,
+          bg: 'bg-success-soft',
         };
       case 'TRADE_EMAIL_CHANGE_CODE':
       case 'TRADE_LOGIN_CODE':
@@ -102,20 +102,20 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
       case 'TRADE_ADMIN_INVITED':
         return {
           action: 'Xavfsiz bitim moderatsiyasiga taklif',
-          icon: <ShieldCheck className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
-          bg: 'bg-amber-500/10 dark:bg-amber-400/10',
+          icon: <ShieldCheck className="h-5 w-5 text-warning" />,
+          bg: 'bg-warning-soft',
         };
       case 'TRADE_MAILBOX_RECEIVED':
         return {
           action: 'Qo\u2018lga kiritilgan akkount emaili sizniki',
-          icon: <Mail className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />,
-          bg: 'bg-emerald-500/10 dark:bg-emerald-400/10',
+          icon: <Mail className="h-5 w-5 text-success" />,
+          bg: 'bg-success-soft',
         };
       case 'TRADE_MAILBOX_RETURNED':
         return {
           action: 'Savdo yakunlanmadi \u2014 email sizga biriktirildi',
-          icon: <Mail className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
-          bg: 'bg-amber-500/10 dark:bg-amber-400/10',
+          icon: <Mail className="h-5 w-5 text-warning" />,
+          bg: 'bg-warning-soft',
         };
       case 'CUSTOM_MAILBOX_FREED':
         return {
@@ -127,8 +127,8 @@ export function NotificationsView({ initialItems }: NotificationsViewProps) {
       default:
         return {
           action: 'Sizga yangi xabar yubordi',
-          icon: <MessageCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />,
-          bg: 'bg-blue-500/10 dark:bg-blue-400/10',
+          icon: <MessageCircle className="h-5 w-5 text-info" />,
+          bg: 'bg-info-soft',
         };
     }
   };

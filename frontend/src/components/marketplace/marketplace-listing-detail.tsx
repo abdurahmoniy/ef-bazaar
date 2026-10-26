@@ -167,7 +167,7 @@ export function MarketplaceListingDetail({
       </div>
 
       {linkedStores && (
-        <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
+        <p className="mt-4 flex items-start gap-2 rounded-lg border border-warning-border bg-warning-soft p-3 text-xs leading-5 text-warning">
           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
             Bu akkount {linkedStores} bilan ulangan. Bu ulanishni uzib
@@ -178,7 +178,7 @@ export function MarketplaceListingDetail({
       )}
 
       {transferLimitTight && (
-        <p className="mt-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200">
+        <p className="mt-4 flex items-start gap-2 rounded-lg border border-warning-border bg-warning-soft p-3 text-xs leading-5 text-warning">
           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
             Bu akkountda shu oy uchun {deviceTransferLimit} ta qurilma

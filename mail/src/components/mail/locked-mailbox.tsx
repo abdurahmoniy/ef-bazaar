@@ -20,7 +20,7 @@ export function upgradeUrl(): string {
 }
 
 export function swapUrl(mailboxId: string): string {
-  return `${MAIN_SITE_URL}/profile?mailbox=${encodeURIComponent(mailboxId)}#mailboxes`;
+  return `/settings/mailboxes?mailbox=${encodeURIComponent(mailboxId)}`;
 }
 
 export function LockedMailbox({ mailbox, plan }: { mailbox: MailboxSummary; plan?: string | null }) {

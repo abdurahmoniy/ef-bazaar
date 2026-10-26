@@ -7,16 +7,14 @@ import type {
 /**
  * The two data colours of this dashboard, and the only two it has.
  *
- * Checked with the dataviz validator against both the light and the dark
- * surface: normal-vision ΔE 21.2, deuteranopia 16.3. They are never the sole
- * carrier of meaning — every segment is labelled — but they hold up if someone
- * reads the bar before the label.
+ * Theme-aware colors keep both bars and small financial labels readable.
+ * Every segment also has a label: color is never the sole carrier of meaning.
  */
 export const MONEY_COLORS = {
   /** The platform's own share. */
-  own: '#059669',
+  own: 'hsl(var(--success))',
   /** What is owed to users. */
-  users: '#6C7FD4',
+  users: 'hsl(var(--primary-text))',
 } as const;
 
 /**

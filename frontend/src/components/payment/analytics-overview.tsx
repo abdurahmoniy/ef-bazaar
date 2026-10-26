@@ -4,6 +4,7 @@ import { formatListingDate } from '@/lib/marketplace-format';
 import { formatTiyin } from '@/lib/money';
 import {
   ledgerDrift,
+  MONEY_COLORS,
   moneySplit,
   profitRows,
   referralPer100,
@@ -37,9 +38,8 @@ function Tile({ label, value, hint }: { label: string; value: number; hint: stri
  * The identity panel: whose money is on the cards, and do the cards actually
  * hold it.
  *
- * The bar is labelled on both sides — the two colours are validated for
- * colour-vision deficiency but are never the only thing saying which slice is
- * which.
+ * The theme-aware bar is labelled on both sides, so color is never the only
+ * thing saying which slice is which.
  */
 function WhoseMoney({ data }: { data: PaymentAnalyticsOverview }) {
   const slices = moneySplit(data);
@@ -180,7 +180,7 @@ function Profit({ data }: { data: PaymentAnalyticsOverview }) {
                     className="h-2.5 w-2.5 shrink-0 rounded-sm"
                     style={{
                       backgroundColor:
-                        row.direction === 'in' ? '#059669' : '#6C7FD4',
+                        row.direction === 'in' ? MONEY_COLORS.own : MONEY_COLORS.users,
                     }}
                     aria-hidden="true"
                   />
@@ -195,7 +195,7 @@ function Profit({ data }: { data: PaymentAnalyticsOverview }) {
                 className="mt-1.5 h-3 rounded"
                 style={{
                   width: `${row.percent}%`,
-                  backgroundColor: row.direction === 'in' ? '#059669' : '#6C7FD4',
+                  backgroundColor: row.direction === 'in' ? MONEY_COLORS.own : MONEY_COLORS.users,
                 }}
                 aria-hidden="true"
               />

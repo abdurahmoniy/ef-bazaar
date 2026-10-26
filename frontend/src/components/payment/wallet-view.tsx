@@ -73,52 +73,52 @@ const ICON_CLASS = 'h-4.5 w-4.5';
  */
 const KIND_ICONS: Partial<Record<TransactionKind, TxIcon>> = {
   DEPOSIT: {
-    icon: <ArrowDownLeft className={cn(ICON_CLASS, 'text-emerald-600 dark:text-emerald-400')} />,
-    bg: 'bg-emerald-500/10 dark:bg-emerald-400/10',
+    icon: <ArrowDownLeft className={cn(ICON_CLASS, 'text-success')} />,
+    bg: 'bg-success-soft',
   },
   TRADE_HOLD: {
-    icon: <Lock className={cn(ICON_CLASS, 'text-amber-600 dark:text-amber-400')} />,
-    bg: 'bg-amber-500/10 dark:bg-amber-400/10',
+    icon: <Lock className={cn(ICON_CLASS, 'text-warning')} />,
+    bg: 'bg-warning-soft',
   },
   TRADE_RELEASE: {
-    icon: <RotateCcw className={cn(ICON_CLASS, 'text-blue-600 dark:text-blue-400')} />,
-    bg: 'bg-blue-500/10 dark:bg-blue-400/10',
+    icon: <RotateCcw className={cn(ICON_CLASS, 'text-info')} />,
+    bg: 'bg-info-soft',
   },
   WITHDRAW_RESERVE: {
-    icon: <ArrowUpRight className={cn(ICON_CLASS, 'text-violet-600 dark:text-violet-400')} />,
-    bg: 'bg-violet-500/10 dark:bg-violet-400/10',
+    icon: <ArrowUpRight className={cn(ICON_CLASS, 'text-info')} />,
+    bg: 'bg-info-soft',
   },
   WITHDRAW_FULFIL: {
-    icon: <ArrowUpRight className={cn(ICON_CLASS, 'text-violet-600 dark:text-violet-400')} />,
-    bg: 'bg-violet-500/10 dark:bg-violet-400/10',
+    icon: <ArrowUpRight className={cn(ICON_CLASS, 'text-info')} />,
+    bg: 'bg-info-soft',
   },
   WITHDRAW_CANCEL: {
-    icon: <XCircle className={cn(ICON_CLASS, 'text-rose-600 dark:text-rose-400')} />,
-    bg: 'bg-rose-500/10 dark:bg-rose-400/10',
+    icon: <XCircle className={cn(ICON_CLASS, 'text-destructive')} />,
+    bg: 'bg-destructive/10',
   },
   REFERRAL_REWARD: {
-    icon: <Gift className={cn(ICON_CLASS, 'text-fuchsia-600 dark:text-fuchsia-400')} />,
-    bg: 'bg-fuchsia-500/10 dark:bg-fuchsia-400/10',
+    icon: <Gift className={cn(ICON_CLASS, 'text-info')} />,
+    bg: 'bg-info-soft',
   },
   PARTNER_FEE: {
-    icon: <Handshake className={cn(ICON_CLASS, 'text-sky-600 dark:text-sky-400')} />,
-    bg: 'bg-sky-500/10 dark:bg-sky-400/10',
+    icon: <Handshake className={cn(ICON_CLASS, 'text-info')} />,
+    bg: 'bg-info-soft',
   },
   PARTNER_TRADE_SHARE: {
-    icon: <Handshake className={cn(ICON_CLASS, 'text-sky-600 dark:text-sky-400')} />,
-    bg: 'bg-sky-500/10 dark:bg-sky-400/10',
+    icon: <Handshake className={cn(ICON_CLASS, 'text-info')} />,
+    bg: 'bg-info-soft',
   },
   PARTNER_MONTHLY: {
-    icon: <Handshake className={cn(ICON_CLASS, 'text-sky-600 dark:text-sky-400')} />,
-    bg: 'bg-sky-500/10 dark:bg-sky-400/10',
+    icon: <Handshake className={cn(ICON_CLASS, 'text-info')} />,
+    bg: 'bg-info-soft',
   },
   PARTNER_POST_HOLD: {
-    icon: <Lock className={cn(ICON_CLASS, 'text-amber-600 dark:text-amber-400')} />,
-    bg: 'bg-amber-500/10 dark:bg-amber-400/10',
+    icon: <Lock className={cn(ICON_CLASS, 'text-warning')} />,
+    bg: 'bg-warning-soft',
   },
   PARTNER_POST_REFUND: {
-    icon: <RotateCcw className={cn(ICON_CLASS, 'text-blue-600 dark:text-blue-400')} />,
-    bg: 'bg-blue-500/10 dark:bg-blue-400/10',
+    icon: <RotateCcw className={cn(ICON_CLASS, 'text-info')} />,
+    bg: 'bg-info-soft',
   },
   PLAN_PURCHASE: {
     icon: <Sparkles className={cn(ICON_CLASS, 'text-secondary-foreground dark:text-secondary')} />,
@@ -135,19 +135,19 @@ function getTransactionIcon(kind: TransactionKind, incoming: boolean): TxIcon {
   if (kind === 'PARTNER_POST_SETTLE') {
     return incoming
       ? {
-          icon: <Handshake className={cn(ICON_CLASS, 'text-sky-600 dark:text-sky-400')} />,
-          bg: 'bg-sky-500/10 dark:bg-sky-400/10',
+          icon: <Handshake className={cn(ICON_CLASS, 'text-info')} />,
+          bg: 'bg-info-soft',
         }
       : {
-          icon: <Megaphone className={cn(ICON_CLASS, 'text-indigo-600 dark:text-indigo-400')} />,
-          bg: 'bg-indigo-500/10 dark:bg-indigo-400/10',
+          icon: <Megaphone className={cn(ICON_CLASS, 'text-info')} />,
+          bg: 'bg-info-soft',
         };
   }
   if (kind === 'TRADE_SETTLE') {
     return incoming
       ? {
-          icon: <CheckCircle2 className={cn(ICON_CLASS, 'text-emerald-600 dark:text-emerald-400')} />,
-          bg: 'bg-emerald-500/10 dark:bg-emerald-400/10',
+          icon: <CheckCircle2 className={cn(ICON_CLASS, 'text-success')} />,
+          bg: 'bg-success-soft',
         }
       : {
           icon: <ArrowUpRight className={cn(ICON_CLASS, 'text-muted-foreground')} />,
@@ -159,11 +159,11 @@ function getTransactionIcon(kind: TransactionKind, incoming: boolean): TxIcon {
 
   return {
     icon: incoming ? (
-      <ArrowDownLeft className={cn(ICON_CLASS, 'text-emerald-600 dark:text-emerald-400')} />
+      <ArrowDownLeft className={cn(ICON_CLASS, 'text-success')} />
     ) : (
       <ArrowLeftRight className={cn(ICON_CLASS, 'text-muted-foreground')} />
     ),
-    bg: incoming ? 'bg-emerald-500/10 dark:bg-emerald-400/10' : 'bg-muted',
+    bg: incoming ? 'bg-success-soft' : 'bg-muted',
   };
 }
 
@@ -260,8 +260,8 @@ export function WalletView({
             <WalletIcon className="h-3.5 w-3.5 text-primary" />
             Mavjud balans
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium text-success">
+            <span className="h-1.5 w-1.5 rounded-full bg-success" />
             Hamyon
           </span>
         </div>
@@ -283,23 +283,23 @@ export function WalletView({
         {(wallet.heldTiyin > 0 || wallet.withdrawPendingTiyin > 0) && (
           <div className="mt-4 space-y-2 border-t border-border/60 pt-3.5">
             {wallet.heldTiyin > 0 && (
-              <div className="flex items-center justify-between rounded-xl bg-amber-500/10 px-3.5 py-2.5 text-xs">
-                <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
-                  <Snowflake className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div className="flex items-center justify-between rounded-xl bg-warning-soft px-3.5 py-2.5 text-xs">
+                <div className="flex items-center gap-2 text-warning">
+                  <Snowflake className="h-4 w-4 shrink-0 text-warning" />
                   <span>Savdoda muzlatilgan — savdo yakunlangach ochiladi</span>
                 </div>
-                <span className="font-bold tabular-nums text-amber-900 dark:text-amber-200">
+                <span className="font-bold tabular-nums text-warning">
                   {formatTiyin(wallet.heldTiyin)} so‘m
                 </span>
               </div>
             )}
             {wallet.withdrawPendingTiyin > 0 && (
-              <div className="flex items-center justify-between rounded-xl bg-blue-500/10 px-3.5 py-2.5 text-xs">
-                <div className="flex items-center gap-2 text-blue-900 dark:text-blue-200">
-                  <ArrowUpRight className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+              <div className="flex items-center justify-between rounded-xl bg-info-soft px-3.5 py-2.5 text-xs">
+                <div className="flex items-center gap-2 text-info">
+                  <ArrowUpRight className="h-4 w-4 shrink-0 text-info" />
                   <span>Yechish jarayonida</span>
                 </div>
-                <span className="font-bold tabular-nums text-blue-900 dark:text-blue-200">
+                <span className="font-bold tabular-nums text-info">
                   {formatTiyin(wallet.withdrawPendingTiyin)} so‘m
                 </span>
               </div>
@@ -375,10 +375,10 @@ export function WalletView({
             {creditedTiyin !== null && (
               <section
                 role="status"
-                className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 shadow-xs sm:p-6"
+                className="rounded-2xl border border-success-border bg-success-soft p-5 shadow-xs sm:p-6"
               >
                 <div className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" />
                   <div>
                     <h2 className="text-base font-bold text-foreground">
                       To&lsquo;lov qabul qilindi
@@ -446,7 +446,7 @@ export function WalletView({
                   className={cn(
                     'rounded-lg px-2.5 py-1 font-semibold transition active:scale-95',
                     filter === 'in'
-                      ? 'bg-card text-emerald-600 dark:text-emerald-400 shadow-2xs'
+                      ? 'bg-card text-success shadow-2xs'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -525,7 +525,7 @@ export function WalletView({
                     <span
                       className={cn(
                         'flex shrink-0 items-center gap-1 text-sm font-bold tabular-nums',
-                        row.movement === 'in' && 'text-emerald-600 dark:text-emerald-400',
+                        row.movement === 'in' && 'text-success',
                         row.movement === 'out' && 'text-foreground',
                         // Muted and signless: the owner still has this money, it
                         // just moved between their own piles.
@@ -546,7 +546,7 @@ export function WalletView({
       )}
 
         <GrowthLink href="/invite" event="invite_open" placement="wallet"
-          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-primary dark:text-secondary transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-primary transition hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Gift aria-hidden className="h-4 w-4" /> Do‘st taklif qilish va mukofotlar
         </GrowthLink>
 

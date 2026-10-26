@@ -41,7 +41,7 @@ export function GoogleLinkButton({
 		return (
 			<div className='flex flex-col items-start gap-3 rounded-xl sm:flex-row sm:items-center sm:justify-between border border-border/80 bg-muted/30 px-4 py-3 min-w-0'>
 				<div className='flex items-center gap-2.5 min-w-0 w-full flex-1'>
-					<div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+					<div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-success-soft text-success">
 						<Check className='h-4 w-4' />
 					</div>
 					<div className='min-w-0 w-full flex-1'>
@@ -51,7 +51,7 @@ export function GoogleLinkButton({
 						)}
 					</div>
 				</div>
-				<span className='inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 shrink-0'>
+				<span className='inline-flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-1 text-xs font-semibold text-success border border-success-border shrink-0'>
 					<Check className="h-3 w-3" />
 					Tasdiqlangan
 				</span>

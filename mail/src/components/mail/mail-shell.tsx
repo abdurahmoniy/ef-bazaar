@@ -44,9 +44,8 @@ export function MailShell({ mailboxes, activeMailboxId, slots, children }: MailS
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* Translucent so the capsule backdrop reads through, matching the
-            marketplace shell. The reading pane stays opaque — arbitrary email
-            markup must never sit on a tinted surface. */}
+        {/* The sidebar uses the shared secondary surface; email content sits
+            on the opaque card surface for predictable contrast. */}
         <aside className="hidden w-72 shrink-0 border-r border-border bg-surface-alt/80 backdrop-blur lg:flex lg:flex-col xl:w-80">
           <MailSidebar mailboxes={mailboxes} activeMailboxId={activeMailboxId} slots={slots} />
         </aside>

@@ -10,8 +10,7 @@
 .billingNote { display: block; margin-top: 10px; color: hsl(var(--muted-foreground)); font-size: 11px; }
 .pass { flex-shrink: 0; width: 245px; }
 .shortcuts { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 16px; }
-.shortcuts a, .textLink { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; color: hsl(var(--primary)); }
-:global(.dark) :is(.shortcuts a,.textLink) { color: hsl(var(--secondary)); }
+.shortcuts a, .textLink { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; color: hsl(var(--primary-text)); }
 .shortcuts a:hover, .textLink:hover { text-decoration: underline; text-underline-offset: 4px; }
 .membership :is(a,button):focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
 @media(max-width: 767px) { .membership { padding: 20px; gap: 20px; }.pass { width: 210px; } }

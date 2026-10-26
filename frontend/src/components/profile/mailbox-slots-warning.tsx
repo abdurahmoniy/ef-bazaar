@@ -141,9 +141,9 @@ export function MailboxSlotsWarning() {
     : warning ?? slotUsageSummary(status);
 
   return (
-    <section id="mailboxes" className="scroll-mt-20 space-y-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+    <section id="mailboxes" className="scroll-mt-20 space-y-3 rounded-xl border border-warning-border bg-warning-soft p-4">
       <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
         <div className="space-y-1">
           <h2 className="text-sm font-semibold">
             {title}
@@ -168,7 +168,7 @@ export function MailboxSlotsWarning() {
               className={
                 i < limit
                   ? i < Math.min(status.totalUsed, limit) ? 'h-2 flex-1 rounded-full bg-primary' : 'h-2 flex-1 rounded-full bg-muted-foreground/30'
-                  : 'h-2 flex-1 rounded-full bg-amber-500/70'
+                  : 'h-2 flex-1 rounded-full bg-warning-soft'
               }
             />
           ))}

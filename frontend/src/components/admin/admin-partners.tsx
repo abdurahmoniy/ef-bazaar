@@ -38,9 +38,9 @@ type TabId = 'applications' | 'settings' | 'analytics';
 
 const STATUS_LABEL: Record<PartnerApplicationStatus, { label: string; className: string }> = {
   AWAITING_CHANNEL: { label: 'Kanal kutilmoqda', className: 'bg-muted text-muted-foreground' },
-  AWAITING_PAYMENT: { label: "To'lov kutilmoqda", className: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+  AWAITING_PAYMENT: { label: "To'lov kutilmoqda", className: 'bg-warning-soft text-warning' },
   AWAITING_REVIEW: { label: 'Ko‘rikda', className: 'bg-primary/15 text-primary' },
-  APPROVED: { label: 'Tasdiqlangan', className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
+  APPROVED: { label: 'Tasdiqlangan', className: 'bg-success-soft text-success' },
   REJECTED: { label: 'Rad etilgan', className: 'bg-destructive/15 text-destructive' },
   CANCELLED: { label: 'Bekor qilingan', className: 'bg-muted text-muted-foreground' },
 };
@@ -180,7 +180,7 @@ function Applications() {
                 {a.subscriberCount == null ? '—' : `${a.subscriberCount} obunachi`}
               </p>
               {a.paidAt && (
-                <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                <p className="flex items-center gap-1.5 text-xs text-success">
                   <CreditCard className="h-3.5 w-3.5" />
                   To&apos;landi · {formatDate(a.paidAt)}
                 </p>
@@ -332,7 +332,7 @@ function Settings() {
         </div>
       )}
       {saved && (
-        <div className="flex items-start gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-start gap-2 rounded-lg border border-success-border bg-success-soft p-3 text-sm text-success">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span>Shartlar saqlandi.</span>
         </div>

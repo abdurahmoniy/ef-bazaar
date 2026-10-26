@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { TradePanel } from './trade-panel';
 import { useTradeContext } from './trade-context';
+import { siteConfig } from '@/lib/site';
 import type { InvoiceResponse, InvoiceStatus } from '@/lib/payment-types';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -123,7 +124,7 @@ it.each(['PRO', 'MAX', 'STAFF'])('offers only management on %s', async (plan) =>
   acceptBody = { code: 'mailbox_slots_exhausted', message: 'Pochta qutilari to‘ldi', plan };
   await click('to‘lash va boshlash');
   expect(document.querySelector('a[href="/plans"]')).toBeNull();
-  expect(document.querySelector('a[href="/profile#mailboxes"]')).not.toBeNull();
+  expect(document.querySelector(`a[href="${siteConfig.mailUrl}/settings/mailboxes"]`)).not.toBeNull();
 });
 it('refreshes a stale balance after insufficient-funds rejection without creating an invoice', async () => {
   available = 2500000; await render(); available = 1000000; acceptError = 'Mablag‘ yetarli emas';

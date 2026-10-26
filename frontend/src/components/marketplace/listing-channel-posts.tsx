@@ -249,7 +249,7 @@ export function ListingChannelPosts({ listingId, initialChannelIds = [] }: Props
       {!finished && (
         <ol aria-label="Reklama bosqichlari" className="flex items-center gap-3 text-sm">
           <li aria-current={phase === 'choose' ? 'step' : undefined} className="flex items-center gap-2">
-            <span className="grid h-7 w-7 place-items-center rounded-full bg-primary/10 font-semibold text-primary dark:text-secondary">{phase === 'review' ? <Check className="h-4 w-4" /> : '1'}</span> Kanallar
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-primary/10 font-semibold text-primary">{phase === 'review' ? <Check className="h-4 w-4" /> : '1'}</span> Kanallar
           </li>
           <ArrowRight aria-hidden className="h-4 w-4 text-muted-foreground" />
           <li aria-current={phase === 'review' ? 'step' : undefined}>2. Tekshirish va buyurtma</li>
@@ -264,7 +264,7 @@ export function ListingChannelPosts({ listingId, initialChannelIds = [] }: Props
         <>
           {phase === 'choose' && (
             <>
-              {actionError && <p role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">{actionError}</p>}
+              {actionError && <p role="alert" className="rounded-xl border border-warning-border bg-warning-soft p-4 text-sm">{actionError}</p>}
               <ChannelPicker selected={selected} onChange={selectChannels} disabled={!!busy} />
               <MeasuredBottomBar data-advertising-summary className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav sm:static sm:rounded-xl sm:border sm:bg-card">
                 <section aria-label="Tanlov xulosasi" className="mx-auto max-w-3xl space-y-2.5 pt-3" style={{
@@ -310,7 +310,7 @@ export function ListingChannelPosts({ listingId, initialChannelIds = [] }: Props
               <p className="text-sm leading-relaxed text-muted-foreground">{total > 0 ? 'Mablag‘ buyurtma uchun hamyonda ushlanadi. Post chiqqach kanal egasiga o‘tkaziladi; chiqmasa, o‘sha post haqi hamyonga qaytariladi.' : 'Tanlangan kanallarda bu buyurtma bepul.'}</p>
               <p className="text-xs leading-relaxed text-muted-foreground">Yuborishdan oldin narx va mablag‘ yana tekshiriladi. Yakuniy hisob buyurtma paytidagi kanal narxi bo‘yicha olinadi. Qayta joylash — yangi buyurtma; avvalgi post kanalda qolishi mumkin.</p>
               {historyError && <p role="alert" className="text-sm text-muted-foreground">{historyError} Oldingi chiqishlar hozir ko‘rinmasligi mumkin.</p>}
-              {actionError && <p role="alert" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">{actionError}</p>}
+              {actionError && <p role="alert" className="rounded-lg border border-warning-border bg-warning-soft p-3 text-sm">{actionError}</p>}
               {!hasTelegramMainButton && (
                 missing > 0 ? <Button asChild className="w-full"><Link href={fundingHref}>{actionText}</Link></Button> : <Button type="button" className="w-full" disabled={actionDisabled} onClick={primaryAction}>{busy && <Loader2 className="animate-spin" />}{actionText}</Button>
               )}
@@ -319,7 +319,7 @@ export function ListingChannelPosts({ listingId, initialChannelIds = [] }: Props
 
           {finished && (
             <section className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
-              <div className="flex items-start gap-3"><span className="rounded-xl bg-primary/10 p-2 text-primary dark:text-secondary">{phase === 'accepted' ? <Clock className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}</span><div>
+              <div className="flex items-start gap-3"><span className="rounded-xl bg-primary/10 p-2 text-primary">{phase === 'accepted' ? <Clock className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}</span><div>
                 <h2 ref={reviewHeading} tabIndex={-1} className="scroll-mt-20 text-xl font-semibold outline-none">{phase === 'accepted' ? 'Buyurtma qabul qilindi' : 'Buyurtma natijasi aniqlanmadi'}</h2>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{phase === 'accepted' ? 'Bu xabar to‘lov va post chiqishini hali tasdiqlamaydi. Natijani chiqish tarixi va hamyonda tekshiring.' : 'Javob kelmadi, lekin buyurtma bajarilgan bo‘lishi mumkin. Qayta buyurtma berishdan oldin chiqish tarixi va hamyonni tekshiring.'}</p>
               </div></div>

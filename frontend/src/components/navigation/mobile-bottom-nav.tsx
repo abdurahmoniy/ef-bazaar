@@ -90,7 +90,7 @@ export function MobileBottomNav({
               className="pointer-events-none absolute left-0 top-[7px] flex justify-center"
               style={{ width: `${100 / items.length}%`, transform: `translateX(${activeIndex * 100}%)` }}
             >
-              <span className="h-8 w-14 max-w-full rounded-full bg-primary/10 dark:bg-sky-400/15" />
+              <span className="h-8 w-14 max-w-full rounded-full bg-info-soft" />
             </span>
           )}
           {items.map((item) => (
@@ -101,7 +101,7 @@ export function MobileBottomNav({
               aria-current={item.id === activeTab ? 'page' : undefined}
               className={cn(
                 'relative flex h-16 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl text-[10.5px] font-semibold leading-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-safe:active:scale-95',
-                item.id === activeTab || item.primary ? 'text-primary dark:text-sky-300' : 'text-muted-foreground hover:text-foreground',
+                item.id === activeTab || item.primary ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
               )}
             >
               <TabContent item={item} />

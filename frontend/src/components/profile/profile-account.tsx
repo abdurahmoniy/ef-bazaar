@@ -29,7 +29,7 @@ import {
 
 import { ProfileMembership } from '@/components/profile/profile-membership';
 import { ProfileAppearance } from '@/components/profile/profile-appearance';
-import { MailboxSlotsWarning } from '@/components/profile/mailbox-slots-warning';
+import { MailboxSummaryCard } from '@/components/profile/mailbox-summary-card';
 import { ProfileBalance } from '@/components/profile/profile-balance';
 import { DeleteAccountButton } from '@/components/profile/delete-account-button';
 import { GoogleLinkButton } from '@/components/profile/google-link-button';
@@ -121,14 +121,14 @@ export function ProfileAccount({
   const tradeAdmin = isTradeAdmin(user);
 
   const navMenuItems = [
-    { id: 'seller-tools', label: 'Sotuvchi vositalari', description: 'Shaxsiy qaydlar, shablonlar va e’lon amallari', href: '/seller-tools', icon: <Package className="h-5 w-5 text-violet-600 dark:text-violet-400" />, bg: 'bg-violet-500/10' },
+    { id: 'seller-tools', label: 'Sotuvchi vositalari', description: 'Shaxsiy qaydlar, shablonlar va e’lon amallari', href: '/seller-tools', icon: <Package className="h-5 w-5 text-info" />, bg: 'bg-info-soft' },
     {
       id: 'accounts',
       label: 'Akkountlarim',
       description: "Akkountlaringiz, emaillari va bozordagi holati",
       href: '/profile?tab=accounts',
-      icon: <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />,
-      bg: 'bg-blue-500/10 dark:bg-blue-400/10',
+      icon: <Package className="h-5 w-5 text-info" />,
+      bg: 'bg-info-soft',
       badge: listingsCount > 0 ? `${listingsCount}` : undefined,
     },
     {
@@ -136,24 +136,24 @@ export function ProfileAccount({
       label: 'Sotuvchi hisoboti',
       description: 'E’lonlar natijasi, tarix va CSV',
       href: '/seller-analytics',
-      icon: <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />,
-      bg: 'bg-blue-500/10 dark:bg-blue-400/10',
+      icon: <BarChart3 className="h-5 w-5 text-info" />,
+      bg: 'bg-info-soft',
     },
     {
       id: 'trades',
       label: 'Savdolarim',
       description: 'Xavfsiz bitimlar va xaridlar tarixi',
       href: '/profile?tab=trades',
-      icon: <Handshake className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />,
-      bg: 'bg-emerald-500/10 dark:bg-emerald-400/10',
+      icon: <Handshake className="h-5 w-5 text-success" />,
+      bg: 'bg-success-soft',
     },
     {
       id: 'favorites',
       label: 'Sevimli e\'lonlar',
       description: 'Saqlab qo\'yilgan sevimli akkauntlar',
       href: '/profile?tab=favorites',
-      icon: <Heart className="h-5 w-5 text-rose-600 dark:text-rose-400" />,
-      bg: 'bg-rose-500/10 dark:bg-rose-400/10',
+      icon: <Heart className="h-5 w-5 text-destructive" />,
+      bg: 'bg-destructive/10',
       badge: favoritesCount > 0 ? `${favoritesCount}` : undefined,
     },
     {
@@ -161,8 +161,8 @@ export function ProfileAccount({
       label: 'Bildirishnomalar',
       description: 'Xabarlar va tizim yangiliklari',
       href: '/notifications',
-      icon: <Bell className="h-5 w-5 text-amber-600 dark:text-amber-400" />,
-      bg: 'bg-amber-500/10 dark:bg-amber-400/10',
+      icon: <Bell className="h-5 w-5 text-warning" />,
+      bg: 'bg-warning-soft',
       badge: unreadNotifications > 0 ? (unreadNotifications > 99 ? '99+' : `${unreadNotifications}`) : undefined,
       mobileOnly: true,
     },
@@ -171,8 +171,8 @@ export function ProfileAccount({
       label: 'Pochta',
       description: 'Xabarlar va bildirishnomalar',
       href: '/mail',
-      icon: <Mail className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />,
-      bg: 'bg-indigo-500/10 dark:bg-indigo-400/10',
+      icon: <Mail className="h-5 w-5 text-info" />,
+      bg: 'bg-info-soft',
     },
     ...(FEATURES.wallet
       ? [
@@ -181,8 +181,8 @@ export function ProfileAccount({
             label: 'Hamyon',
             description: 'Balans, depozit va pul yechish',
             href: '/hamyon',
-            icon: <Wallet className="h-5 w-5 text-violet-600 dark:text-violet-400" />,
-            bg: 'bg-violet-500/10 dark:bg-violet-400/10',
+            icon: <Wallet className="h-5 w-5 text-info" />,
+            bg: 'bg-info-soft',
           },
         ]
       : []),
@@ -241,7 +241,7 @@ export function ProfileAccount({
               {user.verified && (
                 <span
                   title="Tasdiqlangan profil"
-                  className="absolute -bottom-0.5 -right-0.5 grid h-4.5 w-4.5 place-items-center rounded-full bg-emerald-500 text-white ring-2 ring-card"
+                  className="absolute -bottom-0.5 -right-0.5 grid h-4.5 w-4.5 place-items-center rounded-full bg-success-soft text-success ring-2 ring-card"
                 >
                   <BadgeCheck className="h-3 w-3" />
                 </span>
@@ -254,8 +254,8 @@ export function ProfileAccount({
                   {user.displayName}
                 </h1>
                 {user.verified && (
-                  <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
-                    <BadgeCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                  <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-semibold text-success border border-success-border">
+                    <BadgeCheck className="h-3 w-3 text-success" />
                     Tasdiqlangan
                   </span>
                 )}
@@ -270,7 +270,7 @@ export function ProfileAccount({
               {ratingSummary && ratingSummary.ratingCount > 0 && (
                 <Link
                   href={`/users/${user.id}`}
-                  className="inline-flex items-center gap-1.5 pt-0.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                  className="inline-flex items-center gap-1.5 pt-0.5 text-xs font-bold text-warning hover:underline"
                 >
                   <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                   <span>{ratingSummary.averageRating.toFixed(1)}</span>
@@ -336,11 +336,11 @@ export function ProfileAccount({
           className="flex w-full items-center justify-between p-4 transition-colors hover:bg-muted/40 active:bg-muted/70 tap-press text-left"
         >
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-500/10 text-slate-700 dark:text-slate-300">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground">
               {mounted && isDark ? (
-                <Sun className="h-5 w-5 text-amber-500" />
+                <Sun className="h-5 w-5 text-warning" />
               ) : (
-                <Moon className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                <Moon className="h-5 w-5 text-muted-foreground" />
               )}
             </div>
             <div className="min-w-0">
@@ -370,7 +370,7 @@ export function ProfileAccount({
         </button>
       </div>
 
-      <MailboxSlotsWarning />
+      <MailboxSummaryCard />
 
       {/* 3. Account Verification Card */}
       <Card className="rounded-2xl border-border/80 shadow-sm overflow-hidden">
@@ -489,7 +489,7 @@ export function ProfileAccount({
               >
                 <span>{user.telegramId}</span>
                 {copiedKey === 'tgId' ? (
-                  <Check className="h-3.5 w-3.5 text-emerald-500" />
+                  <Check className="h-3.5 w-3.5 text-success" />
                 ) : (
                   <Copy className="h-3.5 w-3.5 text-muted-foreground/70" />
                 )}
@@ -506,7 +506,7 @@ export function ProfileAccount({
             >
               <span className="truncate">{user.id}</span>
               {copiedKey === 'userId' ? (
-                <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                <Check className="h-3.5 w-3.5 text-success shrink-0" />
               ) : (
                 <Copy className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
               )}

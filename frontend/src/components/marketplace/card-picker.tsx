@@ -250,7 +250,7 @@ export function CardPicker({
             setOpen(true);
           }}
           aria-pressed={metaOnly}
-          className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-amber-400/50 px-3 text-xs font-bold text-amber-600 transition hover:bg-amber-400/10 dark:text-amber-300"
+          className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-warning-border px-3 text-xs font-bold text-warning transition hover:bg-warning-soft"
         >
           <Flame className="h-4 w-4" />
           {metaOnly ? 'META kartalar ko‘rsatilmoqda' : 'META kartalardan tez tanlash'}

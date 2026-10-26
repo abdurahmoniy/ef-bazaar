@@ -13,6 +13,7 @@ var s=localStorage.getItem(k);
 var m=window.matchMedia('(prefers-color-scheme: dark)').matches;
 var d=s==='dark'||(s!=='light'&&m);
 document.documentElement.classList.toggle('dark',d);
+document.querySelectorAll('meta[name="theme-color"]').forEach(function(meta){meta.setAttribute('content',d?'#090910':'#ffffff');});
 }catch(e){}})();
 `;
 

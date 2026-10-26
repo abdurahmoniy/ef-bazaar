@@ -54,7 +54,7 @@ export function SellerCard({
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-card">
       {blacklisted && (
-        <div className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-200">
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
           <ShieldAlert className="h-4 w-4 shrink-0" />
           Bu sotuvchi qora ro&apos;yxatda —{' '}
           <Link href="/blacklist" className="underline underline-offset-2">
@@ -105,7 +105,7 @@ export function SellerCard({
           )}
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
             {hasRatings ? (
-              <span className="inline-flex items-center gap-1 font-bold text-amber-600 dark:text-amber-400">
+              <span className="inline-flex items-center gap-1 font-bold text-warning">
                 <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                 <span>{ratingSummary.averageRating.toFixed(1)}</span>
                 <span className="font-medium text-muted-foreground">({ratingSummary.ratingCount} baho)</span>

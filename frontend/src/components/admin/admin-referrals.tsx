@@ -78,7 +78,7 @@ function ReferrerLine({ row }: { row: ReferrerRow }) {
                     </span>
                   </span>
                   {person.rewardedAt ? (
-                    <span className="flex shrink-0 items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                    <span className="flex shrink-0 items-center gap-1 text-success">
                       <Gift className="h-3 w-3" />
                       +{formatEarned(person.rewardSom ?? 0)}
                     </span>
