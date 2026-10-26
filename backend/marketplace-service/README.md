@@ -9,7 +9,7 @@ u trade-service'da. Pul esa payment-service'da.
 |---|---|
 | Port | 8082 |
 | Public yo'l | `/api/marketplace/**` → `/api/**` (anonim ham o'tadi); WebSocket `/ws/chat` |
-| DB | `MARKETPLACE_DB_NAME` (Flyway, `V1`–`V84` + `R__`); ikkinchi datasource — `efbazaar` karta katalogi |
+| DB | `MARKETPLACE_DB_NAME` (Flyway, `V1`–`V85` + `R__`); ikkinchi datasource — `efbazaar` karta katalogi |
 | Redis | card interest sanagichlari, chat presence/typing va WebSocket signallari |
 | Anonim | Token bo'lmasa nginx identity headerlarni tozalab uzatadi — `X-User-Id` ga ishonishdan oldin null tekshiring |
 
@@ -30,6 +30,7 @@ u trade-service'da. Pul esa payment-service'da.
 | `pricewatch` | Owner price watches, authoritative price transitions, durable common search/price intents, in-app/Telegram delivery |
 | `popup` | Kontekstli in-app xabar kampaniyalari, admin draft/publish/pause va PostgreSQL delivery limitlari |
 | `push` | Firebase push bildirishnomalar (`FIREBASE_PUSH_ENABLED`) |
+| `music` | Admin boshqaradigan YouTube fon musiqasi katalogi; faqat metadata va video ID saqlanadi |
 | `guide`, `emoji`, `botsettings` | Video qo'llanmalar, Telegram emoji to'plamlari, bot `/start` matni va ommaviy xabar (broadcast) |
 | `kafka` | trade/payment/auth/tournament hodisalari consumerlari |
 | `event` | `MarketplaceEvents` — chiqadigan topic nomlari va payloadlar |
@@ -54,7 +55,8 @@ To'liq ro'yxat — controllerlarda. Asosiy guruhlar (`/api/v1/...`):
 | Bildirishnoma | `/notifications`, `/read-all`, `/unread-count`, `/push-tokens`, `/push-status` |
 | Hamkorlik, referal | `/partners/**` (ariza, panel, to'lov, kanallar, click), `/referrals/claim`, `/referrals/me` |
 | Trust, support | `/complaints`, `/blacklist`, `/blacklist/check`, `/support/chats/**` |
-| Admin | `/admin/**`: listings, cards (sync, META), attributes, chats, partners, referrals, reports, trust, support, bot-settings, bot-broadcasts, guides, emoji-packs, stats, badges |
+| Fon musiqasi | `GET /music` (public, faqat enabled); `GET/POST /admin/music`, `PUT/DELETE /admin/music/{id}` (`ROLE_ADMIN`) |
+| Admin | `/admin/**`: listings, cards (sync, META), attributes, chats, partners, referrals, reports, trust, support, bot-settings, bot-broadcasts, guides, music, emoji-packs, stats, badges |
 | Ichki | `/internal/marketplace/v1/**`: `listings/{id}/terms`, `accounts/{id}` (trade uchun), bot-settings, `inline/listings?telegramId&q&offset` (bot inline rejimi: o'z ACTIVE e'lonlari, kanal matni, muqova, Mini App havolasi, 20 talik sahifa), guides/buttons, partners/* natijalari (bot), referrals/pending, support/telegram-reply, trust/complaints, `POST rec/replay` (`X-Internal-Secret`; `{ listings, likes, cards }` sonlari — hammasini qayta yuborishga belgilaydi) |
 
 > **Ko'chirilmoqda:** dream team, card match va card interest `recommendation-service` da ham bor
@@ -155,7 +157,7 @@ Batafsil: [docs/kafka-topics.md](../../docs/kafka-topics.md).
 
 - Asosiy jadvallar: `listings`, `listing_cards`, `listing_likes`, `listing_views`, `user_accounts`,
   `user_account_cards`, `chats`, `chat_messages`, `notifications`, `dream_teams`,
-  `attribute_definitions`, `partner_*`, `referrals`, `complaints`, `penalties`, `support_*`, `gamer_*`.
+  `attribute_definitions`, `partner_*`, `referrals`, `complaints`, `penalties`, `support_*`, `gamer_*`, `music_tracks`.
 - `listings.value_score` (nullable, `V72`; qisman indeks) — «Katta bozor» bali, 0..1. Hisoblanadi: e'lon saqlanganda
   (`ListingPersistence`), admin META o'zgartirganda/tugatganda va yangi efhub kartalarida (`CardChangeHandler`),
   `MetaBoundaryJob` orqali. `efbazaar` katalogi o'qilmasa ball o'zgarmaydi (WARN), e'lon saqlash hech qachon yiqilmaydi.
@@ -484,3 +486,33 @@ so retained private data survives context removal. Existing
 `marketplace-private-data-deleted` to purge that owner's rows on explicit account
 deletion; this is distinct from subscription expiry and is idempotent. No new event
 schema or topic, bot change, or gamer/tournament feature activation is required.
+
+
+## Background music
+
+`GET /api/v1/music` returns enabled tracks, sorted by `sortOrder`, `createdAt`, then
+UUID `id`. Empty playlists return `[]`. Admin `GET /api/v1/admin/music` includes
+disabled tracks in the same order. Admin `POST` creates (201), `PUT /{id}` replaces
+metadata (200), and `DELETE /{id}` removes (204); absent IDs return 404. All admin
+operations require `ROLE_ADMIN` through the existing trusted-header security chain.
+
+Write JSON: `{title,artist,youtubeUrl,sortOrder,enabled}`. Title is required, trimmed
+and at most 120 characters; artist is optional (empty by default), trimmed and at
+most 120. Sort order must be a JSON integer 0–10000 and enabled a JSON boolean.
+Response: `{id,title,artist,youtubeVideoId,sortOrder,enabled}`.
+
+`youtubeUrl` accepts HTTP/HTTPS watch, shorts, embed, live links on exactly
+`youtube.com`, `www.youtube.com`, `m.youtube.com`, `music.youtube.com`, or short
+links on `youtu.be`. Video IDs must contain exactly 11 ASCII letters, digits,
+underscores or hyphens. Credentials, explicit ports, duplicate `v` parameters,
+unsupported paths/hosts and malformed IDs are rejected (400). URLs are parsed
+locally; no server-side fetch, audio extraction or media proxy is involved.
+
+`V85` adds `music_tracks` (`id`, `title`, `artist`, `youtube_video_id`, `sort_order`,
+`enabled`, `created_at`) and an enabled-playlist ordering index. The migration seeds
+no songs. There are no new events, consumers, secrets or visitor preference records.
+
+`MusicIT` verifies real PostgreSQL/Flyway persistence, admin authorization, enabled
+filtering, stable order, CRUD, URL allowlisting and request validation. Local Docker
+29 with this repository's Testcontainers client requires `-Dapi.version=1.44` on
+the Java 21 Maven command; CI's full gate remains `mvn -B -ntp clean verify`.

@@ -62,6 +62,7 @@ class MarketplaceApplicationTests {
     @Autowired @Qualifier("efbazaarJdbcTemplate") JdbcTemplate efbazaarJdbcTemplate;
     @Autowired @Qualifier("dataSource") DataSource marketplaceDataSource;
 
+    @MockBean uz.efbazaar.marketplace.music.MusicTrackRepository musicTrackRepository;
     @MockBean uz.efbazaar.marketplace.emoji.EmojiPackRepository emojiPackRepository;
     @MockBean uz.efbazaar.marketplace.guide.GuideRepositories.GuideRepository guideRepository;
     @MockBean uz.efbazaar.marketplace.guide.GuideRepositories.GuideButtonRepository guideButtonRepository;

@@ -33,6 +33,9 @@ function buildContentSecurityPolicy() {
     'https://accounts.google.com',
     'https://apis.google.com',
     'https://www.gstatic.com',
+    // Admin-managed background music (YouTube IFrame API).
+    'https://www.youtube.com',
+    'https://s.ytimg.com',
     // Yandex Metrika (analytics + webvisor)
     'https://mc.yandex.ru',
     'https://mc.yandex.com',
@@ -75,6 +78,7 @@ function buildContentSecurityPolicy() {
 
   const frameSrc = [
     "'self'",
+    'https://www.youtube.com',
     'https://oauth.telegram.org',
     'https://accounts.google.com',
     'https://*.telegram.org',

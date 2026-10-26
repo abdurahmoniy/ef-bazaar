@@ -22,6 +22,7 @@ import {
   Mail,
   Menu,
   MessagesSquare,
+  Music2,
   Package,
   Percent,
   Send,
@@ -203,6 +204,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     title: 'Tizim & Resurslar',
     items: [
       { href: '/admin/popups', label: 'Pop-up xabarlar', icon: BellRing },
+      { href: '/admin/music', label: 'Fon musiqasi', icon: Music2 },
       {
         href: '/admin/mailboxes',
         label: 'Pochtalar (Mailboxes)',
