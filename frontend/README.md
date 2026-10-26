@@ -22,6 +22,16 @@ efbazaar.uz asosiy sayti va Telegram Mini App — bitta Next.js ilova.
 
 Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
 
+### Fon musiqasi
+
+- Admin `/admin/music` da YouTube havolasi, nomi, ijrochi, ro‘yxat tartibi va faol holatini boshqaradi. CRUD `/api/marketplace/v1/admin/music` orqali; server faqat `ROLE_ADMIN` ga ruxsat beradi. Musiqa yuklab olinmaydi, backend faqat YouTube video ID va metama’lumotlarni saqlaydi.
+- Root layoutdagi `BackgroundMusic` ommaviy `GET /api/marketplace/v1/music` ro‘yxatini oladi. Faol treklar tasodifiy navbatda, har aylanishda bir martadan, ketma-ket takrorlanmasdan yangraydi (bitta trek bo‘lsa takrorlanadi). Pleyer, pauza va ovoz tugmalari ko‘rsatilmaydi; ovoz 20%.
+- Oddiy client navigation trekni qaytadan boshlamaydi. Yashirin tab, `/admin`, `/auth`, `/chats`, `/support` va sahifadagi boshqa ovozli video/audio ijrosida musiqa to‘xtaydi; qaytganda davom etadi. Ro‘yxat ko‘rinadigan tabda har 60 soniyada va fokus qaytganda yangilanadi.
+- Brauzer autoplay’ni bloklasa, pointer/klaviatura hodisasida qayta ijro urinishi bo‘ladi. Embed taqiqlangan/o‘chirilgan videolar tashlab ketiladi; barcha treklar xato bersa cheksiz qayta urinish bo‘lmaydi. Bo‘sh ro‘yxat yoki YouTube bloklanishi sayt ishini to‘xtatmaydi.
+- YouTube IFrame API ishlatiladi; CSP faqat `www.youtube.com` (script/frame) va `s.ytimg.com` (script) manbalarini qo‘shadi. Ko‘rinmaydigan YouTube ijrosi [YouTube developer talablariga](https://developers.google.com/youtube/terms/developer-policies) mos integratsiya emas va provayder/brauzer tomonidan bloklanishi mumkin. Ushbu ko‘rinish foydalanuvchining aniq talabi; barqaror, provayder talablariga mos faqat-audio ijro uchun litsenziyalangan audio fayllar kerak.
+- Boshlang‘ich ro‘yxat bo‘sh. Admin birinchi havolani qo‘shmaguncha musiqa yangramaydi; API kaliti yoki yangi env kerak emas. Marketplace V85 migratsiyasi ushbu frontenddan oldin yoki u bilan birga chiqarilishi kerak.
+
+
 ## Backend'ga qanday murojaat qilinadi
 
 - **Server (SSR, Server Actions):** `INTERNAL_API_BASE_URL` = `http://nginx:8080/api` —

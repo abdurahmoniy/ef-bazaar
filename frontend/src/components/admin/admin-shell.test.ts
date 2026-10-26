@@ -100,6 +100,7 @@ describe('AdminShell & Navigation', () => {
     expect(allHrefs).toContain('/admin/attributes');
     expect(allHrefs).toContain('/admin/bot');
     expect(allHrefs).toContain('/admin/partners');
+    expect(allHrefs).toContain('/admin/music');
   });
 
   /**

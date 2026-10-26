@@ -72,6 +72,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/attributes", "/api/v1/attributes/*").permitAll()
                         // Public — video qo'llanmalar (Yordam markazi /help)
                         .requestMatchers(HttpMethod.GET, "/api/v1/guides").permitAll()
+                        // Public — enabled background music playlist
+                        .requestMatchers(HttpMethod.GET, "/api/v1/music").permitAll()
                         // Public — health
                         .requestMatchers("/actuator/**", "/api/v1/ping").permitAll()
                         // Public + authenticated — support chat

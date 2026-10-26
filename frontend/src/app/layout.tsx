@@ -14,6 +14,7 @@ import { RouteMotion } from '@/components/navigation/route-motion';
 import { NavigationCacheGuard } from '@/components/navigation/navigation-cache-guard';
 import { AppToaster } from '@/components/providers/app-toaster';
 import { ClientQueryProvider } from '@/components/providers/client-query-provider';
+import { BackgroundMusic } from '@/components/music/background-music';
 
 const YANDEX_METRIKA_ID = 110535295;
 
@@ -127,6 +128,7 @@ export default function RootLayout({
               <PushProvider>
                 <RouteMotion />
                 <NavigationCacheGuard />
+                <BackgroundMusic />
                 {children}
                 <AppToaster />
               </PushProvider>
