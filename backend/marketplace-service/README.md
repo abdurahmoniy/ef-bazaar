@@ -513,6 +513,7 @@ locally; no server-side fetch, audio extraction or media proxy is involved.
 no songs. There are no new events, consumers, secrets or visitor preference records.
 
 `MusicIT` verifies real PostgreSQL/Flyway persistence, admin authorization, enabled
-filtering, stable order, CRUD, URL allowlisting and request validation. Local Docker
-29 with this repository's Testcontainers client requires `-Dapi.version=1.44` on
-the Java 21 Maven command; CI's full gate remains `mvn -B -ntp clean verify`.
+filtering, stable order, CRUD, URL allowlisting and request validation. Failsafe pins
+Docker API 1.44 for integration tests because the bundled docker-java default (1.32)
+is rejected by modern Docker, including GitHub runners. The Java 21 full gate is
+`mvn -B -ntp clean verify`; no local API override is required.
