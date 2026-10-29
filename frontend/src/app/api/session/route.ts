@@ -1,19 +1,21 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+import { getMe } from '@/lib/auth';
+import { resolveOptionalUser } from '@/lib/optional-auth';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * Lightweight session probe for client components on static pages (landing).
- * Reports only the PRESENCE of the httpOnly access-token cookie — no upstream
- * validation. Good enough to decide "Kirish" vs "Profil" in nav chrome: an
- * expired cookie just means /profile will bounce through login.
+ * Public session probe for static pages. Use the same verified user and
+ * anonymous fallback as the marketplace; cookie presence alone is insufficient.
  */
 export async function GET() {
   const store = await cookies();
+  const user = store.has('access_token') ? await resolveOptionalUser(getMe) : null;
   return NextResponse.json(
-    { authenticated: store.has('access_token') },
+    { authenticated: user !== null },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }

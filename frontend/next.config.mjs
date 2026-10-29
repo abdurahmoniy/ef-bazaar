@@ -136,6 +136,7 @@ const mailAppUrl = (process.env.NEXT_PUBLIC_MAIL_BASE_URL || 'https://mail.efbaz
 
 const nextConfig = {
   output: 'standalone',
+  allowedDevOrigins: ['efbazaar.ochq.uz'],
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,

@@ -3,6 +3,8 @@ import Link from 'next/link';
 
 import { Logo } from '@/components/brand/logo';
 import { BackLink } from '@/components/navigation/back-link';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
+import styles from './auth.module.css';
 
 export const metadata: Metadata = {
   robots: {
@@ -13,21 +15,28 @@ export const metadata: Metadata = {
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-app flex flex-col pt-[env(safe-area-inset-top)]">
-      <header className="container flex items-center gap-4 py-6">
-        <Logo size="md" />
-        <BackLink href="/" label="Bosh sahifa" className="ml-auto" />
+    <div className={`min-h-app ${styles.shell}`}>
+      <a href="#auth-main" className={styles.skipLink}>Asosiy mazmunga o‘tish</a>
+      <header className={styles.header}>
+        <div className={`${styles.wrap} ${styles.headerInner}`}>
+          <Logo size="sm" />
+          <div className={styles.headerActions}>
+            <BackLink href="/" label="Orqaga" />
+            <ThemeToggle className={styles.themeToggle} />
+          </div>
+        </div>
       </header>
 
-      <main className="flex-1 container flex items-center justify-center pb-12">
-        <div className="w-full max-w-md">{children}</div>
+      <main id="auth-main" tabIndex={-1} className={`${styles.wrap} ${styles.main}`}>
+        {children}
       </main>
 
-      <footer className="container py-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} eFBazaar •{' '}
-        <Link href="/" className="hover:text-foreground transition-colors">
-          Bosh sahifa
-        </Link>
+      <footer className={`${styles.wrap} ${styles.footer}`}>
+        <p>© {new Date().getFullYear()} eFBazaar</p>
+        <nav aria-label="Kirish bo‘yicha yordam">
+          <Link href="/marketplace">Bozorni ko‘rish</Link>
+          <Link href="/help">Yordam</Link>
+        </nav>
       </footer>
     </div>
   );

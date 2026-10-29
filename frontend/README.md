@@ -22,6 +22,44 @@ efbazaar.uz asosiy sayti va Telegram Mini App — bitta Next.js ilova.
 
 Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
 
+### Landing v2
+
+Landing v2 endi asosiy `/` sahifasi. Eski `/landing-v2` manzili `/` ga doimiy
+redirect qiladi. Asosiy sahifa indekslanadi va canonical manzili `/`.
+Uslublar `src/components/landing-v2/` ichida, rasm va litsenziyali shriftlar
+`public/landing-v2/` dan lokal yuklanadi. Yulduz havolalari mavjud bozorning
+`attr.valuable_players_name` filtridan, kirish havolasi esa `AuthAwareLink` dan foydalanadi.
+Ranglar `globals.css` dagi umumiy efBazaar mavzusidan olinadi: asosiy amallar
+ko‘k/oltin, sahifa va matn ranglari esa tanlangan light/dark mavzusiga moslashadi.
+Header va footer umumiy `Logo` komponentidan foydalanadi. Headerdagi `ThemeToggle`
+yorug‘/qorong‘i rejimni almashtiradi va mavjud `efbazaar-theme` sozlamasida saqlaydi.
+Landing va marketplace umumiy `--app-content-max-width` (1280px), Inter UI shrifti,
+`SlidingNav` va asosiy tugma uslublaridan foydalanadi.
+Homepage mavjud referral kutib olish/claim oqimini hamda Organization, WebSite
+va WebApplication JSON-LD ma’lumotlarini saqlaydi. Ko‘rsatilmaydigan FAQ uchun
+schema berilmaydi.
+Laptop hero o‘lchamlari ekran eni va balandligiga moslashadi. Haqiqiy brauzerdagi
+geometriyani tekshirish uchun `scripts/landing-v2-viewport-check.mjs` faylidagi
+`verifyLandingViewport(page)` funksiyasiga Playwright page yoki in-app browser
+Playwright adapteri beriladi; u sig‘ish va kamida 44px tugma balandligini tekshiradi.
+
+Local preview uchun `ochq 127.0.0.1:3001 --sub efbazaar` ishlatiladi.
+`next.config.mjs` faqat `efbazaar.ochq.uz` tunnel hostini `allowedDevOrigins`
+orqali ruxsatlaydi; bu Next.js development WebSocket va interaktiv boshqaruvlarning
+tunnel orqali ishlashi uchun kerak. Boshqa originlar bloklanganicha qoladi.
+
+### Auth / login
+
+`/auth/login` umumiy Inter shrifti, light/dark tokenlar, 1280px kontent eni,
+`Logo`, `BackLink` va `ThemeToggle` dan foydalanadi. 768px dan kichik ekranda
+kirish paneli birinchi, bozor haqidagi izoh undan keyin chiqadi; DOM tartibi ham shunday.
+Uslub va responsive qoidalar [auth dizayn hujjatida](src/app/auth/DESIGN.md) yozilgan.
+Google faqat `NEXT_PUBLIC_GOOGLE_CLIENT_ID` sozlanganda ko‘rsatiladi. Telegram iframe’i
+yuklanmasa qayta urinish va yordam bor; iframe ichidagi `Bot domain invalid` esa
+bot domenini BotFather’da `/setdomain` bilan sozlashni talab qiladi
+([mavjud Telegram widget’i hujjati](https://core.telegram.org/widgets/login-legacy#linking-your-domain-to-the-bot)).
+Mavjud server action, sessiya va xavfsiz `from` qaytish oqimi saqlanadi.
+
 ### Fon musiqasi
 
 - Admin `/admin/music` da YouTube havolasi, nomi, ijrochi, ro‘yxat tartibi va faol holatini boshqaradi. CRUD `/api/marketplace/v1/admin/music` orqali; server faqat `ROLE_ADMIN` ga ruxsat beradi. Musiqa yuklab olinmaydi, backend faqat YouTube video ID va metama’lumotlarni saqlaydi.
@@ -32,6 +70,10 @@ Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
 - Boshlang‘ich ro‘yxat bo‘sh. Admin birinchi havolani qo‘shmaguncha musiqa yangramaydi; API kaliti yoki yangi env kerak emas. Marketplace V85 migratsiyasi ushbu frontenddan oldin yoki u bilan birga chiqarilishi kerak.
 
 ## Backend'ga qanday murojaat qilinadi
+
+- `GET /api/session` statik sahifalar uchun faqat `{ authenticated }` qaytaradi;
+  cookie borligi bilan cheklanmay, marketplace bilan bir xil `getMe` tekshiruvini
+  ishlatadi. Cookie yo‘q yoki sessiya tasdiqlanmasa `false`; javob `no-store`.
 
 - **Server (SSR, Server Actions):** `INTERNAL_API_BASE_URL` = `http://nginx:8080/api` —
   ichki nginx bloki (80-portdagi HTTPS redirect'dan qochish uchun). `src/lib/api.ts` → `apiFetch`.

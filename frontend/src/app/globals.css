@@ -4,6 +4,8 @@
 
 @layer base {
   :root {
+    --app-content-max-width: 80rem;
+
     /* eFootball palette — deep blue + gold, harmonized on white */
     --background: 0 0% 100%;
     --foreground: 240 60% 10%;

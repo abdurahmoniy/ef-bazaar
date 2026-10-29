@@ -8,10 +8,10 @@ import { Info } from 'lucide-react';
  */
 export function TelegramSwitchHint() {
   return (
-    <details className="group rounded-xl border border-border/50 bg-muted/30 px-4 py-3 text-sm">
-      <summary className="flex cursor-pointer items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-        <Info className="h-4 w-4 shrink-0" />
-        Boshqa Telegram akkaunti bilan kirmoqchimisiz?
+    <details className="group border-t border-border pt-2 text-sm">
+      <summary className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+        <Info aria-hidden="true" className="h-4 w-4 shrink-0" />
+        Boshqa Telegram akkaunti bilan kirish
       </summary>
       <ul className="mt-3 list-disc space-y-1.5 pl-9 text-muted-foreground">
         <li>
@@ -19,7 +19,7 @@ export function TelegramSwitchHint() {
             href="https://web.telegram.org/k"
             target="_blank"
             rel="noreferrer"
-            className="text-primary hover:underline"
+            className="text-[hsl(var(--primary-text))] underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           >
             web.telegram.org
           </a>
