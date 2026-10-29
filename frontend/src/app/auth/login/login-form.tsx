@@ -1,15 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { AlertCircle } from 'lucide-react';
+import Link from 'next/link';
+import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 
 import { TelegramLogin } from '@/components/auth/telegram-login';
 import { TelegramSwitchHint } from '@/components/auth/telegram-switch-hint';
 import { GoogleButton } from '@/components/auth/google-button';
-import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 import { googleLoginAction, telegramAuthAction } from '@/app/auth/actions';
 import { ACCESS_REQUIREMENTS_UNMET, accessRequiredHref } from '@/lib/access-requirements';
 import type { TelegramAuthData } from '@/lib/types';
+import styles from '../auth.module.css';
 
 interface LoginFormProps {
   botUsername: string;
@@ -22,6 +24,9 @@ interface LoginFormProps {
 export function LoginForm({ botUsername, googleClientId, from, initialError = null }: LoginFormProps) {
   const [error, setError] = React.useState<string | null>(initialError);
   const [pending, setPending] = React.useState(false);
+  const [renderIssue, setRenderIssue] = React.useState(false);
+  const [widgetAttempt, setWidgetAttempt] = React.useState(0);
+  const onRenderIssue = React.useCallback(() => setRenderIssue(true), []);
 
   const onTelegram = React.useCallback(async (data: TelegramAuthData) => {
     setError(null);
@@ -44,33 +49,44 @@ export function LoginForm({ botUsername, googleClientId, from, initialError = nu
   }, [from]);
 
   return (
-    <div className="space-y-5">
+    <div className={styles.form}>
       {error && (
-        <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+        <div role="alert" className={styles.error}>
+          <AlertCircle aria-hidden="true" />
           <span>{error}</span>
         </div>
       )}
 
-      <TelegramLogin
-        botUsername={botUsername}
-        size="large"
-        cornerRadius={12}
-        onAuth={onTelegram}
-      />
-
-      <TelegramSwitchHint />
+      <div className={styles.telegram} inert={pending} aria-busy={pending}>
+        <p className={styles.providerLabel}>Telegram bilan kirish</p>
+        {renderIssue ? (
+          <div className={styles.providerIssue} role="status">
+            <p className={styles.issueTitle}>Telegram yuklanmadi</p>
+            <p>{googleClientId ? 'Google orqali davom eting yoki qayta urinib ko‘ring.' : 'Qayta urinib ko‘ring yoki yordamga murojaat qiling.'}</p>
+            <div className={styles.issueActions}>
+              <Button type="button" variant="outline" onClick={() => { setRenderIssue(false); setWidgetAttempt((attempt) => attempt + 1); }}>
+                <RefreshCw aria-hidden="true" />Qayta urinish
+              </Button>
+              <Link href="/help">Yordam</Link>
+            </div>
+          </div>
+        ) : (
+          <div className={styles.widget}>
+            <TelegramLogin
+              key={widgetAttempt}
+              botUsername={botUsername}
+              size="large"
+              cornerRadius={12}
+              onAuth={onTelegram}
+              onRenderIssue={onRenderIssue}
+            />
+          </div>
+        )}
+      </div>
 
       {googleClientId && (
         <>
-          <div className="relative">
-            <Separator />
-            <span className="absolute inset-0 flex items-center justify-center">
-              <span className="bg-card px-3 text-xs uppercase tracking-wider text-muted-foreground">
-                yoki
-              </span>
-            </span>
-          </div>
+          <div className={styles.divider}><span />yoki<span /></div>
 
           <GoogleButton
             clientId={googleClientId}
@@ -80,6 +96,9 @@ export function LoginForm({ botUsername, googleClientId, from, initialError = nu
           />
         </>
       )}
+
+      {pending && <p role="status" className={styles.pending}><Loader2 aria-hidden="true" className="animate-spin motion-reduce:animate-none" />Kirilmoqda…</p>}
+      <TelegramSwitchHint />
     </div>
   );
 }

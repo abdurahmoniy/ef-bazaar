@@ -75,6 +75,33 @@ afterEach(() => {
 });
 
 describe.each<Theme>(['light', 'dark'])('%s custom surfaces', theme => {
+  it('gives landing actions the same readable brand colors as the marketplace', () => {
+    const { css, tokens } = render('components/landing-v2/landing-v2.module.css',
+      '<main class="landing"><a class="primaryButton">Bozorni ko‘rish</a><p class="heroIntro">Epic kartali akkountlarni toping.</p></main>',
+      theme, ['.landing']);
+    expect(rgb(css('.landing').backgroundColor)).toEqual(token('background', tokens));
+    expect(rgb(css('.landing').color)).toEqual(token('foreground', tokens));
+    const action = css('.primaryButton');
+    expect(rgb(action.backgroundColor)).toEqual(token('primary', tokens));
+    expect(rgb(action.color)).toEqual(token('primary-foreground', tokens));
+    expect(contrast(rgb(action.color), rgb(action.backgroundColor))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(rgb(css('.heroIntro').color), rgb(css('.landing').backgroundColor))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('keeps landing notices and gold highlights readable in the selected theme', () => {
+    const { css, tokens } = render('components/landing-v2/landing-v2.module.css',
+      '<main class="landing"><aside class="smartAdmin"><p class="smartLabel">Avtomatik Garov</p><p class="smartTitle"><span>Kutmaysiz.</span></p><p class="smartDescription">Mablag‘ Garovda saqlanadi.</p></aside><span class="flowActive">Garov</span></main>',
+      theme, ['.landing']);
+    expect(rgb(css('.smartAdmin').backgroundColor)).toEqual(token('card', tokens));
+    expect(rgb(css('.smartTitle > span').backgroundColor)).toEqual(token('secondary', tokens));
+    expect(rgb(css('.smartTitle > span').color)).toEqual(token('secondary-foreground', tokens));
+    expect(contrast(rgb(css('.smartTitle > span').color), rgb(css('.smartTitle > span').backgroundColor))).toBeGreaterThanOrEqual(4.5);
+    for (const selector of ['.smartLabel', '.smartDescription']) {
+      expect(contrast(rgb(css(selector).color), rgb(css('.smartAdmin').backgroundColor))).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(contrast(rgb(css('.flowActive').color), rgb(css('.landing').backgroundColor))).toBeGreaterThanOrEqual(4.5);
+  });
+
   it('gives the chat send action the same readable colors as other primary actions', () => {
     const { css, tokens } = render('components/chat/chat-conversation.css',
       '<section class="chat-conversation"><button class="chat-send-button">Send</button></section>',

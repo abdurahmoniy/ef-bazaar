@@ -131,7 +131,7 @@ export function MarketplaceShell({
         hideHeader && "hidden md:block"
       )}>
         <div className={cn(
-          "mx-auto flex min-h-14 w-full max-w-6xl flex-wrap items-center gap-x-2 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] sm:h-14 sm:flex-nowrap sm:gap-3",
+          "mx-auto flex min-h-14 w-full max-w-[var(--app-content-max-width)] flex-wrap items-center gap-x-2 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] sm:h-14 sm:flex-nowrap sm:gap-3",
           activeTab === 'home' && "marketplace-home-header py-3 sm:py-0"
         )}>
           {backHref && <TopBackButton href={backHref} label={backLabel} className="-ml-2" />}
@@ -219,7 +219,7 @@ export function MarketplaceShell({
 
       {user && !user.verified && !(user.googleLinked && user.telegramLinked) && activeTab !== 'profile' && (
         <div className="border-b border-border/70 bg-warning-soft text-warning">
-          <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-1.5 text-[11px] font-semibold">
+          <div className="mx-auto flex w-full max-w-[var(--app-content-max-width)] items-center gap-2 px-4 py-1.5 text-[11px] font-semibold">
             <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
             <span className="marketplace-verification-copy min-w-0 flex-1 truncate">
               {!user.telegramLinked && !user.googleLinked ? 'Telegram va Google ulang' : !user.telegramLinked ? 'Telegram ulang' : 'Google ulang'}
@@ -234,7 +234,7 @@ export function MarketplaceShell({
         </div>
       )}
 
-      <main data-page-transition className={cn("marketplace-shell-content mx-auto flex w-full max-w-6xl flex-col gap-4 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] pt-4 md:py-6", mobileActionBar && "md:pb-[calc(var(--marketplace-bottom-bar-height)+1rem)] lg:pb-6")}>
+      <main data-page-transition className={cn("marketplace-shell-content mx-auto flex w-full max-w-[var(--app-content-max-width)] flex-col gap-4 pl-[max(1rem,var(--app-content-safe-left))] pr-[max(1rem,var(--app-content-safe-right))] pt-4 md:py-6", mobileActionBar && "md:pb-[calc(var(--marketplace-bottom-bar-height)+1rem)] lg:pb-6")}>
         {children}
       </main>
 
@@ -245,7 +245,7 @@ export function MarketplaceShell({
           key="marketplace-action-bar"
           className="fixed inset-x-0 bottom-0 z-40 border-t border-border surface-nav lg:hidden"
         >
-          <div className="mx-auto w-full max-w-6xl px-4 py-2.5 pb-[calc(0.625rem+var(--app-content-safe-bottom))]">
+          <div className="mx-auto w-full max-w-[var(--app-content-max-width)] px-4 py-2.5 pb-[calc(0.625rem+var(--app-content-safe-bottom))]">
             {mobileActionBar}
           </div>
         </MeasuredBottomBar>
