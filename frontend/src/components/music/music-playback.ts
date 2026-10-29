@@ -7,6 +7,7 @@ export interface MusicPlayer {
   stopVideo(): void;
   setVolume(volume: number): void;
   unMute(): void;
+  isMuted(): boolean;
 }
 
 export function musicAllowedOnPath(path: string): boolean {
@@ -69,7 +70,13 @@ export class MusicPlayback {
   }
 
   interact() {
-    if (this.isReady && this.allowed && this.current && !this.playing) this.player.playVideo();
+    if (!this.isReady || !this.allowed || !this.current) return;
+    if (this.playing && !this.player.isMuted()) return;
+    // Mobile Chrome can reject the initial audible start or leave it muted.
+    // Restore audio synchronously in the user's click/key event, before play.
+    this.player.setVolume(20);
+    this.player.unMute();
+    if (!this.playing) this.player.playVideo();
   }
 
   autoplayBlocked() {

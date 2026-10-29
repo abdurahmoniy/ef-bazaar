@@ -9,7 +9,7 @@ const tracks = ['aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc'].map((youtubeVideoId
 function setup(random = () => 0) {
   const player = {
     loadVideoById: vi.fn(), playVideo: vi.fn(), pauseVideo: vi.fn(), stopVideo: vi.fn(),
-    setVolume: vi.fn(), unMute: vi.fn(),
+    setVolume: vi.fn(), unMute: vi.fn(), isMuted: vi.fn().mockReturnValue(false),
   };
   const playback = new MusicPlayback(player, random);
   return { player, playback };
@@ -71,6 +71,51 @@ describe('background music playback', () => {
     playback.autoplayBlocked();
     playback.interact();
     expect(player.playVideo).toHaveBeenCalledOnce();
+    expect(player.loadVideoById).toHaveBeenCalledOnce();
+  });
+
+  it('restores volume and unmutes during interaction after a blocked audible start', () => {
+    const { playback, player } = setup();
+    playback.setAllowed(true);
+    playback.setTracks(tracks);
+    playback.ready();
+    playback.autoplayBlocked();
+    player.unMute.mockClear();
+    player.setVolume.mockClear();
+    playback.interact();
+    expect(player.setVolume).toHaveBeenCalledWith(20);
+    expect(player.unMute).toHaveBeenCalledOnce();
+    expect(player.unMute.mock.invocationCallOrder[0]).toBeLessThan(player.playVideo.mock.invocationCallOrder[0]);
+    expect(player.playVideo).toHaveBeenCalledOnce();
+    expect(player.loadVideoById).toHaveBeenCalledOnce();
+  });
+
+  it('unmutes an already running muted video without restarting playback', () => {
+    const { playback, player } = setup();
+    playback.setAllowed(true);
+    playback.setTracks(tracks);
+    playback.ready();
+    playback.stateChanged(1);
+    player.isMuted.mockReturnValue(true);
+    player.unMute.mockClear();
+    playback.interact();
+    expect(player.unMute).toHaveBeenCalledOnce();
+    expect(player.playVideo).not.toHaveBeenCalled();
+    expect(player.loadVideoById).toHaveBeenCalledOnce();
+  });
+
+  it('leaves audible playback alone on later page interactions', () => {
+    const { playback, player } = setup();
+    playback.setAllowed(true);
+    playback.setTracks(tracks);
+    playback.ready();
+    playback.stateChanged(1);
+    player.unMute.mockClear();
+    player.setVolume.mockClear();
+    playback.interact();
+    expect(player.unMute).not.toHaveBeenCalled();
+    expect(player.setVolume).not.toHaveBeenCalled();
+    expect(player.playVideo).not.toHaveBeenCalled();
     expect(player.loadVideoById).toHaveBeenCalledOnce();
   });
 
