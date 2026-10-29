@@ -101,10 +101,11 @@ export function BackgroundMusic() {
 
   useEffect(() => {
     const interact = () => playback.current?.interact();
-    document.addEventListener('pointerup', interact, true);
+    // A native click also covers touch taps and Chrome's user-activation path.
+    document.addEventListener('click', interact, true);
     document.addEventListener('keydown', interact, true);
     return () => {
-      document.removeEventListener('pointerup', interact, true);
+      document.removeEventListener('click', interact, true);
       document.removeEventListener('keydown', interact, true);
     };
   }, []);

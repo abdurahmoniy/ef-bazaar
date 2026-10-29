@@ -49,7 +49,7 @@ describe('site background music', () => {
     const iframe = document.createElement('iframe');
     player = {
       loadVideoById: vi.fn(), playVideo: vi.fn(), pauseVideo: vi.fn(), stopVideo: vi.fn(),
-      setVolume: vi.fn(), unMute: vi.fn(), destroy: vi.fn(), getIframe: () => iframe,
+      setVolume: vi.fn(), unMute: vi.fn(), isMuted: vi.fn().mockReturnValue(false), destroy: vi.fn(), getIframe: () => iframe,
     };
     construct = vi.fn(function (_element: HTMLElement, settings: YouTubePlayerOptions) {
       options = settings;
@@ -122,7 +122,7 @@ describe('site background music', () => {
     await ready();
     await act(async () => {
       options.events.onAutoplayBlocked();
-      document.dispatchEvent(new Event('pointerup'));
+      document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     expect(player.playVideo).toHaveBeenCalledOnce();
     await act(async () => {
@@ -132,6 +132,43 @@ describe('site background music', () => {
     expect(player.pauseVideo).toHaveBeenCalledOnce();
     await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })));
     expect(player.playVideo).toHaveBeenCalledOnce();
+  });
+
+  it('restores audible playback synchronously in the native click after mobile autoplay is blocked', async () => {
+    await render();
+    await ready();
+    await act(async () => options.events.onAutoplayBlocked());
+    vi.mocked(player.unMute).mockClear();
+    vi.mocked(player.setVolume).mockClear();
+    let insideClick = false;
+    vi.mocked(player.unMute).mockImplementation(() => { expect(insideClick).toBe(true); });
+    const control = document.createElement('button');
+    container.append(control);
+
+    await act(async () => {
+      insideClick = true;
+      control.click();
+      insideClick = false;
+    });
+
+    expect(player.unMute).toHaveBeenCalledOnce();
+    expect(player.setVolume).toHaveBeenCalledWith(20);
+    expect(player.playVideo).toHaveBeenCalledOnce();
+    expect(player.loadVideoById).toHaveBeenCalledOnce();
+  });
+
+  it('keeps clicks silent on a quiet route even after a blocked start', async () => {
+    await render();
+    await ready();
+    await act(async () => options.events.onAutoplayBlocked());
+    state.pathname = '/chats';
+    await render();
+    vi.mocked(player.unMute).mockClear();
+    vi.mocked(player.setVolume).mockClear();
+    await act(async () => document.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(player.unMute).not.toHaveBeenCalled();
+    expect(player.setVolume).not.toHaveBeenCalled();
+    expect(player.playVideo).not.toHaveBeenCalled();
   });
 
   it('refreshes the playlist and removes a disabled current song without remounting', async () => {
