@@ -193,6 +193,30 @@ describe('Telegram Mini App lifecycle', () => {
     root = createRoot(container);
   });
 
+  it('attaches native back and viewport state when the SDK arrives after hydration', async () => {
+    delete window.Telegram;
+    const onBack = vi.fn();
+    await act(async () => root.render(React.createElement(Harness, {
+      first: true, second: false, firstBack: onBack, secondBack: vi.fn(),
+    })));
+    const fake = createFakeWebApp();
+    await act(async () => {
+      window.Telegram = { WebApp: fake.webApp as TelegramWebApp };
+      window.dispatchEvent(new Event('efbazaar:telegram-sdk'));
+    });
+    expect(fake.webApp.BackButton.onClick).toHaveBeenCalledOnce();
+    expect(fake.webApp.ready).toHaveBeenCalledOnce();
+    expect(fake.webApp.BackButton.show).toHaveBeenCalled();
+    expect(fake.webApp.disableVerticalSwipes).toHaveBeenCalled();
+    expect(fake.webApp.BackButton.onClick.mock.invocationCallOrder[0])
+      .toBeLessThan(fake.webApp.ready.mock.invocationCallOrder[0]);
+    await act(async () => fake.pressBack());
+    expect(onBack).toHaveBeenCalledOnce();
+    await act(async () => root.render(null));
+    expect(fake.backHandlers.size).toBe(0);
+    expect([...fake.eventHandlers.values()].every(handlers => handlers.size === 0)).toBe(true);
+  });
+
   it('keeps browser back affordances when the ordinary-browser SDK has no launch data', async () => {
     const fake = createFakeWebApp('   ');
     window.Telegram = { WebApp: fake.webApp as TelegramWebApp };

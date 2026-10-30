@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { usePathname } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 
 import { listMusicTracks, type MusicTrack } from '@/lib/music';
@@ -9,13 +9,42 @@ import { MusicPlayback, musicAllowedOnPath } from './music-playback';
 import { loadYouTubeApi, type YouTubePlayer } from './youtube-api';
 
 const EMPTY: MusicTrack[] = [];
+interface MusicDiagnostic {
+  catalog?: 'loading' | 'ready' | 'error';
+  tracks?: number;
+  allowed?: boolean;
+  api?: 'loading' | 'ready' | 'error';
+  iframe?: 'waiting' | 'ready' | 'timeout' | 'error';
+  playerState?: number;
+  errorCode?: number;
+  autoplayBlocked?: boolean;
+  interaction?: 'click' | 'keydown';
+  muted?: boolean;
+}
 
 /** Mounted once in the root layout so client navigation never restarts a song. */
 export function BackgroundMusic() {
+  return <Suspense fallback={null}><BackgroundMusicPlayer /></Suspense>;
+}
+
+function BackgroundMusicPlayer() {
   const pathname = usePathname();
+  const diagnosticEnabled = useSearchParams().get('musicDebug') === '1';
   const host = useRef<HTMLDivElement>(null);
   const playback = useRef<MusicPlayback | null>(null);
-  const { data } = useQuery({
+  const readyPlayer = useRef<YouTubePlayer | null>(null);
+  const diagnosticSnapshot = useRef<MusicDiagnostic>({});
+  const [diagnostic, setDiagnostic] = useState<MusicDiagnostic | null>(null);
+  const report = useCallback((patch: MusicDiagnostic) => {
+    diagnosticSnapshot.current = { ...diagnosticSnapshot.current, ...patch };
+    // Opt-in, local-only status. Never include credentials or send telemetry.
+    if (new URLSearchParams(window.location.search).get('musicDebug') !== '1') return;
+    setDiagnostic(diagnosticSnapshot.current);
+  }, []);
+  useEffect(() => {
+    if (diagnosticEnabled) report({});
+  }, [diagnosticEnabled, report]);
+  const { data, isPending, isError } = useQuery({
     queryKey: ['public', 'music'],
     queryFn: ({ signal }) => listMusicTracks(signal),
     enabled: musicAllowedOnPath(pathname),
@@ -29,6 +58,10 @@ export function BackgroundMusic() {
   const latest = useRef({ tracks, allowed: false });
 
   useEffect(() => {
+    report({ catalog: isError ? 'error' : isPending ? 'loading' : 'ready', tracks: tracks.filter(track => track.enabled).length });
+  }, [isError, isPending, tracks, report]);
+
+  useEffect(() => {
     const removals = new MutationObserver(() => sync());
     const sync = () => {
       const otherAudio = [...document.querySelectorAll<HTMLMediaElement>('audio,video')]
@@ -38,6 +71,7 @@ export function BackgroundMusic() {
       if (otherAudio) removals.observe(document.body, { childList: true, subtree: true });
       else removals.disconnect();
       latest.current.allowed = active;
+      report({ allowed: active });
       playback.current?.setAllowed(active);
     };
     sync();
@@ -49,7 +83,7 @@ export function BackgroundMusic() {
       document.removeEventListener('visibilitychange', sync);
       mediaEvents.forEach(event => document.removeEventListener(event, sync, true));
     };
-  }, [pathname]);
+  }, [pathname, report]);
 
   useEffect(() => {
     latest.current.tracks = tracks;
@@ -62,45 +96,77 @@ export function BackgroundMusic() {
     let disposed = false;
     let player: YouTubePlayer | null = null;
     let controller: MusicPlayback | null = null;
+    let readyTimer: number | undefined;
+    report({ api: 'loading' });
     void loadYouTubeApi().then(api => {
       if (disposed) return;
+      report({ api: 'ready', iframe: 'waiting' });
+      readyTimer = window.setTimeout(() => {
+        if (!disposed) report({ iframe: 'timeout' });
+      }, 15_000);
       const target = document.createElement('div');
       container.append(target);
-      player = new api.Player(target, {
-        width: 200,
-        height: 200,
-        playerVars: { autoplay: 0, playsinline: 1, controls: 0, disablekb: 1, fs: 0, origin: window.location.origin },
-        events: {
-          onReady: ({ target: readyPlayer }) => {
-            if (disposed) return;
-            const iframe = readyPlayer.getIframe();
-            iframe.tabIndex = -1;
-            iframe.setAttribute('aria-hidden', 'true');
-            controller?.ready();
+      try {
+        player = new api.Player(target, {
+          width: 200,
+          height: 200,
+          playerVars: { autoplay: 0, playsinline: 1, controls: 0, disablekb: 1, fs: 0, origin: window.location.origin },
+          events: {
+            onReady: ({ target: currentPlayer }) => {
+              if (disposed) return;
+              window.clearTimeout(readyTimer);
+              readyPlayer.current = currentPlayer;
+              report({ iframe: 'ready', muted: currentPlayer.isMuted() });
+              const iframe = currentPlayer.getIframe();
+              iframe.tabIndex = -1;
+              iframe.setAttribute('aria-hidden', 'true');
+              controller?.ready();
+            },
+            onStateChange: ({ data: state }) => {
+              if (disposed) return;
+              report({ playerState: state, muted: readyPlayer.current?.isMuted(), ...(state === 1 ? { autoplayBlocked: false } : {}) });
+              controller?.stateChanged(state);
+            },
+            onError: ({ data: code }) => {
+              if (disposed) return;
+              report({ errorCode: code });
+              controller?.failed();
+            },
+            onAutoplayBlocked: () => {
+              if (disposed) return;
+              report({ autoplayBlocked: true, muted: readyPlayer.current?.isMuted() });
+              controller?.autoplayBlocked();
+            },
           },
-          onStateChange: ({ data: state }) => { if (!disposed) controller?.stateChanged(state); },
-          onError: () => { if (!disposed) controller?.failed(); },
-          onAutoplayBlocked: () => { if (!disposed) controller?.autoplayBlocked(); },
-        },
-      });
-      controller = new MusicPlayback(player);
-      controller.setTracks(latest.current.tracks);
-      controller.setAllowed(latest.current.allowed);
-      playback.current = controller;
+        });
+        controller = new MusicPlayback(player);
+        controller.setTracks(latest.current.tracks);
+        controller.setAllowed(latest.current.allowed);
+        playback.current = controller;
+      } catch {
+        window.clearTimeout(readyTimer);
+        report({ iframe: 'error' });
+      }
     }).catch(() => {
       // A blocked third-party script must never interrupt the marketplace.
+      if (!disposed) report({ api: 'error' });
     });
     return () => {
       disposed = true;
+      window.clearTimeout(readyTimer);
       controller?.setAllowed(false);
       player?.destroy();
       playback.current = null;
+      readyPlayer.current = null;
       container.replaceChildren();
     };
-  }, [hasTracks]);
+  }, [hasTracks, report]);
 
   useEffect(() => {
-    const interact = () => playback.current?.interact();
+    const interact = (event: Event) => {
+      playback.current?.interact();
+      report({ interaction: event.type as 'click' | 'keydown', muted: readyPlayer.current?.isMuted() });
+    };
     // A native click also covers touch taps and Chrome's user-activation path.
     document.addEventListener('click', interact, true);
     document.addEventListener('keydown', interact, true);
@@ -108,7 +174,16 @@ export function BackgroundMusic() {
       document.removeEventListener('click', interact, true);
       document.removeEventListener('keydown', interact, true);
     };
-  }, []);
+  }, [report]);
 
-  return <div ref={host} hidden aria-hidden="true" data-background-music="" />;
+  return <>
+    <div ref={host} hidden aria-hidden="true" data-background-music="" />
+    {diagnosticEnabled && diagnostic && (
+      <aside aria-label="Musiqa tekshiruvi" className="ym-hide-content fixed bottom-4 left-4 z-50 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-card p-4 text-foreground shadow-lg">
+        <h2 className="text-sm font-semibold">Musiqa tekshiruvi</h2>
+        <pre data-music-diagnostics="" role="status" className="mt-2 text-xs">{JSON.stringify(diagnostic, null, 2)}</pre>
+        <p className="mt-2 text-xs text-muted-foreground">Holat faqat shu ekranda ko‘rsatiladi.</p>
+      </aside>
+    )}
+  </>;
 }

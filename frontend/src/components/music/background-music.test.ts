@@ -9,7 +9,10 @@ import type { YouTubePlayer, YouTubePlayerOptions } from './youtube-api';
 import { listMusicTracks } from '@/lib/music';
 
 const state = vi.hoisted(() => ({ pathname: '/marketplace' }));
-vi.mock('next/navigation', () => ({ usePathname: () => state.pathname }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => state.pathname,
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
 vi.mock('@/lib/music', () => ({ listMusicTracks: vi.fn() }));
 vi.mock('./youtube-api', () => ({ loadYouTubeApi: vi.fn() }));
 import { loadYouTubeApi } from './youtube-api';
@@ -44,6 +47,7 @@ describe('site background music', () => {
     vi.useFakeTimers();
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     state.pathname = '/marketplace';
+    window.history.replaceState({}, '', '/marketplace');
     visibility = 'visible';
     vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility);
     const iframe = document.createElement('iframe');
@@ -190,6 +194,53 @@ describe('site background music', () => {
     await render();
     expect(construct).not.toHaveBeenCalled();
     expect(container.textContent).toBe('');
+  });
+
+  it('reports the exact loading boundary only when music diagnostics are requested', async () => {
+    window.history.replaceState({}, '', '/marketplace?musicDebug=1');
+    await render();
+    expect(container.querySelector('[data-music-diagnostics]')?.textContent).toContain('"iframe": "waiting"');
+    expect(container.querySelector('[aria-label="Musiqa tekshiruvi"]')?.classList.contains('ym-hide-content')).toBe(true);
+    await ready();
+    await act(async () => options.events.onAutoplayBlocked());
+    expect(container.querySelector('[data-music-diagnostics]')?.textContent).toContain('"autoplayBlocked": true');
+    await act(async () => document.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(container.querySelector('[data-music-diagnostics]')?.textContent).toContain('"interaction": "click"');
+    await act(async () => options.events.onError({ data: 153 }));
+    expect(container.querySelector('[data-music-diagnostics]')?.textContent).toContain('"errorCode": 153');
+  });
+
+  it('distinguishes a failed SDK download from an iframe that never becomes ready', async () => {
+    window.history.replaceState({}, '', '/marketplace?musicDebug=1');
+    vi.mocked(loadYouTubeApi).mockRejectedValue(new Error('Blocked'));
+    await render();
+    expect(container.querySelector('[data-music-diagnostics]')?.textContent).toContain('"api": "error"');
+  });
+
+  it('reports iframe readiness timeout without claiming an autoplay failure', async () => {
+    window.history.replaceState({}, '', '/marketplace?musicDebug=1');
+    await render();
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(container.querySelector('[data-music-diagnostics]')?.textContent).toContain('"iframe": "timeout"');
+    expect(player.playVideo).not.toHaveBeenCalled();
+    await ready();
+    expect(container.querySelector('[data-music-diagnostics]')?.textContent).toContain('"iframe": "ready"');
+  });
+
+  it('hides diagnostics when the opt-in is removed without rebuilding the player', async () => {
+    window.history.replaceState({}, '', '/marketplace?musicDebug=1');
+    await render();
+    await ready();
+    expect(container.querySelector('[data-music-diagnostics]')).not.toBeNull();
+    state.pathname = '/plans';
+    window.history.replaceState({}, '', '/plans');
+    await render();
+    expect(container.querySelector('[data-music-diagnostics]')).toBeNull();
+    expect(construct).toHaveBeenCalledOnce();
+    window.history.replaceState({}, '', '/plans?musicDebug=1');
+    await render();
+    expect(container.querySelector('[data-music-diagnostics]')).not.toBeNull();
+    expect(construct).toHaveBeenCalledOnce();
   });
 
   it('does not start if the iframe becomes ready after navigating to chat', async () => {
