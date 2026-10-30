@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import { getTelegramWebApp } from '@/lib/telegram';
+import { useTelegramWebApp } from '@/hooks/use-telegram-sdk';
 import type { TelegramWebApp, TelegramWebAppBackButton } from '@/lib/types';
 
 export type TelegramBackLayer = {
@@ -54,6 +54,7 @@ function hasTelegramLaunchEvidence(webApp: TelegramWebApp | undefined): webApp i
  * Internal symbols keep callers with duplicate public IDs independent.
  */
 export function TelegramBackProvider({ children }: { children: React.ReactNode }) {
+  const webApp = useTelegramWebApp();
   const layersRef = React.useRef(new Map<symbol, TelegramBackLayer>());
   const bridgeRef = React.useRef<NativeBackBridge | null>(null);
   const swipesLockedRef = React.useRef(false);
@@ -97,7 +98,6 @@ export function TelegramBackProvider({ children }: { children: React.ReactNode }
   // a passive effect, so native ownership is resolved before Telegram reveals
   // the first interactive frame.
   useIsomorphicLayoutEffect(() => {
-    const webApp = getTelegramWebApp();
     const backButton = webApp?.BackButton;
     if (!hasTelegramLaunchEvidence(webApp) || !backButton) return;
 
@@ -126,7 +126,7 @@ export function TelegramBackProvider({ children }: { children: React.ReactNode }
     bridgeRef.current = bridge;
     setMiniApp(true);
     return () => releaseBridge(bridge, false);
-  }, [releaseBridge]);
+  }, [releaseBridge, webApp]);
 
   useIsomorphicLayoutEffect(() => {
     const bridge = bridgeRef.current;
@@ -156,7 +156,7 @@ export function TelegramBackProvider({ children }: { children: React.ReactNode }
         swipeRestoreNeededRef.current = false;
       }
     }
-  }, [releaseBridge, revision]);
+  }, [releaseBridge, revision, webApp]);
 
   const value = React.useMemo(
     () => ({ isMiniApp, register }),

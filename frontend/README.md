@@ -48,6 +48,17 @@ Local preview uchun `ochq 127.0.0.1:3001 --sub efbazaar` ishlatiladi.
 orqali ruxsatlaydi; bu Next.js development WebSocket va interaktiv boshqaruvlarning
 tunnel orqali ishlashi uchun kerak. Boshqa originlar bloklanganicha qoladi.
 
+Telegram native SDK Next.js’ning `beforeInteractive` navbatiga kiritilmaydi:
+o‘rnatilgan Next 16.2.9 runtime’da tugamagan tashqi so‘rov butun hydration’ni
+ushlab turishi mumkin. Oddiy brauzerda native SDK so‘ralmaydi; Mini App launch
+hash’i yoki shu tabning sessionStorage’dagi Mini App belgisi bo‘lsa hydration’dan
+so‘ng async yuklanadi. Belgi faqat SDK yuklashni tanlaydi, autentifikatsiya
+huquqi bermaydi. Storage mavjud bo‘lmasa SDK async so‘raladi; hydration’ni
+ushlamaydi. 15 soniyada tayyor bo‘lmasa
+signed-hash login fallback’i davom etadi. SDK tayyorligi reaktiv kuzatiladi:
+native Back/MainButton va viewport/safe-area sozlamalari kech yuklanishda ham
+ulanadi. Login hash’ni olib tashlashdan oldin SDK’ga uni o‘qish imkonini beradi.
+
 ### Auth / login
 
 `/auth/login` umumiy Inter shrifti, light/dark tokenlar, 1280px kontent eni,

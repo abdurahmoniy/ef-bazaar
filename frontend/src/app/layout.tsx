@@ -6,6 +6,7 @@ import './globals.css';
 import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
 import { TelegramBackProvider } from '@/components/telegram/telegram-back-provider';
 import { TelegramViewportBootstrap } from '@/components/telegram/telegram-viewport-bootstrap';
+import { TelegramSdk } from '@/components/telegram/telegram-sdk';
 import { ThemeScript } from '@/components/theme/theme-script';
 import { StartupIntro } from '@/components/brand/startup-intro';
 import { StartupIntroScript } from '@/components/brand/startup-intro-script';
@@ -111,15 +112,12 @@ export default function RootLayout({
   return (
     <html lang="uz" className={inter.variable} suppressHydrationWarning>
       <head>
-        <Script
-          src="https://telegram.org/js/telegram-web-app.js?63"
-          strategy="beforeInteractive"
-        />
         {/* Independent raw fallback: stored/system theme still initializes if the SDK fails. */}
         <ThemeScript />
         <StartupIntroScript />
       </head>
       <body className="font-sans">
+        <TelegramSdk />
         <StartupIntro />
         {/* Syncs the first visible Mini App state before calling Telegram ready. */}
         <TelegramViewportBootstrap />

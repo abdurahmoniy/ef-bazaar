@@ -74,6 +74,21 @@ describe('useTelegramMainButton', () => {
     expect(container.querySelector('[data-active]')?.getAttribute('data-active')).toBe('false');
   });
 
+  it('activates a MainButton that arrives after hydration and cleans up its listener', async () => {
+    vi.mocked(getTelegramWebApp).mockReturnValue(undefined);
+    await act(async () => root.render(createElement(Probe, { text: 'Saqlash', onClick: vi.fn() })));
+    await act(async () => {
+      vi.mocked(getTelegramWebApp).mockReturnValue({ MainButton: mainButtonMock } as unknown as ReturnType<typeof getTelegramWebApp>);
+      window.dispatchEvent(new Event('efbazaar:telegram-sdk'));
+    });
+    expect(container.querySelector('[data-active]')?.getAttribute('data-active')).toBe('true');
+    expect(mainButtonMock.show).toHaveBeenCalledOnce();
+    expect(mainButtonMock.setText).toHaveBeenCalledWith('Saqlash');
+    await act(async () => root.render(null));
+    expect(mainButtonMock.offClick).toHaveBeenCalledOnce();
+    expect(mainButtonMock.hide).toHaveBeenCalledOnce();
+  });
+
   it('returns false when enabled is false even if MainButton exists', async () => {
     vi.mocked(getTelegramWebApp).mockReturnValue({
       MainButton: mainButtonMock as any,

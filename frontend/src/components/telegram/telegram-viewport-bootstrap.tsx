@@ -3,7 +3,7 @@
 import * as React from 'react';
 
 import { THEME_STORAGE_KEY } from '@/components/theme/theme-script';
-import { getTelegramWebApp } from '@/lib/telegram';
+import { useTelegramWebApp } from '@/hooks/use-telegram-sdk';
 import {
   APP_CHROME_COLORS,
   resolveAppTheme,
@@ -19,11 +19,11 @@ import type { TelegramWebAppEvent, TelegramWebAppEventCallback } from '@/lib/typ
  * of the external SDK request in the root layout.
  *
  * No visual output — mirrors `TelegramWebAppAutoLogin`, which handles login
- * separately and is left untouched by this component.
+ * separately from this component.
  */
 export function TelegramViewportBootstrap() {
+  const webApp = useTelegramWebApp();
   React.useEffect(() => {
-    const webApp = getTelegramWebApp();
     if (!webApp) return;
 
     const safely = (operation: () => void) => {
@@ -120,7 +120,7 @@ export function TelegramViewportBootstrap() {
       }
       safely(() => window.removeEventListener('efbazaar:theme-change', syncTheme));
     };
-  }, []);
+  }, [webApp]);
 
   return null;
 }

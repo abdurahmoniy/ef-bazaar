@@ -157,14 +157,12 @@ describe('Telegram shell source contract', () => {
   );
   const globals = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
 
-  it('keeps the raw theme fallback in head beside one official SDK load', () => {
-    const sdk = 'https://telegram.org/js/telegram-web-app.js?63';
+  it('keeps theme initialization independent of the optional native SDK', () => {
     const head = layout.slice(layout.indexOf('<head>'), layout.indexOf('</head>'));
 
-    expect(layout.split(sdk)).toHaveLength(2);
-    expect(layout).toContain('strategy="beforeInteractive"');
+    expect(layout).not.toContain('strategy="beforeInteractive"');
+    expect(layout).toContain('<TelegramSdk />');
     expect(head).toContain('<ThemeScript />');
-    expect(head.indexOf(sdk)).toBeLessThan(head.indexOf('<ThemeScript'));
     expect(themeScript).toContain('<script dangerouslySetInnerHTML');
     expect(bootstrap).not.toContain("createElement('script')");
   });

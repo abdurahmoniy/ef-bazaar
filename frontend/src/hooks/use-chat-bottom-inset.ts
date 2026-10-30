@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useState } from 'react';
 import { getTelegramWebApp } from '@/lib/telegram';
+import { useTelegramWebApp } from './use-telegram-sdk';
 import type { TelegramWebAppEvent } from '@/lib/types';
 
 function validInset(value: unknown): value is number {
@@ -10,6 +11,7 @@ function validInset(value: unknown): value is number {
 
 /** Reserve only the unsafe area still overlapping the visible chat viewport. */
 export function useChatBottomInset(viewport: { height: number; offsetTop: number } | null): number | null {
+  const webApp = useTelegramWebApp();
   const [bottom, setBottom] = useState<number | null>(null);
 
   useLayoutEffect(() => {
@@ -19,7 +21,6 @@ export function useChatBottomInset(viewport: { height: number; offsetTop: number
     probe.setAttribute('data-chat-safe-area-probe', '');
     probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;width:0;height:0;padding-bottom:env(safe-area-inset-bottom,0px)';
     document.body.append(probe);
-    const webApp = getTelegramWebApp();
     const isMiniApp = Boolean(webApp?.initData?.trim());
 
     const update = () => {
@@ -50,7 +51,7 @@ export function useChatBottomInset(viewport: { height: number; offsetTop: number
       window.removeEventListener('resize', update);
       if (isMiniApp) for (const event of events) webApp?.offEvent?.(event, update);
     };
-  }, [viewport]);
+  }, [viewport, webApp]);
 
   return bottom;
 }

@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 
 import { miniAppStartTarget } from '@/lib/mini-app-start-param';
 import { isSafeInternalPath } from '@/lib/safe-redirect';
+import { getTelegramSdkStatus } from '@/lib/telegram-sdk';
+import { useTelegramSdkStatus } from '@/hooks/use-telegram-sdk';
 
 /**
  * Telegram Mini App initData'ni URL hash'dan to'g'ridan-to'g'ri o'qiydi.
@@ -160,6 +162,7 @@ export function submitTelegramWebAppLogin(initData: string, from: string): HTMLF
  * komponent ko'rinmaydi va oddiy UX'ga ta'sir qilmaydi.
  */
 export function TelegramWebAppAutoLogin() {
+  const sdkStatus = useTelegramSdkStatus();
   const router = useRouter();
   const [state, setState] = React.useState<'idle' | 'authing' | 'error'>('idle');
   const [error, setError] = React.useState<string | null>(null);
@@ -234,6 +237,9 @@ export function TelegramWebAppAutoLogin() {
 
     const attempt = () => {
       if (cancelled || submittedRef.current) return;
+      // Let the SDK capture the launch hash before a successful login removes
+      // it. A failed/timed-out SDK still permits the signed-hash auth fallback.
+      if (getTelegramSdkStatus() === 'loading') return;
       const initData = readMiniAppInitData() ?? initDataRef.current;
       if (initData) {
         submitInitData(initData);
@@ -258,7 +264,7 @@ export function TelegramWebAppAutoLogin() {
       window.clearTimeout(sessionTimer);
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [retryKey, router]);
+  }, [retryKey, router, sdkStatus]);
 
   if (state === 'idle') return null;
 

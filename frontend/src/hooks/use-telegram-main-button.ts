@@ -3,6 +3,7 @@
 import * as React from 'react';
 
 import { getTelegramWebApp } from '@/lib/telegram';
+import { useTelegramWebApp } from './use-telegram-sdk';
 
 const useIsomorphicLayoutEffect =
   typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
@@ -35,6 +36,7 @@ export function useTelegramMainButton({
   loading,
   enabled = true,
 }: UseTelegramMainButtonOptions): boolean {
+  const webApp = useTelegramWebApp();
   const [isActive, setIsActive] = React.useState(false);
   const onClickRef = React.useRef(onClick);
   onClickRef.current = onClick;
@@ -44,7 +46,7 @@ export function useTelegramMainButton({
       setIsActive(false);
       return;
     }
-    const mainButton = getTelegramWebApp()?.MainButton;
+    const mainButton = webApp?.MainButton;
     if (!mainButton) {
       setIsActive(false);
       return;
@@ -65,11 +67,11 @@ export function useTelegramMainButton({
       mainButton.hide();
       setIsActive(false);
     };
-  }, [enabled]);
+  }, [enabled, webApp]);
 
   React.useEffect(() => {
     if (!enabled) return;
-    const mainButton = getTelegramWebApp()?.MainButton;
+    const mainButton = webApp?.MainButton;
     if (!mainButton) return;
 
     mainButton.setText(text);
@@ -77,7 +79,7 @@ export function useTelegramMainButton({
     else mainButton.enable();
     if (loading) mainButton.showProgress(false);
     else mainButton.hideProgress();
-  }, [text, disabled, loading, enabled]);
+  }, [text, disabled, loading, enabled, webApp]);
 
   return isActive;
 }
