@@ -59,6 +59,12 @@ yuklanmasa qayta urinish va yordam bor; iframe ichidagi `Bot domain invalid` esa
 bot domenini BotFather’da `/setdomain` bilan sozlashni talab qiladi
 ([mavjud Telegram widget’i hujjati](https://core.telegram.org/widgets/login-legacy#linking-your-domain-to-the-bot)).
 Mavjud server action, sessiya va xavfsiz `from` qaytish oqimi saqlanadi.
+Google SDK yuklanishi umumiy bitta so‘rov orqali kuzatiladi: tarmoq xatosi,
+API tayyor bo‘lmasligi yoki 15 soniyalik timeout’da cheksiz «tayyorlanmoqda»
+o‘rniga xato va «Qayta urinish — Google» chiqadi. Qayta urinish muvaffaqiyatsiz
+script elementini yangidan yuklaydi; tayyor API qayta ishlatiladi. ID token
+avvalgidek mavjud server action’ga beriladi; SDK yuklanishi haqiqiy login
+muvaffaqiyatli bo‘lganini anglatmaydi.
 
 ### Fon musiqasi
 
@@ -68,6 +74,12 @@ Mavjud server action, sessiya va xavfsiz `from` qaytish oqimi saqlanadi.
 - Brauzer autoplay’ni bloklasa, native `click` (touch tap ham shu hodisani beradi) yoki klaviatura hodisasida ovoz 20% ga tiklanib, `unMute()` va ijro shu user gesture ichida bajariladi. Android Chrome uchun `pointerup`ga tayanilmaydi ([Chrome autoplay qoidasi](https://developer.chrome.com/blog/autoplay)). Pleyer muted holatda allaqachon ishlayotgan bo‘lsa, trekni qaytadan boshlamasdan ovozi ochiladi; ovozli ijroga tegilmaydi. Embed taqiqlangan/o‘chirilgan videolar tashlab ketiladi; barcha treklar xato bersa cheksiz qayta urinish bo‘lmaydi. Bo‘sh ro‘yxat yoki YouTube bloklanishi sayt ishini to‘xtatmaydi.
 - YouTube IFrame API ishlatiladi; CSP faqat `www.youtube.com` (script/frame) va `s.ytimg.com` (script) manbalarini qo‘shadi. Ko‘rinmaydigan YouTube ijrosi [YouTube developer talablariga](https://developers.google.com/youtube/terms/developer-policies) mos integratsiya emas va provayder/brauzer tomonidan bloklanishi mumkin. Ushbu ko‘rinish foydalanuvchining aniq talabi; barqaror, provayder talablariga mos faqat-audio ijro uchun litsenziyalangan audio fayllar kerak.
 - Boshlang‘ich ro‘yxat bo‘sh. Admin birinchi havolani qo‘shmaguncha musiqa yangramaydi; API kaliti yoki yangi env kerak emas. Marketplace V85 migratsiyasi ushbu frontenddan oldin yoki u bilan birga chiqarilishi kerak.
+- Androiddagi uzilishni tekshirish uchun `/marketplace?musicDebug=1` ochiladi.
+  Panel katalog, SDK, iframe tayyorligi (15 soniyalik kuzatuv timeout’i),
+  ijro holati, oxirgi YouTube xato kodi, autoplay bloklanishi va click/key
+  hodisasini ko‘rsatadi. Oddiy manzilda panel yo‘q; diagnostika faqat shu
+  sahifada ko‘rsatiladi, serverga yuborilmaydi va token/sessiya ma’lumoti yo‘q.
+  Panel ijro mexanizmini o‘zgartirmaydi va qurilmada ovoz eshitilganini isbotlamaydi.
 
 ## Backend'ga qanday murojaat qilinadi
 

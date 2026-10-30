@@ -1,27 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import Script from 'next/script';
-
 import { Button } from '@/components/ui/button';
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: {
-            client_id: string;
-            callback: (response: { credential: string }) => void;
-            ux_mode?: 'popup' | 'redirect';
-            auto_select?: boolean;
-          }) => void;
-          prompt: () => void;
-        };
-      };
-    };
-  }
-}
+import { loadGoogleIdentity, type GoogleIdentity } from './google-identity';
 
 interface GoogleButtonProps {
   clientId: string;
@@ -42,62 +23,63 @@ export function GoogleButton({
   label = 'Google bilan davom etish',
   disabled,
 }: GoogleButtonProps) {
-  const [ready, setReady] = React.useState(false);
+  const [state, setState] = React.useState<'loading' | 'ready' | 'error'>('loading');
+  const [attempt, setAttempt] = React.useState(0);
+  const apiRef = React.useRef<GoogleIdentity | null>(null);
   const callbackRef = React.useRef(onCredential);
   callbackRef.current = onCredential;
 
-  const initialize = React.useCallback(() => {
-    if (!window.google || !clientId) return;
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: (response) => callbackRef.current(response.credential),
-      ux_mode: 'popup',
-      auto_select: false,
-    });
-    setReady(true);
-  }, [clientId]);
-
-  // The Script `onLoad` callback is skipped when the browser serves the GIS
-  // script from cache — the button then sits disabled indefinitely. Poll for
-  // `window.google` on mount so a cached load still flips ready. Cheap because
-  // the interval cancels the moment we succeed.
   React.useEffect(() => {
-    if (ready || !clientId) return;
-    if (window.google) {
-      initialize();
+    let disposed = false;
+    apiRef.current = null;
+    setState('loading');
+    if (!clientId) {
+      setState('error');
       return;
     }
-    const interval = setInterval(() => {
-      if (window.google) {
-        initialize();
-        clearInterval(interval);
-      }
-    }, 250);
-    return () => clearInterval(interval);
-  }, [ready, clientId, initialize]);
+    void loadGoogleIdentity().then(api => {
+      if (disposed) return;
+      api.initialize({
+        client_id: clientId,
+        callback: response => callbackRef.current(response.credential),
+        ux_mode: 'popup',
+        auto_select: false,
+      });
+      apiRef.current = api;
+      setState('ready');
+    }).catch(() => { if (!disposed) setState('error'); });
+    return () => { disposed = true; };
+  }, [attempt, clientId]);
 
   const handleClick = React.useCallback(() => {
-    if (!window.google) return;
-    window.google.accounts.id.prompt();
-  }, []);
+    if (state === 'error') {
+      setAttempt(value => value + 1);
+      return;
+    }
+    try {
+      apiRef.current?.prompt();
+    } catch {
+      setState('error');
+    }
+  }, [state]);
 
   return (
     <>
-      <Script
-        src="https://accounts.google.com/gsi/client"
-        strategy="afterInteractive"
-        onLoad={initialize}
-      />
+      {state === 'error' && (
+        <p role="alert" className="text-sm text-muted-foreground">
+          Google yuklanmadi. Internet aloqasini tekshirib, qayta urinib ko‘ring.
+        </p>
+      )}
       <Button
         type="button"
         variant="outline"
         size="lg"
         className="w-full"
         onClick={handleClick}
-        disabled={disabled || !ready}
+        disabled={disabled || state === 'loading'}
       >
         <GoogleIcon />
-        {ready ? label : 'Google tayyorlanmoqda…'}
+        {state === 'ready' ? label : state === 'error' ? 'Qayta urinish — Google' : 'Google tayyorlanmoqda…'}
       </Button>
     </>
   );
