@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BackgroundMusic } from './background-music';
+import { VoicePlayer } from '@/components/chat/voice-player';
 import type { YouTubePlayer, YouTubePlayerOptions } from './youtube-api';
 import { listMusicTracks } from '@/lib/music';
 
@@ -31,10 +32,11 @@ describe('site background music', () => {
   let visibility: DocumentVisibilityState;
   let construct: ReturnType<typeof vi.fn>;
 
-  async function render() {
+  async function render(voices: string[] = []) {
     await act(async () => {
       root.render(createElement(StrictMode, null,
-        createElement(QueryClientProvider, { client }, createElement(BackgroundMusic))));
+        createElement(QueryClientProvider, { client }, createElement(BackgroundMusic),
+          ...voices.map((src, index) => createElement(VoicePlayer, { key: index, src, seed: String(index), mine: false })))));
     });
     await act(async () => { await vi.advanceTimersByTimeAsync(1); });
   }
@@ -109,15 +111,15 @@ describe('site background music', () => {
     expect(player.loadVideoById).toHaveBeenCalledOnce();
   });
 
-  it('pauses in chat and resumes without resetting the song', async () => {
+  it('keeps playing while entering and leaving a chat without resetting the song', async () => {
     await render();
     await ready();
     state.pathname = '/chats/42';
     await render();
-    expect(player.pauseVideo).toHaveBeenCalled();
+    expect(player.pauseVideo).not.toHaveBeenCalled();
     state.pathname = '/marketplace';
     await render();
-    expect(player.playVideo).toHaveBeenCalledOnce();
+    expect(player.playVideo).not.toHaveBeenCalled();
     expect(player.loadVideoById).toHaveBeenCalledOnce();
   });
 
@@ -165,7 +167,7 @@ describe('site background music', () => {
     await render();
     await ready();
     await act(async () => options.events.onAutoplayBlocked());
-    state.pathname = '/chats';
+    state.pathname = '/support';
     await render();
     vi.mocked(player.unMute).mockClear();
     vi.mocked(player.setVolume).mockClear();
@@ -243,13 +245,132 @@ describe('site background music', () => {
     expect(construct).toHaveBeenCalledOnce();
   });
 
-  it('does not start if the iframe becomes ready after navigating to chat', async () => {
+  it('does not start if the iframe becomes ready after navigating to support', async () => {
     await render();
-    state.pathname = '/chats';
+    state.pathname = '/support';
     await render();
     await ready();
     expect(player.loadVideoById).not.toHaveBeenCalled();
     expect(player.playVideo).not.toHaveBeenCalled();
+  });
+
+  function mockVoiceMedia() {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
+      Object.defineProperty(this, 'paused', { configurable: true, value: false });
+      Object.defineProperty(this, 'ended', { configurable: true, value: false });
+      this.dispatchEvent(new Event('play'));
+      return Promise.resolve();
+    });
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function (this: HTMLMediaElement) {
+      if (this.paused) return;
+      Object.defineProperty(this, 'paused', { configurable: true, value: true });
+      this.dispatchEvent(new Event('pause'));
+    });
+  }
+
+  async function renderChat(voices = ['/voice-one.webm']) {
+    mockVoiceMedia();
+    state.pathname = '/chats/42';
+    await render(voices);
+    expect(construct).toHaveBeenCalledOnce();
+    await ready();
+    await act(async () => options.events.onStateChange({ data: 1 }));
+    const audio = container.querySelector('audio');
+    expect(audio).toBeInstanceOf(HTMLAudioElement);
+    return audio!;
+  }
+
+  it.each(['pause', 'ended'] as const)('resumes the same song after a chat voice message emits %s', async (event) => {
+    const audio = await renderChat();
+    await act(async () => container.querySelector<HTMLButtonElement>('button')!.click());
+    expect(player.pauseVideo).toHaveBeenCalledOnce();
+    expect(player.playVideo).not.toHaveBeenCalled();
+
+    await act(async () => {
+      if (event === 'pause') container.querySelector<HTMLButtonElement>('button')!.click();
+      else {
+        Object.defineProperty(audio, 'ended', { configurable: true, value: true });
+        Object.defineProperty(audio, 'paused', { configurable: true, value: true });
+        audio.dispatchEvent(new Event('ended'));
+      }
+    });
+    expect(player.playVideo).toHaveBeenCalledOnce();
+    expect(player.loadVideoById).toHaveBeenCalledOnce();
+    expect(construct).toHaveBeenCalledOnce();
+  });
+
+  it('resumes when a playing chat voice message is unmounted', async () => {
+    const audio = await renderChat();
+    await act(async () => container.querySelector<HTMLButtonElement>('button')!.click());
+    expect(player.pauseVideo).toHaveBeenCalledOnce();
+    await render();
+    expect(audio.paused).toBe(true);
+    expect(player.playVideo).toHaveBeenCalledOnce();
+    expect(player.loadVideoById).toHaveBeenCalledOnce();
+  });
+
+  it('waits for every audible chat voice message to stop before resuming', async () => {
+    await renderChat(['/voice-one.webm', '/voice-two.webm']);
+    const buttons = container.querySelectorAll<HTMLButtonElement>('button');
+    await act(async () => buttons[0].click());
+    await act(async () => buttons[1].click());
+    expect(player.pauseVideo).toHaveBeenCalledOnce();
+    await act(async () => buttons[0].click());
+    expect(player.playVideo).not.toHaveBeenCalled();
+    await act(async () => buttons[1].click());
+    expect(player.playVideo).toHaveBeenCalledOnce();
+  });
+
+  it('keeps music playing if the voice message cannot start', async () => {
+    await renderChat();
+    vi.mocked(HTMLMediaElement.prototype.play).mockRejectedValueOnce(new Error('Media unavailable'));
+    await act(async () => container.querySelector<HTMLButtonElement>('button')!.click());
+    expect(player.pauseVideo).not.toHaveBeenCalled();
+    expect(container.querySelector('button')?.getAttribute('aria-label')).toBe('Eshitish');
+  });
+
+  it('resumes when a voice source fails after play without emitting pause', async () => {
+    await renderChat();
+    vi.mocked(HTMLMediaElement.prototype.play).mockImplementationOnce(function (this: HTMLMediaElement) {
+      // Chromium emits play, then error with paused=true, but no pause event.
+      Object.defineProperty(this, 'paused', { configurable: true, value: false });
+      this.dispatchEvent(new Event('play'));
+      Object.defineProperty(this, 'paused', { configurable: true, value: true });
+      Object.defineProperty(this, 'error', { configurable: true, value: { code: 4 } });
+      this.dispatchEvent(new Event('error'));
+      return Promise.reject(new Error('Unsupported voice source'));
+    });
+    await act(async () => container.querySelector<HTMLButtonElement>('button')!.click());
+    expect(player.pauseVideo).toHaveBeenCalledOnce();
+    expect(player.playVideo).toHaveBeenCalledOnce();
+    expect(player.loadVideoById).toHaveBeenCalledOnce();
+    expect(container.querySelector('button')?.getAttribute('aria-label')).toBe('Eshitish');
+  });
+
+  it('resumes when replacing a playing voice emits emptied without pause', async () => {
+    const audio = await renderChat();
+    await act(async () => container.querySelector<HTMLButtonElement>('button')!.click());
+    expect(player.pauseVideo).toHaveBeenCalledOnce();
+    // Native src replacement sets paused=true before cleanup, then emits emptied.
+    Object.defineProperty(audio, 'paused', { configurable: true, value: true });
+    await render(['/voice-replaced.webm']);
+    await act(async () => audio.dispatchEvent(new Event('emptied')));
+    expect(player.playVideo).toHaveBeenCalledOnce();
+    expect(player.loadVideoById).toHaveBeenCalledOnce();
+  });
+
+  it('can play a replaced voice source with the same mounted control', async () => {
+    await renderChat();
+    await act(async () => container.querySelector<HTMLButtonElement>('button')!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('button')!.click());
+    expect(player.playVideo).toHaveBeenCalledOnce();
+    await render(['/voice-replaced.webm']);
+    await act(async () => options.events.onStateChange({ data: 1 }));
+    // Source replacement must leave the same mounted control usable.
+    await act(async () => container.querySelector<HTMLButtonElement>('button')!.click());
+    expect(container.querySelector('audio')!.getAttribute('src')).toBe('/voice-replaced.webm');
+    expect(container.querySelector('audio')!.paused).toBe(false);
+    expect(player.pauseVideo).toHaveBeenCalledTimes(2);
   });
 
   it('pauses while another audible media element is playing and resumes after it pauses', async () => {

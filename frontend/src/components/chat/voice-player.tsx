@@ -37,9 +37,8 @@ export function VoicePlayer({ src, seed, mine }: VoicePlayerProps) {
   }, [seed]);
 
   useEffect(() => {
-    const audio = new Audio(src);
-    audio.preload = 'metadata';
-    audioRef.current = audio;
+    const audio = audioRef.current;
+    if (!audio) return;
 
     const onLoaded = () => {
       if (Number.isFinite(audio.duration)) setDuration(audio.duration);
@@ -61,12 +60,13 @@ export function VoicePlayer({ src, seed, mine }: VoicePlayerProps) {
     audio.addEventListener('loadedmetadata', onLoaded);
     audio.addEventListener('timeupdate', onTime);
     audio.addEventListener('ended', onEnded);
+    // Server-rendered audio may have loaded metadata before hydration.
+    onLoaded();
     return () => {
       audio.pause();
       audio.removeEventListener('loadedmetadata', onLoaded);
       audio.removeEventListener('timeupdate', onTime);
       audio.removeEventListener('ended', onEnded);
-      audioRef.current = null;
     };
   }, [src]);
 
@@ -93,6 +93,8 @@ export function VoicePlayer({ src, seed, mine }: VoicePlayerProps) {
 
   return (
     <div className="flex items-center gap-2.5 py-1 pr-1">
+      {/* Keep media events in the document so background music yields to voice notes. */}
+      <audio ref={audioRef} src={src} preload="metadata" hidden />
       <button
         type="button"
         onClick={toggle}
