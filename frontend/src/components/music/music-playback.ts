@@ -11,7 +11,7 @@ export interface MusicPlayer {
 }
 
 export function musicAllowedOnPath(path: string): boolean {
-  return !['/admin', '/chats', '/support', '/auth'].some(prefix => path === prefix || path.startsWith(`${prefix}/`));
+  return !['/admin', '/support', '/auth'].some(prefix => path === prefix || path.startsWith(`${prefix}/`));
 }
 
 /** Keeps playback independent of React renders, route changes and catalog refreshes. */

@@ -76,7 +76,7 @@ function BackgroundMusicPlayer() {
     };
     sync();
     document.addEventListener('visibilitychange', sync);
-    const mediaEvents = ['play', 'pause', 'ended', 'volumechange'] as const;
+    const mediaEvents = ['play', 'pause', 'ended', 'error', 'emptied', 'volumechange'] as const;
     mediaEvents.forEach(event => document.addEventListener(event, sync, true));
     return () => {
       removals.disconnect();
