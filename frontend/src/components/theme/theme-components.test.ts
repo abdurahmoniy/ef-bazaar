@@ -93,15 +93,14 @@ describe.each(['light', 'dark'])('%s rendered controls', theme => {
   it('keeps played incoming voice bars visible as playback advances', async () => {
     render(theme);
     const container = document.getElementById('voice')!;
-    const audio = document.createElement('audio');
-    Object.defineProperty(audio, 'duration', { value: 10 });
-    audio.currentTime = 5;
-    audio.pause = vi.fn();
-    vi.stubGlobal('Audio', vi.fn(function () { return audio; }));
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     const root = createRoot(container);
     try {
       await act(async () => root.render(createElement(VoicePlayer, { src: '/synthetic-audio', seed: 'theme', mine: false })));
+      const audio = container.querySelector('audio')!;
+      Object.defineProperty(audio, 'duration', { value: 10 });
+      audio.currentTime = 5;
+      audio.pause = vi.fn();
       await act(async () => { audio.dispatchEvent(new Event('timeupdate')); });
       expect(container.textContent).toContain('0:05');
       const played = getComputedStyle(container.querySelector('[aria-hidden] > span')!);

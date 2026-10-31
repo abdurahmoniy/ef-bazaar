@@ -225,11 +225,11 @@ describe('background music playback', () => {
     expect(player.loadVideoById).toHaveBeenCalledOnce();
   });
 
-  it.each(['/admin', '/admin/music', '/chats', '/chats/42', '/support', '/auth/login'])('keeps %s quiet', path => {
+  it.each(['/admin', '/admin/music', '/support', '/auth/login'])('keeps %s quiet', path => {
     expect(musicAllowedOnPath(path)).toBe(false);
   });
 
-  it.each(['/', '/marketplace', '/plans', '/profile', '/trade-admins'])('permits music on %s', path => {
+  it.each(['/', '/marketplace', '/chats', '/chats/42', '/plans', '/profile', '/trade-admins'])('permits music on %s', path => {
     expect(musicAllowedOnPath(path)).toBe(true);
   });
 });
