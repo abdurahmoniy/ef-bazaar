@@ -335,7 +335,7 @@ function AccountDetails({ account, desktop, expanded, onOpenChange, children, pi
   return (
     <Dialog.Root open={expanded} onOpenChange={(open) => { if (!pending) onOpenChange(open); }}>
       <article data-state={archived ? 'sold' : undefined}
-        className={cn('min-w-0 rounded-2xl border bg-card transition-colors', archived ? 'border-dashed border-border/70' : emailBadges(account).custom ? 'gold-ring border-2' : expanded ? 'border-primary/40' : 'border-border/70')}>
+        className={cn('min-w-0 rounded-2xl border bg-card transition-colors', archived ? 'border-border/70' : emailBadges(account).custom ? 'gold-ring border-2' : expanded ? 'border-primary/40' : 'border-border/70')}>
         <AccountPreview account={account} pinned={pinned} expanded={expanded} panelId={detailsId} disabled={pending}
           desktop={desktop} previewRef={previewRef} />
         <Dialog.Portal>
@@ -397,11 +397,11 @@ function AccountPreview({ account, expanded, panelId, desktop, previewRef, pinne
           disabled={disabled}
           className="group flex min-h-[94px] w-full items-center gap-3 rounded-2xl p-2 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-wait">
           <span className="block h-[76px] w-24 shrink-0 overflow-hidden rounded-lg bg-muted min-[360px]:w-[108px]">
-            <AccountPhoto key={photo} photo={photo} title={title} compact />
+            <AccountPhoto key={photo} photo={photo} title={title} compact unavailable={archived} />
           </span>
           <span className="flex min-w-0 flex-1 flex-col gap-1.5">
             <span className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate text-sm font-semibold leading-6 text-foreground">{title}</span>
+              <span className={cn('truncate text-sm font-semibold leading-6', archived ? 'text-muted-foreground' : 'text-foreground')}>{title}</span>
               {pinned && <Pin aria-label="Mahkamlangan" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
             </span>
             <span className={cn('flex items-center gap-1.5 text-xs font-normal',
@@ -421,18 +421,18 @@ function AccountPreview({ account, expanded, panelId, desktop, previewRef, pinne
       disabled={disabled}
       className="group block w-full rounded-2xl text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-wait">
       <span className="relative block aspect-[4/3] overflow-hidden rounded-t-2xl bg-muted">
-        <AccountPhoto key={photo} photo={photo} title={title} />
-        <span className={cn('absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/95 px-2.5 py-1 text-xs font-semibold shadow-sm',
-          !archived && account.onMarket ? 'text-success' : 'text-muted-foreground')}>
-          {!archived && account.onMarket && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success" />}
+        <AccountPhoto key={photo} photo={photo} title={title} unavailable={archived} />
+        {!archived && <span className={cn('absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/95 px-2.5 py-1 text-xs font-semibold shadow-sm',
+          account.onMarket ? 'text-success' : 'text-muted-foreground')}>
+          {account.onMarket && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-success" />}
           {status}
-        </span>
+        </span>}
         {pinned && <span className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-full border border-border/60 bg-card/95 text-foreground shadow-sm"><Pin aria-label="Mahkamlangan" className="h-3.5 w-3.5" /></span>}
       </span>
       <span className="flex min-h-16 items-center gap-3 px-4 py-3">
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold leading-6 text-foreground">{title}</span>
-          <span className="block text-xs font-normal text-muted-foreground">{expanded ? 'Tafsilotlarni yopish' : 'Tafsilotlarni ko‘rish'}</span>
+          <span className={cn('block truncate text-sm font-semibold leading-6', archived ? 'text-muted-foreground' : 'text-foreground')}>{title}</span>
+          <span className="block text-xs font-normal text-muted-foreground">{archived ? status : expanded ? 'Tafsilotlarni yopish' : 'Tafsilotlarni ko‘rish'}</span>
         </span>
         <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors', expanded ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground group-hover:text-foreground')}>
           <Indicator aria-hidden className={cn('h-4 w-4 transition-transform motion-reduce:transition-none', !desktop && expanded && 'rotate-180')} />
@@ -472,7 +472,7 @@ function soldDate(iso: string | null | undefined) {
   return `${part('day')}.${part('month')}.${part('year')}`;
 }
 
-function AccountPhoto({ photo, title, compact = false }: { photo: string | null; title: string; compact?: boolean }) {
+function AccountPhoto({ photo, title, compact = false, unavailable = false }: { photo: string | null; title: string; compact?: boolean; unavailable?: boolean }) {
   const [broken, setBroken] = useState(false);
   if (photo && !broken) {
     return (
@@ -483,7 +483,7 @@ function AccountPhoto({ photo, title, compact = false }: { photo: string | null;
         onError={() => setBroken(true)}
         loading="lazy"
         decoding="async"
-        className="h-full w-full object-cover"
+        className={cn('h-full w-full object-cover', unavailable && 'grayscale opacity-80')}
       />
     );
   }
@@ -491,6 +491,7 @@ function AccountPhoto({ photo, title, compact = false }: { photo: string | null;
     <span aria-hidden className={cn(
       'flex h-full w-full flex-col items-center justify-center gap-2',
       'bg-gradient-to-br from-primary/15 to-primary/5 text-foreground',
+      unavailable && 'grayscale opacity-80',
     )}>
       <span className={cn('font-black opacity-30', compact ? 'text-2xl' : 'text-4xl')}>{title.trim()[0]?.toUpperCase() ?? '#'}</span>
       {!compact && <span className="text-xs font-medium text-muted-foreground">Rasm qo‘shilmagan</span>}

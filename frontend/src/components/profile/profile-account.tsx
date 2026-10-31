@@ -297,7 +297,7 @@ export function ProfileAccount({
       {children}
 
       {/* 2. Grouped Navigation Menu (List Hub) */}
-      <div className="grid overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm md:grid-cols-2" aria-label="Profil bo‘limlari">
+      <div className="grid grid-cols-1 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm md:grid-cols-2" aria-label="Profil bo‘limlari">
         {navMenuItems.map((item) => (
           <Link
             key={item.id}

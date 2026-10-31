@@ -44,6 +44,7 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
   const desktop = useMediaQuery('(min-width: 768px)');
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const selectedFilterRef = useRef<HTMLButtonElement>(null);
   const savedAccount = accounts.find((account) => account.id === savedAccountId);
   const savedCard = useRef<HTMLDivElement>(null);
   const [highlighted, setHighlighted] = useState(true);
@@ -61,6 +62,10 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
   useEffect(() => {
     if (searchOpen && !desktop) searchRef.current?.focus();
   }, [searchOpen, desktop]);
+
+  useEffect(() => {
+    selectedFilterRef.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [filter, desktop]);
 
   useEffect(() => {
     setQuery('');
@@ -147,18 +152,18 @@ export function ProfileAccounts({ accounts, displayById = {}, viewerId, savedAcc
             <Input ref={searchRef} id={searchId} type="search" placeholder="Akkount nomi bo‘yicha qidirish" value={query}
               onChange={(event) => changeView(event.target.value, filter)} className="pl-10" />
           </div>}
-          <div role="group" aria-label="Akkount holati" className={cn('flex', desktop ? 'flex-wrap gap-2' : 'flex-wrap items-center gap-1')}>
-            {FILTERS.filter((item) => desktop
-              ? item.id !== 'archived' || accounts.some((account) => account.status === 'ARCHIVED')
-              : item.id !== 'unlisted' || filter === 'unlisted').map((item) => (
-              <Button key={item.id} type="button" variant="ghost"
-                className={cn('min-h-11 text-xs', desktop ? 'rounded-lg px-3' : 'gap-1.5 rounded-xl px-2',
-                  filter === item.id && (desktop ? 'bg-muted' : 'bg-primary/10 text-primary dark:text-foreground'))}
-                aria-pressed={filter === item.id} onClick={() => changeView(query, item.id)}>
-                {item.label}<span className="text-xs opacity-75">{accounts.filter((account) => matchesFilter(account, item.id)).length}</span>
-              </Button>
-            ))}
-            {!desktop && showSearch && <Button type="button" variant="ghost" size="icon" className="ml-auto h-11 w-11 shrink-0 rounded-xl"
+          <div className="flex min-w-0 items-center gap-2 border-b border-border/60">
+            <div role="group" aria-label="Akkount holati" className="no-scrollbar flex min-w-0 max-w-full items-center gap-2 overflow-x-auto">
+              {FILTERS.filter((item) => !desktop || item.id !== 'archived' || accounts.some((account) => account.status === 'ARCHIVED')).map((item) => (
+                <button key={item.id} ref={filter === item.id ? selectedFilterRef : undefined} type="button"
+                  className={cn('inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+                    filter === item.id ? 'border-foreground font-semibold text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}
+                  aria-pressed={filter === item.id} onClick={() => changeView(query, item.id)}>
+                  {item.label}<span className="font-normal tabular-nums text-muted-foreground">{accounts.filter((account) => matchesFilter(account, item.id)).length}</span>
+                </button>
+              ))}
+            </div>
+            {!desktop && showSearch && <Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0 text-muted-foreground"
               aria-label="Akkount qidirish" aria-expanded={searchOpen || query.length > 0} aria-controls={searchId}
               onClick={() => { const open = !(searchOpen || query.length > 0); setSearchOpen(open); if (!open) changeView('', filter); }}>
               <Search aria-hidden className="h-4 w-4" />

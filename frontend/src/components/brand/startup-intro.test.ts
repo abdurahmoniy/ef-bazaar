@@ -33,6 +33,7 @@ describe('startup intro', () => {
       createElement('a', { href: '/marketplace', id: 'page-link' }, 'Market'),
       autoFocus ? createElement('input', { autoFocus: true, 'aria-label': 'Search' }) : null,
     )));
+    container.firstElementChild!.dispatchEvent(new Event('animationstart', { bubbles: true }));
   }
 
   beforeEach(() => {
@@ -40,6 +41,8 @@ describe('startup intro', () => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     preference = Object.assign(new EventTarget(), { matches: false }) as MediaQueryList;
     vi.stubGlobal('matchMedia', vi.fn(() => preference));
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(new DOMException('Autoplay blocked', 'NotAllowedError'));
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
     sessionStorage.clear();
     delete document.documentElement.dataset.startupIntro;
     container = document.createElement('div');
@@ -52,6 +55,7 @@ describe('startup intro', () => {
     container.remove();
     sessionStorage.clear();
     delete document.documentElement.dataset.startupIntro;
+    await vi.advanceTimersByTimeAsync(6400);
     vi.clearAllTimers();
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -66,7 +70,7 @@ describe('startup intro', () => {
     expect(container.textContent).toContain('eFBazaar');
     expect(container.querySelector('#page-link')?.textContent).toBe('Market');
     const link = container.querySelector('#page-link');
-    await act(async () => vi.advanceTimersByTime(2800));
+    await act(async () => vi.advanceTimersByTime(5800));
     expect(isPlaying()).toBe(true);
     await act(async () => vi.advanceTimersByTime(600));
     expect(isPlaying()).toBe(false);
@@ -76,7 +80,7 @@ describe('startup intro', () => {
   it('does not replay on a route render or a document reload in the same tab session', async () => {
     bootstrap();
     await render();
-    await act(async () => vi.advanceTimersByTime(3400));
+    await act(async () => vi.advanceTimersByTime(6400));
     await render();
     expect(isPlaying()).toBe(false);
     bootstrap();
@@ -85,7 +89,7 @@ describe('startup intro', () => {
 
   it('plays again in a new tab session', () => {
     bootstrap();
-    vi.advanceTimersByTime(3400);
+    vi.advanceTimersByTime(6400);
     sessionStorage.clear();
     bootstrap();
     expect(isPlaying()).toBe(true);
@@ -97,12 +101,31 @@ describe('startup intro', () => {
     expect(container.querySelector('#page-link')).not.toBeNull();
   });
 
-  it('allows the full three-second intro, then fails open within 3.4 seconds without hydration', () => {
+  it('allows the full six-second intro, then fails open within 6.4 seconds without hydration', () => {
     bootstrap();
-    vi.advanceTimersByTime(2999);
+    vi.advanceTimersByTime(5999);
     expect(isPlaying()).toBe(true);
     vi.advanceTimersByTime(401);
     expect(isPlaying()).toBe(false);
+  });
+
+  it('starts sound with the server-rendered animation before React hydrates', async () => {
+    bootstrap();
+    container.innerHTML = renderToStaticMarkup(createElement(StartupIntro));
+    container.firstElementChild!.dispatchEvent(new Event('animationstart', { bubbles: true }));
+    await Promise.resolve();
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
+  });
+
+  it('ignores child animation starts and never restarts the startup sound', async () => {
+    bootstrap();
+    container.innerHTML = renderToStaticMarkup(createElement(StartupIntro));
+    container.querySelector('svg')!.dispatchEvent(new Event('animationstart', { bubbles: true }));
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+    container.firstElementChild!.dispatchEvent(new Event('animationstart', { bubbles: true }));
+    await Promise.resolve();
+    container.firstElementChild!.dispatchEvent(new Event('animationstart', { bubbles: true }));
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
   });
 
   it('skips the intro when reduced motion is requested', async () => {
@@ -131,6 +154,29 @@ describe('startup intro', () => {
     await render();
     expect(container.querySelector('button')).toBeNull();
     expect(container.textContent).not.toContain('O‘tkazib yuborish');
+  });
+
+  it('mounts the local intro sound without controls, looping, or eager downloads', async () => {
+    bootstrap();
+    await render();
+    const audio = container.querySelector('audio');
+    expect(audio).not.toBeNull();
+    expect(audio!.getAttribute('src')).toBe('/sounds/startup.m4a');
+    expect(audio!.preload).toBe('none');
+    expect(audio!.controls).toBe(false);
+    expect(audio!.loop).toBe(false);
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
+  });
+
+  it('stops the sound when the existing half-second tap delay finishes', async () => {
+    bootstrap();
+    await render();
+    vi.mocked(HTMLMediaElement.prototype.pause).mockClear();
+    await act(async () => container.firstElementChild!.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await act(async () => vi.advanceTimersByTime(499));
+    expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
+    await act(async () => vi.advanceTimersByTime(1));
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
   });
 
   it.each(['background', 'logo'])('dismisses 500ms after one tap on the %s, without replaying', async (area) => {
@@ -181,10 +227,10 @@ describe('startup intro', () => {
     expect(isPlaying()).toBe(false);
   });
 
-  it('still completes normally when the three-second animation ends during the tap delay', async () => {
+  it('still completes normally when the six-second animation ends during the tap delay', async () => {
     bootstrap();
     await render();
-    await act(async () => vi.advanceTimersByTime(2800));
+    await act(async () => vi.advanceTimersByTime(5800));
     const overlay = container.firstElementChild!;
     await act(async () => overlay.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     expect(isPlaying()).toBe(true);

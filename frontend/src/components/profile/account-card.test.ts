@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from 'node:fs';
 import { act, createElement, Fragment, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import postcss from 'postcss';
+import tailwindcss from 'tailwindcss';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import config from '../../../tailwind.config';
 
 import { AccountCard } from './account-card';
 import { PublishAccountDialog } from './publish-account-dialog';
@@ -40,6 +44,13 @@ let container: HTMLDivElement;
 let root: Root;
 let desktop = false;
 const mediaListeners = new Set<(event: MediaQueryListEvent) => void>();
+let previewCss: string;
+
+beforeAll(async () => {
+  const result = await postcss([tailwindcss({ ...config, content: ['src/components/profile/account-card.tsx', { raw: 'dark' }] })])
+    .process(readFileSync('src/app/globals.css', 'utf8'), { from: undefined });
+  previewCss = result.css;
+});
 
 beforeEach(() => {
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -379,6 +390,41 @@ describe('AccountCard', () => {
     expect(image.classList.contains('object-cover')).toBe(true);
     expect(image.parentElement!.classList.contains('aspect-[4/3]')).toBe(true);
     expect(image.parentElement!.classList.contains('overflow-hidden')).toBe(true);
+  });
+
+  it.each([
+    { wide: false, reason: 'SOLD_ON_PLATFORM', label: 'Sotilgan', photos: ['photo-1'] },
+    { wide: true, reason: 'SOLD_ON_PLATFORM', label: 'Sotilgan', photos: ['photo-1'] },
+    { wide: false, reason: 'SOLD_ELSEWHERE', label: 'Sotilgan', photos: [] },
+    { wide: true, reason: 'SOLD_ELSEWHERE', label: 'Sotilgan', photos: [] },
+    { wide: false, reason: 'SWAPPED_ON_PLATFORM', label: 'Almashtirilgan', photos: ['photo-1'] },
+    { wide: true, reason: 'SWAPPED_ON_PLATFORM', label: 'Almashtirilgan', photos: ['photo-1'] },
+  ] as const)('visually marks $reason as unavailable without blocking its history (desktop: $wide)', async ({ wide, reason, label, photos }) => {
+    desktop = wide;
+    await render({ status: 'ARCHIVED', archivedReason: reason, mediaMessageIds: [...photos] }, {}, false);
+    const style = document.createElement('style');
+    style.textContent = previewCss;
+    document.head.append(style);
+    try {
+      const toggle = disclosure()!;
+      const photo = toggle.querySelector('img') ?? toggle.querySelector('[aria-hidden="true"]')!;
+      expect(getComputedStyle(photo).getPropertyValue('--tw-grayscale')).toBe('grayscale(100%)');
+      expect(getComputedStyle(photo).opacity).toBe('0.8');
+      const status = Array.from(toggle.querySelectorAll('span')).find(node => node.textContent === label && !node.querySelector('span'))!;
+      expect(status.querySelector('svg')).toBeNull();
+      expect(getComputedStyle(status).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+      expect(getComputedStyle(status).borderStyle).toBe('none');
+      expect(getComputedStyle(container.querySelector('article')!).borderStyle).not.toBe('dashed');
+      const title = Array.from(toggle.querySelectorAll('span')).find(node => node.textContent === 'Asosiy akkount' && !node.querySelector('span'))!;
+      expect(getComputedStyle(title).color).toBe(getComputedStyle(status).color);
+      expect(toggle.disabled).toBe(false);
+    } finally {
+      style.remove();
+    }
+    await act(async () => disclosure()!.click());
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(content().querySelector('[aria-label="Akkount amallari"]')).toBeNull();
+    expect(button('Bozorga chiqarish')).toBeUndefined();
   });
 
   it.each([

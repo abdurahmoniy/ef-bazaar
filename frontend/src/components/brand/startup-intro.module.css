@@ -1,4 +1,7 @@
 .intro {
+  --intro-duration: 6000ms;
+  --emblem-size: clamp(108px, 22vmin, 208px);
+  --settle-offset: 68px;
   display: none;
   position: fixed;
   inset: 0;
@@ -6,127 +9,93 @@
   overflow: hidden;
   isolation: isolate;
   place-items: center;
-  background: #07062b;
+  background: #08058c;
   color: #edff00;
   cursor: pointer;
   touch-action: manipulation;
-  /* CSS also releases the page if hydration or animation events fail. */
-  animation: intro-exit 3000ms ease-in-out both;
+  /* CSS releases the page even if React never hydrates. */
+  animation: intro-exit var(--intro-duration) ease-in-out both;
 }
 
-:global(html[data-startup-intro='playing']) .intro {
-  display: grid;
-}
+:global(html[data-startup-intro='playing']) .intro { display: grid; }
 
 .geometry {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   pointer-events: none;
+  animation: field-clear var(--intro-duration) linear both;
 }
 
-.bluePlane {
+.fieldLeft,
+.fieldRight,
+.fieldDiagonal,
+.ribbon {
+  transform-origin: center;
+  animation: field-left var(--intro-duration) linear both;
+}
+
+.fieldRight { animation-name: field-right; }
+.fieldDiagonal { animation-name: field-diagonal; }
+.ribbon { animation-name: ribbon-flood; }
+
+.identity { position: absolute; inset: 0; }
+
+.emblem {
   position: absolute;
-  width: 110%;
-  height: 140%;
-  top: -70%;
-  left: -48%;
-  background: #1818eb;
-  transform: rotate(-32deg);
-  animation: plane-in 850ms cubic-bezier(.16, 1, .3, 1) both;
+  top: calc(50% - var(--emblem-size) / 2);
+  left: calc(50% - var(--emblem-size) / 2);
+  width: var(--emblem-size);
+  aspect-ratio: 1;
+  animation:
+    emblem-scale var(--intro-duration) cubic-bezier(.65, 0, .25, 1) both,
+    emblem-ink var(--intro-duration) steps(1, end) both;
 }
 
-.topRibbon,
-.bottomRibbon {
+/* The arcs share one centre and one rotation. Keep their circular geometry
+   intact; the crossbar is revealed by a mask, never stretched or skewed. */
+.rotor,
+.topSlice,
+.middleSlice,
+.bottomSlice { position: absolute; inset: 0; }
+
+.rotor { animation: emblem-turn var(--intro-duration) linear both; }
+.topSlice { animation: top-reveal var(--intro-duration) ease-out both; }
+.middleSlice { animation: crossbar-reveal var(--intro-duration) cubic-bezier(.16, 1, .3, 1) both; }
+.bottomSlice { animation: bottom-reveal var(--intro-duration) ease-out both; }
+.glyph { display: block; width: 100%; height: 100%; }
+
+.signature {
   position: absolute;
-  width: 85vmax;
-  height: clamp(24px, 5vw, 68px);
-  background: #edff00;
-  transform: rotate(-32deg);
-  animation: ribbon-in 800ms cubic-bezier(.16, 1, .3, 1) both;
-}
-
-.topRibbon {
-  top: 6%;
-  right: -43vmax;
-}
-
-.bottomRibbon {
-  bottom: 5%;
-  left: -45vmax;
-  animation-delay: 100ms;
-}
-
-.outline {
-  position: absolute;
-  width: 85vmax;
-  height: clamp(24px, 5vw, 68px);
-  bottom: -2%;
-  left: -43vmax;
-  border: 1px solid #edff00;
-  transform: rotate(-32deg);
-  animation: ribbon-in 1000ms cubic-bezier(.16, 1, .3, 1) both;
-}
-
-.identity {
-  position: relative;
+  top: calc(50% + var(--emblem-size) / 2 - var(--settle-offset) + 12px);
+  inset-inline: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px;
 }
-
-.emblem {
-  position: relative;
-  width: clamp(116px, 21vw, 176px);
-  aspect-ratio: 1;
-  margin-bottom: 12px;
-}
-
-.topSlice,
-.middleSlice,
-.bottomSlice {
-  position: absolute;
-  inset: 0;
-}
-
-.topSlice { clip-path: inset(0 0 65.2% 0); }
-.middleSlice { clip-path: inset(34.8% 0 34.8% 0); }
-.bottomSlice { clip-path: inset(65.2% 0 0 0); }
-
-.glyph {
-  width: 100%;
-  height: 100%;
-  animation: slice-in 650ms cubic-bezier(.16, 1, .3, 1) 200ms both;
-}
-
-.middleSlice .glyph {
-  animation-name: middle-in;
-  animation-delay: 280ms;
-}
-
-.bottomSlice .glyph { animation-delay: 360ms; }
 
 .wordmark {
   color: #fff;
   font-size: clamp(36px, 7vw, 56px);
   font-weight: 900;
-  letter-spacing: -.055em;
+  letter-spacing: -.03em;
   line-height: 1.1;
-  animation: identity-in 550ms cubic-bezier(.16, 1, .3, 1) 540ms both;
+  animation: wordmark-in var(--intro-duration) cubic-bezier(.16, 1, .3, 1) both;
 }
 
 .wordmark span { color: #edff00; }
 
 .caption {
   margin-top: 16px;
-  color: #c7c7eb;
+  color: #d3d2ff;
   font-size: 10px;
   font-weight: 500;
   letter-spacing: .2em;
   text-align: center;
   text-transform: uppercase;
-  animation: identity-in 500ms ease-out 680ms both;
+  animation: caption-in var(--intro-duration) ease-out both;
 }
 
 .accent {
@@ -135,46 +104,117 @@
   margin-top: 26px;
   background: currentColor;
   transform-origin: left;
-  animation: accent-in 650ms cubic-bezier(.16, 1, .3, 1) 800ms both;
+  animation: accent-in var(--intro-duration) cubic-bezier(.16, 1, .3, 1) both;
 }
 
-@keyframes plane-in {
-  from { transform: translateX(-35%) rotate(-32deg); }
-  to { transform: translateX(0) rotate(-32deg); }
+/* 0–2.1s: build the fast, flat ribbon field, then let its central band fill
+   the screen. It becomes the yellow background of the oversized blue e. */
+@keyframes field-left {
+  0% { transform: translateX(-110%); }
+  13% { transform: translateX(-12%); }
+  27% { transform: translateX(5%); }
+  35%, 100% { transform: translateX(18%); }
 }
 
-@keyframes ribbon-in {
-  from { transform: rotate(-32deg) translateX(-120%); }
-  to { transform: rotate(-32deg) translateX(0); }
+@keyframes field-right {
+  0%, 3% { transform: translateX(110%); }
+  17% { transform: translateX(12%); }
+  28% { transform: translateX(-5%); }
+  35%, 100% { transform: translateX(-18%); }
 }
 
-@keyframes slice-in {
-  from { transform: translateX(-115%); }
-  to { transform: translateX(0); }
+@keyframes field-diagonal {
+  0%, 5% { transform: translate(65%, -65%); }
+  21% { transform: translate(0, 0); }
+  35%, 100% { transform: translate(-15%, 15%); }
 }
 
-@keyframes middle-in {
-  from { transform: translateX(115%); }
-  to { transform: translateX(0); }
+@keyframes ribbon-flood {
+  0%, 10% { transform: translateX(-120%) scale(1); }
+  21%, 28% { transform: translateX(0) scale(1); animation-timing-function: cubic-bezier(.7, 0, .9, .4); }
+  35%, 100% { transform: translateX(0) scale(3, 18); }
 }
 
-@keyframes identity-in {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes field-clear {
+  0%, 34.99% { opacity: 1; }
+  35%, 100% { opacity: 0; }
+}
+
+/* 2.1–3.36s: draw the blue arcs, insert their bar, then accelerate the
+   assembled mark into a close-up. Cut on that close-up to yellow on blue.
+   3.36–4.68s: the paired arcs turn as one disc and the bar locks in last. */
+@keyframes emblem-scale {
+  0%, 34.99% { opacity: 0; transform: translateY(0) scale(4.8); }
+  35%, 46% { opacity: 1; transform: translateY(0) scale(4.8); }
+  51% { opacity: 1; transform: translateY(0) scale(5.2); animation-timing-function: cubic-bezier(.65, 0, 1, .4); }
+  55.99% { opacity: 1; transform: translateY(0) scale(22); }
+  56% { opacity: 1; transform: translateY(0) scale(.42); }
+  61% { opacity: 1; transform: translateY(0) scale(1.8); }
+  67% { opacity: 1; transform: translateY(0) scale(2.55); }
+  70% { opacity: 1; transform: translateY(0) scale(2.5); }
+  78%, 100% { opacity: 1; transform: translateY(calc(-1 * var(--settle-offset))) scale(1); }
+}
+
+@keyframes emblem-ink {
+  0% { color: #edff00; }
+  35% { color: #08058c; }
+  56%, 100% { color: #edff00; }
+}
+
+@keyframes emblem-turn {
+  0%, 46% { transform: rotate(0); }
+  51% { transform: rotate(18deg); }
+  55.99% { transform: rotate(150deg); }
+  56% { transform: rotate(225deg); }
+  66% { transform: rotate(570deg); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+  75%, 100% { transform: rotate(720deg); }
+}
+
+@keyframes top-reveal {
+  0%, 35% { clip-path: inset(34.8% 0 65.2% 0); }
+  39%, 100% { clip-path: inset(0 0 65.2% 0); }
+}
+
+@keyframes bottom-reveal {
+  0%, 35% { clip-path: inset(65.2% 0 34.8% 0); }
+  39%, 100% { clip-path: inset(65.2% 0 0 0); }
+}
+
+@keyframes crossbar-reveal {
+  /* Inset 40% keeps the curved slices' antialiased edges out of the bar. */
+  0%, 38% { clip-path: inset(40% 100% 40% 0); }
+  44%, 55.99% { clip-path: inset(40% 0 40% 0); }
+  56%, 73% { clip-path: inset(40% 100% 40% 0); }
+  78%, 100% { clip-path: inset(40% 0 40% 0); }
+}
+
+@keyframes wordmark-in {
+  0%, 77% { opacity: 0; clip-path: inset(0 100% 0 0); }
+  78% { opacity: 1; clip-path: inset(0 100% 0 0); }
+  83%, 100% { opacity: 1; clip-path: inset(0); }
+}
+
+@keyframes caption-in {
+  0%, 81% { opacity: 0; }
+  87%, 100% { opacity: 1; }
 }
 
 @keyframes accent-in {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
+  0%, 83% { transform: scaleX(0); }
+  89%, 100% { transform: scaleX(1); }
 }
 
 @keyframes intro-exit {
-  0%, 78% { opacity: 1; visibility: visible; }
+  0%, 34.99% { background: #08058c; }
+  35%, 55.99% { background: #edff00; }
+  56%, 100% { background: #08058c; }
+  0%, 94% { opacity: 1; visibility: visible; }
   100% { opacity: 0; visibility: hidden; }
 }
 
 @media (max-height: 480px) {
-  .emblem { width: 92px; margin-bottom: 4px; }
+  .intro { --emblem-size: 110px; --settle-offset: 54px; }
+  .signature { top: calc(50% + var(--emblem-size) / 2 - var(--settle-offset) + 4px); }
   .wordmark { font-size: 32px; }
   .caption { margin-top: 10px; }
   .accent { margin-top: 16px; }
