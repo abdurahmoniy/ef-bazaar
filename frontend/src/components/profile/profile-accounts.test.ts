@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 import { act, createElement } from 'react';
+import { readFileSync } from 'node:fs';
 import { createRoot, type Root } from 'react-dom/client';
+import postcss from 'postcss';
+import tailwindcss from 'tailwindcss';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import config from '../../../tailwind.config';
 import { ProfileAccounts } from './profile-accounts';
 import type { UserAccountResponse } from '@/lib/accounts-types';
 
@@ -118,6 +122,42 @@ it('keeps the mobile search behind a labelled control until requested', async ()
   expect(document.activeElement).toBe(container.querySelector('input'));
 });
 
+it('keeps all mobile status filters in one scrollable row with search beside them', async () => {
+  desktop = false;
+  await render('viewer', [...accounts, { ...accounts[5], id: 'sold', status: 'ARCHIVED', archivedReason: 'SOLD_ON_PLATFORM', onMarket: false }]);
+  const group = container.querySelector<HTMLElement>('[aria-label="Akkount holati"]')!;
+  expect(Array.from(group.querySelectorAll('button')).map(node => node.textContent)).toEqual(['Barchasi7', 'Bozorda2', 'Bozorda emas4', 'Sotilgan1']);
+  const search = container.querySelector('[aria-label="Akkount qidirish"]')!;
+  expect(group.contains(search)).toBe(false);
+  expect(group.parentElement!.contains(search)).toBe(true);
+  const { css } = await postcss([tailwindcss({ ...config, content: ['src/components/profile/profile-accounts.tsx', 'src/components/ui/button.tsx'] })])
+    .process(readFileSync('src/app/globals.css', 'utf8'), { from: undefined });
+  const style = document.createElement('style');
+  style.textContent = css;
+  document.head.append(style);
+  try {
+    expect(getComputedStyle(group).overflowX).toBe('auto');
+    expect(getComputedStyle(group).flexWrap).toBe('nowrap');
+    expect(getComputedStyle(group).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(getComputedStyle(group).borderStyle).toBe('none');
+    for (const control of group.querySelectorAll('button')) {
+      expect(getComputedStyle(control).flexShrink).toBe('0');
+      expect(getComputedStyle(control).whiteSpace).toBe('nowrap');
+      expect(getComputedStyle(control).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+      expect(getComputedStyle(control).boxShadow || 'none').toBe('none');
+      expect(getComputedStyle(control.querySelector('span')!).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    }
+    expect(getComputedStyle(button('Barchasi')).borderBottomWidth).toBe('2px');
+  } finally {
+    style.remove();
+  }
+  await act(async () => button('Bozorda emas').click());
+  expect(container.querySelectorAll('article')).toHaveLength(4);
+  await act(async () => button('Sotilgan').click());
+  expect(container.querySelectorAll('article')).toHaveLength(1);
+  expect(button('Sotilgan').getAttribute('aria-pressed')).toBe('true');
+});
+
 it('offers the mobile archive filter with a zero count and a recoverable empty state', async () => {
   desktop = false;
   await render('viewer', accounts.slice(0,1));
@@ -137,5 +177,5 @@ it('retains the selected idle filter when returning from desktop to mobile', asy
   expect(container.querySelectorAll('article')).toHaveLength(4);
   await act(async () => button('Barchasi').click());
   expect(container.querySelectorAll('article')).toHaveLength(6);
-  expect(button('Bozorda emas')).toBeUndefined();
+  expect(button('Bozorda emas').getAttribute('aria-pressed')).toBe('false');
 });
