@@ -62,3 +62,26 @@ describe('authenticated landing redirect', () => {
     }
   });
 });
+
+describe('campaign capture', () => {
+  it('stores the campaign code and a pending-click marker from ?c=', async () => {
+    const response = await proxy(request('/?c=grp23456'));
+    const code = response.cookies.get('efbazaar_src');
+    const click = response.cookies.get('efbazaar_src_click');
+    expect(code?.value).toBe('GRP23456');
+    expect(code?.httpOnly).toBe(false);
+    expect(click?.value).toBe('GRP23456');
+  });
+
+  it('keeps the campaign through the login redirect of a protected page', async () => {
+    const response = await proxy(request('/profile?c=GRP23456'));
+    expect(response.headers.get('location')).toContain('/auth/login');
+    expect(response.cookies.get('efbazaar_src')?.value).toBe('GRP23456');
+  });
+
+  it('ignores a malformed campaign code', async () => {
+    const response = await proxy(request('/?c=<script>'));
+    expect(response.cookies.get('efbazaar_src')).toBeUndefined();
+    expect(response.cookies.get('efbazaar_src_click')).toBeUndefined();
+  });
+});

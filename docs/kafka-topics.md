@@ -15,7 +15,7 @@ kelajak uchun yoki tashqi loyiha uchun).
 
 | Topic | Producer | Consumer(lar) |
 |---|---|---|
-| `efbazaar.auth.user-registered` | auth | bot (ro'yxat topigi + profil rasmi), marketplace (referal, akkount), payment (idempotent Free identity) |
+| `efbazaar.auth.user-registered` | auth | bot (ro'yxat topigi + profil rasmi), marketplace (referal, kampaniya — `group marketplace-campaign-registration`, akkount), payment (idempotent Free identity) |
 | `efbazaar.auth.google-linked` | auth | bot |
 | `efbazaar.auth.user-logged-in` | auth | payment (existing identity recovery; paid plan is preserved) |
 | `efbazaar.auth.user-photo-needed` | auth | bot (rasmni media topikka yuklaydi) |

@@ -5,7 +5,7 @@ DM, admin guruh topiklariga xabarlar, hamkor kanallarga postlar, media saqlash v
 **Telegram bot tokeni faqat shu yerda** — boshqa servislar Telegram'ga bot orqali chiqadi.
 
 Bot'da **DB yo'q**. Holat kerak bo'lsa marketplace'dan HTTP orqali o'qiydi yoki
-marketplace'ga yozadi (bot sozlamalari, qo'llanmalar, pending referal).
+marketplace'ga yozadi (bot sozlamalari, qo'llanmalar, pending referal, kampaniya `/start c_<kod>`).
 
 | | |
 |---|---|
@@ -65,7 +65,7 @@ Batafsil: [docs/kafka-topics.md](../docs/kafka-topics.md).
 
 ## HTTP klientlar
 
-marketplace (`/start` matni va banneri, qo'llanma tugmalari, pending referal, hamkor natijalari),
+marketplace (`/start` matni va banneri, qo'llanma tugmalari, pending referal, kampaniya bosilishi, hamkor natijalari),
 auth, access (`/start` da kirish shartlari — **fail-open**).
 
 ## Konfiguratsiya

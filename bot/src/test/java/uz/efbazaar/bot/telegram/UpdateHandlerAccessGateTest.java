@@ -41,6 +41,7 @@ class UpdateHandlerAccessGateTest {
     @Mock private PremiumEmojiInspector premiumEmoji;
     @Mock private GuideMessenger guides;
     @Mock private KafkaTemplate<String, Object> kafka;
+    @Mock private uz.efbazaar.bot.campaign.CampaignStartClient campaigns;
 
     private UpdateHandler handler;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -51,7 +52,7 @@ class UpdateHandlerAccessGateTest {
                 new TelegramProperties.Topics(1, 2, 3, 4, 5), null, null);
         handler = new UpdateHandler(telegram, access, settings, channels, pendingReferrals,
                 premiumEmoji, guides, props, kafka,
-                org.mockito.Mockito.mock(uz.efbazaar.bot.inline.InlineQueryHandler.class));
+                org.mockito.Mockito.mock(uz.efbazaar.bot.inline.InlineQueryHandler.class), campaigns);
     }
 
     @Test
@@ -110,5 +111,21 @@ class UpdateHandlerAccessGateTest {
         assertThat(UpdateHandler.accessCallbackGuideId("access:check:" + id)).isEqualTo(id);
         assertThat(UpdateHandler.accessCallbackGuideId("access:check")).isNull();
         assertThat(UpdateHandler.accessCallbackGuideId("access:check:broken")).isNull();
+    }
+
+    @Test
+    void start_remembersCampaign_beforeTheAccessGate() throws Exception {
+        // Obuna talab qilinsa ham manba yo'qolmasligi kerak: guruhdagi
+        // postdan kelgan odam avval kanalga obuna bo'ladi, keyin kiradi.
+        when(access.unmet(42L)).thenReturn(List.of(
+                new Requirement("efBazaar", "efbazaar", "https://t.me/efbazaar")));
+
+        handler.handle(mapper.readTree("""
+                {"message": {"message_id": 1, "chat": {"id": 42}, "from": {"id": 42},
+                 "text": "/start c_GRP23456"}}
+                """));
+
+        verify(campaigns).remember(42L, "GRP23456");
+        verifyNoInteractions(pendingReferrals);
     }
 }

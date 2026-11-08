@@ -1,3 +1,5 @@
+import { validCampaignCode } from './campaign-capture';
+
 /**
  * Kanal postidagi tugmadan kelgan Mini App payloadi.
  *
@@ -28,6 +30,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 export function startParamTarget(raw: string | null | undefined): string | null {
   if (!raw) return null;
+  const trimmed = raw.trim();
+  // Kampaniya havolasi: `c_<kod>`. Manzil — brauzerdagi `?c=` havolasining
+  // aynan o'zi, keyin middleware va CampaignCapture odatdagidek ishlaydi.
+  if (trimmed.startsWith('c_')) {
+    const code = validCampaignCode(trimmed.slice(2));
+    return code ? `/marketplace?c=${code}` : null;
+  }
   const [listingId, code, ...rest] = raw.trim().split('_');
   if (rest.length > 0) return null;
   if (!UUID.test(listingId ?? '')) return null;

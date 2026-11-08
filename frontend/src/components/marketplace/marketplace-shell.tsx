@@ -16,6 +16,7 @@ import { SlidingNav, type SlidingNavItem } from '@/components/navigation/sliding
 import { MobileBottomNav, type MarketplaceTab } from '@/components/navigation/mobile-bottom-nav';
 import { TopBackButton } from '@/components/navigation/top-back-button';
 import { ReferralCapture } from '@/components/referral/referral-capture';
+import { CampaignCapture } from '@/components/campaign/campaign-capture';
 import { UserMenu } from '@/components/navigation/user-menu';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
@@ -124,6 +125,7 @@ export function MarketplaceShell({
         sahifalarning aksariyatini o'raydi.
       */}
       <ReferralCapture authenticated={!!user} />
+      <CampaignCapture authenticated={!!user} />
       {!sessionPending && <PopupHost userId={user?.id ?? null} />}
       {!sessionPending && <SessionCacheBoundary accountId={user?.id ?? null} />}
       <header className={cn(

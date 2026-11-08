@@ -28,7 +28,7 @@ class UpdateHandlerInlineTest {
         UpdateHandler handler = new UpdateHandler(telegram, mock(AccessCheckClient.class),
                 mock(BotSettingsClient.class), mock(ChannelVerifier.class), mock(PendingReferralClient.class),
                 mock(PremiumEmojiInspector.class), mock(GuideMessenger.class), props,
-                mock(KafkaTemplate.class), inline);
+                mock(KafkaTemplate.class), inline, mock(uz.efbazaar.bot.campaign.CampaignStartClient.class));
 
         ObjectNode update = new ObjectMapper().createObjectNode();
         update.putObject("inline_query").put("id", "Q1");

@@ -53,3 +53,16 @@ describe('readStartParam', () => {
     expect(miniAppStartTarget({ location: { hash: '' } })).toBeNull();
   });
 });
+
+describe('campaign start param', () => {
+  it('maps a campaign payload to the marketplace with the campaign parameter', () => {
+    // Middleware ?c= ni cookie'ga yozadi, keyin oddiy veb yo'li ishlaydi.
+    expect(startParamTarget('c_GRP23456')).toBe('/marketplace?c=GRP23456');
+    expect(startParamTarget('c_grp23456')).toBe('/marketplace?c=GRP23456');
+  });
+
+  it('ignores a malformed campaign payload', () => {
+    expect(startParamTarget('c_bad')).toBeNull();
+    expect(startParamTarget('c_GRP23456_X')).toBeNull();
+  });
+});

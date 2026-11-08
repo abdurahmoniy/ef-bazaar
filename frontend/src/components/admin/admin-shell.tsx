@@ -33,6 +33,7 @@ import {
   Store,
   UserCog,
   UserPlus,
+  Megaphone,
   UsersRound,
   X,
   Video,
@@ -177,6 +178,11 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/referrals',
         label: 'Referallar',
         icon: UserPlus,
+      },
+      {
+        href: '/admin/campaigns',
+        label: 'Kampaniyalar',
+        icon: Megaphone,
       },
       {
         href: '/admin/access-requirements',

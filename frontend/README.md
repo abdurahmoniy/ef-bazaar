@@ -18,7 +18,7 @@ efbazaar.uz asosiy sayti va Telegram Mini App — bitta Next.js ilova.
 | `src/lib/` | API klientlar, tiplar, formatlash. Nomlash: `*-server.ts` — faqat serverda (SSR, Server Actions), `*-client.ts` — brauzerda, `*-types.ts` — tiplar |
 | `src/hooks/` | React hooklar (chat socket, draft, outbox, Telegram tugmalari, virtual klaviatura) |
 | `src/store/` | Redux Toolkit — faqat turnir API (RTK Query, Chempionat-X). Qolgan holat komponentlar va hooklarda |
-| `src/proxy.ts` | Next middleware: access token'ni yangilash (refresh), himoyalangan sahifadan login'ga yo'naltirish, referal kodni (`?ref=`, `?p=`) cookie'ga yozish |
+| `src/proxy.ts` | Next middleware: access token'ni yangilash (refresh), himoyalangan sahifadan login'ga yo'naltirish, referal kodni (`?ref=`, `?p=`) va kampaniya kodini (`?c=` → `efbazaar_src` + bosilish belgisi `efbazaar_src_click`) cookie'ga yozish |
 
 Testlar kod yonida: `foo.ts` ↔ `foo.test.ts`.
 
@@ -242,6 +242,7 @@ npm run typecheck && npm run lint && npm test && npm run build   # CI bilan bir 
 ## Kontekstli pop-up xabarlar
 
 - Admin: `/admin/popups` — qoralama, ko‘rib chiqish, auditoriya (barcha/sotuvchilar/tanlangan UUID), trigger, muddat, ichki CTA, faollashtirish/to‘xtatish va ko‘rsatish/bosish/yopish statistikasi.
+- Admin: `/admin/campaigns` — kampaniya havolalari (Telegram guruh, ijtimoiy tarmoq, tanishlar, offline): yaratish, sayt (`/?c=<kod>`) va bot (`t.me/<bot>?start=c_<kod>`) havolasini nusxalash, to‘xtatish va voronka (bosish → ro‘yxatdan o‘tish → e’lon → sotuv). Bosilishni `CampaignCapture` root layout'da (anonim ham) yuboradi, da'voni esa `MarketplaceShell` login'dan keyin qiladi; Mini App `startapp=c_<kod>` ham `/marketplace?c=<kod>` ga aylanadi.
 - `src/components/popups/` — Radix dialog, brauzer koordinatori va haqiqiy voqea signallari. `src/lib/popups/` — API, tiplar va e’tibor siyosati. Marketplace shell autentifikatsiyalangan foydalanuvchini uzatadi; alohida auth so‘rovi kerak emas.
 - BROWSE, LISTING_PUBLISHED, EMPTY_SEARCH va yangi TRADE_COMPLETED signallari. Savdo tarixi signal bermaydi. Savdo signali 5 daqiqa, qolgan kontekstlar 60 soniya amal qiladi.
 - Brauzer 15 soniya sahifada va 3 soniya tinchlikni kutadi; so‘rovlar foydalanuvchi/sessiya uchun kamida 60 soniya oralig‘ida. Chat/hamyon/forma/admin sahifalarida, yashirin tabda, matn yozayotganda yoki boshqa oynada ko‘rsatilmaydi. Push taklifi xuddi shu slot va brauzer limitlarini ishlatadi, kamida 45 soniya kutadi.
