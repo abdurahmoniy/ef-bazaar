@@ -49,10 +49,10 @@ export interface PageResponse<T> {
  */
 export type ListingAttributes = Record<string, unknown>;
 
+/** E'lon sotuvchisi. Telegram username ataylab yo'q — aloqa faqat efBazaar chati orqali. */
 export interface SellerSummary {
   id: string;
   displayName: string;
-  telegramUsername?: string | null;
   telegramPhotoUrl?: string | null;
   verified?: boolean;
   createdAt: string;
@@ -481,6 +481,8 @@ export interface MessageResponse {
   proposalListingId?: string | null;
   proposalExpiresAt?: string | null;
   proposalTradeId?: string | null;
+  /** Telegram username / telefon server tomonida yashirilgan — garov eslatmasi ko'rsatiladi. */
+  contactHidden?: boolean | null;
 }
 
 export type NotificationType =

@@ -41,6 +41,8 @@ public class UpdateHandler {
     private final TelegramProperties props;
     private final KafkaTemplate<String, Object> kafka;
     private final uz.efbazaar.bot.inline.InlineQueryHandler inline;
+    private final uz.efbazaar.bot.campaign.CampaignStartClient campaigns;
+    private final uz.efbazaar.bot.channel.ChannelMemberTracker channelMembers;
 
     @Value("${app.web.base-url:https://efbazaar.uz}")
     private String webBaseUrl;
@@ -51,6 +53,13 @@ public class UpdateHandler {
     public void handle(JsonNode update) {
         // Bot kanalga admin qilib qo'shildi (yoki maqomi o'zgardi) —
         // hamkorlik oqimidagi kanal tekshiruvi shu yerdan boshlanadi.
+        // Boshqa odamning kanalga obunasi/chiqishi (my_chat_member — botning o'zi).
+        JsonNode chatMember = update.path("chat_member");
+        if (!chatMember.isMissingNode()) {
+            channelMembers.handle(chatMember);
+            return;
+        }
+
         JsonNode myChatMember = update.path("my_chat_member");
         if (!myChatMember.isMissingNode()) {
             channels.handle(myChatMember);
@@ -96,6 +105,12 @@ public class UpdateHandler {
                 // `from`, `chat` emas: shaxsiy chatda ular teng, lekin
                 // odamni ko'rsatadigani `from`.
                 pendingReferrals.remember(message.path("from").path("id").asLong(), code);
+            }
+            String campaign = campaignPayload(text);
+            if (campaign != null) {
+                // Referal kabi salomlashishdan va kirish shartlaridan OLDIN:
+                // obuna so'ralgan odam ham manbasini yo'qotmasligi kerak.
+                campaigns.remember(message.path("from").path("id").asLong(), campaign);
             }
             UUID guideId = guidePayload(text);
 
@@ -224,6 +239,27 @@ public class UpdateHandler {
         if (!payload.startsWith("ref_")) return null;
 
         String code = payload.substring("ref_".length()).toUpperCase();
+        return REFERRAL_CODE.matcher(code).matches() ? code : null;
+    }
+
+    /**
+     * {@code /start c_GRP23456} dan kampaniya kodini ajratadi.
+     *
+     * <p>Shakl — marketplace'dagi {@code CampaignService} va brauzerdagi
+     * {@code campaign-capture.ts} bilan bir xil. Referal yuki ({@code ref_})
+     * bu yerda o'qilmaydi: ikkalasi boshqa-boshqa savolga javob beradi.
+     *
+     * @return kod, yoki bu kampaniya yuki bo'lmasa null
+     */
+    static String campaignPayload(String text) {
+        if (text == null) return null;
+        String[] parts = text.trim().split("\\s+", 2);
+        if (parts.length < 2) return null;
+
+        String payload = parts[1].trim();
+        if (!payload.startsWith("c_")) return null;
+
+        String code = payload.substring("c_".length()).toUpperCase();
         return REFERRAL_CODE.matcher(code).matches() ? code : null;
     }
 

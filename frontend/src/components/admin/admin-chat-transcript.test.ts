@@ -67,4 +67,12 @@ describe('admin chat transcript', () => {
     expect(rows[2].textContent).toContain('Ikkinchi akkount');
     expect(rows[3].textContent).toContain('savdo taklifi — qabul qilingan');
   });
+
+  it('marks messages whose contact was hidden so a dispute shows who tried to leave the platform', () => {
+    const view = render([], [
+      { id: 'm3', chatId: 'chat', senderId: 'buyer', content: '[kontakt yashirildi]', createdAt: '2026-09-16T04:05:00Z', contactHidden: true },
+      { id: 'm4', chatId: 'chat', senderId: 'seller', content: 'Garov orqali qilamiz', createdAt: '2026-09-16T04:06:00Z' },
+    ]);
+    expect(view.textContent?.match(/kontakt yashirilgan/g)).toHaveLength(1);
+  });
 });

@@ -6,16 +6,17 @@ import { SellerCard } from './seller-card';
 import type { SellerSummary } from '@/lib/marketplace-types';
 
 describe('SellerCard', () => {
-  it.each(['SOLD', 'DELETED'] as const)('hides the Telegram contact button for %s listings', (listingStatus) => {
-    const html = renderToStaticMarkup(createElement(SellerCard, {
-      seller: {
-        id: 'seller-1', displayName: 'Seller', telegramUsername: 'seller',
-        verified: false, createdAt: '2025-01-01T00:00:00Z',
-      },
-      listingStatus,
-    }));
+  it('never links to the seller\'s Telegram, even if a stale payload still carries a handle', () => {
+    // Aloqa faqat efBazaar chati orqali: to'g'ridan-to'g'ri Telegram havolasi
+    // xaridorni garovsiz savdoga olib ketardi.
+    const legacy = {
+      id: 'seller-1', displayName: 'Seller', telegramUsername: 'seller',
+      verified: false, createdAt: '2025-01-01T00:00:00Z',
+    } as SellerSummary;
+    const html = renderToStaticMarkup(createElement(SellerCard, { seller: legacy }));
 
-    expect(html).not.toContain('https://t.me/');
+    expect(html).not.toContain('t.me/');
+    expect(html).not.toContain('@seller');
     expect(html).toContain('/users/seller-1');
   });
 
@@ -30,49 +31,27 @@ describe('SellerCard', () => {
     const summary: SellerSummary = {
       id: '123e4567-e89b-12d3-a456-426614174000',
       displayName: 'Cristiano Ronaldo',
-      telegramUsername: 'cr7_official',
       telegramPhotoUrl: '/api/auth/v1/users/123e4567-e89b-12d3-a456-426614174000/photo',
       verified: true,
       createdAt: '2025-05-10T12:00:00Z',
     };
 
     const html = renderToStaticMarkup(
-      createElement(SellerCard, { seller: summary, isViewerOwner: false }),
+      createElement(SellerCard, { seller: summary }),
     );
 
     expect(html).toContain('Cristiano Ronaldo');
-    expect(html).toContain('@cr7_official');
     expect(html).toContain('tasdiqlangan');
     expect(html).toContain("A&#x27;zo: 2025");
     expect(html).toContain('/users/123e4567-e89b-12d3-a456-426614174000');
     expect(html).toContain("Profilni ko&#x27;rish");
-    expect(html).toContain('https://t.me/cr7_official');
-    expect(html).toContain('Telegramda yozish');
-  });
-
-  it('hides Telegramda yozish button when viewer is the owner', () => {
-    const summary: SellerSummary = {
-      id: '123e4567-e89b-12d3-a456-426614174000',
-      displayName: 'Seller Me',
-      telegramUsername: 'sellerme',
-      verified: false,
-      createdAt: '2024-01-01T00:00:00Z',
-    };
-
-    const html = renderToStaticMarkup(
-      createElement(SellerCard, { seller: summary, isViewerOwner: true }),
-    );
-
-    expect(html).toContain('Seller Me');
     expect(html).not.toContain('Telegramda yozish');
-    expect(html).toContain('tasdiqlanmagan');
   });
 
   it('renders rating summary metrics when present', () => {
     const summary: SellerSummary = {
       id: '123e4567-e89b-12d3-a456-426614174000',
       displayName: 'Top Seller',
-      telegramUsername: 'top_seller',
       verified: true,
       createdAt: '2025-01-01T00:00:00Z',
     };

@@ -4,6 +4,7 @@ import { ACCESS_REQUIRED_PATH } from './lib/access-requirements';
 import { getAuthCookieClearOptions, getAuthCookieOptions } from './lib/auth-cookies';
 import { rewriteCookieHeader } from './lib/proxy-refresh-cookies';
 import { readCodeFromSearch, REFERRAL_COOKIE } from './lib/referral-capture';
+import { CAMPAIGN_CLICK_COOKIE, CAMPAIGN_COOKIE, readCampaignFromSearch } from './lib/campaign-capture';
 import { isSafeInternalPath } from './lib/safe-redirect';
 import { refreshSession, type RefreshedTokens } from './lib/session-refresh';
 
@@ -22,6 +23,10 @@ const AUTH_ONLY_LOGGED_OUT_PREFIXES = ['/auth/login'] as const;
 
 /** 30 kun — odam havolani bosib, keyinroq qaytib ro'yxatdan o'tishi mumkin. */
 const REFERRAL_COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
+/** Kampaniya kodi referal bilan bir xil muddat yashaydi. */
+const CAMPAIGN_COOKIE_MAX_AGE = REFERRAL_COOKIE_MAX_AGE;
+/** "Bosilish hali sanalmagan" belgisi — sahifa ochilgach darhol o'chiriladi. */
+const CAMPAIGN_CLICK_COOKIE_MAX_AGE = 60 * 60 * 24;
 
 function isProtectedPath(pathname: string) {
   if (PROTECTED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
@@ -77,6 +82,24 @@ function applyReferralCode(request: NextRequest, response: NextResponse) {
     path: '/',
     maxAge: REFERRAL_COOKIE_MAX_AGE,
   });
+  return response;
+}
+
+/**
+ * Kampaniya kodini (`?c=`) cookie'ga yozadi — referal bilan bir xil sabab:
+ * bu qatlam login redirect'idan oldin ishlaydi, React komponenti esa
+ * yo'naltiriladigan sahifada umuman mount bo'lmaydi.
+ *
+ * Ikkinchi cookie — bosilish belgisi: `CampaignCapture` uni ko'rib bosilishni
+ * bir marta yuboradi va o'chiradi.
+ */
+function applyCampaignCode(request: NextRequest, response: NextResponse) {
+  const code = readCampaignFromSearch(request.nextUrl.search);
+  if (!code) return response;
+
+  const options = { httpOnly: false, sameSite: 'lax' as const, path: '/' };
+  response.cookies.set(CAMPAIGN_COOKIE, code, { ...options, maxAge: CAMPAIGN_COOKIE_MAX_AGE });
+  response.cookies.set(CAMPAIGN_CLICK_COOKIE, code, { ...options, maxAge: CAMPAIGN_CLICK_COOKIE_MAX_AGE });
   return response;
 }
 
@@ -155,7 +178,7 @@ export async function proxy(request: NextRequest) {
         response.cookies.set(REFRESH_COOKIE, '', cookieOpts);
       }
     }
-    return applySecurityHeaders(applyReferralCode(request, response));
+    return applySecurityHeaders(applyCampaignCode(request, applyReferralCode(request, response)));
   };
 
   // Token kirish shartlari sababli yangilanmadi — sahifa so'rovi shartlar

@@ -27,6 +27,8 @@ import uz.efbazaar.auth.repository.UserRepository;
 class AuthApplicationTests {
 
     @MockBean UserRepository userRepository;
+
+    @MockBean uz.efbazaar.auth.repository.SignupStatsRepository signupStatsRepository;
     @MockBean TradeAdminApplicationRepository tradeAdminApplicationRepository;
     @MockBean StringRedisTemplate stringRedisTemplate;
     @MockBean KafkaTemplate<String, Object> kafkaTemplate;

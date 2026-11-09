@@ -23,10 +23,13 @@ u trade-service'da. Pul esa payment-service'da.
 | `cards/sync` | Kunlik efhub delta-sync (`EfhubSyncJob`), yangi kartalar → `cards-added` |
 | `partner` | Hamkor kanallar: ariza → bot tekshiradi → to'lov (payment) → admin tasdig'i; kanalga post, oylik to'lov, admin badge'lar |
 | `referral` | Taklif kodlari va mukofot (payment'ga yoziladi) |
+| `channel` | Rasmiy kanalga obuna/chiqish jurnali (`channel_member_events`, bot `chat_member` dan); adminka `GET /admin/channel-members/summary?days=30` |
+| `campaign` | Kampaniya havolalari (`?c=`, `/start c_`): foydalanuvchi qaysi manbadan kelgani, birinchi manba g'olib; adminka voronkasi |
 | `trust` | Shikoyatlar, bosqichli jazo (ogohlantirish → vaqtinchalik → doimiy blok), public qora ro'yxat, `BlacklistGuard` |
 | `support` | Foydalanuvchi ↔ admin support chat; Telegram orqali javob (bot) |
 | `gamer` | Gamer Card: Chempionat-X turnir statistikasi projection'i (`gamer_stats`) |
 | `websocket` | Chat real-time (`/ws/chat`), presence/typing; `chat.changed.v1` ni tinglaydi |
+| `chat` | `ContactShield`: chat matni va izohdagi Telegram username / `t.me` havola / telefonni saqlashdan oldin `[kontakt yashirildi]` ga almashtiradi (`chat_messages.contact_hidden`, javobda `contactHidden: true`). Asl kontakt saqlanmaydi; Konami ID, narx va pochta tegilmaydi. Shu sababli e'londagi `seller` (`SellerSummary`) Telegram username qaytarmaydi, Gamer Card esa uni faqat egasiga beradi |
 | `pricewatch` | Owner price watches, authoritative price transitions, durable common search/price intents, in-app/Telegram delivery |
 | `popup` | Kontekstli in-app xabar kampaniyalari, admin draft/publish/pause va PostgreSQL delivery limitlari |
 | `push` | Firebase push bildirishnomalar (`FIREBASE_PUSH_ENABLED`) |
@@ -53,11 +56,11 @@ To'liq ro'yxat — controllerlarda. Asosiy guruhlar (`/api/v1/...`):
 | Admin xabarlar | `GET/POST /admin/popups`, `PATCH /admin/popups/{id}/status`; faqat `ROLE_ADMIN` |
 | Narx kuzatuvi | `/price-watches` (GET/POST), `/{id}` (PATCH/DELETE), `/priorities`, `/preferences` (PUT); faqat owner |
 | Bildirishnoma | `/notifications`, `/read-all`, `/unread-count`, `/push-tokens`, `/push-status` |
-| Hamkorlik, referal | `/partners/**` (ariza, panel, to'lov, kanallar, click), `/referrals/claim`, `/referrals/me` |
+| Hamkorlik, referal | `/partners/**` (ariza, panel, to'lov, kanallar, click), `/referrals/claim`, `/referrals/me`, `/campaigns/click` (anonim ham), `/campaigns/claim` |
 | Trust, support | `/complaints`, `/blacklist`, `/blacklist/check`, `/support/chats/**` |
 | Fon musiqasi | `GET /music` (public, faqat enabled); `GET/POST /admin/music`, `PUT/DELETE /admin/music/{id}` (`ROLE_ADMIN`) |
-| Admin | `/admin/**`: listings, cards (sync, META), attributes, chats, partners, referrals, reports, trust, support, bot-settings, bot-broadcasts, guides, music, emoji-packs, stats, badges |
-| Ichki | `/internal/marketplace/v1/**`: `listings/{id}/terms`, `accounts/{id}` (trade uchun), bot-settings, `inline/listings?telegramId&q&offset` (bot inline rejimi: o'z ACTIVE e'lonlari, kanal matni, muqova, Mini App havolasi, 20 talik sahifa), guides/buttons, partners/* natijalari (bot), referrals/pending, support/telegram-reply, trust/complaints, `POST rec/replay` (`X-Internal-Secret`; `{ listings, likes, cards }` sonlari — hammasini qayta yuborishga belgilaydi) |
+| Admin | `/admin/**`: listings, cards (sync, META), attributes, chats, partners, referrals, campaigns, reports, trust, support, bot-settings, bot-broadcasts, guides, music, emoji-packs, stats, badges |
+| Ichki | `/internal/marketplace/v1/**`: `listings/{id}/terms`, `accounts/{id}` (trade uchun), bot-settings, `inline/listings?telegramId&q&offset` (bot inline rejimi: o'z ACTIVE e'lonlari, kanal matni, muqova, Mini App havolasi, 20 talik sahifa), guides/buttons, partners/* natijalari (bot), referrals/pending, campaigns/bot-start, channel-members/events, support/telegram-reply, trust/complaints, `POST rec/replay` (`X-Internal-Secret`; `{ listings, likes, cards }` sonlari — hammasini qayta yuborishga belgilaydi) |
 
 > **Ko'chirilmoqda:** dream team, card match va card interest `recommendation-service` da ham bor
 > (B bosqichi, qorong'i). Frontend C bosqichida unga o'tadi, D bosqichida bu yerdan o'chiriladi —
@@ -151,13 +154,14 @@ Batafsil: [docs/kafka-topics.md](../../docs/kafka-topics.md).
 | `ChannelRefreshJob` — kanal ma'lumotlarini yangilash | `PARTNER_REFRESH_CRON` (`0 30 3 * * *`) |
 | `PartnerMonthlyPayoutJob` | `PARTNER_MONTHLY_CRON` (`0 0 4 1 * *`) |
 | `PendingReferralSweeper` | `0 30 3 * * *` |
+| `PendingCampaignSweeper` | `0 40 3 * * *` (`app.campaigns.pending-ttl-days`, default 30) |
 | `MetaBoundaryJob` — `active_from`/`active_until` chegarasini kesgan kartalar (25 soatlik oyna) uchun `value_score` va card-snapshot | `META_BOUNDARY_CRON` / `app.recommendation.meta-boundary-cron` (`0 5 0 * * *`, UTC) |
 
 ## Ma'lumotlar
 
 - Asosiy jadvallar: `listings`, `listing_cards`, `listing_likes`, `listing_views`, `user_accounts`,
   `user_account_cards`, `chats`, `chat_messages`, `notifications`, `dream_teams`,
-  `attribute_definitions`, `partner_*`, `referrals`, `complaints`, `penalties`, `support_*`, `gamer_*`, `music_tracks`.
+  `attribute_definitions`, `partner_*`, `referrals`, `acquisition_campaigns`, `campaign_clicks`, `user_acquisitions`, `pending_campaign_attributions`, `channel_member_events`, `complaints`, `penalties`, `support_*`, `gamer_*`, `music_tracks`.
 - `listings.value_score` (nullable, `V72`; qisman indeks) — «Katta bozor» bali, 0..1. Hisoblanadi: e'lon saqlanganda
   (`ListingPersistence`), admin META o'zgartirganda/tugatganda va yangi efhub kartalarida (`CardChangeHandler`),
   `MetaBoundaryJob` orqali. `efbazaar` katalogi o'qilmasa ball o'zgarmaydi (WARN), e'lon saqlash hech qachon yiqilmaydi.

@@ -39,7 +39,7 @@ Login oldidan access-service'dan kirish shartlari (kanal a'zoligi) so'raladi —
 |---|---|
 | Foydalanuvchi | `GET /api/v1/users/me`, `DELETE /api/v1/users/me`, `GET /api/v1/users/me/access`, `GET /api/v1/users/{id}/photo`, `GET /api/v1/users/me/photo` |
 | Trade-admin arizasi | `POST /api/v1/trade-admin-applications`, `GET .../me` |
-| Admin | `GET /api/v1/admin/users`, `GET .../by-ids`, `PUT .../{id}/role`, `DELETE .../{id}`; `GET /api/v1/admin/trade-admin-applications`, `POST .../{id}/approve`, `.../reject` |
+| Admin | `GET /api/v1/admin/users`, `GET .../by-ids`, `GET .../signups?days=30` (kunlik ro'yxatdan o'tishlar, Toshkent kuni; bo'sh kunlar nol), `PUT .../{id}/role`, `DELETE .../{id}`; `GET /api/v1/admin/trade-admin-applications`, `POST .../{id}/approve`, `.../reject` |
 | Ichki (`X-Internal-Secret`) | `/internal/auth/v1/users/`: `admins`, `by-telegram-id/{telegramId}`, `telegram-ids`, `names/batch`, `summary/batch` |
 
 `names/batch` va `summary/batch` ni marketplace va trade ishlatadi. Ular **fail-soft** —

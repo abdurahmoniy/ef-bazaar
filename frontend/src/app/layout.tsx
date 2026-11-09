@@ -4,6 +4,7 @@ import Script from 'next/script';
 import './globals.css';
 
 import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
+import { CampaignCapture } from '@/components/campaign/campaign-capture';
 import { TelegramBackProvider } from '@/components/telegram/telegram-back-provider';
 import { TelegramViewportBootstrap } from '@/components/telegram/telegram-viewport-bootstrap';
 import { TelegramSdk } from '@/components/telegram/telegram-sdk';
@@ -123,6 +124,8 @@ export default function RootLayout({
         <TelegramViewportBootstrap />
         {/* Telegram Mini App context aniqlansa har qanday entry point'da auto-login */}
         <TelegramWebAppAutoLogin />
+        {/* Bosilishni kirmagan mehmon uchun ham sanaydi; da'vo shell'larda. */}
+        <CampaignCapture />
 
         <TelegramBackProvider>
           <ClientQueryProvider>

@@ -59,6 +59,8 @@ public class SecurityConfig {
                         // kelgan odam, va uni sanamaslik konversiyaning
                         // boshini yo'qotish demak.
                         .requestMatchers(HttpMethod.POST, "/api/v1/partners/click").permitAll()
+                        // Kampaniya havolasi bosilishi — anonim ham sanaladi
+                        .requestMatchers(HttpMethod.POST, "/api/v1/campaigns/click").permitAll()
                         // Kanal tanlash paneli — e'lon berayotgan sotuvchi ko'radi.
                         .requestMatchers(HttpMethod.GET, "/api/v1/partners/channels").permitAll()
                         // Gamer Card: /me needs the auth principal (declared

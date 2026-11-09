@@ -1,20 +1,18 @@
 import Link from 'next/link';
-import { BadgeCheck, ChevronRight, MessageCircle, ShieldAlert, Star } from 'lucide-react';
+import { BadgeCheck, ChevronRight, ShieldAlert, Star } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import type { ListingStatus, SellerSummary } from '@/lib/marketplace-types';
+import type { SellerSummary } from '@/lib/marketplace-types';
 import type { SellerRatingSummaryResponse } from '@/lib/trade-types';
 import type { User } from '@/lib/types';
 
 interface SellerCardProps {
   seller:
-    | Pick<User, 'id' | 'displayName' | 'telegramPhotoUrl' | 'telegramUsername' | 'verified' | 'createdAt'>
+    | Pick<User, 'id' | 'displayName' | 'telegramPhotoUrl' | 'verified' | 'createdAt'>
     | SellerSummary
     | null;
-  isViewerOwner?: boolean;
-  listingStatus?: ListingStatus;
   /** Trust module: seller is on the public blacklist — show the red warning. */
   blacklisted?: boolean;
   /** Seller rating metrics from trade-service. */
@@ -23,8 +21,6 @@ interface SellerCardProps {
 
 export function SellerCard({
   seller,
-  isViewerOwner,
-  listingStatus = 'ACTIVE',
   blacklisted,
   ratingSummary,
 }: SellerCardProps) {
@@ -100,9 +96,6 @@ export function SellerCard({
               </Badge>
             )}
           </div>
-          {seller.telegramUsername && (
-            <p className="mt-0.5 text-xs text-muted-foreground">@{seller.telegramUsername}</p>
-          )}
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
             {hasRatings ? (
               <span className="inline-flex items-center gap-1 font-bold text-warning">
@@ -126,18 +119,6 @@ export function SellerCard({
         <Button asChild variant="secondary" size="sm" className="flex-1 rounded-lg">
           <Link href={`/users/${seller.id}`}>Profilni ko&apos;rish</Link>
         </Button>
-        {listingStatus === 'ACTIVE' && !isViewerOwner && seller.telegramUsername && (
-          <Button asChild variant="outline" size="sm" className="shrink-0 rounded-lg px-3">
-            <Link
-              href={`https://t.me/${seller.telegramUsername}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Telegramda yozish"
-            >
-              <MessageCircle className="h-4 w-4" />
-            </Link>
-          </Button>
-        )}
       </div>
     </div>
   );

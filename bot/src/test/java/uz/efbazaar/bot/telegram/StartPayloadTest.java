@@ -73,4 +73,30 @@ class StartPayloadTest {
         assertThat(UpdateHandler.guidePayload("/start")).isNull();
         assertThat(UpdateHandler.guidePayload(null)).isNull();
     }
+
+    @Test
+    @DisplayName("a campaign payload is extracted and normalised")
+    void extractsCampaign() {
+        assertThat(UpdateHandler.campaignPayload("/start c_GRP23456")).isEqualTo("GRP23456");
+        assertThat(UpdateHandler.campaignPayload("/start c_grp23456")).isEqualTo("GRP23456");
+    }
+
+    @Test
+    @DisplayName("campaign and referral payloads never read each other")
+    void campaignAndReferralAreSeparate() {
+        // Ikki xil savol: referal "kim olib keldi", kampaniya "qayerdan keldi".
+        // Biri ikkinchisining yukini o'qisa, raqamlar aralashib ketadi.
+        assertThat(UpdateHandler.campaignPayload("/start ref_ABCD2345")).isNull();
+        assertThat(UpdateHandler.startPayload("/start c_GRP23456")).isNull();
+    }
+
+    @Test
+    @DisplayName("a malformed campaign payload is ignored")
+    void malformedCampaign() {
+        assertThat(UpdateHandler.campaignPayload("/start")).isNull();
+        assertThat(UpdateHandler.campaignPayload(null)).isNull();
+        assertThat(UpdateHandler.campaignPayload("/start c_")).isNull();
+        assertThat(UpdateHandler.campaignPayload("/start c_TOOLONGCODE")).isNull();
+        assertThat(UpdateHandler.campaignPayload("/start c_GRP-2345")).isNull();
+    }
 }

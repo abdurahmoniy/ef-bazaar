@@ -32,6 +32,7 @@ import { ChatRichComposer, type ChatRichComposerHandle } from './chat-rich-compo
 import { useChatKeyboardHeight } from '@/hooks/use-chat-keyboard-height';
 import { useChatViewport } from '@/hooks/use-chat-viewport';
 import { ChatMessageContent } from './chat-message-content';
+import { ContactShieldNotice } from './contact-shield-notice';
 import { useEmojiPacks } from '@/lib/use-emoji-packs';
 import type { EmojiItem } from '@/lib/emoji-packs';
 import { chatPlainText } from '@/lib/chat-custom-emoji';
@@ -551,6 +552,7 @@ export function ChatView({
                   </TouchMessageBubble>
                 </div>
               )}
+              {message.contactHidden && <ContactShieldNotice mine={mine} />}
             </div>
           );
         })}

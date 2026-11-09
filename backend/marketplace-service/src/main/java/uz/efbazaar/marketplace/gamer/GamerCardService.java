@@ -38,7 +38,14 @@ public class GamerCardService {
     private final BlacklistGuard blacklistGuard;
 
     @Transactional(readOnly = true)
-    public GamerCardResponse getCard(UUID userId) {
+    /**
+     * @param viewerId kim ko'ryapti (kirmagan bo'lsa null). Telegram username
+     *                 faqat egasining o'ziga qaytadi: karta e'lon sahifasida va
+     *                 ommaviy profilda turadi, u yerda username xaridorni chatdan
+     *                 tashqariga — garovsiz savdoga — olib ketadi.
+     */
+    public GamerCardResponse getCard(UUID userId, UUID viewerId) {
+        boolean owner = userId.equals(viewerId);
         Optional<AuthSummaryClient.UserSummary> summary = authSummary.resolve(userId);
         Optional<GamerStats> statsRow = stats.findById(userId);
         Optional<GamerProfile> profileRow = profiles.findById(userId);
@@ -63,7 +70,7 @@ public class GamerCardService {
         return new GamerCardResponse(
                 userId,
                 summary.map(AuthSummaryClient.UserSummary::displayName).orElse(null),
-                summary.map(AuthSummaryClient.UserSummary::telegramUsername).orElse(null),
+                owner ? summary.map(AuthSummaryClient.UserSummary::telegramUsername).orElse(null) : null,
                 summary.map(AuthSummaryClient.UserSummary::verified).orElse(null),
                 summary.map(AuthSummaryClient.UserSummary::createdAt).orElse(null),
                 summary.map(AuthSummaryClient.UserSummary::photoAvailable).orElse(false),
@@ -90,6 +97,6 @@ public class GamerCardService {
         profile.setHighestDivision(request.highestDivision());
         profile.setFavoriteTeam(request.favoriteTeam());
         profiles.save(profile);
-        return getCard(userId);
+        return getCard(userId, userId);
     }
 }

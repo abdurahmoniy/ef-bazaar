@@ -52,12 +52,25 @@ class GamerCardServiceTest {
 
     @Test
     void freshUserGetsDefaultsAndSilverTier() {
-        GamerCardResponse card = service.getCard(USER);
+        GamerCardResponse card = service.getCard(USER, USER);
 
         assertEquals(1000, card.elo());
         assertEquals(Tier.SILVER, card.tier());
         assertNull(card.winRatePercent());
         assertEquals("Ali", card.displayName());
+    }
+
+    @Test
+    void ownerSeesTheirOwnTelegramHandle() {
+        assertEquals("ali", service.getCard(USER, USER).telegramUsername());
+    }
+
+    @Test
+    void othersNeverSeeTheTelegramHandle() {
+        // Karta e'lon sahifasida ko'rinadi: username bu yerda bo'lsa xaridor
+        // chatni chetlab, garovsiz savdoga ketadi.
+        assertNull(service.getCard(USER, UUID.randomUUID()).telegramUsername());
+        assertNull(service.getCard(USER, null).telegramUsername());
     }
 
     @Test
@@ -82,7 +95,7 @@ class GamerCardServiceTest {
         when(listings.countBySellerIdAndStatus(USER, ListingStatus.SOLD)).thenReturn(4L);
         when(listings.countBySoldToUserId(USER)).thenReturn(2L);
 
-        GamerCardResponse card = service.getCard(USER);
+        GamerCardResponse card = service.getCard(USER, USER);
 
         assertEquals(Tier.ELITE, card.tier());
         assertEquals(70, card.winRatePercent());
@@ -95,7 +108,7 @@ class GamerCardServiceTest {
     void unknownUserWithNoTracesIs404() {
         when(authSummary.resolve(USER)).thenReturn(Optional.empty());
 
-        MarketplaceException e = assertThrows(MarketplaceException.class, () -> service.getCard(USER));
+        MarketplaceException e = assertThrows(MarketplaceException.class, () -> service.getCard(USER, USER));
         assertEquals("gamer_not_found", e.getCode());
     }
 
@@ -104,7 +117,7 @@ class GamerCardServiceTest {
         when(authSummary.resolve(USER)).thenReturn(Optional.empty());
         when(stats.findById(USER)).thenReturn(Optional.of(GamerStats.fresh(USER)));
 
-        GamerCardResponse card = service.getCard(USER);
+        GamerCardResponse card = service.getCard(USER, USER);
 
         assertNull(card.displayName());
         assertEquals(1000, card.elo());

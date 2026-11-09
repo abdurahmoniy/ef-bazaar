@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import uz.efbazaar.marketplace.chat.ContactShield;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.marketplace.domain.*;
 import uz.efbazaar.marketplace.event.MarketplaceEventPublisher;
@@ -138,8 +139,10 @@ public class ChatService {
         Optional<ChatMessage> previous = previousSend(chat, senderId, clientMessageId);
         if (previous.isPresent()) return previous.get();
         requireVisibleReply(chat, replyToId);
+        ContactShield.Result shielded = ContactShield.mask(content);
         return saveSend(chat, senderId, clientMessageId, ChatMessage.builder()
-                .chatId(chatId).senderId(senderId).content(content).replyToId(replyToId)
+                .chatId(chatId).senderId(senderId).content(shielded.text()).replyToId(replyToId)
+                .contactHidden(shielded.hidden())
                 .clientMessageId(clientMessageId).build());
     }
 
@@ -158,9 +161,10 @@ public class ChatService {
         Optional<ChatMessage> previous = previousSend(chat, senderId, clientMessageId);
         if (previous.isPresent()) return previous.get();
         requireVisibleReply(chat, replyToId);
+        ContactShield.Result shielded = ContactShield.mask(caption == null ? "" : caption.trim());
         return saveSend(chat, senderId, clientMessageId, ChatMessage.builder()
                 .chatId(chatId).senderId(senderId)
-                .content(caption == null ? "" : caption.trim())
+                .content(shielded.text()).contactHidden(shielded.hidden())
                 .attachmentType(uploaded.type()).attachmentFileId(uploaded.fileId())
                 .attachmentName(uploaded.name()).attachmentMime(uploaded.mime()).attachmentSize(uploaded.size())
                 .replyToId(replyToId).clientMessageId(clientMessageId).build());
@@ -246,7 +250,11 @@ public class ChatService {
     @Transactional
     public ChatMessage editMessage(UUID chatId, UUID messageId, UUID senderId, String content) {
         ChatMessage message = getOwnMessage(chatId, messageId, senderId);
-        message.setContent(content.trim());
+        // Tahrirlash orqali kontakt kiritib bo'lmaydi; bir marta yashirilgan
+        // xabarning bayrog'i esa tahrirdan keyin ham qoladi.
+        ContactShield.Result shielded = ContactShield.mask(content.trim());
+        message.setContent(shielded.text());
+        message.setContactHidden(message.isContactHidden() || shielded.hidden());
         message.setEditedAt(Instant.now());
         return message;
     }

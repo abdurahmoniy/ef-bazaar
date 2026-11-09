@@ -65,7 +65,7 @@ class TelegramApiClientInlineTest {
     @Test
     void inlineQueryIsAmongAllowedUpdates() throws Exception {
         assertThat(TelegramApiClient.ALLOWED_UPDATES)
-                .containsExactly("message", "callback_query", "my_chat_member", "inline_query");
+                .containsExactly("message", "callback_query", "my_chat_member", "inline_query", "chat_member");
 
         TelegramApiClient c = client();
         c.getUpdates(0, 1);

@@ -22,6 +22,7 @@ import uz.efbazaar.auth.dto.UpdateRoleRequest;
 import uz.efbazaar.auth.dto.UserResponse;
 import uz.efbazaar.auth.mapper.UserMapper;
 import uz.efbazaar.auth.security.AuthenticatedUser;
+import uz.efbazaar.auth.service.SignupStatsService;
 import uz.efbazaar.auth.service.UserService;
 
 import java.util.List;
@@ -39,6 +40,13 @@ public class AdminUserController {
 
     private final UserService userService;
     private final UserMapper userMapper;
+    private final SignupStatsService signupStats;
+
+    /** Kunlik ro'yxatdan o'tishlar (Toshkent kuni), adminka "O'sish" sahifasi uchun. */
+    @GetMapping("/signups")
+    public SignupStatsService.Summary signups(@RequestParam(defaultValue = "30") int days) {
+        return signupStats.summary(Math.max(1, Math.min(days, 180)));
+    }
 
     /**
      * @param telegramOnly faqat Telegramga ulanganlarni qaytaradi — botdan

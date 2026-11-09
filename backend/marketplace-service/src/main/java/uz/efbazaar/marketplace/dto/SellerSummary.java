@@ -6,11 +6,18 @@ import uz.efbazaar.marketplace.security.AuthSummaryClient;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * E'lon sahifasidagi sotuvchi — kirmagan mehmonga ham ochiq.
+ *
+ * <p>Telegram username ATAYLAB YO'Q. U bu yerda tursa xaridor chatni chetlab
+ * sotuvchiga to'g'ridan-to'g'ri yozadi va savdo garovsiz ketadi; chatdagi
+ * {@code ContactShield} ham ma'nosiz bo'lib qoladi. Ishonch belgisi —
+ * {@code verified} va reyting, aloqa — efBazaar chati.
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record SellerSummary(
         UUID id,
         String displayName,
-        String telegramUsername,
         String telegramPhotoUrl,
         boolean verified,
         Instant createdAt
@@ -20,7 +27,6 @@ public record SellerSummary(
         return new SellerSummary(
                 summary.id(),
                 summary.displayName(),
-                summary.telegramUsername(),
                 summary.telegramPhotoUrl(),
                 summary.verified(),
                 summary.createdAt()
