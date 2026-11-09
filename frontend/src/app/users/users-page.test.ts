@@ -99,7 +99,10 @@ describe('UserProfilePage', () => {
     const html = renderToStaticMarkup(createElement(ClientQueryProvider, null, jsx));
 
     expect(html).toContain('Lionel Messi');
-    expect(html).toContain('@leomessi');
+    // Mehmon sotuvchining Telegramini ko'rmaydi — API qaytarib yuborsa ham.
+    expect(html).not.toContain('@leomessi');
+    expect(html).not.toContain('t.me/leomessi');
+    expect(html).not.toContain('Telegramda yozish');
     expect(html).toContain('tasdiqlangan');
     expect(html).toContain('Reyting');
     expect(html).toContain('4.9');

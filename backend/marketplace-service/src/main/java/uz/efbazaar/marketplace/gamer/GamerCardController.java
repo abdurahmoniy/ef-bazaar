@@ -30,7 +30,7 @@ public class GamerCardController {
 
     @GetMapping("/me")
     public GamerCardResponse myCard(@AuthenticationPrincipal AuthenticatedUser user) {
-        return service.getCard(user.userId());
+        return service.getCard(user.userId(), user.userId());
     }
 
     @PutMapping("/me")
@@ -40,7 +40,8 @@ public class GamerCardController {
     }
 
     @GetMapping("/{userId}")
-    public GamerCardResponse card(@PathVariable UUID userId) {
-        return service.getCard(userId);
+    public GamerCardResponse card(@PathVariable UUID userId,
+                                  @AuthenticationPrincipal AuthenticatedUser viewer) {
+        return service.getCard(userId, viewer == null ? null : viewer.userId());
     }
 }

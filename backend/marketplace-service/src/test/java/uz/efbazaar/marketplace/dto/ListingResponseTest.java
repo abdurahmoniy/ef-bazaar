@@ -39,7 +39,7 @@ class ListingResponseTest {
     @Test
     void one_match_explanation_drives_both_new_and_compatibility_fields() {
         SellerSummary seller = new SellerSummary(
-                UUID.randomUUID(), "Seller", "seller_tg", "https://photo.jpg", true, java.time.Instant.now()
+                UUID.randomUUID(), "Seller", "https://photo.jpg", true, java.time.Instant.now()
         );
         ListingResponse response = new ListingResponse(
                 UUID.randomUUID(), seller.id(), seller, "Account", BigDecimal.TEN,

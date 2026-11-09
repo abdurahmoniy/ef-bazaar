@@ -6,7 +6,6 @@ import {
   Calendar,
   CheckCircle2,
   Layers,
-  MessageCircle,
   MessageSquare,
   Package,
   ShieldAlert,
@@ -62,7 +61,9 @@ export default async function UserProfilePage({ params }: UserPageProps) {
 
   const isOwner = viewer?.id === id;
   const displayName = card?.displayName || (listings[0]?.seller?.displayName ?? 'Foydalanuvchi');
-  const telegramUsername = card?.telegramUsername || (listings[0]?.seller?.telegramUsername ?? null);
+  // Username faqat egasiga: boshqalarga u xaridorni chatdan tashqariga, garovsiz
+  // savdoga olib ketadi. API ham faqat egasiga qaytaradi — bu ikkinchi qavat.
+  const telegramUsername = isOwner ? card?.telegramUsername ?? null : null;
   const isVerified = card?.verified ?? (listings[0]?.seller?.verified ?? false);
 
   const initials = displayName
@@ -157,17 +158,6 @@ export default async function UserProfilePage({ params }: UserPageProps) {
                 <Button asChild className="rounded-xl">
                   <Link href="/profile">
                     Profilimni boshqarish
-                  </Link>
-                </Button>
-              ) : telegramUsername ? (
-                <Button asChild size="lg" className="rounded-xl">
-                  <Link
-                    href={`https://t.me/${telegramUsername}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    Telegramda yozish
                   </Link>
                 </Button>
               ) : null}
