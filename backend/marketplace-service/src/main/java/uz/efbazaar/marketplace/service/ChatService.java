@@ -20,8 +20,11 @@ import uz.efbazaar.marketplace.security.AuthNameClient;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import uz.efbazaar.marketplace.trust.BlacklistGuard;
 
 @Slf4j
@@ -139,7 +142,7 @@ public class ChatService {
         Optional<ChatMessage> previous = previousSend(chat, senderId, clientMessageId);
         if (previous.isPresent()) return previous.get();
         requireVisibleReply(chat, replyToId);
-        ContactShield.Result shielded = ContactShield.mask(content);
+        ContactShield.Result shielded = shield(chat, content);
         return saveSend(chat, senderId, clientMessageId, ChatMessage.builder()
                 .chatId(chatId).senderId(senderId).content(shielded.text()).replyToId(replyToId)
                 .contactHidden(shielded.hidden())
@@ -161,13 +164,29 @@ public class ChatService {
         Optional<ChatMessage> previous = previousSend(chat, senderId, clientMessageId);
         if (previous.isPresent()) return previous.get();
         requireVisibleReply(chat, replyToId);
-        ContactShield.Result shielded = ContactShield.mask(caption == null ? "" : caption.trim());
+        ContactShield.Result shielded = shield(chat, caption == null ? "" : caption.trim());
         return saveSend(chat, senderId, clientMessageId, ChatMessage.builder()
                 .chatId(chatId).senderId(senderId)
                 .content(shielded.text()).contactHidden(shielded.hidden())
                 .attachmentType(uploaded.type()).attachmentFileId(uploaded.fileId())
                 .attachmentName(uploaded.name()).attachmentMime(uploaded.mime()).attachmentSize(uploaded.size())
                 .replyToId(replyToId).clientMessageId(clientMessageId).build());
+    }
+
+    /**
+     * Ikkala ishtirokchining username'i tekshiriladi: odam o'zinikini ham,
+     * "sizning username'ingiz nima, men yozaman" deb sherigini ham yozadi.
+     * Auth javob bermasa ro'yxat bo'sh keladi va xabar baribir yuboriladi —
+     * shunda faqat {@code @}, havola, telefon va kalit so'z qoidalari ishlaydi.
+     */
+    private ContactShield.Result shield(Chat chat, String text) {
+        if (text == null || text.isBlank()) return ContactShield.mask(text);
+        Set<String> handles = telegramUsers.resolveAll(List.of(chat.getBuyerId(), chat.getSellerId()))
+                .values().stream()
+                .map(uz.efbazaar.marketplace.security.AuthSummaryClient.UserSummary::telegramUsername)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        return ContactShield.mask(text, handles);
     }
 
     /** Authorize and check completed uploads before doing any outbound media work. */
@@ -252,7 +271,7 @@ public class ChatService {
         ChatMessage message = getOwnMessage(chatId, messageId, senderId);
         // Tahrirlash orqali kontakt kiritib bo'lmaydi; bir marta yashirilgan
         // xabarning bayrog'i esa tahrirdan keyin ham qoladi.
-        ContactShield.Result shielded = ContactShield.mask(content.trim());
+        ContactShield.Result shielded = shield(getById(chatId, senderId), content.trim());
         message.setContent(shielded.text());
         message.setContactHidden(message.isContactHidden() || shielded.hidden());
         message.setEditedAt(Instant.now());

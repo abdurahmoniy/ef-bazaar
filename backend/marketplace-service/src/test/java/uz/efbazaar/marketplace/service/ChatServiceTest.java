@@ -334,6 +334,109 @@ class ChatServiceTest {
         assertThat(edited.isContactHidden()).isTrue();
     }
 
+    private void participantsHaveHandles(String buyerHandle, String sellerHandle) {
+        java.util.Map<UUID, uz.efbazaar.marketplace.security.AuthSummaryClient.UserSummary> summaries =
+                new java.util.HashMap<>();
+        summaries.put(buyerId, new uz.efbazaar.marketplace.security.AuthSummaryClient.UserSummary(
+                buyerId, "Xaridor", buyerHandle, 1L, false, null, false));
+        summaries.put(sellerId, new uz.efbazaar.marketplace.security.AuthSummaryClient.UserSummary(
+                sellerId, "Sotuvchi", sellerHandle, 2L, false, null, false));
+        when(telegramUsers.resolveAll(org.mockito.ArgumentMatchers.anyCollection())).thenReturn(summaries);
+    }
+
+    @Test
+    void sendMessage_hidesSendersOwnHandleWrittenWithoutAt() {
+        UUID chatId = savingChat();
+        participantsHaveHandles("buyer_tg", "seller_uz");
+
+        ChatMessage sent = service.sendMessage(chatId, sellerId, "seller_uz ga yozing");
+
+        assertThat(sent.getContent())
+                .isEqualTo(uz.efbazaar.marketplace.chat.ContactShield.PLACEHOLDER + " ga yozing");
+        assertThat(sent.isContactHidden()).isTrue();
+    }
+
+    @Test
+    void sendMessage_hidesCounterpartyHandleWrittenWithoutAt() {
+        // "Sizning username'ingiz seller_uz-mi, men yozaman" holati.
+        UUID chatId = savingChat();
+        participantsHaveHandles("buyer_tg", "seller_uz");
+
+        ChatMessage sent = service.sendMessage(chatId, buyerId, "SELLER_UZ siz bo'lasizmi");
+
+        assertThat(sent.getContent())
+                .isEqualTo(uz.efbazaar.marketplace.chat.ContactShield.PLACEHOLDER + " siz bo'lasizmi");
+        assertThat(sent.isContactHidden()).isTrue();
+    }
+
+    @Test
+    void sendMessage_toleratesParticipantWithoutHandle() {
+        UUID chatId = savingChat();
+        participantsHaveHandles(null, "seller_uz");
+
+        ChatMessage sent = service.sendMessage(chatId, buyerId, "seller_uz ga yozaman");
+
+        assertThat(sent.isContactHidden()).isTrue();
+    }
+
+    @Test
+    void sendMessage_stillGoesThroughWhenAuthIsUnavailable() {
+        // AuthSummaryClient fail-soft: xato bo'lsa bo'sh map qaytaradi.
+        UUID chatId = savingChat();
+        when(telegramUsers.resolveAll(org.mockito.ArgumentMatchers.anyCollection())).thenReturn(Map.of());
+
+        ChatMessage bare = service.sendMessage(chatId, buyerId, "seller_uz ga yozing");
+        ChatMessage keyword = service.sendMessage(chatId, buyerId, "tg: seller_uz");
+
+        assertThat(bare.getContent()).isEqualTo("seller_uz ga yozing");
+        assertThat(bare.isContactHidden()).isFalse();
+        assertThat(keyword.getContent())
+                .isEqualTo("tg: " + uz.efbazaar.marketplace.chat.ContactShield.PLACEHOLDER);
+        assertThat(keyword.isContactHidden()).isTrue();
+    }
+
+    @Test
+    void sendAttachment_hidesKnownHandleInCaption() {
+        UUID chatId = savingChat();
+        participantsHaveHandles("buyer_tg", "seller_uz");
+        var uploaded = new ChatAttachmentService.Uploaded(
+                uz.efbazaar.marketplace.domain.AttachmentType.IMAGE, "file-1", "a.jpg", "image/jpeg", 10L);
+
+        ChatMessage sent = service.sendAttachment(chatId, sellerId, uploaded, "seller_uz");
+
+        assertThat(sent.getContent()).isEqualTo(uz.efbazaar.marketplace.chat.ContactShield.PLACEHOLDER);
+        assertThat(sent.isContactHidden()).isTrue();
+    }
+
+    @Test
+    void sendAttachment_withoutCaptionDoesNotCallAuth() {
+        UUID chatId = savingChat();
+        var uploaded = new ChatAttachmentService.Uploaded(
+                uz.efbazaar.marketplace.domain.AttachmentType.IMAGE, "file-1", "a.jpg", "image/jpeg", 10L);
+
+        service.sendAttachment(chatId, sellerId, uploaded, null);
+
+        org.mockito.Mockito.verifyNoInteractions(telegramUsers);
+    }
+
+    @Test
+    void editMessage_cannotSmuggleAKnownHandleIn() {
+        UUID chatId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        ChatMessage own = ChatMessage.builder()
+                .id(messageId).chatId(chatId).senderId(buyerId).content("salom").build();
+        Chat chat = Chat.builder()
+                .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId).build();
+        when(chats.findById(chatId)).thenReturn(Optional.of(chat));
+        when(messages.findById(messageId)).thenReturn(Optional.of(own));
+        participantsHaveHandles("buyer_tg", "seller_uz");
+
+        ChatMessage edited = service.editMessage(chatId, messageId, buyerId, "seller_uz");
+
+        assertThat(edited.getContent()).isEqualTo(uz.efbazaar.marketplace.chat.ContactShield.PLACEHOLDER);
+        assertThat(edited.isContactHidden()).isTrue();
+    }
+
     @Test
     void stampOwnName_setsCallersSideAndOverwritesOnRename() {
         Chat chat = Chat.builder()

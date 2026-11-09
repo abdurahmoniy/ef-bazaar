@@ -1,7 +1,9 @@
 package uz.efbazaar.marketplace.chat;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,6 +25,11 @@ import java.util.regex.Pattern;
  * uchun telefon faqat aniq shakllarda tan olinadi: {@code +998} bilan 12
  * xona, operator kodi bilan boshlangan 9 xona, yoki {@code +} bilan
  * boshlangan xalqaro raqam.
+ *
+ * <p>{@code @} belgisiz username ham shu sababli faqat ikki holatda
+ * tan olinadi: chat ishtirokchisining haqiqiy username'i bo'lsa, yoki
+ * kontakt kalit so'zidan ("tg", "lichka", "nik"...) keyin kelsa. Har bir
+ * lotincha so'zni yashirsak "Mbappe" va "toza_akk" ham ketardi.
  */
 public final class ContactShield {
 
@@ -38,6 +45,33 @@ public final class ContactShield {
      */
     private static final Pattern TG_HANDLE = Pattern.compile(
             "(?<![\\w.@])@[A-Za-z][A-Za-z0-9_]{3,31}\\b");
+
+    private static final Pattern WORD_OR_PLACEHOLDER = Pattern.compile(
+            Pattern.quote(PLACEHOLDER) + "|[A-Za-z0-9_]+");
+
+    private static final String WORD_END = "(?![\\p{L}\\p{N}_])";
+    private static final String SEPARATOR = "[\\s:=\\-–—,]*";
+    /** Kalit bilan username orasida kelishi mumkin: "lichkaga yozing seller_uz". */
+    private static final String FILLER = "(?:yoz\\p{L}*|напиш\\p{L}*|пиш\\p{L}*|mana|вот)";
+
+    /**
+     * Kontakt kalit so'zi va undan keyingi username'ga o'xshash token.
+     *
+     * <p>Token yolg'iz o'zi yashirish uchun yetmaydi ("telegramdan yozing",
+     * "tg orqali emas"): {@link #looksLikeHandle} yoki ajratib yozilgan
+     * qo'shimcha ({@code suffix}: "seller ga yozing") ham kerak.
+     */
+    private static final Pattern KEYWORD_TOKEN = Pattern.compile(
+            "(?iu)(?<![\\p{L}\\p{N}_])"
+                    + "(?:telegram\\p{L}*|телеграм\\p{L}*|lichka\\p{L}*|личк\\p{L}*"
+                    + "|(?:tg|username|user|nik|nick)(?:im|imiz|ing|ingiz|m|i|ga|da|dan|ni)?"
+                    + "|(?:тг|ник)(?:ом|а|е|у|и)?)"
+                    + "(?:['’ʻʼ`]\\p{L}+)?" + WORD_END
+                    + SEPARATOR
+                    + "(?:" + FILLER + WORD_END + SEPARATOR + ")?"
+                    + "(?!" + FILLER + WORD_END + ")"
+                    + "(?<token>[A-Za-z][A-Za-z0-9_]{4,31})(?![A-Za-z0-9_@])"
+                    + "(?<suffix>\\s+(?:ga|ge|qa|ka)" + WORD_END + ")?");
 
     /**
      * Telefonga o'xshash raqamlar qatori: xonalar orasida bo'sh joy, tire,
@@ -56,12 +90,71 @@ public final class ContactShield {
     private ContactShield() {}
 
     public static Result mask(String text) {
+        return mask(text, Set.of());
+    }
+
+    /**
+     * @param knownHandles chat ishtirokchilarining Telegram username'lari
+     *                     ({@code @} bilan yoki usiz); bo'sh bo'lishi mumkin
+     */
+    public static Result mask(String text, Set<String> knownHandles) {
         if (text == null || text.isBlank()) return new Result(text, false);
 
         String masked = TG_LINK.matcher(text).replaceAll(PLACEHOLDER);
         masked = TG_HANDLE.matcher(masked).replaceAll(PLACEHOLDER);
+        masked = maskTokensAfterKeyword(masked);
+        masked = maskKnownHandles(masked, knownHandles);
         masked = maskPhones(masked);
         return new Result(masked, !masked.equals(text));
+    }
+
+    private static String maskKnownHandles(String text, Set<String> knownHandles) {
+        Set<String> handles = new HashSet<>();
+        for (String handle : knownHandles) {
+            String normalized = handle.strip().replaceFirst("^@", "").toLowerCase(Locale.ROOT);
+            if (!normalized.isEmpty()) handles.add(normalized);
+        }
+        if (handles.isEmpty()) return text;
+
+        Matcher word = WORD_OR_PLACEHOLDER.matcher(text);
+        StringBuilder out = new StringBuilder();
+        int copied = 0;
+        while (word.find()) {
+            if (!handles.contains(word.group().toLowerCase(Locale.ROOT))) continue;
+            if (isPartOfEmail(text, word.start(), word.end())) continue;
+            out.append(text, copied, word.start()).append(PLACEHOLDER);
+            copied = word.end();
+        }
+        return out.append(text.substring(copied)).toString();
+    }
+
+    private static boolean isPartOfEmail(String text, int start, int end) {
+        boolean afterAt = start > 0 && text.charAt(start - 1) == '@';
+        boolean beforeAt = end + 1 < text.length() && text.charAt(end) == '@'
+                && Character.isLetterOrDigit(text.charAt(end + 1));
+        return afterAt || beforeAt;
+    }
+
+    private static String maskTokensAfterKeyword(String text) {
+        Matcher match = KEYWORD_TOKEN.matcher(text);
+        StringBuilder out = new StringBuilder();
+        int copied = 0;
+        int from = 0;
+        while (match.find(from)) {
+            if (!looksLikeHandle(match.group("token")) && match.group("suffix") == null) {
+                // Token o'zi kalit so'z bo'lishi mumkin: "telegram username seller_uz".
+                from = match.start("token");
+                continue;
+            }
+            out.append(text, copied, match.start("token")).append(PLACEHOLDER);
+            copied = match.end("token");
+            from = copied;
+        }
+        return out.append(text.substring(copied)).toString();
+    }
+
+    private static boolean looksLikeHandle(String token) {
+        return token.chars().anyMatch(c -> c == '_' || Character.isDigit(c));
     }
 
     private static String maskPhones(String text) {
