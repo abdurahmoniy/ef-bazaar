@@ -60,7 +60,8 @@ class UpdateHandlerSupportReplyTest {
                 props,
                 kafka,
                 org.mockito.Mockito.mock(uz.efbazaar.bot.inline.InlineQueryHandler.class),
-                org.mockito.Mockito.mock(uz.efbazaar.bot.campaign.CampaignStartClient.class)
+                org.mockito.Mockito.mock(uz.efbazaar.bot.campaign.CampaignStartClient.class),
+                org.mockito.Mockito.mock(uz.efbazaar.bot.channel.ChannelMemberTracker.class)
         );
     }
 

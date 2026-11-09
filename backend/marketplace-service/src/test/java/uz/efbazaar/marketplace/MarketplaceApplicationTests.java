@@ -112,6 +112,7 @@ class MarketplaceApplicationTests {
     @MockBean uz.efbazaar.marketplace.campaign.CampaignRepositories.CampaignClickRepository campaignClickRepository;
     @MockBean uz.efbazaar.marketplace.campaign.CampaignRepositories.UserAcquisitionRepository userAcquisitionRepository;
     @MockBean uz.efbazaar.marketplace.campaign.CampaignRepositories.PendingCampaignAttributionRepository pendingCampaignAttributionRepository;
+    @MockBean uz.efbazaar.marketplace.channel.ChannelMemberRepositories.ChannelMemberEventRepository channelMemberEventRepository;
     // trust paketi (shikoyat + blacklist)
     @MockBean uz.efbazaar.marketplace.trust.TrustRepositories.ComplaintRepository complaintRepository;
     @MockBean uz.efbazaar.marketplace.trust.TrustRepositories.PenaltyRepository penaltyRepository;

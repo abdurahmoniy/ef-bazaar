@@ -33,6 +33,7 @@ kanal formatida yuboriladi: muqova katta link preview, kanal matni va "🛒 E'lo
 - Ro'yxat tepasidagi Mini App tugmasi: bog'lanmagan → `/profile`, e'lon yo'q → `/marketplace/new`, qidiruvga mos e'lon yo'q → "Mos e'lon topilmadi" (`/marketplace`),
   marketplace xatosi → `/marketplace`.
 - `allowed_updates` da `inline_query` bor (webhook va long-polling). BotFather'da `/setinline` yoqilgan
+- `allowed_updates` da `chat_member` ham bor: bot admin bo'lgan kanallardagi obuna/chiqish `ChannelMemberTracker` orqali marketplace'ga (`/internal/marketplace/v1/channel-members/events`) yuboriladi; faqat rasmiy kanal (`OFFICIAL_CHANNEL`) yoziladi. Yangi tur Telegram'ga keyingi `setWebhook` / `getUpdates` da beriladi.
   bo'lishi shart, aks holda Telegram inline so'rov yubormaydi.
 
 ## Ichki API (`X-Internal-Secret`)

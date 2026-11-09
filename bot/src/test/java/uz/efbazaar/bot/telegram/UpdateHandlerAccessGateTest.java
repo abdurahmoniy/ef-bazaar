@@ -42,6 +42,7 @@ class UpdateHandlerAccessGateTest {
     @Mock private GuideMessenger guides;
     @Mock private KafkaTemplate<String, Object> kafka;
     @Mock private uz.efbazaar.bot.campaign.CampaignStartClient campaigns;
+    @Mock private uz.efbazaar.bot.channel.ChannelMemberTracker channelMembers;
 
     private UpdateHandler handler;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -52,7 +53,7 @@ class UpdateHandlerAccessGateTest {
                 new TelegramProperties.Topics(1, 2, 3, 4, 5), null, null);
         handler = new UpdateHandler(telegram, access, settings, channels, pendingReferrals,
                 premiumEmoji, guides, props, kafka,
-                org.mockito.Mockito.mock(uz.efbazaar.bot.inline.InlineQueryHandler.class), campaigns);
+                org.mockito.Mockito.mock(uz.efbazaar.bot.inline.InlineQueryHandler.class), campaigns, channelMembers);
     }
 
     @Test
@@ -127,5 +128,19 @@ class UpdateHandlerAccessGateTest {
 
         verify(campaigns).remember(42L, "GRP23456");
         verifyNoInteractions(pendingReferrals);
+    }
+
+    @Test
+    void chatMember_isRoutedToTheTracker_andNeverHitsTheAccessGate() throws Exception {
+        var update = mapper.readTree("""
+                {"chat_member": {"chat": {"id": -1001, "type": "channel"}, "date": 1,
+                 "old_chat_member": {"status": "member", "user": {"id": 42}},
+                 "new_chat_member": {"status": "left", "user": {"id": 42}}}}
+                """);
+
+        handler.handle(update);
+
+        verify(channelMembers).handle(update.path("chat_member"));
+        verifyNoInteractions(access);
     }
 }

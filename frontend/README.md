@@ -242,6 +242,7 @@ npm run typecheck && npm run lint && npm test && npm run build   # CI bilan bir 
 ## Kontekstli pop-up xabarlar
 
 - Admin: `/admin/popups` — qoralama, ko‘rib chiqish, auditoriya (barcha/sotuvchilar/tanlangan UUID), trigger, muddat, ichki CTA, faollashtirish/to‘xtatish va ko‘rsatish/bosish/yopish statistikasi.
+- Admin: `/admin/growth` — umumiy o‘sish: jami va davrdagi yangi foydalanuvchilar, kunlik ro‘yxatdan o‘tish grafigi (auth `GET /api/auth/v1/admin/users/signups`), rasmiy kanalga qo‘shilgan/chiqqanlar (marketplace `GET .../admin/channel-members/summary`); 7/30/90 kun.
 - Admin: `/admin/campaigns` — kampaniya havolalari (Telegram guruh, ijtimoiy tarmoq, tanishlar, offline): yaratish, sayt (`/?c=<kod>`) va bot (`t.me/<bot>?start=c_<kod>`) havolasini nusxalash, to‘xtatish va voronka (bosish → ro‘yxatdan o‘tish → e’lon → sotuv). Bosilishni `CampaignCapture` root layout'da (anonim ham) yuboradi, da'voni esa `MarketplaceShell` login'dan keyin qiladi; Mini App `startapp=c_<kod>` ham `/marketplace?c=<kod>` ga aylanadi.
 - `src/components/popups/` — Radix dialog, brauzer koordinatori va haqiqiy voqea signallari. `src/lib/popups/` — API, tiplar va e’tibor siyosati. Marketplace shell autentifikatsiyalangan foydalanuvchini uzatadi; alohida auth so‘rovi kerak emas.
 - BROWSE, LISTING_PUBLISHED, EMPTY_SEARCH va yangi TRADE_COMPLETED signallari. Savdo tarixi signal bermaydi. Savdo signali 5 daqiqa, qolgan kontekstlar 60 soniya amal qiladi.

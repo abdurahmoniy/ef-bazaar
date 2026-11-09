@@ -613,9 +613,11 @@ public class TelegramApiClient {
      * sanalmagan tur ham kelmaydi — shuning uchun `message` ham bu yerda.
      * {@code inline_query} — `@EfBazaarBot` inline rejimi (o'z e'lonlarini
      * ulashish); ro'yxatda bo'lmasa inline so'rovlar botga umuman kelmaydi.
+     * {@code chat_member} — kanalga obuna bo'lish / chiqib ketish; u ham faqat
+     * so'ralganda keladi va faqat bot admin bo'lgan kanallardan.
      */
     static final List<String> ALLOWED_UPDATES =
-            List.of("message", "callback_query", "my_chat_member", "inline_query");
+            List.of("message", "callback_query", "my_chat_member", "inline_query", "chat_member");
 
     private ArrayNode allowedUpdates() {
         ArrayNode list = objectMapper.createArrayNode();

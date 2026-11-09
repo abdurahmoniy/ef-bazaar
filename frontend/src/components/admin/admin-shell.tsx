@@ -34,6 +34,7 @@ import {
   UserCog,
   UserPlus,
   Megaphone,
+  TrendingUp,
   UsersRound,
   X,
   Video,
@@ -178,6 +179,11 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/referrals',
         label: 'Referallar',
         icon: UserPlus,
+      },
+      {
+        href: '/admin/growth',
+        label: 'O‘sish',
+        icon: TrendingUp,
       },
       {
         href: '/admin/campaigns',

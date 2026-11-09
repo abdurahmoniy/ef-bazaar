@@ -42,6 +42,7 @@ public class UpdateHandler {
     private final KafkaTemplate<String, Object> kafka;
     private final uz.efbazaar.bot.inline.InlineQueryHandler inline;
     private final uz.efbazaar.bot.campaign.CampaignStartClient campaigns;
+    private final uz.efbazaar.bot.channel.ChannelMemberTracker channelMembers;
 
     @Value("${app.web.base-url:https://efbazaar.uz}")
     private String webBaseUrl;
@@ -52,6 +53,13 @@ public class UpdateHandler {
     public void handle(JsonNode update) {
         // Bot kanalga admin qilib qo'shildi (yoki maqomi o'zgardi) —
         // hamkorlik oqimidagi kanal tekshiruvi shu yerdan boshlanadi.
+        // Boshqa odamning kanalga obunasi/chiqishi (my_chat_member — botning o'zi).
+        JsonNode chatMember = update.path("chat_member");
+        if (!chatMember.isMissingNode()) {
+            channelMembers.handle(chatMember);
+            return;
+        }
+
         JsonNode myChatMember = update.path("my_chat_member");
         if (!myChatMember.isMissingNode()) {
             channels.handle(myChatMember);
