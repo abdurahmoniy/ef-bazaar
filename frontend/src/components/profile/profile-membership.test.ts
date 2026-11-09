@@ -8,7 +8,7 @@ const now = new Date('2026-10-20T12:00:00Z');
 const pro: MyPlan = { code: 'PRO', expiresAt: '2026-11-20T12:00:00Z', entitlements: {} };
 const free: MyPlan = { code: 'STANDARD', expiresAt: null, entitlements: {} };
 const catalog: PlanCatalogItem[] = [{ code: 'PRO', sortOrder: 2, prices: { MONTH: 4_000_000 }, entitlements: {} }];
-const html = (plan: MyPlan | null) => renderToStaticMarkup(createElement(ProfileMembership, { plan, catalog, displayName: 'Azizbek', now }));
+const html = (plan: MyPlan | null) => renderToStaticMarkup(createElement(ProfileMembership, { plan, catalog, now }));
 it('promotes Free with the actual API price and explicit upgrade destination', () => {
   const s = html(free);
   expect(s).toContain('Free'); expect(s).toContain('Pro’ga o‘tish');
@@ -50,4 +50,11 @@ it('does not offer a closed renewal on historical MAX or call its expiry Pro', (
 
 it('moves a stale paid record from Grace into Recovery at the Grace deadline', () => {
   expect(membershipState({ ...pro, expiresAt: '2026-10-01T00:00:00Z', graceEndsAt: '2026-10-10T00:00:00Z' }, now)).toBe('recovery');
+});
+
+it.each([['paid', pro], ['free', free]] as const)('keeps the %s plan row quiet: one action, no decorative pass or duplicated navigation', (_, plan) => {
+  const s = html(plan);
+  expect(s).not.toContain('EFBAZAAR A’ZOLIGI'); expect(s).not.toContain('O‘yinda bir qadam oldinda');
+  expect(s).not.toContain('Azizbek'); expect(s).not.toContain('/watches'); expect(s).not.toContain('/seller-analytics');
+  expect(s.match(/<a /g)).toHaveLength(1);
 });

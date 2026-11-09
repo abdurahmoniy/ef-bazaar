@@ -12,7 +12,7 @@ it.each(['active', 'grace'])('updates an open %s membership at its deadline and 
   const deadline = new Date(Date.now() + 1000).toISOString();
   const plan: MyPlan = mode === 'active' ? { code: 'PRO', expiresAt: deadline, entitlements: {} } : { code: 'STANDARD', expiresAt: null, entitlements: {}, lastPaidExpiresAt: '2026-10-01T00:00:00Z', graceEndsAt: deadline };
   try {
-    await act(async () => root.render(createElement(ProfileMembership, { plan, catalog: [], displayName: 'Member' })));
+    await act(async () => root.render(createElement(ProfileMembership, { plan, catalog: [] })));
     expect(host.textContent).toContain(mode === 'active' ? 'Pro faol' : 'Grace:');
     await act(async () => { await vi.advanceTimersByTimeAsync(1001); });
     expect(host.textContent).not.toContain(mode === 'active' ? 'Pro faol' : 'Grace:');

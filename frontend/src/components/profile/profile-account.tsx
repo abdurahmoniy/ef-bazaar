@@ -139,6 +139,14 @@ export function ProfileAccount({
       icon: <BarChart3 className="h-5 w-5 text-info" />,
       bg: 'bg-info-soft',
     },
+    ...(plan && plan.code !== 'STANDARD' ? [{
+      id: 'custom-email',
+      label: 'Shaxsiy email',
+      description: 'Nomli pochta qutilari',
+      href: '/mailboxes/custom',
+      icon: <Mail className="h-5 w-5 text-info" />,
+      bg: 'bg-info-soft',
+    }] : []),
     {
       id: 'trades',
       label: 'Savdolarim',
@@ -290,7 +298,7 @@ export function ProfileAccount({
             </Link>
           </div>
         </div>
-        <ProfileMembership plan={plan} catalog={planCatalog} displayName={user.displayName} />
+        <ProfileMembership plan={plan} catalog={planCatalog} />
         {FEATURES.wallet && <ProfileBalance availableTiyin={availableTiyin} />}
       </div>
 

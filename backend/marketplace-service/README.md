@@ -441,7 +441,7 @@ Authenticated APIs, relative to `/api/v1`:
 | `GET /seller-tools/capabilities` | `{tools, bulk, profileDecoration, bulkLimit:50}`; each status is `AVAILABLE`, `DENIED`, or `UNAVAILABLE` |
 | `GET /seller-tools/templates`, `/seller-tools/notes` | `{content,page,size,totalElements}`; page 0..100000, size 1..100 (default 50). Notes accept optional `chatId` and `listingId` filters, always within owner scope |
 | `POST /seller-tools/{kind}` | Create and return row (201). Template title 1..120, body 1..4000; note title optional (max 120), body 1..8000. Plain text, never HTML |
-| `GET`, `PUT`, `DELETE /seller-tools/{kind}/{id}` | Owner-only read, full replacement, deletion (204); absent/foreign IDs return 404 when the caller has write access |
+| `GET`, `PUT`, `DELETE /seller-tools/{kind}/{id}` | Owner-only read, full replacement, deletion (204). Deletion needs no paid grant; absent/foreign IDs return 404 for it. Replacement requires write access first |
 | `GET /seller-tools/export` | Complete owner JSON attachment `seller-tools.json`, including every template and note, independent of list pagination |
 | `POST /seller-tools/listings/bulk` | `{operation,listingIds:[UUID],price?}`; 1..50 unique non-null IDs; PRICE >=5000.00, max 2 fractional digits and 17 integral digits |
 | `GET /profiles/me/appearance` | Saved `{pro,coverFileId,capability,validUntil}`, including saved cover metadata after downgrade |
@@ -455,9 +455,10 @@ Unchanged saved context survives ownership changes or deletion for retained read
 export, and editing. The other chat participant cannot read a note. Notes/templates
 never enter chat messages, public listing/chat DTOs, notifications, or Kafka payloads.
 
-All saved-tool reads/export remain available after downgrade; creates, changes,
-and deletion require the matching paid capability (`403 upgrade_required` for
-Free; `503 plan_unavailable` for unknown/stale/malformed access). Expiry deletes
+All saved-tool reads/export and owner deletion of templates/notes remain available
+after downgrade, so expired or stale access never traps private data; creates and
+changes require the matching paid capability (`403 upgrade_required` for
+Free; `503 plan_unavailable` for unknown/stale/malformed access). Expiry itself deletes
 nothing. All these responses and the appearance response use `Cache-Control: no-store`.
 
 Bulk response: `{results:[{listingId,success,code}]}` in request order. Each item

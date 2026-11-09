@@ -1,4 +1,5 @@
 "use client";
+import { Download } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -12,10 +13,18 @@ import {
   toolsCapabilities,
   toolsExport,
   unavailableTools,
+  type ToolKind,
   type ToolsCapabilities,
   type ToolsPage,
 } from "@/lib/seller-tools-client";
 import type { ListingResponse } from "@/lib/marketplace-types";
+
+type Tab = ToolKind | "listings";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "templates", label: "Shablonlar" },
+  { id: "notes", label: "Qaydlar" },
+  { id: "listings", label: "E’lonlar" },
+];
 
 export function SellerToolsView({
   chatId,
@@ -31,6 +40,9 @@ export function SellerToolsView({
     ...(!invalid && chatId ? { chatId } : {}),
     ...(!invalid && listingId ? { listingId } : {}),
   };
+  const [tab, setTab] = useState<Tab>(
+    context.chatId || context.listingId ? "notes" : "templates",
+  );
   const [caps, setCaps] = useState<ToolsCapabilities>(unavailableTools);
   const [capError, setCapError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -45,6 +57,8 @@ export function SellerToolsView({
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
   const capRequest = useRef<AbortController | null>(null);
+  // A background recheck keeps known grants so an open editor is never interrupted.
+  const capsKnown = useRef(false);
   const exportRequest = useRef<AbortController | null>(null);
   useEffect(() => () => exportRequest.current?.abort(), []);
   useEffect(() => {
@@ -53,16 +67,20 @@ export function SellerToolsView({
       capRequest.current?.abort();
       const controller = new AbortController();
       capRequest.current = controller;
-      setLoading(true);
-      setCaps(unavailableTools);
+      if (!capsKnown.current) {
+        setLoading(true);
+        setCaps(unavailableTools);
+      }
       try {
         const data = await toolsCapabilities(controller.signal);
         if (!disposed && !controller.signal.aborted) {
+          capsKnown.current = true;
           setCaps(data);
           setCapError("");
         }
       } catch (err) {
         if (!disposed && !controller.signal.aborted) {
+          capsKnown.current = false;
           setCaps(unavailableTools);
           setCapError(
             err instanceof Error ? err.message : "Imkoniyat aniqlanmadi.",
@@ -143,64 +161,72 @@ export function SellerToolsView({
       if (!controller.signal.aborted) setExporting(false);
     }
   }
-  const denied = caps.tools === "DENIED" || caps.bulk === "DENIED";
+  const status = tab === "listings" ? caps.bulk : caps.tools;
   return (
-    <div className="mx-auto max-w-4xl space-y-5 pb-20">
-      <header className="space-y-3">
-        <h1 className="text-xl font-bold sm:text-2xl">Sotuvchi vositalari</h1>
-        <p className="text-sm text-muted-foreground">
-          Shaxsiy qaydlar, javob shablonlari va o‘z e’lonlaringiz uchun amallar.
-        </p>
-        <div className="flex flex-wrap gap-2">
+    <div className="mx-auto max-w-3xl space-y-5 pb-20">
+      <h1 className="text-xl font-semibold">Sotuvchi vositalari</h1>
+      <div className="flex items-center justify-between gap-2 border-b border-border">
+        <div className="flex">
+          {TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={tab === id}
+              onClick={() => setTab(id)}
+              className={`-mb-px min-h-11 border-b-2 px-3 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${
+                tab === id
+                  ? "border-foreground font-medium text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {tab !== "listings" && (
           <Button
-            className="min-h-11"
-            variant="outline"
-            onClick={() => setRevision((n) => n + 1)}
-          >
-            Yangilash
-          </Button>
-          <Button
-            className="min-h-11"
-            variant="outline"
+            size="sm"
+            variant="ghost"
+            className="min-h-11 shrink-0 text-muted-foreground"
             disabled={exporting}
             onClick={() => void exportAll()}
           >
-            JSON eksport
+            <Download size={15} aria-hidden />
+            <span className="sr-only sm:not-sr-only">Yuklab olish</span>
           </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Eksport barcha saqlangan qayd va shablonlarni oladi, sahifalashdan
-          mustaqil.
-        </p>
-      </header>
+        )}
+      </div>
       {invalid && (
         <p role="alert" className="text-sm text-destructive">
           Kontekst yaroqsiz. Chat yoki o‘z e’loningizdagi havoladan qayting.
         </p>
       )}
-      {loading ? (
-        <p role="status">Imkoniyatlar yuklanmoqda…</p>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          {caps.tools === "AVAILABLE"
-            ? "Shablon va qaydlarni boshqarish mavjud."
-            : caps.tools === "DENIED"
-              ? "Saqlangan ma’lumotlarni o‘qish va eksport ochiq; tahrirlash uchun Pro kerak."
-              : "Imkoniyat aniqlanmadi. O‘qish va eksport ochiq; pullik amallar vaqtincha yopiq."}{" "}
-          {caps.bulk === "AVAILABLE"
-            ? "Ommaviy amallar mavjud."
-            : caps.bulk === "DENIED"
-              ? "Ommaviy amallar uchun Pro kerak."
-              : "Ommaviy amallar imkoniyati aniqlanmadi."}
-        </p>
-      )}
-      {denied && (
-        <Link
-          href="/plans"
-          className="inline-flex min-h-11 items-center font-semibold text-primary"
-        >
-          Pro tarifini ko‘rish
-        </Link>
+      {!loading && status !== "AVAILABLE" && (
+        <div className="flex flex-wrap items-center justify-between gap-x-4 rounded-lg bg-muted/60 px-4 py-2 text-sm">
+          <p className="min-w-0 flex-1 basis-60 py-1.5">
+            {status === "UNAVAILABLE"
+              ? "Imkoniyat aniqlanmadi. Saqlangan ma’lumotlar joyida; o‘zgartirish vaqtincha yopiq."
+              : tab === "listings"
+                ? "Ommaviy amallar Pro’da mavjud."
+                : "Saqlangan ma’lumotlarni o‘qish, eksport va o‘chirish ochiq. Yangi qo‘shish va tahrirlash Pro’da."}
+          </p>
+          {status === "DENIED" ? (
+            <Link
+              href="/plans"
+              className="inline-flex min-h-11 items-center font-medium text-primary"
+            >
+              Pro tarifini ko‘rish
+            </Link>
+          ) : (
+            <Button
+              variant="link"
+              className="h-11 px-0"
+              onClick={() => setRevision((n) => n + 1)}
+            >
+              Qayta urinish
+            </Button>
+          )}
+        </div>
       )}
       {capError && (
         <p role="alert" className="text-sm text-destructive">
@@ -212,25 +238,30 @@ export function SellerToolsView({
           {exportError}
         </p>
       )}
-      <ToolsDataPanel
-        key={`${context.chatId ?? ""}:${context.listingId ?? ""}`}
-        writable={caps.tools === "AVAILABLE" && !loading}
-        context={context}
-        listings={listings?.content ?? []}
-        onError={onError}
-        revision={revision}
-      />
-      <ToolsBulkPanel
-        data={listings}
-        page={page}
-        setPage={setPage}
-        loading={listLoading}
-        error={listError}
-        reload={() => setListRevision((n) => n + 1)}
-        writable={caps.bulk === "AVAILABLE" && !loading}
-        limit={caps.bulkLimit}
-        onError={onError}
-      />
+      {tab !== "listings" && (
+        <ToolsDataPanel
+          key={`${tab}:${context.chatId ?? ""}:${context.listingId ?? ""}`}
+          kind={tab}
+          writable={caps.tools === "AVAILABLE" && !loading}
+          context={context}
+          listings={listings?.content ?? []}
+          onError={onError}
+          revision={revision}
+        />
+      )}
+      <div hidden={tab !== "listings"}>
+        <ToolsBulkPanel
+          data={listings}
+          page={page}
+          setPage={setPage}
+          loading={listLoading}
+          error={listError}
+          reload={() => setListRevision((n) => n + 1)}
+          writable={caps.bulk === "AVAILABLE" && !loading}
+          limit={caps.bulkLimit}
+          onError={onError}
+        />
+      </div>
     </div>
   );
 }

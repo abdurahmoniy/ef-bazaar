@@ -146,9 +146,9 @@ describe.each<Theme>(['light', 'dark'])('%s custom surfaces', theme => {
 
   it('uses the shared link color for profile shortcuts', () => {
     const { css, tokens } = render('components/profile/profile-membership.module.css',
-      '<section class="membership"><nav class="shortcuts"><a>Manage plan</a></nav></section>', theme);
-    expect(rgb(css('.shortcuts a').color)).toEqual(token('primary-text', tokens));
-    expect(contrast(rgb(css('.shortcuts a').color), rgb(css('.membership').backgroundColor))).toBeGreaterThanOrEqual(4.5);
+      '<section class="membership"><a class="textLink">Manage plan</a></section>', theme);
+    expect(rgb(css('.textLink').color)).toEqual(token('primary-text', tokens));
+    expect(contrast(rgb(css('.textLink').color), rgb(css('.membership').backgroundColor))).toBeGreaterThanOrEqual(4.5);
   });
 });
 
