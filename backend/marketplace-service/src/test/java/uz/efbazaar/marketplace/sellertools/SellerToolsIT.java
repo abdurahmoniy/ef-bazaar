@@ -113,8 +113,6 @@ class SellerToolsIT {
     mvc.perform(get("/api/v1/seller-tools/notes/" + id).header("X-User-Id", user))
         .andExpect(status().isOk())
         .andExpect(header().string("Cache-Control", "no-store"));
-    mvc.perform(delete("/api/v1/seller-tools/notes/" + id).header("X-User-Id", user))
-        .andExpect(status().isForbidden());
     mvc.perform(
             put("/api/v1/seller-tools/notes/" + id)
                 .header("X-User-Id", user)
@@ -124,6 +122,50 @@ class SellerToolsIT {
     mvc.perform(get("/api/v1/seller-tools/export").header("X-User-Id", user))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.notes[0].body").value("retained"));
+  }
+
+  @Test
+  void ownersDeleteSavedPrivateDataWithoutPaidAccessButNeverAnotherOwnersRows() throws Exception {
+    UUID listing = listing(user);
+    UUID note = UUID.randomUUID(), template = UUID.randomUUID();
+    jdbc.update(
+        "INSERT INTO seller_private_notes(id,owner_id,title,body,listing_id) VALUES"
+            + " (?,?,'saved','saved',?)",
+        note,
+        user,
+        listing);
+    jdbc.update(
+        "INSERT INTO seller_reply_templates(id,owner_id,title,body) VALUES"
+            + " (?,?,'saved','saved')",
+        template,
+        user);
+    paid(user, "STANDARD", "false", null);
+    mvc.perform(
+            delete("/api/v1/seller-tools/notes/" + note).header("X-User-Id", UUID.randomUUID()))
+        .andExpect(status().isNotFound());
+    mvc.perform(delete("/api/v1/seller-tools/notes/" + note)).andExpect(status().isForbidden());
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM seller_private_notes WHERE id=?", Long.class, note))
+        .isEqualTo(1);
+    mvc.perform(delete("/api/v1/seller-tools/notes/" + note).header("X-User-Id", user))
+        .andExpect(status().isNoContent());
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM seller_private_notes WHERE id=?", Long.class, note))
+        .isZero();
+    jdbc.update(
+        "UPDATE plan_projection_state SET occurred_at=now()-interval '25 hours' WHERE"
+            + " kind='user' AND entity_id=?",
+        user.toString());
+    mvc.perform(delete("/api/v1/seller-tools/templates/" + template).header("X-User-Id", user))
+        .andExpect(status().isNoContent());
+    assertThat(
+            jdbc.queryForObject(
+                "SELECT count(*) FROM seller_reply_templates WHERE id=?", Long.class, template))
+        .isZero();
+    mvc.perform(delete("/api/v1/seller-tools/templates/" + template).header("X-User-Id", user))
+        .andExpect(status().isNotFound());
   }
 
   @Test
@@ -240,19 +282,13 @@ class SellerToolsIT {
   @Test
   void privateWritesRollBackWhenPaidAccessChangesWhileWaitingForDatabaseLocks() throws Exception {
     for (String operation :
-        List.of(
-            "context-note-create",
-            "note-update",
-            "note-delete",
-            "template-update",
-            "template-delete")) {
+        List.of("context-note-create", "note-update", "template-update")) {
       for (String change : List.of("downgrade", "stale")) {
         paid(user, "PRO", "true", null);
         UUID listingId = listing(user);
         UUID id = UUID.randomUUID();
         boolean create = operation.equals("context-note-create");
         boolean template = operation.startsWith("template");
-        boolean removing = operation.endsWith("delete");
         String table =
             create ? "listings" : template ? "seller_reply_templates" : "seller_private_notes";
         UUID lockedId = create ? listingId : id;
@@ -273,15 +309,13 @@ class SellerToolsIT {
         }
         String path =
             "/api/v1/seller-tools/" + (template ? "templates" : "notes") + (create ? "" : "/" + id);
-        var request = removing ? delete(path) : create ? post(path) : put(path);
+        var request = create ? post(path) : put(path);
         request.header("X-User-Id", user).accept("application/json");
-        if (!removing) {
-          var body = new HashMap<String, Object>();
-          body.put("title", "changed");
-          body.put("body", "changed");
-          if (!template) body.put("listingId", listingId);
-          request.contentType("application/json").content(json.writeValueAsString(body));
-        }
+        var body = new HashMap<String, Object>();
+        body.put("title", "changed");
+        body.put("body", "changed");
+        if (!template) body.put("listingId", listingId);
+        request.contentType("application/json").content(json.writeValueAsString(body));
         var locked = new java.util.concurrent.CountDownLatch(1);
         var release = new java.util.concurrent.CountDownLatch(1);
         var tx =

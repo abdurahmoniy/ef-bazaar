@@ -97,14 +97,14 @@ async function cover() {
   await act(async () => root.render(page));
 }
 async function click(label: string) {
-  const button = [...host.querySelectorAll("button")].find(
+  const button = [...document.querySelectorAll("button")].find(
     (b) => b.textContent === label,
   )!;
   expect(button, label).toBeTruthy();
   await act(async () => button.click());
 }
 async function input(value: string) {
-  const field = host.querySelector('[aria-label="Matn"]')!;
+  const field = document.querySelector('[aria-label="Matn"]')!;
   await act(async () => {
     Object.getOwnPropertyDescriptor(
       HTMLTextAreaElement.prototype,
@@ -120,7 +120,8 @@ it("keys the real tools route by principal, keeps same-user drafts, aborts prior
   await input("A unsaved private draft");
   await tools();
   expect(
-    (host.querySelector('[aria-label="Matn"]') as HTMLTextAreaElement).value,
+    (document.querySelector('[aria-label="Matn"]') as HTMLTextAreaElement)
+      .value,
   ).toBe("A unsaved private draft");
   let finish!: (value: Response) => void;
   const normal = fetcher.getMockImplementation()!;
@@ -140,14 +141,12 @@ it("keys the real tools route by principal, keeps same-user drafts, aborts prior
   expect(signal.aborted).toBe(true);
   expect(host.textContent).not.toContain("A private");
   expect(host.textContent).toContain("B private body");
-  expect(
-    (host.querySelector('[aria-label="Matn"]') as HTMLTextAreaElement).value,
-  ).toBe("");
+  expect(document.querySelector('[aria-label="Matn"]')).toBeNull();
+  expect(document.body.textContent).not.toContain("A unsaved");
   await act(async () => finish(Response.json(row("A"))));
   expect(host.textContent).not.toContain("A private");
-  expect(
-    (host.querySelector('[aria-label="Matn"]') as HTMLTextAreaElement).value,
-  ).toBe("");
+  expect(document.querySelector('[aria-label="Matn"]')).toBeNull();
+  expect(document.body.textContent).not.toContain("A unsaved");
 });
 it("keys the real cover editor by principal and ignores an old upload after the new account receives denied capability", async () => {
   await cover();

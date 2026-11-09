@@ -96,18 +96,24 @@ afterEach(async () => {
 async function mount(props = {}) {
   await act(async () => root.render(createElement(SellerToolsView, props)));
 }
-function button(label: string) {
-  const b = [...host.querySelectorAll("button")].find(
+function find(label: string) {
+  return [...document.querySelectorAll("button")].find(
     (b) => b.textContent === label,
   );
+}
+function button(label: string) {
+  const b = find(label);
   expect(b, label).toBeTruthy();
   return b!;
 }
+const page = () => document.body.textContent ?? "";
 async function click(label: string) {
   await act(async () => button(label).click());
 }
 async function input(label: string, value: string) {
-  const el = host.querySelector(`[aria-label="${label}"]`) as HTMLInputElement;
+  const el = document.querySelector(
+    `[aria-label="${label}"]`,
+  ) as HTMLInputElement;
   expect(el).toBeTruthy();
   await act(async () => {
     const proto =
@@ -123,14 +129,15 @@ it("retains Free private notes/templates, paginates, and exports the complete da
   await mount({ listingId: id });
   expect(host.textContent).toContain("Private preserved text");
   expect(host.textContent).toContain("faqat siz");
-  expect(button("Saqlash").disabled).toBe(true);
+  expect(find("Yangi qayd")).toBeUndefined();
+  expect(find("Tahrirlash")).toBeUndefined();
   expect(host.querySelector('a[href="/plans"]')).toBeTruthy();
-  await click("Javob shablonlari");
+  await click("Shablonlar");
   await click("Keyingi shablonlar");
   expect(
     fetcher.mock.calls.some(([url]) => url.includes("/templates?page=1")),
   ).toBe(true);
-  await click("JSON eksport");
+  await click("Yuklab olish");
   expect(
     fetcher.mock.calls.some(([url]) => url.endsWith("/seller-tools/export")),
   ).toBe(true);
@@ -141,14 +148,19 @@ it.each([403, 503])(
   "revokes all saved-data writes after %s while retaining readable content",
   async (code) => {
     await mount({ listingId: id });
+    await click("Yangi qayd");
     await input("Sarlavha", "New");
     await input("Matn", "New body");
     writeStatus = code;
     await click("Saqlash");
-    expect(host.textContent).toContain("Private preserved text");
+    expect(page()).toContain("Private preserved text");
     expect(button("Saqlash").disabled).toBe(true);
-    expect(host.querySelector('[role="alert"]')).toBeTruthy();
-    expect(host.textContent).toContain(code === 403 ? "Pro" : "aniqlanmadi");
+    expect(
+      (document.querySelector('[aria-label="Matn"]') as HTMLTextAreaElement)
+        .value,
+    ).toBe("New body");
+    expect(document.querySelector('[role="alert"]')).toBeTruthy();
+    expect(page()).toContain(code === 403 ? "Pro" : "aniqlanmadi");
   },
 );
 it("uses the service bulk limit, exact decimal string and per-listing partial errors", async () => {
@@ -182,7 +194,7 @@ it("uses the service bulk limit, exact decimal string and per-listing partial er
   expect(
     fetcher.mock.calls.filter(([url]) => url.includes("/listings/me")).length,
   ).toBeGreaterThan(1);
-  await click("Yangilash");
+  await click("E’lonlarni yangilash");
   expect(host.textContent).toContain(
     "Akkountning e’longa bog‘lanishi o‘zgargan",
   );
@@ -230,7 +242,8 @@ it("recovers disappearing final pages and keeps failed outcomes after another su
   await mount();
   await click("Keyingi shablonlar");
   deleted = true;
-  await click("Yangilash");
+  await click("O‘chirish");
+  await click("Ha, o‘chirish");
   expect(fetcher.mock.calls.at(-1)?.[0] ?? "").toBeTruthy();
   expect(host.textContent).toContain("1-sahifa");
   const boxes = host.querySelectorAll<HTMLInputElement>(
@@ -244,14 +257,14 @@ it("recovers disappearing final pages and keeps failed outcomes after another su
   expect(host.textContent).toContain("Own listing: Bajarildi");
   expect(host.textContent).toContain("Second own: Bajarilmadi");
   expect(host.textContent).toContain("E’lon endi faol emas");
-  await click("Yangilash");
+  await click("E’lonlarni yangilash");
   expect(host.textContent).toContain("Second own: Bajarilmadi");
 });
 it("refresh failure closes stale write grants while retaining saved data and supports retry", async () => {
   vi.useFakeTimers();
   try {
     await mount();
-    expect(button("Saqlash").disabled).toBe(false);
+    expect(find("Yangi shablon")).toBeTruthy();
     const normal = fetcher.getMockImplementation()!;
     fetcher.mockImplementation(async (url: string, init?: RequestInit) =>
       url.includes("/capabilities")
@@ -259,17 +272,18 @@ it("refresh failure closes stale write grants while retaining saved data and sup
         : normal(url, init),
     );
     await act(async () => vi.advanceTimersByTimeAsync(30000));
-    expect(button("Saqlash").disabled).toBe(true);
+    expect(find("Yangi shablon")).toBeUndefined();
     expect(host.textContent).toContain("Private preserved text");
     fetcher.mockImplementation(normal);
-    await click("Yangilash");
-    expect(button("Saqlash").disabled).toBe(false);
+    await click("Qayta urinish");
+    expect(find("Yangi shablon")).toBeTruthy();
   } finally {
     vi.useRealTimers();
   }
 });
 it("creates plain text templates, edits with full replacement and deletes only after explicit action", async () => {
   await mount();
+  await click("Yangi shablon");
   await input("Sarlavha", "My reply");
   await input("Matn", "<script>plain text</script>");
   await click("Saqlash");
@@ -290,10 +304,134 @@ it("creates plain text templates, edits with full replacement and deletes only a
     chatId: null,
     listingId: null,
   });
-  await click("Tahrirlash");
   await click("O‘chirish");
+  expect(
+    fetcher.mock.calls.some(([, init]) => init?.method === "DELETE"),
+  ).toBe(false);
+  await click("Ha, o‘chirish");
   expect(
     fetcher.mock.calls.find(([, init]) => init?.method === "DELETE")![0],
   ).toBe(`/api/marketplace/v1/seller-tools/templates/${id}`);
   expect(host.querySelector("script")).toBeNull();
+});
+it("lets a Free owner delete saved data after confirming, while edits stay closed", async () => {
+  status = "DENIED";
+  await mount();
+  expect(find("Tahrirlash")).toBeUndefined();
+  expect(host.textContent).toContain("o‘chirish ochiq");
+  expect(button("O‘chirish").disabled).toBe(false);
+  await click("O‘chirish");
+  await click("Bekor qilish");
+  expect(
+    fetcher.mock.calls.some(([, init]) => init?.method === "DELETE"),
+  ).toBe(false);
+  await click("O‘chirish");
+  await click("Ha, o‘chirish");
+  expect(
+    fetcher.mock.calls.find(([, init]) => init?.method === "DELETE")![0],
+  ).toBe(`/api/marketplace/v1/seller-tools/templates/${id}`);
+});
+it("keeps an open editor usable through a background capability refresh", async () => {
+  vi.useFakeTimers();
+  try {
+    await mount();
+    await click("Yangi shablon");
+    await input("Sarlavha", "Draft");
+    await input("Matn", "Draft body");
+    const normal = fetcher.getMockImplementation()!;
+    fetcher.mockImplementation((url: string, init?: RequestInit) =>
+      url.includes("/capabilities")
+        ? new Promise(() => {})
+        : normal(url, init),
+    );
+    await act(async () => vi.advanceTimersByTimeAsync(30000));
+    const field = document.querySelector(
+      '[aria-label="Matn"]',
+    ) as HTMLTextAreaElement;
+    expect(field.disabled).toBe(false);
+    expect(button("Saqlash").disabled).toBe(false);
+    expect(host.textContent).not.toContain("yuklanmoqda");
+  } finally {
+    vi.useRealTimers();
+  }
+});
+it("protects an unsaved draft from accidental close but cancels on request", async () => {
+  await mount();
+  await click("Yangi shablon");
+  await input("Matn", "Unsaved");
+  await act(async () => {
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  expect(document.querySelector('[aria-label="Matn"]')).toBeTruthy();
+  await click("Bekor qilish");
+  expect(document.querySelector('[aria-label="Matn"]')).toBeNull();
+  await click("Yangi shablon");
+  expect(
+    (document.querySelector('[aria-label="Matn"]') as HTMLTextAreaElement)
+      .value,
+  ).toBe("");
+});
+it("shows where a note belongs, clears the context filter, and requires a context for new notes", async () => {
+  await mount({ listingId: id });
+  expect(host.querySelector(`a[href="/marketplace/${id}"]`)).toBeNull();
+  await click("Barcha qaydlar");
+  expect(
+    fetcher.mock.calls.some(
+      ([url]) => url.includes("/notes?") && !url.includes("listingId"),
+    ),
+  ).toBe(true);
+  expect(
+    host.querySelector(`a[href="/marketplace/${id}"]`)?.textContent,
+  ).toContain("Own listing");
+  await click("Yangi qayd");
+  await input("Matn", "Needs context");
+  expect(button("Saqlash").disabled).toBe(true);
+  const select = document.querySelector(
+    '[aria-label="Qayd uchun e’lon"]',
+  ) as HTMLSelectElement;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLSelectElement.prototype,
+      "value",
+    )!.set!.call(select, id);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  expect(button("Saqlash").disabled).toBe(false);
+});
+it("collapses long text with an explicit way to read all of it", async () => {
+  const normal = fetcher.getMockImplementation()!;
+  fetcher.mockImplementation(async (url: string, init?: RequestInit) =>
+    url.includes("/templates?")
+      ? Response.json({
+          content: [{ ...row, body: "x".repeat(400) }],
+          page: 0,
+          size: 50,
+          totalElements: 1,
+        })
+      : normal(url, init),
+  );
+  await mount();
+  await click("Davomi");
+  expect(find("Davomi")).toBeUndefined();
+  expect(find("Yig‘ish")).toBeTruthy();
+});
+it("states that bulk unpublish keeps only linked accounts and permanently removes the rest", async () => {
+  await mount();
+  const op = host.querySelector(
+    '[aria-label="Ommaviy amal"]',
+  ) as HTMLSelectElement;
+  expect(op.options[0].textContent).toBe("Nashrdan olish");
+  expect(host.textContent).toContain("Akkountga bog‘langan e’londa akkount saqlanadi");
+  expect(host.textContent).toContain("qayta tiklay olmaysiz");
+  await act(async () => {
+    op.value = "PRICE";
+    op.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  expect(host.textContent).not.toContain("qayta tiklay olmaysiz");
 });

@@ -22,7 +22,7 @@ export function PlanComparison({ catalog }: { catalog: PlanCatalogItem[] }) {
     { label: 'Kuzatuv xabarlari', render: (p: PlanCatalogItem) => p.entitlements['watch.immediate'] === 'true' ? 'Mos yangilik topilganda' : p.entitlements['watch.immediate'] === 'false' ? 'Kunlik jamlanma' : 'Aniqlanmoqda' },
     { label: 'Sotuvchi hisoboti', render: (p: PlanCatalogItem) => numericGrant(p, 'analytics.history_days') === 0 ? 'Asosiy umumiy ko‘rsatkichlar' : numericGrant(p, 'analytics.history_days') === undefined ? 'Aniqlanmoqda' : `${number(p, 'analytics.history_days', ' kungacha')} mavjud tarix` },
     { label: 'Hisobotni CSV yuklash', render: (p: PlanCatalogItem) => boolean(p, 'analytics.export') },
-    { label: 'Qayd va shablonlar', render: (p: PlanCatalogItem) => p.entitlements['seller.tools'] === 'true' ? 'Yaratish va tahrirlash' : p.entitlements['seller.tools'] === 'false' ? 'Mavjudlarini o‘qish va eksport' : 'Aniqlanmoqda' },
+    { label: 'Qayd va shablonlar', render: (p: PlanCatalogItem) => p.entitlements['seller.tools'] === 'true' ? 'Yaratish va tahrirlash' : p.entitlements['seller.tools'] === 'false' ? 'Mavjudlarini o‘qish, eksport va o‘chirish' : 'Aniqlanmoqda' },
     { label: 'Guruhlab narxni o‘zgartirish / bozordan olish', render: (p: PlanCatalogItem) => boolean(p, 'seller.bulk') },
     { label: 'Profil muqovasi', render: (p: PlanCatalogItem) => boolean(p, 'profile.decoration') },
   ];

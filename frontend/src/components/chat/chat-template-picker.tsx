@@ -1,5 +1,7 @@
 "use client";
 import * as Dialog from "@radix-ui/react-dialog";
+import { MessageSquareText } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -65,25 +67,29 @@ export function ChatTemplatePicker({
       <Dialog.Trigger asChild>
         <Button
           type="button"
-          className="min-h-11"
-          variant="outline"
+          className="px-3 text-xs text-muted-foreground"
+          variant="ghost"
           disabled={disabled}
           aria-label="Javob shablonini tanlash"
         >
+          <MessageSquareText size={15} aria-hidden />
           Shablon
         </Button>
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-xl">
-          <Dialog.Title className="font-bold">
-            Javob shablonini tanlash
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 space-y-4 overflow-y-auto rounded-xl border border-border bg-card p-5 shadow-lg sm:p-6">
+          <Dialog.Title className="text-base font-semibold">
+            Javob shabloni
           </Dialog.Title>
           <Dialog.Description className="text-sm text-muted-foreground">
-            Shablon joriy qoralamaga qo‘shiladi. Yuborishni o‘zingiz
-            tasdiqlaysiz. Saqlangan shablonlar Free’da ham ishlaydi.
+            Xabar maydoniga qo‘shiladi. Yuborishni o‘zingiz tasdiqlaysiz.
           </Dialog.Description>
-          {loading && <p role="status">Yuklanmoqda…</p>}
+          {loading && (
+            <p role="status" className="text-sm text-muted-foreground">
+              Yuklanmoqda…
+            </p>
+          )}
           {error && (
             <p role="alert" className="text-sm text-destructive">
               {error}
@@ -94,10 +100,11 @@ export function ChatTemplatePicker({
               <ul className="space-y-2">
                 {data.content.map((row) => (
                   <li key={row.id}>
-                    <Button
-                      className="h-auto min-h-11 w-full justify-start whitespace-normal break-words text-left"
-                      variant="outline"
+                    <button
+                      className="block min-h-11 w-full rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
                       type="button"
+                      aria-label={row.title}
+                      aria-describedby={`template-body-${row.id}`}
                       onClick={() => {
                         if (disabled) return;
                         const next = appendTemplate(draft, row.body);
@@ -111,16 +118,22 @@ export function ChatTemplatePicker({
                         setOpen(false);
                       }}
                     >
-                      {row.title}
-                    </Button>
-                    <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
-                      {row.body}
-                    </p>
+                      <span className="block break-words text-sm font-medium">
+                        {row.title}
+                      </span>
+                      <span id={`template-body-${row.id}`} className="mt-0.5 line-clamp-2 block whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                        {row.body}
+                      </span>
+                    </button>
                   </li>
                 ))}
               </ul>
-              {data.content.length === 0 && <p>Saqlangan shablon yo‘q.</p>}
-              <div className="flex flex-wrap items-center gap-2">
+              {data.content.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Hali shablon yo‘q.
+                </p>
+              )}
+              {data.totalElements > 50 && <div className="flex flex-wrap items-center gap-2">
                 <Button
                   className="min-h-11"
                   variant="outline"
@@ -140,10 +153,17 @@ export function ChatTemplatePicker({
                 >
                   Keyingi
                 </Button>
-              </div>
+              </div>}
             </>
           )}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Link
+              href="/seller-tools"
+              className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground"
+            >
+              Shablonlarni boshqarish
+            </Link>
+            <div className="flex gap-2">
             {error && (
               <Button
                 className="min-h-11"
@@ -155,10 +175,11 @@ export function ChatTemplatePicker({
               </Button>
             )}
             <Dialog.Close asChild>
-              <Button className="min-h-11" type="button" variant="outline">
+              <Button type="button" variant="ghost">
                 Yopish
               </Button>
             </Dialog.Close>
+            </div>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

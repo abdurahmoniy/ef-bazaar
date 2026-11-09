@@ -243,10 +243,17 @@ export function ToolsBulkPanel({
             setOperation(e.target.value as "UNPUBLISH" | "PRICE")
           }
         >
-          <option value="UNPUBLISH">Nashrdan olish (akkount saqlanadi)</option>
+          <option value="UNPUBLISH">Nashrdan olish</option>
           <option value="PRICE">Yagona narxni belgilash</option>
         </select>
       </label>
+      {operation === "UNPUBLISH" && (
+        <p className="text-xs text-muted-foreground">
+          Akkountga bog‘langan e’londa akkount saqlanadi va uni qayta e’lon
+          qilish mumkin. Akkountga bog‘lanmagan e’lonni o‘zingiz qayta tiklay
+          olmaysiz.
+        </p>
+      )}
       {operation === "PRICE" && (
         <label className="block text-sm">
           Yangi narx (so‘m)

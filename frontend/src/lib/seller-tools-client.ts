@@ -89,7 +89,7 @@ export async function toolsRequest<T>(
     const code = typeof payload?.code === "string" ? payload.code : undefined;
     const message =
       code === "upgrade_required"
-        ? "O‘zgartirish uchun Pro kerak. Saqlangan ma’lumotlarni o‘qish va eksport qilish mumkin."
+        ? "O‘zgartirish uchun Pro kerak. Saqlangan ma’lumotlarni o‘qish, eksport qilish va o‘chirish mumkin."
         : code === "plan_unavailable"
           ? "Imkoniyat aniqlanmadi. Ma’lumotlar saqlanadi; qayta urinib ko‘ring."
           : code === "invalid_context" ||

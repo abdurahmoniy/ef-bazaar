@@ -198,11 +198,10 @@ public class SellerToolsService {
     }
   }
 
+  // Deliberately not plan-gated: an expired or stale plan must not trap private data.
   @Transactional
   public void delete(UUID owner, Kind kind, UUID id) {
-    access.require(owner, "seller.tools");
     if (jdbc.update("DELETE FROM " + kind.table + " WHERE id=? AND owner_id=?", id, owner) == 0)
       throw error(HttpStatus.NOT_FOUND, "not_found");
-    access.require(owner, "seller.tools");
   }
 }
