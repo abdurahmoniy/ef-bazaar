@@ -33,5 +33,10 @@ public record MessageResponse(
         UUID proposalListingId,
         Instant proposalExpiresAt,
         UUID proposalTradeId,
-        UUID clientMessageId
+        UUID clientMessageId,
+        /**
+         * Kontakt yashirilgan — ikkala tomon ham xabar ostida garov orqali
+         * savdo eslatmasini ko'radi. Yashirilmagan xabarda null (javobdan tushib qoladi).
+         */
+        Boolean contactHidden
 ) {}

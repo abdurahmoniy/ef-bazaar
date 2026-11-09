@@ -251,6 +251,8 @@ npm run typecheck && npm run lint && npm test && npm run build   # CI bilan bir 
 
 Marketplace filters use a plain desktop sidebar and a full-height mobile overview with selection summaries. Groups expand inline; collapsed controls retain drafts and invalid groups stay visible. Result counts remain debounced and cancellable.
 
+Chatda server kontaktni yashirgan xabar (`contactHidden: true`) ostida `ContactShieldNotice` chiqadi: yozganga — nega yashirildi, qabul qilganga — platformadan tashqarida himoya yo‘qligi; "Garov orqali savdo" tugmasi savdo panelini ochadi. Admin transkriptida bunday xabar "kontakt yashirilgan" deb belgilanadi.
+
 Chat custom emoji uses the authenticated read-only `/api/marketplace/v1/emoji-packs` catalog. The existing admin catalog remains used for management. Drafts and chat message text preserve `<tg-emoji emoji-id="ID">fallback</tg-emoji>` tokens; only numeric IDs are recognized, all other content stays plain text. WebM emoji animate inline; static WebP items render as images; TGS items currently use their static thumbnails.
 
 ## Savdo tasdiqlash kodlari

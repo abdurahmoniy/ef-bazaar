@@ -268,6 +268,72 @@ class ChatServiceTest {
         org.mockito.Mockito.verify(participants).unhideAll(chatId);
     }
 
+    private UUID savingChat() {
+        UUID chatId = UUID.randomUUID();
+        Chat chat = Chat.builder()
+                .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId)
+                .build();
+        when(chats.findById(chatId)).thenReturn(Optional.of(chat));
+        when(messages.save(any(ChatMessage.class))).thenAnswer(inv -> {
+            ChatMessage m = inv.getArgument(0);
+            m.setId(UUID.randomUUID());
+            m.setCreatedAt(java.time.Instant.now());
+            return m;
+        });
+        return chatId;
+    }
+
+    @Test
+    void sendMessage_hidesContactAndFlagsTheMessage() {
+        // Xaridor sotuvchini garovsiz savdoga olib ketmasin: kontakt hech
+        // qachon bazaga ham, ikkinchi tomonga ham yetib bormaydi.
+        UUID chatId = savingChat();
+
+        ChatMessage sent = service.sendMessage(chatId, buyerId, "telegramdan yozing @seller_uz");
+
+        assertThat(sent.getContent()).isEqualTo("telegramdan yozing " + uz.efbazaar.marketplace.chat.ContactShield.PLACEHOLDER);
+        assertThat(sent.isContactHidden()).isTrue();
+    }
+
+    @Test
+    void sendMessage_leavesOrdinaryTextUnflagged() {
+        UUID chatId = savingChat();
+
+        ChatMessage sent = service.sendMessage(chatId, buyerId, "Konami ID ASJE-112-079-938, narxi 150 000");
+
+        assertThat(sent.getContent()).isEqualTo("Konami ID ASJE-112-079-938, narxi 150 000");
+        assertThat(sent.isContactHidden()).isFalse();
+    }
+
+    @Test
+    void sendAttachment_hidesContactInCaption() {
+        UUID chatId = savingChat();
+        var uploaded = new ChatAttachmentService.Uploaded(
+                uz.efbazaar.marketplace.domain.AttachmentType.IMAGE, "file-1", "a.jpg", "image/jpeg", 10L);
+
+        ChatMessage sent = service.sendAttachment(chatId, sellerId, uploaded, "+998 90 123 45 67");
+
+        assertThat(sent.getContent()).isEqualTo(uz.efbazaar.marketplace.chat.ContactShield.PLACEHOLDER);
+        assertThat(sent.isContactHidden()).isTrue();
+    }
+
+    @Test
+    void editMessage_cannotSmuggleAContactIn() {
+        UUID chatId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        ChatMessage own = ChatMessage.builder()
+                .id(messageId).chatId(chatId).senderId(buyerId).content("salom").build();
+        Chat chat = Chat.builder()
+                .id(chatId).listingId(listingId).buyerId(buyerId).sellerId(sellerId).build();
+        when(chats.findById(chatId)).thenReturn(Optional.of(chat));
+        when(messages.findById(messageId)).thenReturn(Optional.of(own));
+
+        ChatMessage edited = service.editMessage(chatId, messageId, buyerId, "t.me/seller_uz");
+
+        assertThat(edited.getContent()).isEqualTo(uz.efbazaar.marketplace.chat.ContactShield.PLACEHOLDER);
+        assertThat(edited.isContactHidden()).isTrue();
+    }
+
     @Test
     void stampOwnName_setsCallersSideAndOverwritesOnRename() {
         Chat chat = Chat.builder()

@@ -157,6 +157,8 @@ function TranscriptMessage({ message, chat, showName }: { message: MessageRespon
           <span className="mt-0.5 px-1 text-[10px] text-muted-foreground">
             {formatMessageTime(message.createdAt)}
             {message.editedAt && ' · tahrirlangan'}
+            {/* Nizo paytida kerak: kim savdoni platformadan tashqariga olib ketmoqchi bo'lgan. */}
+            {message.contactHidden && ' · kontakt yashirilgan'}
           </span>
         </div>
       )}

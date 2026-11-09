@@ -18,5 +18,6 @@ public interface ChatMapper {
 
     @Mapping(target = "replySenderId", ignore = true)
     @Mapping(target = "replyPreview", ignore = true)
+    @Mapping(target = "contactHidden", expression = "java(message.isContactHidden() ? Boolean.TRUE : null)")
     MessageResponse toMessageResponse(ChatMessage message);
 }

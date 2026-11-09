@@ -85,6 +85,11 @@ public class ChatMessage {
     @Column(name = "proposal_trade_id")
     private UUID proposalTradeId;
 
+    /** Matndagi Telegram username / telefon {@code ContactShield} tomonidan yashirilgan. */
+    @Column(name = "contact_hidden", nullable = false)
+    @Builder.Default
+    private boolean contactHidden = false;
+
     @PrePersist
     void onCreate() {
         if (createdAt == null) {

@@ -28,6 +28,7 @@ u trade-service'da. Pul esa payment-service'da.
 | `support` | Foydalanuvchi ↔ admin support chat; Telegram orqali javob (bot) |
 | `gamer` | Gamer Card: Chempionat-X turnir statistikasi projection'i (`gamer_stats`) |
 | `websocket` | Chat real-time (`/ws/chat`), presence/typing; `chat.changed.v1` ni tinglaydi |
+| `chat` | `ContactShield`: chat matni va izohdagi Telegram username / `t.me` havola / telefonni saqlashdan oldin `[kontakt yashirildi]` ga almashtiradi (`chat_messages.contact_hidden`, javobda `contactHidden: true`). Asl kontakt saqlanmaydi; Konami ID, narx va pochta tegilmaydi |
 | `pricewatch` | Owner price watches, authoritative price transitions, durable common search/price intents, in-app/Telegram delivery |
 | `popup` | Kontekstli in-app xabar kampaniyalari, admin draft/publish/pause va PostgreSQL delivery limitlari |
 | `push` | Firebase push bildirishnomalar (`FIREBASE_PUSH_ENABLED`) |

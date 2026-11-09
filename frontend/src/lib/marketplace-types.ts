@@ -481,6 +481,8 @@ export interface MessageResponse {
   proposalListingId?: string | null;
   proposalExpiresAt?: string | null;
   proposalTradeId?: string | null;
+  /** Telegram username / telefon server tomonida yashirilgan — garov eslatmasi ko'rsatiladi. */
+  contactHidden?: boolean | null;
 }
 
 export type NotificationType =
