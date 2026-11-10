@@ -256,6 +256,8 @@ Chatda server kontaktni yashirgan xabar (`contactHidden: true`) ostida `ContactS
 
 Yordam markazi (`/help`) matni `src/lib/help-data.ts` da. U nizoda dalil bo‘ladi, shuning uchun garov, chat, hamyon va yechish haqidagi da’volar backend qoidalariga mosligi `help-data.test.ts` da tekshiriladi. `/help#<id>` o‘sha maqolani ochib, unga scroll qiladi. Xaridorning savdo tekshiruvi paneli `DISPUTE_RULES_HREF` (`/help#dispute-rules`) ga havola beradi va rad etish oynasi pul qaytishini aytadi.
 
+Ommaviy oferta (`/oferta`) va maxfiylik siyosati (`/maxfiylik`) matni `src/lib/legal.ts` da, da’volari `legal.test.ts` da tekshiriladi. Login sahifasi kirish shu hujjatlarga rozilik ekanini aytadi. Mini App avtomatik kirgani uchun asosiy rozilik `TermsConsentGate` (root layout) da olinadi: `/api/legal/consent` GET kirgan foydalanuvchining `termsVersion` i `TERMS_VERSION` dan farq qilsa oynani ochadi, POST rozilikni auth-service `POST /users/me/terms` ga yozadi. Hujjat mazmunan o‘zgarsa `TERMS_VERSION` sanasini yangilang — hamma qayta rozilik beradi.
+
 Chat custom emoji uses the authenticated read-only `/api/marketplace/v1/emoji-packs` catalog. The existing admin catalog remains used for management. Drafts and chat message text preserve `<tg-emoji emoji-id="ID">fallback</tg-emoji>` tokens; only numeric IDs are recognized, all other content stays plain text. WebM emoji animate inline; static WebP items render as images; TGS items currently use their static thumbnails.
 
 ## Savdo tasdiqlash kodlari

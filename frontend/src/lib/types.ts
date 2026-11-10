@@ -28,6 +28,9 @@ export interface User {
   verified: boolean;
   roles: string[];
   createdAt: string;
+  /** Oferta va maxfiylik siyosatining rozi bo'lingan versiyasi (lib/legal.ts TERMS_VERSION). */
+  termsVersion?: string | null;
+  termsAcceptedAt?: string | null;
 }
 
 export interface AuthResponse {

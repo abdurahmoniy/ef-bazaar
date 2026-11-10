@@ -10,6 +10,7 @@ import { GoogleButton } from '@/components/auth/google-button';
 import { Button } from '@/components/ui/button';
 import { googleLoginAction, telegramAuthAction } from '@/app/auth/actions';
 import { ACCESS_REQUIREMENTS_UNMET, accessRequiredHref } from '@/lib/access-requirements';
+import { OFERTA_HREF, PRIVACY_HREF } from '@/lib/legal';
 import type { TelegramAuthData } from '@/lib/types';
 import styles from '../auth.module.css';
 
@@ -98,6 +99,10 @@ export function LoginForm({ botUsername, googleClientId, from, initialError = nu
       )}
 
       {pending && <p role="status" className={styles.pending}><Loader2 aria-hidden="true" className="animate-spin motion-reduce:animate-none" />Kirilmoqda…</p>}
+      <p className={styles.consent}>
+        Kirish orqali <Link href={OFERTA_HREF}>ommaviy oferta</Link> va{' '}
+        <Link href={PRIVACY_HREF}>maxfiylik siyosati</Link>ga rozilik bildirasiz.
+      </p>
       <TelegramSwitchHint />
     </div>
   );

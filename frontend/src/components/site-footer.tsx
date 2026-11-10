@@ -6,6 +6,7 @@ import {
   MARKETPLACE_LANDINGS,
   type MarketplaceLandingGroup,
 } from '@/lib/marketplace-landing';
+import { OFERTA_HREF, PRIVACY_HREF } from '@/lib/legal';
 import { siteConfig } from '@/lib/site';
 import { cn } from '@/lib/utils';
 import { GrowthLink } from '@/components/growth/growth-link';
@@ -62,6 +63,12 @@ export function SiteFooter({ embedded = false }: SiteFooterProps) {
             </li>
             <li>
               <FooterLink href="/help">Yordam va Qo‘llanma</FooterLink>
+            </li>
+            <li>
+              <FooterLink href={OFERTA_HREF}>Ommaviy oferta</FooterLink>
+            </li>
+            <li>
+              <FooterLink href={PRIVACY_HREF}>Maxfiylik siyosati</FooterLink>
             </li>
             <li>
               <GrowthLink href="/invite" event="invite_open" placement="footer" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline">Do‘st taklif qilish</GrowthLink>

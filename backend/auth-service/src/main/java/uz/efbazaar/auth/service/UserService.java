@@ -49,6 +49,24 @@ public class UserService {
         log.info("User deleted: id={} telegramId={} email={}", id, telegramId, email);
     }
 
+    /**
+     * Oferta va maxfiylik siyosatiga rozilikni yozadi. Shu versiyaga avval
+     * rozi bo'lgan bo'lsa birinchi rozilik vaqti saqlanib qoladi — takroriy
+     * so'rov (ikki tab, qayta yuborish) dalilni o'zgartirmaydi.
+     */
+    @Transactional
+    public User acceptTerms(UUID id, String version) {
+        User user = userRepository.findById(id).orElseThrow(AuthException::userNotFound);
+        if (version.equals(user.getTermsVersion()) && user.getTermsAcceptedAt() != null) {
+            return user;
+        }
+        user.setTermsVersion(version);
+        user.setTermsAcceptedAt(java.time.Instant.now());
+        User saved = userRepository.save(user);
+        log.info("Terms accepted: id={} version={}", id, version);
+        return saved;
+    }
+
     // ---------- Admin moderation ----------
 
     /** Bulk id lookup for cross-service joins; unknown ids are simply absent. */

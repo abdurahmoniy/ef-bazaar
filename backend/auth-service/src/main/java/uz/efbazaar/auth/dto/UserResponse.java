@@ -20,5 +20,7 @@ public record UserResponse(
         boolean googleLinked,
         boolean verified,
         List<String> roles,
-        Instant createdAt
+        Instant createdAt,
+        String termsVersion,
+        Instant termsAcceptedAt
 ) {}

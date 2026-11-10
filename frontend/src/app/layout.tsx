@@ -4,6 +4,7 @@ import Script from 'next/script';
 import './globals.css';
 
 import { TelegramWebAppAutoLogin } from '@/components/auth/telegram-webapp-auto-login';
+import { TermsConsentGate } from '@/components/legal/terms-consent-gate';
 import { CampaignCapture } from '@/components/campaign/campaign-capture';
 import { TelegramBackProvider } from '@/components/telegram/telegram-back-provider';
 import { TelegramViewportBootstrap } from '@/components/telegram/telegram-viewport-bootstrap';
@@ -136,6 +137,7 @@ export default function RootLayout({
                 <BackgroundMusic />
                 {children}
                 <AppToaster />
+                <TermsConsentGate />
               </PushProvider>
             </StoreProvider>
           </ClientQueryProvider>

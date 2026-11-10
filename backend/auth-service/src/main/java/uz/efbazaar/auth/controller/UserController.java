@@ -10,10 +10,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import uz.efbazaar.auth.domain.User;
+import jakarta.validation.Valid;
+import uz.efbazaar.auth.dto.TermsAcceptanceRequest;
 import uz.efbazaar.auth.dto.UserResponse;
 import uz.efbazaar.auth.mapper.UserMapper;
 import uz.efbazaar.auth.security.AuthenticatedUser;
@@ -38,6 +42,16 @@ public class UserController {
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal AuthenticatedUser principal) {
         return userMapper.toResponse(userService.getById(principal.userId()));
+    }
+
+    /**
+     * Oferta va maxfiylik siyosatiga rozilik. Frontend joriy versiyani yuboradi;
+     * {@code /me} dagi {@code termsVersion} undan farq qilsa rozilik qayta so'raladi.
+     */
+    @PostMapping("/me/terms")
+    public UserResponse acceptTerms(@AuthenticationPrincipal AuthenticatedUser principal,
+                                    @Valid @RequestBody TermsAcceptanceRequest request) {
+        return userMapper.toResponse(userService.acceptTerms(principal.userId(), request.version()));
     }
 
     public record AccessStatus(boolean allowed) {}
