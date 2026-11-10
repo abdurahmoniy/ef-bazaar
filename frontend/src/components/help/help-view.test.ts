@@ -2,7 +2,7 @@
 
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HelpView } from './help-view';
 import type { Guide } from '@/lib/guides';
 
@@ -50,6 +50,41 @@ afterEach(async () => {
 });
 
 describe('HelpView', () => {
+  it('opens and scrolls to the article named in the address hash', async () => {
+    // Savdo paneli va kanal postlari /help#dispute-rules ga havola beradi.
+    window.location.hash = '#dispute-rules';
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      await act(async () => {
+        root.render(createElement(HelpView, { initialGuides: MOCK_GUIDES }));
+      });
+      // Scroll ochilgan maqola chizilgandan keyin, keyingi kadrda bo'ladi.
+      await act(async () => {
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+      });
+
+      const article = container.querySelector('#dispute-rules');
+      expect(article?.querySelector('button')?.getAttribute('aria-expanded')).toBe('true');
+      expect(scrollIntoView).toHaveBeenCalled();
+    } finally {
+      window.location.hash = '';
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
+  });
+
+  it('ignores a malformed address hash instead of crashing', async () => {
+    window.location.hash = '#%E0%A4%A';
+    try {
+      await act(async () => {
+        root.render(createElement(HelpView, { initialGuides: MOCK_GUIDES }));
+      });
+      expect(container.textContent).toContain('Nizo qoidalari');
+    } finally {
+      window.location.hash = '';
+    }
+  });
+
   it('renders search bar, categories, and initial help items', async () => {
     await act(async () => {
       root.render(createElement(HelpView, { initialGuides: MOCK_GUIDES }));

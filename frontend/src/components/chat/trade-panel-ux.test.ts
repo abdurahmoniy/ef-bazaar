@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TradePanel } from './trade-panel';
 import { useTradeContext } from './trade-context';
 import type { TradeResponse } from '@/lib/trade-types';
+import { DISPUTE_RULES_HREF } from '@/lib/help-data';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock('./trade-context', () => ({ useTradeContext: vi.fn() }));
@@ -405,6 +406,22 @@ describe('trade details', () => {
     expect(dialog().textContent).not.toContain('one-time-secret');
     expect(dialog().querySelector('[aria-label="Parolni nusxa olish"]')).toBeNull();
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('reminds the buyer of the dispute rules before the decision', async () => {
+    prepareBuyer();
+    await render();
+    expect(dialog().querySelector(`a[href="${DISPUTE_RULES_HREF}"]`)).not.toBeNull();
+    expect(dialog().textContent).toMatch(/akkauntda hech narsani o.zgartirmang/i);
+  });
+
+  it('tells the buyer that rejecting returns the money in full', async () => {
+    prepareBuyer();
+    await render();
+    await revealPassword();
+    await act(async () => buttonWith('Rad etish').click());
+    const nested = document.querySelectorAll('[role="dialog"]')[1];
+    expect(nested.textContent).toMatch(/pul .*to.liq qaytadi/i);
   });
 
   it('shows decision controls when the one-time password is already unavailable', async () => {

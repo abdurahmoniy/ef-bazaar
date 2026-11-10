@@ -254,6 +254,8 @@ Marketplace filters use a plain desktop sidebar and a full-height mobile overvie
 
 Chatda server kontaktni yashirgan xabar (`contactHidden: true`) ostida `ContactShieldNotice` chiqadi: yozganga — nega yashirildi, qabul qilganga — platformadan tashqarida himoya yo‘qligi; "Garov orqali savdo" tugmasi savdo panelini ochadi. Admin transkriptida bunday xabar "kontakt yashirilgan" deb belgilanadi.
 
+Yordam markazi (`/help`) matni `src/lib/help-data.ts` da. U nizoda dalil bo‘ladi, shuning uchun garov, chat, hamyon va yechish haqidagi da’volar backend qoidalariga mosligi `help-data.test.ts` da tekshiriladi. `/help#<id>` o‘sha maqolani ochib, unga scroll qiladi. Xaridorning savdo tekshiruvi paneli `DISPUTE_RULES_HREF` (`/help#dispute-rules`) ga havola beradi va rad etish oynasi pul qaytishini aytadi.
+
 Chat custom emoji uses the authenticated read-only `/api/marketplace/v1/emoji-packs` catalog. The existing admin catalog remains used for management. Drafts and chat message text preserve `<tg-emoji emoji-id="ID">fallback</tg-emoji>` tokens; only numeric IDs are recognized, all other content stays plain text. WebM emoji animate inline; static WebP items render as images; TGS items currently use their static thumbnails.
 
 ## Savdo tasdiqlash kodlari

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { TradeFeeTerms } from './trade-fee-terms';
 import { proposalHoldTiyin, splitAdminFee } from '@/lib/trade-fee';
 import { konamiForgotPasswordUrl } from '@/lib/konami-links';
+import { DISPUTE_RULES_HREF } from '@/lib/help-data';
 import { formatTiyin } from '@/lib/money';
 import type { AdminFeePayer } from '@/lib/trade-types';
 import { TradeProposalRejectButton } from './trade-proposal-reject-button';
@@ -1258,6 +1259,15 @@ function WaitingBuyerVerifyBuyerPanel({
 
   return (
     <div className="space-y-3">
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Tekshiruv paytida akkauntda hech narsani o‘zgartirmang — faqat ko‘ring.{' '}
+        <Link
+          href={DISPUTE_RULES_HREF}
+          className="inline-flex min-h-11 items-center font-semibold text-primary underline-offset-2 hover:underline"
+        >
+          Nizo qoidalari
+        </Link>
+      </p>
       {revealedPassword || passwordOpened ? (
         <>
           <div className="space-y-3">
@@ -1426,8 +1436,10 @@ function WaitingBuyerVerifyBuyerPanel({
           title="Savdoni rad etish"
           body={
             <p>
-              Rad etilsa savdo yopiladi va sotuvchi bilan qayta bog&apos;lanish
-              kerak bo&apos;ladi. Davom etasizmi?
+              {isSwap(trade.kind ?? 'SALE')
+                ? 'Rad etilsa savdo yopiladi, akkauntlar va garovdagi mablag‘ egalariga qaytadi.'
+                : 'Rad etilsa savdo yopiladi va garovdagi pul hamyoningizga to‘liq qaytadi.'}{' '}
+              Sotuvchi bilan qayta bog&apos;lanish kerak bo&apos;ladi. Davom etasizmi?
             </p>
           }
           confirmLabel={rejecting ? 'Rad etilmoqda…' : 'Ha, rad etaman'}

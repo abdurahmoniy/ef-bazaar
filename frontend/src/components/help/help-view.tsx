@@ -22,6 +22,7 @@ import {
 
 import {
   HELP_CATEGORIES,
+  HELP_ITEMS,
   searchHelpItems,
   type HelpCategory,
   type HelpItem,
@@ -62,6 +63,29 @@ export function HelpView({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
     () => new Set(['how-escrow-works', 'scam-prevention-rules']),
   );
+
+  // Savdo paneli va kanal postlari /help#<id> ga havola beradi: maqola
+  // yopiq qolsa, odam sahifa boshida nima uchun kelganini topa olmaydi.
+  useEffect(() => {
+    function openFromHash() {
+      let id: string;
+      try {
+        id = decodeURIComponent(window.location.hash.slice(1));
+      } catch {
+        return; // buzilgan hash sahifani yiqitmasin
+      }
+      if (!HELP_ITEMS.some((item) => item.id === id)) return;
+      setSelectedCategory('all');
+      setSearchQuery('');
+      setExpandedIds((prev) => new Set(prev).add(id));
+      window.requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ block: 'start' });
+      });
+    }
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+    return () => window.removeEventListener('hashchange', openFromHash);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -424,7 +448,8 @@ function HelpAccordionCard({
     <article
       id={item.id}
       className={cn(
-        'group rounded-2xl border transition-all duration-200',
+        // Yopishqoq header /help#<id> dan kelgan maqola sarlavhasini yopmasin.
+        'group scroll-mt-24 rounded-2xl border transition-all duration-200',
         expanded
           ? 'border-primary/40 bg-card shadow-sm ring-1 ring-primary/20'
           : 'border-border bg-card/60 hover:border-border/80 hover:bg-card',
