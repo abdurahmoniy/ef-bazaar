@@ -1,7 +1,6 @@
 import OpenGraphImage from './opengraph-image';
 
-export const runtime = 'edge';
-export const alt = 'eFBazaar eFootball account marketplace';
+export const alt = 'eFBazaar — eFootball akkount bozori: akkount emas, yulduz qidiring';
 export const size = {
   width: 1200,
   height: 630,

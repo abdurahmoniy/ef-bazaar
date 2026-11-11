@@ -1,22 +1,67 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+
 import { ImageResponse } from 'next/og';
 
 import { BrandMarkOG } from '@/components/brand/brand-mark-og';
 import { siteConfig } from '@/lib/site';
 
-export const runtime = 'edge';
-export const alt = 'eFBazaar — eFootball akkount bozori';
+export const alt = 'eFBazaar — eFootball akkount bozori: akkount emas, yulduz qidiring';
 export const size = {
   width: 1200,
   height: 630,
 };
 export const contentType = 'image/png';
 
-const PRIMARY = '#1d8b80';
-const INK = '#1c1917';
-const MUTED = '#6b7280';
-const BORDER = '#e5e7eb';
+// Light-theme roles from globals.css. Satori cannot read CSS variables, so
+// the share card pins the same values the homepage resolves at runtime.
+const PAPER = '#ffffff'; // --background
+const INK = '#0a0a29'; // --foreground
+const BLUE = '#000099'; // --primary
+const LOGO_GOLD = '#ffd633'; // --primary-foreground
+const GOLD = '#f9bf10'; // --secondary
+const GOLD_INK = '#0f0f3d'; // --secondary-foreground
+const MUTED = '#55556d'; // --muted-foreground
+const RULE = '#dcdce5'; // --border
 
-export default function OpenGraphImage() {
+const DISPLAY = 'Landing Display';
+const POSTER_WIDTH = 640;
+const CARD_TIERS = ['Epic', 'Big Time', 'Show Time'];
+
+// Static files baked for this card: weight instances of the landing display
+// face (Satori reads neither WOFF2 nor variable fonts) and the hero poster
+// with its duotone treatment (scripts/build-og-poster.mjs).
+const ASSETS = path.join(process.cwd(), 'src/assets/og');
+
+function asset(name: string) {
+  return readFile(path.join(ASSETS, name));
+}
+
+function ShieldCheck({ size: px, color }: { size: number; color: string }) {
+  return (
+    <svg
+      width={px}
+      height={px}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
+export default async function OpenGraphImage() {
+  const [display, label, poster] = await Promise.all([
+    asset('big-shoulders-display-800.ttf'),
+    asset('big-shoulders-display-600.ttf'),
+    asset('poster.jpg'),
+  ]);
+
   return new ImageResponse(
     (
       <div
@@ -24,125 +69,137 @@ export default function OpenGraphImage() {
           width: '100%',
           height: '100%',
           display: 'flex',
-          background: '#f9f8f5',
-          color: INK,
-          fontFamily: 'Inter, Arial, sans-serif',
-          padding: 56,
           position: 'relative',
+          background: PAPER,
+          color: INK,
+          fontFamily: DISPLAY,
         }}
       >
+        <img
+          src={`data:image/jpeg;base64,${poster.toString('base64')}`}
+          width={POSTER_WIDTH}
+          height={size.height}
+          alt=""
+          style={{ position: 'absolute', top: 0, right: 0 }}
+        />
+
+        <div
+          style={{
+            position: 'absolute',
+            right: 54,
+            bottom: 52,
+            width: 168,
+            height: 168,
+            borderRadius: 84,
+            background: GOLD,
+            color: GOLD_INK,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transform: 'rotate(-12deg)',
+          }}
+        >
+          <ShieldCheck size={30} color={GOLD_INK} />
+          <div style={{ marginTop: 6, fontSize: 50, lineHeight: 0.9, fontWeight: 800, textTransform: 'uppercase' }}>
+            Garov
+          </div>
+          <div style={{ marginTop: 6, fontSize: 17, fontWeight: 600, letterSpacing: 3, textTransform: 'uppercase' }}>
+            himoyasi
+          </div>
+        </div>
+
         <div
           style={{
             position: 'relative',
             display: 'flex',
-            width: '100%',
-            alignItems: 'center',
+            flexDirection: 'column',
             justifyContent: 'space-between',
-            gap: 54,
+            width: 760,
+            height: '100%',
+            padding: '52px 0 50px 64px',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', width: 650 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <BrandMarkOG size={60} glyph={LOGO_GOLD} background={BLUE} />
+            <div style={{ display: 'flex', fontSize: 46, fontWeight: 800, letterSpacing: 0.5 }}>
+              <span>eF</span>
+              <span style={{ color: BLUE }}>Bazaar</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 14,
-                fontSize: 24,
-                color: PRIMARY,
-                marginBottom: 34,
-                fontWeight: 800,
+                color: MUTED,
+                fontSize: 23,
+                fontWeight: 600,
+                letterSpacing: 3.2,
+                textTransform: 'uppercase',
               }}
             >
-              <BrandMarkOG size={44} radius={12} />
-              Telegram orqali ishlaydigan bozor
-            </div>
-
-            <div style={{ fontSize: 96, lineHeight: 0.95, fontWeight: 900, letterSpacing: 0 }}>
-              {siteConfig.name}
+              <div style={{ width: 40, height: 4, background: GOLD }} />
+              O‘zbekiston · eFootball akkount bozori
             </div>
             <div
               style={{
-                marginTop: 24,
-                fontSize: 36,
-                lineHeight: 1.2,
-                color: '#44403c',
-                maxWidth: 620,
+                display: 'flex',
+                flexDirection: 'column',
+                marginTop: 18,
+                fontSize: 108,
+                lineHeight: 0.95,
+                fontWeight: 800,
+                letterSpacing: -1.6,
+                textTransform: 'uppercase',
+                whiteSpace: 'nowrap',
               }}
             >
-              eFootball akkountlarini xavfsiz sotish va sotib olish.
-            </div>
-
-            <div style={{ display: 'flex', gap: 14, marginTop: 40, fontSize: 22 }}>
-              {['Diviziyon', 'Jamoa kuchi', 'Tanga', "O'yinchilar"].map((item) => (
-                <div
-                  key={item}
-                  style={{
-                    border: `1px solid ${BORDER}`,
-                    background: '#ffffff',
-                    color: '#44403c',
-                    padding: '10px 16px',
-                    borderRadius: 999,
-                    fontWeight: 700,
-                  }}
-                >
-                  {item}
-                </div>
-              ))}
+              <span>Akkount emas —</span>
+              <span style={{ display: 'flex' }}>
+                <span style={{ color: BLUE }}>yulduz</span>
+                <span style={{ marginLeft: 24 }}>qidiring.</span>
+              </span>
             </div>
           </div>
 
-          <div
-            style={{
-              width: 360,
-              border: `1px solid ${BORDER}`,
-              background: '#ffffff',
-              borderRadius: 20,
-              padding: 24,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 18,
-              boxShadow: '0 28px 60px rgba(28,25,23,0.12)',
-            }}
-          >
-            <div style={{ fontSize: 20, color: MUTED, fontWeight: 700 }}>Namuna e&apos;lon</div>
-            <div style={{ fontSize: 30, fontWeight: 800 }}>Diviziyon 1 akkount</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
             <div
               style={{
-                height: 150,
-                borderRadius: 16,
-                background: PRIMARY,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 54,
-                fontWeight: 900,
-                color: '#ffffff',
-              }}
-            >
-              3150
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 22, fontWeight: 700 }}>
-              <span style={{ color: PRIMARY }}>Google ulangan</span>
-              <span>450 000 so&apos;m</span>
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                background: PRIMARY,
-                color: '#ffffff',
-                borderRadius: 12,
-                padding: '14px 18px',
-                fontSize: 22,
+                height: 58,
+                padding: '0 28px',
+                borderRadius: 29,
+                background: BLUE,
+                color: LOGO_GOLD,
+                fontSize: 30,
                 fontWeight: 800,
+                letterSpacing: 1.2,
               }}
             >
-              Telegram orqali kirish
+              {new URL(siteConfig.url).host}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 27, fontWeight: 600, letterSpacing: 2.4, textTransform: 'uppercase' }}>
+              {CARD_TIERS.map((tier, index) => (
+                <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  {index > 0 ? <div style={{ width: 1, height: 24, background: RULE }} /> : null}
+                  {tier}
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
     ),
-    size,
+    {
+      ...size,
+      fonts: [
+        { name: DISPLAY, data: display, weight: 800, style: 'normal' },
+        { name: DISPLAY, data: label, weight: 600, style: 'normal' },
+      ],
+    },
   );
 }
