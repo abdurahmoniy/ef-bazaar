@@ -63,8 +63,11 @@ describe('SupportNewChatForm', () => {
       );
     });
 
-    expect(container.textContent).toContain('Hamkorlik');
-    expect(container.textContent).toContain('Texnik yordam');
+    const group = container.querySelector('[role="radiogroup"]')!;
+    expect(group.getAttribute('aria-label')).toBe('Murojaat yo‘nalishi');
+    const radios = Array.from(group.querySelectorAll('[role="radio"]'));
+    expect(radios.map((r) => r.textContent)).toEqual(['Yordam', 'Hamkorlik', 'Savol']);
+    expect(radios.find((r) => r.getAttribute('aria-checked') === 'true')?.textContent).toBe('Hamkorlik');
 
     const textarea = container.querySelector('textarea')!;
     const nativeSetter = Object.getOwnPropertyDescriptor(
@@ -98,6 +101,51 @@ describe('SupportNewChatForm', () => {
         message: 'Hamkorlik taklifi',
       })
     );
+  });
+
+  it('switches category and sends with Enter, keeping Shift+Enter for new lines', async () => {
+    const user = { id: 'u-1', displayName: 'Alisher Test' } as any;
+    vi.mocked(supportApi.createSupportChat).mockResolvedValue({
+      id: 'chat-11', category: 'QUESTION', status: 'OPEN', senderName: 'Alisher Test',
+      messages: [], lastMessageAt: '', createdAt: '',
+    });
+    await act(async () => {
+      root.render(createElement(SupportNewChatForm, {
+        user, initialMessage: 'Savolim bor', onChatCreated: vi.fn(),
+      }));
+    });
+
+    const question = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="radio"]'))
+      .find((r) => r.textContent === 'Savol')!;
+    await act(async () => question.click());
+    expect(question.getAttribute('aria-checked')).toBe('true');
+
+    const textarea = container.querySelector('textarea')!;
+    await act(async () => {
+      textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true }));
+    });
+    expect(supportApi.createSupportChat).not.toHaveBeenCalled();
+
+    await act(async () => {
+      textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    expect(supportApi.createSupportChat).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'QUESTION', message: 'Savolim bor' })
+    );
+  });
+
+  it('requires a guest name before sending', async () => {
+    await act(async () => {
+      root.render(createElement(SupportNewChatForm, {
+        user: null, initialMessage: 'Yordam kerak', onChatCreated: vi.fn(),
+      }));
+    });
+    expect(container.querySelector('input[aria-label="Ismingiz"]')).not.toBeNull();
+    await act(async () => {
+      container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    expect(supportApi.createSupportChat).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('Iltimos, ismingizni kiriting');
   });
 });
 
@@ -168,8 +216,9 @@ describe('SupportWidget', () => {
       button.click();
     });
 
-    expect(container.textContent).toContain('efBazaar Qo‘llab-quvvatlash');
-    expect(container.textContent).toContain('Murojaat yo‘nalishi');
+    expect(container.textContent).toContain('Qo‘llab-quvvatlash');
+    expect(container.textContent).toContain('Qanday yordam bera olamiz?');
+    expect(container.querySelector('[role="radiogroup"]')).not.toBeNull();
   });
 });
 

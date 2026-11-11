@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { Send, ShieldCheck, CheckCircle2, Clock, XCircle, PlusCircle } from 'lucide-react';
+import { ArrowUp, ShieldCheck, CheckCircle2, Clock, XCircle, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import {
   type SupportChat,
   type SupportMessage,
@@ -18,11 +17,17 @@ interface SupportChatViewProps {
   initialChat: SupportChat;
   initialMessage?: string;
   onNewChatClick?: () => void;
+  className?: string;
 }
 
 const POLL_INTERVAL_MS = 4000;
 
-export function SupportChatView({ initialChat, onNewChatClick, initialMessage = '' }: SupportChatViewProps) {
+export function SupportChatView({
+  initialChat,
+  onNewChatClick,
+  initialMessage = '',
+  className = 'h-[520px] max-h-[75vh]',
+}: SupportChatViewProps) {
   const [chat, setChat] = useState<SupportChat>(initialChat);
   const [messages, setMessages] = useState<SupportMessage[]>(initialChat.messages || []);
   const [draft, setDraft] = useState(initialMessage);
@@ -93,7 +98,7 @@ export function SupportChatView({ initialChat, onNewChatClick, initialMessage = 
   const categoryDef = SUPPORT_CATEGORIES[chat.category] || SUPPORT_CATEGORIES.SUPPORT;
 
   return (
-    <div className="flex flex-col h-[520px] max-h-[75vh]">
+    <div className={cn('flex flex-col', className)}>
       {/* Header bar */}
       <div className="flex items-center justify-between border-b border-border pb-3 mb-2 shrink-0">
         <div className="flex items-center gap-2">
@@ -217,32 +222,33 @@ export function SupportChatView({ initialChat, onNewChatClick, initialMessage = 
         ) : (
           <form onSubmit={handleSend} className="space-y-2">
             {error && (
-              <div className="text-xs text-destructive bg-destructive/10 p-2 rounded-lg">
+              <p role="alert" className="text-xs font-medium text-destructive">
                 {error}
-              </div>
+              </p>
             )}
-            <div className="flex gap-2 items-end">
-              <Textarea
-                rows={2}
+            <div className="flex items-end gap-2 rounded-2xl border border-border bg-background py-1.5 pl-3.5 pr-1.5 shadow-sm transition focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15">
+              <textarea
+                rows={1}
+                aria-label="Javob"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault();
                     handleSend();
                   }
                 }}
-                placeholder="Javob yozing (Enter — yuborish)..."
-                className="resize-none min-h-[44px] text-sm"
+                placeholder="Javob yozing…"
+                className="block max-h-32 min-h-[32px] flex-1 resize-none bg-transparent py-1.5 text-sm leading-snug text-foreground placeholder:text-muted-foreground focus:outline-none [field-sizing:content]"
               />
-              <Button
+              <button
                 type="submit"
                 disabled={isSending || !draft.trim()}
-                size="icon"
-                className="h-11 w-11 shrink-0 rounded-xl"
+                aria-label="Yuborish"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
               >
-                <Send className="h-4 w-4" />
-              </Button>
+                <ArrowUp className="h-4 w-4" />
+              </button>
             </div>
           </form>
         )}
