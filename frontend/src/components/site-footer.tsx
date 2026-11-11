@@ -62,7 +62,7 @@ export function SiteFooter({ embedded = false }: SiteFooterProps) {
               />
             </li>
             <li>
-              <FooterLink href="/help">Yordam va Qo‘llanma</FooterLink>
+              <FooterLink href="/help">Yordam markazi</FooterLink>
             </li>
             <li>
               <FooterLink href={OFERTA_HREF}>Ommaviy oferta</FooterLink>

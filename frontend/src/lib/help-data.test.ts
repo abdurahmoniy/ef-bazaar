@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DISPUTE_RULES_ID, HELP_CATEGORIES, HELP_ITEMS, searchHelpItems } from './help-data';
+import { LEGAL_DOCUMENTS } from './legal';
 
 function textOf(id: string): string {
   const item = HELP_ITEMS.find((candidate) => candidate.id === id);
@@ -71,6 +72,81 @@ describe('help content matches how the platform works', () => {
   it('describes the Gamer Card fields that actually exist', () => {
     expect(textOf('gamer-card-setup')).not.toMatch(/Konami ID \(ixtiyoriy\)/);
     expect(textOf('gamer-card-setup')).toMatch(/turnir/i);
+  });
+});
+
+describe('help content is written in one plain Uzbek voice', () => {
+  const VISIBLE = [
+    ...HELP_CATEGORIES.flatMap((c) => [c.label, c.shortLabel, c.description]),
+    ...HELP_ITEMS.flatMap((i) => [i.title, i.summary, ...i.content, i.actionLabel ?? '']),
+  ].join('\n');
+
+  it('uses one term per concept', () => {
+    // Muqobillari faqat qidiruv teglarida qoladi.
+    for (const banned of [
+      /escrow/i, /blacklist/i, /\bP2P\b/, /WebApp/i, /doplata/i, /\bobmen/i,
+      /diviziyon/i, /eFBazaar/, /\bbitim/i, /akkaunt/i, /lahzali/i, /\bFAQ\b/, /Smart Admin/i,
+    ]) {
+      expect(VISIBLE).not.toMatch(banned);
+    }
+  });
+
+  it('has no emoji bullets and no "?:" labels', () => {
+    expect(VISIBLE).not.toMatch(/[\u2705\u274C]/u);
+    expect(VISIBLE).not.toMatch(/\?:/);
+  });
+
+  it('labels one destination with one button text', () => {
+    const labels = new Map<string, Set<string>>();
+    for (const item of HELP_ITEMS) {
+      if (!item.actionUrl || !item.actionLabel) continue;
+      labels.set(item.actionUrl, (labels.get(item.actionUrl) ?? new Set()).add(item.actionLabel));
+    }
+    for (const [url, set] of labels) {
+      expect([...set], url).toHaveLength(1);
+    }
+  });
+
+  it('does not describe the unused human trade-admin mode', () => {
+    expect(VISIBLE).not.toMatch(/trade-admin|savdo-admin|admin qo‘shilgani/i);
+  });
+});
+
+describe('help and oferta state the same rules', () => {
+  const oferta = LEGAL_DOCUMENTS.oferta.sections.flatMap((s) => s.paragraphs).join('\n');
+
+  it('agrees on money limits', () => {
+    for (const amount of ['1 000 so‘m', '10 000 so‘m']) {
+      expect(ALL_TEXT).toContain(amount);
+      expect(oferta).toContain(amount);
+    }
+    expect(textOf('how-to-top-up-wallet')).toContain('15 daqiqa');
+    expect(oferta).toContain('15 daqiqa');
+  });
+
+  it('agrees on the penalty ladder', () => {
+    for (const text of [textOf(DISPUTE_RULES_ID), oferta]) {
+      expect(text).toMatch(/7 kunlik blok/);
+      expect(text).toMatch(/doimiy blok/);
+      expect(text).toMatch(/uchta shikoyatingiz/i);
+    }
+  });
+
+  it('agrees that the paid plan is not refunded and does not renew itself', () => {
+    for (const text of [textOf('faq-pro-plan'), oferta]) {
+      expect(text).toMatch(/Tarif uchun to‘langan pul qaytarilmaydi/);
+      expect(text).toMatch(/o‘zi uzaymaydi/);
+    }
+  });
+
+  it('explains the exchange fee the same way', () => {
+    expect(textOf('exchange-modes-explained')).toMatch(/bir tomon yoki ikkalasi teng/);
+    expect(oferta).toMatch(/bir tomon yoki ikkalasi teng/);
+  });
+
+  it('never promises that deleting the account erases chats or payments', () => {
+    expect(textOf('faq-delete-account')).toMatch(/saqlanib qoladi/);
+    expect(textOf('faq-delete-account')).toMatch(/pulni kartangizga yechib oling/);
   });
 });
 

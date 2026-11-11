@@ -169,7 +169,7 @@ export function UserMenu({ user, className }: UserMenuProps) {
             </Link>
             <Link href="/help" role="menuitem" className={ITEM_CLASS} onClick={() => setOpen(false)}>
               <HelpCircle className="h-4 w-4 text-muted-foreground" />
-              Yordam va Qo‘llanma
+              Yordam markazi
             </Link>
 
             <button

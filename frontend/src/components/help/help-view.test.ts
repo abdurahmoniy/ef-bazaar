@@ -90,10 +90,10 @@ describe('HelpView', () => {
       root.render(createElement(HelpView, { initialGuides: MOCK_GUIDES }));
     });
 
-    expect(container.textContent).toContain('Yordam markazi & Qo‘llanma');
+    expect(container.textContent).toContain('Yordam markazi');
     expect(container.querySelector('input[placeholder*="Garov"]')).not.toBeNull();
     expect(container.textContent).toContain('Boshlash');
-    expect(container.textContent).toContain('Xavfsiz savdo va Garov');
+    expect(container.textContent).toContain('Garov va xavfsizlik');
     expect(container.textContent).toContain('Video qo‘llanmalar');
   });
 
@@ -107,9 +107,9 @@ describe('HelpView', () => {
     expect(container.textContent).toContain('Akkountni qanday sotish kerak');
     expect(container.textContent).toContain('Hamyonni to‘ldirish va yechish');
 
-    // Click 'Xavfsiz savdo va Garov'
+    // Click 'Garov va xavfsizlik'
     const safetyCategoryBtn = Array.from(container.querySelectorAll('button')).find((btn) =>
-      btn.textContent?.includes('Xavfsiz savdo va Garov'),
+      btn.textContent?.includes('Garov va xavfsizlik'),
     );
     expect(safetyCategoryBtn).toBeDefined();
 
@@ -184,6 +184,6 @@ describe('HelpView', () => {
       questionButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
 
-    expect(container.textContent).toContain('Konami qoidalariga ko‘ra');
+    expect(container.textContent).toContain('Android qurilmada yana ko‘rinadi');
   });
 });
