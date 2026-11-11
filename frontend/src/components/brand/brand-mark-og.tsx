@@ -3,6 +3,10 @@ import { BRAND_TEAL, eMarkSvg } from '@/components/brand/e-mark';
 interface BrandMarkOGProps {
   size: number;
   radius?: number;
+  /** glyph colour; defaults to white */
+  glyph?: string;
+  /** chip colour; defaults to the icon teal */
+  background?: string;
 }
 
 function toBase64(value: string) {
@@ -17,9 +21,9 @@ function toBase64(value: string) {
  * SVG source is embedded that way and stays pixel-identical to the header
  * logo at every size.
  */
-export function BrandMarkOG({ size, radius }: BrandMarkOGProps) {
+export function BrandMarkOG({ size, radius, glyph = '#ffffff', background = BRAND_TEAL }: BrandMarkOGProps) {
   const radiusRatio = ((radius ?? size * 0.28) / size) * 100;
-  const svg = eMarkSvg({ glyph: '#ffffff', background: BRAND_TEAL, radius: radiusRatio });
+  const svg = eMarkSvg({ glyph, background, radius: radiusRatio });
 
   return (
     <img

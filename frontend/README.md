@@ -43,6 +43,11 @@ geometriyani tekshirish uchun `scripts/landing-v2-viewport-check.mjs` faylidagi
 `verifyLandingViewport(page)` funksiyasiga Playwright page yoki in-app browser
 Playwright adapteri beriladi; u sig‘ish va kamida 44px tugma balandligini tekshiradi.
 
+Havola preview rasmi (`/opengraph-image`, `/twitter-image`) ham shu landing uslubida:
+`src/app/opengraph-image.tsx` build vaqtida statik PNG chiqaradi. Shrift va poster
+`src/assets/og/` dan o‘qiladi; ularning kelib chiqishi va qayta yaratish buyrug‘i
+`public/landing-v2/README.md` da. Hero matni yoki rasm o‘zgarsa shu faylni ham yangilang.
+
 Local preview uchun `ochq 127.0.0.1:3001 --sub efbazaar` ishlatiladi.
 `next.config.mjs` faqat `efbazaar.ochq.uz` tunnel hostini `allowedDevOrigins`
 orqali ruxsatlaydi; bu Next.js development WebSocket va interaktiv boshqaruvlarning

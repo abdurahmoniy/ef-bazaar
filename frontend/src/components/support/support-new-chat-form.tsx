@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Send, HelpCircle, Handshake, Wrench } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { ArrowUp, HelpCircle, Handshake, Wrench } from 'lucide-react';
 import {
   type SupportCategory,
   type SupportChat,
@@ -20,11 +18,26 @@ interface SupportNewChatFormProps {
   onChatCreated: (chat: SupportChat) => void;
 }
 
-const CATEGORY_ICONS: Record<SupportCategory, React.ElementType> = {
-  SUPPORT: Wrench,
-  PARTNERSHIP: Handshake,
-  QUESTION: HelpCircle,
+const CATEGORY_OPTIONS: Record<SupportCategory, { short: string; icon: React.ElementType; placeholder: string }> = {
+  SUPPORT: {
+    short: 'Yordam',
+    icon: Wrench,
+    placeholder: 'Muammoni qisqacha yozing…',
+  },
+  PARTNERSHIP: {
+    short: 'Hamkorlik',
+    icon: Handshake,
+    placeholder: 'Hamkorlik taklifingizni yozing…',
+  },
+  QUESTION: {
+    short: 'Savol',
+    icon: HelpCircle,
+    placeholder: 'Savolingizni yozing…',
+  },
 };
+
+const inputClass =
+  'h-9 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30';
 
 export function SupportNewChatForm({
   user,
@@ -41,9 +54,10 @@ export function SupportNewChatForm({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim()) return;
+  const canSend = !isPending && message.trim().length > 0;
+
+  const submit = () => {
+    if (!message.trim() || isPending) return;
     if (!user && !senderName.trim()) {
       setError('Iltimos, ismingizni kiriting');
       return;
@@ -66,104 +80,100 @@ export function SupportNewChatForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Category selector */}
-      <div>
-        <label className="block text-xs font-bold uppercase text-muted-foreground mb-2">
-          Murojaat yo‘nalishi
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {(Object.keys(SUPPORT_CATEGORIES) as SupportCategory[]).map((cat) => {
-            const Icon = CATEGORY_ICONS[cat];
-            const def = SUPPORT_CATEGORIES[cat];
-            const selected = category === cat;
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+      className="space-y-3"
+    >
+      <p className="text-[15px] font-semibold text-foreground">Qanday yordam bera olamiz?</p>
 
-            return (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setCategory(cat)}
-                className={cn(
-                  'flex items-center gap-2.5 p-3 rounded-xl border text-left transition text-xs sm:text-sm',
-                  selected
-                    ? 'border-primary bg-primary/10 text-primary font-bold shadow-sm ring-1 ring-primary/30'
-                    : 'border-border bg-card/60 hover:bg-muted text-foreground'
-                )}
-              >
-                <Icon className={cn('h-4 w-4 shrink-0', selected ? 'text-primary' : 'text-muted-foreground')} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate">{def.label}</div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Guest info if not authenticated */}
       {!user && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <div>
-            <label className="block text-xs font-bold text-muted-foreground mb-1">
-              Ismingiz <span className="text-destructive">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={senderName}
-              onChange={(e) => setSenderName(e.target.value)}
-              placeholder="Masalan: Alisher"
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-muted-foreground mb-1">
-              Telegram yoki telefon <span className="text-muted-foreground/70 font-normal">(ixtiyoriy)</span>
-            </label>
-            <input
-              type="text"
-              value={senderContact}
-              onChange={(e) => setSenderContact(e.target.value)}
-              placeholder="@username yoki +998..."
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
-          </div>
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            type="text"
+            aria-label="Ismingiz"
+            value={senderName}
+            onChange={(e) => setSenderName(e.target.value)}
+            placeholder="Ismingiz"
+            className={inputClass}
+          />
+          <input
+            type="text"
+            aria-label="Telegram yoki telefon (ixtiyoriy)"
+            value={senderContact}
+            onChange={(e) => setSenderContact(e.target.value)}
+            placeholder="@username yoki tel."
+            className={inputClass}
+          />
         </div>
       )}
 
-      {/* Message content */}
-      <div>
-        <label className="block text-xs font-bold text-muted-foreground mb-1">
-          Xabaringiz <span className="text-destructive">*</span>
-        </label>
-        <Textarea
-          rows={4}
-          required
+      {/* Composer: message + category + send in one box */}
+      <div className="rounded-2xl border border-border bg-background shadow-sm transition focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15">
+        <textarea
+          rows={3}
+          aria-label="Xabaringiz"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder={
-            category === 'PARTNERSHIP'
-              ? 'Assalomu alaykum, kanalimiz bilan hamkorlik qilmoqchi edik...'
-              : category === 'QUESTION'
-              ? 'Savolingizni bu yerga yozing...'
-              : 'Qanday muammoga duch keldingiz? Batafsil yozing...'
-          }
-          className="resize-none"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          placeholder={CATEGORY_OPTIONS[category].placeholder}
+          className="block max-h-48 min-h-[76px] w-full resize-none bg-transparent px-3.5 pt-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none [field-sizing:content]"
         />
-      </div>
 
-      {error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs font-medium text-destructive">
-          {error}
+        <div className="flex items-center justify-between gap-2 px-2 pb-2">
+          <div role="radiogroup" aria-label="Murojaat yo‘nalishi" className="flex min-w-0 flex-wrap gap-1">
+            {(Object.keys(SUPPORT_CATEGORIES) as SupportCategory[]).map((cat) => {
+              const { short, icon: Icon } = CATEGORY_OPTIONS[cat];
+              const selected = category === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  title={SUPPORT_CATEGORIES[cat].description}
+                  onClick={() => setCategory(cat)}
+                  className={cn(
+                    'inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-xs font-medium transition',
+                    selected
+                      ? 'border-primary/40 bg-primary/10 text-primary'
+                      : 'border-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {short}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="submit"
+            disabled={!canSend}
+            aria-label={isPending ? 'Yuborilmoqda' : 'Yuborish'}
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+          >
+            <ArrowUp className={cn('h-4 w-4', isPending && 'animate-pulse')} />
+          </button>
         </div>
-      )}
-
-      <div className="flex items-center justify-end pt-2">
-        <Button type="submit" disabled={isPending || !message.trim()} className="gap-1.5 shrink-0">
-          <Send className="h-4 w-4" />
-          {isPending ? 'Yuborilmoqda...' : 'Yuborish'}
-        </Button>
       </div>
+
+      {error ? (
+        <p role="alert" className="text-xs font-medium text-destructive">
+          {error}
+        </p>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">
+          Enter — yuborish, Shift+Enter — yangi qator
+        </p>
+      )}
     </form>
   );
 }

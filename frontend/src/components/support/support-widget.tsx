@@ -60,6 +60,8 @@ export function SupportWidget({ user }: SupportWidgetProps) {
     };
   }, []);
 
+  const showChat = !isLoading && activeChat !== null && !isCreatingNew;
+
   const handleOpenWidget = async () => {
     setIsOpen(true);
     setHasUnreadReply(false);
@@ -99,48 +101,55 @@ export function SupportWidget({ user }: SupportWidgetProps) {
 
       {/* Floating Chat Modal / Panel */}
       {isOpen && (
-        <div data-interruption-open="support" className="fixed inset-0 z-50 flex items-end sm:items-end justify-center sm:justify-end p-0 sm:p-6 bg-black/40 sm:bg-transparent backdrop-blur-sm sm:backdrop-blur-none pointer-events-auto">
+        <div
+          data-interruption-open="support"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsOpen(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setIsOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-end justify-center sm:justify-end p-0 sm:p-6 bg-black/40 sm:bg-transparent pointer-events-auto"
+        >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Qo‘llab-quvvatlash"
             className={cn(
-              'w-full sm:max-w-md bg-card border border-border sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col',
-              'h-[85vh] sm:h-[620px] max-h-[90vh] rounded-t-3xl animate-in fade-in slide-in-from-bottom-5 duration-200'
+              'w-full sm:w-[380px] bg-card border border-border shadow-2xl overflow-hidden flex flex-col',
+              'rounded-t-2xl sm:rounded-2xl max-h-[85vh] animate-in fade-in slide-in-from-bottom-3 duration-150',
+              showChat ? 'h-[80vh] sm:h-[540px]' : 'h-auto'
             )}
           >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-gradient-to-r from-card to-muted/40 shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary">
-                  <Headphones className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-black text-foreground sm:text-base leading-tight">
-                    efBazaar Qo‘llab-quvvatlash
-                  </h2>
-                  <p className="text-[11px] text-muted-foreground">
-                    Yordam, hamkorlik va savollar
-                  </p>
-                </div>
+            {/* Header */}
+            <div className="flex h-11 items-center justify-between pl-4 pr-1.5 border-b border-border/70 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <Headphones className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                <h2 className="truncate text-sm font-semibold text-foreground">
+                  Qo‘llab-quvvatlash
+                </h2>
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
                 aria-label="Yopish"
-                className="grid h-8 w-8 place-items-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+            {/* Body */}
+            <div className={cn('p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-4', showChat ? 'flex-1 min-h-0 flex flex-col' : 'overflow-y-auto')}>
               {isLoading ? (
-                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                <div className="py-10 text-center text-xs text-muted-foreground">
                   Yuklanmoqda...
                 </div>
-              ) : activeChat && !isCreatingNew ? (
+              ) : showChat ? (
                 <SupportChatView
-                  initialChat={activeChat}
+                  initialChat={activeChat!}
+                  className="flex-1 min-h-0"
                   onNewChatClick={() => setIsCreatingNew(true)}
                 />
               ) : (
