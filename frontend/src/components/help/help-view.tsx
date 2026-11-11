@@ -22,6 +22,7 @@ import {
 
 import {
   HELP_CATEGORIES,
+  HELP_ITEMS,
   searchHelpItems,
   type HelpCategory,
   type HelpItem,
@@ -62,6 +63,29 @@ export function HelpView({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(
     () => new Set(['how-escrow-works', 'scam-prevention-rules']),
   );
+
+  // Savdo paneli va kanal postlari /help#<id> ga havola beradi: maqola
+  // yopiq qolsa, odam sahifa boshida nima uchun kelganini topa olmaydi.
+  useEffect(() => {
+    function openFromHash() {
+      let id: string;
+      try {
+        id = decodeURIComponent(window.location.hash.slice(1));
+      } catch {
+        return; // buzilgan hash sahifani yiqitmasin
+      }
+      if (!HELP_ITEMS.some((item) => item.id === id)) return;
+      setSelectedCategory('all');
+      setSearchQuery('');
+      setExpandedIds((prev) => new Set(prev).add(id));
+      window.requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ block: 'start' });
+      });
+    }
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+    return () => window.removeEventListener('hashchange', openFromHash);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,7 +170,7 @@ export function HelpView({
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-xs font-black text-primary">
               <Sparkles className="h-3.5 w-3.5" />
-              Yordam markazi & Qo‘llanmalar
+              Yordam markazi
             </span>
             {guides.length > 0 && (
               <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-1 text-[11px] font-bold text-success">
@@ -160,7 +184,7 @@ export function HelpView({
             Sizga qanday yordam bera olamiz?
           </h1>
           <p className="mt-2 text-sm text-muted-foreground sm:text-base leading-relaxed">
-            eFootball akkountlarini xavfsiz sotib olish, sotish, obmen qilish, Garov (Escrow) tizimi va boshqa barcha imkoniyatlar bo‘yicha to‘liq video va matnli qo‘llanmalar.
+            eFootball akkountlarini garov orqali sotish, sotib olish va almashish bo‘yicha video va yozma qo‘llanmalar.
           </p>
 
           {/* Search Box */}
@@ -170,7 +194,7 @@ export function HelpView({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Mavzu yoki video bo‘yicha qidirish (Garov, Obmen, Konami ID, Tangalar)..."
+              placeholder="Qidirish: garov, almashish, Konami ID, tangalar…"
               className="h-12 w-full rounded-2xl border border-input bg-background/90 pl-10 pr-10 text-sm font-medium text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 shadow-sm transition"
             />
             {searchQuery && (
@@ -247,7 +271,7 @@ export function HelpView({
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Barcha bosqichlar bo‘yicha qisqa va tushunarli video darsliklar
+            Har bir qadam bo‘yicha qisqa video qo‘llanmalar
           </p>
         </div>
 
@@ -257,10 +281,10 @@ export function HelpView({
             <p className="mt-2 text-sm font-bold text-foreground">
               {searchQuery
                 ? `"${searchQuery}" bo‘yicha video topilmadi`
-                : 'Ushbu bo‘lim bo‘yicha video qo‘llanmalar tez kunda qo‘shiladi'}
+                : 'Bu bo‘limda hozircha video qo‘llanma yo‘q'}
             </p>
             <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">
-              Quyidagi yozma qo‘llanmalar orqali barcha kerakli ma‘lumotlar bilan to‘liq tanishishingiz mumkin.
+              Kerakli ma‘lumotni quyidagi yozma qo‘llanmalardan topasiz.
             </p>
           </div>
         ) : (
@@ -318,7 +342,7 @@ export function HelpView({
             <HelpCircle className="mx-auto h-10 w-10 text-muted-foreground/60" />
             <h3 className="mt-3 text-base font-black text-foreground">Hech narsa topilmadi</h3>
             <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">
-              &quot;{searchQuery}&quot; bo‘yicha ma‘lumot topilmadi. Qidiruv so‘zini o‘zgartiring yoki barcha toifalarni ko‘ring.
+              &quot;{searchQuery}&quot; bo‘yicha hech narsa topilmadi. Boshqa so‘z bilan qidiring yoki barcha bo‘limlarni ko‘ring.
             </p>
             <button
               type="button"
@@ -353,10 +377,10 @@ export function HelpView({
               Savolingizga javob topmadingizmi?
             </span>
             <h3 className="mt-2 text-lg font-black text-foreground sm:text-xl">
-              Administrator bilan bevosita bog‘laning
+              Qo‘llab-quvvatlashga yozing
             </h3>
             <p className="mt-1 text-xs text-muted-foreground sm:text-sm leading-relaxed">
-              Savollaringiz, takliflaringiz yoki xavfsizlik yuzasidan murojaatlaringiz bo‘lsa, rasmiy Telegram va Instagram sahifalarimiz hamda qo‘llab-quvvatlash tizimimiz 24/7 xizmatingizda.
+              Savol, taklif yoki shikoyatingiz bo‘lsa, qo‘llab-quvvatlash chatiga yozing yoki rasmiy Telegram va Instagram sahifalarimizga murojaat qiling.
             </p>
           </div>
 
@@ -424,7 +448,8 @@ function HelpAccordionCard({
     <article
       id={item.id}
       className={cn(
-        'group rounded-2xl border transition-all duration-200',
+        // Yopishqoq header /help#<id> dan kelgan maqola sarlavhasini yopmasin.
+        'group scroll-mt-24 rounded-2xl border transition-all duration-200',
         expanded
           ? 'border-primary/40 bg-card shadow-sm ring-1 ring-primary/20'
           : 'border-border bg-card/60 hover:border-border/80 hover:bg-card',

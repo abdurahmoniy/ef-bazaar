@@ -37,7 +37,7 @@ Login oldidan access-service'dan kirish shartlari (kanal a'zoligi) so'raladi —
 
 | Guruh | Endpointlar |
 |---|---|
-| Foydalanuvchi | `GET /api/v1/users/me`, `DELETE /api/v1/users/me`, `GET /api/v1/users/me/access`, `GET /api/v1/users/{id}/photo`, `GET /api/v1/users/me/photo` |
+| Foydalanuvchi | `GET /api/v1/users/me`, `DELETE /api/v1/users/me`, `GET /api/v1/users/me/access`, `POST /api/v1/users/me/terms`, `GET /api/v1/users/{id}/photo`, `GET /api/v1/users/me/photo` |
 | Trade-admin arizasi | `POST /api/v1/trade-admin-applications`, `GET .../me` |
 | Admin | `GET /api/v1/admin/users`, `GET .../by-ids`, `GET .../signups?days=30` (kunlik ro'yxatdan o'tishlar, Toshkent kuni; bo'sh kunlar nol), `PUT .../{id}/role`, `DELETE .../{id}`; `GET /api/v1/admin/trade-admin-applications`, `POST .../{id}/approve`, `.../reject` |
 | Ichki (`X-Internal-Secret`) | `/internal/auth/v1/users/`: `admins`, `by-telegram-id/{telegramId}`, `telegram-ids`, `names/batch`, `summary/batch` |
@@ -63,6 +63,12 @@ Tinglaydi: `bot.user-photo-set`, `marketplace.partner-approved` / `partner-cance
 `JWT_SECRET` (faqat shu servisda), `JWT_ACCESS_TOKEN_TTL_MINUTES`, `JWT_REFRESH_TOKEN_TTL_DAYS`,
 `TELEGRAM_BOT_TOKEN` (initData va Login Widget imzosi uchun), `GOOGLE_CLIENT_ID`,
 `RATE_LIMIT_*`, `ACCESS_INTERNAL_BASE_URL`, `INTERNAL_API_SECRET`, Postgres/Redis/Kafka.
+
+**Oferta roziligi.** `POST /api/v1/users/me/terms` `{ "version": "YYYY-MM-DD" }` foydalanuvchi
+rozi bo'lgan oferta va maxfiylik siyosati versiyasini `users.terms_version` va `terms_accepted_at`
+ga yozadi (V10). Shu versiyaga takroriy rozilik birinchi vaqtni o'zgartirmaydi. `/me` javobida
+`termsVersion` qaytadi. Joriy versiyani frontend (`lib/legal.ts` `TERMS_VERSION`) belgilaydi va
+farq qilsa rozilikni qayta so'raydi.
 
 ## Ehtiyot bo'l
 

@@ -26,6 +26,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'hourly',
       priority: 0.9,
     },
+    ...['/oferta', '/maxfiylik'].map((path) => ({
+      url: absoluteUrl(path),
+      lastModified: now,
+      changeFrequency: 'yearly' as const,
+      priority: 0.2,
+    })),
     {
       url: absoluteUrl('/auth/login'),
       lastModified: now,

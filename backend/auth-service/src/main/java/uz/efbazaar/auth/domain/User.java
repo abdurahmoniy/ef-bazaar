@@ -70,6 +70,15 @@ public class User {
     @Column(length = 255)
     private String email;
 
+    // ----- Oferta va maxfiylik siyosatiga rozilik -----
+
+    /** Rozi bo'lingan hujjatlar versiyasi; {@code null} — hali rozi bo'lmagan. */
+    @Column(name = "terms_version", length = 32)
+    private String termsVersion;
+
+    @Column(name = "terms_accepted_at")
+    private Instant termsAcceptedAt;
+
     // ----- Role + timestamps -----
 
     @Enumerated(EnumType.STRING)

@@ -80,3 +80,5 @@
   .loginPanel { padding: 20px; }
   .panelHelp a { display: flex; width: fit-content; }
 }
+.consent { color: hsl(var(--muted-foreground)); font-size: .8125rem; line-height: 1.5; text-align: center; }
+.consent a { color: hsl(var(--primary-text)); text-underline-offset: 3px; font-weight: 600; text-decoration: underline; }

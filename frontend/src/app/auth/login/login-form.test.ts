@@ -101,3 +101,12 @@ describe('login provider states', () => {
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('Google orqali kirib bo‘lmadi');
   });
 });
+
+describe('login consent', () => {
+  it('tells the user that signing in means agreeing to the oferta and privacy policy', async () => {
+    await render();
+    const hrefs = [...container.querySelectorAll('a')].map((a) => a.getAttribute('href'));
+    expect(hrefs).toEqual(expect.arrayContaining(['/oferta', '/maxfiylik']));
+    expect(container.textContent).toMatch(/rozilik bildirasiz/);
+  });
+});

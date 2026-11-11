@@ -10,16 +10,16 @@ import { absoluteUrl, siteConfig } from '@/lib/site';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Yordam va Qo‘llanma',
+  title: 'Yordam markazi',
   description:
-    'efBazaar yordam markazi — eFootball akkountlarini xavfsiz sotib olish, sotish, obmen qilish, Garov (Escrow) tizimi, tangalar va firibgarlardan himoyalanish qo‘llanmasi.',
+    'efBazaar yordam markazi: eFootball akkountlarini garov orqali xavfsiz sotish, sotib olish va almashish, hamyon, nizo qoidalari va firibgarlardan himoyalanish bo‘yicha qo‘llanmalar.',
   alternates: {
     canonical: '/help',
   },
   openGraph: {
-    title: 'Yordam va Qo‘llanma | efBazaar',
+    title: 'Yordam markazi | efBazaar',
     description:
-      'eFootball akkountlarini xavfsiz sotib olish, sotish, obmen qilish va Garov (Escrow) tizimi bo‘yicha qo‘llanma.',
+      'eFootball akkountlarini garov orqali xavfsiz sotish, sotib olish va almashish bo‘yicha qo‘llanmalar.',
     url: '/help',
     siteName: siteConfig.name,
     type: 'website',
@@ -33,9 +33,9 @@ const structuredData = {
       '@type': 'WebPage',
       '@id': `${siteConfig.url}/help/#webpage`,
       url: `${siteConfig.url}/help`,
-      name: 'Yordam va Qo‘llanma | efBazaar',
+      name: 'Yordam markazi | efBazaar',
       description:
-        'eFootball akkountlarini xavfsiz sotib olish, sotish, obmen qilish va Garov (Escrow) tizimi bo‘yicha qo‘llanma.',
+        'eFootball akkountlarini garov orqali xavfsiz sotish, sotib olish va almashish bo‘yicha qo‘llanmalar.',
     },
     {
       '@type': 'FAQPage',
