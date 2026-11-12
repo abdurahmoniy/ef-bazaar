@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * What has moved on the platform's cards. Admin only: these are the platform's
- * own accounts, and the rows name no user.
+ * own accounts, and a credit names the user whose wallet it went to.
  */
 @RestController
 @RequestMapping("/api/v1/admin/payments/cards/history")

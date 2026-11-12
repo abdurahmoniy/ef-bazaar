@@ -1,7 +1,7 @@
 'use client';
 
-import { ArrowDownLeft, ArrowUpRight, Clock } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowDownLeft, ArrowUpRight, Clock, User } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import {
   cardsInHistory,
@@ -14,6 +14,7 @@ import { formatTiyin } from '@/lib/money';
 import { MONEY_COLORS } from '@/lib/payment-analytics';
 import { listCardHistory } from '@/lib/payment-admin-client';
 import type { CardMovement } from '@/lib/payment-types';
+import { fetchUsersByIds, userHint, userLabel, type FoundUser } from '@/lib/user-search';
 import { cn } from '@/lib/utils';
 
 /** The same two colours the finance panel uses: money in, money out. */
@@ -61,6 +62,7 @@ export function CardHistory({ initialMovements, now }: CardHistoryProps) {
   // the other cards' chips disappear, which would leave no way back.
   const [cards] = useState(() => cardsInHistory(initialMovements));
   const days = groupByDay(movements, now);
+  const owners = useOwners(movements);
 
   async function select(last4: string | null) {
     setSelected(last4);
@@ -114,7 +116,7 @@ export function CardHistory({ initialMovements, now }: CardHistoryProps) {
       ) : (
         <div className={cn('mt-4 space-y-6', busy && 'opacity-60')}>
           {days.map((day) => (
-            <DayGroup key={day.key} day={day} days={days} />
+            <DayGroup key={day.key} day={day} days={days} owners={owners} />
           ))}
 
           <p className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border p-3 text-xs text-muted-foreground">
@@ -159,9 +161,11 @@ function FilterChip({
 function DayGroup({
   day,
   days,
+  owners,
 }: {
   day: ReturnType<typeof groupByDay>[number];
   days: ReturnType<typeof groupByDay>;
+  owners: Owners;
 }) {
   const { inPercent, outPercent } = dayBarWidths(day, days);
 
@@ -196,14 +200,14 @@ function DayGroup({
 
       <ul className="mt-3 space-y-2">
         {day.movements.map((movement) => (
-          <MovementRow key={movement.id} movement={movement} />
+          <MovementRow key={movement.id} movement={movement} owners={owners} />
         ))}
       </ul>
     </div>
   );
 }
 
-function MovementRow({ movement }: { movement: CardMovement }) {
+function MovementRow({ movement, owners }: { movement: CardMovement; owners: Owners }) {
   const outgoing = movement.direction === 'OUT';
   const detail = movementDetail(movement);
   const badge = movementBadge(movement);
@@ -235,6 +239,7 @@ function MovementRow({ movement }: { movement: CardMovement }) {
 
       <div className="min-w-0 flex-1">
         {detail && <p className="truncate text-sm text-muted-foreground">{detail}</p>}
+        {movement.ownerUserId && <OwnerLine id={movement.ownerUserId} owners={owners} />}
         {badge && (
           <span className="mt-1 inline-block rounded-full border border-border bg-muted px-2 py-0.5 text-[0.7rem] font-bold text-muted-foreground">
             {badge}
@@ -253,6 +258,72 @@ function MovementRow({ movement }: { movement: CardMovement }) {
         )}
       </div>
     </li>
+  );
+}
+
+/**
+ * Owners resolved so far, by user id. `null` means auth-service answered and
+ * the user is not there any more; a missing key means not known yet (still
+ * loading, or the lookup failed) — the row then shows nothing rather than a
+ * wrong "deleted".
+ */
+type Owners = ReadonlyMap<string, FoundUser | null>;
+
+/**
+ * Names for the owners on screen. payment-service only stores the user id, so
+ * the join happens here against auth-service, once per id: switching card
+ * filters asks only for the ids not seen before.
+ */
+function useOwners(movements: CardMovement[]): Owners {
+  const [owners, setOwners] = useState<Owners>(new Map());
+
+  useEffect(() => {
+    const missing = [
+      ...new Set(movements.map((m) => m.ownerUserId).filter((id): id is string => !!id)),
+    ].filter((id) => !owners.has(id));
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    fetchUsersByIds(missing)
+      .then((users) => {
+        if (cancelled) return;
+        setOwners((prev) => {
+          const next = new Map(prev);
+          for (const id of missing) next.set(id, null);
+          for (const user of users) next.set(user.id, user);
+          return next;
+        });
+      })
+      .catch(() => {
+        // Names are a convenience on top of the bank's record; the list stays.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // `owners` is read only to skip known ids; re-running on it would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movements]);
+
+  return owners;
+}
+
+function OwnerLine({ id, owners }: { id: string; owners: Owners }) {
+  if (!owners.has(id)) return null;
+  const user = owners.get(id);
+
+  return (
+    <p
+      className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-foreground"
+      title={user ? userHint(user) : id}
+    >
+      <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <span className="sr-only">Egasi: </span>
+      {user ? (
+        <span className="truncate font-semibold">{userLabel(user)}</span>
+      ) : (
+        <span className="truncate italic text-muted-foreground">o&apos;chirilgan foydalanuvchi</span>
+      )}
+    </p>
   );
 }
 

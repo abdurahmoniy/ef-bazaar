@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { AlertCircle, Loader2, RefreshCw, Send } from 'lucide-react';
 
 import { TelegramLogin } from '@/components/auth/telegram-login';
 import { TelegramSwitchHint } from '@/components/auth/telegram-switch-hint';
@@ -20,9 +20,30 @@ interface LoginFormProps {
   /** Login'dan keyin qaytish manzili (`?from=` dan) — server action tekshiradi. */
   from?: string;
   initialError?: string | null;
+  /** Botga havola (`t.me/<bot>`, kampaniya/referal yuki bilan) — Mini App avtomatik kiradi. */
+  telegramAppHref: string;
+  /** Telefon yoki ilova ichidagi brauzer — Telegram ilovasi widget'dan oldin taklif qilinadi. */
+  preferTelegramApp?: boolean;
 }
 
-export function LoginForm({ botUsername, googleClientId, from, initialError = null }: LoginFormProps) {
+/**
+ * Login Widget o'rniga Telegram ilovasi: bot ochiladi, Mini App esa
+ * initData bilan avtomatik kiradi — telefon raqami va tasdiq kerak emas.
+ */
+function TelegramAppEntry({ href, primary }: { href: string; primary: boolean }) {
+  return (
+    <div className={styles.appEntry}>
+      <a href={href} className={primary ? styles.appEntryPrimary : styles.appEntryLink}>
+        <Send aria-hidden="true" />Telegram ilovasida ochish
+      </a>
+      {primary && <p className={styles.appEntryNote}>Bir bosishda kirasiz — telefon raqam so‘ralmaydi.</p>}
+    </div>
+  );
+}
+
+export function LoginForm({
+  botUsername, googleClientId, from, initialError = null, telegramAppHref, preferTelegramApp = false,
+}: LoginFormProps) {
   const [error, setError] = React.useState<string | null>(initialError);
   const [pending, setPending] = React.useState(false);
   const [renderIssue, setRenderIssue] = React.useState(false);
@@ -58,8 +79,10 @@ export function LoginForm({ botUsername, googleClientId, from, initialError = nu
         </div>
       )}
 
+      {preferTelegramApp && <TelegramAppEntry href={telegramAppHref} primary />}
+
       <div className={styles.telegram} inert={pending} aria-busy={pending}>
-        <p className={styles.providerLabel}>Telegram bilan kirish</p>
+        <p className={styles.providerLabel}>{preferTelegramApp ? 'Yoki shu brauzerda kirish' : 'Telegram bilan kirish'}</p>
         {renderIssue ? (
           <div className={styles.providerIssue} role="status">
             <p className={styles.issueTitle}>Telegram yuklanmadi</p>
@@ -83,6 +106,7 @@ export function LoginForm({ botUsername, googleClientId, from, initialError = nu
             />
           </div>
         )}
+        {!preferTelegramApp && <TelegramAppEntry href={telegramAppHref} primary={false} />}
       </div>
 
       {googleClientId && (
