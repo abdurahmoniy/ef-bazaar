@@ -136,8 +136,27 @@ public class UpdateHandler {
             // tizim haqida hech narsa oshkor qilmaydi.
             telegram.sendMessage(String.valueOf(chatId), null,
                     premiumEmoji.describe(message));
+        } else if ("private".equals(message.path("chat").path("type").asText(""))) {
+            // Yangi odam ko'pincha "salom" yoki savol yozadi. Jim qolsak bot
+            // "ishlamayapti" bo'lib ko'rinadi — shuning uchun qisqa yo'l-yo'riq
+            // va Mini App tugmalari (shartlar bajarilmagan bo'lsa obuna xabari).
+            sendFreeTextHint(chatId, message.path("from").path("id").asLong());
         }
-        // Boshqa xabarlar: ignore
+        // Guruh va kanallardagi boshqa xabarlar: ignore
+    }
+
+    static final String FREE_TEXT_HINT = "👋 Men xabarlarga javob bermayman — efBazaar pastdagi tugmalar "
+            + "orqali Telegram ichida ochiladi.\n\n"
+            + "🛒 Akkount qidirish yoki 📋 e'lon joylash uchun tugmani bosing. "
+            + "Savol bo'lsa — «❓ Yordam».";
+
+    private void sendFreeTextHint(long chatId, long userId) {
+        List<AccessCheckClient.Requirement> unmet = access.unmet(userId);
+        if (!unmet.isEmpty()) {
+            sendAccessGate(chatId, unmet, null);
+            return;
+        }
+        telegram.sendMessageWithKeyboard(String.valueOf(chatId), FREE_TEXT_HINT, startKeyboard());
     }
 
     /**

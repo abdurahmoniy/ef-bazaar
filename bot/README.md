@@ -13,6 +13,13 @@ marketplace'ga yozadi (bot sozlamalari, qo'llanmalar, pending referal, kampaniya
 | Public yo'l | `/bot/**` — webhook va media proxy. `/bot/internal/**` tashqaridan 404 |
 | Rejim | `TELEGRAM_WEBHOOK_URL` berilsa webhook, bo'lmasa long-polling (har 2 s) — `TelegramBootstrap` |
 
+## /start va shaxsiy xabarlar
+
+`/start` (yuklari: `ref_<kod>`, `c_<kod>`, `guide_<uuid>`) — kirish shartlari bajarilmagan bo'lsa obuna xabari,
+aks holda salomlashish va Mini App tugmalari. Shaxsiy chatdagi boshqa xabar (matn, stiker, savol) jim
+qolmaydi: qisqa yo'l-yo'riq va o'sha Mini App tugmalari (shartlar bajarilmagan bo'lsa obuna xabari).
+Guruh va kanallardagi xabarlar e'tiborsiz qoladi.
+
 ## Media
 
 Rasm, video va fayllar Telegram guruhining media topigiga yuklanadi; boshqa servislar

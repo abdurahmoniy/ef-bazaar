@@ -64,3 +64,22 @@ export async function searchUsers(
   const page = await response.json();
   return (page?.content ?? []) as FoundUser[];
 }
+
+/**
+ * Platforma UUID'larini foydalanuvchiga aylantiradi (auth-service `by-ids`).
+ * Topilmagan id javobda bo'lmaydi — foydalanuvchi o'chirilgan.
+ */
+export async function fetchUsersByIds(ids: string[]): Promise<FoundUser[]> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return [];
+
+  const params = new URLSearchParams({ ids: unique.join(',') });
+  const response = await fetch(`/api/auth/v1/admin/users/by-ids?${params.toString()}`, {
+    headers: { Accept: 'application/json' },
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error(`Foydalanuvchilarni olib bo'lmadi (${response.status})`);
+  }
+  return (await response.json()) as FoundUser[];
+}

@@ -4,6 +4,7 @@ import Link, { useLinkStatus } from 'next/link';
 import { Gamepad2, Home, MessageCircle, Plus, UserRound } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 
+import { LoginLink } from '@/components/auth/login-link';
 import { ChatsUnreadBadge } from '@/components/chat/chats-unread-badge';
 import { MeasuredBottomBar } from '@/components/marketplace/measured-bottom-bar';
 import { LinkPendingIndicator } from '@/components/navigation/link-pending-indicator';
@@ -18,6 +19,8 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   primary?: boolean;
+  /** Signed-out login entry: rendered with the current page as `from`. */
+  login?: boolean;
 }
 
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
@@ -36,7 +39,7 @@ function buildNavItems(user: User | null, sessionPending = false): NavItem[] {
       label: 'Chatlar',
       icon: <span className="relative"><MessageCircle className="h-5 w-5" />{user && <ChatsUnreadBadge viewerId={user.id} />}</span>,
     },
-    { id: 'profile', href: user || sessionPending ? '/profile' : '/auth/login', label: user || sessionPending ? 'Profil' : 'Kirish', icon: <UserRound className="h-5 w-5" /> },
+    { id: 'profile', href: user || sessionPending ? '/profile' : '/auth/login', label: user || sessionPending ? 'Profil' : 'Kirish', icon: <UserRound className="h-5 w-5" />, login: !user && !sessionPending },
   ];
 }
 
@@ -93,20 +96,27 @@ export function MobileBottomNav({
               <span className="h-8 w-14 max-w-full rounded-full bg-info-soft" />
             </span>
           )}
-          {items.map((item) => (
-            <Link
-              key={item.id}
-              href={item.href}
-              prefetch={false}
-              aria-current={item.id === activeTab ? 'page' : undefined}
-              className={cn(
-                'relative flex h-16 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl text-[10.5px] font-semibold leading-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-safe:active:scale-95',
-                item.id === activeTab || item.primary ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <TabContent item={item} />
-            </Link>
-          ))}
+          {items.map((item) => {
+            const className = cn(
+              'relative flex h-16 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl text-[10.5px] font-semibold leading-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring motion-safe:active:scale-95',
+              item.id === activeTab || item.primary ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+            );
+            // Signed-out "Kirish" returns the visitor to the current page after login.
+            if (item.login) {
+              return <LoginLink key={item.id} className={className}><TabContent item={item} /></LoginLink>;
+            }
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                prefetch={false}
+                aria-current={item.id === activeTab ? 'page' : undefined}
+                className={className}
+              >
+                <TabContent item={item} />
+              </Link>
+            );
+          })}
         </div>
       </div>
     </MeasuredBottomBar>

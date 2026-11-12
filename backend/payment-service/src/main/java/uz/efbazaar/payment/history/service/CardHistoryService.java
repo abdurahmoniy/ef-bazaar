@@ -6,11 +6,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uz.efbazaar.payment.debit.repository.CardDebitObservationRepository;
 import uz.efbazaar.payment.history.dto.CardMovementResponse;
+import uz.efbazaar.payment.invoice.domain.Invoice;
+import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
+import uz.efbazaar.payment.observation.domain.CardCreditObservation;
 import uz.efbazaar.payment.observation.repository.CardCreditObservationRepository;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * The card movement history: credits and debits, newest first.
@@ -34,6 +41,7 @@ public class CardHistoryService {
 
     private final CardCreditObservationRepository credits;
     private final CardDebitObservationRepository debits;
+    private final InvoiceRepository invoices;
 
     /**
      * @param last4 narrows to one card, or null for every card
@@ -47,18 +55,20 @@ public class CardHistoryService {
         // must still fill the page. The merge below then trims.
         var page = PageRequest.of(0, capped);
 
+        boolean allCards = last4 == null || last4.isBlank();
+        List<CardCreditObservation> creditPage = allCards
+                ? credits.findAllByOrderByObservedAtDesc(page)
+                : credits.findByCardLast4OrderByObservedAtDesc(last4, page);
+        Map<UUID, UUID> invoiceOwners = invoiceOwners(creditPage);
+
         List<CardMovementResponse> merged = new ArrayList<>();
-        if (last4 == null || last4.isBlank()) {
-            credits.findAllByOrderByObservedAtDesc(page)
-                    .forEach(c -> merged.add(CardMovementResponse.of(c)));
-            debits.findAllByOrderByObservedAtDesc(page)
-                    .forEach(d -> merged.add(CardMovementResponse.of(d)));
-        } else {
-            credits.findByCardLast4OrderByObservedAtDesc(last4, page)
-                    .forEach(c -> merged.add(CardMovementResponse.of(c)));
-            debits.findByCardLast4OrderByObservedAtDesc(last4, page)
-                    .forEach(d -> merged.add(CardMovementResponse.of(d)));
-        }
+        creditPage.forEach(c -> merged.add(
+                CardMovementResponse.of(c, c.getInvoiceId() == null
+                        ? null : invoiceOwners.get(c.getInvoiceId()))));
+        (allCards
+                ? debits.findAllByOrderByObservedAtDesc(page)
+                : debits.findByCardLast4OrderByObservedAtDesc(last4, page))
+                .forEach(d -> merged.add(CardMovementResponse.of(d)));
 
         // Two notices can share a second, so the id breaks the tie. Without it
         // the order is whatever the two lists happened to be concatenated in,
@@ -67,5 +77,20 @@ public class CardHistoryService {
                 .comparing(CardMovementResponse::observedAt).reversed()
                 .thenComparing(CardMovementResponse::id));
         return merged.size() > capped ? merged.subList(0, capped) : merged;
+    }
+
+    /**
+     * Invoice id to its user, for the matched credits on the page. One read for
+     * the whole page rather than one per row.
+     */
+    private Map<UUID, UUID> invoiceOwners(List<CardCreditObservation> page) {
+        List<UUID> ids = page.stream()
+                .map(CardCreditObservation::getInvoiceId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) return Map.of();
+        return invoices.findAllById(ids).stream()
+                .collect(Collectors.toMap(Invoice::getId, Invoice::getUserId));
     }
 }

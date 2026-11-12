@@ -75,6 +75,14 @@ yuklanmasa qayta urinish va yordam bor; iframe ichidagi `Bot domain invalid` esa
 bot domenini BotFather’da `/setdomain` bilan sozlashni talab qiladi
 ([mavjud Telegram widget’i hujjati](https://core.telegram.org/widgets/login-legacy#linking-your-domain-to-the-bot)).
 Mavjud server action, sessiya va xavfsiz `from` qaytish oqimi saqlanadi.
+«Telegram ilovasida ochish» havolasi botni ochadi (`t.me/<bot>`, kampaniya cookie'si bo'lsa
+`?start=c_<kod>`, bo'lmasa referal `?start=ref_<kod>`); u yerdan Mini App avtomatik kiradi va
+telefon raqami so'ralmaydi. Telefon va ilova ichidagi brauzerda (Telegram, Instagram, Facebook —
+`User-Agent` bo'yicha, `src/lib/telegram-app-entry.ts`) bu havola widget'dan oldin asosiy tugma
+bo'lib chiqadi, desktop'da esa widget ostida qo'shimcha havola.
+Header va mobil pastki navdagi «Kirish» `LoginLink` orqali joriy sahifani (path + query)
+`from=` ga yozadi, shuning uchun login'dan keyin user turgan sahifasiga qaytadi.
+`from` bo'lmasa (masalan to'g'ridan-to'g'ri `/auth/login`) default `/profile` qoladi.
 Google SDK yuklanishi umumiy bitta so‘rov orqali kuzatiladi: tarmoq xatosi,
 API tayyor bo‘lmasligi yoki 15 soniyalik timeout’da cheksiz «tayyorlanmoqda»
 o‘rniga xato va «Qayta urinish — Google» chiqadi. Qayta urinish muvaffaqiyatsiz

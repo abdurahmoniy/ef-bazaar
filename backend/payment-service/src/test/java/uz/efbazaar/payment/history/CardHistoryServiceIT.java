@@ -9,6 +9,10 @@ import uz.efbazaar.payment.debit.repository.CardDebitObservationRepository;
 import uz.efbazaar.payment.history.dto.CardMovementResponse;
 import uz.efbazaar.payment.history.dto.CardMovementResponse.Direction;
 import uz.efbazaar.payment.history.service.CardHistoryService;
+import uz.efbazaar.payment.invoice.domain.Invoice;
+import uz.efbazaar.payment.invoice.domain.InvoiceStatus;
+import uz.efbazaar.payment.invoice.domain.PaymentProviderId;
+import uz.efbazaar.payment.invoice.repository.InvoiceRepository;
 import uz.efbazaar.payment.observation.domain.CardCreditObservation;
 import uz.efbazaar.payment.observation.domain.ObservationStatus;
 import uz.efbazaar.payment.observation.repository.CardCreditObservationRepository;
@@ -37,6 +41,7 @@ class CardHistoryServiceIT extends AbstractPostgresIT {
     @Autowired CardHistoryService history;
     @Autowired CardCreditObservationRepository credits;
     @Autowired CardDebitObservationRepository debits;
+    @Autowired InvoiceRepository invoices;
 
     @BeforeEach
     void clean() {
@@ -160,6 +165,53 @@ class CardHistoryServiceIT extends AbstractPostgresIT {
                 .map(CardMovementResponse::id).toList();
 
         assertThat(first).isEqualTo(second);
+    }
+
+    /**
+     * Whose money it was. A matched credit names the user through its invoice;
+     * a credit an admin attributed by hand names the user it was resolved to.
+     * A queued credit and a debit belong to nobody yet, so they say nothing.
+     */
+    @Test
+    void aCreditNamesTheUserItWasCreditedToAndOthersNameNobody() {
+        UUID invoiceOwner = UUID.randomUUID();
+        Invoice invoice = invoices.save(Invoice.builder()
+                .id(UUID.randomUUID())
+                .userId(invoiceOwner)
+                .provider(PaymentProviderId.MOCK)
+                .requestedAmountTiyin(100_000)
+                .transferAmountTiyin(100_000)
+                .status(InvoiceStatus.PAID)
+                .expiresAt(BASE.plus(1, ChronoUnit.HOURS))
+                .createdAt(Instant.now())
+                .build());
+        UUID resolvedTo = UUID.randomUUID();
+
+        saveCredit(1, ObservationStatus.MATCHED, invoice.getId(), null, 4);
+        saveCredit(2, ObservationStatus.MANUALLY_RESOLVED, null, resolvedTo, 3);
+        saveCredit(3, ObservationStatus.UNMATCHED, null, null, 2);
+        debit(4, "0101", 50_000, 1);
+
+        List<CardMovementResponse> rows = history.recent(null, 0);
+
+        assertThat(rows).extracting(CardMovementResponse::ownerUserId)
+                .containsExactly(null, null, resolvedTo, invoiceOwner);
+    }
+
+    private void saveCredit(long messageId, ObservationStatus status, UUID invoiceId,
+                            UUID resolvedUserId, int minutesAgo) {
+        credits.save(CardCreditObservation.builder()
+                .id(UUID.randomUUID())
+                .telegramMessageId(messageId)
+                .cardLast4("0101")
+                .amountTiyin(100_000)
+                .observedAt(BASE.minus(minutesAgo, ChronoUnit.MINUTES))
+                .rawText("🎉 To'ldirish")
+                .status(status)
+                .invoiceId(invoiceId)
+                .resolvedUserId(resolvedUserId)
+                .createdAt(Instant.now())
+                .build());
     }
 
     @Test

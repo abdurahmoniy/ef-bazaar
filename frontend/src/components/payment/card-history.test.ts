@@ -10,6 +10,12 @@ import type { CardMovement } from '@/lib/payment-types';
 const clientMocks = vi.hoisted(() => ({ listCardHistory: vi.fn() }));
 vi.mock('@/lib/payment-admin-client', () => clientMocks);
 
+const userMocks = vi.hoisted(() => ({ fetchUsersByIds: vi.fn() }));
+vi.mock('@/lib/user-search', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/user-search')>()),
+  ...userMocks,
+}));
+
 /** Explicit escape — never assert a literal invisible character. See money.test.ts. */
 const NBSP = '\u00A0';
 
@@ -38,6 +44,8 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   clientMocks.listCardHistory.mockReset();
+  userMocks.fetchUsersByIds.mockReset();
+  userMocks.fetchUsersByIds.mockResolvedValue([]);
 });
 
 afterEach(async () => {
@@ -170,6 +178,41 @@ describe('CardHistory', () => {
 
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('tarmoq');
     expect(container.querySelectorAll('li').length).toBe(2);
+  });
+
+  it('names the user a credit was paid in by', async () => {
+    userMocks.fetchUsersByIds.mockResolvedValue([
+      {
+        id: 'u-1',
+        telegramId: 42,
+        telegramUsername: 'xusniddin',
+        telegramFirstName: 'Xusniddin',
+        telegramLastName: null,
+        email: null,
+      },
+    ]);
+    await render([movement({ creditStatus: 'MATCHED', ownerUserId: 'u-1' })]);
+
+    expect(userMocks.fetchUsersByIds).toHaveBeenCalledWith(['u-1']);
+    expect(container.textContent).toContain('@xusniddin');
+  });
+
+  it('says the owner is gone when the user no longer exists', async () => {
+    await render([movement({ creditStatus: 'MATCHED', ownerUserId: 'u-gone' })]);
+    expect(container.textContent).toContain("o'chirilgan foydalanuvchi");
+  });
+
+  it('asks for no names when no movement has an owner', async () => {
+    await render([movement({ direction: 'OUT' }), movement({ creditStatus: 'UNMATCHED' })]);
+    expect(userMocks.fetchUsersByIds).not.toHaveBeenCalled();
+  });
+
+  it('keeps the list when the name lookup fails', async () => {
+    userMocks.fetchUsersByIds.mockRejectedValue(new Error('auth'));
+    await render([movement({ creditStatus: 'MATCHED', ownerUserId: 'u-1' })]);
+
+    expect(container.querySelectorAll('li').length).toBe(1);
+    expect(container.textContent).not.toContain("o'chirilgan foydalanuvchi");
   });
 
   it('explains an empty history rather than showing a blank box', async () => {

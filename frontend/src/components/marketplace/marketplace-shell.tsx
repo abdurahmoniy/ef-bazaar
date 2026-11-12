@@ -20,7 +20,8 @@ import { CampaignCapture } from '@/components/campaign/campaign-capture';
 import { UserMenu } from '@/components/navigation/user-menu';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { LoginLink } from '@/components/auth/login-link';
 import { cn } from '@/lib/utils';
 import type { User } from '@/lib/types';
 import { FEATURES } from '@/lib/feature-flags';
@@ -206,12 +207,10 @@ export function MarketplaceShell({
             ) : (
               <>
                 <ThemeToggle className="h-9 w-9 rounded-full" />
-                <Button asChild size="sm" className="h-9 rounded-full px-3 lg:px-4">
-                  <Link prefetch={false} href="/auth/login">
-                    <UserRound className="h-4 w-4" />
-                    <span className="hidden sm:inline">Kirish</span>
-                  </Link>
-                </Button>
+                <LoginLink className={buttonVariants({ size: 'sm', className: 'h-9 rounded-full px-3 lg:px-4' })}>
+                  <UserRound className="h-4 w-4" />
+                  <span className="hidden sm:inline">Kirish</span>
+                </LoginLink>
               </>
             )}
           </div>

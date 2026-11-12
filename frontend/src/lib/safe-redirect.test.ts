@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolvePostLoginPath } from './safe-redirect';
+import { buildLoginHref, resolvePostLoginPath } from './safe-redirect';
 
 describe('resolvePostLoginPath', () => {
   it('accepts internal paths', () => {
@@ -25,5 +25,25 @@ describe('resolvePostLoginPath', () => {
   it('rejects paths with control characters', () => {
     expect(resolvePostLoginPath('/mail\r\nSet-Cookie: x')).toBe('/profile');
     expect(resolvePostLoginPath('/mail\u0000')).toBe('/profile');
+  });
+});
+
+describe('buildLoginHref', () => {
+  const from = (href: string) => new URL(href, 'https://efbazaar.uz').searchParams.get('from');
+
+  it('returns to the current page and query after login', () => {
+    expect(from(buildLoginHref('/marketplace/abc', ''))).toBe('/marketplace/abc');
+    expect(from(buildLoginHref('/marketplace', 'sort=price%2Casc&attr.x=1'))).toBe('/marketplace?sort=price%2Casc&attr.x=1');
+    expect(from(buildLoginHref('/', ''))).toBe('/');
+  });
+
+  it('round-trips through resolvePostLoginPath', () => {
+    expect(resolvePostLoginPath(from(buildLoginHref('/users/42', 'tab=reviews')))).toBe('/users/42?tab=reviews');
+  });
+
+  it('omits from when the path is unknown, on auth pages, or unsafe', () => {
+    expect(buildLoginHref(null, '')).toBe('/auth/login');
+    expect(buildLoginHref('/auth/login', 'from=%2Fchats')).toBe('/auth/login');
+    expect(buildLoginHref('//evil.com', '')).toBe('/auth/login');
   });
 });

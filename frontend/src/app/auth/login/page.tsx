@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowUpRight, MessageCircle, Search, Tag } from 'lucide-react'
@@ -7,6 +8,9 @@ import { getMe } from '@/lib/auth'
 import { resolveAuthPageUser } from '@/lib/auth-page'
 import { resolvePostLoginPath } from '@/lib/safe-redirect'
 import { telegramAuthErrorMessage } from '@/lib/telegram-auth-error'
+import { CAMPAIGN_COOKIE } from '@/lib/campaign-capture'
+import { REFERRAL_COOKIE } from '@/lib/referral-capture'
+import { prefersTelegramApp, telegramAppEntryHref } from '@/lib/telegram-app-entry'
 import { LoginForm } from './login-form'
 import styles from '../auth.module.css'
 
@@ -27,6 +31,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
 	const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT || 'EfBazaarBot'
 	const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''
+	const [requestHeaders, requestCookies] = await Promise.all([headers(), cookies()])
+	// Kampaniya/referal kodi botga ham o'tadi — aks holda Telegram ilovasiga
+	// o'tgan odamning manbasi yo'qoladi.
+	const telegramAppHref = telegramAppEntryHref(botUsername, {
+		campaign: requestCookies.get(CAMPAIGN_COOKIE)?.value,
+		referral: requestCookies.get(REFERRAL_COOKIE)?.value,
+	})
 
 	return (
 		<div className={styles.loginGrid}>
@@ -40,6 +51,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 					googleClientId={googleClientId}
 					from={from}
 					initialError={telegramAuthErrorMessage(error)}
+					telegramAppHref={telegramAppHref}
+					preferTelegramApp={prefersTelegramApp(requestHeaders.get('user-agent'))}
 				/>
 				<p className={styles.panelHelp}>Kirishda muammo bormi? <Link href='/help'>Yordam olish</Link></p>
 			</section>

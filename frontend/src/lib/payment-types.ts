@@ -223,5 +223,10 @@ export interface CardMovement {
   description?: string;
   /** Credits only: MATCHED, UNMATCHED, MANUALLY_RESOLVED or IGNORED. */
   creditStatus?: string;
+  /**
+   * Credits only: whose wallet the money went to — the matched invoice's user,
+   * or the user an admin resolved it to. Absent while nobody has accounted for it.
+   */
+  ownerUserId?: string;
   observedAt: string;
 }

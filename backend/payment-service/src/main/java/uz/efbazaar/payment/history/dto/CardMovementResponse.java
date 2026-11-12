@@ -32,6 +32,12 @@ public record CardMovementResponse(
         String description,
         /** Credits only: whether it was matched to an invoice, queued, or ignored. */
         String creditStatus,
+        /**
+         * Credits only: the user whose wallet the money went to — the invoice's
+         * owner when matched, the chosen user when an admin resolved it by hand.
+         * Null while nobody has accounted for it, and always null on a debit.
+         */
+        UUID ownerUserId,
         Instant observedAt
 ) {
 
@@ -42,16 +48,22 @@ public record CardMovementResponse(
         OUT
     }
 
-    public static CardMovementResponse of(CardCreditObservation c) {
+    /**
+     * @param invoiceOwner the user of the invoice the credit was matched to, or
+     *                     null when it was not matched to one
+     */
+    public static CardMovementResponse of(CardCreditObservation c, UUID invoiceOwner) {
+        UUID owner = invoiceOwner != null ? invoiceOwner : c.getResolvedUserId();
         return new CardMovementResponse(
                 c.getId(), Direction.IN, c.getCardLast4(), c.getAmountTiyin(),
-                null, c.getCardBalanceTiyin(), null, c.getStatus().name(), c.getObservedAt());
+                null, c.getCardBalanceTiyin(), null, c.getStatus().name(), owner,
+                c.getObservedAt());
     }
 
     public static CardMovementResponse of(CardDebitObservation d) {
         return new CardMovementResponse(
                 d.getId(), Direction.OUT, d.getCardLast4(), d.getAmountTiyin(),
                 d.getCommissionTiyin(), d.getCardBalanceTiyin(), d.getDescription(),
-                null, d.getObservedAt());
+                null, null, d.getObservedAt());
     }
 }

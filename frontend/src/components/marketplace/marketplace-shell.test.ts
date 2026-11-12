@@ -10,6 +10,7 @@ vi.mock('@/components/providers/client-query-provider', () => ({ SessionCacheBou
 
 import { MarketplaceShell } from './marketplace-shell';
 import { SlidingNav } from '@/components/navigation/sliding-nav';
+import { LoginLink } from '@/components/auth/login-link';
 import type { User } from '@/lib/types';
 
 function findDesktopNav(node: ReactNode): ReactElement<React.ComponentProps<typeof SlidingNav>> | undefined {
@@ -55,4 +56,14 @@ it('keeps tournaments available in desktop navigation when enabled', () => {
   features.tournaments = true;
   const nav = findDesktopNav(MarketplaceShell({ user, children: null }))!;
   expect(nav.props.items).toContainEqual({ id: 'tournaments', href: '/tournaments', label: 'Turnirlar' });
+});
+
+function containsType(node: ReactNode, type: unknown): boolean {
+  return Children.toArray(node).some((child) => isValidElement<{ children?: ReactNode }>(child)
+    && (child.type === type || containsType(child.props.children, type)));
+}
+
+it('renders the header sign-in entry as a return-to-current-page login link', () => {
+  expect(containsType(MarketplaceShell({ user: null, children: null }), LoginLink)).toBe(true);
+  expect(containsType(MarketplaceShell({ user, children: null }), LoginLink)).toBe(false);
 });

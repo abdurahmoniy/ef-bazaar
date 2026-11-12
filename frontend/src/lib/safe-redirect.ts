@@ -27,3 +27,17 @@ export function isSafeInternalPath(path: string): boolean {
 export function resolvePostLoginPath(from: string | null | undefined): string {
   return from && isSafeInternalPath(from) ? from : DEFAULT_TARGET;
 }
+
+const LOGIN_PATH = '/auth/login';
+
+/**
+ * Login havolasi: joriy sahifa (path + query) `from=` ga yoziladi, shunda
+ * login'dan keyin user turgan joyiga qaytadi, `/profile` ga emas.
+ * Path noma'lum, `/auth/*` ichida yoki xavfsiz bo'lmasa — oddiy `/auth/login`.
+ */
+export function buildLoginHref(pathname: string | null | undefined, search: string | null | undefined): string {
+  if (!pathname || pathname === '/auth' || pathname.startsWith('/auth/')) return LOGIN_PATH;
+  const target = search ? `${pathname}?${search}` : pathname;
+  if (!isSafeInternalPath(target)) return LOGIN_PATH;
+  return `${LOGIN_PATH}?${new URLSearchParams({ from: target })}`;
+}

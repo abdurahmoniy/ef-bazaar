@@ -41,10 +41,19 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-async function render(googleClientId = 'google-client', initialError?: string) {
+const APP_HREF = 'https://t.me/test_bot?start=c_GRP23456';
+
+async function render(googleClientId = 'google-client', initialError?: string, preferTelegramApp = false) {
   await act(async () => root.render(createElement(LoginForm, {
     botUsername: 'test_bot', googleClientId, from: '/marketplace/new', initialError,
+    telegramAppHref: APP_HREF, preferTelegramApp,
   })));
+}
+function appLink() {
+  return container.querySelector<HTMLAnchorElement>(`a[href="${APP_HREF}"]`);
+}
+function precedes(a: Element, b: Element) {
+  return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 }
 function button(label: string) {
   const match = [...container.querySelectorAll('button')].find((el) => el.textContent === label);
@@ -99,6 +108,29 @@ describe('login provider states', () => {
     await act(async () => button('Google bilan kirish').click());
     expect(googleLoginAction).toHaveBeenCalledWith('google-token', '/marketplace/new');
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('Google orqali kirib bo‘lmadi');
+  });
+});
+
+describe('Telegram app entry', () => {
+  it('puts the one-tap Telegram app link before the widget on phones and in-app browsers', async () => {
+    await render('google-client', undefined, true);
+    const link = appLink();
+    expect(link?.textContent).toContain('Telegram ilovasida ochish');
+    expect(precedes(link!, button('Telegram sign-in'))).toBe(true);
+    expect(container.textContent).toContain('telefon raqam');
+  });
+
+  it('keeps the widget first on desktop and offers the app link as an alternative', async () => {
+    await render();
+    const link = appLink();
+    expect(link).not.toBeNull();
+    expect(precedes(button('Telegram sign-in'), link!)).toBe(true);
+  });
+
+  it('offers the app link when the widget fails to load', async () => {
+    await render();
+    await act(async () => button('Widget unavailable').click());
+    expect(appLink()).not.toBeNull();
   });
 });
 
