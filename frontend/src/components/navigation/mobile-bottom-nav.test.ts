@@ -12,6 +12,11 @@ vi.mock('next/link', () => ({
   default: ({ children, prefetch: _prefetch, ...props }: ComponentProps<'a'> & { prefetch?: boolean }) => createElement('a', props, children),
   useLinkStatus: () => status,
 }));
+const location = vi.hoisted(() => ({ pathname: '/marketplace/listing-1', search: 'ref=share' }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => location.pathname,
+  useSearchParams: () => new URLSearchParams(location.search),
+}));
 vi.mock('@/components/chat/chats-unread-badge', () => ({ ChatsUnreadBadge: () => null }));
 vi.mock('@/components/marketplace/measured-bottom-bar', () => ({
   MeasuredBottomBar: ({ as: _as, ...props }: ComponentProps<'nav'> & { as?: string }) => createElement('nav', props),
@@ -61,7 +66,10 @@ it('preserves enabled routes, signed-out destinations, and the current-page labe
   signedOutNav.innerHTML = signedOut;
   const accounts = [...signedOutNav.querySelectorAll('a')].find((link) => link.textContent === 'Akkountlarim');
   expect(new URL(accounts!.href, 'https://efbazaar.uz').searchParams.get('from')).toBe('/profile?tab=accounts');
-  expect(signedOut).toContain('Kirish');
+  const login = [...signedOutNav.querySelectorAll('a')].find((link) => link.textContent === 'Kirish');
+  const loginUrl = new URL(login!.getAttribute('href')!, 'https://efbazaar.uz');
+  expect(loginUrl.pathname).toBe('/auth/login');
+  expect(loginUrl.searchParams.get('from')).toBe('/marketplace/listing-1?ref=share');
   expect(signedOut).not.toContain('aria-current');
 });
 
